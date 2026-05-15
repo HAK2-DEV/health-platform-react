@@ -34,6 +34,29 @@ function UserCard({ name, age, role, liked, onToggle }) {
 }
 
 function App() {
+ 
+ const [search, setSearch] = useState("")
+ const [apiUsers, setApiUsers] = useState([])
+ const [isLoading, setIsLoading] = useState(true)
+
+   // ⭐ 페이지 로드 시 API 호출
+   useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        const response =await fetch("https://jsonplaceholder.typicode.com/users")
+        const data =await response.json()
+        setApiUsers(data)
+
+      } catch(error) {
+        console.error("에러:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadUsers()
+  }, [])
+ 
   // ⭐ 상태 추가
   const [count, setCount] = useState(0)
   const [likedUsers, setLikedUsers] = useState(() => {
@@ -59,7 +82,7 @@ function App() {
     localStorage.setItem("todos", JSON.stringify(todos))
    }
   }, [todos, isLoaded])
-  
+
  // ⭐ 새로 추가 - likedUsers 저장
 useEffect(() => {
   localStorage.setItem("likedUsers", JSON.stringify(likedUsers))
@@ -109,6 +132,40 @@ const deleteTodo = (i) => {
   완료 {todos.filter(t => t.done).length}개 | 
   남은 {todos.filter(t => !t.done).length}개
 </p>
+
+        {/* ⭐ API 사용자 영역 */}
+
+        <div className='api-users'>
+            <h2> 외부 사용자(api)</h2>
+{/* ⭐ 검색칸 추가 */}
+  <input 
+    type="text"
+    value={search}
+    onChange={(e) => setSearch(e.target.value)}
+    placeholder="이름 검색"
+    className="search-input"
+  /> 
+            {isLoading ?(
+              <p>⏳ 불러오는 중...</p>
+        ) : (
+        <ul>
+          {/* ⭐ filter 추가 */}
+      {apiUsers
+        .filter(user => 
+          user.name.toLowerCase().includes(search.toLowerCase())
+        )
+        .map(user => (
+          <li key={user.id}>
+            <strong>{user.name}</strong>
+            <span> - {user.email}</span>
+          </li>
+        ))}
+        </ul>
+            )}
+        </div>
+
+
+
         {/* ⭐ Controlled Component 시험 */}
         <div className='input-test'>
           <form onSubmit={handleSubmit}>
