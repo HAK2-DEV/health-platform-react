@@ -1,6 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react' 
 import './App.css'
-
 
 // ⭐ 데이터 - 배열
 const users = [
@@ -37,12 +36,34 @@ function UserCard({ name, age, role, liked, onToggle }) {
 function App() {
   // ⭐ 상태 추가
   const [count, setCount] = useState(0)
-  const [likedUsers, setLikedUsers] = useState([])   // ⭐ id 들의 배열
+  const [likedUsers, setLikedUsers] = useState(() => {
+    const saved = localStorage.getItem("likedUsers")
+    return saved ? JSON.parse(saved) : []
+  })   // ⭐ id 들의 배열
   const [inputValue, setInputValue] = useState("")  // ⭐ 새 상태 - 입력칸의 값
   const [todos, setTodos] = useState([])
+  const [isLoaded, setIsLoaded] = useState(false)   // ⭐ 불러오기 완료 표시
 
+// ⭐ 시험 1: 빈 배열 - 처음 한 번만
+  useEffect(() => {
+    const saved = localStorage.getItem("todos")
+    if (saved) {
+      setTodos(JSON.parse(saved))
+    }
+    setIsLoaded(true) // ⭐ 불러오기 완료
+  }, [])
 
-
+  // ⭐ 시험 2: count 변경 시
+  useEffect(() => {
+   if (isLoaded) {
+    localStorage.setItem("todos", JSON.stringify(todos))
+   }
+  }, [todos, isLoaded])
+  
+ // ⭐ 새로 추가 - likedUsers 저장
+useEffect(() => {
+  localStorage.setItem("likedUsers", JSON.stringify(likedUsers))
+}, [likedUsers])
   
   // ENTER 처리 함수
   const handleSubmit = (e) => {

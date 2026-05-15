@@ -219,3 +219,45 @@ p {
   cursor: pointer;
   font-size: 12px;
 }
+/* === TODO 완료 스타일 === */
+.input-test ul {
+  list-style: none;
+  padding: 0;
+}
+
+.input-test li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-sm) var(--spacing-md);
+  margin-bottom: var(--spacing-sm);
+  background-color: var(--color-bg-alt);
+  border-radius: var(--radius-md);
+  cursor: pointer;          /* ⭐ 클릭 가능 표시 */
+  transition: all 0.2s ease;
+}
+
+.input-test li:hover {
+  background-color: #e8e8e8;
+}
+
+/* ⭐ 완료된 항목 */
+.input-test li.completed {
+  color: var(--color-text-light);
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+.input-test li button {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background-color: #f44336;
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.input-test li button:hover {
+  background-color: #c62828;
+}
