@@ -38,6 +38,35 @@ function App() {
   // ⭐ 상태 추가
   const [count, setCount] = useState(0)
   const [likedUsers, setLikedUsers] = useState([])   // ⭐ id 들의 배열
+  const [inputValue, setInputValue] = useState("")  // ⭐ 새 상태 - 입력칸의 값
+  const [todos, setTodos] = useState([])
+
+
+
+  
+  // ENTER 처리 함수
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    if(inputValue.trim() ==="") return
+    
+    setTodos([...todos, { text: inputValue, done: false }])
+    setInputValue("")
+
+  }
+  // 토글
+const toggleTodo = (i) => {
+  setTodos(todos.map((todo, idx) => 
+    idx === i ? { ...todo, done: !todo.done } : todo
+  ))
+}
+// 삭제
+const deleteTodo = (i) => {
+  setTodos(todos.filter((_, idx) => idx !== i))}
+
+
+
+
+
   // ⭐ 좋아요 토글 함수
     const toggleLike = (userId) => {
       if (likedUsers.includes(userId)) {
@@ -54,11 +83,49 @@ function App() {
     <div>
       <h1>HAK2 의 React 페이지 🎉</h1>
       <p>총 {users.length}명 </p>
+<p>
+  총 {todos.length}개 | 
+  완료 {todos.filter(t => t.done).length}개 | 
+  남은 {todos.filter(t => !t.done).length}개
+</p>
+        {/* ⭐ Controlled Component 시험 */}
+        <div className='input-test'>
+          <form onSubmit={handleSubmit}>
+            <input
+           type='text'
+           value={inputValue}                                     // ⭐ state 값 표시
+           onChange={(e) => setInputValue(e.target.value)} // ⭐ 변경 시 state 갱신
+          
+           placeholder='입력 후 Enter'
+            />
+          <button type='submit'>추가</button>
+          </form>
+           
+          <p>총 {todos.length}개</p>
 
-{/* ⭐ 합계 표시 */}
+          <ul>
+            {todos.map((todo, i)=> (
+              <li 
+                key={i}
+                className={todo.done ? "completed" : ""}
+                onClick={() => toggleTodo(i)}
+                >
+                {todo.text}
+                <button onClick={(e) => {
+                  e.stopPropagation()
+                  deleteTodo(i)
+                }}>
+                  삭제
+                </button>
+                </li>
+            ))}
+          </ul>
+           </div>
+
+        {/* ⭐ 합계 표시 */}
       <div className="total-likes">
         <h2>❤️ 총 좋아요: {likedUsers.length}</h2>
-      </div>
+      </div> 
 
 
       {/* ⭐ 카운터 추가 */}
