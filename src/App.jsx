@@ -5,6 +5,8 @@ import TodoList from './components/TodoList'
 import ApiUsers from './components/ApiUsers'
 import { supabase } from './supabaseClient'
 import SupabaseTodos from './components/SupabaseTodos'
+import AuthForm from './components/AuthForm'
+
 // ⭐ 데이터 - 배열
 const users = [
   { id: 1, name: "HAK2", age: 30, role: "개발자" },
@@ -17,6 +19,23 @@ const users = [
 
 
 function App() {
+  // 새 state - 현재 사용자
+  const [session, setSession] = useState(null)
+  //세션 감지 - 중요!!
+  useEffect(()=> {
+    //처음 로드 시 현재 세션 확인
+    supabase.auth.getSession().then(({data: {session} }) => {
+      setSession(session)
+    })
+    //세션 변화 감지(로그인/로그아웃 실시간)
+    const {data: {subscription}} = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setSession(session)
+      }
+    )
+    return () => subscription.unsubscribe()
+
+  },[])
  const [count, setCount] = useState(0)
  const [inputValue, setInputValue] = useState("")  // ⭐ 새 상태 - 입력칸의 값
  const [likedUsers, setLikedUsers] = useState(() => {
@@ -88,7 +107,19 @@ const deleteTodo = (i) => {
   return (
     <div>
       <h1>HAK2 의 React 페이지 🎉</h1>
-      <p>총 {users.length}명 </p>
+      {/*로그인 상태에 따라 화면 변화*/}
+      {session ? (
+        //로그인 상태면
+        <div className='user-info'>
+          <p>👤 로그인: <strong>{session.user.email}</strong></p>
+          <button onClick={()=> supabase.auth.signOut()}>
+            로그아웃
+          </button> /
+          </div>
+      ) : (
+        //비로그인 상태
+        <AuthForm/>
+      )}
 <p>
   총 {todos.length}개 | 
   완료 {todos.filter(t => t.done).length}개 | 
