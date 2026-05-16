@@ -1,5 +1,9 @@
 import { useState, useEffect } from 'react' 
 import './App.css'
+import UserCard from './components/UserCard'
+import TodoList from './components/TodoList'
+import ApiUsers from './components/ApiUsers'
+import { supabase } from './supabaseClient'
 
 // ⭐ 데이터 - 배열
 const users = [
@@ -11,77 +15,31 @@ const users = [
   { id: 6, name: "hak", age: 30, role: "개발자 겸 관리자" }
 ]
 
-//// ⭐ 새 컴포넌트 정의 
-function UserCard({ name, age, role, liked, onToggle }) {
-  return (
-    <div className="card">
-      <h2>{name}</h2>
-      <p>나이: {age}</p>
-      <p>역할: {role}</p>
-
-      {/* ⭐ 좋아요 영역 */}
-      <div className="like-area">
-        <span>❤️ {liked ? " 1": ""}</span>
-        <button 
-        onClick={onToggle}
-        className={liked ? "liked" : ""}
-        >
-          {liked ?  "👍 취소" : "👍 좋아요"}
-        </button>
-      </div>
-    </div>
-  )
-}
 
 function App() {
- 
- const [search, setSearch] = useState("")
- const [apiUsers, setApiUsers] = useState([])
- const [isLoading, setIsLoading] = useState(true)
-
-   // ⭐ 페이지 로드 시 API 호출
-   useEffect(() => {
-    const loadUsers = async () => {
-      try {
-        const response =await fetch("https://jsonplaceholder.typicode.com/users")
-        const data =await response.json()
-        setApiUsers(data)
-
-      } catch(error) {
-        console.error("에러:", error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    loadUsers()
-  }, [])
- 
-  // ⭐ 상태 추가
-  const [count, setCount] = useState(0)
-  const [likedUsers, setLikedUsers] = useState(() => {
+ const [count, setCount] = useState(0)
+ const [inputValue, setInputValue] = useState("")  // ⭐ 새 상태 - 입력칸의 값
+ const [likedUsers, setLikedUsers] = useState(() => {
     const saved = localStorage.getItem("likedUsers")
     return saved ? JSON.parse(saved) : []
   })   // ⭐ id 들의 배열
-  const [inputValue, setInputValue] = useState("")  // ⭐ 새 상태 - 입력칸의 값
-  const [todos, setTodos] = useState([])
-  const [isLoaded, setIsLoaded] = useState(false)   // ⭐ 불러오기 완료 표시
+  
+  const [todos, setTodos] = useState(() => {
+    const saved =localStorage.getItem("todos")
+    return saved ? JSON.parse(saved) : []})
+  const [isLoaded, setIsLoaded] = useState(false)   // ⭐ 불러오기 완료 표시:
+
+    // ⭐ 임시 - 연결 시험
+  useEffect(() => {
+    console.log("Supabase 객체:", supabase)
+    console.log("연결 OK!")
+  }, [])
+
 
 // ⭐ 시험 1: 빈 배열 - 처음 한 번만
   useEffect(() => {
-    const saved = localStorage.getItem("todos")
-    if (saved) {
-      setTodos(JSON.parse(saved))
-    }
-    setIsLoaded(true) // ⭐ 불러오기 완료
-  }, [])
-
-  // ⭐ 시험 2: count 변경 시
-  useEffect(() => {
-   if (isLoaded) {
-    localStorage.setItem("todos", JSON.stringify(todos))
-   }
-  }, [todos, isLoaded])
+ localStorage.setItem("todos", JSON.stringify(todos))
+  }, [todos])
 
  // ⭐ 새로 추가 - likedUsers 저장
 useEffect(() => {
@@ -132,73 +90,17 @@ const deleteTodo = (i) => {
   완료 {todos.filter(t => t.done).length}개 | 
   남은 {todos.filter(t => !t.done).length}개
 </p>
+{/* ⭐ TodoList 한 줄로! */}
+      <TodoList
+        todos={todos}
+        inputValue={inputValue}
+        onInputChange={(e) => setInputValue(e.target.value)}
+        onSubmit={handleSubmit}
+        onToggle={toggleTodo}
+        onDelete={deleteTodo}
+      />
 
-        {/* ⭐ API 사용자 영역 */}
-
-        <div className='api-users'>
-            <h2> 외부 사용자(api)</h2>
-{/* ⭐ 검색칸 추가 */}
-  <input 
-    type="text"
-    value={search}
-    onChange={(e) => setSearch(e.target.value)}
-    placeholder="이름 검색"
-    className="search-input"
-  /> 
-            {isLoading ?(
-              <p>⏳ 불러오는 중...</p>
-        ) : (
-        <ul>
-          {/* ⭐ filter 추가 */}
-      {apiUsers
-        .filter(user => 
-          user.name.toLowerCase().includes(search.toLowerCase())
-        )
-        .map(user => (
-          <li key={user.id}>
-            <strong>{user.name}</strong>
-            <span> - {user.email}</span>
-          </li>
-        ))}
-        </ul>
-            )}
-        </div>
-
-
-
-        {/* ⭐ Controlled Component 시험 */}
-        <div className='input-test'>
-          <form onSubmit={handleSubmit}>
-            <input
-           type='text'
-           value={inputValue}                                     // ⭐ state 값 표시
-           onChange={(e) => setInputValue(e.target.value)} // ⭐ 변경 시 state 갱신
-          
-           placeholder='입력 후 Enter'
-            />
-          <button type='submit'>추가</button>
-          </form>
-           
-          <p>총 {todos.length}개</p>
-
-          <ul>
-            {todos.map((todo, i)=> (
-              <li 
-                key={i}
-                className={todo.done ? "completed" : ""}
-                onClick={() => toggleTodo(i)}
-                >
-                {todo.text}
-                <button onClick={(e) => {
-                  e.stopPropagation()
-                  deleteTodo(i)
-                }}>
-                  삭제
-                </button>
-                </li>
-            ))}
-          </ul>
-           </div>
+      <ApiUsers />
 
         {/* ⭐ 합계 표시 */}
       <div className="total-likes">
