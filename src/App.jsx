@@ -40,14 +40,25 @@ useEffect(() => {
 }, [likedUsers])
   
   // ENTER 처리 함수
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     if(inputValue.trim() ==="") return
     
-    setTodos([...todos, { text: inputValue, done: false }])
-    setInputValue("")
+  // DB에 추가
+   const {data, error} =  await supabase.from('todos').insert({ text: inputValue, done: false})
+   .select()
 
-  }
+   if (error) {
+    console.error('추가 실패:', error)
+    return
+   }
+
+
+      // ⭐ 화면에도 즉시 추가 (위에)
+  setTodos([...data, ...todos])
+  setInputValue("")
+}
+  
   // 토글
 const toggleTodo = (i) => {
   setTodos(todos.map((todo, idx) => 
