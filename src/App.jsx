@@ -4,7 +4,7 @@ import UserCard from './components/UserCard'
 import TodoList from './components/TodoList'
 import ApiUsers from './components/ApiUsers'
 import { supabase } from './supabaseClient'
-
+import SupabaseTodos from './components/SupabaseTodos'
 // ⭐ 데이터 - 배열
 const users = [
   { id: 1, name: "HAK2", age: 30, role: "개발자" },
@@ -28,13 +28,6 @@ function App() {
     const saved =localStorage.getItem("todos")
     return saved ? JSON.parse(saved) : []})
   const [isLoaded, setIsLoaded] = useState(false)   // ⭐ 불러오기 완료 표시:
-
-    // ⭐ 임시 - 연결 시험
-  useEffect(() => {
-    console.log("Supabase 객체:", supabase)
-    console.log("연결 OK!")
-  }, [])
-
 
 // ⭐ 시험 1: 빈 배열 - 처음 한 번만
   useEffect(() => {
@@ -99,7 +92,8 @@ const deleteTodo = (i) => {
         onToggle={toggleTodo}
         onDelete={deleteTodo}
       />
-
+ {/* ⭐ SupabaseTodos - 진짜 DB 버전! */}
+    <SupabaseTodos />
       <ApiUsers />
 
         {/* ⭐ 합계 표시 */}
