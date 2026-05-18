@@ -1,25 +1,15 @@
-import { useState, useEffect } from 'react' 
 import { Routes, Route } from 'react-router-dom'
 import './App.css'
 import { supabase } from './supabaseClient'
+import { useAuth } from './hooks/useAuth'
 import HomePage from './pages/HomePage'
 import TodosPage from './pages/TodosPage'
 import LoginPage from './pages/LoginPage'
 
 function App() {
-  const [session, setSession] = useState(null)
+  const {session} = useAuth()
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-    })
-    
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => setSession(session)
-    )
-    
-    return () => subscription.unsubscribe()
-  }, [])
+
 
   return (
     <div className="app">
