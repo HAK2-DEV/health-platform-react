@@ -104,17 +104,25 @@ loadTodos()
   
   return (
     <div className="supabase-todos">
-      <h2>📦 진짜 DB 의 TODO ({todos.length}개)</h2>
+      <h2>📦 📝 나의 할 일 ({todos.length}개)</h2>
       
       <form onSubmit={handleSubmit}>
         <input 
           type="text"
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
-          placeholder="DB 에 추가할 할 일"
+          placeholder="할 일을 입력하세요"
         />
-        <button type="submit">DB 에 추가</button>
+        <button type="submit">나의 할 일 추가</button>
       </form>
+      
+
+      {todos.length === 0 ? (
+        <div className='empty-state'>
+<p>📋 아직 할 일이 없어요</p>
+    <p className="empty-tip">위에서 첫 할 일을 추가해보세요!</p>
+  </div>
+) : (
       
       <ul>
         {todos.map(todo => (
@@ -137,6 +145,7 @@ loadTodos()
           </li>
         ))}
       </ul>
+)}
     </div>
   )
 }
