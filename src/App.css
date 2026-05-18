@@ -1,3 +1,25 @@
+/* === 전역 CSS Reset (진짜 중요) === */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+}
+
+/* 다크 모드 차단 - input 흰 배경 */
+input,
+textarea,
+select {
+  background-color: white;
+  color: #333;
+}
+
 /* === 디자인 시스템 === */
 :root {
   --color-primary: #4CAF50;
@@ -18,6 +40,20 @@
   --radius-lg: 16px;
   
   --shadow-md: 0 4px 8px rgba(0,0,0,0.1);
+}
+/* === 다크 모드 차단 (라이트 모드 강제) === */
+html {
+  color-scheme: light;
+}
+
+/* 모든 input/textarea/button 에 명시적 색 */
+input, textarea {
+  background-color: white;
+  color: var(--color-text);
+}
+
+button {
+  color: inherit;
 }
 
 /* === 기본 페이지 === */
@@ -294,8 +330,9 @@ p {
   background-color: #c62828;
 }
 
-/* === 모바일 반응형 === */
+/* === 모바일 반응형 (종합 개선) === */
 @media (max-width: 600px) {
+  /* === 헤더 === */
   .app-header {
     padding: var(--spacing-sm);
     gap: var(--spacing-xs);
@@ -319,17 +356,141 @@ p {
     font-size: 11px;
   }
   
+  /* === Welcome 화면 === */
+  .welcome-screen {
+    padding: var(--spacing-md);    /* ⭐ 모바일 패딩 줄임 */
+    min-height: 70vh;
+  }
+  
+  .welcome-screen h1 {
+    font-size: 22px;                /* ⭐ 24 → 22 */
+  }
+  
+  .welcome-tagline {
+    font-size: 14px;
+  }
+  
+  /* === Auth Form === */
+  .auth-form {
+    max-width: 100%;                /* ⭐ 화면 가득 */
+    padding: var(--spacing-md);     /* ⭐ padding 줄임 */
+    margin: var(--spacing-sm) 0;    /* ⭐ margin 줄임 */
+  }
+  
+  .auth-form h2 {
+    font-size: 18px;
+  }
+  
+  .auth-form input {
+    font-size: 16px;                /* ⭐ 16px 유지 (iOS zoom 방지) */
+  }
+  
+  /* === App Main === */
+  .app-main {
+    padding: var(--spacing-sm);     /* ⭐ 모바일 패딩 줄임 */
+  }
+  
+  /* === Supabase Todos === */
+  .supabase-todos {
+    padding: var(--spacing-sm);     /* ⭐ 패딩 줄임 */
+    margin: var(--spacing-sm) 0;
+  }
+  
+  .supabase-todos h2 {
+    font-size: 18px;
+  }
+  
+  /* ⭐ form 가로 유지 + 버튼 보호 */
+  .supabase-todos form {
+    flex-wrap: nowrap;              /* ⭐ 줄바꿈 X */
+  }
+  
+  .supabase-todos input[type="text"] {
+    min-width: 0;                   /* ⭐ flex 줄어들기 허용 */
+    font-size: 16px;                /* ⭐ iOS zoom 방지 */
+  }
+  
+  .supabase-todos button[type="submit"] {
+    flex-shrink: 0;                 /* ⭐ 버튼 안 줄어듦 */
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-size: 14px;
+    white-space: nowrap;
+  }
+  
+  /* === Supabase Todos 의 li === */
   .supabase-todos li {
     flex-direction: column;
     align-items: flex-start;
     gap: var(--spacing-xs);
+    padding: var(--spacing-sm);
+  }
+  
+  .supabase-todos li small {
+    font-size: 11px;
   }
   
   .supabase-todos li button {
     align-self: flex-end;
   }
   
+  /* === body 패딩 0 === */
+  body {
+    padding: 0;
+  }
+  
+  /* === Welcome 화면 === */
+  .welcome-screen {
+    padding: var(--spacing-md);
+    min-height: 70vh;
+  }
+  
   .welcome-screen h1 {
-    font-size: 24px;
+    font-size: 22px;
+  }
+  
+  /* === Auth Form - 화면 가득 === */
+  .auth-form {
+    max-width: 100%;
+    margin: var(--spacing-sm) 0;
+    padding: var(--spacing-md);
+  }
+  
+  .auth-form h2 {
+    font-size: 18px;
+  }
+  
+  .auth-form input {
+    font-size: 16px;        /* ⭐ iOS zoom 방지 */
+  }
+  
+  /* === App Main - 패딩 줄임 === */
+  .app-main {
+    padding: var(--spacing-sm);
+  }
+  
+  /* === Supabase Todos === */
+  .supabase-todos {
+    padding: var(--spacing-sm);
+    margin: var(--spacing-sm) 0;
+  }
+  
+  /* ⭐ 추가 버튼 보호 - 진짜 중요! */
+  .supabase-todos form {
+    display: flex;
+    gap: var(--spacing-xs);
+    flex-wrap: nowrap;
+  }
+  
+  .supabase-todos input[type="text"] {
+    flex: 1;
+    min-width: 0;            /* ⭐ 줄어들기 허용 */
+    font-size: 16px;          /* ⭐ iOS zoom 방지 */
+  }
+  
+  .supabase-todos button[type="submit"] {
+    flex-shrink: 0;           /* ⭐ 버튼 안 줄어듦 */
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-size: 14px;
+    white-space: nowrap;
   }
 }
