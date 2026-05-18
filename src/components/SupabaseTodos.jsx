@@ -2,35 +2,60 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabaseClient'
 
-function SupabaseTodos() {
+function SupabaseTodos({session}) {
   const [todos, setTodos] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
   const [inputValue, setInputValue] = useState("")
   
   // 처음 로드 시 DB 에서 가져오기
-  useEffect(() => {
-    const loadTodos = async () => {
-      const { data, error } = await supabase
-        .from('todos')
-        .select('*')
-        .order('created_at', { ascending: false })
-      
-      if (error) setError(error.message)
-      else setTodos(data)
-      setIsLoading(false)
-    }
-    loadTodos()
-  }, [])
+useEffect (() => {
+  //로그인 안됬음
+   if (!session) {
+    setTodos([])
+    setIsLoading(false)
+    return
+  }
+
+  //로그인 됬음
+const loadTodos = async () => {
+    setIsLoading(true)
+    const { data, error } = await supabase
+      .from('todos')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+  if(error) setError(error.message)
+    else setTodos(data)
+  setIsLoading(false)
+} 
+
+
+loadTodos()
+
+
+}, [session])
   
   // 추가
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (inputValue.trim() === "") return
     
-    const { data, error } = await supabase
+    const { data: {user} } = await supabase.auth.getUser()
+
+    if(!user) {
+      alert("로그인 필요")
+      return
+    }
+    //user_id포함해서 insert
+    const {data, error}=await supabase
       .from('todos')
-      .insert({ text: inputValue, done: false })
+      .insert({ 
+        text: inputValue,
+        done: false,
+        user_id: user.id
+      })
+      
       .select()
     
     if (error) {
@@ -116,4 +141,4 @@ function SupabaseTodos() {
   )
 }
 
-export default SupabaseTodos
+export default SupabaseTodos 

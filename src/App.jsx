@@ -36,15 +36,16 @@ function App() {
     return () => subscription.unsubscribe()
 
   },[])
+
  const [count, setCount] = useState(0)
  const [inputValue, setInputValue] = useState("")  // ⭐ 새 상태 - 입력칸의 값
  const [likedUsers, setLikedUsers] = useState(() => {
-    const saved = localStorage.getItem("likedUsers")
+ const saved = localStorage.getItem("likedUsers")
     return saved ? JSON.parse(saved) : []
   })   // ⭐ id 들의 배열
   
   const [todos, setTodos] = useState(() => {
-    const saved =localStorage.getItem("todos")
+  const saved =localStorage.getItem("todos")
     return saved ? JSON.parse(saved) : []})
   const [isLoaded, setIsLoaded] = useState(false)   // ⭐ 불러오기 완료 표시:
 
@@ -114,7 +115,7 @@ const deleteTodo = (i) => {
           <p>👤 로그인: <strong>{session.user.email}</strong></p>
           <button onClick={()=> supabase.auth.signOut()}>
             로그아웃
-          </button> /
+          </button> 
           </div>
       ) : (
         //비로그인 상태
@@ -135,7 +136,7 @@ const deleteTodo = (i) => {
         onDelete={deleteTodo}
       />
  {/* ⭐ SupabaseTodos - 진짜 DB 버전! */}
-    <SupabaseTodos />
+    <SupabaseTodos session={session} />
       <ApiUsers />
 
         {/* ⭐ 합계 표시 */}
