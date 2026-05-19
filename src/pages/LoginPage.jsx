@@ -10,7 +10,7 @@ function LoginPage() {
 useEffect (()=> {
     //이미 로그인 됐으면 /todos 으로
     if (session) {
-         navigate('/todos')
+         navigate('/')
     }
 }, [session, navigate])
 

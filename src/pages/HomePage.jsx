@@ -11,19 +11,17 @@ function HomePage() {
   useEffect(() => {
     if (isLoading) return
     
-    // 로그인 안 됨
     if (!session) {
       navigate('/login')
       return
     }
     
-    // 로그인 됨 → 닉네임 체크
     const checkNickname = async () => {
       const { data, error } = await supabase
         .from('users')
         .select('nickname')
         .eq('id', session.user.id)
-        .single()
+        .maybeSingle()
       
       if (error) {
         console.error('닉네임 체크 실패:', error)
@@ -31,10 +29,8 @@ function HomePage() {
       }
       
       if (!data?.nickname) {
-        // 닉네임 없음 → 설정 페이지
         navigate('/nickname-setup')
       } else {
-        // 닉네임 있음 → 메인
         navigate('/todos')
       }
       

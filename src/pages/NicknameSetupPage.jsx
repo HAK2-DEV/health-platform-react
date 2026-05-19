@@ -22,7 +22,7 @@ function NicknameSetupPage() {
     }
   }, [session, navigate])
   
-  // 이미 닉네임 설정됨 → /dashboard
+  // 이미 닉네임 설정됨 → /
   useEffect(() => {
     const checkNickname = async () => {
       if (!session) return
@@ -31,10 +31,10 @@ function NicknameSetupPage() {
         .from('users')
         .select('nickname')
         .eq('id', session.user.id)
-        .single()
+        .maybeSingle()                     // ⭐ .single() → .maybeSingle()
       
       if (data?.nickname) {
-        navigate('/')  // 이미 닉네임 있음 → 홈
+        navigate('/')
       }
     }
     
@@ -42,33 +42,33 @@ function NicknameSetupPage() {
   }, [session, navigate])
   
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    
-    if (!status.available) {
-      setError('사용 가능한 닉네임을 입력해주세요')
-      return
-    }
-    
-    setIsSaving(true)
-    setError(null)
-    
-    try {
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({ nickname })
-        .eq('id', session.user.id)
-      
-      if (updateError) throw updateError
-      
-      // 닉네임 설정 완료 → 홈으로
-      navigate('/')
-    } catch (err) {
-      console.error('닉네임 저장 실패:', err)
-      setError(err.message)
-    } finally {
-      setIsSaving(false)
-    }
+  e.preventDefault()
+  
+  if (!status.available) {
+    setError('사용 가능한 닉네임을 입력해주세요')
+    return
   }
+  
+  setIsSaving(true)
+  setError(null)
+  
+  try {
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({ nickname })
+      .eq('id', session.user.id)
+    
+    if (updateError) throw updateError
+    
+    await refreshNickname()
+    navigate('/')
+  } catch (err) {
+    console.error('닉네임 저장 실패:', err)
+    setError(err.message)
+  } finally {
+    setIsSaving(false)
+  }
+}
   
   if (!session) return null
   

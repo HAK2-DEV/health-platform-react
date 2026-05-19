@@ -1,17 +1,16 @@
-import { createContext, useState, useEffect } from "react";
+import { createContext, useState, useEffect, useCallback } from "react";
 import { supabase } from "../supabaseClient";
 
-//1.Context 만들기
+export const AuthContext = createContext(null)
 
-export const AuthContext =createContext(null)
-
-//2. provider로 컴포넌트 만들기
 export function AuthProvider({children}) {
-    const [session, setSession] =useState(null)
+    const [session, setSession] = useState(null)
+    const [nickname, setNickname] = useState(null)          // ⭐ 추가
     const [isLoading, setIsLoading] = useState(true)
 
-    useEffect (() => { 
-        supabase.auth.getSession().then(({data:{session}}) => {
+    // 1. 세션 가져오기 + 구독
+    useEffect(() => { 
+        supabase.auth.getSession().then(({data: {session}}) => {
             setSession(session)
             setIsLoading(false)
         })
@@ -20,14 +19,37 @@ export function AuthProvider({children}) {
             (_event, session) => setSession(session)
         )
 
-
         return () => subscription.unsubscribe()
-
-
     }, [])
 
+    // 2. 닉네임 가져오기 함수                              // ⭐ 추가
+    const fetchNickname = useCallback(async () => {
+        if (!session) {
+            setNickname(null)
+            return
+        }
+
+        const { data } = await supabase
+            .from('users')
+            .select('nickname')
+            .eq('id', session.user.id)
+            .maybeSingle()
+        
+        setNickname(data?.nickname || null)
+    }, [session])
+
+    // 3. 세션 변경 시 자동 가져오기                        // ⭐ 추가
+    useEffect(() => {
+        fetchNickname()
+    }, [fetchNickname])
+
     return (
-        <AuthContext.Provider value={{session, isLoading}}>
+        <AuthContext.Provider value={{
+            session, 
+            nickname,                                       // ⭐ 추가
+            isLoading, 
+            refreshNickname: fetchNickname                  // ⭐ 추가
+        }}>
             {children}
         </AuthContext.Provider>
     )

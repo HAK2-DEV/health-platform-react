@@ -11,10 +11,10 @@ import NicknameSetupPage from './pages/NicknameSetupPage'    // ⭐ 추가
 import { Activity, User, LogOut } from 'lucide-react'
 
 function App() {
-  const { session } = useAuth()
+  const { session, nickname } = useAuth()   
 
   return (
-    <div className="app">
+   <div className="app">
       {session && (
         <header className="bg-green-500 text-white px-6 py-4 flex justify-between items-center shadow-md">
           <h1 className="flex items-center gap-2 text-xl font-medium whitespace-nowrap">
@@ -25,7 +25,7 @@ function App() {
           <div className="flex items-center gap-4 text-sm whitespace-nowrap">
             <span className="hidden sm:flex items-center gap-1">
               <User className="w-4 h-4" />
-              {session.user.email.split('@')[0]}
+              {nickname || session.user.email.split('@')[0]}   {/* ⭐ 진화 */}
             </span>
             <button 
               onClick={() => supabase.auth.signOut()} 
