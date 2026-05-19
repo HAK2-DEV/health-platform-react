@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { supabase } from "../supabaseClient"
+import { KeyRound, UserPlus } from 'lucide-react'
 
 function AuthForm() {
   const [email, setEmail] = useState("")
@@ -32,9 +33,19 @@ function AuthForm() {
 
   return (
     <div className="bg-white p-6 rounded-lg shadow-md w-full max-w-md mx-auto">
-      <h2 className="text-xl text-green-500 mb-4 text-center">
-        {isSignUp ? "📝 회원가입" : "🔐 로그인"}
-      </h2>
+      <h2 className="flex items-center justify-center gap-2 text-xl text-green-500 mb-4">
+  {isSignUp ? (
+    <>
+      <UserPlus className="w-5 h-5" />
+      회원가입
+    </>
+  ) : (
+    <>
+      <KeyRound className="w-5 h-5" />
+      로그인
+    </>
+  )}
+</h2>
       
       <form onSubmit={handleSubmit} className="flex flex-col gap-2">
         <input 

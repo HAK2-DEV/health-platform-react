@@ -1,7 +1,7 @@
 import { useAuth } from '../hooks/useAuth'
 import { Navigate } from "react-router-dom";
 import SupabaseTodos from '../components/SupabaseTodos'
-
+ 
 
 function TodosPage() {
     const {session, isLoading} =useAuth()
@@ -14,7 +14,8 @@ function TodosPage() {
     return <Navigate to="/login" />
   }
 
-    return <SupabaseTodos session={session}/>
+    return <SupabaseTodos session={session} />
+    
 }
 
 export default TodosPage
