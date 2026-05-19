@@ -1,3 +1,5 @@
+
+
 /* === 전역 CSS Reset (진짜 중요) === */
 * {
   box-sizing: border-box;
@@ -143,7 +145,6 @@ p {
 
 .welcome-screen h1 {
   font-size: 32px;
-  color: var(--color-primary);
   margin-bottom: var(--spacing-sm);
 }
 

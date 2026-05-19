@@ -1,4 +1,5 @@
 import { Routes, Route } from 'react-router-dom'
+import './index.css'
 import './App.css'
 import { supabase } from './supabaseClient'
 import { useAuth } from './hooks/useAuth'
@@ -42,5 +43,4 @@ function App() {
     </div>
   )
 }
-
 export default App
