@@ -1,12 +1,8 @@
-
+@import "tailwindcss";
 
 /* === 전역 CSS Reset (진짜 중요) === */
 * {
   box-sizing: border-box;
-}
-
-html {
-  color-scheme: light;
 }
 
 body {
@@ -15,12 +11,7 @@ body {
 }
 
 /* 다크 모드 차단 - input 흰 배경 */
-input,
-textarea,
-select {
-  background-color: white;
-  color: #333;
-}
+
 
 /* === 디자인 시스템 === */
 :root {
@@ -68,14 +59,11 @@ body {
 }
 
 h1 {
-  color: var(--color-secondary);
-  text-align: center;
   margin: 0;
 }
 
 p {
-  text-align: center;
-  color: var(--color-text-light);
+  margin: 0;
 }
 
 /* === App 레이아웃 === */

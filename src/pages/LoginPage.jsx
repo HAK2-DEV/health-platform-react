@@ -16,7 +16,7 @@ useEffect (()=> {
 return (
       <div className="flex flex-col items-center justify-center min-h-[80vh] p-6">
 
-      <h1 className="text-2xl md:text-3xl text-green-500 mb-2">
+      <h1 className="text-3xl text-blue-500 mb-2">
         🏃 건강증진 플랫폼</h1>
       <p className="text-gray-600 text-base mb-6">
         본인의 건강을 함께 관리해요

@@ -102,52 +102,71 @@ loadTodos()
   if (isLoading) return <p>⏳ DB 에서 불러오는 중...</p>
   if (error) return <p>⚠️ 에러: {error}</p>
   
-  return (
-    <div className="supabase-todos">
-      <h2>📦 📝 나의 할 일 ({todos.length}개)</h2>
-      
-      <form onSubmit={handleSubmit}>
-        <input 
-          type="text"
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          placeholder="할 일을 입력하세요"
-        />
-        <button type="submit">나의 할 일 추가</button>
-      </form>
-      
-
-      {todos.length === 0 ? (
-        <div className='empty-state'>
-<p>📋 아직 할 일이 없어요</p>
-    <p className="empty-tip">위에서 첫 할 일을 추가해보세요!</p>
-  </div>
-) : (
-      
-      <ul>
+ return (
+  <div className="bg-white p-4 rounded-md shadow-md max-w-2xl mx-auto my-4">
+    {/* 제목 */}
+    <h2 className="text-lg text-green-500 mb-4 text-center">
+      📝 나의 할 일 ({todos.length}개)
+    </h2>
+    
+    {/* 입력 폼 */}
+    <form 
+      onSubmit={handleSubmit} 
+      className="flex flex-nowrap gap-2 mb-4"
+    >
+      <input 
+        type="text"
+        value={inputValue}
+        onChange={(e) => setInputValue(e.target.value)}
+        placeholder="할 일을 입력하세요"
+        className="flex-1 min-w-0 px-3 py-2 text-base border-2 border-gray-200 rounded-md focus:outline-none focus:border-green-500"
+      />
+      <button 
+        type="submit"
+        className="flex-shrink-0 px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-md whitespace-nowrap transition"
+      >
+        추가
+      </button>
+    </form>
+    
+    {/* 빈 상태 또는 목록 */}
+    {todos.length === 0 ? (
+      <div className="text-center p-6 text-gray-500">
+        <p className="text-base mb-2">📋 아직 할 일이 없어요</p>
+        <p className="text-sm opacity-70">위에서 첫 할 일을 추가해보세요!</p>
+      </div>
+    ) : (
+      <ul className="list-none p-0 m-0 space-y-2">
         {todos.map(todo => (
           <li 
             key={todo.id}
             onClick={() => toggleTodo(todo.id, todo.done)}
-            style={{ cursor: 'pointer' }}
+            className="flex flex-col sm:flex-row sm:items-center gap-2 p-3 bg-gray-50 hover:bg-gray-100 rounded-md cursor-pointer transition"
           >
-            <span>{todo.done ? "✅" : "⏳"}</span>
-            <span style={{ textDecoration: todo.done ? 'line-through' : 'none' }}>
+            <span className="text-lg">
+              {todo.done ? "✅" : "⏳"}
+            </span>
+            <span className="flex-1 min-w-0 font-medium break-words">
               {todo.text}
             </span>
-            <small>{new Date(todo.created_at).toLocaleString('ko-KR')}</small>
-            <button onClick={(e) => {
-              e.stopPropagation()
-              deleteTodo(todo.id)
-            }}>
+            <small className="text-xs text-gray-500">
+              {new Date(todo.created_at).toLocaleString('ko-KR')}
+            </small>
+            <button 
+              onClick={(e) => {
+                e.stopPropagation()
+                deleteTodo(todo.id)
+              }}
+              className="self-end sm:self-auto flex-shrink-0 px-2 py-1 bg-red-500 hover:bg-red-700 text-white text-xs rounded transition"
+            >
               삭제
             </button>
           </li>
         ))}
       </ul>
-)}
-    </div>
-  )
+    )}
+  </div>
+)
 }
 
 export default SupabaseTodos 
