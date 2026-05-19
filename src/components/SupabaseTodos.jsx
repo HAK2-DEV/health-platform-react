@@ -38,7 +38,37 @@ function SupabaseTodos({ session }) {
     }
 
     loadTodos()
-  }, [session])
+  const channel = supabase
+    .channel('todos-changes')
+    .on(
+      'postgres_changes',
+      {
+        event: '*',                    // INSERT, UPDATE, DELETE 모두
+        schema: 'public',
+        table: 'todos',
+        filter: `user_id=eq.${session.user.id}`   // 본인 거만
+      },
+      (payload) => {
+        console.log('🔄 변경 감지:', payload)
+        
+        if (payload.eventType === 'INSERT') {
+          setTodos(prev => [payload.new, ...prev])
+        } else if (payload.eventType === 'UPDATE') {
+          setTodos(prev => prev.map(t => 
+            t.id === payload.new.id ? payload.new : t
+          ))
+        } else if (payload.eventType === 'DELETE') {
+          setTodos(prev => prev.filter(t => t.id !== payload.old.id))
+        }
+      }
+    )
+    .subscribe()
+
+  // ⭐ cleanup
+  return () => {
+    supabase.removeChannel(channel)
+  }
+}, [session])
 
   // ⭐ 추가 - 사진 URL 가져오기
   const loadImageUrls = async (todoList) => {
