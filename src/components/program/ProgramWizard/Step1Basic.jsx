@@ -92,18 +92,18 @@ function Step1Basic({ initialData, onNext, onSave }) {
     return null
   }
   
-  // 데이터 모음
+  // 데이터 모음 (빈 문자열 날짜는 null로 — 임시저장 시 Postgres date 거부 방지)
   const collectData = () => ({
     name: name.trim(),
     description: description.trim(),
-    start_date: startDate,
-    end_date: endDate,
+    start_date: startDate || null,
+    end_date: endDate || null,
     categories,
     schedule_mode: scheduleMode,
     active_days: scheduleMode === 'CUSTOM' ? activeDays : [],
     excluded_periods: excludedPeriods.filter(p => p.start_date && p.end_date),
   })
-  
+
   const handleNext = () => {
     const validationError = validate()
     if (validationError) {
@@ -113,8 +113,14 @@ function Step1Basic({ initialData, onNext, onSave }) {
     setError(null)
     onNext(collectData())
   }
-  
+
+  // 임시저장: 이름만 필수 (날짜/카테고리 등은 비어도 저장 가능)
   const handleSave = () => {
+    if (!name.trim()) {
+      setError('프로그램 이름을 입력해주세요')
+      return
+    }
+    setError(null)
     onSave(collectData())
   }
   

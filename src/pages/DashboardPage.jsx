@@ -5,15 +5,23 @@ import { supabase } from '../supabaseClient'
 import { Plus, Activity, Trash2 } from 'lucide-react'
 import { formatKoreanDate } from '../lib/formatters'
 import { PROGRAM_STATUS } from '../lib/constants'
-import Modal from '../components/common/Modal'   // ⭐ 추가
+import ProgramDetailModal from '../components/program/ProgramDetailModal'
 
 
 function DashboardPage() {
   const { session, nickname } = useAuth()
   const [myPrograms, setMyPrograms] = useState([])
   const [isLoading, setIsLoading] = useState(true)
-  const navigate = useNavigate() 
+  const navigate = useNavigate()
   const [selectedProgram, setSelectedProgram] = useState(null)   // ⭐ 추가
+
+  // 공개 프로그램 둘러보기
+  const [publicPrograms, setPublicPrograms] = useState([])
+  const [isLoadingPublic, setIsLoadingPublic] = useState(true)
+
+  // 참여 중인 프로그램
+  const [activePrograms, setActivePrograms] = useState([])
+  const [isLoadingActive, setIsLoadingActive] = useState(true)
 
 
   // 로그아웃 시 /login 으로                              // ⭐ 추가
@@ -26,7 +34,7 @@ function DashboardPage() {
   // 본인이 만든 프로그램 가져오기
   useEffect(() => {
     if (!session) return
-    
+
     const fetchMyPrograms = async () => {
       setIsLoading(true)
       const { data, error } = await supabase
@@ -34,7 +42,7 @@ function DashboardPage() {
         .select('*')
         .eq('owner_id', session.user.id)
         .order('created_at', { ascending: false })
-      
+
       if (error) {
         console.error('프로그램 조회 실패:', error)
       } else {
@@ -42,10 +50,63 @@ function DashboardPage() {
       }
       setIsLoading(false)
     }
-    
+
     fetchMyPrograms()
   }, [session])
-  
+
+  // 공개 프로그램 둘러보기 (PUBLISHED + is_public + 본인 것 제외)
+  useEffect(() => {
+    if (!session) return
+
+    const fetchPublicPrograms = async () => {
+      setIsLoadingPublic(true)
+      const { data, error } = await supabase
+        .from('programs')
+        .select('*')
+        .eq('status', 'PUBLISHED')
+        .eq('is_public', true)
+        .neq('owner_id', session.user.id)
+        .order('published_at', { ascending: false })
+
+      if (error) {
+        console.error('공개 프로그램 조회 실패:', error)
+      } else {
+        setPublicPrograms(data || [])
+      }
+      setIsLoadingPublic(false)
+    }
+
+    fetchPublicPrograms()
+  }, [session])
+
+  // 참여 중인 프로그램 (ACTIVE 상태만)
+  useEffect(() => {
+    if (!session) return
+
+    const fetchActivePrograms = async () => {
+      setIsLoadingActive(true)
+      const { data, error } = await supabase
+        .from('program_participants')
+        .select('joined_at, programs(*)')
+        .eq('user_id', session.user.id)
+        .eq('status', 'ACTIVE')
+        .order('joined_at', { ascending: false })
+
+      if (error) {
+        console.error('참여 프로그램 조회 실패:', error)
+      } else {
+        // 중첩된 programs 객체만 추출
+        const programs = (data || [])
+          .map(row => row.programs)
+          .filter(Boolean)
+        setActivePrograms(programs)
+      }
+      setIsLoadingActive(false)
+    }
+
+    fetchActivePrograms()
+  }, [session])
+
   // 임시저장(DRAFT) 삭제
   const handleDelete = async (programId, programName) => {
     // 본인이 실수 방지 - 확인
@@ -154,62 +215,86 @@ function DashboardPage() {
         )}
       </section>
       
-      {/* 참여 중인 프로그램 (미래) */}
+      {/* 참여 중인 프로그램 */}
       <section className="mb-8">
         <h2 className="flex items-center gap-2 text-xl text-gray-800 mb-4">
           🎯 참여 중인 프로그램
         </h2>
-        <div className="bg-gray-50 p-8 rounded-lg text-center text-gray-500 text-sm">
-          (미래에 추가 예정)
-        </div>
+
+        {isLoadingActive ? (
+          <div className="bg-gray-50 p-8 rounded-lg text-center text-gray-500">
+            불러오는 중...
+          </div>
+        ) : activePrograms.length === 0 ? (
+          <div className="bg-gray-50 p-8 rounded-lg text-center text-gray-500 text-sm">
+            아직 참여한 프로그램이 없어요
+          </div>
+        ) : (
+          <div className="grid gap-3">
+            {activePrograms.map(program => (
+              <div
+                key={program.id}
+                onClick={() => navigate(`/programs/${program.id}`)}
+                className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition cursor-pointer"
+              >
+                <h3 className="font-medium text-gray-800 mb-2">{program.name}</h3>
+                {program.description && (
+                  <p className="text-sm text-gray-600 mb-2 line-clamp-2">
+                    {program.description}
+                  </p>
+                )}
+                <p className="text-xs text-gray-500">
+                  {formatKoreanDate(program.start_date)} ~ {formatKoreanDate(program.end_date)}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
       
-      {/* 공개 프로그램 둘러보기 (미래) */}
+      {/* 공개 프로그램 둘러보기 */}
       <section className="mb-8">
         <h2 className="flex items-center gap-2 text-xl text-gray-800 mb-4">
           🔍 공개 프로그램 둘러보기
         </h2>
-        <div className="bg-gray-50 p-8 rounded-lg text-center text-gray-500 text-sm">
-          (미래에 추가 예정)
-        </div>
-      </section>
 
-{/* 프로그램 상세 모달 */}
-      <Modal 
-        isOpen={selectedProgram !== null} 
-        onClose={() => setSelectedProgram(null)}
-      >
-        {selectedProgram && (
-          <div className="p-6">
-            <h2 className="text-xl font-medium text-gray-800 mb-2 pr-8">
-              {selectedProgram.name}
-            </h2>
-            <span className={`
-              inline-block px-2 py-0.5 rounded text-xs mb-4
-              ${selectedProgram.status === 'PUBLISHED' 
-                ? 'bg-green-100 text-green-700' 
-                : 'bg-gray-100 text-gray-600'}
-            `}>
-              {selectedProgram.status === 'PUBLISHED' ? '진행중' : '임시저장'}
-            </span>
-            
-            {selectedProgram.description && (
-              <p className="text-gray-600 mb-4">
-                {selectedProgram.description}
-              </p>
-            )}
-            
-            <p className="text-sm text-gray-500 mb-4">
-              📅 {formatKoreanDate(selectedProgram.start_date)} ~ {formatKoreanDate(selectedProgram.end_date)}
-            </p>
-            
-            {/* owner 면 관리, 아니면 참여 (미래) */}
-            <div className="text-sm text-gray-400 border-t pt-4">
-              상세 기능 (수정/심사/참여) - 다음 단계에서 추가
-            </div>
+        {isLoadingPublic ? (
+          <div className="bg-gray-50 p-8 rounded-lg text-center text-gray-500">
+            불러오는 중...
+          </div>
+        ) : publicPrograms.length === 0 ? (
+          <div className="bg-gray-50 p-8 rounded-lg text-center text-gray-500 text-sm">
+            아직 둘러볼 공개 프로그램이 없어요
+          </div>
+        ) : (
+          <div className="grid gap-3">
+            {publicPrograms.map(program => (
+              <div
+                key={program.id}
+                onClick={() => setSelectedProgram(program)}
+                className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition cursor-pointer"
+              >
+                <h3 className="font-medium text-gray-800 mb-2">{program.name}</h3>
+                {program.description && (
+                  <p className="text-sm text-gray-600 mb-2 line-clamp-2">
+                    {program.description}
+                  </p>
+                )}
+                <p className="text-xs text-gray-500">
+                  {formatKoreanDate(program.start_date)} ~ {formatKoreanDate(program.end_date)}
+                </p>
+              </div>
+            ))}
           </div>
         )}
-      </Modal>
+      </section>
+
+      {/* 프로그램 상세 모달 */}
+      <ProgramDetailModal
+        program={selectedProgram}
+        isOpen={selectedProgram !== null}
+        onClose={() => setSelectedProgram(null)}
+      />
 
     </div>
   )

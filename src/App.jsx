@@ -10,6 +10,7 @@ import SignupPage from './pages/SignupPage'                  // ⭐ 추가
 import NicknameSetupPage from './pages/NicknameSetupPage'    // ⭐ 추가
 import DashboardPage from './pages/DashboardPage'                       // ⭐ 새 경로
 import ProgramNewPage from './pages/program/ProgramNewPage'            // ⭐ 추가
+import ProgramDetailPage from './pages/program/ProgramDetailPage'
 import { Activity, User, LogOut } from 'lucide-react'
 import ProtectedRoute from './components/ProtectedRoute'   // ⭐ 추가
 
@@ -57,6 +58,9 @@ function App() {
   } />
   <Route path="/programs/new" element={
     <ProtectedRoute><ProgramNewPage /></ProtectedRoute>
+  } />
+  <Route path="/programs/:id" element={
+    <ProtectedRoute><ProgramDetailPage /></ProtectedRoute>
   } />
   <Route path="/todos" element={
     <ProtectedRoute><TodosPage /></ProtectedRoute>
