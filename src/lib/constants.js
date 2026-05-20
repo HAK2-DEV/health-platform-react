@@ -21,3 +21,39 @@ export const USER_ROLE = {
   USER: 'USER',
   ADMIN: 'ADMIN',
 }
+
+// 프로그램 카테고리
+export const CATEGORY = {
+  WALKING: { key: 'WALKING', label: '걷기', emoji: '🚶' },
+  DIET: { key: 'DIET', label: '식단', emoji: '🍱' },
+  EMPATHY: { key: 'EMPATHY', label: '공감', emoji: '🤝' },
+  MINDCARE: { key: 'MINDCARE', label: '마음관리', emoji: '🧘' },
+  SLEEP: { key: 'SLEEP', label: '수면', emoji: '🌙' },
+  NO_SMOKING: { key: 'NO_SMOKING', label: '금연', emoji: '🚭' },
+  ETC: { key: 'ETC', label: '기타', emoji: '🌱' },     // ⭐ 추가
+}
+
+// 본인의 화면 표시용 배열 (순서 보장)
+export const CATEGORY_LIST = [
+  CATEGORY.WALKING,
+  CATEGORY.DIET,
+  CATEGORY.EMPATHY,
+  CATEGORY.MINDCARE,
+  CATEGORY.SLEEP,
+  CATEGORY.NO_SMOKING,
+   CATEGORY.ETC,    
+]
+
+// 프로그램 상태
+export const PROGRAM_STATUS = {
+  DRAFT: 'DRAFT',
+  PUBLISHED: 'PUBLISHED',
+  ENDED: 'ENDED',
+  ARCHIVED: 'ARCHIVED',
+}
+
+// 프로그램 기본 정보 길이 제한
+export const PROGRAM = {
+  NAME_MAX_LENGTH: 20,
+  DESCRIPTION_MAX_LENGTH: 200,
+}

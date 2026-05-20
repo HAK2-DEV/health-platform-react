@@ -31,7 +31,7 @@ function HomePage() {
       if (!data?.nickname) {
         navigate('/nickname-setup')
       } else {
-        navigate('/todos')
+        navigate('/dashboard')                      // ⭐ /todos → /dashboard
       }
       
       setIsChecking(false)

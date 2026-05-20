@@ -8,6 +8,8 @@ import TodosPage from './pages/TodosPage'
 import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'                  // ⭐ 추가
 import NicknameSetupPage from './pages/NicknameSetupPage'    // ⭐ 추가
+import DashboardPage from './pages/DashboardPage'                       // ⭐ 새 경로
+import ProgramNewPage from './pages/program/ProgramNewPage'            // ⭐ 추가
 import { Activity, User, LogOut } from 'lucide-react'
 
 function App() {
@@ -45,6 +47,8 @@ function App() {
           <Route path="/signup" element={<SignupPage />} />                       {/* ⭐ 추가 */}
           <Route path="/nickname-setup" element={<NicknameSetupPage />} />        {/* ⭐ 추가 */}
           <Route path="/todos" element={<TodosPage />} />
+          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/programs/new" element={<ProgramNewPage />} />
         </Routes>
       </main>
     </div>

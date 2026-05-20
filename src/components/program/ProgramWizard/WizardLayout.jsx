@@ -1,10 +1,64 @@
-export default function WizardLayout({ children, currentStep, totalSteps }) {
+import { Link } from 'react-router-dom'
+import { ArrowLeft } from 'lucide-react'
+
+// 5단계 정보
+const STEPS = [
+  { number: 1, label: '기본 정보' },
+  { number: 2, label: '참여 방식' },
+  { number: 3, label: '미션 규칙' },
+  { number: 4, label: '점수/랭킹' },
+  { number: 5, label: '개설 완료' },
+]
+
+function WizardLayout({ currentStep, children }) {
   return (
-    <div>
-      <div>
-        Step {currentStep} / {totalSteps}
+    <div className="max-w-2xl mx-auto p-4">
+      {/* 헤더 */}
+      <div className="flex items-center gap-2 mb-6">
+        <Link 
+          to="/dashboard"
+          className="p-2 hover:bg-gray-100 rounded-full transition"
+        >
+          <ArrowLeft className="w-5 h-5 text-gray-600" />
+        </Link>
+        <h1 className="text-lg font-medium text-gray-800">
+          프로그램 생성
+        </h1>
       </div>
-      {children}
+      
+      {/* 진행률 */}
+      <div className="flex items-center justify-between mb-8">
+        {STEPS.map((step, index) => (
+          <div key={step.number} className="flex items-center flex-1">
+            {/* 단계 동그라미 */}
+            <div className={`
+              w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
+              ${currentStep === step.number 
+                ? 'bg-green-500 text-white' 
+                : currentStep > step.number 
+                  ? 'bg-green-200 text-green-700' 
+                  : 'bg-gray-200 text-gray-500'}
+            `}>
+              {step.number}
+            </div>
+            
+            {/* 단계 사이 선 */}
+            {index < STEPS.length - 1 && (
+              <div className={`
+                flex-1 h-0.5 mx-2
+                ${currentStep > step.number ? 'bg-green-300' : 'bg-gray-200'}
+              `} />
+            )}
+          </div>
+        ))}
+      </div>
+      
+      {/* 단계별 콘텐츠 */}
+      <div className="bg-white rounded-lg shadow-sm p-6">
+        {children}
+      </div>
     </div>
-  );
+  )
 }
+
+export default WizardLayout
