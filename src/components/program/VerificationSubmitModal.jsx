@@ -5,26 +5,27 @@ import { supabase } from '../../supabaseClient'
 import { Upload, X } from 'lucide-react'
 
 // 인증 제출 모달
-// feature 별 분기:
-//   image_upload   → 사진 선택 + Storage 업로드 + image_path 저장
-//   numeric_record → 숫자 입력 + numeric_value 저장
+// 미션의 requires_image / requires_numeric 메타에 따라 입력 영역을 동적으로 구성:
+//   requires_image  → 사진 선택 + Storage 업로드 → image_path
+//   requires_numeric → 숫자 입력 → numeric_value
+//   둘 다 true (통합 미션) → 두 영역 모두 표시 + 둘 다 필수
 // 공통 흐름:
-//   verifications INSERT → 018 BEFORE 트리거가 status 자동 결정
-//                       → 020 AFTER 트리거가 점수 부여 가드 검사
+//   verifications INSERT → 018 트리거가 status 자동 결정 → 020 트리거가 점수 부여
 function VerificationSubmitModal({ mission, isOpen, onClose, onSuccess }) {
   const { session } = useAuth()
   const fileInputRef = useRef(null)
 
-  // image_upload 상태
   const [selectedFile, setSelectedFile] = useState(null)
   const [previewUrl, setPreviewUrl] = useState(null)
-
-  // numeric_record 상태
   const [numericValue, setNumericValue] = useState('')
 
-  // 공통
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState(null)
+
+  // 미션 메타 — 입력 영역 분기 신호
+  const needsImage = !!mission?.requires_image
+  const needsNumeric = !!mission?.requires_numeric
+  const isBundle = needsImage && needsNumeric
 
   const handleFileSelect = (e) => {
     const file = e.target.files?.[0]
@@ -45,9 +46,7 @@ function VerificationSubmitModal({ mission, isOpen, onClose, onSuccess }) {
   }
 
   const resetState = () => {
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl)
-    }
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
     setSelectedFile(null)
     setPreviewUrl(null)
     setNumericValue('')
@@ -63,13 +62,12 @@ function VerificationSubmitModal({ mission, isOpen, onClose, onSuccess }) {
   const handleSubmit = async () => {
     if (!session || !mission) return
 
-    // feature 별 클라이언트 검증
-    if (mission.feature === 'image_upload') {
-      if (!selectedFile) {
-        setError('사진을 선택해주세요')
-        return
-      }
-    } else if (mission.feature === 'numeric_record') {
+    // 입력 검증 — 미션이 요구하는 것만
+    if (needsImage && !selectedFile) {
+      setError('사진을 선택해주세요')
+      return
+    }
+    if (needsNumeric) {
       const num = parseFloat(numericValue)
       if (!numericValue || isNaN(num) || num <= 0) {
         setError('0보다 큰 숫자를 입력해주세요')
@@ -81,10 +79,14 @@ function VerificationSubmitModal({ mission, isOpen, onClose, onSuccess }) {
     setError(null)
 
     try {
+      const insertData = {
+        mission_id: mission.id,
+        user_id: session.user.id,
+      }
       let imagePath = null
 
-      // image_upload 만 Storage 업로드 단계 필요
-      if (mission.feature === 'image_upload' && selectedFile) {
+      // 사진 업로드 (필요 시)
+      if (needsImage && selectedFile) {
         const ext = selectedFile.name.split('.').pop()?.toLowerCase() || 'jpg'
         const fileName = `${Date.now()}.${ext}`
         const path = `${session.user.id}/${fileName}`
@@ -97,17 +99,11 @@ function VerificationSubmitModal({ mission, isOpen, onClose, onSuccess }) {
           throw new Error(`업로드 실패: ${uploadError.message}`)
         }
         imagePath = path
+        insertData.image_path = path
       }
 
-      // verifications INSERT (feature 별 컬럼 분기)
-      const insertData = {
-        mission_id: mission.id,
-        user_id: session.user.id,
-      }
-
-      if (mission.feature === 'image_upload') {
-        insertData.image_path = imagePath
-      } else if (mission.feature === 'numeric_record') {
+      // 숫자 입력 (필요 시)
+      if (needsNumeric) {
         insertData.numeric_value = parseFloat(numericValue)
       }
 
@@ -116,11 +112,8 @@ function VerificationSubmitModal({ mission, isOpen, onClose, onSuccess }) {
         .insert(insertData)
 
       if (insertError) {
-        // INSERT 실패 시 업로드된 사진 정리 (고아 파일 방지)
         if (imagePath) {
-          await supabase.storage
-            .from('verification-images')
-            .remove([imagePath])
+          await supabase.storage.from('verification-images').remove([imagePath])
         }
         throw new Error(`인증 제출 실패: ${insertError.message}`)
       }
@@ -134,12 +127,13 @@ function VerificationSubmitModal({ mission, isOpen, onClose, onSuccess }) {
     }
   }
 
-  // 제출 버튼 활성화 조건
+  // 제출 버튼 활성화 조건 — 미션이 요구하는 입력이 다 채워졌을 때
   const canSubmit = (() => {
     if (isSubmitting) return false
-    if (mission?.feature === 'image_upload') return !!selectedFile
-    if (mission?.feature === 'numeric_record') return !!numericValue
-    return false
+    if (needsImage && !selectedFile) return false
+    if (needsNumeric && !numericValue) return false
+    if (!needsImage && !needsNumeric) return false  // 인증 UI 없는 feature
+    return true
   })()
 
   return (
@@ -151,23 +145,31 @@ function VerificationSubmitModal({ mission, isOpen, onClose, onSuccess }) {
           </h2>
           <p className="text-sm text-gray-500 mb-4">
             {mission.point}P · {mission.verification_type === 'AUTO' ? '자동 승인' : '운영자 심사'}
+            {isBundle && <span className="ml-1 text-green-600">· 사진+기록 통합</span>}
           </p>
 
-          {/* === feature 별 입력 영역 === */}
-
-          {/* image_upload */}
-          {mission.feature === 'image_upload' && (
-            <>
+          {/* 사진 영역 */}
+          {needsImage && (
+            <div className="mb-4">
+              {isBundle && (
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  📷 인증 사진
+                </label>
+              )}
               {previewUrl ? (
-                <div className="relative mb-4">
+                <div className="relative">
                   <img
                     src={previewUrl}
                     alt="미리보기"
-                    className="w-full max-h-96 object-contain rounded-lg border border-gray-200"
+                    className="w-full max-h-80 object-contain rounded-lg border border-gray-200"
                   />
                   <button
                     type="button"
-                    onClick={resetState}
+                    onClick={() => {
+                      if (previewUrl) URL.revokeObjectURL(previewUrl)
+                      setSelectedFile(null)
+                      setPreviewUrl(null)
+                    }}
                     disabled={isSubmitting}
                     className="absolute top-2 right-2 p-1 bg-white/90 hover:bg-white rounded-full text-gray-700 shadow disabled:opacity-50"
                     title="다시 선택"
@@ -180,7 +182,7 @@ function VerificationSubmitModal({ mission, isOpen, onClose, onSuccess }) {
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isSubmitting}
-                  className="w-full mb-4 p-8 border-2 border-dashed border-gray-300 rounded-lg hover:border-green-500 transition flex flex-col items-center gap-2 text-gray-500 hover:text-green-600 disabled:opacity-50"
+                  className="w-full p-8 border-2 border-dashed border-gray-300 rounded-lg hover:border-green-500 transition flex flex-col items-center gap-2 text-gray-500 hover:text-green-600 disabled:opacity-50"
                 >
                   <Upload className="w-8 h-8" />
                   <span className="text-sm">사진 선택하기</span>
@@ -196,14 +198,14 @@ function VerificationSubmitModal({ mission, isOpen, onClose, onSuccess }) {
                 disabled={isSubmitting}
                 className="hidden"
               />
-            </>
+            </div>
           )}
 
-          {/* numeric_record */}
-          {mission.feature === 'numeric_record' && (
+          {/* 숫자 영역 */}
+          {needsNumeric && (
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                기록 값
+                {isBundle ? '📊 기록 값' : '기록 값'}
               </label>
               <input
                 type="number"

@@ -15,6 +15,7 @@ function ProgramDetailPage() {
   const [missions, setMissions] = useState([])
   const [myScore, setMyScore] = useState(0)
   const [todayScore, setTodayScore] = useState(0)
+  const [ranking, setRanking] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -80,6 +81,16 @@ function ProgramDetailPage() {
         .filter(row => formatKstDate(new Date(row.created_at)) === todayKst)
         .reduce((sum, row) => sum + row.point, 0)
       setTodayScore(todayTotal)
+    }
+
+    // 4) 랭킹 (RPC — RLS 우회 SECURITY DEFINER 함수)
+    const { data: rankingData, error: rankingError } = await supabase
+      .rpc('get_program_ranking', { p_program_id: id })
+
+    if (rankingError) {
+      console.error('랭킹 조회 실패:', rankingError)
+    } else {
+      setRanking(rankingData || [])
     }
   }
 
@@ -217,6 +228,53 @@ function ProgramDetailPage() {
                     준비 중
                   </span>
                 )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* 랭킹 */}
+      <h2 className="text-lg font-medium text-gray-800 mb-3 mt-8">🏆 랭킹</h2>
+      {ranking.length === 0 ? (
+        <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-500 text-sm">
+          아직 참여자가 없어요
+        </div>
+      ) : (
+        <div className="grid gap-2">
+          {ranking.map(row => {
+            const isMe = row.user_id === session?.user?.id
+            const rankBadgeClass =
+              row.rank === 1 ? 'bg-yellow-100 text-yellow-700'
+              : row.rank === 2 ? 'bg-gray-200 text-gray-700'
+              : row.rank === 3 ? 'bg-orange-100 text-orange-700'
+              : 'bg-gray-50 text-gray-500'
+
+            return (
+              <div
+                key={row.user_id}
+                className={`
+                  flex items-center justify-between p-3 rounded-lg border
+                  ${isMe
+                    ? 'bg-green-50 border-green-300'
+                    : 'bg-white border-gray-200'}
+                `}
+              >
+                <div className="flex items-center gap-3">
+                  <span className={`
+                    flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium
+                    ${rankBadgeClass}
+                  `}>
+                    {row.rank}
+                  </span>
+                  <span className={`font-medium ${isMe ? 'text-green-800' : 'text-gray-800'}`}>
+                    {row.nickname}
+                    {isMe && <span className="ml-1 text-xs text-green-600">(나)</span>}
+                  </span>
+                </div>
+                <span className={`text-sm font-medium ${isMe ? 'text-green-700' : 'text-gray-600'}`}>
+                  {row.total_score}P
+                </span>
               </div>
             )
           })}

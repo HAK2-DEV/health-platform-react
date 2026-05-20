@@ -19,7 +19,14 @@ function Step4Scoring({ initialData, onNext, onSave, onPrev }) {
   
   const [dailyMaxScore, setDailyMaxScore] = useState(initialData?.daily_max_score || '')
   const [approvalMode, setApprovalMode] = useState(initialData?.approval_mode || 'AUTO')
+  const [bundleImageNumeric, setBundleImageNumeric] = useState(
+    initialData?.bundle_image_numeric || false
+  )
   const [error, setError] = useState(null)
+
+  // 사진 + 숫자 둘 다 활성화된 경우에만 묶기 옵션 노출
+  const canBundle = activeFeatures.includes('image_upload')
+                 && activeFeatures.includes('numeric_record')
   
   // 점수 진화
   const updateScore = (key, value) => {
@@ -59,6 +66,8 @@ function Step4Scoring({ initialData, onNext, onSave, onPrev }) {
     score_rules: scoreRules,
     daily_max_score: dailyMaxScore === '' ? null : parseInt(dailyMaxScore),
     approval_mode: approvalMode,
+    // 묶기 조건이 안 맞으면 강제 false (사용자가 다른 step 에서 features 끄면 자동 해제)
+    bundle_image_numeric: canBundle ? bundleImageNumeric : false,
   })
   
   const handleNext = () => {
@@ -156,6 +165,33 @@ function Step4Scoring({ initialData, onNext, onSave, onPrev }) {
         </div>
       </div>
       
+      {/* 사진 + 숫자 묶기 옵션 (둘 다 활성화된 경우에만) */}
+      {canBundle && (
+        <div className="mb-6">
+          <label className={`
+            flex items-start gap-3 p-3 rounded-md border-2 cursor-pointer transition
+            ${bundleImageNumeric ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-white'}
+          `}>
+            <input
+              type="checkbox"
+              checked={bundleImageNumeric}
+              onChange={(e) => setBundleImageNumeric(e.target.checked)}
+              className="mt-1 w-4 h-4 text-green-500"
+            />
+            <div className="flex-1">
+              <div className={`font-medium ${bundleImageNumeric ? 'text-green-700' : 'text-gray-800'}`}>
+                📷 + 📊 사진과 숫자를 한 미션으로 묶기
+              </div>
+              <div className="text-sm text-gray-600 mt-1">
+                참여자가 한 번에 사진과 숫자(거리/시간/회수)를 같이 입력해요. (예: 달리기 사진 + 3km)
+                <br />
+                점수는 <strong>사진 점수 + 기록 점수의 합</strong>으로 한 번에 부여됩니다.
+              </div>
+            </div>
+          </label>
+        </div>
+      )}
+
       {/* 하루 최대 점수 (전체) */}
       <div className="mb-6">
         <label className="block text-sm font-medium text-gray-700 mb-1">
