@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../supabaseClient'
-import { Plus, Activity } from 'lucide-react'
+import { Plus, Activity, Trash2 } from 'lucide-react'
 import { formatKoreanDate } from '../lib/formatters'
 import { PROGRAM_STATUS } from '../lib/constants'
 
@@ -10,7 +10,15 @@ function DashboardPage() {
   const { session, nickname } = useAuth()
   const [myPrograms, setMyPrograms] = useState([])
   const [isLoading, setIsLoading] = useState(true)
-  
+  const navigate = useNavigate() 
+    
+  // 로그아웃 시 /login 으로                              // ⭐ 추가
+  useEffect(() => {
+    if (session === null) {
+      navigate('/login')
+    }
+  }, [session, navigate])
+
   // 본인이 만든 프로그램 가져오기
   useEffect(() => {
     if (!session) return
@@ -34,6 +42,29 @@ function DashboardPage() {
     fetchMyPrograms()
   }, [session])
   
+  // 임시저장(DRAFT) 삭제
+  const handleDelete = async (programId, programName) => {
+    // 본인이 실수 방지 - 확인
+    if (!window.confirm(`"${programName}" 임시저장을 삭제할까요?`)) {
+      return
+    }
+    
+    const { error } = await supabase
+      .from('programs')
+      .delete()
+      .eq('id', programId)
+      .eq('status', 'DRAFT')          // ⭐ DRAFT 만 (안전장치)
+    
+    if (error) {
+      console.error('삭제 실패:', error)
+      alert('삭제에 실패했습니다')
+      return
+    }
+    
+    // 목록에서 제거 (화면 갱신)
+    setMyPrograms(myPrograms.filter(p => p.id !== programId))
+  }
+
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <div className="mb-6">
@@ -79,16 +110,28 @@ function DashboardPage() {
                 className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition"
               >
                 <div className="flex items-start justify-between mb-2">
-                  <h3 className="font-medium text-gray-800">{program.name}</h3>
-                  <span className={`
-                    px-2 py-0.5 rounded text-xs
-                    ${program.status === 'PUBLISHED' 
-                      ? 'bg-green-100 text-green-700' 
-                      : 'bg-gray-100 text-gray-600'}
-                  `}>
-                    {program.status === 'PUBLISHED' ? '진행중' : '임시저장'}
-                  </span>
-                </div>
+  <h3 className="font-medium text-gray-800">{program.name}</h3>
+  <div className="flex items-center gap-2">
+    <span className={`
+      px-2 py-0.5 rounded text-xs
+      ${program.status === 'PUBLISHED' 
+        ? 'bg-green-100 text-green-700' 
+        : 'bg-gray-100 text-gray-600'}
+    `}>
+      {program.status === 'PUBLISHED' ? '진행중' : '임시저장'}
+    </span>
+    {/* DRAFT 만 삭제 버튼 */}
+    {program.status === 'DRAFT' && (
+      <button
+        onClick={() => handleDelete(program.id, program.name)}
+        className="p-1 text-gray-400 hover:text-red-500 transition"
+        title="삭제"
+      >
+        <Trash2 className="w-4 h-4" />
+      </button>
+    )}
+  </div>
+</div>
                 {program.description && (
                   <p className="text-sm text-gray-600 mb-2 line-clamp-2">
                     {program.description}

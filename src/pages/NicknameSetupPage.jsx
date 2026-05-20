@@ -7,7 +7,7 @@ import { UserPlus } from 'lucide-react'
 import NicknameInput from '../components/auth/NicknameInput'
 
 function NicknameSetupPage() {
-  const { session } = useAuth()
+  const { session, refreshNickname } = useAuth()
   const navigate = useNavigate()
   const [nickname, setNickname] = useState('')
   const [isSaving, setIsSaving] = useState(false)
@@ -41,7 +41,7 @@ function NicknameSetupPage() {
     checkNickname()
   }, [session, navigate])
   
-  const handleSubmit = async (e) => {
+const handleSubmit = async (e) => {
   e.preventDefault()
   
   if (!status.available) {

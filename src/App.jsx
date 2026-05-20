@@ -11,6 +11,7 @@ import NicknameSetupPage from './pages/NicknameSetupPage'    // ⭐ 추가
 import DashboardPage from './pages/DashboardPage'                       // ⭐ 새 경로
 import ProgramNewPage from './pages/program/ProgramNewPage'            // ⭐ 추가
 import { Activity, User, LogOut } from 'lucide-react'
+import ProtectedRoute from './components/ProtectedRoute'   // ⭐ 추가
 
 function App() {
   const { session, nickname } = useAuth()   
@@ -42,14 +43,25 @@ function App() {
       
       <main className="app-main">
         <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup" element={<SignupPage />} />                       {/* ⭐ 추가 */}
-          <Route path="/nickname-setup" element={<NicknameSetupPage />} />        {/* ⭐ 추가 */}
-          <Route path="/todos" element={<TodosPage />} />
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/programs/new" element={<ProgramNewPage />} />
-        </Routes>
+  {/* 보호 X (누구나) */}
+  <Route path="/" element={<HomePage />} />
+  <Route path="/login" element={<LoginPage />} />
+  <Route path="/signup" element={<SignupPage />} />
+  
+  {/* 보호 O (로그인 필요) */}
+  <Route path="/nickname-setup" element={
+    <ProtectedRoute><NicknameSetupPage /></ProtectedRoute>
+  } />
+  <Route path="/dashboard" element={
+    <ProtectedRoute><DashboardPage /></ProtectedRoute>
+  } />
+  <Route path="/programs/new" element={
+    <ProtectedRoute><ProgramNewPage /></ProtectedRoute>
+  } />
+  <Route path="/todos" element={
+    <ProtectedRoute><TodosPage /></ProtectedRoute>
+  } />
+</Routes>
       </main>
     </div>
   )

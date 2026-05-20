@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState,  useEffect  } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 import { UserPlus, Activity } from 'lucide-react'
+import { useAuth } from '../hooks/useAuth'  
 
 function SignupPage() {
   const navigate = useNavigate()
@@ -9,7 +10,16 @@ function SignupPage() {
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
+  const { session } = useAuth()  
 
+
+  // 이미 로그인됨 → 홈으로                            // ⭐ 추가
+  useEffect(() => {
+    if (session) {
+      navigate('/')
+    }
+  }, [session, navigate])
+  
   const handleSubmit = async (e) => {
     e.preventDefault()
     setIsLoading(true)
