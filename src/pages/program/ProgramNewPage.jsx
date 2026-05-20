@@ -4,6 +4,9 @@ import { supabase } from '../../supabaseClient'
 import { useAuth } from '../../hooks/useAuth'
 import WizardLayout from '../../components/program/ProgramWizard/WizardLayout'
 import Step1Basic from '../../components/program/ProgramWizard/Step1Basic'
+import Step2Type from '../../components/program/ProgramWizard/Step2Type'
+import Step3Features from '../../components/program/ProgramWizard/Step3Features'   // ⭐ 추가
+import Step4Scoring from '../../components/program/ProgramWizard/Step4Scoring'   // ⭐ 추가
 
 function ProgramNewPage() {
   const { session } = useAuth()
@@ -79,6 +82,11 @@ function ProgramNewPage() {
     }
   }
   
+    // 이전 단계 (저장 없이 이동만)                                ⭐ 추가
+  const handlePrev = () => {
+    setCurrentStep(currentStep - 1)
+  }
+  
   return (
     <WizardLayout currentStep={currentStep}>
       {error && (
@@ -101,11 +109,38 @@ function ProgramNewPage() {
         />
       )}
       
-      {currentStep === 2 && (
-        <div className="text-center text-gray-500 py-12">
-          2단계 (프로그램 유형) - 다음 단계에서 만들기
-        </div>
+      {currentStep === 2 && (                                  /* ⭐ 진화 */
+        <Step2Type 
+          initialData={programData}
+          onNext={handleNext}
+          onSave={handleSave}
+          onPrev={handlePrev}
+        />
       )}
+      
+      {currentStep === 3 && (
+  <Step3Features 
+    initialData={programData}
+    onNext={handleNext}
+    onSave={handleSave}
+    onPrev={handlePrev}
+  />
+)}
+
+{currentStep === 4 && (
+  <Step4Scoring 
+    initialData={programData}
+    onNext={handleNext}
+    onSave={handleSave}
+    onPrev={handlePrev}
+  />
+)}
+
+{currentStep === 5 && (
+  <div className="text-center text-gray-500 py-12">
+    5단계 (참여 조건 + 완료) - 다음 단계에서 만들기
+  </div>
+)}
     </WizardLayout>
   )
 }

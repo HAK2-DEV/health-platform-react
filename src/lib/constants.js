@@ -57,3 +57,87 @@ export const PROGRAM = {
   NAME_MAX_LENGTH: 20,
   DESCRIPTION_MAX_LENGTH: 200,
 }
+
+// 프로그램 유형
+export const PROGRAM_TYPE = {
+  CERTIFICATION: { 
+    key: 'CERTIFICATION', 
+    label: '인증형',
+    description: '사진/영상 인증으로 활동을 증명해요',
+    emoji: '📸'
+  },
+  RECORD: { 
+    key: 'RECORD', 
+    label: '기록형',
+    description: '걸음 수, 체중 등 숫자 데이터를 기록해요',
+    emoji: '📊'
+  },
+  MISSION: { 
+    key: 'MISSION', 
+    label: '미션형',
+    description: '정해진 미션을 수행해요',
+    emoji: '🎯'
+  },
+  HABIT: { 
+    key: 'HABIT', 
+    label: '습관형성형',
+    description: '매일 반복으로 좋은 습관을 만들어요',
+    emoji: '🔄'
+  },
+}
+
+export const PROGRAM_TYPE_LIST = [
+  PROGRAM_TYPE.CERTIFICATION,
+  PROGRAM_TYPE.RECORD,
+  PROGRAM_TYPE.MISSION,
+  PROGRAM_TYPE.HABIT,
+]
+
+// 프로그램 기능 모듈
+export const FEATURE = {
+  IMAGE_UPLOAD: { 
+    key: 'image_upload', 
+    label: '이미지 업로드',
+    description: '사진/영상으로 활동을 인증해요',
+    emoji: '📸'
+  },
+  COMMENT: { 
+    key: 'comment', 
+    label: '댓글 작성',
+    description: '소감/후기를 댓글로 남겨요',
+    emoji: '💬'
+  },
+  LIKE: { 
+    key: 'like', 
+    label: '좋아요',
+    description: '서로의 활동에 좋아요로 응원해요',
+    emoji: '❤️'
+  },
+  NUMERIC_RECORD: { 
+    key: 'numeric_record', 
+    label: '숫자 기록',
+    description: '걸음 수, 거리 등 숫자를 기록해요',
+    emoji: '🔢'
+  },
+  BODY_METRICS: { 
+    key: 'body_metrics', 
+    label: '신체 지표',
+    description: '체중, 체지방, 골격근량을 기록해요',
+    emoji: '⚖️'
+  },
+  QUIZ: { 
+    key: 'quiz', 
+    label: '퀴즈 풀이',
+    description: '건강 지식 퀴즈로 학습해요',
+    emoji: '🧩'
+  },
+}
+
+export const FEATURE_LIST = [
+  FEATURE.IMAGE_UPLOAD,
+  FEATURE.COMMENT,
+  FEATURE.LIKE,
+  FEATURE.NUMERIC_RECORD,
+  FEATURE.BODY_METRICS,
+  FEATURE.QUIZ,
+]
