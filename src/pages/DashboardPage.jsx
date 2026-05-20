@@ -5,13 +5,17 @@ import { supabase } from '../supabaseClient'
 import { Plus, Activity, Trash2 } from 'lucide-react'
 import { formatKoreanDate } from '../lib/formatters'
 import { PROGRAM_STATUS } from '../lib/constants'
+import Modal from '../components/common/Modal'   // ⭐ 추가
+
 
 function DashboardPage() {
   const { session, nickname } = useAuth()
   const [myPrograms, setMyPrograms] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const navigate = useNavigate() 
-    
+  const [selectedProgram, setSelectedProgram] = useState(null)   // ⭐ 추가
+
+
   // 로그아웃 시 /login 으로                              // ⭐ 추가
   useEffect(() => {
     if (session === null) {
@@ -106,9 +110,10 @@ function DashboardPage() {
           <div className="grid gap-3">
             {myPrograms.map(program => (
               <div 
-                key={program.id}
-                className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition"
-              >
+  key={program.id}
+  onClick={() => setSelectedProgram(program)}                    // ⭐ 추가
+  className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition cursor-pointer"
+>
                 <div className="flex items-start justify-between mb-2">
   <h3 className="font-medium text-gray-800">{program.name}</h3>
   <div className="flex items-center gap-2">
@@ -123,12 +128,15 @@ function DashboardPage() {
     {/* DRAFT 만 삭제 버튼 */}
     {program.status === 'DRAFT' && (
       <button
-        onClick={() => handleDelete(program.id, program.name)}
-        className="p-1 text-gray-400 hover:text-red-500 transition"
-        title="삭제"
-      >
-        <Trash2 className="w-4 h-4" />
-      </button>
+  onClick={(e) => {
+    e.stopPropagation()                          // ⭐ 추가 (모달 안 열림)
+    handleDelete(program.id, program.name)
+  }}
+  className="p-1 text-gray-400 hover:text-red-500 transition"
+  title="삭제"
+>
+  <Trash2 className="w-4 h-4" />
+</button>
     )}
   </div>
 </div>
@@ -165,6 +173,44 @@ function DashboardPage() {
           (미래에 추가 예정)
         </div>
       </section>
+
+{/* 프로그램 상세 모달 */}
+      <Modal 
+        isOpen={selectedProgram !== null} 
+        onClose={() => setSelectedProgram(null)}
+      >
+        {selectedProgram && (
+          <div className="p-6">
+            <h2 className="text-xl font-medium text-gray-800 mb-2 pr-8">
+              {selectedProgram.name}
+            </h2>
+            <span className={`
+              inline-block px-2 py-0.5 rounded text-xs mb-4
+              ${selectedProgram.status === 'PUBLISHED' 
+                ? 'bg-green-100 text-green-700' 
+                : 'bg-gray-100 text-gray-600'}
+            `}>
+              {selectedProgram.status === 'PUBLISHED' ? '진행중' : '임시저장'}
+            </span>
+            
+            {selectedProgram.description && (
+              <p className="text-gray-600 mb-4">
+                {selectedProgram.description}
+              </p>
+            )}
+            
+            <p className="text-sm text-gray-500 mb-4">
+              📅 {formatKoreanDate(selectedProgram.start_date)} ~ {formatKoreanDate(selectedProgram.end_date)}
+            </p>
+            
+            {/* owner 면 관리, 아니면 참여 (미래) */}
+            <div className="text-sm text-gray-400 border-t pt-4">
+              상세 기능 (수정/심사/참여) - 다음 단계에서 추가
+            </div>
+          </div>
+        )}
+      </Modal>
+
     </div>
   )
 }
