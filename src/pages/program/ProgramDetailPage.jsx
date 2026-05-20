@@ -3,8 +3,9 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
 import { ChevronLeft } from 'lucide-react'
-import { formatKoreanDate } from '../../lib/formatters'
+import { formatKoreanDate, toKSTDateString } from '../../lib/formatters'
 import VerificationSubmitModal from '../../components/program/VerificationSubmitModal'
+import ProgramEditModal from '../../components/program/ProgramEditModal'
 
 function ProgramDetailPage() {
   const { id } = useParams()
@@ -20,6 +21,7 @@ function ProgramDetailPage() {
   const [error, setError] = useState(null)
 
   const [selectedMission, setSelectedMission] = useState(null)
+  const [isEditOpen, setIsEditOpen] = useState(false)
 
   // KST 기준 'YYYY-MM-DD' 문자열 (Intl 이 timezone 안전)
   const formatKstDate = (date) =>
@@ -154,6 +156,52 @@ function ProgramDetailPage() {
         )}
       </div>
 
+      {/* 운영자 패널 (owner 본인) — 미래 관리 기능의 기반 자리 */}
+      {program.owner_id === session?.user?.id && (
+        <div className="bg-amber-50 border-2 border-amber-200 rounded-lg p-4 mb-6">
+          <h2 className="flex items-center gap-2 text-sm font-medium text-amber-800 mb-3">
+            ⚙️ 운영자 패널
+          </h2>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setIsEditOpen(true)}
+              className="px-3 py-2 bg-white border border-amber-300 hover:border-amber-500 hover:bg-amber-100 rounded text-sm text-amber-800 transition text-left"
+            >
+              ✏️ 프로그램 수정
+              <span className="block text-xs text-amber-700">이름·기간·카테고리</span>
+            </button>
+            <button
+              type="button"
+              disabled
+              className="px-3 py-2 bg-white border border-amber-200 rounded text-sm text-gray-400 cursor-not-allowed text-left"
+              title="추후 진화"
+            >
+              📋 게시물 관리
+              <span className="block text-xs">(COMMUNITY 도입 시)</span>
+            </button>
+            <button
+              type="button"
+              disabled
+              className="px-3 py-2 bg-white border border-amber-200 rounded text-sm text-gray-400 cursor-not-allowed text-left"
+              title="추후 진화"
+            >
+              ✅ 인증 심사
+              <span className="block text-xs">(MANUAL 활성화 시)</span>
+            </button>
+            <button
+              type="button"
+              disabled
+              className="px-3 py-2 bg-white border border-amber-200 rounded text-sm text-gray-400 cursor-not-allowed text-left"
+              title="추후 진화"
+            >
+              📊 참여자 통계
+              <span className="block text-xs">(준비 중)</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 점수 요약 — 오늘 / 누적 두 카드 */}
       {(() => {
         // 오늘 가능 점수: daily_max_score 가 있으면 우선, 없으면 미션별 point × daily_limit(또는 1) 합
@@ -198,6 +246,20 @@ function ProgramDetailPage() {
             }[mission.feature]
             const isSupported = !!buttonLabel
 
+            // 활성 기간 검증 (KST 기준)
+            const now = new Date()
+            const activeFrom = mission.active_from ? new Date(mission.active_from) : null
+            const activeUntil = mission.active_until ? new Date(mission.active_until) : null
+            const isBeforeStart = activeFrom && now < activeFrom
+            const isAfterEnd = activeUntil && now > activeUntil
+            const isInactive = isBeforeStart || isAfterEnd
+
+            const inactiveLabel = isBeforeStart
+              ? `${formatKoreanDate(toKSTDateString(activeFrom))} 시작`
+              : isAfterEnd
+              ? '운영 종료'
+              : null
+
             return (
               <div
                 key={mission.id}
@@ -215,7 +277,26 @@ function ProgramDetailPage() {
                   {mission.point}P
                 </span>
 
-                {isSupported ? (
+                {/* 우측 액션 — 3가지 상태: 미지원 / 비활성기간 / 활성 */}
+                {!isSupported ? (
+                  <span className="text-xs text-gray-400 whitespace-nowrap flex-shrink-0">
+                    준비 중
+                  </span>
+                ) : isInactive ? (
+                  <div className="text-right flex-shrink-0">
+                    <button
+                      type="button"
+                      disabled
+                      className="px-3 py-2 bg-gray-200 text-gray-400 text-sm rounded cursor-not-allowed whitespace-nowrap"
+                      title={inactiveLabel}
+                    >
+                      {buttonLabel}
+                    </button>
+                    <p className="text-xs text-gray-500 mt-1 whitespace-nowrap">
+                      {inactiveLabel}
+                    </p>
+                  </div>
+                ) : (
                   <button
                     type="button"
                     onClick={() => setSelectedMission(mission)}
@@ -223,10 +304,6 @@ function ProgramDetailPage() {
                   >
                     {buttonLabel}
                   </button>
-                ) : (
-                  <span className="text-xs text-gray-400 whitespace-nowrap flex-shrink-0">
-                    준비 중
-                  </span>
                 )}
               </div>
             )
@@ -286,6 +363,14 @@ function ProgramDetailPage() {
         mission={selectedMission}
         isOpen={selectedMission !== null}
         onClose={() => setSelectedMission(null)}
+        onSuccess={fetchData}
+      />
+
+      {/* 프로그램 수정 모달 (owner 만) */}
+      <ProgramEditModal
+        program={program}
+        isOpen={isEditOpen}
+        onClose={() => setIsEditOpen(false)}
         onSuccess={fetchData}
       />
     </div>
