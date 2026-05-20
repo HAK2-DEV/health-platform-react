@@ -7,6 +7,8 @@ import Step1Basic from '../../components/program/ProgramWizard/Step1Basic'
 import Step2Type from '../../components/program/ProgramWizard/Step2Type'
 import Step3Features from '../../components/program/ProgramWizard/Step3Features'   // ⭐ 추가
 import Step4Scoring from '../../components/program/ProgramWizard/Step4Scoring'   // ⭐ 추가
+import Step5Complete from '../../components/program/ProgramWizard/Step5Complete'   // ⭐ 추가
+
 
 function ProgramNewPage() {
   const { session } = useAuth()
@@ -137,9 +139,11 @@ function ProgramNewPage() {
 )}
 
 {currentStep === 5 && (
-  <div className="text-center text-gray-500 py-12">
-    5단계 (참여 조건 + 완료) - 다음 단계에서 만들기
-  </div>
+  <Step5Complete 
+    initialData={programData}
+    programId={programId}
+    onPrev={handlePrev}
+  />
 )}
     </WizardLayout>
   )

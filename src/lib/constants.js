@@ -141,3 +141,31 @@ export const FEATURE_LIST = [
   FEATURE.BODY_METRICS,
   FEATURE.QUIZ,
 ]
+
+// 참여 방식
+export const JOIN_TYPE = {
+  FREE: { 
+    key: 'FREE', 
+    label: '공개 참여',
+    description: '누구나 바로 참여할 수 있어요',
+    emoji: '🌐'
+  },
+  APPROVAL: { 
+    key: 'APPROVAL', 
+    label: '승인 후 참여',
+    description: '운영자가 승인한 사람만 참여해요',
+    emoji: '✋'
+  },
+  INVITE_CODE: { 
+    key: 'INVITE_CODE', 
+    label: '초대 코드 참여',
+    description: '초대 코드를 가진 사람만 참여해요',
+    emoji: '🔑'
+  },
+}
+
+export const JOIN_TYPE_LIST = [
+  JOIN_TYPE.FREE,
+  JOIN_TYPE.APPROVAL,
+  JOIN_TYPE.INVITE_CODE,
+]

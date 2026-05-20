@@ -32,9 +32,8 @@ USING (
   owner_id = auth.uid()
   OR
   -- 또는 PUBLISHED + PUBLIC_SEARCH 포함
-  (status = 'PUBLISHED' AND 'PUBLIC_SEARCH' = ANY(join_types))
+  (status = 'PUBLISHED' AND is_public = true)
 );
-
 
 -- 정책 2: INSERT
 CREATE POLICY "users can create own programs"
