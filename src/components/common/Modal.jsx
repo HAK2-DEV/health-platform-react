@@ -16,8 +16,8 @@ function Modal({ isOpen, onClose, children }) {
   if (!isOpen) return null
   
   return (
-    <div 
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4"
+    <div
+      className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4"
       onClick={onClose}
     >
       {/* 배경 흐림 */}

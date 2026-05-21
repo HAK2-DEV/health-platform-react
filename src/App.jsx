@@ -1,7 +1,6 @@
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import './index.css'
 import './App.css'
-import { supabase } from './supabaseClient'
 import { useAuth } from './hooks/useAuth'
 import HomePage from './pages/HomePage'
 import TodosPage from './pages/TodosPage'
@@ -11,38 +10,41 @@ import NicknameSetupPage from './pages/NicknameSetupPage'    // ⭐ 추가
 import DashboardPage from './pages/DashboardPage'                       // ⭐ 새 경로
 import ProgramNewPage from './pages/program/ProgramNewPage'            // ⭐ 추가
 import ProgramDetailPage from './pages/program/ProgramDetailPage'
-import { Activity, User, LogOut } from 'lucide-react'
+import ProgramListPage from './pages/program/ProgramListPage'
+import RankingsPage from './pages/RankingsPage'
+import NotificationsPage from './pages/NotificationsPage'
+import ProfilePage from './pages/ProfilePage'
+import BottomTabBar from './components/common/BottomTabBar'
+import { Bell } from 'lucide-react'
 import ProtectedRoute from './components/ProtectedRoute'   // ⭐ 추가
 
-function App() {
-  const { session, nickname } = useAuth()   
+function AppShell() {
+  const { session } = useAuth()
+  const navigate = useNavigate()
+  const location = useLocation()
+
+  // 대시보드는 자체 풀 너비 상단 영역을 가지므로 App 헤더 숨김
+  const hideHeader = location.pathname === '/dashboard'
 
   return (
    <div className="app">
-      {session && (
-        <header className="bg-green-500 text-white px-6 py-4 flex justify-between items-center shadow-md">
-          <h1 className="flex items-center gap-2 text-xl font-medium whitespace-nowrap">
-            <Activity className="w-6 h-6" />
-            건강증진 플랫폼
-          </h1>
-          
-          <div className="flex items-center gap-4 text-sm whitespace-nowrap">
-            <span className="hidden sm:flex items-center gap-1">
-              <User className="w-4 h-4" />
-              {nickname || session.user.email.split('@')[0]}   {/* ⭐ 진화 */}
-            </span>
-            <button 
-              onClick={() => supabase.auth.signOut()} 
-              className="flex items-center gap-1 px-3 py-1 bg-white/20 hover:bg-white/30 border border-white/30 rounded text-sm transition whitespace-nowrap flex-shrink-0"
-            >
-              <LogOut className="w-4 h-4" />
-              로그아웃
-            </button>
-          </div>
+      {session && !hideHeader && (
+        <header className="bg-gradient-to-r from-emerald-50 to-teal-50 px-6 py-4 flex justify-between items-center">
+          <p className="text-sm text-gray-700 whitespace-nowrap overflow-hidden text-ellipsis pr-2">
+            안녕하세요, 오늘도 건강한 하루 되세요! 🌿
+          </p>
+          <button
+            type="button"
+            onClick={() => navigate('/notifications')}
+            className="w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-sm hover:shadow-md transition flex-shrink-0"
+            title="알림"
+          >
+            <Bell className="w-4 h-4 text-gray-600" />
+          </button>
         </header>
       )}
       
-      <main className="app-main">
+      <main className={session ? 'app-main pb-20' : 'app-main'}>
         <Routes>
   {/* 보호 X (누구나) */}
   <Route path="/" element={<HomePage />} />
@@ -62,12 +64,33 @@ function App() {
   <Route path="/programs/:id" element={
     <ProtectedRoute><ProgramDetailPage /></ProtectedRoute>
   } />
+  <Route path="/programs" element={
+    <ProtectedRoute><ProgramListPage /></ProtectedRoute>
+  } />
+  <Route path="/rankings" element={
+    <ProtectedRoute><RankingsPage /></ProtectedRoute>
+  } />
+  <Route path="/notifications" element={
+    <ProtectedRoute><NotificationsPage /></ProtectedRoute>
+  } />
+  <Route path="/profile" element={
+    <ProtectedRoute><ProfilePage /></ProtectedRoute>
+  } />
   <Route path="/todos" element={
     <ProtectedRoute><TodosPage /></ProtectedRoute>
   } />
 </Routes>
       </main>
+
+      {/* 하단 5탭 네비 (로그인 상태에서만) */}
+      {session && <BottomTabBar />}
     </div>
   )
 }
+
+// useNavigate/useLocation 은 Router 컨텍스트 안에서만 사용 가능하므로 main.jsx 의 BrowserRouter 안에서 렌더링.
+function App() {
+  return <AppShell />
+}
+
 export default App
