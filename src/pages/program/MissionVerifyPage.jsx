@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ChevronLeft, Upload, X } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -27,8 +27,16 @@ function MissionVerifyPage() {
   const { programId, missionId } = useParams()
   const { session } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const queryClient = useQueryClient()
   const fileInputRef = useRef(null)
+
+  // 인증 페이지 진입 시 location.state.returnPath 가 있으면 제출/뒤로 후 그 페이지로 복귀
+  // (예: BundleDetailPage 에서 진입 → 같은 BundleDetailPage 로 복귀)
+  const returnPath = location.state?.returnPath || null
+  const backToProgram = () => {
+    navigate(returnPath || `/programs/${programId}`)
+  }
 
   // 미션 로드 — RQ
   const {
@@ -91,7 +99,7 @@ function MissionVerifyPage() {
   }, [previewUrl])
 
   const handleClose = () => {
-    navigate(-1)
+    backToProgram()
   }
 
   // 제출 — useMutation. 성공 시 invalidate 로 모든 화면 자동 갱신
@@ -147,7 +155,8 @@ function MissionVerifyPage() {
       queryClient.invalidateQueries({ queryKey: ['rankings'] })
       queryClient.invalidateQueries({ queryKey: ['missions', 'today'] })
       // 운영자 본인이 자기 미션 인증한 경우 PENDING 도 갱신될 수 있음
-      navigate(`/programs/${programId}`)
+      // 묶음 진입이었으면 묶음 모달로 자동 복귀 (다른 미션 연속 인증 가능)
+      backToProgram()
     },
     onError: (err) => {
       console.error('인증 제출 오류:', err)

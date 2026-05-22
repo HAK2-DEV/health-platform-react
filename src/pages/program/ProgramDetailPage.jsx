@@ -1,12 +1,14 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../hooks/useAuth'
-import { ChevronLeft, Plus, Trash2 } from 'lucide-react'
+import { ChevronLeft, Plus, ChevronRight } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
-import { formatKoreanDate, toKSTDateString, checkMissionToday } from '../../lib/formatters'
+import { formatKoreanDate } from '../../lib/formatters'
+import MissionCard from '../../components/program/MissionCard'
 import ProgramEditModal from '../../components/program/ProgramEditModal'
 import MissionCreateModal from '../../components/program/MissionCreateModal'
+import MissionLibraryModal from '../../components/program/MissionLibraryModal'
 import ReviewModal from '../../components/program/ReviewModal'
 import {
   queryKeys,
@@ -25,10 +27,11 @@ function ProgramDetailPage() {
   const userId = session?.user?.id
 
   const [isEditOpen, setIsEditOpen] = useState(false)
+  const [isLibraryOpen, setIsLibraryOpen] = useState(false)
   const [isMissionCreateOpen, setIsMissionCreateOpen] = useState(false)
   const [isReviewOpen, setIsReviewOpen] = useState(false)
 
-  // 5개 useQuery 로 분리 — 각각 독립 캐시. 다른 화면(대시보드/랭킹)도 같은 키 공유.
+  // 5개 useQuery 로 분리 — 각각 독립 캐시. 다른 화면(대시보드/랭킹/묶음 디테일)도 같은 키 공유.
   const { data: program, isLoading: isProgramLoading, error: programError } = useQuery({
     queryKey: queryKeys.program(id),
     queryFn: () => fetchProgram(id),
@@ -61,6 +64,17 @@ function ProgramDetailPage() {
 
   const isOwner = program?.owner_id === userId
 
+  // 미션 그루핑 — bundle_title 별. null = 직접 만들기 (단독 카드), string = 라이브러리 묶음 (그룹 카드)
+  const missionGroups = useMemo(() => {
+    const map = new Map()
+    for (const m of missions) {
+      const key = m.bundle_title || null
+      if (!map.has(key)) map.set(key, [])
+      map.get(key).push(m)
+    }
+    return Array.from(map.entries()).map(([bundleTitle, ms]) => ({ bundleTitle, missions: ms }))
+  }, [missions])
+
   // 모달 mutation 후 갱신 헬퍼들
   const invalidateProgramData = () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.program(id) })
@@ -72,8 +86,7 @@ function ProgramDetailPage() {
     queryClient.invalidateQueries({ queryKey: ['rankings'] })
   }
 
-  // 미션 삭제 — CASCADE 로 verifications + score_ledgers 까지 함께 사라짐
-  //   → 점수/카운트/랭킹 모두 영향받으므로 prefix invalidate 로 광범위 무효화
+  // 미션 삭제 — CASCADE 로 verifications + score_ledgers 함께 사라짐
   const deleteMissionMutation = useMutation({
     mutationFn: async (missionId) => {
       const { error } = await supabase
@@ -237,7 +250,7 @@ function ProgramDetailPage() {
         {isOwner && (
           <button
             type="button"
-            onClick={() => setIsMissionCreateOpen(true)}
+            onClick={() => setIsLibraryOpen(true)}
             className="flex items-center gap-1 px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-sm rounded-full transition"
           >
             <Plus className="w-4 h-4" />
@@ -251,113 +264,41 @@ function ProgramDetailPage() {
         </div>
       ) : (
         <div className="grid gap-3">
-          {missions.map(mission => {
-            const types = []
-            if (mission.requires_image) types.push('업로드')
-            if (mission.requires_numeric) types.push('기록')
-            if (mission.requires_note) types.push('소감')
-            const isSupported = types.length > 0
-            const buttonLabel = types.length === 1 ? types[0] : (isSupported ? '인증' : null)
+          {missionGroups.map(group => {
+            // 단독 그룹 (bundle_title=null) — 미션 카드 풀어서 표시
+            if (group.bundleTitle === null) {
+              return group.missions.map(m => (
+                <MissionCard
+                  key={m.id}
+                  mission={m}
+                  todayCounts={todayCounts}
+                  isOwner={isOwner}
+                  isDeletePending={deleteMissionMutation.isPending}
+                  onDelete={handleMissionDelete}
+                  programId={id}
+                />
+              ))
+            }
 
-            const todayCount = todayCounts[mission.id]?.total || 0
-            const pendingCount = todayCounts[mission.id]?.pending || 0
-            const limit = mission.daily_limit
-            const reachedLimit = limit != null && todayCount >= limit
-            const hasPending = pendingCount > 0
-
-            const now = new Date()
-            const activeFrom = mission.active_from ? new Date(mission.active_from) : null
-            const activeUntil = mission.active_until ? new Date(mission.active_until) : null
-            const isBeforeStart = activeFrom && now < activeFrom
-            const isAfterEnd = activeUntil && now > activeUntil
-            // 점수 트리거 033 의 클라이언트 미러 — schedule_mode + 제외 기간 검사
-            const todayCheck = checkMissionToday(mission)
-            const isInactive = isBeforeStart || isAfterEnd || !todayCheck.active
-
-            const inactiveLabel = isBeforeStart
-              ? `${formatKoreanDate(toKSTDateString(activeFrom))} 시작`
-              : isAfterEnd
-              ? '운영 종료'
-              : !todayCheck.active
-              ? todayCheck.reason
-              : null
+            // 묶음 카드 — 클릭 시 BundleDetailPage 로 이동
+            const totalPoint = group.missions.reduce((s, m) => s + (m.point || 0), 0)
+            const bundleParam = encodeURIComponent(group.bundleTitle)
 
             return (
-              <div
-                key={mission.id}
-                className="bg-white border border-gray-200 rounded-lg p-4 flex items-center justify-between gap-3"
+              <button
+                key={group.bundleTitle}
+                type="button"
+                onClick={() => navigate(`/programs/${id}/bundles/${bundleParam}`)}
+                className="w-full flex items-center gap-3 p-4 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-emerald-300 transition text-left"
               >
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-medium text-gray-800 mb-1">{mission.title}</h3>
-                  <p className="text-xs text-gray-500">
-                    {mission.verification_type === 'AUTO' ? '자동 승인' : '운영자 심사'}
-                    {mission.daily_limit ? ` · 하루 ${mission.daily_limit}회` : ' · 무제한'}
+                  <h3 className="font-medium text-gray-800 truncate">{group.bundleTitle}</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {group.missions.length}개 미션 · 총 {totalPoint}P
                   </p>
                 </div>
-
-                <span className="px-2 py-1 bg-green-100 text-green-700 text-sm rounded font-medium flex-shrink-0">
-                  {mission.point}P
-                </span>
-
-                {!isSupported ? (
-                  <span className="text-xs text-gray-400 whitespace-nowrap flex-shrink-0">
-                    준비 중
-                  </span>
-                ) : isInactive ? (
-                  // 비활성 (기간 전/후/오늘 휴무) — 대시보드와 동일한 회색 칩으로 통일
-                  <span
-                    className="inline-flex items-center gap-1 px-3 py-2 bg-gray-100 text-gray-500 text-sm rounded font-medium whitespace-nowrap flex-shrink-0"
-                    title={inactiveLabel}
-                  >
-                    🚫 {inactiveLabel}
-                  </span>
-                ) : reachedLimit ? (
-                  <div className="text-right flex-shrink-0">
-                    {hasPending ? (
-                      <span className="inline-flex items-center gap-1 px-3 py-2 bg-amber-50 text-amber-700 text-sm rounded font-medium whitespace-nowrap">
-                        ⏳ 심사 대기
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 px-3 py-2 bg-emerald-50 text-emerald-600 text-sm rounded font-medium whitespace-nowrap">
-                        ✓ 오늘 인증 완료
-                      </span>
-                    )}
-                    {limit > 1 && (
-                      <p className="text-xs text-gray-500 mt-1 whitespace-nowrap">
-                        {todayCount}/{limit}회
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-right flex-shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/programs/${id}/missions/${mission.id}`)}
-                      className="px-3 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm rounded transition whitespace-nowrap"
-                    >
-                      {buttonLabel}
-                    </button>
-                    {limit > 1 && todayCount > 0 && (
-                      <p className="text-xs text-gray-500 mt-1 whitespace-nowrap">
-                        {todayCount}/{limit}회
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {/* 운영자 전용 삭제 — 인증/점수 모두 CASCADE 로 함께 삭제됨 */}
-                {isOwner && (
-                  <button
-                    type="button"
-                    onClick={() => handleMissionDelete(mission)}
-                    disabled={deleteMissionMutation.isPending}
-                    className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition flex-shrink-0 disabled:opacity-40"
-                    title="미션 삭제"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
+                <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
+              </button>
             )
           })}
         </div>
@@ -408,12 +349,23 @@ function ProgramDetailPage() {
         </div>
       )}
 
-      {/* 모달들 — onSuccess 는 invalidate 로 캐시 갱신 (모든 화면 자동 반영) */}
+      {/* 모달들 */}
       <ProgramEditModal
         program={program}
         isOpen={isEditOpen}
         onClose={() => setIsEditOpen(false)}
         onSuccess={invalidateProgramData}
+      />
+
+      <MissionLibraryModal
+        program={program}
+        isOpen={isLibraryOpen}
+        onClose={() => setIsLibraryOpen(false)}
+        onSuccess={invalidateProgramData}
+        onCustomCreate={() => {
+          setIsLibraryOpen(false)
+          setIsMissionCreateOpen(true)
+        }}
       />
 
       <MissionCreateModal

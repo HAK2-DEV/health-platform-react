@@ -10,6 +10,7 @@ import NicknameSetupPage from './pages/NicknameSetupPage'    // ⭐ 추가
 import DashboardPage from './pages/DashboardPage'                       // ⭐ 새 경로
 import ProgramNewPage from './pages/program/ProgramNewPage'            // ⭐ 추가
 import ProgramDetailPage from './pages/program/ProgramDetailPage'
+import BundleDetailPage from './pages/program/BundleDetailPage'
 import MissionVerifyPage from './pages/program/MissionVerifyPage'
 import ProgramListPage from './pages/program/ProgramListPage'
 import RankingsPage from './pages/RankingsPage'
@@ -73,6 +74,9 @@ function AppShell() {
   } />
   <Route path="/programs/:id" element={
     <ProtectedRoute><ProgramDetailPage /></ProtectedRoute>
+  } />
+  <Route path="/programs/:id/bundles/:bundleParam" element={
+    <ProtectedRoute><BundleDetailPage /></ProtectedRoute>
   } />
   <Route path="/programs/:programId/missions/:missionId" element={
     <ProtectedRoute><MissionVerifyPage /></ProtectedRoute>
