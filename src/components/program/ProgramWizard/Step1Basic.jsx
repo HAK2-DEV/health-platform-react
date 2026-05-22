@@ -1,40 +1,17 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronUp, Plus, X } from 'lucide-react'
 import { CATEGORY_LIST, PROGRAM } from '../../../lib/constants'
 import { getTodayKST } from '../../../lib/formatters'
 
-const SCHEDULE_MODES = [
-  { key: 'ALL_DAYS', label: '매일' },
-  { key: 'WEEKDAYS', label: '평일만 (월-금)' },
-  { key: 'WEEKENDS', label: '주말만 (토-일)' },
-  { key: 'CUSTOM', label: '직접 선택' },
-]
-
-const WEEKDAYS = [
-  { num: 1, label: '월' },
-  { num: 2, label: '화' },
-  { num: 3, label: '수' },
-  { num: 4, label: '목' },
-  { num: 5, label: '금' },
-  { num: 6, label: '토' },
-  { num: 7, label: '일' },
-]
-
+// 운영 요일 / 제외 기간 은 미션 단위로 이동 (032 마이그레이션, MissionCreateModal 에서 설정).
+// 프로그램에는 더 이상 세부 설정 토글이 없음.
 function Step1Basic({ initialData, onNext, onSave }) {
   const [name, setName] = useState(initialData?.name || '')
   const [description, setDescription] = useState(initialData?.description || '')
   const [startDate, setStartDate] = useState(initialData?.start_date || '')
   const [endDate, setEndDate] = useState(initialData?.end_date || '')
   const [categories, setCategories] = useState(initialData?.categories || [])
-  
-  // 세부 설정 (펼치기/접기)
-  const [showAdvanced, setShowAdvanced] = useState(false)
-  const [scheduleMode, setScheduleMode] = useState(initialData?.schedule_mode || 'ALL_DAYS')
-  const [activeDays, setActiveDays] = useState(initialData?.active_days || [])
-  const [excludedPeriods, setExcludedPeriods] = useState(initialData?.excluded_periods || [])
-  
   const [error, setError] = useState(null)
-  
+
   // 카테고리 토글
   const toggleCategory = (key) => {
     if (categories.includes(key)) {
@@ -43,36 +20,7 @@ function Step1Basic({ initialData, onNext, onSave }) {
       setCategories([...categories, key])
     }
   }
-  
-  // 운영 요일 토글 (CUSTOM 모드)
-  const toggleActiveDay = (num) => {
-    if (activeDays.includes(num)) {
-      setActiveDays(activeDays.filter(d => d !== num))
-    } else {
-      setActiveDays([...activeDays, num].sort())
-    }
-  }
-  
-  // 제외 기간 추가
-  const addExcludedPeriod = () => {
-    setExcludedPeriods([
-      ...excludedPeriods,
-      { start_date: '', end_date: '', reason: '' }
-    ])
-  }
-  
-  // 제외 기간 삭제
-  const removeExcludedPeriod = (index) => {
-    setExcludedPeriods(excludedPeriods.filter((_, i) => i !== index))
-  }
-  
-  // 제외 기간 수정
-  const updateExcludedPeriod = (index, field, value) => {
-    const updated = [...excludedPeriods]
-    updated[index] = { ...updated[index], [field]: value }
-    setExcludedPeriods(updated)
-  }
-  
+
   // 검증
   const validate = () => {
     if (!name.trim()) return '프로그램 이름을 입력해주세요'
@@ -86,22 +34,17 @@ function Step1Basic({ initialData, onNext, onSave }) {
       return `목표 설명은 최대 ${PROGRAM.DESCRIPTION_MAX_LENGTH}자까지 가능합니다`
     }
     if (categories.length === 0) return '카테고리를 최소 1개 선택해주세요'
-    if (scheduleMode === 'CUSTOM' && activeDays.length === 0) {
-      return '운영 요일을 최소 1일 선택해주세요'
-    }
     return null
   }
-  
+
   // 데이터 모음 (빈 문자열 날짜는 null로 — 임시저장 시 Postgres date 거부 방지)
+  //   schedule_mode/active_days/excluded_periods 는 더 이상 프로그램에 저장하지 않음 (미션으로 이동)
   const collectData = () => ({
     name: name.trim(),
     description: description.trim(),
     start_date: startDate || null,
     end_date: endDate || null,
     categories,
-    schedule_mode: scheduleMode,
-    active_days: scheduleMode === 'CUSTOM' ? activeDays : [],
-    excluded_periods: excludedPeriods.filter(p => p.start_date && p.end_date),
   })
 
   const handleNext = () => {
@@ -176,121 +119,6 @@ function Step1Basic({ initialData, onNext, onSave }) {
           />
         </div>
       </div>
-      
-      {/* 세부 설정 토글 */}
-      <button
-        type="button"
-        onClick={() => setShowAdvanced(!showAdvanced)}
-        className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-800 mb-5"
-      >
-        {showAdvanced ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-        세부 설정 (운영 요일, 제외 기간)
-      </button>
-      
-      {/* 세부 설정 내용 */}
-      {showAdvanced && (
-        <div className="bg-gray-50 p-4 rounded-md mb-5 space-y-4">
-          {/* 운영 요일 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              운영 요일
-            </label>
-            <div className="space-y-2">
-              {SCHEDULE_MODES.map(mode => (
-                <label key={mode.key} className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="scheduleMode"
-                    value={mode.key}
-                    checked={scheduleMode === mode.key}
-                    onChange={(e) => setScheduleMode(e.target.value)}
-                    className="text-green-500"
-                  />
-                  <span className="text-sm text-gray-700">{mode.label}</span>
-                </label>
-              ))}
-            </div>
-            
-            {/* CUSTOM 모드 = 요일 선택 */}
-            {scheduleMode === 'CUSTOM' && (
-              <div className="flex gap-1 mt-3">
-                {WEEKDAYS.map(day => (
-                  <button
-                    key={day.num}
-                    type="button"
-                    onClick={() => toggleActiveDay(day.num)}
-                    className={`
-                      w-10 h-10 rounded-md text-sm transition
-                      ${activeDays.includes(day.num)
-                        ? 'bg-green-500 text-white'
-                        : 'bg-white border border-gray-200 text-gray-600 hover:border-gray-300'}
-                    `}
-                  >
-                    {day.label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          
-          {/* 제외 기간 */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm font-medium text-gray-700">
-                제외 기간 (휴일, 휴가 등)
-              </label>
-              <button
-                type="button"
-                onClick={addExcludedPeriod}
-                className="flex items-center gap-1 text-xs text-green-600 hover:text-green-700"
-              >
-                <Plus className="w-3 h-3" />
-                추가
-              </button>
-            </div>
-            
-            {excludedPeriods.length === 0 ? (
-              <p className="text-xs text-gray-500 py-2">
-                제외 기간이 없습니다
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {excludedPeriods.map((period, index) => (
-                  <div key={index} className="flex items-center gap-2 bg-white p-2 rounded border border-gray-200">
-                    <input
-                      type="date"
-                      value={period.start_date}
-                      onChange={(e) => updateExcludedPeriod(index, 'start_date', e.target.value)}
-                      className="flex-1 px-2 py-1 text-sm border border-gray-200 rounded focus:outline-none focus:border-green-500"
-                    />
-                    <span className="text-xs text-gray-500">~</span>
-                    <input
-                      type="date"
-                      value={period.end_date}
-                      onChange={(e) => updateExcludedPeriod(index, 'end_date', e.target.value)}
-                      className="flex-1 px-2 py-1 text-sm border border-gray-200 rounded focus:outline-none focus:border-green-500"
-                    />
-                    <input
-                      type="text"
-                      value={period.reason}
-                      onChange={(e) => updateExcludedPeriod(index, 'reason', e.target.value)}
-                      placeholder="사유"
-                      className="w-20 px-2 py-1 text-sm border border-gray-200 rounded focus:outline-none focus:border-green-500"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeExcludedPeriod(index)}
-                      className="p-1 text-gray-400 hover:text-red-500"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
       
       {/* 목표 설정 */}
       <div className="mb-5">

@@ -2,11 +2,14 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ChevronLeft, Upload, X } from 'lucide-react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
 import { CATEGORY } from '../../lib/constants'
+import { checkMissionToday } from '../../lib/formatters'
+import { queryKeys, fetchMission } from '../../lib/queries'
 
-// 카테고리 → 히어로 그라데이션 (DashboardPage CATEGORY_COLORS 와 톤 일치)
+// 카테고리 → 히어로 그라데이션
 const CATEGORY_HERO = {
   WALKING:    { from: 'from-emerald-100', via: 'via-emerald-50/80', to: 'to-teal-50/40',    chip: 'bg-emerald-500' },
   DIET:       { from: 'from-green-100',   via: 'via-green-50/80',   to: 'to-emerald-50/40', chip: 'bg-green-500' },
@@ -17,62 +20,44 @@ const CATEGORY_HERO = {
   ETC:        { from: 'from-gray-100',    via: 'via-gray-50/80',    to: 'to-slate-50/40',   chip: 'bg-gray-500' },
 }
 
-// 참여자 미션 인증 전용 페이지 (히어로 스타일)
-// /programs/:programId/missions/:missionId
-// — 모달 대신 풀스크린: 헤더/바텀바 숨김 (App.jsx 분기)
-// — 사진 영역을 크게 (히어로 흰 카드 첫 영역) → 사진 위주 인증 UX 강화
-// — daily_limit / 활성 기간 / 미지원 케이스는 진입 전 ProgramDetailPage 에서 차단되지만,
-//   라우트 직접 진입을 대비해 mission 로드 후 isInactive/reachedLimit/!isSupported 만 guard
+// 참여자 미션 인증 페이지 (React Query 패턴)
+// — 미션 로드는 useQuery (캐시 자동) — 같은 미션 재진입 시 즉시 표시
+// — 제출은 useMutation — onSuccess 에서 관련 키 invalidate → 모든 화면 자동 갱신
 function MissionVerifyPage() {
   const { programId, missionId } = useParams()
   const { session } = useAuth()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const fileInputRef = useRef(null)
 
-  const [mission, setMission] = useState(null)
-  const [program, setProgram] = useState(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [loadError, setLoadError] = useState(null)
+  // 미션 로드 — RQ
+  const {
+    data: mission,
+    isLoading,
+    error: loadError,
+  } = useQuery({
+    queryKey: queryKeys.mission(missionId),
+    queryFn: () => fetchMission(missionId),
+    enabled: !!session && !!missionId,
+  })
 
+  const program = mission?.programs
+
+  // 입력 상태
   const [selectedFile, setSelectedFile] = useState(null)
   const [previewUrl, setPreviewUrl] = useState(null)
   const [numericValue, setNumericValue] = useState('')
   const [noteText, setNoteText] = useState('')
-
-  const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState(null)
 
-  // mission/program fetch (RLS: mission 은 본인이 참여 중인 program 만 보임 — 015)
-  useEffect(() => {
-    if (!session || !missionId) return
-    setIsLoading(true)
-    setLoadError(null)
-    ;(async () => {
-      const { data: m, error: mErr } = await supabase
-        .from('missions')
-        .select('*, programs!inner(id, name, categories)')
-        .eq('id', missionId)
-        .maybeSingle()
-
-      if (mErr || !m) {
-        setLoadError('미션을 찾을 수 없어요')
-        setIsLoading(false)
-        return
-      }
-      setMission(m)
-      setProgram(m.programs)
-      setIsLoading(false)
-    })()
-  }, [session, missionId])
-
-  // 입력 메타 — 미션이 요구하는 것만 노출
+  // 입력 메타
   const needsImage = !!mission?.requires_image
   const needsNumeric = !!mission?.requires_numeric
   const needsNote = !!mission?.requires_note
   const requireCount = [needsImage, needsNumeric, needsNote].filter(Boolean).length
   const isMulti = requireCount >= 2
 
-  // 카테고리 → 히어로 색 (첫 번째 카테고리 사용)
+  // 카테고리 → 히어로 색
   const catKey = program?.categories?.[0] || 'ETC'
   const hero = CATEGORY_HERO[catKey] || CATEGORY_HERO.ETC
   const catMeta = CATEGORY[catKey] || CATEGORY.ETC
@@ -99,7 +84,6 @@ function MissionVerifyPage() {
     setPreviewUrl(null)
   }
 
-  // 페이지 이탈 시 미리보기 URL 정리
   useEffect(() => {
     return () => {
       if (previewUrl) URL.revokeObjectURL(previewUrl)
@@ -110,9 +94,68 @@ function MissionVerifyPage() {
     navigate(-1)
   }
 
-  // 제출 — VerificationSubmitModal 의 handleSubmit 과 동일한 흐름
-  // 1) 입력 검증, 2) 사진 업로드 + SHA-256 해시, 3) verifications INSERT
-  const handleSubmit = async () => {
+  // 제출 — useMutation. 성공 시 invalidate 로 모든 화면 자동 갱신
+  const submitMutation = useMutation({
+    mutationFn: async () => {
+      const insertData = {
+        mission_id: mission.id,
+        user_id: session.user.id,
+      }
+      let imagePath = null
+
+      if (needsImage && selectedFile) {
+        const buffer = await selectedFile.arrayBuffer()
+        const hashBuffer = await crypto.subtle.digest('SHA-256', buffer)
+        const hashArray = Array.from(new Uint8Array(hashBuffer))
+        const imageHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+        insertData.image_hash = imageHash
+
+        const ext = selectedFile.name.split('.').pop()?.toLowerCase() || 'jpg'
+        const fileName = `${Date.now()}.${ext}`
+        const path = `${session.user.id}/${fileName}`
+
+        const { error: uploadError } = await supabase.storage
+          .from('verification-images')
+          .upload(path, selectedFile)
+        if (uploadError) throw new Error(`업로드 실패: ${uploadError.message}`)
+        imagePath = path
+        insertData.image_path = path
+      }
+
+      if (needsNumeric) insertData.numeric_value = parseFloat(numericValue)
+      if (needsNote) insertData.note = noteText.trim()
+
+      const { error: insertError } = await supabase
+        .from('verifications')
+        .insert(insertData)
+
+      if (insertError) {
+        if (imagePath) {
+          await supabase.storage.from('verification-images').remove([imagePath])
+        }
+        if (insertError.code === '23505') {
+          throw new Error('이미 인증에 사용한 사진이에요. 다른 사진을 올려주세요.')
+        }
+        throw new Error(`인증 제출 실패: ${insertError.message}`)
+      }
+    },
+    onSuccess: () => {
+      // 인증 성공 → 점수/카운트/랭킹 모두 무효화 → 다른 화면 진입 시 fresh
+      // prefix 무효화로 한 번에 처리 (새 키 추가 시 빠질 위험 줄임)
+      queryClient.invalidateQueries({ queryKey: ['scores'] })
+      queryClient.invalidateQueries({ queryKey: ['verifications'] })
+      queryClient.invalidateQueries({ queryKey: ['rankings'] })
+      queryClient.invalidateQueries({ queryKey: ['missions', 'today'] })
+      // 운영자 본인이 자기 미션 인증한 경우 PENDING 도 갱신될 수 있음
+      navigate(`/programs/${programId}`)
+    },
+    onError: (err) => {
+      console.error('인증 제출 오류:', err)
+      setError(err.message)
+    },
+  })
+
+  const handleSubmit = () => {
     if (!session || !mission) return
 
     if (needsImage && !selectedFile) {
@@ -130,74 +173,19 @@ function MissionVerifyPage() {
       setError('소감을 입력해주세요')
       return
     }
-
-    setIsSubmitting(true)
     setError(null)
-
-    try {
-      const insertData = {
-        mission_id: mission.id,
-        user_id: session.user.id,
-      }
-      let imagePath = null
-
-      if (needsImage && selectedFile) {
-        // SHA-256 — 본인의 같은 사진 중복 인증 차단 (029 partial UNIQUE)
-        const buffer = await selectedFile.arrayBuffer()
-        const hashBuffer = await crypto.subtle.digest('SHA-256', buffer)
-        const hashArray = Array.from(new Uint8Array(hashBuffer))
-        const imageHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
-        insertData.image_hash = imageHash
-
-        const ext = selectedFile.name.split('.').pop()?.toLowerCase() || 'jpg'
-        const fileName = `${Date.now()}.${ext}`
-        const path = `${session.user.id}/${fileName}`
-
-        const { error: uploadError } = await supabase.storage
-          .from('verification-images')
-          .upload(path, selectedFile)
-
-        if (uploadError) {
-          throw new Error(`업로드 실패: ${uploadError.message}`)
-        }
-        imagePath = path
-        insertData.image_path = path
-      }
-
-      if (needsNumeric) {
-        insertData.numeric_value = parseFloat(numericValue)
-      }
-      if (needsNote) {
-        insertData.note = noteText.trim()
-      }
-
-      const { error: insertError } = await supabase
-        .from('verifications')
-        .insert(insertData)
-
-      if (insertError) {
-        if (imagePath) {
-          await supabase.storage.from('verification-images').remove([imagePath])
-        }
-        if (insertError.code === '23505') {
-          throw new Error('이미 인증에 사용한 사진이에요. 다른 사진을 올려주세요.')
-        }
-        throw new Error(`인증 제출 실패: ${insertError.message}`)
-      }
-
-      // 제출 후 ProgramDetailPage 로 복귀 — refetch 는 detail 페이지의 useEffect 가 처리
-      navigate(`/programs/${programId}`)
-    } catch (err) {
-      console.error('인증 제출 오류:', err)
-      setError(err.message)
-      setIsSubmitting(false)
-    }
+    submitMutation.mutate()
   }
 
-  // 제출 가능 조건
+  const isSubmitting = submitMutation.isPending
+
+  // schedule_mode + 제외 기간 검사 (URL 직접 입력 우회 차단 — 점수 트리거 033 의 안전망)
+  const todayCheck = checkMissionToday(mission)
+
   const canSubmit = (() => {
     if (isSubmitting) return false
     if (!mission) return false
+    if (!todayCheck.active) return false
     if (needsImage && !selectedFile) return false
     if (needsNumeric && !numericValue) return false
     if (needsNote && !noteText.trim()) return false
@@ -213,7 +201,7 @@ function MissionVerifyPage() {
     )
   }
 
-  if (loadError) {
+  if (loadError || !mission) {
     return (
       <div className="px-4 pt-4">
         <button
@@ -223,21 +211,22 @@ function MissionVerifyPage() {
         >
           <ChevronLeft className="w-5 h-5 text-gray-600" />
         </button>
-        <p className="p-4 bg-red-50 text-red-700 rounded-lg text-center">{loadError}</p>
+        <p className="p-4 bg-red-50 text-red-700 rounded-lg text-center">
+          미션을 찾을 수 없어요
+        </p>
       </div>
     )
   }
 
   return (
     <div className="-mx-4 -mt-2">
-      {/* 히어로 영역 — 카테고리별 그라데이션 */}
+      {/* 히어로 영역 */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.3 }}
         className={`relative bg-gradient-to-b ${hero.from} ${hero.via} ${hero.to} pt-3 pb-20 px-5 overflow-hidden`}
       >
-        {/* 닫기 (← 백) — 좌상단 작은 흰 원 */}
         <button
           type="button"
           onClick={handleClose}
@@ -247,7 +236,6 @@ function MissionVerifyPage() {
           <ChevronLeft className="w-5 h-5 text-gray-700" />
         </button>
 
-        {/* 카테고리 + 프로그램명 */}
         <p className="text-xs text-gray-600 mb-1 flex items-center gap-1">
           <span className="text-base leading-none">{catMeta.emoji}</span>
           <span className="font-medium">{catMeta.label}</span>
@@ -255,12 +243,10 @@ function MissionVerifyPage() {
           <span className="truncate">{program?.name}</span>
         </p>
 
-        {/* 미션 타이틀 */}
         <h1 className="text-2xl font-medium text-gray-800 leading-tight mb-2">
           {mission.title}
         </h1>
 
-        {/* 포인트 + 자동/심사 칩 */}
         <div className="flex items-center gap-2 flex-wrap">
           <span className={`inline-flex items-center px-2.5 py-1 ${hero.chip} text-white text-xs rounded-full font-medium`}>
             +{mission.point}P
@@ -276,14 +262,24 @@ function MissionVerifyPage() {
         </div>
       </motion.div>
 
-      {/* 흰 카드 오버랩 — 입력 영역 */}
+      {/* 입력 카드 */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, delay: 0.05 }}
         className="relative -mt-10 bg-white rounded-t-3xl shadow-sm px-5 pt-6 pb-32"
       >
-        {/* 안내 (운영자가 입력) */}
+        {!todayCheck.active && (
+          <div className="mb-5 p-3 bg-amber-50 border border-amber-200 rounded-xl text-center">
+            <p className="text-sm font-medium text-amber-800 mb-0.5">
+              🚫 오늘은 인증할 수 없어요
+            </p>
+            <p className="text-xs text-amber-700">
+              {todayCheck.reason}
+            </p>
+          </div>
+        )}
+
         {mission.instruction && (
           <div className="mb-5 p-3 bg-gray-50 rounded-xl">
             <p className="text-xs text-gray-500 mb-1 font-medium">📋 안내</p>
@@ -293,7 +289,6 @@ function MissionVerifyPage() {
           </div>
         )}
 
-        {/* 사진 영역 */}
         {needsImage && (
           <div className="mb-5">
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -339,7 +334,6 @@ function MissionVerifyPage() {
           </div>
         )}
 
-        {/* 숫자 영역 */}
         {needsNumeric && (
           <div className="mb-5">
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -361,7 +355,6 @@ function MissionVerifyPage() {
           </div>
         )}
 
-        {/* 소감 영역 */}
         {needsNote && (
           <div className="mb-5">
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -382,7 +375,6 @@ function MissionVerifyPage() {
           </div>
         )}
 
-        {/* 인증 UI 없는 미션 (feature 자동생성 + requires_* 미설정 등 예외) */}
         {requireCount === 0 && (
           <div className="p-6 bg-amber-50 rounded-xl text-center">
             <p className="text-sm text-amber-700">
@@ -391,7 +383,6 @@ function MissionVerifyPage() {
           </div>
         )}
 
-        {/* 에러 */}
         {error && (
           <p className="mb-3 p-3 bg-red-50 text-red-700 rounded-xl text-sm text-center">
             {error}
@@ -399,7 +390,6 @@ function MissionVerifyPage() {
         )}
       </motion.div>
 
-      {/* 하단 sticky 제출 영역 — BottomTabBar 숨겨진 상태이므로 화면 하단에 직접 고정 */}
       <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-gray-100 px-5 py-3 z-40">
         <div className="max-w-4xl mx-auto flex gap-2">
           <button

@@ -1,134 +1,109 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../hooks/useAuth'
+import { ChevronLeft, Plus, Trash2 } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
-import { ChevronLeft } from 'lucide-react'
-import { formatKoreanDate, toKSTDateString } from '../../lib/formatters'
+import { formatKoreanDate, toKSTDateString, checkMissionToday } from '../../lib/formatters'
 import ProgramEditModal from '../../components/program/ProgramEditModal'
 import MissionCreateModal from '../../components/program/MissionCreateModal'
 import ReviewModal from '../../components/program/ReviewModal'
-import { Plus } from 'lucide-react'
+import {
+  queryKeys,
+  fetchProgram,
+  fetchProgramMissions,
+  fetchProgramScores,
+  fetchProgramRanking,
+  fetchTodayCounts,
+} from '../../lib/queries'
 
 function ProgramDetailPage() {
   const { id } = useParams()
   const { session } = useAuth()
   const navigate = useNavigate()
-
-  const [program, setProgram] = useState(null)
-  const [missions, setMissions] = useState([])
-  const [myScore, setMyScore] = useState(0)
-  const [todayScore, setTodayScore] = useState(0)
-  const [ranking, setRanking] = useState([])
-  // 본인 KST 오늘 미션별 인증 횟수 (mission_id → count)
-  const [todayCounts, setTodayCounts] = useState({})
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const queryClient = useQueryClient()
+  const userId = session?.user?.id
 
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isMissionCreateOpen, setIsMissionCreateOpen] = useState(false)
   const [isReviewOpen, setIsReviewOpen] = useState(false)
 
-  // KST 기준 'YYYY-MM-DD' 문자열 (Intl 이 timezone 안전)
-  const formatKstDate = (date) =>
-    new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Asia/Seoul',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(date)
+  // 5개 useQuery 로 분리 — 각각 독립 캐시. 다른 화면(대시보드/랭킹)도 같은 키 공유.
+  const { data: program, isLoading: isProgramLoading, error: programError } = useQuery({
+    queryKey: queryKeys.program(id),
+    queryFn: () => fetchProgram(id),
+    enabled: !!session && !!id,
+  })
 
-  const fetchData = async () => {
-    if (!session || !id) return
+  const { data: missions = [] } = useQuery({
+    queryKey: queryKeys.programMissions(id),
+    queryFn: () => fetchProgramMissions(id),
+    enabled: !!session && !!id,
+  })
 
-    setError(null)
+  const { data: scores = { total: 0, today: 0 } } = useQuery({
+    queryKey: queryKeys.programScores(id, userId),
+    queryFn: () => fetchProgramScores(id, userId),
+    enabled: !!session && !!id,
+  })
 
-    // 1) 프로그램 정보
-    const { data: programData, error: programError } = await supabase
-      .from('programs')
-      .select('*')
-      .eq('id', id)
-      .maybeSingle()
+  const { data: ranking = [] } = useQuery({
+    queryKey: queryKeys.programRanking(id),
+    queryFn: () => fetchProgramRanking(id),
+    enabled: !!session && !!id,
+  })
 
-    if (programError || !programData) {
-      setError('프로그램을 찾을 수 없습니다')
-      return
-    }
-    setProgram(programData)
+  const { data: todayCounts = {} } = useQuery({
+    queryKey: queryKeys.todayCounts(userId),
+    queryFn: () => fetchTodayCounts(userId),
+    enabled: !!session,
+  })
 
-    // 2) 미션 목록
-    const { data: missionsData, error: missionsError } = await supabase
-      .from('missions')
-      .select('*')
-      .eq('program_id', id)
-      .order('feature')
+  const isOwner = program?.owner_id === userId
 
-    if (missionsError) {
-      console.error('미션 조회 실패:', missionsError)
-    } else {
-      setMissions(missionsData || [])
-    }
-
-    // 3) 본인의 점수 (누적 + KST 오늘)
-    const { data: scoreData, error: scoreError } = await supabase
-      .from('score_ledgers')
-      .select('point, created_at')
-      .eq('program_id', id)
-      .eq('user_id', session.user.id)
-
-    if (scoreError) {
-      console.error('점수 조회 실패:', scoreError)
-    } else {
-      const rows = scoreData || []
-      const total = rows.reduce((sum, row) => sum + row.point, 0)
-      setMyScore(total)
-
-      // KST 오늘만 합산
-      const todayKst = formatKstDate(new Date())
-      const todayTotal = rows
-        .filter(row => formatKstDate(new Date(row.created_at)) === todayKst)
-        .reduce((sum, row) => sum + row.point, 0)
-      setTodayScore(todayTotal)
-    }
-
-    // 4) 랭킹 (RPC — RLS 우회 SECURITY DEFINER 함수)
-    const { data: rankingData, error: rankingError } = await supabase
-      .rpc('get_program_ranking', { p_program_id: id })
-
-    if (rankingError) {
-      console.error('랭킹 조회 실패:', rankingError)
-    } else {
-      setRanking(rankingData || [])
-    }
-
-    // 5) 본인의 KST 오늘 미션별 인증 횟수 (daily_limit 연동)
-    //    PENDING_REVIEW 도 카운트 — 운영자 심사 대기도 제출 횟수에 포함
-    const { data: vData, error: vError } = await supabase
-      .from('verifications')
-      .select('mission_id, submitted_at')
-      .eq('user_id', session.user.id)
-      .in('status', ['APPROVED', 'PENDING_REVIEW'])
-
-    if (vError) {
-      console.error('인증 횟수 조회 실패:', vError)
-    } else {
-      const todayKst = formatKstDate(new Date())
-      const counts = {}
-      ;(vData || []).forEach(v => {
-        const vKst = formatKstDate(new Date(v.submitted_at))
-        if (vKst === todayKst) {
-          counts[v.mission_id] = (counts[v.mission_id] || 0) + 1
-        }
-      })
-      setTodayCounts(counts)
-    }
+  // 모달 mutation 후 갱신 헬퍼들
+  const invalidateProgramData = () => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.program(id) })
+    queryClient.invalidateQueries({ queryKey: queryKeys.programMissions(id) })
+  }
+  const invalidateAfterReview = () => {
+    queryClient.invalidateQueries({ queryKey: ['scores'] })
+    queryClient.invalidateQueries({ queryKey: ['verifications'] })
+    queryClient.invalidateQueries({ queryKey: ['rankings'] })
   }
 
-  useEffect(() => {
-    setIsLoading(true)
-    fetchData().finally(() => setIsLoading(false))
-  }, [session, id])
+  // 미션 삭제 — CASCADE 로 verifications + score_ledgers 까지 함께 사라짐
+  //   → 점수/카운트/랭킹 모두 영향받으므로 prefix invalidate 로 광범위 무효화
+  const deleteMissionMutation = useMutation({
+    mutationFn: async (missionId) => {
+      const { error } = await supabase
+        .from('missions')
+        .delete()
+        .eq('id', missionId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.programMissions(id) })
+      queryClient.invalidateQueries({ queryKey: ['missions', 'today'] })
+      queryClient.invalidateQueries({ queryKey: ['scores'] })
+      queryClient.invalidateQueries({ queryKey: ['verifications'] })
+      queryClient.invalidateQueries({ queryKey: ['rankings'] })
+    },
+    onError: (err) => {
+      console.error('미션 삭제 실패:', err)
+      alert(`미션 삭제에 실패했습니다: ${err.message}`)
+    },
+  })
 
-  if (isLoading) {
+  const handleMissionDelete = (mission) => {
+    if (!window.confirm(
+      `"${mission.title}" 미션을 삭제할까요?\n\n` +
+      `⚠️ 이 미션의 모든 인증 기록과 부여된 점수가 함께 삭제돼요. 되돌릴 수 없어요.`
+    )) return
+    deleteMissionMutation.mutate(mission.id)
+  }
+
+  if (isProgramLoading) {
     return (
       <div className="p-6 max-w-4xl mx-auto text-center text-gray-500">
         불러오는 중...
@@ -136,10 +111,10 @@ function ProgramDetailPage() {
     )
   }
 
-  if (error) {
+  if (programError || !program) {
     return (
       <div className="p-6 max-w-4xl mx-auto">
-        <p className="p-4 bg-red-100 text-red-700 rounded">{error}</p>
+        <p className="p-4 bg-red-100 text-red-700 rounded">프로그램을 찾을 수 없습니다</p>
         <Link to="/dashboard" className="block mt-4 text-green-600 hover:underline">
           ← 대시보드로
         </Link>
@@ -149,7 +124,7 @@ function ProgramDetailPage() {
 
   return (
     <div className="px-4 pt-2 pb-6 max-w-4xl mx-auto">
-      {/* 좌측 상단 작은 "<" 백 버튼 (컴팩트) */}
+      {/* 좌측 상단 작은 "<" 백 버튼 */}
       <button
         type="button"
         onClick={() => navigate(-1)}
@@ -184,8 +159,8 @@ function ProgramDetailPage() {
         )}
       </div>
 
-      {/* 운영자 패널 (owner 본인) — 미래 관리 기능의 기반 자리 */}
-      {program.owner_id === session?.user?.id && (
+      {/* 운영자 패널 */}
+      {isOwner && (
         <div className="bg-amber-50 border-2 border-amber-200 rounded-lg p-4 mb-6">
           <h2 className="flex items-center gap-2 text-sm font-medium text-amber-800 mb-3">
             ⚙️ 운영자 패널
@@ -229,9 +204,8 @@ function ProgramDetailPage() {
         </div>
       )}
 
-      {/* 점수 요약 — 오늘 / 누적 두 카드 */}
+      {/* 점수 요약 — 오늘 / 누적 */}
       {(() => {
-        // 오늘 가능 점수: daily_max_score 가 있으면 우선, 없으면 미션별 point × daily_limit(또는 1) 합
         const todayMax = program.daily_max_score ?? missions.reduce(
           (sum, m) => sum + m.point * (m.daily_limit || 1),
           0
@@ -241,7 +215,7 @@ function ProgramDetailPage() {
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <p className="text-xs text-blue-700 mb-1">오늘 획득</p>
               <p className="font-medium text-blue-800">
-                <span className="text-2xl">{todayScore}</span>
+                <span className="text-2xl">{scores.today}</span>
                 <span className="text-base"> P</span>
                 <span className="text-sm text-blue-600 ml-1">/ {todayMax}P</span>
               </p>
@@ -249,7 +223,7 @@ function ProgramDetailPage() {
             <div className="bg-green-50 border border-green-200 rounded-lg p-4">
               <p className="text-xs text-green-700 mb-1">누적</p>
               <p className="font-medium text-green-800">
-                <span className="text-2xl">{myScore}</span>
+                <span className="text-2xl">{scores.total}</span>
                 <span className="text-base"> P</span>
               </p>
             </div>
@@ -257,10 +231,10 @@ function ProgramDetailPage() {
         )
       })()}
 
-      {/* 미션 목록 헤더 (owner 면 + 미션 추가 버튼) */}
+      {/* 미션 목록 */}
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-lg font-medium text-gray-800">📋 미션 목록</h2>
-        {program.owner_id === session?.user?.id && (
+        {isOwner && (
           <button
             type="button"
             onClick={() => setIsMissionCreateOpen(true)}
@@ -278,7 +252,6 @@ function ProgramDetailPage() {
       ) : (
         <div className="grid gap-3">
           {missions.map(mission => {
-            // 인증 유형 메타로 분기 (운영자 추가 미션 + 자동 생성 둘 다 처리)
             const types = []
             if (mission.requires_image) types.push('업로드')
             if (mission.requires_numeric) types.push('기록')
@@ -286,23 +259,27 @@ function ProgramDetailPage() {
             const isSupported = types.length > 0
             const buttonLabel = types.length === 1 ? types[0] : (isSupported ? '인증' : null)
 
-            // daily_limit 연동 — 오늘 인증 횟수가 한도 도달했나?
-            const todayCount = todayCounts[mission.id] || 0
+            const todayCount = todayCounts[mission.id]?.total || 0
+            const pendingCount = todayCounts[mission.id]?.pending || 0
             const limit = mission.daily_limit
             const reachedLimit = limit != null && todayCount >= limit
+            const hasPending = pendingCount > 0
 
-            // 활성 기간 검증 (KST 기준)
             const now = new Date()
             const activeFrom = mission.active_from ? new Date(mission.active_from) : null
             const activeUntil = mission.active_until ? new Date(mission.active_until) : null
             const isBeforeStart = activeFrom && now < activeFrom
             const isAfterEnd = activeUntil && now > activeUntil
-            const isInactive = isBeforeStart || isAfterEnd
+            // 점수 트리거 033 의 클라이언트 미러 — schedule_mode + 제외 기간 검사
+            const todayCheck = checkMissionToday(mission)
+            const isInactive = isBeforeStart || isAfterEnd || !todayCheck.active
 
             const inactiveLabel = isBeforeStart
               ? `${formatKoreanDate(toKSTDateString(activeFrom))} 시작`
               : isAfterEnd
               ? '운영 종료'
+              : !todayCheck.active
+              ? todayCheck.reason
               : null
 
             return (
@@ -322,28 +299,21 @@ function ProgramDetailPage() {
                   {mission.point}P
                 </span>
 
-                {/* 우측 액션 — 4가지 상태: 미지원 / 비활성기간 / 오늘 완료 / 활성 */}
                 {!isSupported ? (
                   <span className="text-xs text-gray-400 whitespace-nowrap flex-shrink-0">
                     준비 중
                   </span>
                 ) : isInactive ? (
-                  <div className="text-right flex-shrink-0">
-                    <button
-                      type="button"
-                      disabled
-                      className="px-3 py-2 bg-gray-200 text-gray-400 text-sm rounded cursor-not-allowed whitespace-nowrap"
-                      title={inactiveLabel}
-                    >
-                      {buttonLabel}
-                    </button>
-                    <p className="text-xs text-gray-500 mt-1 whitespace-nowrap">
-                      {inactiveLabel}
-                    </p>
-                  </div>
+                  // 비활성 (기간 전/후/오늘 휴무) — 대시보드와 동일한 회색 칩으로 통일
+                  <span
+                    className="inline-flex items-center gap-1 px-3 py-2 bg-gray-100 text-gray-500 text-sm rounded font-medium whitespace-nowrap flex-shrink-0"
+                    title={inactiveLabel}
+                  >
+                    🚫 {inactiveLabel}
+                  </span>
                 ) : reachedLimit ? (
                   <div className="text-right flex-shrink-0">
-                    {mission.verification_type === 'MANUAL' ? (
+                    {hasPending ? (
                       <span className="inline-flex items-center gap-1 px-3 py-2 bg-amber-50 text-amber-700 text-sm rounded font-medium whitespace-nowrap">
                         ⏳ 심사 대기
                       </span>
@@ -374,6 +344,19 @@ function ProgramDetailPage() {
                     )}
                   </div>
                 )}
+
+                {/* 운영자 전용 삭제 — 인증/점수 모두 CASCADE 로 함께 삭제됨 */}
+                {isOwner && (
+                  <button
+                    type="button"
+                    onClick={() => handleMissionDelete(mission)}
+                    disabled={deleteMissionMutation.isPending}
+                    className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition flex-shrink-0 disabled:opacity-40"
+                    title="미션 삭제"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
               </div>
             )
           })}
@@ -389,7 +372,7 @@ function ProgramDetailPage() {
       ) : (
         <div className="grid gap-2">
           {ranking.map(row => {
-            const isMe = row.user_id === session?.user?.id
+            const isMe = row.user_id === userId
             const rankBadgeClass =
               row.rank === 1 ? 'bg-yellow-100 text-yellow-700'
               : row.rank === 2 ? 'bg-gray-200 text-gray-700'
@@ -401,9 +384,7 @@ function ProgramDetailPage() {
                 key={row.user_id}
                 className={`
                   flex items-center justify-between p-3 rounded-lg border
-                  ${isMe
-                    ? 'bg-green-50 border-green-300'
-                    : 'bg-white border-gray-200'}
+                  ${isMe ? 'bg-green-50 border-green-300' : 'bg-white border-gray-200'}
                 `}
               >
                 <div className="flex items-center gap-3">
@@ -427,28 +408,26 @@ function ProgramDetailPage() {
         </div>
       )}
 
-      {/* 프로그램 수정 모달 (owner 만) */}
+      {/* 모달들 — onSuccess 는 invalidate 로 캐시 갱신 (모든 화면 자동 반영) */}
       <ProgramEditModal
         program={program}
         isOpen={isEditOpen}
         onClose={() => setIsEditOpen(false)}
-        onSuccess={fetchData}
+        onSuccess={invalidateProgramData}
       />
 
-      {/* 미션 추가 모달 (owner 만) */}
       <MissionCreateModal
         program={program}
         isOpen={isMissionCreateOpen}
         onClose={() => setIsMissionCreateOpen(false)}
-        onSuccess={fetchData}
+        onSuccess={invalidateProgramData}
       />
 
-      {/* 인증 심사 모달 (owner 만) */}
       <ReviewModal
         program={program}
         isOpen={isReviewOpen}
         onClose={() => setIsReviewOpen(false)}
-        onSuccess={fetchData}
+        onSuccess={invalidateAfterReview}
       />
     </div>
   )

@@ -95,55 +95,6 @@ export const PROGRAM_TYPE_LIST = [
   PROGRAM_TYPE.HABIT,
 ]
 
-// 프로그램 기능 모듈
-export const FEATURE = {
-  IMAGE_UPLOAD: { 
-    key: 'image_upload', 
-    label: '이미지 업로드',
-    description: '사진/영상으로 활동을 인증해요',
-    emoji: '📸'
-  },
-  COMMENT: { 
-    key: 'comment', 
-    label: '댓글 작성',
-    description: '소감/후기를 댓글로 남겨요',
-    emoji: '💬'
-  },
-  LIKE: { 
-    key: 'like', 
-    label: '좋아요',
-    description: '서로의 활동에 좋아요로 응원해요',
-    emoji: '❤️'
-  },
-  NUMERIC_RECORD: { 
-    key: 'numeric_record', 
-    label: '숫자 기록',
-    description: '걸음 수, 거리 등 숫자를 기록해요',
-    emoji: '🔢'
-  },
-  BODY_METRICS: { 
-    key: 'body_metrics', 
-    label: '신체 지표',
-    description: '체중, 체지방, 골격근량을 기록해요',
-    emoji: '⚖️'
-  },
-  QUIZ: { 
-    key: 'quiz', 
-    label: '퀴즈 풀이',
-    description: '건강 지식 퀴즈로 학습해요',
-    emoji: '🧩'
-  },
-}
-
-export const FEATURE_LIST = [
-  FEATURE.IMAGE_UPLOAD,
-  FEATURE.COMMENT,
-  FEATURE.LIKE,
-  FEATURE.NUMERIC_RECORD,
-  FEATURE.BODY_METRICS,
-  FEATURE.QUIZ,
-]
-
 // 참여 방식
 export const JOIN_TYPE = {
   FREE: { 
@@ -170,4 +121,23 @@ export const JOIN_TYPE_LIST = [
   JOIN_TYPE.FREE,
   JOIN_TYPE.APPROVAL,
   JOIN_TYPE.INVITE_CODE,
+]
+
+// 운영 요일 모드 — missions.schedule_mode 와 일치 (032 마이그레이션 + 033 점수 트리거)
+export const SCHEDULE_MODES = [
+  { key: 'ALL_DAYS', label: '매일' },
+  { key: 'WEEKDAYS', label: '평일만 (월-금)' },
+  { key: 'WEEKENDS', label: '주말만 (토-일)' },
+  { key: 'CUSTOM',   label: '직접 선택' },
+]
+
+// ISO 8601 요일 (1=월 ... 7=일) — missions.active_days 와 점수 트리거 ISODOW 와 일치
+export const WEEKDAY_OPTIONS = [
+  { num: 1, label: '월' },
+  { num: 2, label: '화' },
+  { num: 3, label: '수' },
+  { num: 4, label: '목' },
+  { num: 5, label: '금' },
+  { num: 6, label: '토' },
+  { num: 7, label: '일' },
 ]

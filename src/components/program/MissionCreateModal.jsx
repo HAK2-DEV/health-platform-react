@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import Modal from '../common/Modal'
 import { supabase } from '../../supabaseClient'
-import { Image as ImageIcon, BarChart3, MessageSquare } from 'lucide-react'
+import { Image as ImageIcon, BarChart3, MessageSquare, ChevronDown, ChevronUp, Plus, X } from 'lucide-react'
+import { SCHEDULE_MODES, WEEKDAY_OPTIONS } from '../../lib/constants'
 
 // 운영자가 자기 프로그램에 미션을 직접 추가 (본인 (가) 진화)
 // 인증 유형 3가지: 사진(requires_image) / 기록(requires_numeric) / 소감(requires_note)
@@ -16,6 +17,14 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess }) {
   const [requiresImage, setRequiresImage] = useState(true)
   const [requiresNumeric, setRequiresNumeric] = useState(false)
   const [requiresNote, setRequiresNote] = useState(false)
+
+  // 일정 옵션 (032 마이그레이션 — 미션 단위 schedule_mode/active_days/excluded_periods)
+  //   대부분 미션은 매일+제외없음이라 디폴트 접힘 (UI 단순화)
+  const [showSchedule, setShowSchedule] = useState(false)
+  const [scheduleMode, setScheduleMode] = useState('ALL_DAYS')
+  const [activeDays, setActiveDays] = useState([])
+  const [excludedPeriods, setExcludedPeriods] = useState([])
+
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState(null)
 
@@ -30,10 +39,31 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess }) {
       setRequiresImage(true)
       setRequiresNumeric(false)
       setRequiresNote(false)
+      setShowSchedule(false)
+      setScheduleMode('ALL_DAYS')
+      setActiveDays([])
+      setExcludedPeriods([])
       setError(null)
       setIsSaving(false)
     }
   }, [isOpen])
+
+  const toggleActiveDay = (num) => {
+    setActiveDays(prev =>
+      prev.includes(num) ? prev.filter(d => d !== num) : [...prev, num].sort()
+    )
+  }
+  const addExcludedPeriod = () => {
+    setExcludedPeriods([...excludedPeriods, { start_date: '', end_date: '', reason: '' }])
+  }
+  const removeExcludedPeriod = (index) => {
+    setExcludedPeriods(excludedPeriods.filter((_, i) => i !== index))
+  }
+  const updateExcludedPeriod = (index, field, value) => {
+    const updated = [...excludedPeriods]
+    updated[index] = { ...updated[index], [field]: value }
+    setExcludedPeriods(updated)
+  }
 
   const validate = () => {
     if (!title.trim()) return '미션 제목을 입력해주세요'
@@ -41,6 +71,9 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess }) {
     if (isNaN(p) || p < 1) return '점수는 1 이상이어야 합니다'
     if (!requiresImage && !requiresNumeric && !requiresNote) {
       return '인증 유형을 최소 1개 선택해주세요'
+    }
+    if (scheduleMode === 'CUSTOM' && activeDays.length === 0) {
+      return '운영 요일을 최소 1일 선택해주세요'
     }
     return null
   }
@@ -67,6 +100,10 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess }) {
         requires_note: requiresNote,
         active_from: `${program.start_date}T00:00:00+09:00`,
         active_until: `${program.end_date}T23:59:59+09:00`,
+        // 일정 옵션 — 033 점수 트리거가 KST 기준으로 검사
+        schedule_mode: scheduleMode,
+        active_days: scheduleMode === 'CUSTOM' ? activeDays : [],
+        excluded_periods: excludedPeriods.filter(p => p.start_date && p.end_date),
       })
 
     if (insertError) {
@@ -234,6 +271,137 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess }) {
                 운영자 심사
               </button>
             </div>
+          </div>
+
+          {/* 일정 (선택) — 운영 요일 + 제외 기간 */}
+          <div className="mb-4">
+            <button
+              type="button"
+              onClick={() => setShowSchedule(!showSchedule)}
+              disabled={isSaving}
+              className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-800 disabled:opacity-50"
+            >
+              {showSchedule ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              운영 일정 (선택) — {scheduleMode === 'ALL_DAYS' ? '매일' :
+                                   scheduleMode === 'WEEKDAYS' ? '평일만' :
+                                   scheduleMode === 'WEEKENDS' ? '주말만' :
+                                   '직접 선택'}
+              {excludedPeriods.filter(p => p.start_date && p.end_date).length > 0 && (
+                <span className="text-xs text-amber-600 ml-1">
+                  · 제외 {excludedPeriods.filter(p => p.start_date && p.end_date).length}건
+                </span>
+              )}
+            </button>
+
+            {showSchedule && (
+              <div className="mt-3 bg-gray-50 p-3 rounded-md space-y-4">
+                {/* 운영 요일 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    운영 요일
+                  </label>
+                  <div className="space-y-1.5">
+                    {SCHEDULE_MODES.map(mode => (
+                      <label key={mode.key} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="missionScheduleMode"
+                          value={mode.key}
+                          checked={scheduleMode === mode.key}
+                          onChange={(e) => setScheduleMode(e.target.value)}
+                          disabled={isSaving}
+                          className="text-emerald-500"
+                        />
+                        <span className="text-sm text-gray-700">{mode.label}</span>
+                      </label>
+                    ))}
+                  </div>
+
+                  {scheduleMode === 'CUSTOM' && (
+                    <div className="flex gap-1 mt-2">
+                      {WEEKDAY_OPTIONS.map(day => (
+                        <button
+                          key={day.num}
+                          type="button"
+                          onClick={() => toggleActiveDay(day.num)}
+                          disabled={isSaving}
+                          className={`
+                            w-9 h-9 rounded-md text-sm transition disabled:opacity-50
+                            ${activeDays.includes(day.num)
+                              ? 'bg-emerald-500 text-white'
+                              : 'bg-white border border-gray-200 text-gray-600 hover:border-gray-300'}
+                          `}
+                        >
+                          {day.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* 제외 기간 */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      제외 기간 (휴일·휴가 등)
+                    </label>
+                    <button
+                      type="button"
+                      onClick={addExcludedPeriod}
+                      disabled={isSaving}
+                      className="flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 disabled:opacity-50"
+                    >
+                      <Plus className="w-3 h-3" />
+                      추가
+                    </button>
+                  </div>
+
+                  {excludedPeriods.length === 0 ? (
+                    <p className="text-xs text-gray-500 py-1">
+                      제외 기간이 없습니다
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {excludedPeriods.map((period, index) => (
+                        <div key={index} className="flex items-center gap-2 bg-white p-2 rounded border border-gray-200">
+                          <input
+                            type="date"
+                            value={period.start_date}
+                            onChange={(e) => updateExcludedPeriod(index, 'start_date', e.target.value)}
+                            disabled={isSaving}
+                            className="flex-1 px-2 py-1 text-sm border border-gray-200 rounded focus:outline-none focus:border-emerald-500 disabled:bg-gray-50"
+                          />
+                          <span className="text-xs text-gray-500">~</span>
+                          <input
+                            type="date"
+                            value={period.end_date}
+                            onChange={(e) => updateExcludedPeriod(index, 'end_date', e.target.value)}
+                            disabled={isSaving}
+                            className="flex-1 px-2 py-1 text-sm border border-gray-200 rounded focus:outline-none focus:border-emerald-500 disabled:bg-gray-50"
+                          />
+                          <input
+                            type="text"
+                            value={period.reason}
+                            onChange={(e) => updateExcludedPeriod(index, 'reason', e.target.value)}
+                            placeholder="사유"
+                            disabled={isSaving}
+                            className="w-20 px-2 py-1 text-sm border border-gray-200 rounded focus:outline-none focus:border-emerald-500 disabled:bg-gray-50"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeExcludedPeriod(index)}
+                            disabled={isSaving}
+                            className="p-1 text-gray-400 hover:text-red-500 disabled:opacity-50"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* 에러 */}

@@ -7,7 +7,6 @@ import Step1Basic from '../../components/program/ProgramWizard/Step1Basic'
 import Step2Type from '../../components/program/ProgramWizard/Step2Type'
 import Step3JoinConditions from '../../components/program/ProgramWizard/Step3JoinConditions'
 import Step4Summary from '../../components/program/ProgramWizard/Step4Summary'
-// 폐기: Step3Features, Step4Scoring, Step5Complete — (가) 진화로 features/scoring 제거 (파일은 보존)
 
 
 function ProgramNewPage() {

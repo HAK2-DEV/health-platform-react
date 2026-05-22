@@ -1,12 +1,21 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../supabaseClient'
 import { Plus, Activity, Trash2, ChevronRight, ClipboardList, Target, Clock, Trophy, Bell } from 'lucide-react'
-import { formatKoreanDate, getTodayKST } from '../lib/formatters'
-import { PROGRAM_STATUS, CATEGORY } from '../lib/constants'
+import { formatKoreanDate, checkMissionToday } from '../lib/formatters'
+import { CATEGORY } from '../lib/constants'
 import ProgramDetailModal from '../components/program/ProgramDetailModal'
+import {
+  queryKeys,
+  fetchMyPrograms,
+  fetchActivePrograms,
+  fetchTotalPoints,
+  fetchTodayMissions,
+  fetchTodayCounts,
+} from '../lib/queries'
 
 // Stagger fade-in 애니메이션 — 카드들이 차례로 등장
 const containerVariants = {
@@ -32,15 +41,6 @@ const CATEGORY_COLORS = {
   ETC:        { bg: 'bg-gray-50',    border: 'border-gray-100',    accent: 'bg-gray-400' },
 }
 
-// KST 기준 'YYYY-MM-DD' 문자열 (Intl 이 timezone 안전)
-const formatKstDate = (date) =>
-  new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Seoul',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(date)
-
 // 시간 기반 진행률 (KST)
 const calcProgress = (startDate, endDate) => {
   if (!startDate || !endDate) return 0
@@ -56,201 +56,53 @@ const calcProgress = (startDate, endDate) => {
 
 
 function DashboardPage() {
-  const { session, nickname } = useAuth()
-  const [myPrograms, setMyPrograms] = useState([])
-  const [isLoading, setIsLoading] = useState(true)
+  const { session } = useAuth()
   const navigate = useNavigate()
-  const [selectedProgram, setSelectedProgram] = useState(null)   // ⭐ 추가
+  const queryClient = useQueryClient()
+  const userId = session?.user?.id
 
-  // 공개 프로그램 둘러보기
-  const [publicPrograms, setPublicPrograms] = useState([])
-  const [isLoadingPublic, setIsLoadingPublic] = useState(true)
+  const [selectedProgram, setSelectedProgram] = useState(null)
 
-  // 참여 중인 프로그램
-  const [activePrograms, setActivePrograms] = useState([])
-  const [isLoadingActive, setIsLoadingActive] = useState(true)
-
-  // 통계 — 본인의 누적 포인트 (모든 프로그램 합산)
-  const [totalPoints, setTotalPoints] = useState(0)
-
-  // 오늘의 미션 통합 — 본인 ACTIVE 참여 모든 프로그램의 오늘 활성 미션
-  const [todayMissions, setTodayMissions] = useState([])
-  // 본인 KST 오늘 미션별 인증 횟수 (mission_id → count)
-  const [todayCounts, setTodayCounts] = useState({})
-
-  // 인증 제출 모달 (오늘의 미션에서 직접 인증)
-
-  // 누적 포인트 fetch — useEffect 안에서도, 인증 후 재호출에서도 사용
-  const fetchTotalPoints = async () => {
-    if (!session) return
-    const { data, error } = await supabase
-      .from('score_ledgers')
-      .select('point')
-      .eq('user_id', session.user.id)
-
-    if (error) {
-      console.error('누적 포인트 조회 실패:', error)
-    } else {
-      const total = (data || []).reduce((sum, row) => sum + row.point, 0)
-      setTotalPoints(total)
-    }
-  }
-
-  // 오늘의 미션 fetch — activePrograms 변경에 의존
-  const fetchTodayMissions = async (programIds) => {
-    if (!session || programIds.length === 0) {
-      setTodayMissions([])
-      return
-    }
-    const nowISO = new Date().toISOString()
-    const { data, error } = await supabase
-      .from('missions')
-      .select('*, programs!inner(id, name, categories)')
-      .in('program_id', programIds)
-      .lte('active_from', nowISO)
-      .gte('active_until', nowISO)
-      .order('point', { ascending: false })
-
-    if (error) {
-      console.error('오늘의 미션 조회 실패:', error)
-    } else {
-      setTodayMissions(data || [])
-    }
-  }
-
-
-  // 로그아웃 시 /login 으로                              // ⭐ 추가
+  // 로그아웃 시 /login 으로
   useEffect(() => {
     if (session === null) {
       navigate('/login')
     }
   }, [session, navigate])
 
-  // 본인이 만든 프로그램 가져오기
-  useEffect(() => {
-    if (!session) return
+  // ─── React Query — 모든 데이터는 같은 캐시 키로 공유 ───────────
+  // 인증/심사 등 mutation onSuccess 에서 invalidate 호출 시 자동으로 모든 화면 갱신
+  const { data: myPrograms = [], isLoading } = useQuery({
+    queryKey: queryKeys.myPrograms(userId),
+    queryFn: () => fetchMyPrograms(userId),
+    enabled: !!userId,
+  })
 
-    const fetchMyPrograms = async () => {
-      setIsLoading(true)
-      const { data, error } = await supabase
-        .from('programs')
-        .select('*')
-        .eq('owner_id', session.user.id)
-        .order('created_at', { ascending: false })
+  const { data: activePrograms = [], isLoading: isLoadingActive } = useQuery({
+    queryKey: queryKeys.activePrograms(userId),
+    queryFn: () => fetchActivePrograms(userId),
+    enabled: !!userId,
+  })
 
-      if (error) {
-        console.error('프로그램 조회 실패:', error)
-      } else {
-        setMyPrograms(data || [])
-      }
-      setIsLoading(false)
-    }
+  const { data: totalPoints = 0 } = useQuery({
+    queryKey: queryKeys.totalPoints(userId),
+    queryFn: () => fetchTotalPoints(userId),
+    enabled: !!userId,
+  })
 
-    fetchMyPrograms()
-  }, [session])
+  // 오늘의 미션 — activePrograms 의 id 들에 의존 (배열 변하면 자동 재조회)
+  const activeProgramIds = activePrograms.map(p => p.id)
+  const { data: todayMissions = [] } = useQuery({
+    queryKey: ['missions', 'today', userId, ...activeProgramIds],
+    queryFn: () => fetchTodayMissions(activeProgramIds),
+    enabled: !!userId && activeProgramIds.length > 0,
+  })
 
-  // 공개 프로그램 둘러보기 (PUBLISHED + is_public + 본인 것 제외)
-  useEffect(() => {
-    if (!session) return
-
-    const fetchPublicPrograms = async () => {
-      setIsLoadingPublic(true)
-      const { data, error } = await supabase
-        .from('programs')
-        .select('*')
-        .eq('status', 'PUBLISHED')
-        .eq('is_public', true)
-        .neq('owner_id', session.user.id)
-        .order('published_at', { ascending: false })
-
-      if (error) {
-        console.error('공개 프로그램 조회 실패:', error)
-      } else {
-        setPublicPrograms(data || [])
-      }
-      setIsLoadingPublic(false)
-    }
-
-    fetchPublicPrograms()
-  }, [session])
-
-  // 참여 중인 프로그램 (ACTIVE 상태만)
-  useEffect(() => {
-    if (!session) return
-
-    const fetchActivePrograms = async () => {
-      setIsLoadingActive(true)
-      const { data, error } = await supabase
-        .from('program_participants')
-        .select('joined_at, programs(*)')
-        .eq('user_id', session.user.id)
-        .eq('status', 'ACTIVE')
-        .order('joined_at', { ascending: false })
-
-      if (error) {
-        console.error('참여 프로그램 조회 실패:', error)
-      } else {
-        // 중첩된 programs 객체만 추출
-        const programs = (data || [])
-          .map(row => row.programs)
-          .filter(Boolean)
-        setActivePrograms(programs)
-      }
-      setIsLoadingActive(false)
-    }
-
-    fetchActivePrograms()
-  }, [session])
-
-  // 누적 포인트
-  useEffect(() => {
-    fetchTotalPoints()
-  }, [session])
-
-  // 오늘의 미션 — activePrograms 변경 시 자동 갱신
-  useEffect(() => {
-    if (!session) return
-    const ids = activePrograms.map(p => p.id)
-    fetchTodayMissions(ids)
-  }, [session, activePrograms])
-
-  // 본인의 KST 오늘 미션별 인증 횟수 (daily_limit 연동)
-  //   PENDING_REVIEW 도 카운트 — 운영자 심사 대기도 제출 횟수에 포함
-  const fetchTodayCounts = async () => {
-    if (!session) return
-    const { data, error } = await supabase
-      .from('verifications')
-      .select('mission_id, submitted_at')
-      .eq('user_id', session.user.id)
-      .in('status', ['APPROVED', 'PENDING_REVIEW'])
-
-    if (error) {
-      console.error('인증 횟수 조회 실패:', error)
-      return
-    }
-    const todayKst = formatKstDate(new Date())
-    const counts = {}
-    ;(data || []).forEach(v => {
-      const vKst = formatKstDate(new Date(v.submitted_at))
-      if (vKst === todayKst) {
-        counts[v.mission_id] = (counts[v.mission_id] || 0) + 1
-      }
-    })
-    setTodayCounts(counts)
-  }
-
-  // todayMissions 가 갱신되면 카운트도 함께
-  useEffect(() => {
-    if (!session) return
-    fetchTodayCounts()
-  }, [session, todayMissions])
-
-  // 인증 성공 시 호출 — 누적 포인트 + 오늘의 미션 + 카운트 다시 가져옴
-  const handleVerificationSuccess = () => {
-    fetchTotalPoints()
-    fetchTodayMissions(activePrograms.map(p => p.id))
-    fetchTodayCounts()
-  }
+  const { data: todayCounts = {} } = useQuery({
+    queryKey: queryKeys.todayCounts(userId),
+    queryFn: () => fetchTodayCounts(userId),
+    enabled: !!userId,
+  })
 
   // 참여 예정 (ACTIVE 참여지만 프로그램 시작 전)
   const upcomingPrograms = activePrograms.filter(p => {
@@ -260,27 +112,28 @@ function DashboardPage() {
   // 실제 운영 중 = 참여 중 - 시작 전
   const runningCount = activePrograms.length - upcomingPrograms.length
 
-  // 임시저장(DRAFT) 삭제
-  const handleDelete = async (programId, programName) => {
-    // 본인이 실수 방지 - 확인
-    if (!window.confirm(`"${programName}" 임시저장을 삭제할까요?`)) {
-      return
-    }
-    
-    const { error } = await supabase
-      .from('programs')
-      .delete()
-      .eq('id', programId)
-      .eq('status', 'DRAFT')          // ⭐ DRAFT 만 (안전장치)
-    
-    if (error) {
-      console.error('삭제 실패:', error)
+  // DRAFT 삭제 — useMutation. 성공 시 내 프로그램 캐시 무효화 (한 곳에서만 갱신)
+  const deleteMutation = useMutation({
+    mutationFn: async (programId) => {
+      const { error } = await supabase
+        .from('programs')
+        .delete()
+        .eq('id', programId)
+        .eq('status', 'DRAFT')          // ⭐ DRAFT 만 (안전장치)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.myPrograms(userId) })
+    },
+    onError: (err) => {
+      console.error('삭제 실패:', err)
       alert('삭제에 실패했습니다')
-      return
-    }
-    
-    // 목록에서 제거 (화면 갱신)
-    setMyPrograms(myPrograms.filter(p => p.id !== programId))
+    },
+  })
+
+  const handleDelete = (programId, programName) => {
+    if (!window.confirm(`"${programName}" 임시저장을 삭제할까요?`)) return
+    deleteMutation.mutate(programId)
   }
 
   return (
@@ -419,7 +272,7 @@ function DashboardPage() {
           </p>
         </motion.div>
       </motion.section>
-      
+
       {/* 오늘의 미션 — 참여 중 프로그램들의 현재 활성 미션 통합 */}
       <section className="mb-8">
         <h2 className="flex items-center gap-2 text-xl text-gray-800 mb-4">
@@ -448,10 +301,15 @@ function DashboardPage() {
               const isSupported = types.length > 0
               const buttonLabel = types.length === 1 ? types[0] : (isSupported ? '인증' : null)
 
-              // daily_limit 연동
-              const todayCount = todayCounts[mission.id] || 0
+              // daily_limit 연동 — total: 한계 검사용 / pending: 라벨 분기용
+              const todayCount = todayCounts[mission.id]?.total || 0
+              const pendingCount = todayCounts[mission.id]?.pending || 0
               const limit = mission.daily_limit
               const reachedLimit = limit != null && todayCount >= limit
+              const hasPending = pendingCount > 0
+
+              // schedule_mode + 제외 기간 검사 (점수 트리거 033 의 클라이언트 미러)
+              const todayCheck = checkMissionToday(mission)
 
               // 카테고리 색상 매핑 (참여 중 카드와 통일)
               const catKey = mission.programs?.categories?.[0] || 'ETC'
@@ -490,13 +348,17 @@ function DashboardPage() {
                     </span>
                   </div>
 
-                  {/* 우측 액션 — 3가지 상태: 미지원 / 오늘 완료 / 활성 */}
+                  {/* 우측 액션 — 4가지 상태: 미지원 / 오늘 휴무 / 오늘 완료 / 활성 */}
                   {!isSupported ? (
                     <span className="text-xs text-gray-400 whitespace-nowrap flex-shrink-0">
                       준비 중
                     </span>
+                  ) : !todayCheck.active ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-gray-100 text-gray-500 text-xs rounded-full font-medium whitespace-nowrap flex-shrink-0">
+                      🚫 {todayCheck.reason}
+                    </span>
                   ) : reachedLimit ? (
-                    mission.verification_type === 'MANUAL' ? (
+                    hasPending ? (
                       <span className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-amber-50 text-amber-700 text-xs rounded-full font-medium whitespace-nowrap flex-shrink-0">
                         ⏳ 심사 대기
                       </span>
@@ -546,7 +408,7 @@ function DashboardPage() {
             </Link>
           </div>
         </div>
-        
+
         {isLoading ? (
           <div className="bg-gray-50 p-8 rounded-lg text-center text-gray-500">
             불러오는 중...
@@ -566,37 +428,38 @@ function DashboardPage() {
           >
             {myPrograms.slice(0, 3).map(program => (
               <motion.div
-  key={program.id}
-  variants={itemVariants}
-  onClick={() => setSelectedProgram(program)}
-  className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition cursor-pointer"
->
+                key={program.id}
+                variants={itemVariants}
+                onClick={() => setSelectedProgram(program)}
+                className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition cursor-pointer"
+              >
                 <div className="flex items-start justify-between mb-2">
-  <h3 className="font-medium text-gray-800">{program.name}</h3>
-  <div className="flex items-center gap-2">
-    <span className={`
-      px-2 py-0.5 rounded text-xs
-      ${program.status === 'PUBLISHED' 
-        ? 'bg-green-100 text-green-700' 
-        : 'bg-gray-100 text-gray-600'}
-    `}>
-      {program.status === 'PUBLISHED' ? '진행중' : '임시저장'}
-    </span>
-    {/* DRAFT 만 삭제 버튼 */}
-    {program.status === 'DRAFT' && (
-      <button
-  onClick={(e) => {
-    e.stopPropagation()                          // ⭐ 추가 (모달 안 열림)
-    handleDelete(program.id, program.name)
-  }}
-  className="p-1 text-gray-400 hover:text-red-500 transition"
-  title="삭제"
->
-  <Trash2 className="w-4 h-4" />
-</button>
-    )}
-  </div>
-</div>
+                  <h3 className="font-medium text-gray-800">{program.name}</h3>
+                  <div className="flex items-center gap-2">
+                    <span className={`
+                      px-2 py-0.5 rounded text-xs
+                      ${program.status === 'PUBLISHED'
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-gray-100 text-gray-600'}
+                    `}>
+                      {program.status === 'PUBLISHED' ? '진행중' : '임시저장'}
+                    </span>
+                    {/* DRAFT 만 삭제 버튼 */}
+                    {program.status === 'DRAFT' && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()                          // ⭐ 모달 안 열림
+                          handleDelete(program.id, program.name)
+                        }}
+                        disabled={deleteMutation.isPending}
+                        className="p-1 text-gray-400 hover:text-red-500 transition disabled:opacity-40"
+                        title="삭제"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
                 {program.description && (
                   <p className="text-sm text-gray-600 mb-2 line-clamp-2">
                     {program.description}
