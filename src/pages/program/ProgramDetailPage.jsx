@@ -4,7 +4,6 @@ import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
 import { ChevronLeft } from 'lucide-react'
 import { formatKoreanDate, toKSTDateString } from '../../lib/formatters'
-import VerificationSubmitModal from '../../components/program/VerificationSubmitModal'
 import ProgramEditModal from '../../components/program/ProgramEditModal'
 import MissionCreateModal from '../../components/program/MissionCreateModal'
 import ReviewModal from '../../components/program/ReviewModal'
@@ -25,7 +24,6 @@ function ProgramDetailPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  const [selectedMission, setSelectedMission] = useState(null)
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isMissionCreateOpen, setIsMissionCreateOpen] = useState(false)
   const [isReviewOpen, setIsReviewOpen] = useState(false)
@@ -364,7 +362,7 @@ function ProgramDetailPage() {
                   <div className="text-right flex-shrink-0">
                     <button
                       type="button"
-                      onClick={() => setSelectedMission(mission)}
+                      onClick={() => navigate(`/programs/${id}/missions/${mission.id}`)}
                       className="px-3 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm rounded transition whitespace-nowrap"
                     >
                       {buttonLabel}
@@ -428,14 +426,6 @@ function ProgramDetailPage() {
           })}
         </div>
       )}
-
-      {/* 인증 제출 모달 */}
-      <VerificationSubmitModal
-        mission={selectedMission}
-        isOpen={selectedMission !== null}
-        onClose={() => setSelectedMission(null)}
-        onSuccess={fetchData}
-      />
 
       {/* 프로그램 수정 모달 (owner 만) */}
       <ProgramEditModal

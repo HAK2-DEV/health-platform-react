@@ -7,7 +7,6 @@ import { Plus, Activity, Trash2, ChevronRight, ClipboardList, Target, Clock, Tro
 import { formatKoreanDate, getTodayKST } from '../lib/formatters'
 import { PROGRAM_STATUS, CATEGORY } from '../lib/constants'
 import ProgramDetailModal from '../components/program/ProgramDetailModal'
-import VerificationSubmitModal from '../components/program/VerificationSubmitModal'
 
 // Stagger fade-in 애니메이션 — 카드들이 차례로 등장
 const containerVariants = {
@@ -80,7 +79,6 @@ function DashboardPage() {
   const [todayCounts, setTodayCounts] = useState({})
 
   // 인증 제출 모달 (오늘의 미션에서 직접 인증)
-  const [selectedMission, setSelectedMission] = useState(null)
 
   // 누적 포인트 fetch — useEffect 안에서도, 인증 후 재호출에서도 사용
   const fetchTotalPoints = async () => {
@@ -510,7 +508,7 @@ function DashboardPage() {
                   ) : (
                     <button
                       type="button"
-                      onClick={() => setSelectedMission(mission)}
+                      onClick={() => navigate(`/programs/${mission.program_id}/missions/${mission.id}`)}
                       className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs rounded-full transition whitespace-nowrap flex-shrink-0 font-medium"
                     >
                       {buttonLabel}
@@ -725,13 +723,6 @@ function DashboardPage() {
           onClose={() => setSelectedProgram(null)}
         />
 
-        {/* 오늘의 미션 인증 제출 모달 */}
-        <VerificationSubmitModal
-          mission={selectedMission}
-          isOpen={selectedMission !== null}
-          onClose={() => setSelectedMission(null)}
-          onSuccess={handleVerificationSuccess}
-        />
       </div>
       {/* 흰색 컨텐츠 카드 wrapper 끝 */}
     </div>

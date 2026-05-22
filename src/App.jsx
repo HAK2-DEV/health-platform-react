@@ -10,6 +10,7 @@ import NicknameSetupPage from './pages/NicknameSetupPage'    // ⭐ 추가
 import DashboardPage from './pages/DashboardPage'                       // ⭐ 새 경로
 import ProgramNewPage from './pages/program/ProgramNewPage'            // ⭐ 추가
 import ProgramDetailPage from './pages/program/ProgramDetailPage'
+import MissionVerifyPage from './pages/program/MissionVerifyPage'
 import ProgramListPage from './pages/program/ProgramListPage'
 import RankingsPage from './pages/RankingsPage'
 import NotificationsPage from './pages/NotificationsPage'
@@ -26,12 +27,14 @@ function AppShell() {
   // 자체 상단 영역을 갖는 페이지는 App 헤더 숨김
   // - /dashboard
   // - /programs/:id (ProgramDetailPage — 단, /programs 와 /programs/new 는 제외)
+  // - /programs/:id/missions/:missionId (MissionVerifyPage — 풀스크린 인증)
   const isProgramDetail =
     location.pathname.startsWith('/programs/') &&
     location.pathname !== '/programs/new'
   const hideHeader = location.pathname === '/dashboard' || isProgramDetail
-  // 마법사(프로그램 생성)에서는 BottomTabBar 숨김 — 운영자 집중 + 오클릭 방지
-  const hideBottomBar = location.pathname === '/programs/new'
+  // BottomTabBar 숨김 — 운영자 집중(마법사) + 참여자 집중(미션 인증)
+  const isMissionVerify = /^\/programs\/[^/]+\/missions\/[^/]+$/.test(location.pathname)
+  const hideBottomBar = location.pathname === '/programs/new' || isMissionVerify
 
   return (
    <div className="app">
@@ -70,6 +73,9 @@ function AppShell() {
   } />
   <Route path="/programs/:id" element={
     <ProtectedRoute><ProgramDetailPage /></ProtectedRoute>
+  } />
+  <Route path="/programs/:programId/missions/:missionId" element={
+    <ProtectedRoute><MissionVerifyPage /></ProtectedRoute>
   } />
   <Route path="/programs" element={
     <ProtectedRoute><ProgramListPage /></ProtectedRoute>
