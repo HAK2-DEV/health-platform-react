@@ -7,6 +7,7 @@ import { formatKoreanDate, toKSTDateString } from '../../lib/formatters'
 import VerificationSubmitModal from '../../components/program/VerificationSubmitModal'
 import ProgramEditModal from '../../components/program/ProgramEditModal'
 import MissionCreateModal from '../../components/program/MissionCreateModal'
+import ReviewModal from '../../components/program/ReviewModal'
 import { Plus } from 'lucide-react'
 
 function ProgramDetailPage() {
@@ -27,6 +28,7 @@ function ProgramDetailPage() {
   const [selectedMission, setSelectedMission] = useState(null)
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isMissionCreateOpen, setIsMissionCreateOpen] = useState(false)
+  const [isReviewOpen, setIsReviewOpen] = useState(false)
 
   // KST 기준 'YYYY-MM-DD' 문자열 (Intl 이 timezone 안전)
   const formatKstDate = (date) =>
@@ -101,11 +103,12 @@ function ProgramDetailPage() {
     }
 
     // 5) 본인의 KST 오늘 미션별 인증 횟수 (daily_limit 연동)
+    //    PENDING_REVIEW 도 카운트 — 운영자 심사 대기도 제출 횟수에 포함
     const { data: vData, error: vError } = await supabase
       .from('verifications')
       .select('mission_id, submitted_at')
       .eq('user_id', session.user.id)
-      .eq('status', 'APPROVED')
+      .in('status', ['APPROVED', 'PENDING_REVIEW'])
 
     if (vError) {
       console.error('인증 횟수 조회 실패:', vError)
@@ -209,12 +212,11 @@ function ProgramDetailPage() {
             </button>
             <button
               type="button"
-              disabled
-              className="px-3 py-2 bg-white border border-amber-200 rounded text-sm text-gray-400 cursor-not-allowed text-left"
-              title="추후 진화"
+              onClick={() => setIsReviewOpen(true)}
+              className="px-3 py-2 bg-white border border-amber-300 hover:border-amber-500 hover:bg-amber-100 rounded text-sm text-amber-800 transition text-left"
             >
               ✅ 인증 심사
-              <span className="block text-xs">(MANUAL 활성화 시)</span>
+              <span className="block text-xs text-amber-700">MANUAL 미션 승인/반려</span>
             </button>
             <button
               type="button"
@@ -343,9 +345,15 @@ function ProgramDetailPage() {
                   </div>
                 ) : reachedLimit ? (
                   <div className="text-right flex-shrink-0">
-                    <span className="inline-flex items-center gap-1 px-3 py-2 bg-emerald-50 text-emerald-600 text-sm rounded font-medium whitespace-nowrap">
-                      ✓ 오늘 인증 완료
-                    </span>
+                    {mission.verification_type === 'MANUAL' ? (
+                      <span className="inline-flex items-center gap-1 px-3 py-2 bg-amber-50 text-amber-700 text-sm rounded font-medium whitespace-nowrap">
+                        ⏳ 심사 대기
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-3 py-2 bg-emerald-50 text-emerald-600 text-sm rounded font-medium whitespace-nowrap">
+                        ✓ 오늘 인증 완료
+                      </span>
+                    )}
                     {limit > 1 && (
                       <p className="text-xs text-gray-500 mt-1 whitespace-nowrap">
                         {todayCount}/{limit}회
@@ -442,6 +450,14 @@ function ProgramDetailPage() {
         program={program}
         isOpen={isMissionCreateOpen}
         onClose={() => setIsMissionCreateOpen(false)}
+        onSuccess={fetchData}
+      />
+
+      {/* 인증 심사 모달 (owner 만) */}
+      <ReviewModal
+        program={program}
+        isOpen={isReviewOpen}
+        onClose={() => setIsReviewOpen(false)}
         onSuccess={fetchData}
       />
     </div>

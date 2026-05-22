@@ -33,6 +33,15 @@ const CATEGORY_COLORS = {
   ETC:        { bg: 'bg-gray-50',    border: 'border-gray-100',    accent: 'bg-gray-400' },
 }
 
+// KST 기준 'YYYY-MM-DD' 문자열 (Intl 이 timezone 안전)
+const formatKstDate = (date) =>
+  new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date)
+
 // 시간 기반 진행률 (KST)
 const calcProgress = (startDate, endDate) => {
   if (!startDate || !endDate) return 0
@@ -208,13 +217,14 @@ function DashboardPage() {
   }, [session, activePrograms])
 
   // 본인의 KST 오늘 미션별 인증 횟수 (daily_limit 연동)
+  //   PENDING_REVIEW 도 카운트 — 운영자 심사 대기도 제출 횟수에 포함
   const fetchTodayCounts = async () => {
     if (!session) return
     const { data, error } = await supabase
       .from('verifications')
       .select('mission_id, submitted_at')
       .eq('user_id', session.user.id)
-      .eq('status', 'APPROVED')
+      .in('status', ['APPROVED', 'PENDING_REVIEW'])
 
     if (error) {
       console.error('인증 횟수 조회 실패:', error)
@@ -488,9 +498,15 @@ function DashboardPage() {
                       준비 중
                     </span>
                   ) : reachedLimit ? (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 text-emerald-600 text-xs rounded-full font-medium whitespace-nowrap flex-shrink-0">
-                      ✓ 완료
-                    </span>
+                    mission.verification_type === 'MANUAL' ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-amber-50 text-amber-700 text-xs rounded-full font-medium whitespace-nowrap flex-shrink-0">
+                        ⏳ 심사 대기
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 text-emerald-600 text-xs rounded-full font-medium whitespace-nowrap flex-shrink-0">
+                        ✓ 완료
+                      </span>
+                    )
                   ) : (
                     <button
                       type="button"

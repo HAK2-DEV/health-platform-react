@@ -96,6 +96,13 @@ function VerificationSubmitModal({ mission, isOpen, onClose, onSuccess }) {
 
       // 사진 업로드 (필요 시)
       if (needsImage && selectedFile) {
+        // SHA-256 해시 계산 — 본인의 같은 사진 중복 인증 차단 (029 마이그레이션)
+        const buffer = await selectedFile.arrayBuffer()
+        const hashBuffer = await crypto.subtle.digest('SHA-256', buffer)
+        const hashArray = Array.from(new Uint8Array(hashBuffer))
+        const imageHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+        insertData.image_hash = imageHash
+
         const ext = selectedFile.name.split('.').pop()?.toLowerCase() || 'jpg'
         const fileName = `${Date.now()}.${ext}`
         const path = `${session.user.id}/${fileName}`
@@ -128,6 +135,10 @@ function VerificationSubmitModal({ mission, isOpen, onClose, onSuccess }) {
       if (insertError) {
         if (imagePath) {
           await supabase.storage.from('verification-images').remove([imagePath])
+        }
+        // UNIQUE 위반 (같은 사진 중복) — 친화 메시지
+        if (insertError.code === '23505') {
+          throw new Error('이미 인증에 사용한 사진이에요. 다른 사진을 올려주세요.')
         }
         throw new Error(`인증 제출 실패: ${insertError.message}`)
       }
