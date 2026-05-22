@@ -75,7 +75,10 @@ p {
 
 .app-main {
   flex: 1;
-  padding: var(--spacing-md);
+  /* padding-bottom 명시 X — Tailwind pb-* (App.jsx 의 pb-24 등) 가 적용되게 longhand 사용 */
+  padding-top: var(--spacing-md);
+  padding-right: var(--spacing-md);
+  padding-left: var(--spacing-md);
 }
 
 /* === 헤더 === */
@@ -376,7 +379,10 @@ p {
   
   /* === App Main === */
   .app-main {
-    padding: var(--spacing-sm);     /* ⭐ 모바일 패딩 줄임 */
+    /* padding-bottom 명시 X — Tailwind pb-* 가 적용되게 */
+    padding-top: var(--spacing-sm);
+    padding-right: var(--spacing-sm);
+    padding-left: var(--spacing-sm);
   }
   
   /* === Supabase Todos === */
@@ -454,7 +460,9 @@ p {
   
   /* === App Main - 패딩 줄임 === */
   .app-main {
-    padding: var(--spacing-sm);
+    padding-top: var(--spacing-sm);
+    padding-right: var(--spacing-sm);
+    padding-left: var(--spacing-sm);
   }
   
   /* === Supabase Todos === */

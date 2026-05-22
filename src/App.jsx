@@ -23,8 +23,15 @@ function AppShell() {
   const navigate = useNavigate()
   const location = useLocation()
 
-  // 대시보드는 자체 풀 너비 상단 영역을 가지므로 App 헤더 숨김
-  const hideHeader = location.pathname === '/dashboard'
+  // 자체 상단 영역을 갖는 페이지는 App 헤더 숨김
+  // - /dashboard
+  // - /programs/:id (ProgramDetailPage — 단, /programs 와 /programs/new 는 제외)
+  const isProgramDetail =
+    location.pathname.startsWith('/programs/') &&
+    location.pathname !== '/programs/new'
+  const hideHeader = location.pathname === '/dashboard' || isProgramDetail
+  // 마법사(프로그램 생성)에서는 BottomTabBar 숨김 — 운영자 집중 + 오클릭 방지
+  const hideBottomBar = location.pathname === '/programs/new'
 
   return (
    <div className="app">
@@ -44,7 +51,7 @@ function AppShell() {
         </header>
       )}
       
-      <main className={session ? 'app-main pb-20' : 'app-main'}>
+      <main className={`app-main ${session && !hideBottomBar ? 'pb-24' : 'pb-4'}`}>
         <Routes>
   {/* 보호 X (누구나) */}
   <Route path="/" element={<HomePage />} />
@@ -82,8 +89,8 @@ function AppShell() {
 </Routes>
       </main>
 
-      {/* 하단 5탭 네비 (로그인 상태에서만) */}
-      {session && <BottomTabBar />}
+      {/* 하단 5탭 네비 (로그인 + 마법사 외 페이지) */}
+      {session && !hideBottomBar && <BottomTabBar />}
     </div>
   )
 }

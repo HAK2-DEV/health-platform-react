@@ -5,9 +5,9 @@ import { useAuth } from '../../hooks/useAuth'
 import WizardLayout from '../../components/program/ProgramWizard/WizardLayout'
 import Step1Basic from '../../components/program/ProgramWizard/Step1Basic'
 import Step2Type from '../../components/program/ProgramWizard/Step2Type'
-import Step3Features from '../../components/program/ProgramWizard/Step3Features'   // ⭐ 추가
-import Step4Scoring from '../../components/program/ProgramWizard/Step4Scoring'   // ⭐ 추가
-import Step5Complete from '../../components/program/ProgramWizard/Step5Complete'   // ⭐ 추가
+import Step3JoinConditions from '../../components/program/ProgramWizard/Step3JoinConditions'
+import Step4Summary from '../../components/program/ProgramWizard/Step4Summary'
+// 폐기: Step3Features, Step4Scoring, Step5Complete — (가) 진화로 features/scoring 제거 (파일은 보존)
 
 
 function ProgramNewPage() {
@@ -121,30 +121,21 @@ function ProgramNewPage() {
       )}
       
       {currentStep === 3 && (
-  <Step3Features 
-    initialData={programData}
-    onNext={handleNext}
-    onSave={handleSave}
-    onPrev={handlePrev}
-  />
-)}
+        <Step3JoinConditions
+          initialData={programData}
+          onNext={handleNext}
+          onSave={handleSave}
+          onPrev={handlePrev}
+        />
+      )}
 
-{currentStep === 4 && (
-  <Step4Scoring 
-    initialData={programData}
-    onNext={handleNext}
-    onSave={handleSave}
-    onPrev={handlePrev}
-  />
-)}
-
-{currentStep === 5 && (
-  <Step5Complete 
-    initialData={programData}
-    programId={programId}
-    onPrev={handlePrev}
-  />
-)}
+      {currentStep === 4 && (
+        <Step4Summary
+          initialData={programData}
+          programId={programId}
+          onPrev={handlePrev}
+        />
+      )}
     </WizardLayout>
   )
 }

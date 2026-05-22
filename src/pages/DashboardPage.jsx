@@ -67,6 +67,8 @@ function DashboardPage() {
 
   // 오늘의 미션 통합 — 본인 ACTIVE 참여 모든 프로그램의 오늘 활성 미션
   const [todayMissions, setTodayMissions] = useState([])
+  // 본인 KST 오늘 미션별 인증 횟수 (mission_id → count)
+  const [todayCounts, setTodayCounts] = useState({})
 
   // 인증 제출 모달 (오늘의 미션에서 직접 인증)
   const [selectedMission, setSelectedMission] = useState(null)
@@ -96,7 +98,7 @@ function DashboardPage() {
     const nowISO = new Date().toISOString()
     const { data, error } = await supabase
       .from('missions')
-      .select('*, programs!inner(id, name)')
+      .select('*, programs!inner(id, name, categories)')
       .in('program_id', programIds)
       .lte('active_from', nowISO)
       .gte('active_until', nowISO)
@@ -205,10 +207,41 @@ function DashboardPage() {
     fetchTodayMissions(ids)
   }, [session, activePrograms])
 
-  // 인증 성공 시 호출 — 누적 포인트 + 오늘의 미션 다시 가져옴
+  // 본인의 KST 오늘 미션별 인증 횟수 (daily_limit 연동)
+  const fetchTodayCounts = async () => {
+    if (!session) return
+    const { data, error } = await supabase
+      .from('verifications')
+      .select('mission_id, submitted_at')
+      .eq('user_id', session.user.id)
+      .eq('status', 'APPROVED')
+
+    if (error) {
+      console.error('인증 횟수 조회 실패:', error)
+      return
+    }
+    const todayKst = formatKstDate(new Date())
+    const counts = {}
+    ;(data || []).forEach(v => {
+      const vKst = formatKstDate(new Date(v.submitted_at))
+      if (vKst === todayKst) {
+        counts[v.mission_id] = (counts[v.mission_id] || 0) + 1
+      }
+    })
+    setTodayCounts(counts)
+  }
+
+  // todayMissions 가 갱신되면 카운트도 함께
+  useEffect(() => {
+    if (!session) return
+    fetchTodayCounts()
+  }, [session, todayMissions])
+
+  // 인증 성공 시 호출 — 누적 포인트 + 오늘의 미션 + 카운트 다시 가져옴
   const handleVerificationSuccess = () => {
     fetchTotalPoints()
     fetchTodayMissions(activePrograms.map(p => p.id))
+    fetchTodayCounts()
   }
 
   // 참여 예정 (ACTIVE 참여지만 프로그램 시작 전)
@@ -399,41 +432,73 @@ function DashboardPage() {
             className="grid gap-2"
           >
             {todayMissions.map(mission => {
-              const buttonLabel = {
-                image_upload: '업로드',
-                numeric_record: '기록',
-              }[mission.feature]
-              const isSupported = !!buttonLabel
+              // 인증 유형 메타로 분기 (운영자 추가 미션 + 자동 생성 둘 다 처리)
+              const types = []
+              if (mission.requires_image) types.push('업로드')
+              if (mission.requires_numeric) types.push('기록')
+              if (mission.requires_note) types.push('소감')
+              const isSupported = types.length > 0
+              const buttonLabel = types.length === 1 ? types[0] : (isSupported ? '인증' : null)
+
+              // daily_limit 연동
+              const todayCount = todayCounts[mission.id] || 0
+              const limit = mission.daily_limit
+              const reachedLimit = limit != null && todayCount >= limit
+
+              // 카테고리 색상 매핑 (참여 중 카드와 통일)
+              const catKey = mission.programs?.categories?.[0] || 'ETC'
+              const cat = CATEGORY[catKey] || CATEGORY.ETC
+              const colors = CATEGORY_COLORS[catKey] || CATEGORY_COLORS.ETC
 
               return (
                 <motion.div
                   key={mission.id}
                   variants={itemVariants}
-                  className="bg-white border border-gray-200 rounded-lg p-3 flex items-center justify-between gap-3"
+                  className={`${colors.bg} ${colors.border} border rounded-2xl p-3 flex items-center gap-3`}
                 >
+                  {/* 좌측 일러스트/이모지 박스 */}
+                  <div className="w-12 h-12 flex-shrink-0 bg-white/70 rounded-xl relative overflow-hidden">
+                    <span className="absolute inset-0 flex items-center justify-center text-2xl">
+                      {cat.emoji}
+                    </span>
+                    <img
+                      src={`/illustrations/categories/${cat.key}.png`}
+                      alt=""
+                      className="absolute inset-0 w-full h-full object-contain"
+                      onError={(e) => { e.currentTarget.style.display = 'none' }}
+                    />
+                  </div>
+
+                  {/* 가운데 정보 */}
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs text-gray-500 truncate">
+                    <p className="text-[11px] text-gray-500 truncate">
                       {mission.programs?.name}
                     </p>
-                    <h3 className="font-medium text-gray-800 truncate">
+                    <h3 className="font-medium text-gray-800 truncate text-sm">
                       {mission.title}
                     </h3>
+                    <span className="inline-block mt-0.5 px-1.5 py-0.5 bg-white/80 text-emerald-700 text-[10px] rounded font-medium">
+                      +{mission.point}P
+                    </span>
                   </div>
-                  <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded font-medium flex-shrink-0">
-                    {mission.point}P
-                  </span>
-                  {isSupported ? (
-                    <button
-                      type="button"
-                      onClick={() => setSelectedMission(mission)}
-                      className="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-xs rounded transition whitespace-nowrap flex-shrink-0"
-                    >
-                      {buttonLabel}
-                    </button>
-                  ) : (
+
+                  {/* 우측 액션 — 3가지 상태: 미지원 / 오늘 완료 / 활성 */}
+                  {!isSupported ? (
                     <span className="text-xs text-gray-400 whitespace-nowrap flex-shrink-0">
                       준비 중
                     </span>
+                  ) : reachedLimit ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 text-emerald-600 text-xs rounded-full font-medium whitespace-nowrap flex-shrink-0">
+                      ✓ 완료
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedMission(mission)}
+                      className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs rounded-full transition whitespace-nowrap flex-shrink-0 font-medium"
+                    >
+                      {buttonLabel}
+                    </button>
                   )}
                 </motion.div>
               )
@@ -632,58 +697,7 @@ function DashboardPage() {
         )}
       </section>
 
-      {/* 공개 프로그램 둘러보기 — 최대 3개 요약 */}
-      <section className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="flex items-center gap-2 text-xl text-gray-800">
-            🔍 공개 프로그램 둘러보기
-          </h2>
-          {publicPrograms.length > 3 && (
-            <Link
-              to="/programs"
-              className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700"
-            >
-              전체보기 <ChevronRight className="w-3 h-3" />
-            </Link>
-          )}
-        </div>
-
-        {isLoadingPublic ? (
-          <div className="bg-gray-50 p-8 rounded-lg text-center text-gray-500">
-            불러오는 중...
-          </div>
-        ) : publicPrograms.length === 0 ? (
-          <div className="bg-gray-50 p-8 rounded-lg text-center text-gray-500 text-sm">
-            아직 둘러볼 공개 프로그램이 없어요
-          </div>
-        ) : (
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            animate="show"
-            className="grid gap-3"
-          >
-            {publicPrograms.slice(0, 3).map(program => (
-              <motion.div
-                key={program.id}
-                variants={itemVariants}
-                onClick={() => setSelectedProgram(program)}
-                className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition cursor-pointer"
-              >
-                <h3 className="font-medium text-gray-800 mb-2">{program.name}</h3>
-                {program.description && (
-                  <p className="text-sm text-gray-600 mb-2 line-clamp-2">
-                    {program.description}
-                  </p>
-                )}
-                <p className="text-xs text-gray-500">
-                  {formatKoreanDate(program.start_date)} ~ {formatKoreanDate(program.end_date)}
-                </p>
-              </motion.div>
-            ))}
-          </motion.div>
-        )}
-      </section>
+      {/* 공개 둘러보기 섹션은 BottomTabBar 📋 프로그램 탭에 통합 — 중복 제거 */}
 
         </div>
         {/* 흰색 컨텐츠 카드 끝 */}

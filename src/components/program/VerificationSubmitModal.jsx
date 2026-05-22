@@ -18,6 +18,7 @@ function VerificationSubmitModal({ mission, isOpen, onClose, onSuccess }) {
   const [selectedFile, setSelectedFile] = useState(null)
   const [previewUrl, setPreviewUrl] = useState(null)
   const [numericValue, setNumericValue] = useState('')
+  const [noteText, setNoteText] = useState('')
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState(null)
@@ -25,7 +26,10 @@ function VerificationSubmitModal({ mission, isOpen, onClose, onSuccess }) {
   // 미션 메타 — 입력 영역 분기 신호
   const needsImage = !!mission?.requires_image
   const needsNumeric = !!mission?.requires_numeric
-  const isBundle = needsImage && needsNumeric
+  const needsNote = !!mission?.requires_note
+  // 다중 인증 (둘 이상 요구) — 라벨 표시 강조용
+  const requireCount = [needsImage, needsNumeric, needsNote].filter(Boolean).length
+  const isMulti = requireCount >= 2
 
   const handleFileSelect = (e) => {
     const file = e.target.files?.[0]
@@ -50,6 +54,7 @@ function VerificationSubmitModal({ mission, isOpen, onClose, onSuccess }) {
     setSelectedFile(null)
     setPreviewUrl(null)
     setNumericValue('')
+    setNoteText('')
     setError(null)
     setIsSubmitting(false)
   }
@@ -73,6 +78,10 @@ function VerificationSubmitModal({ mission, isOpen, onClose, onSuccess }) {
         setError('0보다 큰 숫자를 입력해주세요')
         return
       }
+    }
+    if (needsNote && !noteText.trim()) {
+      setError('소감을 입력해주세요')
+      return
     }
 
     setIsSubmitting(true)
@@ -107,6 +116,11 @@ function VerificationSubmitModal({ mission, isOpen, onClose, onSuccess }) {
         insertData.numeric_value = parseFloat(numericValue)
       }
 
+      // 소감 입력 (필요 시)
+      if (needsNote) {
+        insertData.note = noteText.trim()
+      }
+
       const { error: insertError } = await supabase
         .from('verifications')
         .insert(insertData)
@@ -132,7 +146,8 @@ function VerificationSubmitModal({ mission, isOpen, onClose, onSuccess }) {
     if (isSubmitting) return false
     if (needsImage && !selectedFile) return false
     if (needsNumeric && !numericValue) return false
-    if (!needsImage && !needsNumeric) return false  // 인증 UI 없는 feature
+    if (needsNote && !noteText.trim()) return false
+    if (requireCount === 0) return false  // 인증 UI 없는 feature
     return true
   })()
 
@@ -145,13 +160,20 @@ function VerificationSubmitModal({ mission, isOpen, onClose, onSuccess }) {
           </h2>
           <p className="text-sm text-gray-500 mb-4">
             {mission.point}P · {mission.verification_type === 'AUTO' ? '자동 승인' : '운영자 심사'}
-            {isBundle && <span className="ml-1 text-green-600">· 사진+기록 통합</span>}
+            {isMulti && <span className="ml-1 text-emerald-600">· {requireCount}가지 인증</span>}
           </p>
+
+          {/* 안내 설명 (운영자가 미션 만들 때 입력) */}
+          {mission.instruction && (
+            <p className="mb-4 p-3 bg-gray-50 rounded-lg text-sm text-gray-600">
+              {mission.instruction}
+            </p>
+          )}
 
           {/* 사진 영역 */}
           {needsImage && (
             <div className="mb-4">
-              {isBundle && (
+              {isMulti && (
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   📷 인증 사진
                 </label>
@@ -205,7 +227,7 @@ function VerificationSubmitModal({ mission, isOpen, onClose, onSuccess }) {
           {needsNumeric && (
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                {isBundle ? '📊 기록 값' : '기록 값'}
+                {isMulti ? '📊 기록 값' : '기록 값'}
               </label>
               <input
                 type="number"
@@ -215,10 +237,31 @@ function VerificationSubmitModal({ mission, isOpen, onClose, onSuccess }) {
                 step="0.01"
                 min="0"
                 disabled={isSubmitting}
-                className="w-full px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-green-500 disabled:bg-gray-50"
+                className="w-full px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 disabled:bg-gray-50"
               />
               <p className="text-xs text-gray-500 mt-1">
                 숫자로 본인의 활동 결과를 입력해요
+              </p>
+            </div>
+          )}
+
+          {/* 소감 영역 */}
+          {needsNote && (
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {isMulti ? '💬 한 줄 소감' : '소감'}
+              </label>
+              <textarea
+                value={noteText}
+                onChange={(e) => setNoteText(e.target.value)}
+                placeholder="오늘 활동 어땠나요? 한 줄로 남겨주세요"
+                rows={3}
+                maxLength={300}
+                disabled={isSubmitting}
+                className="w-full px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 disabled:bg-gray-50 resize-none"
+              />
+              <p className="text-xs text-gray-500 mt-1 text-right">
+                {noteText.length}/300
               </p>
             </div>
           )}

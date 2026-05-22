@@ -1,13 +1,12 @@
 import { Link } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 
-// 5단계 정보
+// 4단계 정보 (본인 (가) 진화 — features/scoring 폐기, 미션은 게시 후 직접 추가)
 const STEPS = [
   { number: 1, label: '기본 정보' },
-  { number: 2, label: '참여 방식' },
-  { number: 3, label: '미션 규칙' },
-  { number: 4, label: '점수/랭킹' },
-  { number: 5, label: '개설 완료' },
+  { number: 2, label: '프로그램 유형' },
+  { number: 3, label: '참여 조건' },
+  { number: 4, label: '요약·게시' },
 ]
 
 function WizardLayout({ currentStep, children }) {

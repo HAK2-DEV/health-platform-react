@@ -6,6 +6,8 @@ import { ChevronLeft } from 'lucide-react'
 import { formatKoreanDate, toKSTDateString } from '../../lib/formatters'
 import VerificationSubmitModal from '../../components/program/VerificationSubmitModal'
 import ProgramEditModal from '../../components/program/ProgramEditModal'
+import MissionCreateModal from '../../components/program/MissionCreateModal'
+import { Plus } from 'lucide-react'
 
 function ProgramDetailPage() {
   const { id } = useParams()
@@ -17,11 +19,14 @@ function ProgramDetailPage() {
   const [myScore, setMyScore] = useState(0)
   const [todayScore, setTodayScore] = useState(0)
   const [ranking, setRanking] = useState([])
+  // 본인 KST 오늘 미션별 인증 횟수 (mission_id → count)
+  const [todayCounts, setTodayCounts] = useState({})
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
 
   const [selectedMission, setSelectedMission] = useState(null)
   const [isEditOpen, setIsEditOpen] = useState(false)
+  const [isMissionCreateOpen, setIsMissionCreateOpen] = useState(false)
 
   // KST 기준 'YYYY-MM-DD' 문자열 (Intl 이 timezone 안전)
   const formatKstDate = (date) =>
@@ -94,6 +99,27 @@ function ProgramDetailPage() {
     } else {
       setRanking(rankingData || [])
     }
+
+    // 5) 본인의 KST 오늘 미션별 인증 횟수 (daily_limit 연동)
+    const { data: vData, error: vError } = await supabase
+      .from('verifications')
+      .select('mission_id, submitted_at')
+      .eq('user_id', session.user.id)
+      .eq('status', 'APPROVED')
+
+    if (vError) {
+      console.error('인증 횟수 조회 실패:', vError)
+    } else {
+      const todayKst = formatKstDate(new Date())
+      const counts = {}
+      ;(vData || []).forEach(v => {
+        const vKst = formatKstDate(new Date(v.submitted_at))
+        if (vKst === todayKst) {
+          counts[v.mission_id] = (counts[v.mission_id] || 0) + 1
+        }
+      })
+      setTodayCounts(counts)
+    }
   }
 
   useEffect(() => {
@@ -121,14 +147,15 @@ function ProgramDetailPage() {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      {/* 뒤로가기 */}
+    <div className="px-4 pt-2 pb-6 max-w-4xl mx-auto">
+      {/* 좌측 상단 작은 "<" 백 버튼 (컴팩트) */}
       <button
-        onClick={() => navigate('/dashboard')}
-        className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-800 mb-4"
+        type="button"
+        onClick={() => navigate(-1)}
+        className="flex items-center justify-center w-9 h-9 -ml-1 mb-2 rounded-full hover:bg-gray-100 transition"
+        title="뒤로"
       >
-        <ChevronLeft className="w-4 h-4" />
-        대시보드로
+        <ChevronLeft className="w-5 h-5 text-gray-600" />
       </button>
 
       {/* 프로그램 헤더 */}
@@ -230,8 +257,20 @@ function ProgramDetailPage() {
         )
       })()}
 
-      {/* 미션 목록 */}
-      <h2 className="text-lg font-medium text-gray-800 mb-3">📋 미션 목록</h2>
+      {/* 미션 목록 헤더 (owner 면 + 미션 추가 버튼) */}
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-lg font-medium text-gray-800">📋 미션 목록</h2>
+        {program.owner_id === session?.user?.id && (
+          <button
+            type="button"
+            onClick={() => setIsMissionCreateOpen(true)}
+            className="flex items-center gap-1 px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-sm rounded-full transition"
+          >
+            <Plus className="w-4 h-4" />
+            미션 추가
+          </button>
+        )}
+      </div>
       {missions.length === 0 ? (
         <div className="bg-gray-50 p-8 rounded-lg text-center text-gray-500 text-sm">
           미션이 아직 없어요
@@ -239,12 +278,18 @@ function ProgramDetailPage() {
       ) : (
         <div className="grid gap-3">
           {missions.map(mission => {
-            // feature 별 버튼 라벨
-            const buttonLabel = {
-              image_upload: '업로드',
-              numeric_record: '기록하기',
-            }[mission.feature]
-            const isSupported = !!buttonLabel
+            // 인증 유형 메타로 분기 (운영자 추가 미션 + 자동 생성 둘 다 처리)
+            const types = []
+            if (mission.requires_image) types.push('업로드')
+            if (mission.requires_numeric) types.push('기록')
+            if (mission.requires_note) types.push('소감')
+            const isSupported = types.length > 0
+            const buttonLabel = types.length === 1 ? types[0] : (isSupported ? '인증' : null)
+
+            // daily_limit 연동 — 오늘 인증 횟수가 한도 도달했나?
+            const todayCount = todayCounts[mission.id] || 0
+            const limit = mission.daily_limit
+            const reachedLimit = limit != null && todayCount >= limit
 
             // 활성 기간 검증 (KST 기준)
             const now = new Date()
@@ -277,7 +322,7 @@ function ProgramDetailPage() {
                   {mission.point}P
                 </span>
 
-                {/* 우측 액션 — 3가지 상태: 미지원 / 비활성기간 / 활성 */}
+                {/* 우측 액션 — 4가지 상태: 미지원 / 비활성기간 / 오늘 완료 / 활성 */}
                 {!isSupported ? (
                   <span className="text-xs text-gray-400 whitespace-nowrap flex-shrink-0">
                     준비 중
@@ -296,14 +341,32 @@ function ProgramDetailPage() {
                       {inactiveLabel}
                     </p>
                   </div>
+                ) : reachedLimit ? (
+                  <div className="text-right flex-shrink-0">
+                    <span className="inline-flex items-center gap-1 px-3 py-2 bg-emerald-50 text-emerald-600 text-sm rounded font-medium whitespace-nowrap">
+                      ✓ 오늘 인증 완료
+                    </span>
+                    {limit > 1 && (
+                      <p className="text-xs text-gray-500 mt-1 whitespace-nowrap">
+                        {todayCount}/{limit}회
+                      </p>
+                    )}
+                  </div>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={() => setSelectedMission(mission)}
-                    className="px-3 py-2 bg-green-500 hover:bg-green-600 text-white text-sm rounded transition whitespace-nowrap flex-shrink-0"
-                  >
-                    {buttonLabel}
-                  </button>
+                  <div className="text-right flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedMission(mission)}
+                      className="px-3 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm rounded transition whitespace-nowrap"
+                    >
+                      {buttonLabel}
+                    </button>
+                    {limit > 1 && todayCount > 0 && (
+                      <p className="text-xs text-gray-500 mt-1 whitespace-nowrap">
+                        {todayCount}/{limit}회
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
             )
@@ -371,6 +434,14 @@ function ProgramDetailPage() {
         program={program}
         isOpen={isEditOpen}
         onClose={() => setIsEditOpen(false)}
+        onSuccess={fetchData}
+      />
+
+      {/* 미션 추가 모달 (owner 만) */}
+      <MissionCreateModal
+        program={program}
+        isOpen={isMissionCreateOpen}
+        onClose={() => setIsMissionCreateOpen(false)}
         onSuccess={fetchData}
       />
     </div>

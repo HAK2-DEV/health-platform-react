@@ -23,14 +23,16 @@ export const USER_ROLE = {
 }
 
 // 프로그램 카테고리
+// 주의: key 는 DB의 programs.categories TEXT[] 와 일치해야 함.
+// label / emoji 만 진화시켜도 기존 데이터 영향 없음.
 export const CATEGORY = {
-  WALKING: { key: 'WALKING', label: '걷기', emoji: '🚶' },
+  WALKING: { key: 'WALKING', label: '운동', emoji: '💪' },
   DIET: { key: 'DIET', label: '식단', emoji: '🍱' },
   EMPATHY: { key: 'EMPATHY', label: '공감', emoji: '🤝' },
   MINDCARE: { key: 'MINDCARE', label: '마음관리', emoji: '🧘' },
   SLEEP: { key: 'SLEEP', label: '수면', emoji: '🌙' },
   NO_SMOKING: { key: 'NO_SMOKING', label: '금연', emoji: '🚭' },
-  ETC: { key: 'ETC', label: '기타', emoji: '🌱' },     // ⭐ 추가
+  ETC: { key: 'ETC', label: '기타', emoji: '🌱' },
 }
 
 // 본인의 화면 표시용 배열 (순서 보장)
