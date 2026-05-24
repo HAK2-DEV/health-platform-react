@@ -154,6 +154,7 @@ function MissionVerifyPage() {
       queryClient.invalidateQueries({ queryKey: ['verifications'] })
       queryClient.invalidateQueries({ queryKey: ['rankings'] })
       queryClient.invalidateQueries({ queryKey: ['missions', 'today'] })
+      queryClient.invalidateQueries({ queryKey: ['stats'] })
       // 운영자 본인이 자기 미션 인증한 경우 PENDING 도 갱신될 수 있음
       // 묶음 진입이었으면 묶음 모달로 자동 복귀 (다른 미션 연속 인증 가능)
       backToProgram()

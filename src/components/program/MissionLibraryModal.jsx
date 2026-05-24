@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import Modal from '../common/Modal'
 import { supabase } from '../../supabaseClient'
-import { ChevronLeft, Image as ImageIcon, BarChart3, MessageSquare } from 'lucide-react'
-import { CATEGORY } from '../../lib/constants'
+import { ChevronLeft, ChevronDown, ChevronUp, Plus, X, Image as ImageIcon, BarChart3, MessageSquare } from 'lucide-react'
+import { CATEGORY, SCHEDULE_MODES, WEEKDAY_OPTIONS } from '../../lib/constants'
 import { MISSION_LIBRARY } from '../../lib/missionLibrary'
 
 // 추천 미션 라이브러리 모달
@@ -32,7 +32,15 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
 
   const openBundle = (b) => {
     setBundle(b)
-    setDrafts(b.missions.map(m => ({ ...m, selected: true })))
+    // 일정 옵션 + UI 펼침 상태 디폴트로 초기화 — 미션마다 본인이 기간 디테일 잡을 수 있음
+    setDrafts(b.missions.map(m => ({
+      ...m,
+      selected: true,
+      schedule_mode: 'ALL_DAYS',
+      active_days: [],
+      excluded_periods: [],
+      showSchedule: false,
+    })))
     setError(null)
     setStep(2)
   }
@@ -52,6 +60,37 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
     setDrafts(prev => prev.map((m, i) => i === idx ? { ...m, [field]: value } : m))
   }
 
+  // 일정 옵션 헬퍼 — 본인의 다른 코드와 일관 (Step1Basic 폐기 흐름 + MissionCreateModal)
+  const toggleActiveDay = (idx, dayNum) => {
+    setDrafts(prev => prev.map((m, i) => {
+      if (i !== idx) return m
+      const days = m.active_days.includes(dayNum)
+        ? m.active_days.filter(d => d !== dayNum)
+        : [...m.active_days, dayNum].sort()
+      return { ...m, active_days: days }
+    }))
+  }
+  const addExcludedPeriod = (idx) => {
+    setDrafts(prev => prev.map((m, i) => i === idx
+      ? { ...m, excluded_periods: [...m.excluded_periods, { start_date: '', end_date: '', reason: '' }] }
+      : m
+    ))
+  }
+  const removeExcludedPeriod = (idx, pIdx) => {
+    setDrafts(prev => prev.map((m, i) => i === idx
+      ? { ...m, excluded_periods: m.excluded_periods.filter((_, j) => j !== pIdx) }
+      : m
+    ))
+  }
+  const updateExcludedPeriod = (idx, pIdx, field, value) => {
+    setDrafts(prev => prev.map((m, i) => {
+      if (i !== idx) return m
+      const updated = [...m.excluded_periods]
+      updated[pIdx] = { ...updated[pIdx], [field]: value }
+      return { ...m, excluded_periods: updated }
+    }))
+  }
+
   const selectedCount = drafts.filter(m => m.selected).length
 
   const handleAddSelected = async () => {
@@ -59,12 +98,19 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
       setError('미션을 1개 이상 선택해주세요')
       return
     }
+    // CUSTOM 모드인데 요일 0개 선택된 미션 차단
+    const invalidScheduleIdx = drafts.findIndex(m =>
+      m.selected && m.schedule_mode === 'CUSTOM' && m.active_days.length === 0
+    )
+    if (invalidScheduleIdx >= 0) {
+      setError(`"${drafts[invalidScheduleIdx].title}" 미션의 운영 요일을 최소 1일 선택해주세요`)
+      return
+    }
 
     setIsSaving(true)
     setError(null)
 
-    // 선택된 미션만 INSERT — MissionCreateModal 의 INSERT 스키마와 동일
-    // bundle_title 은 ProgramDetailPage 에서 그루핑 키 (이모지+제목 통째로 저장 → UI 자동 표시)
+    // 선택된 미션만 INSERT — 각 미션의 일정 옵션 (schedule_mode/active_days/excluded_periods) 반영
     const bundleTitle = `${bundle.emoji} ${bundle.title}`
     const rows = drafts.filter(m => m.selected).map(m => ({
       program_id: program.id,
@@ -79,10 +125,9 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
       requires_note: m.requires_note,
       active_from: `${program.start_date}T00:00:00+09:00`,
       active_until: `${program.end_date}T23:59:59+09:00`,
-      // 일정 옵션은 디폴트 — 운영자가 나중에 미션 수정으로 조정 (MVP 의 단순함)
-      schedule_mode: 'ALL_DAYS',
-      active_days: [],
-      excluded_periods: [],
+      schedule_mode: m.schedule_mode,
+      active_days: m.schedule_mode === 'CUSTOM' ? m.active_days : [],
+      excluded_periods: m.excluded_periods.filter(p => p.start_date && p.end_date),
       bundle_title: bundleTitle,
     }))
 
@@ -312,6 +357,120 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
                             ✅ 운영자 심사
                           </button>
                         </div>
+                      </div>
+
+                      {/* 운영 일정 (선택) — MissionCreateModal 패턴 */}
+                      <div>
+                        <button
+                          type="button"
+                          onClick={() => updateDraft(idx, 'showSchedule', !m.showSchedule)}
+                          disabled={isSaving}
+                          className="flex items-center gap-1 text-[11px] text-gray-600 hover:text-gray-800 disabled:opacity-50"
+                        >
+                          {m.showSchedule ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                          운영 일정 (선택) — {m.schedule_mode === 'ALL_DAYS' ? '매일' :
+                                                m.schedule_mode === 'WEEKDAYS' ? '평일만' :
+                                                m.schedule_mode === 'WEEKENDS' ? '주말만' : '직접 선택'}
+                          {m.excluded_periods.filter(p => p.start_date && p.end_date).length > 0 && (
+                            <span className="text-amber-600 ml-1">
+                              · 제외 {m.excluded_periods.filter(p => p.start_date && p.end_date).length}건
+                            </span>
+                          )}
+                        </button>
+
+                        {m.showSchedule && (
+                          <div className="mt-2 bg-gray-50 p-2 rounded-md space-y-3">
+                            {/* 운영 요일 */}
+                            <div>
+                              <label className="block text-[11px] text-gray-500 mb-1">운영 요일</label>
+                              <div className="space-y-1">
+                                {SCHEDULE_MODES.map(mode => (
+                                  <label key={mode.key} className="flex items-center gap-1.5 cursor-pointer">
+                                    <input
+                                      type="radio"
+                                      name={`mode-${idx}`}
+                                      value={mode.key}
+                                      checked={m.schedule_mode === mode.key}
+                                      onChange={(e) => updateDraft(idx, 'schedule_mode', e.target.value)}
+                                      disabled={isSaving}
+                                      className="text-emerald-500 w-3 h-3"
+                                    />
+                                    <span className="text-[11px] text-gray-700">{mode.label}</span>
+                                  </label>
+                                ))}
+                              </div>
+                              {m.schedule_mode === 'CUSTOM' && (
+                                <div className="flex gap-1 mt-2">
+                                  {WEEKDAY_OPTIONS.map(day => (
+                                    <button
+                                      key={day.num}
+                                      type="button"
+                                      onClick={() => toggleActiveDay(idx, day.num)}
+                                      disabled={isSaving}
+                                      className={`
+                                        w-7 h-7 rounded text-[11px] transition disabled:opacity-50
+                                        ${m.active_days.includes(day.num)
+                                          ? 'bg-emerald-500 text-white'
+                                          : 'bg-white border border-gray-200 text-gray-600 hover:border-gray-300'}
+                                      `}
+                                    >
+                                      {day.label}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* 제외 기간 */}
+                            <div>
+                              <div className="flex items-center justify-between mb-1">
+                                <label className="block text-[11px] text-gray-500">제외 기간</label>
+                                <button
+                                  type="button"
+                                  onClick={() => addExcludedPeriod(idx)}
+                                  disabled={isSaving}
+                                  className="flex items-center gap-0.5 text-[10px] text-emerald-600 hover:text-emerald-700 disabled:opacity-50"
+                                >
+                                  <Plus className="w-2.5 h-2.5" />
+                                  추가
+                                </button>
+                              </div>
+                              {m.excluded_periods.length === 0 ? (
+                                <p className="text-[10px] text-gray-400">제외 기간이 없습니다</p>
+                              ) : (
+                                <div className="space-y-1.5">
+                                  {m.excluded_periods.map((period, pIdx) => (
+                                    <div key={pIdx} className="flex items-center gap-1 bg-white p-1.5 rounded border border-gray-200">
+                                      <input
+                                        type="date"
+                                        value={period.start_date}
+                                        onChange={(e) => updateExcludedPeriod(idx, pIdx, 'start_date', e.target.value)}
+                                        disabled={isSaving}
+                                        className="flex-1 min-w-0 px-1 py-0.5 text-[11px] border border-gray-200 rounded focus:outline-none focus:border-emerald-500 disabled:bg-gray-50"
+                                      />
+                                      <span className="text-[10px] text-gray-400">~</span>
+                                      <input
+                                        type="date"
+                                        value={period.end_date}
+                                        onChange={(e) => updateExcludedPeriod(idx, pIdx, 'end_date', e.target.value)}
+                                        disabled={isSaving}
+                                        className="flex-1 min-w-0 px-1 py-0.5 text-[11px] border border-gray-200 rounded focus:outline-none focus:border-emerald-500 disabled:bg-gray-50"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => removeExcludedPeriod(idx, pIdx)}
+                                        disabled={isSaving}
+                                        className="p-0.5 text-gray-400 hover:text-red-500 disabled:opacity-50 flex-shrink-0"
+                                      >
+                                        <X className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}

@@ -32,6 +32,8 @@ export const queryKeys = {
   programRanking: (programId) => ['rankings', 'byProgram', programId],
   // 운영자 PENDING_REVIEW 목록
   pendingReviews: (programId) => ['verifications', 'pending', programId],
+  // 운영자 참여자 통계
+  programStats: (programId) => ['stats', 'program', programId],
 }
 
 // ─── 쿼리 함수들 ─────────────────────────────────────────────
@@ -182,4 +184,172 @@ export const fetchPendingReviews = async (programId) => {
     .rpc('get_pending_reviews', { p_program_id: programId })
   if (error) throw error
   return data || []
+}
+
+// 운영자 심사 디테일 — RPC 결과에 bundle_title 추가 (묶음 그루핑용)
+// RPC 가 m_id 까지 반환 → missions 에서 bundle_title 별도 fetch + 매핑
+export const fetchPendingReviewsEnriched = async (programId) => {
+  const { data: rpcData, error: rpcErr } = await supabase
+    .rpc('get_pending_reviews', { p_program_id: programId })
+  if (rpcErr) throw rpcErr
+  const rows = rpcData || []
+
+  if (rows.length === 0) return []
+
+  const missionIds = Array.from(new Set(rows.map(r => r.m_id)))
+  const { data: missionData, error: mErr } = await supabase
+    .from('missions')
+    .select('id, bundle_title')
+    .in('id', missionIds)
+  if (mErr) throw mErr
+
+  const bundleMap = new Map((missionData || []).map(m => [m.id, m.bundle_title]))
+  return rows.map(r => ({ ...r, m_bundle_title: bundleMap.get(r.m_id) || null }))
+}
+
+// 운영자 참여자 통계 — 4가지 핵심 지표 + 묶음 그루핑된 미션 통계
+//   participantsCount: ACTIVE 참여자 수
+//   totalVerifications: 누적 APPROVED 인증
+//   todayVerifications: KST 오늘 APPROVED 인증
+//   todayActiveParticipants: KST 오늘 인증한 unique 참여자 수
+//   bundleStats: [{ bundleTitle, totalCount, missions: [{ mission_id, title, count }] }]
+//                bundleTitle=null = 단독 미션 그룹. totalCount 내림차순.
+export const fetchProgramStats = async (programId) => {
+  // 1) ACTIVE 참여자 수
+  const { count: participantsCount, error: pErr } = await supabase
+    .from('program_participants')
+    .select('*', { count: 'exact', head: true })
+    .eq('program_id', programId)
+    .eq('status', 'ACTIVE')
+  if (pErr) throw pErr
+
+  // 2-4) verifications + 미션 JOIN (program_id 필터)
+  //   users 는 따로 fetch — verifications 에 user_id + reviewer_id 둘 다 users 참조라
+  //   `users!inner` 가 ambiguous. unique user_id 만 모은 후 별도 SELECT.
+  const { data: vData, error: vErr } = await supabase
+    .from('verifications')
+    .select('id, mission_id, user_id, submitted_at, missions!inner(program_id, title, bundle_title)')
+    .eq('missions.program_id', programId)
+    .eq('status', 'APPROVED')
+  if (vErr) throw vErr
+
+  const rows = vData || []
+  const totalVerifications = rows.length
+
+  const todayKst = formatKstDate(new Date())
+  const todayRows = rows.filter(r => formatKstDate(new Date(r.submitted_at)) === todayKst)
+  const todayVerifications = todayRows.length
+  const todayActiveParticipants = new Set(todayRows.map(r => r.user_id)).size
+
+  // 미션 단위 카운트
+  const missionCountMap = new Map()
+  for (const r of rows) {
+    const mId = r.mission_id
+    if (!missionCountMap.has(mId)) {
+      missionCountMap.set(mId, {
+        mission_id: mId,
+        title: r.missions?.title || '(삭제된 미션)',
+        bundleTitle: r.missions?.bundle_title || null,
+        count: 0,
+      })
+    }
+    missionCountMap.get(mId).count += 1
+  }
+
+  // 묶음 단위 그루핑
+  const bundleMap = new Map() // bundleTitle (string|null) -> { bundleTitle, totalCount, missions: [] }
+  for (const m of missionCountMap.values()) {
+    const key = m.bundleTitle
+    if (!bundleMap.has(key)) {
+      bundleMap.set(key, { bundleTitle: key, totalCount: 0, missions: [] })
+    }
+    const bucket = bundleMap.get(key)
+    bucket.totalCount += m.count
+    bucket.missions.push({ mission_id: m.mission_id, title: m.title, count: m.count })
+  }
+
+  // 각 묶음 안 미션도 count 내림차순 + 묶음 자체도 totalCount 내림차순
+  // 단독 그룹(null)은 항상 맨 아래로 (운영자가 묶음 단위 인식 우선)
+  for (const bucket of bundleMap.values()) {
+    bucket.missions.sort((a, b) => b.count - a.count)
+  }
+  const bundleStats = Array.from(bundleMap.values()).sort((a, b) => {
+    if (a.bundleTitle === null) return 1
+    if (b.bundleTitle === null) return -1
+    return b.totalCount - a.totalCount
+  })
+
+  // 유저별 통계 — { user_id, nickname, totalCount, todayCount, totalScore, activeDays, lastActiveAt }
+  //   verifications 가 있는 유저만 표시 (인증 0건 ACTIVE 참여자는 제외 — 단순화)
+  //   totalCount: 누적 APPROVED 인증 횟수 (daily_limit 초과 포함)
+  //   totalScore: 실제 부여된 점수 합 (score_ledgers — 한도 초과 인증은 점수 0)
+  //   activeDays: unique KST 인증 일자 수 (지속성 지표)
+  //   lastActiveAt: 가장 최근 submitted_at (활성/비활성 판별)
+  const userMap = new Map()
+  for (const r of rows) {
+    const uId = r.user_id
+    if (!userMap.has(uId)) {
+      userMap.set(uId, {
+        user_id: uId,
+        nickname: '(알 수 없음)',
+        totalCount: 0,
+        todayCount: 0,
+        totalScore: 0,
+        activeDays: 0,
+        lastActiveAt: null,
+        _dateSet: new Set(),  // 활동 일수 계산용
+      })
+    }
+    const bucket = userMap.get(uId)
+    bucket.totalCount += 1
+    bucket._dateSet.add(formatKstDate(new Date(r.submitted_at)))
+    if (!bucket.lastActiveAt || r.submitted_at > bucket.lastActiveAt) {
+      bucket.lastActiveAt = r.submitted_at
+    }
+  }
+  for (const r of todayRows) {
+    const u = userMap.get(r.user_id)
+    if (u) u.todayCount += 1
+  }
+  // _dateSet 을 activeDays 로 변환
+  for (const u of userMap.values()) {
+    u.activeDays = u._dateSet.size
+    delete u._dateSet
+  }
+
+  // 실제 부여된 점수 — score_ledgers 별도 fetch (033 트리거 통과한 점수만)
+  const { data: ledgerData, error: lErr } = await supabase
+    .from('score_ledgers')
+    .select('user_id, point')
+    .eq('program_id', programId)
+  if (lErr) throw lErr
+  for (const l of ledgerData || []) {
+    const u = userMap.get(l.user_id)
+    if (u) u.totalScore += (l.point || 0)
+  }
+
+  // nickname 별도 fetch — RLS 가 모든 authenticated SELECT 허용 (003)
+  const userIds = Array.from(userMap.keys())
+  if (userIds.length > 0) {
+    const { data: uData, error: uErr } = await supabase
+      .from('users')
+      .select('id, nickname')
+      .in('id', userIds)
+    if (uErr) throw uErr
+    for (const u of uData || []) {
+      const bucket = userMap.get(u.id)
+      if (bucket) bucket.nickname = u.nickname || '(닉네임 없음)'
+    }
+  }
+
+  const userStats = Array.from(userMap.values()).sort((a, b) => b.totalCount - a.totalCount)
+
+  return {
+    participantsCount: participantsCount || 0,
+    totalVerifications,
+    todayVerifications,
+    todayActiveParticipants,
+    bundleStats,
+    userStats,
+  }
 }

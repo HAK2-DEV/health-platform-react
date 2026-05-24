@@ -6,10 +6,10 @@ import { ChevronLeft, Plus, ChevronRight } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
 import { formatKoreanDate } from '../../lib/formatters'
 import MissionCard from '../../components/program/MissionCard'
+import StickyBackBar from '../../components/common/StickyBackBar'
 import ProgramEditModal from '../../components/program/ProgramEditModal'
 import MissionCreateModal from '../../components/program/MissionCreateModal'
 import MissionLibraryModal from '../../components/program/MissionLibraryModal'
-import ReviewModal from '../../components/program/ReviewModal'
 import {
   queryKeys,
   fetchProgram,
@@ -29,7 +29,6 @@ function ProgramDetailPage() {
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isLibraryOpen, setIsLibraryOpen] = useState(false)
   const [isMissionCreateOpen, setIsMissionCreateOpen] = useState(false)
-  const [isReviewOpen, setIsReviewOpen] = useState(false)
 
   // 5개 useQuery 로 분리 — 각각 독립 캐시. 다른 화면(대시보드/랭킹/묶음 디테일)도 같은 키 공유.
   const { data: program, isLoading: isProgramLoading, error: programError } = useQuery({
@@ -75,15 +74,10 @@ function ProgramDetailPage() {
     return Array.from(map.entries()).map(([bundleTitle, ms]) => ({ bundleTitle, missions: ms }))
   }, [missions])
 
-  // 모달 mutation 후 갱신 헬퍼들
+  // 모달 mutation 후 갱신 헬퍼
   const invalidateProgramData = () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.program(id) })
     queryClient.invalidateQueries({ queryKey: queryKeys.programMissions(id) })
-  }
-  const invalidateAfterReview = () => {
-    queryClient.invalidateQueries({ queryKey: ['scores'] })
-    queryClient.invalidateQueries({ queryKey: ['verifications'] })
-    queryClient.invalidateQueries({ queryKey: ['rankings'] })
   }
 
   // 미션 삭제 — CASCADE 로 verifications + score_ledgers 함께 사라짐
@@ -101,6 +95,7 @@ function ProgramDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['scores'] })
       queryClient.invalidateQueries({ queryKey: ['verifications'] })
       queryClient.invalidateQueries({ queryKey: ['rankings'] })
+      queryClient.invalidateQueries({ queryKey: ['stats'] })
     },
     onError: (err) => {
       console.error('미션 삭제 실패:', err)
@@ -137,15 +132,7 @@ function ProgramDetailPage() {
 
   return (
     <div className="px-4 pt-2 pb-6 max-w-4xl mx-auto">
-      {/* 좌측 상단 작은 "<" 백 버튼 */}
-      <button
-        type="button"
-        onClick={() => navigate(-1)}
-        className="flex items-center justify-center w-9 h-9 -ml-1 mb-2 rounded-full hover:bg-gray-100 transition"
-        title="뒤로"
-      >
-        <ChevronLeft className="w-5 h-5 text-gray-600" />
-      </button>
+      <StickyBackBar onClick={() => navigate(-1)} />
 
       {/* 프로그램 헤더 */}
       <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
@@ -198,7 +185,7 @@ function ProgramDetailPage() {
             </button>
             <button
               type="button"
-              onClick={() => setIsReviewOpen(true)}
+              onClick={() => navigate(`/programs/${id}/reviews`)}
               className="px-3 py-2 bg-white border border-amber-300 hover:border-amber-500 hover:bg-amber-100 rounded text-sm text-amber-800 transition text-left"
             >
               ✅ 인증 심사
@@ -206,12 +193,11 @@ function ProgramDetailPage() {
             </button>
             <button
               type="button"
-              disabled
-              className="px-3 py-2 bg-white border border-amber-200 rounded text-sm text-gray-400 cursor-not-allowed text-left"
-              title="추후 진화"
+              onClick={() => navigate(`/programs/${id}/stats`)}
+              className="px-3 py-2 bg-white border border-amber-300 hover:border-amber-500 hover:bg-amber-100 rounded text-sm text-amber-800 transition text-left"
             >
               📊 참여자 통계
-              <span className="block text-xs">(준비 중)</span>
+              <span className="block text-xs text-amber-700">참여 · 인증 · 미션별 현황</span>
             </button>
           </div>
         </div>
@@ -373,13 +359,6 @@ function ProgramDetailPage() {
         isOpen={isMissionCreateOpen}
         onClose={() => setIsMissionCreateOpen(false)}
         onSuccess={invalidateProgramData}
-      />
-
-      <ReviewModal
-        program={program}
-        isOpen={isReviewOpen}
-        onClose={() => setIsReviewOpen(false)}
-        onSuccess={invalidateAfterReview}
       />
     </div>
   )

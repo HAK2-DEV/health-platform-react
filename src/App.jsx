@@ -11,6 +11,17 @@ import DashboardPage from './pages/DashboardPage'                       // ⭐ �
 import ProgramNewPage from './pages/program/ProgramNewPage'            // ⭐ 추가
 import ProgramDetailPage from './pages/program/ProgramDetailPage'
 import BundleDetailPage from './pages/program/BundleDetailPage'
+import ProgramStatsPage from './pages/program/ProgramStatsPage'
+import ProgramStatsMissionsPage from './pages/program/ProgramStatsMissionsPage'
+import ProgramStatsUsersPage from './pages/program/ProgramStatsUsersPage'
+import ProgramStatsUserDetailPage from './pages/program/ProgramStatsUserDetailPage'
+import ProgramStatsUserMissionsPage from './pages/program/ProgramStatsUserMissionsPage'
+import ProgramStatsUserVerificationsPage from './pages/program/ProgramStatsUserVerificationsPage'
+import ProgramStatsUserVerificationsBundlePage from './pages/program/ProgramStatsUserVerificationsBundlePage'
+import ProgramStatsUserVerificationsMissionPage from './pages/program/ProgramStatsUserVerificationsMissionPage'
+import ProgramReviewsPage from './pages/program/ProgramReviewsPage'
+import ProgramReviewsBundlePage from './pages/program/ProgramReviewsBundlePage'
+import ProgramReviewsMissionPage from './pages/program/ProgramReviewsMissionPage'
 import MissionVerifyPage from './pages/program/MissionVerifyPage'
 import ProgramListPage from './pages/program/ProgramListPage'
 import RankingsPage from './pages/RankingsPage'
@@ -77,6 +88,39 @@ function AppShell() {
   } />
   <Route path="/programs/:id/bundles/:bundleParam" element={
     <ProtectedRoute><BundleDetailPage /></ProtectedRoute>
+  } />
+  <Route path="/programs/:id/stats" element={
+    <ProtectedRoute><ProgramStatsPage /></ProtectedRoute>
+  } />
+  <Route path="/programs/:id/stats/missions" element={
+    <ProtectedRoute><ProgramStatsMissionsPage /></ProtectedRoute>
+  } />
+  <Route path="/programs/:id/stats/users" element={
+    <ProtectedRoute><ProgramStatsUsersPage /></ProtectedRoute>
+  } />
+  <Route path="/programs/:id/stats/users/:userId" element={
+    <ProtectedRoute><ProgramStatsUserDetailPage /></ProtectedRoute>
+  } />
+  <Route path="/programs/:id/stats/users/:userId/missions" element={
+    <ProtectedRoute><ProgramStatsUserMissionsPage /></ProtectedRoute>
+  } />
+  <Route path="/programs/:id/stats/users/:userId/verifications" element={
+    <ProtectedRoute><ProgramStatsUserVerificationsPage /></ProtectedRoute>
+  } />
+  <Route path="/programs/:id/stats/users/:userId/verifications/:bundleParam" element={
+    <ProtectedRoute><ProgramStatsUserVerificationsBundlePage /></ProtectedRoute>
+  } />
+  <Route path="/programs/:id/stats/users/:userId/verifications/:bundleParam/:missionId" element={
+    <ProtectedRoute><ProgramStatsUserVerificationsMissionPage /></ProtectedRoute>
+  } />
+  <Route path="/programs/:id/reviews" element={
+    <ProtectedRoute><ProgramReviewsPage /></ProtectedRoute>
+  } />
+  <Route path="/programs/:id/reviews/:bundleParam" element={
+    <ProtectedRoute><ProgramReviewsBundlePage /></ProtectedRoute>
+  } />
+  <Route path="/programs/:id/reviews/:bundleParam/:missionId" element={
+    <ProtectedRoute><ProgramReviewsMissionPage /></ProtectedRoute>
   } />
   <Route path="/programs/:programId/missions/:missionId" element={
     <ProtectedRoute><MissionVerifyPage /></ProtectedRoute>

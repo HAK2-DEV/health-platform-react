@@ -25,6 +25,20 @@ export function formatKoreanDate(dateString) {
   return dateString.replaceAll('-', '.')
 }
 
+// ISO timestamp → "오늘" / "어제" / "N일 전" / "YYYY.MM.DD" 짧은 한국식
+export function formatRelativeKstDay(timestamp) {
+  if (!timestamp) return ''
+  const todayKst = getTodayKST()
+  const targetKst = toKSTDateString(timestamp)
+  if (targetKst === todayKst) return '오늘'
+  const today = new Date(`${todayKst}T00:00:00+09:00`)
+  const target = new Date(`${targetKst}T00:00:00+09:00`)
+  const diffDays = Math.round((today - target) / (1000 * 60 * 60 * 24))
+  if (diffDays === 1) return '어제'
+  if (diffDays > 1 && diffDays < 30) return `${diffDays}일 전`
+  return targetKst.replaceAll('-', '.')
+}
+
 // KST 오늘 ISO 요일 (1=월 ... 7=일) — 점수 트리거 033 의 EXTRACT(ISODOW) 와 동일 규약
 export function getTodayKstDow() {
   const day = new Intl.DateTimeFormat('en-US', {

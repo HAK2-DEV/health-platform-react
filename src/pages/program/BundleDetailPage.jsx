@@ -5,6 +5,7 @@ import { ChevronLeft, Trophy } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
 import MissionCard from '../../components/program/MissionCard'
+import StickyBackBar from '../../components/common/StickyBackBar'
 import {
   queryKeys,
   fetchProgram,
@@ -58,6 +59,7 @@ function BundleDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['scores'] })
       queryClient.invalidateQueries({ queryKey: ['verifications'] })
       queryClient.invalidateQueries({ queryKey: ['rankings'] })
+      queryClient.invalidateQueries({ queryKey: ['stats'] })
     },
     onError: (err) => {
       console.error('미션 삭제 실패:', err)
@@ -116,14 +118,7 @@ function BundleDetailPage() {
 
   return (
     <div className="px-4 pt-2 pb-6 max-w-4xl mx-auto">
-      <button
-        type="button"
-        onClick={() => navigate(`/programs/${id}`)}
-        className="flex items-center justify-center w-9 h-9 -ml-1 mb-2 rounded-full hover:bg-gray-100 transition"
-        title="프로그램으로"
-      >
-        <ChevronLeft className="w-5 h-5 text-gray-600" />
-      </button>
+      <StickyBackBar onClick={() => navigate(`/programs/${id}`)} title="프로그램으로" />
 
       {/* 묶음 헤더 */}
       <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
