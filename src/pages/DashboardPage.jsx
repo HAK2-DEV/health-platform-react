@@ -8,6 +8,7 @@ import { Plus, Activity, Trash2, ChevronRight, ClipboardList, Target, Clock, Tro
 import { formatKoreanDate, checkMissionToday } from '../lib/formatters'
 import { CATEGORY } from '../lib/constants'
 import ProgramDetailModal from '../components/program/ProgramDetailModal'
+import DeleteProgramConfirmModal from '../components/program/DeleteProgramConfirmModal'
 import {
   queryKeys,
   fetchMyPrograms,
@@ -62,6 +63,7 @@ function DashboardPage() {
   const userId = session?.user?.id
 
   const [selectedProgram, setSelectedProgram] = useState(null)
+  const [programToDelete, setProgramToDelete] = useState(null)  // PUBLISHED 삭제용 (이중 확인 모달)
 
   // 로그아웃 시 /login 으로
   useEffect(() => {
@@ -133,18 +135,25 @@ function DashboardPage() {
   // 실제 운영 중 = 참여 중 - 시작 전
   const runningCount = activePrograms.length - upcomingPrograms.length
 
-  // DRAFT 삭제 — useMutation. 성공 시 내 프로그램 캐시 무효화 (한 곳에서만 갱신)
+  // 프로그램 삭제 — DRAFT/PUBLISHED 둘 다. CASCADE 로 모든 관련 데이터 사라짐.
+  //   DRAFT: 단순 confirm (안전장치 무거움 X)
+  //   PUBLISHED: DeleteProgramConfirmModal 이중 확인 (이름 재입력)
   const deleteMutation = useMutation({
     mutationFn: async (programId) => {
       const { error } = await supabase
         .from('programs')
         .delete()
         .eq('id', programId)
-        .eq('status', 'DRAFT')          // ⭐ DRAFT 만 (안전장치)
       if (error) throw error
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.myPrograms(userId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.activePrograms(userId) })
+      // 점수/랭킹/통계도 사라짐 — 다른 화면에도 반영
+      queryClient.invalidateQueries({ queryKey: ['scores'] })
+      queryClient.invalidateQueries({ queryKey: ['rankings'] })
+      queryClient.invalidateQueries({ queryKey: ['stats'] })
+      queryClient.invalidateQueries({ queryKey: ['feed'] })
     },
     onError: (err) => {
       console.error('삭제 실패:', err)
@@ -152,9 +161,20 @@ function DashboardPage() {
     },
   })
 
-  const handleDelete = (programId, programName) => {
-    if (!window.confirm(`"${programName}" 임시저장을 삭제할까요?`)) return
-    deleteMutation.mutate(programId)
+  const handleDelete = (program) => {
+    if (program.status === 'DRAFT') {
+      if (!window.confirm(`"${program.name}" 임시저장을 삭제할까요?`)) return
+      deleteMutation.mutate(program.id)
+    } else {
+      // PUBLISHED 등 — 이중 확인 모달
+      setProgramToDelete(program)
+    }
+  }
+
+  const handleConfirmDeletePublished = async () => {
+    if (!programToDelete) return
+    await deleteMutation.mutateAsync(programToDelete.id)
+    setProgramToDelete(null)
   }
 
   return (
@@ -496,30 +516,38 @@ function DashboardPage() {
             animate="show"
             className="grid gap-3"
           >
-            {myPrograms.slice(0, 3).map(program => (
-              <motion.div
-                key={program.id}
-                variants={itemVariants}
-                onClick={() => setSelectedProgram(program)}
-                className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition cursor-pointer"
-              >
-                <div className="flex items-start justify-between mb-2">
-                  <h3 className="font-medium text-gray-800">{program.name}</h3>
-                  <div className="flex items-center gap-2">
-                    <span className={`
-                      px-2 py-0.5 rounded text-xs
-                      ${program.status === 'PUBLISHED'
-                        ? 'bg-green-100 text-green-700'
-                        : 'bg-gray-100 text-gray-600'}
-                    `}>
-                      {program.status === 'PUBLISHED' ? '진행중' : '임시저장'}
-                    </span>
-                    {/* DRAFT 만 삭제 버튼 */}
-                    {program.status === 'DRAFT' && (
+            {myPrograms.slice(0, 3).map(program => {
+              const isDraft = program.status === 'DRAFT'
+              return (
+                <motion.div
+                  key={program.id}
+                  variants={itemVariants}
+                  onClick={() => {
+                    if (isDraft) {
+                      // 임시저장 → 마법사 재진입 (4단계까지 가서 출시)
+                      navigate(`/programs/new?id=${program.id}`)
+                    } else {
+                      setSelectedProgram(program)
+                    }
+                  }}
+                  className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition cursor-pointer"
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <h3 className="font-medium text-gray-800">{program.name}</h3>
+                    <div className="flex items-center gap-2">
+                      <span className={`
+                        px-2 py-0.5 rounded text-xs
+                        ${isDraft
+                          ? 'bg-gray-100 text-gray-600'
+                          : 'bg-green-100 text-green-700'}
+                      `}>
+                        {isDraft ? '임시저장' : '진행중'}
+                      </span>
+                      {/* 삭제 — 모든 상태. DRAFT 는 simple confirm / PUBLISHED 는 이름 재입력 모달 */}
                       <button
                         onClick={(e) => {
-                          e.stopPropagation()                          // ⭐ 모달 안 열림
-                          handleDelete(program.id, program.name)
+                          e.stopPropagation()
+                          handleDelete(program)
                         }}
                         disabled={deleteMutation.isPending}
                         className="p-1 text-gray-400 hover:text-red-500 transition disabled:opacity-40"
@@ -527,19 +555,24 @@ function DashboardPage() {
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
-                    )}
+                    </div>
                   </div>
-                </div>
-                {program.description && (
-                  <p className="text-sm text-gray-600 mb-2 line-clamp-2">
-                    {program.description}
+                  {program.description && (
+                    <p className="text-sm text-gray-600 mb-2 line-clamp-2">
+                      {program.description}
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-500">
+                    {formatKoreanDate(program.start_date)} ~ {formatKoreanDate(program.end_date)}
                   </p>
-                )}
-                <p className="text-xs text-gray-500">
-                  {formatKoreanDate(program.start_date)} ~ {formatKoreanDate(program.end_date)}
-                </p>
-              </motion.div>
-            ))}
+                  {isDraft && (
+                    <p className="text-[11px] text-emerald-600 mt-1.5">
+                      ✏️ 클릭하면 이어서 작성할 수 있어요
+                    </p>
+                  )}
+                </motion.div>
+              )
+            })}
           </motion.div>
         )}
       </section>
@@ -654,6 +687,14 @@ function DashboardPage() {
           program={selectedProgram}
           isOpen={selectedProgram !== null}
           onClose={() => setSelectedProgram(null)}
+        />
+
+        {/* PUBLISHED 프로그램 삭제 — 이름 재입력 확인 */}
+        <DeleteProgramConfirmModal
+          program={programToDelete}
+          isOpen={programToDelete !== null}
+          onClose={() => setProgramToDelete(null)}
+          onConfirm={handleConfirmDeletePublished}
         />
 
       </div>

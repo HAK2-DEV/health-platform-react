@@ -65,13 +65,14 @@ function ProgramReviewsMissionPage() {
     return () => { cancelled = true }
   }, [missionPending.length])
 
-  // 인증 mutation 후 invalidate — 점수/카운트/랭킹/통계/심사 모두
+  // 인증 mutation 후 invalidate — 점수/카운트/랭킹/통계/심사/피드 모두
   const invalidateAfterReview = () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.pendingReviews(id) })
     queryClient.invalidateQueries({ queryKey: ['scores'] })
     queryClient.invalidateQueries({ queryKey: ['verifications'] })
     queryClient.invalidateQueries({ queryKey: ['rankings'] })
     queryClient.invalidateQueries({ queryKey: ['stats'] })
+    queryClient.invalidateQueries({ queryKey: ['feed'] })
   }
 
   const approveMutation = useMutation({

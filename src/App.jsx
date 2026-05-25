@@ -22,6 +22,7 @@ import ProgramStatsUserVerificationsMissionPage from './pages/program/ProgramSta
 import ProgramReviewsPage from './pages/program/ProgramReviewsPage'
 import ProgramReviewsBundlePage from './pages/program/ProgramReviewsBundlePage'
 import ProgramReviewsMissionPage from './pages/program/ProgramReviewsMissionPage'
+import ProgramFeedPage from './pages/program/ProgramFeedPage'
 import MissionVerifyPage from './pages/program/MissionVerifyPage'
 import ProgramListPage from './pages/program/ProgramListPage'
 import RankingsPage from './pages/RankingsPage'
@@ -121,6 +122,9 @@ function AppShell() {
   } />
   <Route path="/programs/:id/reviews/:bundleParam/:missionId" element={
     <ProtectedRoute><ProgramReviewsMissionPage /></ProtectedRoute>
+  } />
+  <Route path="/programs/:id/feed" element={
+    <ProtectedRoute><ProgramFeedPage /></ProtectedRoute>
   } />
   <Route path="/programs/:programId/missions/:missionId" element={
     <ProtectedRoute><MissionVerifyPage /></ProtectedRoute>

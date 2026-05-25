@@ -34,6 +34,8 @@ export const queryKeys = {
   pendingReviews: (programId) => ['verifications', 'pending', programId],
   // 운영자 참여자 통계
   programStats: (programId) => ['stats', 'program', programId],
+  // 커뮤니티 피드 — verifications + likes + comments 통합
+  feedPosts: (programId) => ['feed', 'posts', programId],
 }
 
 // ─── 쿼리 함수들 ─────────────────────────────────────────────
@@ -205,6 +207,86 @@ export const fetchPendingReviewsEnriched = async (programId) => {
 
   const bundleMap = new Map((missionData || []).map(m => [m.id, m.bundle_title]))
   return rows.map(r => ({ ...r, m_bundle_title: bundleMap.get(r.m_id) || null }))
+}
+
+// 커뮤니티 피드 — verifications + users + post_likes + post_comments 통합
+// 같은 프로그램의 ACTIVE 참여자만 SELECT (037 RLS) — feed_enabled=true 인 경우
+// 반환: [{ ...verification, user, likeCount, likedUserIds: Set, comments: [{ ...comment, user }] }]
+//   likedByMe 는 호출 측에서 likedUserIds.has(myUserId) 로 결정 (캐시는 user 무관)
+export const fetchFeedPosts = async (programId) => {
+  // 1) APPROVED verifications + 미션 정보
+  const { data: vData, error: vErr } = await supabase
+    .from('verifications')
+    .select('id, mission_id, user_id, submitted_at, image_path, numeric_value, note, missions!inner(program_id, title, bundle_title)')
+    .eq('missions.program_id', programId)
+    .eq('status', 'APPROVED')
+    .order('submitted_at', { ascending: false })
+  if (vErr) throw vErr
+
+  const rows = vData || []
+  if (rows.length === 0) return []
+
+  const verifIds = rows.map(r => r.id)
+
+  // 2) post_likes + post_comments 병렬
+  const [likesRes, commentsRes] = await Promise.all([
+    supabase
+      .from('post_likes')
+      .select('verification_id, user_id')
+      .in('verification_id', verifIds),
+    supabase
+      .from('post_comments')
+      .select('id, verification_id, user_id, content, created_at, updated_at')
+      .in('verification_id', verifIds)
+      .order('created_at', { ascending: true }),
+  ])
+  if (likesRes.error) throw likesRes.error
+  if (commentsRes.error) throw commentsRes.error
+
+  const likes = likesRes.data || []
+  const comments = commentsRes.data || []
+
+  // 3) 인증 작성자 + 댓글 작성자 unique user_ids → nickname 한 번에 fetch
+  const allUserIds = Array.from(new Set([
+    ...rows.map(r => r.user_id),
+    ...comments.map(c => c.user_id),
+  ]))
+  const { data: uData, error: uErr } = await supabase
+    .from('users')
+    .select('id, nickname')
+    .in('id', allUserIds)
+  if (uErr) throw uErr
+  const userMap = new Map((uData || []).map(u => [u.id, u]))
+
+  // 4) likeMap (verification_id → { count, userIds })
+  const likeMap = new Map()
+  for (const l of likes) {
+    if (!likeMap.has(l.verification_id)) {
+      likeMap.set(l.verification_id, { count: 0, userIds: new Set() })
+    }
+    const b = likeMap.get(l.verification_id)
+    b.count += 1
+    b.userIds.add(l.user_id)
+  }
+
+  // 5) commentMap (verification_id → [comments...])
+  const commentMap = new Map()
+  for (const c of comments) {
+    if (!commentMap.has(c.verification_id)) commentMap.set(c.verification_id, [])
+    commentMap.get(c.verification_id).push({
+      ...c,
+      user: userMap.get(c.user_id) || null,
+    })
+  }
+
+  // 6) 조립
+  return rows.map(r => ({
+    ...r,
+    user: userMap.get(r.user_id) || null,
+    likeCount: likeMap.get(r.id)?.count || 0,
+    likedUserIds: likeMap.get(r.id)?.userIds || new Set(),
+    comments: commentMap.get(r.id) || [],
+  }))
 }
 
 // 운영자 참여자 통계 — 4가지 핵심 지표 + 묶음 그루핑된 미션 통계

@@ -230,6 +230,24 @@ function ProgramDetailPage() {
         )
       })()}
 
+      {/* 피드 진입 카드 — feed_enabled 면 모든 참여자에게 노출 */}
+      {program.feed_enabled && (
+        <button
+          type="button"
+          onClick={() => navigate(`/programs/${id}/feed`)}
+          className="w-full flex items-center gap-3 p-4 mb-6 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-lg hover:from-emerald-100 hover:to-teal-100 transition text-left"
+        >
+          <span className="text-2xl">📷</span>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-medium text-emerald-800">피드 보기</h3>
+            <p className="text-xs text-emerald-700">
+              참여자들이 올린 인증을 보고 좋아요·댓글로 응원해보세요
+            </p>
+          </div>
+          <ChevronRight className="w-5 h-5 text-emerald-500 flex-shrink-0" />
+        </button>
+      )}
+
       {/* 미션 목록 */}
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-lg font-medium text-gray-800">📋 미션 목록</h2>
