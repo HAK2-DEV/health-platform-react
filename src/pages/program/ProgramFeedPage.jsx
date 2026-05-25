@@ -124,6 +124,20 @@ function ProgramFeedPage() {
   // 댓글 입력 상태 — verification_id → 입력 텍스트
   const [commentInputs, setCommentInputs] = useState({})
 
+  // 댓글 펼침 상태 — 긴 댓글 line-clamp-2 + "더 보기" 토글
+  const [expandedComments, setExpandedComments] = useState(() => new Set())
+  const toggleExpanded = (commentId) => {
+    setExpandedComments(prev => {
+      const next = new Set(prev)
+      if (next.has(commentId)) next.delete(commentId)
+      else next.add(commentId)
+      return next
+    })
+  }
+  // 긴 댓글 판정 — 약 2줄 임계 (한국어 모바일 폭 기준 60자 또는 줄바꿈 포함)
+  const isLongComment = (content) =>
+    !!content && (content.length > 60 || content.includes('\n'))
+
   const handleCommentSubmit = (verificationId) => {
     const content = (commentInputs[verificationId] || '').trim()
     if (!content) return
@@ -278,12 +292,26 @@ function ProgramFeedPage() {
                       const isMyComment = c.user_id === myUserId
                       const isProgramOwner = program.owner_id === myUserId
                       const canDelete = isMyComment || isProgramOwner
+                      const isLong = isLongComment(c.content)
+                      const isExpanded = expandedComments.has(c.id)
+                      const clamped = isLong && !isExpanded
                       return (
                         <div key={c.id} className="flex items-start gap-1 text-sm">
-                          <p className="flex-1 min-w-0 break-words">
-                            <span className="font-medium text-gray-800">{c.user?.nickname || '(?)'}</span>{' '}
-                            <span className="text-gray-700 whitespace-pre-wrap">{c.content}</span>
-                          </p>
+                          <div className="flex-1 min-w-0">
+                            <p className={`break-words ${clamped ? 'line-clamp-2' : ''}`}>
+                              <span className="font-medium text-gray-800">{c.user?.nickname || '(?)'}</span>{' '}
+                              <span className="text-gray-700 whitespace-pre-wrap">{c.content}</span>
+                            </p>
+                            {isLong && (
+                              <button
+                                type="button"
+                                onClick={() => toggleExpanded(c.id)}
+                                className="text-xs text-gray-400 hover:text-gray-600 mt-0.5"
+                              >
+                                {isExpanded ? '접기' : '... 더 보기'}
+                              </button>
+                            )}
+                          </div>
                           {canDelete && (
                             <button
                               type="button"

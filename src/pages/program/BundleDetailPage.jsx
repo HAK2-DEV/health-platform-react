@@ -1,7 +1,18 @@
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { ChevronLeft, Trophy } from 'lucide-react'
+
+// 트로피 주변 별 폭발 위치 (트로피 중앙 기준 픽셀 오프셋)
+const SPARKLE_POSITIONS = [
+  { x: -55, y: -35 },
+  { x: 50, y: -45 },
+  { x: -60, y: 25 },
+  { x: 55, y: 20 },
+  { x: -15, y: -60 },
+  { x: 15, y: 55 },
+]
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
 import MissionCard from '../../components/program/MissionCard'
@@ -116,6 +127,18 @@ function BundleDetailPage() {
     return limit != null && todayCount >= limit && pendingCount === 0
   })
 
+  // 축하 카드 자동 스크롤 — 완료 순간 화면 중앙
+  const celebrateRef = useRef(null)
+  useEffect(() => {
+    if (allCompleted && celebrateRef.current) {
+      // 카드 렌더 후 스크롤 (애니메이션 시작과 함께 자연스럽게)
+      const t = setTimeout(() => {
+        celebrateRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }, 100)
+      return () => clearTimeout(t)
+    }
+  }, [allCompleted])
+
   return (
     <div className="px-4 pt-2 pb-6 max-w-4xl mx-auto">
       <StickyBackBar onClick={() => navigate(`/programs/${id}`)} title="프로그램으로" />
@@ -145,31 +168,102 @@ function BundleDetailPage() {
         ))}
       </div>
 
-      {/* 묶음 완료 축하 카드 — 모든 미션 인증 완료 시 등장 */}
+      {/* 묶음 완료 축하 카드 — 극적 등장: 확대 + 글로우 펄스 + 트로피 바운스 + 별 폭발 */}
       {allCompleted && (
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, ease: 'easeOut' }}
-          className="mt-6 p-6 bg-gradient-to-br from-emerald-50 via-emerald-50/80 to-teal-50 border border-emerald-200 rounded-2xl text-center shadow-sm"
+          ref={celebrateRef}
+          initial={{ opacity: 0, scale: 0.85, y: 30 }}
+          animate={{
+            opacity: 1,
+            scale: 1,
+            y: 0,
+            boxShadow: [
+              '0 0 0 rgba(16, 185, 129, 0)',
+              '0 0 50px rgba(16, 185, 129, 0.55)',
+              '0 0 20px rgba(16, 185, 129, 0.25)',
+              '0 1px 2px rgba(0, 0, 0, 0.05)',
+            ],
+          }}
+          transition={{
+            opacity: { duration: 0.35, ease: 'easeOut' },
+            scale: { duration: 0.5, ease: [0.34, 1.4, 0.64, 1] }, // overshoot 살짝
+            y: { duration: 0.5, ease: 'easeOut' },
+            boxShadow: {
+              duration: 1.8,
+              delay: 0.2,
+              times: [0, 0.3, 0.7, 1],
+            },
+          }}
+          className="mt-6 p-6 bg-gradient-to-br from-emerald-50 via-emerald-50/80 to-teal-50 border border-emerald-200 rounded-2xl text-center"
         >
-          <motion.div
-            initial={{ scale: 0.6, rotate: -10 }}
-            animate={{ scale: 1, rotate: 0 }}
-            transition={{ duration: 0.5, delay: 0.15, type: 'spring', stiffness: 200 }}
-            className="inline-flex items-center justify-center w-16 h-16 bg-amber-100 rounded-full mb-3"
+          {/* 트로피 — spring 바운스 + 살짝 흔들림 + 별 폭발 컨테이너 */}
+          <div className="relative inline-flex items-center justify-center w-16 h-16 mb-3">
+            <motion.div
+              initial={{ scale: 0.2, rotate: -30 }}
+              animate={{
+                scale: [0.2, 1.25, 0.95, 1.05, 1],
+                rotate: [-30, 15, -8, 4, 0],
+              }}
+              transition={{
+                duration: 0.9,
+                delay: 0.25,
+                times: [0, 0.4, 0.6, 0.8, 1],
+                ease: 'easeOut',
+              }}
+              className="absolute inset-0 inline-flex items-center justify-center bg-amber-100 rounded-full"
+            >
+              <Trophy className="w-8 h-8 text-amber-500" />
+            </motion.div>
+
+            {/* 별 폭발 — 트로피 중앙에서 6방향으로 튀어나감 */}
+            {SPARKLE_POSITIONS.map((pos, i) => (
+              <motion.span
+                key={i}
+                className="absolute text-lg pointer-events-none"
+                style={{ left: '50%', top: '50%' }}
+                initial={{ opacity: 0, scale: 0, x: -8, y: -10 }}
+                animate={{
+                  opacity: [0, 1, 1, 0],
+                  scale: [0, 1.3, 1, 0.4],
+                  x: [-8, pos.x - 8],
+                  y: [-10, pos.y - 10],
+                }}
+                transition={{
+                  duration: 1.0,
+                  delay: 0.55 + i * 0.07,
+                  times: [0, 0.3, 0.7, 1],
+                  ease: 'easeOut',
+                }}
+              >
+                ✨
+              </motion.span>
+            ))}
+          </div>
+
+          <motion.h3
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.4 }}
+            className="text-lg font-medium text-emerald-800 mb-1"
           >
-            <Trophy className="w-8 h-8 text-amber-500" />
-          </motion.div>
-          <h3 className="text-lg font-medium text-emerald-800 mb-1">
             오늘 모든 미션 완료!
-          </h3>
-          <p className="text-sm text-emerald-700">
+          </motion.h3>
+          <motion.p
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.5 }}
+            className="text-sm text-emerald-700"
+          >
             {bundleTitle} {bundleMissions.length}개 미션을 모두 인증했어요. 꾸준히 이어가봐요 🌿
-          </p>
-          <p className="mt-2 text-xs text-emerald-600">
+          </motion.p>
+          <motion.p
+            initial={{ opacity: 0, scale: 0.7 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.4, delay: 0.7, type: 'spring', stiffness: 250 }}
+            className="mt-2 text-xs text-emerald-600 font-medium"
+          >
             +{totalPoint}P 획득
-          </p>
+          </motion.p>
         </motion.div>
       )}
     </div>

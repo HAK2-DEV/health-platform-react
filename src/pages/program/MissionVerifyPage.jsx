@@ -30,10 +30,14 @@ function MissionVerifyPage() {
   const location = useLocation()
   const queryClient = useQueryClient()
   const fileInputRef = useRef(null)
+  const errorRef = useRef(null) // 에러 메시지 — 화면 중앙 스크롤 + 진동
 
   // 인증 페이지 진입 시 location.state.returnPath 가 있으면 제출/뒤로 후 그 페이지로 복귀
   // (예: BundleDetailPage 에서 진입 → 같은 BundleDetailPage 로 복귀)
   const returnPath = location.state?.returnPath || null
+
+  // 에러 메시지 등장 시 자동 스크롤 — 화면 중앙으로
+  //   (state 의 error 가 변할 때만 작동 — 동일 메시지 재발생도 useEffect 트리거 위해 errorTick 사용)
   const backToProgram = () => {
     navigate(returnPath || `/programs/${programId}`)
   }
@@ -56,7 +60,20 @@ function MissionVerifyPage() {
   const [previewUrl, setPreviewUrl] = useState(null)
   const [numericValue, setNumericValue] = useState('')
   const [noteText, setNoteText] = useState('')
-  const [error, setError] = useState(null)
+  const [feedVisible, setFeedVisible] = useState(true)  // 디폴트 노출 — feed_enabled 인 프로그램만 의미 있음
+  const [error, setErrorRaw] = useState(null)
+  const [errorTick, setErrorTick] = useState(0)
+  // setError wrapper — 같은 메시지 재발생 시에도 스크롤/진동 트리거되도록 tick 증가
+  const setError = (msg) => {
+    setErrorRaw(msg)
+    if (msg) setErrorTick(t => t + 1)
+  }
+
+  // 에러 등장/재등장 시 화면 중앙 스크롤
+  useEffect(() => {
+    if (!error || !errorRef.current) return
+    errorRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [errorTick, error])
 
   // 입력 메타
   const needsImage = !!mission?.requires_image
@@ -132,6 +149,8 @@ function MissionVerifyPage() {
 
       if (needsNumeric) insertData.numeric_value = parseFloat(numericValue)
       if (needsNote) insertData.note = noteText.trim()
+      // 피드 노출 여부 — 프로그램이 피드 활성일 때만 의미. 디폴트 true.
+      if (program?.feed_enabled) insertData.feed_visible = feedVisible
 
       const { error: insertError } = await supabase
         .from('verifications')
@@ -394,10 +413,63 @@ function MissionVerifyPage() {
           </div>
         )}
 
+        {/* 피드 노출 여부 — feed_enabled 인 프로그램만 표시 */}
+        {program?.feed_enabled && requireCount > 0 && (
+          <button
+            type="button"
+            onClick={() => setFeedVisible(!feedVisible)}
+            disabled={isSubmitting}
+            className={`
+              w-full mb-3 p-3 rounded-xl border-2 text-left transition disabled:opacity-50
+              ${feedVisible
+                ? 'border-emerald-300 bg-emerald-50/50'
+                : 'border-gray-200 bg-white'}
+            `}
+          >
+            <div className="flex items-start gap-2">
+              <span className="text-lg">{feedVisible ? '📷' : '🔒'}</span>
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm font-medium ${feedVisible ? 'text-emerald-700' : 'text-gray-700'}`}>
+                  {feedVisible ? '피드에 공개' : '나만 보기'}
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {feedVisible
+                    ? '다른 참여자들이 피드에서 보고 응원할 수 있어요'
+                    : '점수는 그대로 받지만 피드에는 표시되지 않아요'}
+                </p>
+              </div>
+              <div className={`
+                relative w-9 h-5 rounded-full flex-shrink-0 transition mt-0.5
+                ${feedVisible ? 'bg-emerald-500' : 'bg-gray-300'}
+              `}>
+                <div className={`
+                  absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform
+                  ${feedVisible ? 'translate-x-4' : 'translate-x-0.5'}
+                `} />
+              </div>
+            </div>
+          </button>
+        )}
+
         {error && (
-          <p className="mb-3 p-3 bg-red-50 text-red-700 rounded-xl text-sm text-center">
+          <motion.p
+            ref={errorRef}
+            key={errorTick}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{
+              opacity: 1,
+              scale: 1,
+              x: [-8, 8, -6, 6, -3, 3, 0],
+            }}
+            transition={{
+              opacity: { duration: 0.15 },
+              scale: { duration: 0.15 },
+              x: { duration: 0.5, ease: 'easeOut' },
+            }}
+            className="mb-3 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm text-center font-medium shadow-sm"
+          >
             {error}
-          </p>
+          </motion.p>
         )}
       </motion.div>
 

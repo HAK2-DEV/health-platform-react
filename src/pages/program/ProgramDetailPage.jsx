@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../../hooks/useAuth'
 import { ChevronLeft, Plus, ChevronRight } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
@@ -29,6 +30,7 @@ function ProgramDetailPage() {
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isLibraryOpen, setIsLibraryOpen] = useState(false)
   const [isMissionCreateOpen, setIsMissionCreateOpen] = useState(false)
+  const [showAllMissions, setShowAllMissions] = useState(false)
 
   // 5개 useQuery 로 분리 — 각각 독립 캐시. 다른 화면(대시보드/랭킹/묶음 디테일)도 같은 키 공유.
   const { data: program, isLoading: isProgramLoading, error: programError } = useQuery({
@@ -73,6 +75,21 @@ function ProgramDetailPage() {
     }
     return Array.from(map.entries()).map(([bundleTitle, ms]) => ({ bundleTitle, missions: ms }))
   }, [missions])
+
+  // 카드 단위 평탄화 — 전체보기 토글의 카드 수 카운트 + 슬라이스용
+  // 단독 그룹의 각 미션 = 카드 1개, 묶음 그룹 전체 = 카드 1개
+  const missionCards = useMemo(() => {
+    const cards = []
+    for (const group of missionGroups) {
+      if (group.bundleTitle === null) {
+        for (const m of group.missions) cards.push({ kind: 'solo', mission: m })
+      } else {
+        cards.push({ kind: 'bundle', group })
+      }
+    }
+    return cards
+  }, [missionGroups])
+  const displayedMissionCards = showAllMissions ? missionCards : missionCards.slice(0, 2)
 
   // 모달 mutation 후 갱신 헬퍼
   const invalidateProgramData = () => {
@@ -248,64 +265,92 @@ function ProgramDetailPage() {
         </button>
       )}
 
-      {/* 미션 목록 */}
+      {/* 미션 목록 — 3개 + 전체보기 토글 + framer 부드러운 전환 */}
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-lg font-medium text-gray-800">📋 미션 목록</h2>
-        {isOwner && (
-          <button
-            type="button"
-            onClick={() => setIsLibraryOpen(true)}
-            className="flex items-center gap-1 px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-sm rounded-full transition"
-          >
-            <Plus className="w-4 h-4" />
-            미션 추가
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {missionCards.length > 2 && (
+            <button
+              type="button"
+              onClick={() => setShowAllMissions(!showAllMissions)}
+              className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700"
+            >
+              {showAllMissions ? '간단히 보기' : `전체보기 (${missionCards.length})`}
+              {!showAllMissions && <ChevronRight className="w-3 h-3" />}
+            </button>
+          )}
+          {isOwner && (
+            <button
+              type="button"
+              onClick={() => setIsLibraryOpen(true)}
+              className="flex items-center gap-1 px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-sm rounded-full transition"
+            >
+              <Plus className="w-4 h-4" />
+              미션 추가
+            </button>
+          )}
+        </div>
       </div>
       {missions.length === 0 ? (
         <div className="bg-gray-50 p-8 rounded-lg text-center text-gray-500 text-sm">
           미션이 아직 없어요
         </div>
       ) : (
-        <div className="grid gap-3">
-          {missionGroups.map(group => {
-            // 단독 그룹 (bundle_title=null) — 미션 카드 풀어서 표시
-            if (group.bundleTitle === null) {
-              return group.missions.map(m => (
-                <MissionCard
-                  key={m.id}
-                  mission={m}
-                  todayCounts={todayCounts}
-                  isOwner={isOwner}
-                  isDeletePending={deleteMissionMutation.isPending}
-                  onDelete={handleMissionDelete}
-                  programId={id}
-                />
-              ))
-            }
+        <motion.div layout className="grid gap-3">
+          <AnimatePresence initial={false}>
+            {displayedMissionCards.map(card => {
+              if (card.kind === 'solo') {
+                const m = card.mission
+                return (
+                  <motion.div
+                    key={`solo:${m.id}`}
+                    layout
+                    initial={{ opacity: 0, scale: 0.96 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.96 }}
+                    transition={{ duration: 0.25, ease: 'easeOut' }}
+                  >
+                    <MissionCard
+                      mission={m}
+                      todayCounts={todayCounts}
+                      isOwner={isOwner}
+                      isDeletePending={deleteMissionMutation.isPending}
+                      onDelete={handleMissionDelete}
+                      programId={id}
+                    />
+                  </motion.div>
+                )
+              }
 
-            // 묶음 카드 — 클릭 시 BundleDetailPage 로 이동
-            const totalPoint = group.missions.reduce((s, m) => s + (m.point || 0), 0)
-            const bundleParam = encodeURIComponent(group.bundleTitle)
+              // 묶음 카드
+              const group = card.group
+              const totalPoint = group.missions.reduce((s, m) => s + (m.point || 0), 0)
+              const bundleParam = encodeURIComponent(group.bundleTitle)
 
-            return (
-              <button
-                key={group.bundleTitle}
-                type="button"
-                onClick={() => navigate(`/programs/${id}/bundles/${bundleParam}`)}
-                className="w-full flex items-center gap-3 p-4 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-emerald-300 transition text-left"
-              >
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-medium text-gray-800 truncate">{group.bundleTitle}</h3>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    {group.missions.length}개 미션 · 총 {totalPoint}P
-                  </p>
-                </div>
-                <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
-              </button>
-            )
-          })}
-        </div>
+              return (
+                <motion.button
+                  key={`bundle:${group.bundleTitle}`}
+                  type="button"
+                  layout
+                  initial={{ opacity: 0, scale: 0.96 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.96 }}
+                  transition={{ duration: 0.25, ease: 'easeOut' }}
+                  onClick={() => navigate(`/programs/${id}/bundles/${bundleParam}`)}
+                  className="w-full flex items-center gap-3 p-4 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-emerald-300 transition text-left"
+                >
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-medium text-gray-800 truncate">{group.bundleTitle}</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {group.missions.length}개 미션 · 총 {totalPoint}P
+                    </p>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                </motion.button>
+              )
+            })}
+          </AnimatePresence>
+        </motion.div>
       )}
 
       {/* 랭킹 */}

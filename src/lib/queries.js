@@ -94,7 +94,7 @@ export const fetchProgram = async (programId) => {
 export const fetchMission = async (missionId) => {
   const { data, error } = await supabase
     .from('missions')
-    .select('*, programs!inner(id, name, categories)')
+    .select('*, programs!inner(id, name, categories, feed_enabled)')
     .eq('id', missionId)
     .maybeSingle()
   if (error) throw error
@@ -214,12 +214,13 @@ export const fetchPendingReviewsEnriched = async (programId) => {
 // 반환: [{ ...verification, user, likeCount, likedUserIds: Set, comments: [{ ...comment, user }] }]
 //   likedByMe 는 호출 측에서 likedUserIds.has(myUserId) 로 결정 (캐시는 user 무관)
 export const fetchFeedPosts = async (programId) => {
-  // 1) APPROVED verifications + 미션 정보
+  // 1) APPROVED + feed_visible 인증만 — 사용자가 노출 끈 인증은 피드에서 숨김
   const { data: vData, error: vErr } = await supabase
     .from('verifications')
     .select('id, mission_id, user_id, submitted_at, image_path, numeric_value, note, missions!inner(program_id, title, bundle_title)')
     .eq('missions.program_id', programId)
     .eq('status', 'APPROVED')
+    .eq('feed_visible', true)
     .order('submitted_at', { ascending: false })
   if (vErr) throw vErr
 

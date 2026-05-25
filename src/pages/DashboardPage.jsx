@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../supabaseClient'
@@ -106,26 +106,60 @@ function DashboardPage() {
     enabled: !!userId,
   })
 
-  // 오늘의 미션 그루핑 — (program_id, bundle_title) 별
-  //   bundle_title 있는 미션 = 묶음 카드 1장으로 통합 (BundleDetailPage 로 이동)
-  //   bundle_title 없는 미션 = 기존 단독 카드
-  const todayMissionGroups = useMemo(() => {
-    const map = new Map()
+  // 오늘의 미션 그루핑 — 2단계: program_id → (bundle_title or solo)
+  //   같은 프로그램의 묶음 미션은 묶음 카드 1장 + 단독 미션은 개별 카드
+  //   결과: [{ programId, program, items: [{ kind, bundleTitle, missions }] }]
+  const todayMissionsByProgram = useMemo(() => {
+    const programMap = new Map()
     for (const m of todayMissions) {
-      const groupKey = m.bundle_title ? `${m.program_id}__${m.bundle_title}` : `__solo__${m.id}`
-      if (!map.has(groupKey)) {
-        map.set(groupKey, {
-          kind: m.bundle_title ? 'bundle' : 'solo',
-          bundleTitle: m.bundle_title || null,
+      if (!programMap.has(m.program_id)) {
+        programMap.set(m.program_id, {
           programId: m.program_id,
           program: m.programs,
+          _itemMap: new Map(),
+        })
+      }
+      const programBucket = programMap.get(m.program_id)
+      const itemKey = m.bundle_title ? `bundle__${m.bundle_title}` : `solo__${m.id}`
+      if (!programBucket._itemMap.has(itemKey)) {
+        programBucket._itemMap.set(itemKey, {
+          kind: m.bundle_title ? 'bundle' : 'solo',
+          bundleTitle: m.bundle_title || null,
           missions: [],
         })
       }
-      map.get(groupKey).missions.push(m)
+      programBucket._itemMap.get(itemKey).missions.push(m)
     }
-    return Array.from(map.values())
+    // Map → Array + _itemMap 정리
+    return Array.from(programMap.values()).map(p => ({
+      programId: p.programId,
+      program: p.program,
+      items: Array.from(p._itemMap.values()),
+    }))
   }, [todayMissions])
+
+  // 오늘의 미션 전체 보기 토글 — 카드 단위 3개 (프로그램 단위 X)
+  const [showAllTodayMissions, setShowAllTodayMissions] = useState(false)
+  // 내 프로그램 / 참여 중인 프로그램 전체보기 토글
+  const [showAllMyPrograms, setShowAllMyPrograms] = useState(false)
+  const [showAllActivePrograms, setShowAllActivePrograms] = useState(false)
+  const totalItemCount = useMemo(
+    () => todayMissionsByProgram.reduce((s, p) => s + p.items.length, 0),
+    [todayMissionsByProgram]
+  )
+  // 표시 — 카드 3개까지 누적해서 프로그램별 부분 슬라이스
+  const displayedPrograms = useMemo(() => {
+    if (showAllTodayMissions) return todayMissionsByProgram
+    const result = []
+    let remaining = 2
+    for (const p of todayMissionsByProgram) {
+      if (remaining <= 0) break
+      const sliced = p.items.slice(0, remaining)
+      result.push({ ...p, items: sliced })
+      remaining -= sliced.length
+    }
+    return result
+  }, [todayMissionsByProgram, showAllTodayMissions])
 
   // 참여 예정 (ACTIVE 참여지만 프로그램 시작 전)
   const upcomingPrograms = activePrograms.filter(p => {
@@ -314,11 +348,23 @@ function DashboardPage() {
         </motion.div>
       </motion.section>
 
-      {/* 오늘의 미션 — 참여 중 프로그램들의 현재 활성 미션 통합 */}
+      {/* 오늘의 미션 — 프로그램별 그루핑 (3개까지만, 전체보기 토글) */}
       <section className="mb-8">
-        <h2 className="flex items-center gap-2 text-xl text-gray-800 mb-4">
-          ✨ 오늘의 미션
-        </h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="flex items-center gap-2 text-xl text-gray-800">
+            ✨ 오늘의 미션
+          </h2>
+          {totalItemCount > 2 && (
+            <button
+              type="button"
+              onClick={() => setShowAllTodayMissions(!showAllTodayMissions)}
+              className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700"
+            >
+              {showAllTodayMissions ? '간단히 보기' : `전체보기 (${totalItemCount})`}
+              {!showAllTodayMissions && <ChevronRight className="w-3 h-3" />}
+            </button>
+          )}
+        </div>
 
         {todayMissions.length === 0 ? (
           <div className="bg-gray-50 p-6 rounded-lg text-center text-gray-500 text-sm">
@@ -327,148 +373,161 @@ function DashboardPage() {
             <span className="text-xs text-gray-400">참여 중인 프로그램이 시작되면 여기에 표시돼요</span>
           </div>
         ) : (
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            animate="show"
-            className="grid gap-2"
-          >
-            {todayMissionGroups.map(group => {
-              const catKey = group.program?.categories?.[0] || 'ETC'
+          <motion.div layout className="space-y-3">
+            <AnimatePresence initial={false}>
+            {displayedPrograms.map(programBucket => {
+              const catKey = programBucket.program?.categories?.[0] || 'ETC'
               const cat = CATEGORY[catKey] || CATEGORY.ETC
               const colors = CATEGORY_COLORS[catKey] || CATEGORY_COLORS.ETC
 
-              // ─── 묶음 카드 — 클릭 시 BundleDetailPage 로 이동 ───
-              if (group.kind === 'bundle') {
-                const totalPoint = group.missions.reduce((s, m) => s + (m.point || 0), 0)
-                const bundleParam = encodeURIComponent(group.bundleTitle)
-                // 묶음 진행 — 모두 reachedLimit && !hasPending 이면 완료
-                const allCompleted = group.missions.every(m => {
-                  const todayCount = todayCounts[m.id]?.total || 0
-                  const pendingCount = todayCounts[m.id]?.pending || 0
-                  const limit = m.daily_limit
-                  return limit != null && todayCount >= limit && pendingCount === 0
-                })
-
-                return (
-                  <motion.button
-                    key={`bundle:${group.programId}:${group.bundleTitle}`}
-                    type="button"
-                    variants={itemVariants}
-                    onClick={() => navigate(`/programs/${group.programId}/bundles/${bundleParam}`)}
-                    className={`${colors.bg} ${colors.border} border rounded-2xl p-3 flex items-center gap-3 text-left hover:brightness-95 transition`}
-                  >
-                    <div className="w-12 h-12 flex-shrink-0 bg-white/70 rounded-xl relative overflow-hidden">
-                      <span className="absolute inset-0 flex items-center justify-center text-2xl">
-                        {cat.emoji}
-                      </span>
-                      <img
-                        src={`/illustrations/categories/${cat.key}.png`}
-                        alt=""
-                        className="absolute inset-0 w-full h-full object-contain"
-                        onError={(e) => { e.currentTarget.style.display = 'none' }}
-                      />
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[11px] text-gray-500 truncate">
-                        {group.program?.name}
-                      </p>
-                      <h3 className="font-medium text-gray-800 truncate text-sm">
-                        {group.bundleTitle}
-                      </h3>
-                      <p className="text-[11px] text-gray-500 mt-0.5">
-                        {group.missions.length}개 미션 · 총 +{totalPoint}P
-                      </p>
-                    </div>
-
-                    {allCompleted ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 text-emerald-600 text-xs rounded-full font-medium whitespace-nowrap flex-shrink-0">
-                        ✓ 완료
-                      </span>
-                    ) : (
-                      <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                    )}
-                  </motion.button>
-                )
-              }
-
-              // ─── 단독 미션 카드 (직접 만들기) — 기존 디자인 유지 ───
-              const mission = group.missions[0]
-              const types = []
-              if (mission.requires_image) types.push('업로드')
-              if (mission.requires_numeric) types.push('기록')
-              if (mission.requires_note) types.push('소감')
-              const isSupported = types.length > 0
-              const buttonLabel = types.length === 1 ? types[0] : (isSupported ? '인증' : null)
-
-              const todayCount = todayCounts[mission.id]?.total || 0
-              const pendingCount = todayCounts[mission.id]?.pending || 0
-              const limit = mission.daily_limit
-              const reachedLimit = limit != null && todayCount >= limit
-              const hasPending = pendingCount > 0
-              const todayCheck = checkMissionToday(mission)
-
               return (
                 <motion.div
-                  key={mission.id}
-                  variants={itemVariants}
-                  className={`${colors.bg} ${colors.border} border rounded-2xl p-3 flex items-center gap-3`}
+                  key={programBucket.programId}
+                  layout
+                  initial={{ opacity: 0, scale: 0.96 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.96 }}
+                  transition={{ duration: 0.25, ease: 'easeOut' }}
                 >
-                  <div className="w-12 h-12 flex-shrink-0 bg-white/70 rounded-xl relative overflow-hidden">
-                    <span className="absolute inset-0 flex items-center justify-center text-2xl">
-                      {cat.emoji}
-                    </span>
-                    <img
-                      src={`/illustrations/categories/${cat.key}.png`}
-                      alt=""
-                      className="absolute inset-0 w-full h-full object-contain"
-                      onError={(e) => { e.currentTarget.style.display = 'none' }}
-                    />
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[11px] text-gray-500 truncate">
-                      {mission.programs?.name}
-                    </p>
-                    <h3 className="font-medium text-gray-800 truncate text-sm">
-                      {mission.title}
-                    </h3>
-                    <span className="inline-block mt-0.5 px-1.5 py-0.5 bg-white/80 text-emerald-700 text-[10px] rounded font-medium">
-                      +{mission.point}P
+                  {/* 프로그램 헤더 — 배경 칩으로 시각 분리 */}
+                  <div className="flex items-center mb-2">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-100 text-gray-700 text-xs font-semibold rounded-md truncate max-w-full">
+                      <span>{cat.emoji}</span>
+                      <span className="truncate">{programBucket.program?.name}</span>
                     </span>
                   </div>
 
-                  {!isSupported ? (
-                    <span className="text-xs text-gray-400 whitespace-nowrap flex-shrink-0">
-                      준비 중
-                    </span>
-                  ) : !todayCheck.active ? (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-gray-100 text-gray-500 text-xs rounded-full font-medium whitespace-nowrap flex-shrink-0">
-                      🚫 {todayCheck.reason}
-                    </span>
-                  ) : reachedLimit ? (
-                    hasPending ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-amber-50 text-amber-700 text-xs rounded-full font-medium whitespace-nowrap flex-shrink-0">
-                        ⏳ 심사 대기
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 text-emerald-600 text-xs rounded-full font-medium whitespace-nowrap flex-shrink-0">
-                        ✓ 완료
-                      </span>
-                    )
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/programs/${mission.program_id}/missions/${mission.id}`)}
-                      className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs rounded-full transition whitespace-nowrap flex-shrink-0 font-medium"
-                    >
-                      {buttonLabel}
-                    </button>
-                  )}
+                  <div className="grid gap-1.5">
+                    {programBucket.items.map(item => {
+                      // ─── 묶음 카드 ───
+                      if (item.kind === 'bundle') {
+                        const totalPoint = item.missions.reduce((s, m) => s + (m.point || 0), 0)
+                        const bundleParam = encodeURIComponent(item.bundleTitle)
+                        const allCompleted = item.missions.every(m => {
+                          const todayCount = todayCounts[m.id]?.total || 0
+                          const pendingCount = todayCounts[m.id]?.pending || 0
+                          const limit = m.daily_limit
+                          return limit != null && todayCount >= limit && pendingCount === 0
+                        })
+
+                        return (
+                          <motion.button
+                            key={`bundle:${programBucket.programId}:${item.bundleTitle}`}
+                            type="button"
+                            variants={itemVariants}
+                            onClick={() => navigate(`/programs/${programBucket.programId}/bundles/${bundleParam}`)}
+                            className={`${colors.bg} ${colors.border} border rounded-xl px-2.5 py-1.5 flex items-center gap-2.5 text-left hover:brightness-95 transition`}
+                          >
+                            <div className="w-12 h-12 flex-shrink-0 bg-white/70 rounded-xl relative overflow-hidden">
+                              <span className="absolute inset-0 flex items-center justify-center text-2xl">
+                                {cat.emoji}
+                              </span>
+                              <img
+                                src={`/illustrations/categories/${cat.key}.png`}
+                                alt=""
+                                className="absolute inset-0 w-full h-full object-contain"
+                                onError={(e) => { e.currentTarget.style.display = 'none' }}
+                              />
+                            </div>
+
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-medium text-gray-900 truncate text-base leading-tight">
+                                {item.bundleTitle}
+                              </h3>
+                              <p className="text-[11px] text-gray-500 mt-0.5">
+                                {item.missions.length}개 미션 · 총 +{totalPoint}P
+                              </p>
+                            </div>
+
+                            {allCompleted ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 text-emerald-600 text-xs rounded-full font-medium whitespace-nowrap flex-shrink-0">
+                                ✓ 완료
+                              </span>
+                            ) : (
+                              <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                            )}
+                          </motion.button>
+                        )
+                      }
+
+                      // ─── 단독 미션 카드 ───
+                      const mission = item.missions[0]
+                      const types = []
+                      if (mission.requires_image) types.push('업로드')
+                      if (mission.requires_numeric) types.push('기록')
+                      if (mission.requires_note) types.push('소감')
+                      const isSupported = types.length > 0
+                      const buttonLabel = types.length === 1 ? types[0] : (isSupported ? '인증' : null)
+
+                      const todayCount = todayCounts[mission.id]?.total || 0
+                      const pendingCount = todayCounts[mission.id]?.pending || 0
+                      const limit = mission.daily_limit
+                      const reachedLimit = limit != null && todayCount >= limit
+                      const hasPending = pendingCount > 0
+                      const todayCheck = checkMissionToday(mission)
+
+                      return (
+                        <motion.div
+                          key={mission.id}
+                          variants={itemVariants}
+                          className={`${colors.bg} ${colors.border} border rounded-xl px-2.5 py-1.5 flex items-center gap-2.5`}
+                        >
+                          <div className="w-8 h-8 flex-shrink-0 bg-white/70 rounded-lg relative overflow-hidden">
+                            <span className="absolute inset-0 flex items-center justify-center text-base">
+                              {cat.emoji}
+                            </span>
+                            <img
+                              src={`/illustrations/categories/${cat.key}.png`}
+                              alt=""
+                              className="absolute inset-0 w-full h-full object-contain"
+                              onError={(e) => { e.currentTarget.style.display = 'none' }}
+                            />
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-medium text-gray-900 truncate text-base leading-tight">
+                              {mission.title}
+                            </h3>
+                            <span className="inline-block mt-0.5 px-1.5 py-0.5 bg-white/80 text-emerald-700 text-[10px] rounded font-medium">
+                              +{mission.point}P
+                            </span>
+                          </div>
+
+                          {!isSupported ? (
+                            <span className="text-xs text-gray-400 whitespace-nowrap flex-shrink-0">
+                              준비 중
+                            </span>
+                          ) : !todayCheck.active ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-gray-100 text-gray-500 text-xs rounded-full font-medium whitespace-nowrap flex-shrink-0">
+                              🚫 {todayCheck.reason}
+                            </span>
+                          ) : reachedLimit ? (
+                            hasPending ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-amber-50 text-amber-700 text-xs rounded-full font-medium whitespace-nowrap flex-shrink-0">
+                                ⏳ 심사 대기
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 text-emerald-600 text-xs rounded-full font-medium whitespace-nowrap flex-shrink-0">
+                                ✓ 완료
+                              </span>
+                            )
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/programs/${mission.program_id}/missions/${mission.id}`)}
+                              className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs rounded-full transition whitespace-nowrap flex-shrink-0 font-medium"
+                            >
+                              {buttonLabel}
+                            </button>
+                          )}
+                        </motion.div>
+                      )
+                    })}
+                  </div>
                 </motion.div>
               )
             })}
+            </AnimatePresence>
           </motion.div>
         )}
       </section>
@@ -481,13 +540,15 @@ function DashboardPage() {
             내 프로그램
           </h2>
           <div className="flex items-center gap-2">
-            {myPrograms.length > 3 && (
-              <Link
-                to="/programs"
+            {myPrograms.length > 2 && (
+              <button
+                type="button"
+                onClick={() => setShowAllMyPrograms(!showAllMyPrograms)}
                 className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700"
               >
-                전체보기 <ChevronRight className="w-3 h-3" />
-              </Link>
+                {showAllMyPrograms ? '간단히 보기' : `전체보기 (${myPrograms.length})`}
+                {!showAllMyPrograms && <ChevronRight className="w-3 h-3" />}
+              </button>
             )}
             <Link
               to="/programs/new"
@@ -510,21 +571,20 @@ function DashboardPage() {
             <span className="text-sm">위의 "새 프로그램" 버튼으로 시작해보세요</span>
           </div>
         ) : (
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            animate="show"
-            className="grid gap-3"
-          >
-            {myPrograms.slice(0, 3).map(program => {
+          <motion.div layout className="grid gap-3">
+            <AnimatePresence initial={false}>
+            {(showAllMyPrograms ? myPrograms : myPrograms.slice(0, 2)).map(program => {
               const isDraft = program.status === 'DRAFT'
               return (
                 <motion.div
                   key={program.id}
-                  variants={itemVariants}
+                  layout
+                  initial={{ opacity: 0, scale: 0.96 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.96 }}
+                  transition={{ duration: 0.25, ease: 'easeOut' }}
                   onClick={() => {
                     if (isDraft) {
-                      // 임시저장 → 마법사 재진입 (4단계까지 가서 출시)
                       navigate(`/programs/new?id=${program.id}`)
                     } else {
                       setSelectedProgram(program)
@@ -573,6 +633,7 @@ function DashboardPage() {
                 </motion.div>
               )
             })}
+            </AnimatePresence>
           </motion.div>
         )}
       </section>
@@ -583,13 +644,15 @@ function DashboardPage() {
           <h2 className="flex items-center gap-2 text-xl text-gray-800">
             🎯 참여 중인 프로그램
           </h2>
-          {activePrograms.length > 3 && (
-            <Link
-              to="/programs"
+          {activePrograms.length > 2 && (
+            <button
+              type="button"
+              onClick={() => setShowAllActivePrograms(!showAllActivePrograms)}
               className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700"
             >
-              전체보기 <ChevronRight className="w-3 h-3" />
-            </Link>
+              {showAllActivePrograms ? '간단히 보기' : `전체보기 (${activePrograms.length})`}
+              {!showAllActivePrograms && <ChevronRight className="w-3 h-3" />}
+            </button>
           )}
         </div>
 
@@ -622,13 +685,9 @@ function DashboardPage() {
             </button>
           </div>
         ) : (
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            animate="show"
-            className="grid gap-3"
-          >
-            {activePrograms.slice(0, 3).map(program => {
+          <motion.div layout className="grid gap-3">
+            <AnimatePresence initial={false}>
+            {(showAllActivePrograms ? activePrograms : activePrograms.slice(0, 2)).map(program => {
               const catKey = program.categories?.[0] || 'ETC'
               const cat = CATEGORY[catKey] || CATEGORY.ETC
               const colors = CATEGORY_COLORS[catKey] || CATEGORY_COLORS.ETC
@@ -637,7 +696,11 @@ function DashboardPage() {
               return (
                 <motion.div
                   key={program.id}
-                  variants={itemVariants}
+                  layout
+                  initial={{ opacity: 0, scale: 0.96 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.96 }}
+                  transition={{ duration: 0.25, ease: 'easeOut' }}
                   onClick={() => navigate(`/programs/${program.id}`)}
                   className={`${colors.bg} ${colors.border} border rounded-2xl p-3 hover:shadow-md transition cursor-pointer flex items-center gap-3`}
                 >
@@ -673,6 +736,7 @@ function DashboardPage() {
                 </motion.div>
               )
             })}
+            </AnimatePresence>
           </motion.div>
         )}
       </section>

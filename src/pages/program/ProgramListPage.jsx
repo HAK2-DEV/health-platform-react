@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
-import { Plus, Activity, Trash2 } from 'lucide-react'
+import { Plus, Activity, Trash2, ChevronRight } from 'lucide-react'
 import { formatKoreanDate } from '../../lib/formatters'
 import ProgramDetailModal from '../../components/program/ProgramDetailModal'
 import DeleteProgramConfirmModal from '../../components/program/DeleteProgramConfirmModal'
@@ -24,6 +25,10 @@ function ProgramListPage() {
 
   const [selectedProgram, setSelectedProgram] = useState(null)
   const [programToDelete, setProgramToDelete] = useState(null)
+  // 섹션별 전체보기 토글 (3개 이상 시 활성)
+  const [showAllMy, setShowAllMy] = useState(false)
+  const [showAllActive, setShowAllActive] = useState(false)
+  const [showAllPublic, setShowAllPublic] = useState(false)
 
   // ─── React Query — 대시보드와 같은 캐시 키 공유 ──────────
   const { data: myPrograms = [], isLoading: isMyLoading } = useQuery({
@@ -85,20 +90,32 @@ function ProgramListPage() {
     <div className="p-6 max-w-4xl mx-auto">
       <h1 className="text-2xl text-gray-800 mb-6">📋 프로그램</h1>
 
-      {/* 내 프로그램 — 대시보드와 동일 동작 */}
+      {/* 내 프로그램 — 3개 + 전체보기 + framer */}
       <section className="mb-8">
         <div className="flex items-center justify-between mb-4">
           <h2 className="flex items-center gap-2 text-lg text-gray-800">
             <Activity className="w-5 h-5 text-green-500" />
             내 프로그램 <span className="text-sm text-gray-500">({myPrograms.length})</span>
           </h2>
-          <Link
-            to="/programs/new"
-            className="flex items-center gap-1 px-3 py-2 bg-green-500 hover:bg-green-600 text-white text-sm rounded-md transition"
-          >
-            <Plus className="w-4 h-4" />
-            새 프로그램
-          </Link>
+          <div className="flex items-center gap-2">
+            {myPrograms.length > 2 && (
+              <button
+                type="button"
+                onClick={() => setShowAllMy(!showAllMy)}
+                className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700"
+              >
+                {showAllMy ? '간단히 보기' : `전체보기 (${myPrograms.length})`}
+                {!showAllMy && <ChevronRight className="w-3 h-3" />}
+              </button>
+            )}
+            <Link
+              to="/programs/new"
+              className="flex items-center gap-1 px-3 py-2 bg-green-500 hover:bg-green-600 text-white text-sm rounded-md transition"
+            >
+              <Plus className="w-4 h-4" />
+              새 프로그램
+            </Link>
+          </div>
         </div>
 
         {isMyLoading ? (
@@ -108,68 +125,87 @@ function ProgramListPage() {
             아직 만든 프로그램이 없어요
           </div>
         ) : (
-          <div className="grid gap-3">
-            {myPrograms.map(program => {
-              const isDraft = program.status === 'DRAFT'
-              return (
-                <div
-                  key={program.id}
-                  onClick={() => {
-                    if (isDraft) {
-                      navigate(`/programs/new?id=${program.id}`)
-                    } else {
-                      setSelectedProgram(program)
-                    }
-                  }}
-                  className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition cursor-pointer"
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <h3 className="font-medium text-gray-800">{program.name}</h3>
-                    <div className="flex items-center gap-2">
-                      <span className={`
-                        px-2 py-0.5 rounded text-xs
-                        ${isDraft
-                          ? 'bg-gray-100 text-gray-600'
-                          : 'bg-green-100 text-green-700'}
-                      `}>
-                        {isDraft ? '임시저장' : '진행중'}
-                      </span>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleDelete(program)
-                        }}
-                        disabled={deleteMutation.isPending}
-                        className="p-1 text-gray-400 hover:text-red-500 transition disabled:opacity-40"
-                        title="삭제"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+          <motion.div layout className="grid gap-3">
+            <AnimatePresence initial={false}>
+              {(showAllMy ? myPrograms : myPrograms.slice(0, 2)).map(program => {
+                const isDraft = program.status === 'DRAFT'
+                return (
+                  <motion.div
+                    key={program.id}
+                    layout
+                    initial={{ opacity: 0, scale: 0.96 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.96 }}
+                    transition={{ duration: 0.25, ease: 'easeOut' }}
+                    onClick={() => {
+                      if (isDraft) {
+                        navigate(`/programs/new?id=${program.id}`)
+                      } else {
+                        setSelectedProgram(program)
+                      }
+                    }}
+                    className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition cursor-pointer"
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <h3 className="font-medium text-gray-800">{program.name}</h3>
+                      <div className="flex items-center gap-2">
+                        <span className={`
+                          px-2 py-0.5 rounded text-xs
+                          ${isDraft
+                            ? 'bg-gray-100 text-gray-600'
+                            : 'bg-green-100 text-green-700'}
+                        `}>
+                          {isDraft ? '임시저장' : '진행중'}
+                        </span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleDelete(program)
+                          }}
+                          disabled={deleteMutation.isPending}
+                          className="p-1 text-gray-400 hover:text-red-500 transition disabled:opacity-40"
+                          title="삭제"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                  {program.description && (
-                    <p className="text-sm text-gray-600 mb-2 line-clamp-2">{program.description}</p>
-                  )}
-                  <p className="text-xs text-gray-500">
-                    {formatKoreanDate(program.start_date)} ~ {formatKoreanDate(program.end_date)}
-                  </p>
-                  {isDraft && (
-                    <p className="text-[11px] text-emerald-600 mt-1.5">
-                      ✏️ 클릭하면 이어서 작성할 수 있어요
+                    {program.description && (
+                      <p className="text-sm text-gray-600 mb-2 line-clamp-2">{program.description}</p>
+                    )}
+                    <p className="text-xs text-gray-500">
+                      {formatKoreanDate(program.start_date)} ~ {formatKoreanDate(program.end_date)}
                     </p>
-                  )}
-                </div>
-              )
-            })}
-          </div>
+                    {isDraft && (
+                      <p className="text-[11px] text-emerald-600 mt-1.5">
+                        ✏️ 클릭하면 이어서 작성할 수 있어요
+                      </p>
+                    )}
+                  </motion.div>
+                )
+              })}
+            </AnimatePresence>
+          </motion.div>
         )}
       </section>
 
-      {/* 참여 중인 프로그램 */}
+      {/* 참여 중인 프로그램 — 3개 + 전체보기 토글 + framer 애니메이션 */}
       <section className="mb-8">
-        <h2 className="flex items-center gap-2 text-lg text-gray-800 mb-4">
-          🎯 참여 중인 프로그램 <span className="text-sm text-gray-500">({activePrograms.length})</span>
-        </h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="flex items-center gap-2 text-lg text-gray-800">
+            🎯 참여 중인 프로그램 <span className="text-sm text-gray-500">({activePrograms.length})</span>
+          </h2>
+          {activePrograms.length > 2 && (
+            <button
+              type="button"
+              onClick={() => setShowAllActive(!showAllActive)}
+              className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700"
+            >
+              {showAllActive ? '간단히 보기' : `전체보기 (${activePrograms.length})`}
+              {!showAllActive && <ChevronRight className="w-3 h-3" />}
+            </button>
+          )}
+        </div>
 
         {isActiveLoading ? (
           <div className="bg-gray-50 p-6 rounded-lg text-center text-gray-500 text-sm">불러오는 중...</div>
@@ -178,31 +214,50 @@ function ProgramListPage() {
             아직 참여한 프로그램이 없어요
           </div>
         ) : (
-          <div className="grid gap-3">
-            {activePrograms.map(program => (
-              <div
-                key={program.id}
-                onClick={() => navigate(`/programs/${program.id}`)}
-                className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition cursor-pointer"
-              >
-                <h3 className="font-medium text-gray-800 mb-2">{program.name}</h3>
-                {program.description && (
-                  <p className="text-sm text-gray-600 mb-2 line-clamp-2">{program.description}</p>
-                )}
-                <p className="text-xs text-gray-500">
-                  {formatKoreanDate(program.start_date)} ~ {formatKoreanDate(program.end_date)}
-                </p>
-              </div>
-            ))}
-          </div>
+          <motion.div layout className="grid gap-3">
+            <AnimatePresence initial={false}>
+              {(showAllActive ? activePrograms : activePrograms.slice(0, 2)).map(program => (
+                <motion.div
+                  key={program.id}
+                  layout
+                  initial={{ opacity: 0, scale: 0.96 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.96 }}
+                  transition={{ duration: 0.25, ease: 'easeOut' }}
+                  onClick={() => navigate(`/programs/${program.id}`)}
+                  className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition cursor-pointer"
+                >
+                  <h3 className="font-medium text-gray-800 mb-2">{program.name}</h3>
+                  {program.description && (
+                    <p className="text-sm text-gray-600 mb-2 line-clamp-2">{program.description}</p>
+                  )}
+                  <p className="text-xs text-gray-500">
+                    {formatKoreanDate(program.start_date)} ~ {formatKoreanDate(program.end_date)}
+                  </p>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </motion.div>
         )}
       </section>
 
-      {/* 공개 둘러보기 */}
+      {/* 공개 둘러보기 — 3개 + 전체보기 토글 + framer 애니메이션 */}
       <section className="mb-8">
-        <h2 className="flex items-center gap-2 text-lg text-gray-800 mb-4">
-          🔍 공개 프로그램 둘러보기 <span className="text-sm text-gray-500">({publicPrograms.length})</span>
-        </h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="flex items-center gap-2 text-lg text-gray-800">
+            🔍 공개 프로그램 둘러보기 <span className="text-sm text-gray-500">({publicPrograms.length})</span>
+          </h2>
+          {publicPrograms.length > 2 && (
+            <button
+              type="button"
+              onClick={() => setShowAllPublic(!showAllPublic)}
+              className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700"
+            >
+              {showAllPublic ? '간단히 보기' : `전체보기 (${publicPrograms.length})`}
+              {!showAllPublic && <ChevronRight className="w-3 h-3" />}
+            </button>
+          )}
+        </div>
 
         {isPublicLoading ? (
           <div className="bg-gray-50 p-6 rounded-lg text-center text-gray-500 text-sm">불러오는 중...</div>
@@ -211,23 +266,30 @@ function ProgramListPage() {
             아직 둘러볼 공개 프로그램이 없어요
           </div>
         ) : (
-          <div className="grid gap-3">
-            {publicPrograms.map(program => (
-              <div
-                key={program.id}
-                onClick={() => setSelectedProgram(program)}
-                className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition cursor-pointer"
-              >
-                <h3 className="font-medium text-gray-800 mb-2">{program.name}</h3>
-                {program.description && (
-                  <p className="text-sm text-gray-600 mb-2 line-clamp-2">{program.description}</p>
-                )}
-                <p className="text-xs text-gray-500">
-                  {formatKoreanDate(program.start_date)} ~ {formatKoreanDate(program.end_date)}
-                </p>
-              </div>
-            ))}
-          </div>
+          <motion.div layout className="grid gap-3">
+            <AnimatePresence initial={false}>
+              {(showAllPublic ? publicPrograms : publicPrograms.slice(0, 2)).map(program => (
+                <motion.div
+                  key={program.id}
+                  layout
+                  initial={{ opacity: 0, scale: 0.96 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.96 }}
+                  transition={{ duration: 0.25, ease: 'easeOut' }}
+                  onClick={() => setSelectedProgram(program)}
+                  className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition cursor-pointer"
+                >
+                  <h3 className="font-medium text-gray-800 mb-2">{program.name}</h3>
+                  {program.description && (
+                    <p className="text-sm text-gray-600 mb-2 line-clamp-2">{program.description}</p>
+                  )}
+                  <p className="text-xs text-gray-500">
+                    {formatKoreanDate(program.start_date)} ~ {formatKoreanDate(program.end_date)}
+                  </p>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </motion.div>
         )}
       </section>
 
