@@ -90,6 +90,26 @@ function BundleDetailPage() {
   // MissionVerifyPage 가 제출/뒤로 후 여기로 자동 복귀
   const currentPath = location.pathname
 
+  // 묶음 완료 판정 — 모든 미션이 reachedLimit (한도 채움) + PENDING 없음 (모두 승인)
+  // 한도가 NULL 인 미션은 "완료" 개념이 모호하므로 제외 — 본인 결정 시 진화 가능
+  const allCompleted = bundleMissions.length > 0 && bundleMissions.every(m => {
+    const todayCount = todayCounts[m.id]?.total || 0
+    const pendingCount = todayCounts[m.id]?.pending || 0
+    const limit = m.daily_limit
+    return limit != null && todayCount >= limit && pendingCount === 0
+  })
+
+  // 축하 카드 자동 스크롤 — Hook 은 early return 위에 위치해야 함 (Rules of Hooks)
+  const celebrateRef = useRef(null)
+  useEffect(() => {
+    if (allCompleted && celebrateRef.current) {
+      const t = setTimeout(() => {
+        celebrateRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }, 100)
+      return () => clearTimeout(t)
+    }
+  }, [allCompleted])
+
   if (isProgramLoading || !program) {
     return (
       <div className="p-6 max-w-4xl mx-auto text-center text-gray-500">
@@ -118,30 +138,9 @@ function BundleDetailPage() {
 
   const totalPoint = bundleMissions.reduce((s, m) => s + (m.point || 0), 0)
 
-  // 묶음 완료 판정 — 모든 미션이 reachedLimit (한도 채움) + PENDING 없음 (모두 승인)
-  // 한도가 NULL 인 미션은 "완료" 개념이 모호하므로 제외 — 본인 결정 시 진화 가능
-  const allCompleted = bundleMissions.length > 0 && bundleMissions.every(m => {
-    const todayCount = todayCounts[m.id]?.total || 0
-    const pendingCount = todayCounts[m.id]?.pending || 0
-    const limit = m.daily_limit
-    return limit != null && todayCount >= limit && pendingCount === 0
-  })
-
-  // 축하 카드 자동 스크롤 — 완료 순간 화면 중앙
-  const celebrateRef = useRef(null)
-  useEffect(() => {
-    if (allCompleted && celebrateRef.current) {
-      // 카드 렌더 후 스크롤 (애니메이션 시작과 함께 자연스럽게)
-      const t = setTimeout(() => {
-        celebrateRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      }, 100)
-      return () => clearTimeout(t)
-    }
-  }, [allCompleted])
-
   return (
     <div className="px-4 pt-2 pb-6 max-w-4xl mx-auto">
-      <StickyBackBar onClick={() => navigate(`/programs/${id}`)} title="프로그램으로" />
+      <StickyBackBar fallbackPath={`/programs/${id}`} title="프로그램으로" />
 
       {/* 묶음 헤더 */}
       <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">

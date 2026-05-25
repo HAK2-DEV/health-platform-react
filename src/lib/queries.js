@@ -36,6 +36,9 @@ export const queryKeys = {
   programStats: (programId) => ['stats', 'program', programId],
   // 커뮤니티 피드 — verifications + likes + comments 통합
   feedPosts: (programId) => ['feed', 'posts', programId],
+  // 알림
+  notifications: (userId) => ['notifications', 'list', userId],
+  notificationsUnread: (userId) => ['notifications', 'unread', userId],
 }
 
 // ─── 쿼리 함수들 ─────────────────────────────────────────────
@@ -207,6 +210,27 @@ export const fetchPendingReviewsEnriched = async (programId) => {
 
   const bundleMap = new Map((missionData || []).map(m => [m.id, m.bundle_title]))
   return rows.map(r => ({ ...r, m_bundle_title: bundleMap.get(r.m_id) || null }))
+}
+
+// 알림 목록 — RLS 가 본인 알림만 SELECT 허용 (040). 최신순 + 최근 50개
+export const fetchNotifications = async () => {
+  const { data, error } = await supabase
+    .from('notifications')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(50)
+  if (error) throw error
+  return data || []
+}
+
+// 안 읽은 알림 수 — Bell 배지용
+export const fetchUnreadNotificationsCount = async () => {
+  const { count, error } = await supabase
+    .from('notifications')
+    .select('*', { count: 'exact', head: true })
+    .eq('is_read', false)
+  if (error) throw error
+  return count || 0
 }
 
 // 커뮤니티 피드 — verifications + users + post_likes + post_comments 통합

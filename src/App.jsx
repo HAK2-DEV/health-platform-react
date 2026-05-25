@@ -1,7 +1,9 @@
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import './index.css'
 import './App.css'
 import { useAuth } from './hooks/useAuth'
+import { queryKeys, fetchUnreadNotificationsCount } from './lib/queries'
 import HomePage from './pages/HomePage'
 import TodosPage from './pages/TodosPage'
 import LoginPage from './pages/LoginPage'
@@ -36,6 +38,14 @@ function AppShell() {
   const { session } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+  const userId = session?.user?.id
+
+  // 헤더 종 아이콘 카카오톡 배지 — 안 읽은 알림 카운트
+  const { data: unreadNotifCount = 0 } = useQuery({
+    queryKey: queryKeys.notificationsUnread(userId),
+    queryFn: fetchUnreadNotificationsCount,
+    enabled: !!userId,
+  })
 
   // 자체 상단 영역을 갖는 페이지는 App 헤더 숨김
   // - /dashboard
@@ -59,10 +69,15 @@ function AppShell() {
           <button
             type="button"
             onClick={() => navigate('/notifications')}
-            className="w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-sm hover:shadow-md transition flex-shrink-0"
+            className="relative w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-sm hover:shadow-md transition flex-shrink-0"
             title="알림"
           >
             <Bell className="w-4 h-4 text-gray-600" />
+            {unreadNotifCount > 0 && (
+              <span className="absolute -top-2 -right-2 min-w-[22px] h-[22px] px-1.5 bg-red-500 text-white text-[11px] font-bold rounded-full flex items-center justify-center leading-none ring-2 ring-white shadow-md">
+                {unreadNotifCount > 99 ? '99+' : unreadNotifCount}
+              </span>
+            )}
           </button>
         </header>
       )}

@@ -1,6 +1,6 @@
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { Heart, MessageCircle, Image as ImageIcon, BarChart3, Send, Trash2 } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
@@ -15,8 +15,19 @@ function ProgramFeedPage() {
   const { id } = useParams()
   const { session } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const myUserId = session?.user?.id
+  // 알림 → 자동 스크롤
+  //   좋아요:  ?v={verification_id}            → 게시물(article) 단위 스크롤
+  //   댓글:    ?v={verification_id}&c={comment_id} → 해당 댓글 노드 단위 스크롤 (block: 'center')
+  //   c 가 있으면 c 우선, 없으면 v
+  const targetVerificationId = searchParams.get('v')
+  const targetCommentId = searchParams.get('c')
+  const postRefs = useRef({})
+  const commentRefs = useRef({})
+  const [highlightedPostId, setHighlightedPostId] = useState(null)
+  const [highlightedCommentId, setHighlightedCommentId] = useState(null)
 
   const { data: program, isLoading: isProgramLoading } = useQuery({
     queryKey: queryKeys.program(id),
@@ -30,12 +41,44 @@ function ProgramFeedPage() {
     enabled: !!session && !!id && !!program?.feed_enabled,
   })
 
+  // 타겟 댓글 또는 게시물로 스크롤
+  //   c 가 있으면 댓글로 (block: 'center' — 화면 중앙에 댓글 표시)
+  //   c 가 없고 v 만 있으면 게시물 윗부분으로 (좋아요 알림)
+  //   posts 로드 + ref 부착 + (이미지 레이아웃 안정화) 후 약간 지연
+  useEffect(() => {
+    if (posts.length === 0) return
+    if (targetCommentId) {
+      const el = commentRefs.current[targetCommentId]
+      if (!el) return
+      const t = setTimeout(() => {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        setHighlightedCommentId(targetCommentId)
+        setTimeout(() => setHighlightedCommentId(null), 2500)
+      }, 250)
+      return () => clearTimeout(t)
+    }
+    if (targetVerificationId) {
+      const el = postRefs.current[targetVerificationId]
+      if (!el) return
+      const t = setTimeout(() => {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        setHighlightedPostId(targetVerificationId)
+        setTimeout(() => setHighlightedPostId(null), 2500)
+      }, 250)
+      return () => clearTimeout(t)
+    }
+  }, [targetVerificationId, targetCommentId, posts.length])
+
   // 이미지 signed URL — feed posts 의 image_path
+  //   성공 → imageUrls[id] = url
+  //   실패 (파일 누락 / RLS / 만료) → failedImageIds.has(id) = true → "불러올 수 없어요" 표시
   const [imageUrls, setImageUrls] = useState({})
+  const [failedImageIds, setFailedImageIds] = useState(() => new Set())
   useEffect(() => {
     const targets = posts.filter(p => p.image_path)
     if (targets.length === 0) {
       setImageUrls({})
+      setFailedImageIds(new Set())
       return
     }
     let cancelled = false
@@ -49,9 +92,14 @@ function ProgramFeedPage() {
       )
     ).then(results => {
       if (cancelled) return
-      const map = {}
-      for (const r of results) if (r.url) map[r.id] = r.url
-      setImageUrls(map)
+      const urlMap = {}
+      const failedIds = new Set()
+      for (const r of results) {
+        if (r.url) urlMap[r.id] = r.url
+        else failedIds.add(r.id)
+      }
+      setImageUrls(urlMap)
+      setFailedImageIds(failedIds)
     })
     return () => { cancelled = true }
   }, [posts.length])
@@ -170,7 +218,7 @@ function ProgramFeedPage() {
   if (!program.feed_enabled) {
     return (
       <div className="px-4 pt-4 pb-6 max-w-4xl mx-auto">
-        <StickyBackBar onClick={() => navigate(`/programs/${id}`)} title="프로그램으로" />
+        <StickyBackBar fallbackPath={`/programs/${id}`} title="프로그램으로" />
         <p className="p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded text-center">
           이 프로그램은 피드가 활성화되어 있지 않아요
         </p>
@@ -180,7 +228,7 @@ function ProgramFeedPage() {
 
   return (
     <div className="px-4 pt-2 pb-6 max-w-2xl mx-auto">
-      <StickyBackBar onClick={() => navigate(`/programs/${id}`)} title="프로그램으로" />
+      <StickyBackBar fallbackPath={`/programs/${id}`} title="프로그램으로" />
 
       <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
         <p className="text-xs text-gray-500 mb-1">{program.name}</p>
@@ -211,8 +259,17 @@ function ProgramFeedPage() {
             const hasImage = !!post.image_path
             const hasNumeric = post.numeric_value !== null && post.numeric_value !== undefined
             const hasNote = !!post.note && post.note.trim().length > 0
+            const isPostHighlighted = highlightedPostId === post.id
             return (
-              <article key={post.id} className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+              <article
+                key={post.id}
+                ref={(el) => { postRefs.current[post.id] = el }}
+                className={`bg-white border rounded-2xl overflow-hidden transition-all duration-500 ${
+                  isPostHighlighted
+                    ? 'border-emerald-400 ring-2 ring-emerald-200 shadow-md'
+                    : 'border-gray-200'
+                }`}
+              >
                 {/* 헤더 — 닉네임 + 미션 + 시각 */}
                 <div className="flex items-start justify-between gap-2 p-4 pb-2">
                   <div className="flex-1 min-w-0">
@@ -240,6 +297,11 @@ function ProgramFeedPage() {
                         alt="인증 사진"
                         className="w-full max-h-[500px] object-contain bg-black/5"
                       />
+                    ) : failedImageIds.has(post.id) ? (
+                      <div className="p-8 text-gray-400 text-xs text-center bg-gray-50 border-y border-gray-100">
+                        <div className="text-2xl mb-1 opacity-40">🖼️</div>
+                        사진을 불러올 수 없어요
+                      </div>
                     ) : (
                       <div className="p-12 text-gray-400 text-xs text-center">
                         사진 불러오는 중...
@@ -295,8 +357,17 @@ function ProgramFeedPage() {
                       const isLong = isLongComment(c.content)
                       const isExpanded = expandedComments.has(c.id)
                       const clamped = isLong && !isExpanded
+                      const isCommentHighlighted = highlightedCommentId === c.id
                       return (
-                        <div key={c.id} className="flex items-start gap-1 text-sm">
+                        <div
+                          key={c.id}
+                          ref={(el) => { commentRefs.current[c.id] = el }}
+                          className={`flex items-start gap-1 text-sm rounded-lg p-1.5 -mx-1.5 transition-all duration-500 ${
+                            isCommentHighlighted
+                              ? 'bg-amber-100 ring-2 ring-amber-300'
+                              : ''
+                          }`}
+                        >
                           <div className="flex-1 min-w-0">
                             <p className={`break-words ${clamped ? 'line-clamp-2' : ''}`}>
                               <span className="font-medium text-gray-800">{c.user?.nickname || '(?)'}</span>{' '}

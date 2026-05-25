@@ -18,6 +18,7 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
   const [endDate, setEndDate] = useState('')
   const [maxParticipants, setMaxParticipants] = useState('')
   const [isPublic, setIsPublic] = useState(false)
+  const [feedEnabled, setFeedEnabled] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState(null)
 
@@ -30,6 +31,7 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
       setEndDate(program.end_date || '')
       setMaxParticipants(program.max_participants ?? '')
       setIsPublic(!!program.is_public)
+      setFeedEnabled(!!program.feed_enabled)
       setError(null)
       setIsSaving(false)
     }
@@ -78,6 +80,7 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
         end_date: endDate,
         max_participants: maxParticipants === '' ? null : parseInt(maxParticipants),
         is_public: isPublic,
+        feed_enabled: feedEnabled,
       })
       .eq('id', program.id)
 
@@ -215,6 +218,40 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
               다른 사용자들의 둘러보기에 노출돼요
             </p>
           </div>
+
+          {/* 피드 활성화 — 커뮤니티 모드 */}
+          <button
+            type="button"
+            onClick={() => setFeedEnabled(!feedEnabled)}
+            disabled={isSaving}
+            className={`
+              w-full mb-4 p-3 rounded-lg border-2 text-left transition disabled:opacity-50
+              ${feedEnabled
+                ? 'border-emerald-500 bg-emerald-50'
+                : 'border-gray-200 bg-white hover:border-gray-300'}
+            `}
+          >
+            <div className="flex items-start gap-2.5">
+              <span className="text-xl">📷</span>
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm font-medium ${feedEnabled ? 'text-emerald-700' : 'text-gray-800'}`}>
+                  피드 활성화 (커뮤니티 모드)
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  참여자끼리 인증 사진을 피드로 보고 좋아요·댓글로 응원해요
+                </p>
+              </div>
+              <div className={`
+                relative w-9 h-5 rounded-full flex-shrink-0 transition mt-0.5
+                ${feedEnabled ? 'bg-emerald-500' : 'bg-gray-300'}
+              `}>
+                <div className={`
+                  absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform
+                  ${feedEnabled ? 'translate-x-4' : 'translate-x-0.5'}
+                `} />
+              </div>
+            </div>
+          </button>
 
           {/* 에러 */}
           {error && (

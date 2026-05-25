@@ -36,10 +36,16 @@ function MissionVerifyPage() {
   // (예: BundleDetailPage 에서 진입 → 같은 BundleDetailPage 로 복귀)
   const returnPath = location.state?.returnPath || null
 
-  // 에러 메시지 등장 시 자동 스크롤 — 화면 중앙으로
-  //   (state 의 error 가 변할 때만 작동 — 동일 메시지 재발생도 useEffect 트리거 위해 errorTick 사용)
+  // 뒤로가기 — 스마트 백
+  //   history 가 있으면 navigate(-1) 로 자연스럽게 pop (Verify 가 history 에서 사라짐)
+  //   알림/딥링크로 첫 진입한 경우 (location.key === 'default') 만 returnPath 로 replace 이동
+  //   기존: navigate(target) push → [Detail, Verify, Detail] 쌓여 뒤로 누르면 Verify 로 복귀 = 루프
   const backToProgram = () => {
-    navigate(returnPath || `/programs/${programId}`)
+    if (location.key === 'default') {
+      navigate(returnPath || `/programs/${programId}`, { replace: true })
+    } else {
+      navigate(-1)
+    }
   }
 
   // 미션 로드 — RQ

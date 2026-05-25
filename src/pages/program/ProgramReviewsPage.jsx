@@ -57,7 +57,7 @@ function ProgramReviewsPage() {
   if (!isOwner) {
     return (
       <div className="px-4 pt-4 pb-6 max-w-4xl mx-auto">
-        <StickyBackBar onClick={() => navigate(`/programs/${id}`)} title="프로그램으로" />
+        <StickyBackBar fallbackPath={`/programs/${id}`} title="프로그램으로" />
         <p className="p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded text-center">
           운영자만 심사할 수 있어요
         </p>
@@ -67,7 +67,7 @@ function ProgramReviewsPage() {
 
   return (
     <div className="px-4 pt-2 pb-6 max-w-4xl mx-auto">
-      <StickyBackBar onClick={() => navigate(`/programs/${id}`)} title="프로그램으로" />
+      <StickyBackBar fallbackPath={`/programs/${id}`} title="프로그램으로" />
 
       <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
         <p className="text-xs text-gray-500 mb-1">{program.name}</p>

@@ -76,7 +76,7 @@ function ProgramStatsUserDetailPage() {
   if (!isOwner) {
     return (
       <div className="px-4 pt-4 pb-6 max-w-4xl mx-auto">
-        <StickyBackBar onClick={() => navigate(`/programs/${id}/stats/users`)} title="목록으로" />
+        <StickyBackBar fallbackPath={`/programs/${id}/stats/users`} title="목록으로" />
         <p className="p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded text-center">
           운영자만 통계를 볼 수 있어요
         </p>
@@ -86,7 +86,7 @@ function ProgramStatsUserDetailPage() {
   if (!userInfo) {
     return (
       <div className="px-4 pt-2 pb-6 max-w-4xl mx-auto">
-        <StickyBackBar onClick={() => navigate(`/programs/${id}/stats/users`)} title="목록으로" />
+        <StickyBackBar fallbackPath={`/programs/${id}/stats/users`} title="목록으로" />
         <p className="p-4 bg-gray-50 text-gray-500 text-center rounded">
           해당 유저의 활동 기록을 찾을 수 없어요
         </p>
@@ -99,7 +99,7 @@ function ProgramStatsUserDetailPage() {
 
   return (
     <div className="px-4 pt-2 pb-6 max-w-4xl mx-auto">
-      <StickyBackBar onClick={() => navigate(`/programs/${id}/stats/users`)} title="목록으로" />
+      <StickyBackBar fallbackPath={`/programs/${id}/stats/users`} title="목록으로" />
 
       {/* 유저 헤더 */}
       <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">

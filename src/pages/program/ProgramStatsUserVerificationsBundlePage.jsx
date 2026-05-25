@@ -82,7 +82,7 @@ function ProgramStatsUserVerificationsBundlePage() {
   if (!isOwner) {
     return (
       <div className="px-4 pt-4 pb-6 max-w-4xl mx-auto">
-        <StickyBackBar onClick={() => navigate(`/programs/${id}/stats/users/${targetUserId}/verifications`)} title="목록으로" />
+        <StickyBackBar fallbackPath={`/programs/${id}/stats/users/${targetUserId}/verifications`} title="목록으로" />
         <p className="p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded text-center">
           운영자만 통계를 볼 수 있어요
         </p>
@@ -94,7 +94,7 @@ function ProgramStatsUserVerificationsBundlePage() {
 
   return (
     <div className="px-4 pt-2 pb-6 max-w-4xl mx-auto">
-      <StickyBackBar onClick={() => navigate(`/programs/${id}/stats/users/${targetUserId}/verifications`)} title="목록으로" />
+      <StickyBackBar fallbackPath={`/programs/${id}/stats/users/${targetUserId}/verifications`} title="목록으로" />
 
       <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
         <p className="text-xs text-gray-500 mb-1">{program.name} · {userInfo?.nickname || '(유저)'}</p>

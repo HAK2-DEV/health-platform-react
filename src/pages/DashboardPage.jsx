@@ -16,6 +16,7 @@ import {
   fetchTotalPoints,
   fetchTodayMissions,
   fetchTodayCounts,
+  fetchUnreadNotificationsCount,
 } from '../lib/queries'
 
 // Stagger fade-in 애니메이션 — 카드들이 차례로 등장
@@ -103,6 +104,12 @@ function DashboardPage() {
   const { data: todayCounts = {} } = useQuery({
     queryKey: queryKeys.todayCounts(userId),
     queryFn: () => fetchTodayCounts(userId),
+    enabled: !!userId,
+  })
+
+  const { data: unreadNotifCount = 0 } = useQuery({
+    queryKey: queryKeys.notificationsUnread(userId),
+    queryFn: fetchUnreadNotificationsCount,
     enabled: !!userId,
   })
 
@@ -228,11 +235,16 @@ function DashboardPage() {
             </p>
             <button
               type="button"
-              className="w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-sm flex-shrink-0 hover:shadow-md transition"
+              className="relative w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-sm flex-shrink-0 hover:shadow-md transition"
               title="알림"
               onClick={() => navigate('/notifications')}
             >
               <Bell className="w-4 h-4 text-gray-600" />
+              {unreadNotifCount > 0 && (
+                <span className="absolute -top-2 -right-2 min-w-[22px] h-[22px] px-1.5 bg-red-500 text-white text-[11px] font-bold rounded-full flex items-center justify-center leading-none ring-2 ring-white shadow-md">
+                  {unreadNotifCount > 99 ? '99+' : unreadNotifCount}
+                </span>
+              )}
             </button>
           </div>
 

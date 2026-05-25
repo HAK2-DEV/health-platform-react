@@ -61,7 +61,7 @@ function ProgramStatsUsersPage() {
 
   return (
     <div className="px-4 pt-2 pb-6 max-w-4xl mx-auto">
-      <StickyBackBar onClick={() => navigate(`/programs/${id}/stats`)} title="통계로" />
+      <StickyBackBar fallbackPath={`/programs/${id}/stats`} title="통계로" />
 
       <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
         <p className="text-xs text-gray-500 mb-1">{program.name}</p>
