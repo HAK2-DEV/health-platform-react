@@ -1,28 +1,34 @@
 // 한국 시간 (Asia/Seoul, UTC+9) 기준 날짜 함수들
 
-// 오늘 날짜 (YYYY-MM-DD)
+// Intl.DateTimeFormat 으로 KST 날짜 추출 — DST/오프셋 계산 함정 없음
+//   기존 toISOString 기반 로직은 KST 09시 이전에 어제 날짜를 반환하는 버그가 있었음 (Day 55 수정)
+const _KST_FORMATTER = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Seoul',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+})
+
+// 오늘 날짜 (YYYY-MM-DD, KST)
 export function getTodayKST() {
-  const now = new Date()
-  // 본인의 컴퓨터의 시간대 무관하게 KST 기준
-  const kstOffset = 9 * 60 // KST = UTC+9 (분)
-  const localOffset = now.getTimezoneOffset() // 본인의 컴퓨터 (분, UTC 기준 - 본인 시간)
-  const kstTime = new Date(now.getTime() + (kstOffset + localOffset) * 60 * 1000)
-  return kstTime.toISOString().split('T')[0]
+  return _KST_FORMATTER.format(new Date())
 }
 
 // Date 객체 → KST YYYY-MM-DD
 export function toKSTDateString(date) {
-  const d = new Date(date)
-  const kstOffset = 9 * 60
-  const localOffset = d.getTimezoneOffset()
-  const kstTime = new Date(d.getTime() + (kstOffset + localOffset) * 60 * 1000)
-  return kstTime.toISOString().split('T')[0]
+  return _KST_FORMATTER.format(new Date(date))
 }
 
 // YYYY-MM-DD → 한국 표시용 (2026.05.20)
 export function formatKoreanDate(dateString) {
   if (!dateString) return ''
   return dateString.replaceAll('-', '.')
+}
+
+// 프로그램 시작일이 오늘(KST) 이후면 true — "예정" 상태 판정용
+export function isUpcomingByStartDate(startDate) {
+  if (!startDate) return false
+  return new Date(`${startDate}T00:00:00+09:00`) > new Date()
 }
 
 // ISO timestamp → "오늘" / "어제" / "N일 전" / "YYYY.MM.DD" 짧은 한국식

@@ -1,9 +1,8 @@
-import { Routes, Route, useNavigate, useLocation } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { Routes, Route, useLocation } from 'react-router-dom'
+import { useEffect } from 'react'
 import './index.css'
 import './App.css'
 import { useAuth } from './hooks/useAuth'
-import { queryKeys, fetchUnreadNotificationsCount } from './lib/queries'
 import HomePage from './pages/HomePage'
 import TodosPage from './pages/TodosPage'
 import LoginPage from './pages/LoginPage'
@@ -31,57 +30,28 @@ import RankingsPage from './pages/RankingsPage'
 import NotificationsPage from './pages/NotificationsPage'
 import ProfilePage from './pages/ProfilePage'
 import BottomTabBar from './components/common/BottomTabBar'
-import { Bell } from 'lucide-react'
 import ProtectedRoute from './components/ProtectedRoute'   // ⭐ 추가
 
 function AppShell() {
   const { session } = useAuth()
-  const navigate = useNavigate()
   const location = useLocation()
-  const userId = session?.user?.id
 
-  // 헤더 종 아이콘 카카오톡 배지 — 안 읽은 알림 카운트
-  const { data: unreadNotifCount = 0 } = useQuery({
-    queryKey: queryKeys.notificationsUnread(userId),
-    queryFn: fetchUnreadNotificationsCount,
-    enabled: !!userId,
-  })
+  // 라우트 변경 시 무조건 페이지 상단부터 시작 — 본인 결정 (Day 55)
+  //   다른 페이지로 넘어가면 스크롤 위치가 어디든 reset
+  //   같은 페이지에서 query/hash 만 바뀌는 경우 (예: 피드 ?v=&c=) 는 그 컴포넌트가 scrollIntoView 로 직접 제어하므로 별도 처리
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [location.pathname])
 
-  // 자체 상단 영역을 갖는 페이지는 App 헤더 숨김
-  // - /dashboard
-  // - /programs/:id (ProgramDetailPage — 단, /programs 와 /programs/new 는 제외)
-  // - /programs/:id/missions/:missionId (MissionVerifyPage — 풀스크린 인증)
-  const isProgramDetail =
-    location.pathname.startsWith('/programs/') &&
-    location.pathname !== '/programs/new'
-  const hideHeader = location.pathname === '/dashboard' || isProgramDetail
+  // App 레벨 헤더(인사말 + 종 아이콘) 제거 — 본인 결정 (Day 55)
+  //   Dashboard 는 자체 그라데이션 헤더(인사말 + 종 + 마스코트)를 가짐.
+  //   나머지 페이지는 BottomTabBar 의 🔔 알림 탭으로 충분 → 중복 헤더 제거.
   // BottomTabBar 숨김 — 운영자 집중(마법사) + 참여자 집중(미션 인증)
   const isMissionVerify = /^\/programs\/[^/]+\/missions\/[^/]+$/.test(location.pathname)
   const hideBottomBar = location.pathname === '/programs/new' || isMissionVerify
 
   return (
    <div className="app">
-      {session && !hideHeader && (
-        <header className="bg-gradient-to-r from-emerald-50 to-teal-50 px-6 py-4 flex justify-between items-center">
-          <p className="text-sm text-gray-700 whitespace-nowrap overflow-hidden text-ellipsis pr-2">
-            안녕하세요, 오늘도 건강한 하루 되세요! 🌿
-          </p>
-          <button
-            type="button"
-            onClick={() => navigate('/notifications')}
-            className="relative w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-sm hover:shadow-md transition flex-shrink-0"
-            title="알림"
-          >
-            <Bell className="w-4 h-4 text-gray-600" />
-            {unreadNotifCount > 0 && (
-              <span className="absolute -top-2 -right-2 min-w-[22px] h-[22px] px-1.5 bg-red-500 text-white text-[11px] font-bold rounded-full flex items-center justify-center leading-none ring-2 ring-white shadow-md">
-                {unreadNotifCount > 99 ? '99+' : unreadNotifCount}
-              </span>
-            )}
-          </button>
-        </header>
-      )}
-      
       <main className={`app-main ${session && !hideBottomBar ? 'pb-24' : 'pb-4'}`}>
         <Routes>
   {/* 보호 X (누구나) */}

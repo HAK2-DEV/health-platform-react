@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../../hooks/useAuth'
 import { ChevronLeft, Plus, ChevronRight } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
-import { formatKoreanDate } from '../../lib/formatters'
+import { formatKoreanDate, isUpcomingByStartDate } from '../../lib/formatters'
 import MissionCard from '../../components/program/MissionCard'
 import StickyBackBar from '../../components/common/StickyBackBar'
 import ProgramEditModal from '../../components/program/ProgramEditModal'
@@ -155,14 +155,16 @@ function ProgramDetailPage() {
       <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
         <div className="flex items-start justify-between mb-3">
           <h1 className="text-2xl font-medium text-gray-800">{program.name}</h1>
-          <span className={`
-            px-2 py-0.5 rounded text-xs
-            ${program.status === 'PUBLISHED'
+          {(() => {
+            // PUBLISHED + 시작일 미래 → "예정" (회색) / PUBLISHED + 진행 중 → "진행중" (초록) / 그 외 → status 그대로
+            const isPublished = program.status === 'PUBLISHED'
+            const isUpcoming = isPublished && isUpcomingByStartDate(program.start_date)
+            const label = isPublished ? (isUpcoming ? '예정' : '진행중') : program.status
+            const cls = (isPublished && !isUpcoming)
               ? 'bg-green-100 text-green-700'
-              : 'bg-gray-100 text-gray-600'}
-          `}>
-            {program.status === 'PUBLISHED' ? '진행중' : program.status}
-          </span>
+              : 'bg-gray-100 text-gray-600'
+            return <span className={`px-2 py-0.5 rounded text-xs ${cls}`}>{label}</span>
+          })()}
         </div>
 
         {program.description && (

@@ -32,6 +32,8 @@ function ProgramStatsUserDetailPage() {
   })
 
   // 14일 차트용 — verifications 의 submitted_at 만 필요
+  //   status 필터 없음: APPROVED + PENDING_REVIEW + REJECTED 모두 "활동"으로 카운트
+  //   (사용자가 제출한 자체가 활동. 승인 여부와 별개로 참여도 가시화)
   const { data: userVerifications = [] } = useQuery({
     queryKey: ['stats', 'userVerifications', id, targetUserId],
     queryFn: async () => {
@@ -40,7 +42,6 @@ function ProgramStatsUserDetailPage() {
         .select('id, mission_id, submitted_at, image_path, numeric_value, note, missions!inner(program_id, title, bundle_title)')
         .eq('missions.program_id', id)
         .eq('user_id', targetUserId)
-        .eq('status', 'APPROVED')
         .order('submitted_at', { ascending: false })
       if (error) throw error
       return data || []

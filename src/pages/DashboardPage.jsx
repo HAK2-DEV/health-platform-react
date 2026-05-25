@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../supabaseClient'
 import { Plus, Activity, Trash2, ChevronRight, ClipboardList, Target, Clock, Trophy, Bell } from 'lucide-react'
-import { formatKoreanDate, checkMissionToday } from '../lib/formatters'
+import { formatKoreanDate, checkMissionToday, isUpcomingByStartDate } from '../lib/formatters'
 import { CATEGORY } from '../lib/constants'
 import ProgramDetailModal from '../components/program/ProgramDetailModal'
 import DeleteProgramConfirmModal from '../components/program/DeleteProgramConfirmModal'
@@ -562,13 +562,17 @@ function DashboardPage() {
                 {!showAllMyPrograms && <ChevronRight className="w-3 h-3" />}
               </button>
             )}
-            <Link
-              to="/programs/new"
-              className="flex items-center gap-1 px-3 py-2 bg-green-500 hover:bg-green-600 text-white text-sm rounded-md transition"
-            >
-              <Plus className="w-4 h-4" />
-              새 프로그램
-            </Link>
+            {/* 상단 "+ 프로그램 생성하기" CTA 가 있으므로 1개 이상일 때는 중복 제거.
+                0개일 때만 빈 상태 옆 보조 CTA 로 노출 */}
+            {myPrograms.length === 0 && (
+              <Link
+                to="/programs/new"
+                className="flex items-center gap-1 px-3 py-2 bg-green-500 hover:bg-green-600 text-white text-sm rounded-md transition"
+              >
+                <Plus className="w-4 h-4" />
+                새 프로그램
+              </Link>
+            )}
           </div>
         </div>
 
@@ -587,6 +591,11 @@ function DashboardPage() {
             <AnimatePresence initial={false}>
             {(showAllMyPrograms ? myPrograms : myPrograms.slice(0, 2)).map(program => {
               const isDraft = program.status === 'DRAFT'
+              const isUpcoming = !isDraft && isUpcomingByStartDate(program.start_date)
+              const statusLabel = isDraft ? '임시저장' : isUpcoming ? '예정' : '진행중'
+              const statusClass = (isDraft || isUpcoming)
+                ? 'bg-gray-100 text-gray-600'
+                : 'bg-green-100 text-green-700'
               return (
                 <motion.div
                   key={program.id}
@@ -607,13 +616,8 @@ function DashboardPage() {
                   <div className="flex items-start justify-between mb-2">
                     <h3 className="font-medium text-gray-800">{program.name}</h3>
                     <div className="flex items-center gap-2">
-                      <span className={`
-                        px-2 py-0.5 rounded text-xs
-                        ${isDraft
-                          ? 'bg-gray-100 text-gray-600'
-                          : 'bg-green-100 text-green-700'}
-                      `}>
-                        {isDraft ? '임시저장' : '진행중'}
+                      <span className={`px-2 py-0.5 rounded text-xs ${statusClass}`}>
+                        {statusLabel}
                       </span>
                       {/* 삭제 — 모든 상태. DRAFT 는 simple confirm / PUBLISHED 는 이름 재입력 모달 */}
                       <button

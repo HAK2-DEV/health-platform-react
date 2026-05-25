@@ -19,6 +19,7 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
   const [maxParticipants, setMaxParticipants] = useState('')
   const [isPublic, setIsPublic] = useState(false)
   const [feedEnabled, setFeedEnabled] = useState(false)
+  const [podiumEnabled, setPodiumEnabled] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState(null)
 
@@ -32,6 +33,7 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
       setMaxParticipants(program.max_participants ?? '')
       setIsPublic(!!program.is_public)
       setFeedEnabled(!!program.feed_enabled)
+      setPodiumEnabled(!!program.podium_enabled)
       setError(null)
       setIsSaving(false)
     }
@@ -81,6 +83,7 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
         max_participants: maxParticipants === '' ? null : parseInt(maxParticipants),
         is_public: isPublic,
         feed_enabled: feedEnabled,
+        podium_enabled: podiumEnabled,
       })
       .eq('id', program.id)
 
@@ -225,7 +228,7 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
             onClick={() => setFeedEnabled(!feedEnabled)}
             disabled={isSaving}
             className={`
-              w-full mb-4 p-3 rounded-lg border-2 text-left transition disabled:opacity-50
+              w-full mb-3 p-3 rounded-lg border-2 text-left transition disabled:opacity-50
               ${feedEnabled
                 ? 'border-emerald-500 bg-emerald-50'
                 : 'border-gray-200 bg-white hover:border-gray-300'}
@@ -248,6 +251,40 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
                 <div className={`
                   absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform
                   ${feedEnabled ? 'translate-x-4' : 'translate-x-0.5'}
+                `} />
+              </div>
+            </div>
+          </button>
+
+          {/* 포디움 활성화 — Top 3 시상대 */}
+          <button
+            type="button"
+            onClick={() => setPodiumEnabled(!podiumEnabled)}
+            disabled={isSaving}
+            className={`
+              w-full mb-4 p-3 rounded-lg border-2 text-left transition disabled:opacity-50
+              ${podiumEnabled
+                ? 'border-amber-500 bg-amber-50'
+                : 'border-gray-200 bg-white hover:border-gray-300'}
+            `}
+          >
+            <div className="flex items-start gap-2.5">
+              <span className="text-xl">🏆</span>
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm font-medium ${podiumEnabled ? 'text-amber-700' : 'text-gray-800'}`}>
+                  포디움 활성화 (Top 3 시상대)
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  랭킹 페이지에 1·2·3등 시상대 시각화. 끄면 평면 랭킹.
+                </p>
+              </div>
+              <div className={`
+                relative w-9 h-5 rounded-full flex-shrink-0 transition mt-0.5
+                ${podiumEnabled ? 'bg-amber-500' : 'bg-gray-300'}
+              `}>
+                <div className={`
+                  absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform
+                  ${podiumEnabled ? 'translate-x-4' : 'translate-x-0.5'}
                 `} />
               </div>
             </div>

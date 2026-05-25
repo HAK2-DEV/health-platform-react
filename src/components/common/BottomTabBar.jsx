@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Home, List, Trophy, Bell, User } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
@@ -7,8 +7,10 @@ import { queryKeys, fetchUnreadNotificationsCount } from '../../lib/queries'
 // 5탭 하단 네비 — 본인 UI 레퍼런스 패턴 (SSRD F-LAYOUT-010)
 // 세션 있을 때만 노출 (App.jsx 에서 분기)
 // 🔔 알림 탭 — 안 읽은 알림 카운트 배지 (RLS 가 본인 알림만 SELECT)
+// 동일 탭 재탭 시 부드러운 스크롤 to top (카카오톡/인스타 패턴)
 function BottomTabBar() {
   const { session } = useAuth()
+  const location = useLocation()
   const userId = session?.user?.id
 
   const { data: unreadCount = 0 } = useQuery({
@@ -17,6 +19,15 @@ function BottomTabBar() {
     enabled: !!userId,
     // 다른 페이지에서 활동 시 (좋아요/댓글/심사) invalidate 로 자동 갱신
   })
+
+  // 현재 탭을 다시 누르면 페이지 상단으로 부드럽게 스크롤
+  //   다른 탭으로 가는 경우는 App.jsx 의 pathname useEffect 가 즉시 0,0 으로 reset
+  const handleTabClick = (e, path) => {
+    if (location.pathname === path) {
+      e.preventDefault()
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }
 
   const tabs = [
     { path: '/dashboard',     label: '홈',     icon: Home },
@@ -37,6 +48,7 @@ function BottomTabBar() {
             <NavLink
               key={tab.path}
               to={tab.path}
+              onClick={(e) => handleTabClick(e, tab.path)}
               className={({ isActive }) => `
                 flex-1 flex flex-col items-center gap-1 py-2 transition relative
                 ${isActive

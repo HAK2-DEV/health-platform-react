@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
 import { Plus, Activity, Trash2, ChevronRight } from 'lucide-react'
-import { formatKoreanDate } from '../../lib/formatters'
+import { formatKoreanDate, isUpcomingByStartDate } from '../../lib/formatters'
 import ProgramDetailModal from '../../components/program/ProgramDetailModal'
 import DeleteProgramConfirmModal from '../../components/program/DeleteProgramConfirmModal'
 import {
@@ -90,6 +90,15 @@ function ProgramListPage() {
     <div className="p-6 max-w-4xl mx-auto">
       <h1 className="text-2xl text-gray-800 mb-6">📋 프로그램</h1>
 
+      {/* CTA — 프로그램 생성하기 (Dashboard 와 동일 패턴, 높이 살짝 줄임) */}
+      <Link
+        to="/programs/new"
+        className="flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white font-medium py-2.5 rounded-2xl shadow-md shadow-emerald-200/40 mb-8 transition"
+      >
+        <Plus className="w-5 h-5" />
+        프로그램 생성하기
+      </Link>
+
       {/* 내 프로그램 — 3개 + 전체보기 + framer */}
       <section className="mb-8">
         <div className="flex items-center justify-between mb-4">
@@ -97,25 +106,16 @@ function ProgramListPage() {
             <Activity className="w-5 h-5 text-green-500" />
             내 프로그램 <span className="text-sm text-gray-500">({myPrograms.length})</span>
           </h2>
-          <div className="flex items-center gap-2">
-            {myPrograms.length > 2 && (
-              <button
-                type="button"
-                onClick={() => setShowAllMy(!showAllMy)}
-                className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700"
-              >
-                {showAllMy ? '간단히 보기' : `전체보기 (${myPrograms.length})`}
-                {!showAllMy && <ChevronRight className="w-3 h-3" />}
-              </button>
-            )}
-            <Link
-              to="/programs/new"
-              className="flex items-center gap-1 px-3 py-2 bg-green-500 hover:bg-green-600 text-white text-sm rounded-md transition"
+          {myPrograms.length > 2 && (
+            <button
+              type="button"
+              onClick={() => setShowAllMy(!showAllMy)}
+              className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700"
             >
-              <Plus className="w-4 h-4" />
-              새 프로그램
-            </Link>
-          </div>
+              {showAllMy ? '간단히 보기' : `전체보기 (${myPrograms.length})`}
+              {!showAllMy && <ChevronRight className="w-3 h-3" />}
+            </button>
+          )}
         </div>
 
         {isMyLoading ? (
@@ -129,6 +129,11 @@ function ProgramListPage() {
             <AnimatePresence initial={false}>
               {(showAllMy ? myPrograms : myPrograms.slice(0, 2)).map(program => {
                 const isDraft = program.status === 'DRAFT'
+                const isUpcoming = !isDraft && isUpcomingByStartDate(program.start_date)
+                const statusLabel = isDraft ? '임시저장' : isUpcoming ? '예정' : '진행중'
+                const statusClass = (isDraft || isUpcoming)
+                  ? 'bg-gray-100 text-gray-600'
+                  : 'bg-green-100 text-green-700'
                 return (
                   <motion.div
                     key={program.id}
@@ -149,13 +154,8 @@ function ProgramListPage() {
                     <div className="flex items-start justify-between mb-2">
                       <h3 className="font-medium text-gray-800">{program.name}</h3>
                       <div className="flex items-center gap-2">
-                        <span className={`
-                          px-2 py-0.5 rounded text-xs
-                          ${isDraft
-                            ? 'bg-gray-100 text-gray-600'
-                            : 'bg-green-100 text-green-700'}
-                        `}>
-                          {isDraft ? '임시저장' : '진행중'}
+                        <span className={`px-2 py-0.5 rounded text-xs ${statusClass}`}>
+                          {statusLabel}
                         </span>
                         <button
                           onClick={(e) => {
@@ -208,9 +208,9 @@ function ProgramListPage() {
         </div>
 
         {isActiveLoading ? (
-          <div className="bg-gray-50 p-6 rounded-lg text-center text-gray-500 text-sm">불러오는 중...</div>
+          <div className="bg-gray-50/60 p-8 rounded-2xl text-center text-gray-500 text-sm">불러오는 중...</div>
         ) : activePrograms.length === 0 ? (
-          <div className="bg-gray-50 p-6 rounded-lg text-center text-gray-500 text-sm">
+          <div className="bg-gray-50/60 p-8 rounded-2xl text-center text-gray-500 text-sm">
             아직 참여한 프로그램이 없어요
           </div>
         ) : (
@@ -260,9 +260,9 @@ function ProgramListPage() {
         </div>
 
         {isPublicLoading ? (
-          <div className="bg-gray-50 p-6 rounded-lg text-center text-gray-500 text-sm">불러오는 중...</div>
+          <div className="bg-gray-50/60 p-8 rounded-2xl text-center text-gray-500 text-sm">불러오는 중...</div>
         ) : publicPrograms.length === 0 ? (
-          <div className="bg-gray-50 p-6 rounded-lg text-center text-gray-500 text-sm">
+          <div className="bg-gray-50/60 p-8 rounded-2xl text-center text-gray-500 text-sm">
             아직 둘러볼 공개 프로그램이 없어요
           </div>
         ) : (

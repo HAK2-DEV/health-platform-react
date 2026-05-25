@@ -4,6 +4,7 @@ import { PROGRAM_TYPE_LIST } from '../../../lib/constants'
 function Step2Type({ initialData, onNext, onSave, onPrev }) {
   const [programType, setProgramType] = useState(initialData?.program_type || null)
   const [feedEnabled, setFeedEnabled] = useState(initialData?.feed_enabled || false)
+  const [podiumEnabled, setPodiumEnabled] = useState(initialData?.podium_enabled || false)
   const [error, setError] = useState(null)
 
   const validate = () => {
@@ -14,6 +15,7 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
   const collectData = () => ({
     program_type: programType,
     feed_enabled: feedEnabled,
+    podium_enabled: podiumEnabled,
   })
 
   const handleNext = () => {
@@ -83,7 +85,7 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
         type="button"
         onClick={() => setFeedEnabled(!feedEnabled)}
         className={`
-          w-full p-4 rounded-lg border-2 text-left transition mb-6
+          w-full p-4 rounded-lg border-2 text-left transition mb-3
           ${feedEnabled
             ? 'border-emerald-500 bg-emerald-50'
             : 'border-gray-200 bg-white hover:border-gray-300'}
@@ -107,6 +109,39 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
             <div className={`
               absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform
               ${feedEnabled ? 'translate-x-4' : 'translate-x-0.5'}
+            `} />
+          </div>
+        </div>
+      </button>
+
+      {/* 포디움(시상대) 토글 — 랭킹 페이지 상단에 Top 3 시각화 */}
+      <button
+        type="button"
+        onClick={() => setPodiumEnabled(!podiumEnabled)}
+        className={`
+          w-full p-4 rounded-lg border-2 text-left transition mb-6
+          ${podiumEnabled
+            ? 'border-amber-500 bg-amber-50'
+            : 'border-gray-200 bg-white hover:border-gray-300'}
+        `}
+      >
+        <div className="flex items-start gap-3">
+          <span className="text-2xl">🏆</span>
+          <div className="flex-1">
+            <div className={`font-medium mb-1 ${podiumEnabled ? 'text-amber-700' : 'text-gray-800'}`}>
+              포디움 활성화 (Top 3 시상대)
+            </div>
+            <div className="text-sm text-gray-600">
+              랭킹 페이지 상단에 1·2·3등을 올림픽 시상대처럼 강조해서 표시해요. 끄면 평면 랭킹만.
+            </div>
+          </div>
+          <div className={`
+            relative w-10 h-6 rounded-full flex-shrink-0 transition
+            ${podiumEnabled ? 'bg-amber-500' : 'bg-gray-300'}
+          `}>
+            <div className={`
+              absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform
+              ${podiumEnabled ? 'translate-x-4' : 'translate-x-0.5'}
             `} />
           </div>
         </div>

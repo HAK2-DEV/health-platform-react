@@ -87,8 +87,31 @@ function ProgramFeedPage() {
         supabase.storage
           .from('verification-images')
           .createSignedUrl(p.image_path, 3600)
-          .then(({ data }) => ({ id: p.id, url: data?.signedUrl || null }))
-          .catch(() => ({ id: p.id, url: null }))
+          .then(({ data, error }) => {
+            if (error) {
+              // 진단용 로그 — RLS 거부인지 파일 누락인지 메시지로 분기 가능
+              console.warn('[feed signed url 실패]', {
+                path: p.image_path,
+                verification_id: p.id,
+                msg: error.message,
+              })
+              // 자기 치유 비활성화 (Day 56 회수) —
+              //   Supabase Storage 는 RLS 거부 시에도 "Object not found" 로 반환해서
+              //   RLS 막힘인지 실제 파일 누락인지 구분 불가. 멀쩡한 image_path 까지 NULL 처리되는 사고 발생.
+              //   대안: 콘솔 진단 로그만 남기고 UI fallback ("사진을 불러올 수 없어요") 로 처리.
+              //   실제 파일 누락이라고 확신할 때만 본인이 수동 SQL 정리.
+              return { id: p.id, url: null }
+            }
+            return { id: p.id, url: data?.signedUrl || null }
+          })
+          .catch((err) => {
+            console.warn('[feed signed url 예외]', {
+              path: p.image_path,
+              verification_id: p.id,
+              err: err?.message,
+            })
+            return { id: p.id, url: null }
+          })
       )
     ).then(results => {
       if (cancelled) return

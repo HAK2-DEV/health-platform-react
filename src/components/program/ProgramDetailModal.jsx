@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import Modal from '../common/Modal'
 import { formatKoreanDate } from '../../lib/formatters'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
 import { CATEGORY } from '../../lib/constants'
+import { queryKeys } from '../../lib/queries'
 
 // 참여 상태: 'loading' | 'owner' | 'active' | 'none'
 // (MVP 1차 — PENDING/REJECTED/COMPLETED 는 APPROVAL 도입 시 추가)
@@ -12,6 +14,7 @@ import { CATEGORY } from '../../lib/constants'
 function ProgramDetailModal({ program, isOpen, onClose }) {
   const { session } = useAuth()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [participationStatus, setParticipationStatus] = useState('loading')
   const [isJoining, setIsJoining] = useState(false)
   const [joinError, setJoinError] = useState(null)
@@ -54,6 +57,14 @@ function ProgramDetailModal({ program, isOpen, onClose }) {
     setParticipationStatus('active')
     setJustJoined(true)
     setIsJoining(false)
+
+    // React Query 캐시 무효화 — 가입 즉시 홈/랭킹/통계 등에 반영되도록
+    //   activePrograms 가 갱신되면 그 키에 의존하는 todayMissions 도 자동 재조회
+    const userId = session.user.id
+    queryClient.invalidateQueries({ queryKey: queryKeys.activePrograms(userId) })
+    queryClient.invalidateQueries({ queryKey: ['missions', 'today'] })
+    queryClient.invalidateQueries({ queryKey: ['rankings'] })
+    queryClient.invalidateQueries({ queryKey: ['stats'] })
   }
 
   useEffect(() => {
