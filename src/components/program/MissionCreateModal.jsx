@@ -4,11 +4,15 @@ import { supabase } from '../../supabaseClient'
 import { Image as ImageIcon, BarChart3, MessageSquare, ChevronDown, ChevronUp, Plus, X } from 'lucide-react'
 import { SCHEDULE_MODES, WEEKDAY_OPTIONS } from '../../lib/constants'
 
-// 운영자가 자기 프로그램에 미션을 직접 추가 (본인 (가) 진화)
+// 운영자가 자기 프로그램에 미션을 직접 추가/수정 (본인 (가) 진화)
 // 인증 유형 3가지: 사진(requires_image) / 기록(requires_numeric) / 소감(requires_note)
 //   다중 선택 가능 (최소 1개)
 // 운영자 직접 생성 미션은 feature=NULL (017 자동 생성과 구분)
-function MissionCreateModal({ program, isOpen, onClose, onSuccess }) {
+//
+// editMission prop 있으면 수정 모드 (UPDATE), 없으면 생성 모드 (INSERT)
+function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission }) {
+  const isEditMode = !!editMission
+
   const [title, setTitle] = useState('')
   const [instruction, setInstruction] = useState('')
   const [point, setPoint] = useState(10)
@@ -28,7 +32,7 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess }) {
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState(null)
 
-  // 모달 닫힘 시 reset
+  // 모달 닫힘 시 reset / 열림 시 editMission 으로 prefill
   useEffect(() => {
     if (!isOpen) {
       setTitle('')
@@ -45,8 +49,27 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess }) {
       setExcludedPeriods([])
       setError(null)
       setIsSaving(false)
+      return
     }
-  }, [isOpen])
+    // 열림 + 수정 모드 → 기존 값으로 prefill
+    if (editMission) {
+      setTitle(editMission.title || '')
+      setInstruction(editMission.instruction || '')
+      setPoint(editMission.point ?? 10)
+      setDailyLimit(editMission.daily_limit ?? '')
+      setVerificationType(editMission.verification_type || 'AUTO')
+      setRequiresImage(!!editMission.requires_image)
+      setRequiresNumeric(!!editMission.requires_numeric)
+      setRequiresNote(!!editMission.requires_note)
+      const hasSchedule =
+        (editMission.schedule_mode && editMission.schedule_mode !== 'ALL_DAYS') ||
+        (editMission.excluded_periods && editMission.excluded_periods.length > 0)
+      setShowSchedule(hasSchedule)
+      setScheduleMode(editMission.schedule_mode || 'ALL_DAYS')
+      setActiveDays(editMission.active_days || [])
+      setExcludedPeriods(editMission.excluded_periods || [])
+    }
+  }, [isOpen, editMission])
 
   const toggleActiveDay = (num) => {
     setActiveDays(prev =>
@@ -85,30 +108,46 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess }) {
     setIsSaving(true)
     setError(null)
 
-    const { error: insertError } = await supabase
-      .from('missions')
-      .insert({
-        program_id: program.id,
-        feature: null,  // 운영자 직접 생성 표식
-        title: title.trim(),
-        instruction: instruction.trim() || null,
-        verification_type: verificationType,
-        point: parseInt(point),
-        daily_limit: dailyLimit ? parseInt(dailyLimit) : null,
-        requires_image: requiresImage,
-        requires_numeric: requiresNumeric,
-        requires_note: requiresNote,
-        active_from: `${program.start_date}T00:00:00+09:00`,
-        active_until: `${program.end_date}T23:59:59+09:00`,
-        // 일정 옵션 — 033 점수 트리거가 KST 기준으로 검사
-        schedule_mode: scheduleMode,
-        active_days: scheduleMode === 'CUSTOM' ? activeDays : [],
-        excluded_periods: excludedPeriods.filter(p => p.start_date && p.end_date),
-      })
+    const payload = {
+      title: title.trim(),
+      instruction: instruction.trim() || null,
+      verification_type: verificationType,
+      point: parseInt(point),
+      daily_limit: dailyLimit ? parseInt(dailyLimit) : null,
+      requires_image: requiresImage,
+      requires_numeric: requiresNumeric,
+      requires_note: requiresNote,
+      // 일정 옵션 — 033 점수 트리거가 KST 기준으로 검사
+      schedule_mode: scheduleMode,
+      active_days: scheduleMode === 'CUSTOM' ? activeDays : [],
+      excluded_periods: excludedPeriods.filter(p => p.start_date && p.end_date),
+    }
 
-    if (insertError) {
-      console.error('미션 생성 실패:', insertError)
-      setError(insertError.message)
+    let opError = null
+    if (isEditMode) {
+      // 수정 — 안전 컬럼만 UPDATE (program_id, feature, active_from/until, bundle_title 등은 보존)
+      const { error } = await supabase
+        .from('missions')
+        .update(payload)
+        .eq('id', editMission.id)
+      opError = error
+    } else {
+      // 신규 — 모든 컬럼 INSERT
+      const { error } = await supabase
+        .from('missions')
+        .insert({
+          ...payload,
+          program_id: program.id,
+          feature: null,  // 운영자 직접 생성 표식
+          active_from: `${program.start_date}T00:00:00+09:00`,
+          active_until: `${program.end_date}T23:59:59+09:00`,
+        })
+      opError = error
+    }
+
+    if (opError) {
+      console.error(isEditMode ? '미션 수정 실패:' : '미션 생성 실패:', opError)
+      setError(opError.message)
       setIsSaving(false)
       return
     }
@@ -142,7 +181,7 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess }) {
       {program && (
         <div className="p-6">
           <h2 className="text-xl font-medium text-gray-800 mb-1 pr-8">
-            ✨ 미션 추가
+            {isEditMode ? '✏️ 미션 수정' : '✨ 미션 추가'}
           </h2>
           <p className="text-xs text-gray-500 mb-4">
             {program.name}
@@ -427,7 +466,7 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess }) {
               disabled={isSaving}
               className="flex-[2] px-4 py-3 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-medium rounded-md transition disabled:bg-gray-400"
             >
-              {isSaving ? '저장 중...' : '미션 추가'}
+              {isSaving ? '저장 중...' : (isEditMode ? '미션 수정 저장' : '미션 추가')}
             </button>
           </div>
         </div>

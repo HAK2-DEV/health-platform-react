@@ -25,11 +25,15 @@ function RankingsPage() {
 
   const [selectedProgramId, setSelectedProgramId] = useState(null)
 
-  const { data: activePrograms = [], isLoading: isLoadingPrograms } = useQuery({
+  const { data: allActivePrograms = [], isLoading: isLoadingPrograms } = useQuery({
     queryKey: queryKeys.activePrograms(userId),
     queryFn: () => fetchActivePrograms(userId),
     enabled: !!userId,
   })
+
+  // 랭킹 페이지에서는 ranking_enabled !== false 인 프로그램만 노출
+  //   (false 명시한 프로그램은 칩에서 숨김 — 단순 습관 형성 모드)
+  const activePrograms = allActivePrograms.filter(p => p.ranking_enabled !== false)
 
   useEffect(() => {
     if (!selectedProgramId && activePrograms.length > 0) {

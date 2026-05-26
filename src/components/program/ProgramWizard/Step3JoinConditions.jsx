@@ -8,12 +8,18 @@ function Step3JoinConditions({ initialData, onNext, onSave, onPrev }) {
   const [isPublic, setIsPublic] = useState(initialData?.is_public || false)
   const [maxParticipants, setMaxParticipants] = useState(initialData?.max_participants || '')
   const [inviteCode, setInviteCode] = useState(initialData?.invite_code || '')
+  // 입장 질문 — APPROVAL 일 때만 의미. 토글 OFF → NULL / ON → 질문 텍스트
+  const [hasEntryQuestion, setHasEntryQuestion] = useState(!!initialData?.entry_question)
+  const [entryQuestion, setEntryQuestion] = useState(initialData?.entry_question || '')
   const [error, setError] = useState(null)
 
   const validate = () => {
     if (!joinType) return '참여 방식을 선택해주세요'
     if (joinType === 'INVITE_CODE' && !inviteCode.trim()) {
       return '초대 코드를 입력해주세요'
+    }
+    if (joinType === 'APPROVAL' && hasEntryQuestion && !entryQuestion.trim()) {
+      return '입장 질문을 입력하거나 토글을 꺼주세요'
     }
     return null
   }
@@ -23,6 +29,9 @@ function Step3JoinConditions({ initialData, onNext, onSave, onPrev }) {
     is_public: isPublic,
     max_participants: maxParticipants === '' ? null : parseInt(maxParticipants),
     invite_code: joinType === 'INVITE_CODE' ? inviteCode.trim() : null,
+    entry_question: (joinType === 'APPROVAL' && hasEntryQuestion)
+      ? entryQuestion.trim()
+      : null,
   })
 
   const handleNext = () => {
@@ -100,6 +109,64 @@ function Step3JoinConditions({ initialData, onNext, onSave, onPrev }) {
           <p className="text-xs text-gray-500 mt-1">
             이 코드를 가진 사람만 참여할 수 있어요
           </p>
+        </div>
+      )}
+
+      {/* 입장 질문 (APPROVAL 모드 시) */}
+      {joinType === 'APPROVAL' && (
+        <div className="mb-6">
+          <button
+            type="button"
+            onClick={() => setHasEntryQuestion(!hasEntryQuestion)}
+            className={`
+              w-full p-4 rounded-2xl border-2 text-left transition mb-2
+              ${hasEntryQuestion
+                ? 'border-emerald-500 bg-emerald-50'
+                : 'border-gray-200 bg-white hover:border-gray-300'}
+            `}
+          >
+            <div className="flex items-start gap-3">
+              <span className="text-2xl">📝</span>
+              <div className="flex-1">
+                <div className={`font-medium mb-1 ${hasEntryQuestion ? 'text-emerald-700' : 'text-gray-800'}`}>
+                  입장 질문 받기
+                </div>
+                <div className="text-sm text-gray-600">
+                  {hasEntryQuestion
+                    ? '신청자가 답변을 작성해야 신청 가능. 운영자가 답변 보고 승인/거절'
+                    : '신청자가 그냥 신청 → 대기. 운영자가 닉네임만 보고 승인/거절'}
+                </div>
+              </div>
+              <div className={`
+                relative w-10 h-6 rounded-full flex-shrink-0 transition
+                ${hasEntryQuestion ? 'bg-emerald-500' : 'bg-gray-300'}
+              `}>
+                <div className={`
+                  absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform
+                  ${hasEntryQuestion ? 'translate-x-4' : 'translate-x-0.5'}
+                `} />
+              </div>
+            </div>
+          </button>
+
+          {hasEntryQuestion && (
+            <div className="ml-1">
+              <label className="block text-xs font-medium text-gray-700 mb-1 mt-2">
+                질문 내용
+              </label>
+              <textarea
+                value={entryQuestion}
+                onChange={(e) => setEntryQuestion(e.target.value)}
+                placeholder="예: 이 프로그램에 참여하려는 이유를 알려주세요"
+                rows={3}
+                maxLength={300}
+                className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-500 text-sm resize-none"
+              />
+              <p className="text-[11px] text-gray-500 mt-1 text-right">
+                {entryQuestion.length}/300
+              </p>
+            </div>
+          )}
         </div>
       )}
 

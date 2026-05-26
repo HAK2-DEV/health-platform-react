@@ -29,6 +29,7 @@ import ProgramListPage from './pages/program/ProgramListPage'
 import RankingsPage from './pages/RankingsPage'
 import NotificationsPage from './pages/NotificationsPage'
 import ProfilePage from './pages/ProfilePage'
+import JoinByCodePage from './pages/JoinByCodePage'
 import BottomTabBar from './components/common/BottomTabBar'
 import ProtectedRoute from './components/ProtectedRoute'   // ⭐ 추가
 
@@ -126,6 +127,7 @@ function AppShell() {
   <Route path="/profile" element={
     <ProtectedRoute><ProfilePage /></ProtectedRoute>
   } />
+  <Route path="/join" element={<JoinByCodePage />} />
   <Route path="/todos" element={
     <ProtectedRoute><TodosPage /></ProtectedRoute>
   } />

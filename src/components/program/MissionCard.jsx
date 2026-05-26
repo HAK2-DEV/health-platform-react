@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { Trash2 } from 'lucide-react'
+import { Trash2, Pencil } from 'lucide-react'
 import { formatKoreanDate, toKSTDateString, checkMissionToday } from '../../lib/formatters'
 
 // 미션 카드 1장 — ProgramDetailPage / BundleDetailPage 등 여러 곳에서 재사용
@@ -9,6 +9,7 @@ import { formatKoreanDate, toKSTDateString, checkMissionToday } from '../../lib/
 //   isOwner       — 운영자 권한
 //   isDeletePending — 부모 mutation 진행 중 여부
 //   onDelete(m)   — 부모 핸들러
+//   onEdit(m)     — 부모 핸들러 (선택, 있으면 ✏️ 노출)
 //   programId     — 인증 페이지 navigate 용 (URL 파라미터)
 //   navigateState — 미션 카드 인증 클릭 시 location.state 로 전달 (예: returnPath)
 function MissionCard({
@@ -17,6 +18,7 @@ function MissionCard({
   isOwner,
   isDeletePending,
   onDelete,
+  onEdit,
   programId,
   navigateState,
 }) {
@@ -114,15 +116,28 @@ function MissionCard({
       )}
 
       {isOwner && (
-        <button
-          type="button"
-          onClick={() => onDelete(mission)}
-          disabled={isDeletePending}
-          className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition flex-shrink-0 disabled:opacity-40"
-          title="미션 삭제"
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-0.5 flex-shrink-0">
+          {onEdit && (
+            <button
+              type="button"
+              onClick={() => onEdit(mission)}
+              disabled={isDeletePending}
+              className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded transition disabled:opacity-40"
+              title="미션 수정"
+            >
+              <Pencil className="w-4 h-4" />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => onDelete(mission)}
+            disabled={isDeletePending}
+            className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition disabled:opacity-40"
+            title="미션 삭제"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
       )}
     </div>
   )

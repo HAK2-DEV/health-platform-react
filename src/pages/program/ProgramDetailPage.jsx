@@ -33,6 +33,7 @@ function ProgramDetailPage() {
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isLibraryOpen, setIsLibraryOpen] = useState(false)
   const [isMissionCreateOpen, setIsMissionCreateOpen] = useState(false)
+  const [editingMission, setEditingMission] = useState(null)  // 미션 수정 — null 이면 생성 모드
   const [showAllMissions, setShowAllMissions] = useState(false)
 
   // 5개 useQuery 로 분리 — 각각 독립 캐시. 다른 화면(대시보드/랭킹/묶음 디테일)도 같은 키 공유.
@@ -223,6 +224,11 @@ function ProgramDetailPage() {
         </div>
       )}
 
+      {/* 초대 링크 카드 — 운영자 + INVITE_CODE + PUBLISHED + 코드 설정됨 일 때만 */}
+      {isOwner && program.status === 'PUBLISHED' && program.join_type === 'INVITE_CODE' && program.invite_code && (
+        <InviteLinkCard programId={program.id} code={program.invite_code} />
+      )}
+
       {/* 점수 요약 — 오늘 / 누적 */}
       {(() => {
         const todayMax = program.daily_max_score ?? missions.reduce(
@@ -317,6 +323,7 @@ function ProgramDetailPage() {
                       isOwner={isOwner}
                       isDeletePending={deleteMissionMutation.isPending}
                       onDelete={handleMissionDelete}
+                      onEdit={(mission) => { setEditingMission(mission); setIsMissionCreateOpen(true) }}
                       programId={id}
                     />
                   </motion.div>
@@ -354,7 +361,8 @@ function ProgramDetailPage() {
         </motion.div>
       )}
 
-      {/* 랭킹 */}
+      {/* 랭킹 — program.ranking_enabled=false 면 섹션 자체 숨김 */}
+      {program.ranking_enabled !== false && (<>
       <h2 className="text-lg font-medium text-gray-800 mb-3 mt-8">🏆 랭킹</h2>
       {ranking.length === 0 ? (
         <EmptyState icon="👥" title="아직 참여자가 없어요" size="sm" />
@@ -397,6 +405,7 @@ function ProgramDetailPage() {
           })}
         </div>
       )}
+      </>)}
 
       {/* 모달들 */}
       <ProgramEditModal
@@ -420,9 +429,59 @@ function ProgramDetailPage() {
       <MissionCreateModal
         program={program}
         isOpen={isMissionCreateOpen}
-        onClose={() => setIsMissionCreateOpen(false)}
+        editMission={editingMission}
+        onClose={() => { setIsMissionCreateOpen(false); setEditingMission(null) }}
         onSuccess={invalidateProgramData}
       />
+    </div>
+  )
+}
+
+// 초대 링크 카드 — 운영자가 INVITE_CODE 프로그램의 가입 링크를 복사하도록 도와줌
+//   링크 형식: <origin>/join?program=<id>&code=<code>
+//   복사 버튼 → 클립보드 → 짧은 "복사 완료" 토스트
+function InviteLinkCard({ programId, code }) {
+  const [copied, setCopied] = useState(false)
+  const origin = typeof window !== 'undefined' ? window.location.origin : ''
+  const inviteUrl = `${origin}/join?program=${programId}&code=${encodeURIComponent(code)}`
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(inviteUrl)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (err) {
+      console.error('복사 실패:', err)
+      // fallback — select + execCommand 는 모바일에서 흔히 실패. 대신 prompt 로 보여주기
+      window.prompt('이 링크를 복사해서 공유해주세요:', inviteUrl)
+    }
+  }
+
+  return (
+    <div className="bg-sky-50 border-2 border-sky-200 rounded-2xl p-4 mb-6">
+      <h2 className="flex items-center gap-2 text-sm font-medium text-sky-800 mb-2">
+        🎟️ 초대 링크
+      </h2>
+      <p className="text-xs text-sky-700 mb-3 leading-relaxed">
+        아래 링크를 친구/지인에게 공유하면, 클릭만으로 자동 참여돼요. (로그인 후 자동 진행)
+      </p>
+      <div className="flex items-center gap-2 bg-white border border-sky-200 rounded-xl p-2 mb-2">
+        <code className="flex-1 text-xs text-gray-700 truncate select-all">{inviteUrl}</code>
+        <button
+          type="button"
+          onClick={handleCopy}
+          className={`px-3 py-1.5 text-xs font-medium rounded-lg transition flex-shrink-0 ${
+            copied
+              ? 'bg-emerald-500 text-white'
+              : 'bg-sky-500 hover:bg-sky-600 text-white'
+          }`}
+        >
+          {copied ? '✓ 복사됨' : '복사'}
+        </button>
+      </div>
+      <p className="text-[11px] text-sky-600">
+        초대 코드: <span className="font-mono font-medium">{code}</span>
+      </p>
     </div>
   )
 }

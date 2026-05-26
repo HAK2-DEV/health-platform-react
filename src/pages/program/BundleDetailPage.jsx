@@ -1,6 +1,6 @@
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { ChevronLeft, Trophy } from 'lucide-react'
 
@@ -16,6 +16,7 @@ const SPARKLE_POSITIONS = [
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
 import MissionCard from '../../components/program/MissionCard'
+import MissionCreateModal from '../../components/program/MissionCreateModal'
 import StickyBackBar from '../../components/common/StickyBackBar'
 import EmptyState from '../../components/common/EmptyState'
 import LoadingState from '../../components/common/LoadingState'
@@ -88,6 +89,15 @@ function BundleDetailPage() {
     deleteMissionMutation.mutate(mission.id)
   }
 
+  // 미션 수정 — MissionCreateModal 을 edit 모드로 재사용
+  const [editingMission, setEditingMission] = useState(null)
+  const handleMissionEdit = (mission) => setEditingMission(mission)
+  const closeEditModal = () => setEditingMission(null)
+  const onEditSuccess = () => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.programMissions(id) })
+    queryClient.invalidateQueries({ queryKey: ['missions', 'today'] })
+  }
+
   // 미션 인증 클릭 시 현재 페이지 URL 을 returnPath 로 전달 →
   // MissionVerifyPage 가 제출/뒤로 후 여기로 자동 복귀
   const currentPath = location.pathname
@@ -157,6 +167,7 @@ function BundleDetailPage() {
             isOwner={isOwner}
             isDeletePending={deleteMissionMutation.isPending}
             onDelete={handleMissionDelete}
+            onEdit={handleMissionEdit}
             programId={id}
             navigateState={{ returnPath: currentPath }}
           />
@@ -261,6 +272,15 @@ function BundleDetailPage() {
           </motion.p>
         </motion.div>
       )}
+
+      {/* 미션 수정 모달 — editMission 있으면 열림 */}
+      <MissionCreateModal
+        program={program}
+        isOpen={!!editingMission}
+        editMission={editingMission}
+        onClose={closeEditModal}
+        onSuccess={onEditSuccess}
+      />
     </div>
   )
 }

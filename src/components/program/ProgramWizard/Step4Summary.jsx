@@ -75,18 +75,39 @@ function Step4Summary({ initialData, programId, onPrev }) {
               {formatKoreanDate(initialData?.start_date)} ~ {formatKoreanDate(initialData?.end_date)}
             </dd>
           </div>
-          <div className="flex">
-            <dt className="w-24 text-gray-600 flex-shrink-0">유형</dt>
-            <dd className="flex-1 text-gray-800">{typeLabel}</dd>
-          </div>
+          {/* 프로그램 유형 — Day 58 폐기. 레거시 DRAFT 에만 값 있을 때 표시 */}
+          {initialData?.program_type && (
+            <div className="flex">
+              <dt className="w-24 text-gray-600 flex-shrink-0">유형</dt>
+              <dd className="flex-1 text-gray-800">{typeLabel}</dd>
+            </div>
+          )}
           <div className="flex">
             <dt className="w-24 text-gray-600 flex-shrink-0">카테고리</dt>
             <dd className="flex-1 text-gray-800">{categoryLabels || '-'}</dd>
           </div>
           <div className="flex">
+            <dt className="w-24 text-gray-600 flex-shrink-0">옵션</dt>
+            <dd className="flex-1 text-gray-800">
+              {[
+                initialData?.feed_enabled && '📷 피드',
+                (initialData?.ranking_enabled === false) ? '🚫 랭킹 미표시' : '📈 랭킹',
+                initialData?.podium_enabled && '🏆 포디움',
+              ].filter(Boolean).join(' · ') || '기본'}
+            </dd>
+          </div>
+          <div className="flex">
             <dt className="w-24 text-gray-600 flex-shrink-0">참여 방식</dt>
             <dd className="flex-1 text-gray-800">{joinTypeLabel}</dd>
           </div>
+          {initialData?.join_type === 'APPROVAL' && initialData?.entry_question && (
+            <div className="flex">
+              <dt className="w-24 text-gray-600 flex-shrink-0">입장 질문</dt>
+              <dd className="flex-1 text-gray-800 break-words whitespace-pre-wrap">
+                {initialData.entry_question}
+              </dd>
+            </div>
+          )}
           <div className="flex">
             <dt className="w-24 text-gray-600 flex-shrink-0">공개 여부</dt>
             <dd className="flex-1 text-gray-800">

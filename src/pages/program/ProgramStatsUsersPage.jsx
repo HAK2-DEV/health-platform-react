@@ -1,8 +1,9 @@
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Check, X } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
+import { supabase } from '../../supabaseClient'
 import { formatRelativeKstDay } from '../../lib/formatters'
 import { queryKeys, fetchProgram, fetchProgramStats } from '../../lib/queries'
 import StickyBackBar from '../../components/common/StickyBackBar'
@@ -16,6 +17,7 @@ function ProgramStatsUsersPage() {
   const { id } = useParams()
   const { session } = useAuth()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const userId = session?.user?.id
 
   const { data: program, isLoading: isProgramLoading } = useQuery({
@@ -30,6 +32,50 @@ function ProgramStatsUsersPage() {
     queryKey: queryKeys.programStats(id),
     queryFn: () => fetchProgramStats(id),
     enabled: !!session && !!id && isOwner,
+  })
+
+  // 승인 대기 신청자들 — APPROVAL 흐름에서 사용
+  const { data: pendingApplicants = [] } = useQuery({
+    queryKey: ['program-pending', id],
+    queryFn: async () => {
+      const { data: pp, error } = await supabase
+        .from('program_participants')
+        .select('id, user_id, status, joined_at, entry_answer')
+        .eq('program_id', id)
+        .eq('status', 'PENDING')
+        .order('joined_at', { ascending: true })
+      if (error) throw error
+      if (!pp || pp.length === 0) return []
+      const uids = pp.map(r => r.user_id)
+      const { data: users } = await supabase
+        .from('users')
+        .select('id, nickname, avatar_path')
+        .in('id', uids)
+      const umap = new Map((users || []).map(u => [u.id, u]))
+      return pp.map(r => ({ ...r, user: umap.get(r.user_id) || null }))
+    },
+    enabled: !!session && !!id && isOwner,
+  })
+
+  // 승인/거절 mutation
+  const reviewParticipationMutation = useMutation({
+    mutationFn: async ({ participationId, action }) => {
+      const newStatus = action === 'approve' ? 'ACTIVE' : 'REJECTED'
+      const { error } = await supabase
+        .from('program_participants')
+        .update({ status: newStatus })
+        .eq('id', participationId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['program-pending', id] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.programStats(id) })
+      queryClient.invalidateQueries({ queryKey: ['rankings'] })
+    },
+    onError: (err) => {
+      console.error('승인/거절 실패:', err)
+      alert(`처리에 실패했습니다: ${err.message}`)
+    },
   })
 
   if (isProgramLoading) {
@@ -72,6 +118,63 @@ function ProgramStatsUsersPage() {
           👥 유저별 인증 현황
         </h1>
       </div>
+
+      {/* 승인 대기 신청자 — APPROVAL 프로그램만 / 있을 때만 */}
+      {pendingApplicants.length > 0 && (
+        <div className="mb-6">
+          <h2 className="text-lg font-medium text-gray-800 mb-3 flex items-center gap-2">
+            🙋 승인 대기 <span className="text-sm text-amber-600">({pendingApplicants.length})</span>
+          </h2>
+          <div className="grid gap-2">
+            {pendingApplicants.map(p => (
+              <div key={p.id} className="bg-amber-50/60 border border-amber-200 rounded-2xl p-4">
+                <div className="flex items-center gap-3 mb-2">
+                  <UserAvatar avatarPath={p.user?.avatar_path} nickname={p.user?.nickname} size="md" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-gray-800 truncate">
+                      {p.user?.nickname || '(?)'}
+                    </p>
+                    <p className="text-[11px] text-gray-500">
+                      신청 · {formatRelativeKstDay(p.joined_at)}
+                    </p>
+                  </div>
+                </div>
+
+                {/* 입장 답변 (있으면) */}
+                {p.entry_answer && (
+                  <div className="bg-white rounded-xl p-3 mb-3 border border-amber-100">
+                    <p className="text-[11px] text-amber-700 font-medium mb-1">📝 입장 답변</p>
+                    <p className="text-sm text-gray-700 whitespace-pre-wrap break-words">
+                      {p.entry_answer}
+                    </p>
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => reviewParticipationMutation.mutate({ participationId: p.id, action: 'reject' })}
+                    disabled={reviewParticipationMutation.isPending}
+                    className="flex-1 inline-flex items-center justify-center gap-1 px-3 py-2 bg-white border-2 border-red-200 hover:bg-red-50 text-red-700 text-sm font-medium rounded-xl transition disabled:opacity-50"
+                  >
+                    <X className="w-4 h-4" />
+                    거절
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => reviewParticipationMutation.mutate({ participationId: p.id, action: 'approve' })}
+                    disabled={reviewParticipationMutation.isPending}
+                    className="flex-1 inline-flex items-center justify-center gap-1 px-3 py-2 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white text-sm font-medium rounded-xl transition disabled:from-gray-400 disabled:to-gray-400"
+                  >
+                    <Check className="w-4 h-4" />
+                    승인
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {isStatsLoading || !stats ? (
         <LoadingState />

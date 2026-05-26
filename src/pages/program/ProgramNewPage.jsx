@@ -23,6 +23,12 @@ function ProgramNewPage() {
   const [isLoadingDraft, setIsLoadingDraft] = useState(!!draftId)
   const [error, setError] = useState(null)
 
+  // 단계 전환 시 페이지 상단으로 자동 스크롤 — App.jsx 의 라우트 변경 스크롤은
+  //   같은 /programs/new 안에서 step state 만 바꾸니까 작동 X
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [currentStep])
+
   // DRAFT 재진입 — programs 로드 후 state 초기화
   useEffect(() => {
     if (!draftId || !session) return
