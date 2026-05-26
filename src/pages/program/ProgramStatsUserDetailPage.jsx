@@ -8,6 +8,7 @@ import { supabase } from '../../supabaseClient'
 import { formatRelativeKstDay, getTodayKST } from '../../lib/formatters'
 import { queryKeys, fetchProgram, fetchProgramStats, formatKstDate } from '../../lib/queries'
 import StickyBackBar from '../../components/common/StickyBackBar'
+import UserAvatar from '../../components/common/UserAvatar'
 
 // 한 유저의 활동 메인 — 핵심 지표 + 14일 차트 + 2개 진입 카드 (미션별 분포 / 인증 기록)
 // 라우트: /programs/:id/stats/users/:userId
@@ -104,10 +105,13 @@ function ProgramStatsUserDetailPage() {
 
       {/* 유저 헤더 */}
       <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
-        <p className="text-xs text-gray-500 mb-1">{program.name}</p>
-        <h1 className="text-2xl font-medium text-gray-800 flex items-center gap-2">
-          👤 {userInfo.nickname}
-        </h1>
+        <p className="text-xs text-gray-500 mb-2">{program.name}</p>
+        <div className="flex items-center gap-3">
+          <UserAvatar avatarPath={userInfo.avatar_path} nickname={userInfo.nickname} size="lg" />
+          <h1 className="text-2xl font-medium text-gray-800">
+            {userInfo.nickname}
+          </h1>
+        </div>
       </div>
 
       {/* 핵심 지표 4카드 */}

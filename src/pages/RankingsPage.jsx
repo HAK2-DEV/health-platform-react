@@ -10,6 +10,7 @@ import {
   fetchActivePrograms,
   fetchProgramRanking,
 } from '../lib/queries'
+import UserAvatar from '../components/common/UserAvatar'
 
 // 랭킹 페이지 — Bottom Tab Bar 🏆 진입점
 // 강화 (Day 55):
@@ -206,10 +207,11 @@ function RankingsPage() {
                   ${isMe ? 'bg-emerald-50 border-emerald-300 ring-2 ring-emerald-100' : 'bg-white border-gray-200'}
                 `}
               >
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="flex items-center justify-center w-9 h-9 rounded-full bg-gray-50 text-gray-500 text-sm font-medium flex-shrink-0">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-50 text-gray-500 text-sm font-medium flex-shrink-0">
                     {row.rank}
                   </span>
+                  <UserAvatar avatarPath={row.avatar_path} nickname={row.nickname} size="md" />
                   <span className={`font-medium truncate ${isMe ? 'text-emerald-800' : 'text-gray-800'}`}>
                     {row.nickname}
                     {isMe && <span className="ml-1 text-xs text-emerald-600">(나)</span>}
@@ -314,9 +316,10 @@ function PodiumTop3({ top3, userId }) {
             {s.crown}
           </motion.div>
         )}
-        <div className="text-3xl mb-1">{s.medal}</div>
-        <p className={`text-xs font-bold mb-0.5 ${s.rankColor}`}>{place}등</p>
-        <p className={`text-sm font-medium truncate w-full text-center ${isMe ? 'text-emerald-800' : 'text-gray-800'}`}>
+        <UserAvatar avatarPath={row.avatar_path} nickname={row.nickname} size={place === 1 ? 'lg' : 'md'} className="mb-1.5" />
+        <div className="text-lg leading-none mb-0.5">{s.medal}</div>
+        <p className={`text-[10px] font-bold mb-0.5 ${s.rankColor}`}>{place}등</p>
+        <p className={`text-xs font-medium truncate w-full text-center ${isMe ? 'text-emerald-800' : 'text-gray-800'}`}>
           {row.nickname}{isMe && ' (나)'}
         </p>
         <p className={`text-xs font-semibold mt-0.5 ${s.scoreColor}`}>

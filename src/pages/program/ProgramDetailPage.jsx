@@ -8,6 +8,7 @@ import { supabase } from '../../supabaseClient'
 import { formatKoreanDate, isUpcomingByStartDate } from '../../lib/formatters'
 import MissionCard from '../../components/program/MissionCard'
 import StickyBackBar from '../../components/common/StickyBackBar'
+import UserAvatar from '../../components/common/UserAvatar'
 import ProgramEditModal from '../../components/program/ProgramEditModal'
 import MissionCreateModal from '../../components/program/MissionCreateModal'
 import MissionLibraryModal from '../../components/program/MissionLibraryModal'
@@ -379,14 +380,15 @@ function ProgramDetailPage() {
                   ${isMe ? 'bg-green-50 border-green-300' : 'bg-white border-gray-200'}
                 `}
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
                   <span className={`
-                    flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium
+                    flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium flex-shrink-0
                     ${rankBadgeClass}
                   `}>
                     {row.rank}
                   </span>
-                  <span className={`font-medium ${isMe ? 'text-green-800' : 'text-gray-800'}`}>
+                  <UserAvatar avatarPath={row.avatar_path} nickname={row.nickname} size="md" />
+                  <span className={`font-medium truncate ${isMe ? 'text-green-800' : 'text-gray-800'}`}>
                     {row.nickname}
                     {isMe && <span className="ml-1 text-xs text-green-600">(나)</span>}
                   </span>

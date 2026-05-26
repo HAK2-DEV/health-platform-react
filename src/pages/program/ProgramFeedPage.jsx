@@ -8,6 +8,7 @@ import { supabase } from '../../supabaseClient'
 import { formatRelativeKstDay } from '../../lib/formatters'
 import { queryKeys, fetchProgram, fetchFeedPosts, formatKstDate } from '../../lib/queries'
 import StickyBackBar from '../../components/common/StickyBackBar'
+import UserAvatar from '../../components/common/UserAvatar'
 
 // 커뮤니티 피드 — feed_enabled=true 인 프로그램의 ACTIVE 참여자끼리 인스타형 피드
 // 라우트: /programs/:id/feed
@@ -295,16 +296,23 @@ function ProgramFeedPage() {
               >
                 {/* 헤더 — 닉네임 + 미션 + 시각 */}
                 <div className="flex items-start justify-between gap-2 p-4 pb-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm text-gray-800 truncate">
-                      👤 {post.user?.nickname || '(알 수 없음)'}
-                    </p>
-                    <p className="text-[11px] text-gray-500 mt-0.5 truncate">
-                      {post.missions?.title}
-                      {post.missions?.bundle_title && (
-                        <span className="text-gray-400"> · {post.missions.bundle_title}</span>
-                      )}
-                    </p>
+                  <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                    <UserAvatar
+                      avatarPath={post.user?.avatar_path}
+                      nickname={post.user?.nickname}
+                      size="md"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm text-gray-800 truncate">
+                        {post.user?.nickname || '(알 수 없음)'}
+                      </p>
+                      <p className="text-[11px] text-gray-500 truncate">
+                        {post.missions?.title}
+                        {post.missions?.bundle_title && (
+                          <span className="text-gray-400"> · {post.missions.bundle_title}</span>
+                        )}
+                      </p>
+                    </div>
                   </div>
                   <span className="text-[11px] text-gray-400 whitespace-nowrap pt-0.5">
                     {formatRelativeKstDay(post.submitted_at)}
@@ -385,12 +393,18 @@ function ProgramFeedPage() {
                         <div
                           key={c.id}
                           ref={(el) => { commentRefs.current[c.id] = el }}
-                          className={`flex items-start gap-1 text-sm rounded-lg p-1.5 -mx-1.5 transition-all duration-500 ${
+                          className={`flex items-start gap-2 text-sm rounded-lg p-1.5 -mx-1.5 transition-all duration-500 ${
                             isCommentHighlighted
                               ? 'bg-amber-100 ring-2 ring-amber-300'
                               : ''
                           }`}
                         >
+                          <UserAvatar
+                            avatarPath={c.user?.avatar_path}
+                            nickname={c.user?.nickname}
+                            size="sm"
+                            className="mt-0.5"
+                          />
                           <div className="flex-1 min-w-0">
                             <p className={`break-words ${clamped ? 'line-clamp-2' : ''}`}>
                               <span className="font-medium text-gray-800">{c.user?.nickname || '(?)'}</span>{' '}

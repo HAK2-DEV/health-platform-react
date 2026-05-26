@@ -6,6 +6,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
 import { queryKeys, fetchProgram, fetchPendingReviewsEnriched } from '../../lib/queries'
 import StickyBackBar from '../../components/common/StickyBackBar'
+import UserAvatar from '../../components/common/UserAvatar'
 
 // 운영자 심사 — 개별 미션의 PENDING 인증들 + 승인/반려 액션
 // 라우트: /programs/:id/reviews/:bundleParam/:missionId
@@ -178,9 +179,10 @@ function ProgramReviewsMissionPage() {
               <div key={r.v_id} className="bg-white border border-gray-200 rounded-2xl p-4">
                 {/* 헤더 — 참여자 + 일시 */}
                 <div className="flex items-start justify-between gap-2 mb-3">
-                  <p className="text-sm font-medium text-gray-800">
-                    👤 {r.u_nickname}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <UserAvatar avatarPath={r.u_avatar_path} nickname={r.u_nickname} size="sm" />
+                    <p className="text-sm font-medium text-gray-800">{r.u_nickname}</p>
+                  </div>
                   <span className="text-[11px] text-gray-500 whitespace-nowrap">
                     {formatTime(r.v_submitted_at)}
                   </span>

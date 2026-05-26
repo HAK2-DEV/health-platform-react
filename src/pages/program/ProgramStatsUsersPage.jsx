@@ -6,6 +6,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { formatRelativeKstDay } from '../../lib/formatters'
 import { queryKeys, fetchProgram, fetchProgramStats } from '../../lib/queries'
 import StickyBackBar from '../../components/common/StickyBackBar'
+import UserAvatar from '../../components/common/UserAvatar'
 
 // 운영자 — 유저별 인증 현황 디테일
 // 라우트: /programs/:id/stats/users
@@ -99,11 +100,12 @@ function ProgramStatsUsersPage() {
                 onClick={() => navigate(`/programs/${id}/stats/users/${u.user_id}`)}
                 className="w-full p-3 bg-white border border-gray-200 rounded-lg hover:border-sky-300 hover:bg-sky-50/30 transition text-left"
               >
-                {/* 헤더 — 등수 + 닉네임 + 총 인증 + > */}
+                {/* 헤더 — 등수 + 아바타 + 닉네임 + 총 인증 + > */}
                 <div className="flex items-center gap-2 mb-2">
                   <span className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium flex-shrink-0 ${rankBadgeClass}`}>
                     {idx + 1}
                   </span>
+                  <UserAvatar avatarPath={u.avatar_path} nickname={u.nickname} size="sm" />
                   <p className="text-sm font-medium text-gray-800 truncate flex-1 min-w-0 pr-2">
                     {u.nickname}
                   </p>

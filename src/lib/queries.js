@@ -278,7 +278,7 @@ export const fetchFeedPosts = async (programId) => {
   ]))
   const { data: uData, error: uErr } = await supabase
     .from('users')
-    .select('id, nickname')
+    .select('id, nickname, avatar_path')
     .in('id', allUserIds)
   if (uErr) throw uErr
   const userMap = new Map((uData || []).map(u => [u.id, u]))
@@ -435,17 +435,20 @@ export const fetchProgramStats = async (programId) => {
     if (u) u.totalScore += (l.point || 0)
   }
 
-  // nickname 별도 fetch — RLS 가 모든 authenticated SELECT 허용 (003)
+  // nickname + avatar_path 별도 fetch — RLS 가 모든 authenticated SELECT 허용 (003)
   const userIds = Array.from(userMap.keys())
   if (userIds.length > 0) {
     const { data: uData, error: uErr } = await supabase
       .from('users')
-      .select('id, nickname')
+      .select('id, nickname, avatar_path')
       .in('id', userIds)
     if (uErr) throw uErr
     for (const u of uData || []) {
       const bucket = userMap.get(u.id)
-      if (bucket) bucket.nickname = u.nickname || '(닉네임 없음)'
+      if (bucket) {
+        bucket.nickname = u.nickname || '(닉네임 없음)'
+        bucket.avatar_path = u.avatar_path || null
+      }
     }
   }
 
