@@ -215,7 +215,7 @@ function VerificationSubmitModal({ mission, isOpen, onClose, onSuccess }) {
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isSubmitting}
-                  className="w-full p-8 border-2 border-dashed border-gray-300 rounded-lg hover:border-green-500 transition flex flex-col items-center gap-2 text-gray-500 hover:text-green-600 disabled:opacity-50"
+                  className="w-full p-8 border-2 border-dashed border-gray-300 rounded-lg hover:border-emerald-500 transition flex flex-col items-center gap-2 text-gray-500 hover:text-emerald-600 disabled:opacity-50"
                 >
                   <Upload className="w-8 h-8" />
                   <span className="text-sm">사진 선택하기</span>
@@ -298,7 +298,7 @@ function VerificationSubmitModal({ mission, isOpen, onClose, onSuccess }) {
               type="button"
               onClick={handleSubmit}
               disabled={!canSubmit}
-              className="flex-[2] px-4 py-3 bg-green-500 hover:bg-green-600 text-white font-medium rounded-md transition disabled:bg-gray-400"
+              className="flex-[2] px-4 py-3 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-medium rounded-md transition disabled:bg-gray-400"
             >
               {isSubmitting ? '제출 중...' : '인증 제출'}
             </button>

@@ -117,7 +117,7 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
               onChange={(e) => setName(e.target.value)}
               maxLength={PROGRAM.NAME_MAX_LENGTH}
               disabled={isSaving}
-              className="w-full px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-green-500 disabled:bg-gray-50"
+              className="w-full px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 disabled:bg-gray-50"
             />
           </div>
 
@@ -137,7 +137,7 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
                 onChange={(e) => setEndDate(e.target.value)}
                 min={program.start_date}
                 disabled={isSaving}
-                className="flex-1 px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-green-500 disabled:bg-gray-50"
+                className="flex-1 px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 disabled:bg-gray-50"
               />
             </div>
             <p className="text-xs text-gray-500 mt-1">
@@ -156,7 +156,7 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
               maxLength={PROGRAM.DESCRIPTION_MAX_LENGTH}
               rows={3}
               disabled={isSaving}
-              className="w-full px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-green-500 disabled:bg-gray-50 resize-none"
+              className="w-full px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 disabled:bg-gray-50 resize-none"
             />
           </div>
 
@@ -177,7 +177,7 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
                     className={`
                       flex items-center justify-center gap-1 px-2 py-1.5 rounded-md border-2 text-sm transition disabled:opacity-50
                       ${isSelected
-                        ? 'border-green-500 bg-green-50 text-green-700'
+                        ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
                         : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}
                     `}
                   >
@@ -201,7 +201,7 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
               min={1}
               placeholder="무제한"
               disabled={isSaving}
-              className="w-full px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-green-500 disabled:bg-gray-50"
+              className="w-full px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 disabled:bg-gray-50"
             />
           </div>
 
@@ -213,7 +213,7 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
                 checked={isPublic}
                 onChange={(e) => setIsPublic(e.target.checked)}
                 disabled={isSaving}
-                className="w-4 h-4 text-green-500"
+                className="w-4 h-4 text-emerald-500"
               />
               <span className="text-sm text-gray-700">공개 검색 허용</span>
             </label>
@@ -311,7 +311,7 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
               type="button"
               onClick={handleSave}
               disabled={isSaving}
-              className="flex-[2] px-4 py-3 bg-green-500 hover:bg-green-600 text-white font-medium rounded-md transition disabled:bg-gray-400"
+              className="flex-[2] px-4 py-3 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-medium rounded-md transition disabled:bg-gray-400"
             >
               {isSaving ? '저장 중...' : '저장'}
             </button>

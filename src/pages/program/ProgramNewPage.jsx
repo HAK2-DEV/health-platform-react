@@ -7,6 +7,7 @@ import Step1Basic from '../../components/program/ProgramWizard/Step1Basic'
 import Step2Type from '../../components/program/ProgramWizard/Step2Type'
 import Step3JoinConditions from '../../components/program/ProgramWizard/Step3JoinConditions'
 import Step4Summary from '../../components/program/ProgramWizard/Step4Summary'
+import LoadingState from '../../components/common/LoadingState'
 
 
 function ProgramNewPage() {
@@ -120,11 +121,7 @@ function ProgramNewPage() {
   }
 
   if (isLoadingDraft) {
-    return (
-      <div className="max-w-2xl mx-auto p-6 text-center text-gray-500">
-        임시저장 불러오는 중...
-      </div>
-    )
+    return <LoadingState variant="page" text="임시저장 불러오는 중..." />
   }
 
   return (

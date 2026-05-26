@@ -5,6 +5,8 @@ import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
 import { queryKeys, fetchProgram, fetchProgramStats } from '../../lib/queries'
 import StickyBackBar from '../../components/common/StickyBackBar'
+import LoadingState from '../../components/common/LoadingState'
+import EmptyState from '../../components/common/EmptyState'
 
 // 한 유저의 미션별 분포 — 묶음 그룹 + 안에 미션별 카운트
 // 라우트: /programs/:id/stats/users/:userId/missions
@@ -77,7 +79,7 @@ function ProgramStatsUserMissionsPage() {
   }, [userVerifications])
 
   if (!program) {
-    return <div className="p-6 max-w-4xl mx-auto text-center text-gray-500">불러오는 중...</div>
+    return <LoadingState variant="page" />
   }
   if (!isOwner) {
     return (
@@ -100,7 +102,7 @@ function ProgramStatsUserMissionsPage() {
     <div className="px-4 pt-2 pb-6 max-w-4xl mx-auto">
       <StickyBackBar fallbackPath={`/programs/${id}/stats/users/${targetUserId}`} title="돌아가기" />
 
-      <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
+      <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
         <p className="text-xs text-gray-500 mb-1">{program.name} · {userInfo?.nickname || '(유저)'}</p>
         <h1 className="text-2xl font-medium text-gray-800 flex items-center gap-2">
           🎯 미션별 분포
@@ -108,9 +110,7 @@ function ProgramStatsUserMissionsPage() {
       </div>
 
       {bundleGroups.length === 0 ? (
-        <div className="bg-gray-50 p-8 rounded-lg text-center text-gray-500 text-sm">
-          아직 인증 기록이 없어요
-        </div>
+        <EmptyState icon="📊" title="아직 인증 기록이 없어요" />
       ) : (
         <div className="space-y-3">
           {bundleGroups.map(group => {
@@ -119,7 +119,7 @@ function ProgramStatsUserMissionsPage() {
             return (
               <div
                 key={group.bundleTitle || '__solo__'}
-                className="bg-white border border-gray-200 rounded-lg overflow-hidden"
+                className="bg-white border border-gray-200 rounded-2xl overflow-hidden"
               >
                 <div className="p-4">
                   <div className="flex items-center justify-between mb-1.5">

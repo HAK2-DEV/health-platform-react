@@ -7,6 +7,8 @@ import { supabase } from '../../supabaseClient'
 import { formatRelativeKstDay } from '../../lib/formatters'
 import { queryKeys, fetchProgram, fetchProgramStats, formatKstDate } from '../../lib/queries'
 import StickyBackBar from '../../components/common/StickyBackBar'
+import LoadingState from '../../components/common/LoadingState'
+import EmptyState from '../../components/common/EmptyState'
 
 // 개별 미션의 날짜별 인증 카드들
 // 라우트: /programs/:id/stats/users/:userId/verifications/:bundleParam/:missionId
@@ -96,7 +98,7 @@ function ProgramStatsUserVerificationsMissionPage() {
   }, [missionVerifications.length])
 
   if (!program) {
-    return <div className="p-6 max-w-4xl mx-auto text-center text-gray-500">불러오는 중...</div>
+    return <LoadingState variant="page" />
   }
   if (!isOwner) {
     return (
@@ -113,7 +115,7 @@ function ProgramStatsUserVerificationsMissionPage() {
     <div className="px-4 pt-2 pb-6 max-w-4xl mx-auto">
       <StickyBackBar fallbackPath={`/programs/${id}/stats/users/${targetUserId}/verifications/${bundleParam}`} title="미션 목록" />
 
-      <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
+      <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
         <p className="text-xs text-gray-500 mb-1">{program.name} · {userInfo?.nickname || '(유저)'}</p>
         <h1 className="text-2xl font-medium text-gray-800">
           {missionTitle}
@@ -124,9 +126,7 @@ function ProgramStatsUserVerificationsMissionPage() {
       </div>
 
       {dateGroups.length === 0 ? (
-        <div className="bg-gray-50 p-8 rounded-lg text-center text-gray-500 text-sm">
-          아직 인증 기록이 없어요
-        </div>
+        <EmptyState icon="📊" title="아직 인증 기록이 없어요" />
       ) : (
         <div className="space-y-5">
           {dateGroups.map(group => (
@@ -151,7 +151,7 @@ function ProgramStatsUserVerificationsMissionPage() {
                   const hasNumeric = v.numeric_value !== null && v.numeric_value !== undefined
                   const hasNote = !!v.note && v.note.trim().length > 0
                   return (
-                    <div key={v.id} className="bg-white border border-gray-200 rounded-lg p-4">
+                    <div key={v.id} className="bg-white border border-gray-200 rounded-2xl p-4">
                       <p className="text-[11px] text-gray-500 mb-2">
                         {new Date(v.submitted_at).toLocaleTimeString('ko-KR', {
                           timeZone: 'Asia/Seoul',

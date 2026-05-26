@@ -5,6 +5,8 @@ import { ChevronRight } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { queryKeys, fetchProgram, fetchPendingReviewsEnriched } from '../../lib/queries'
 import StickyBackBar from '../../components/common/StickyBackBar'
+import LoadingState from '../../components/common/LoadingState'
+import EmptyState from '../../components/common/EmptyState'
 
 // 운영자 심사 — 한 묶음 안의 미션 목록 (미션마다 대기 건수)
 // 라우트: /programs/:id/reviews/:bundleParam
@@ -44,7 +46,7 @@ function ProgramReviewsBundlePage() {
   }, [pending, bundleTitle])
 
   if (!program) {
-    return <div className="p-6 max-w-4xl mx-auto text-center text-gray-500">불러오는 중...</div>
+    return <LoadingState variant="page" />
   }
   if (!isOwner) {
     return (
@@ -64,7 +66,7 @@ function ProgramReviewsBundlePage() {
     <div className="px-4 pt-2 pb-6 max-w-4xl mx-auto">
       <StickyBackBar fallbackPath={`/programs/${id}/reviews`} title="목록으로" />
 
-      <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
+      <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
         <p className="text-xs text-gray-500 mb-1">{program.name}</p>
         <h1 className="text-2xl font-medium text-gray-800 flex items-center gap-2">
           {headerTitle}
@@ -75,9 +77,7 @@ function ProgramReviewsBundlePage() {
       </div>
 
       {missionGroups.length === 0 ? (
-        <div className="bg-gray-50 p-8 rounded-lg text-center text-gray-500 text-sm">
-          심사 대기 중인 인증이 없어요
-        </div>
+        <EmptyState icon="📭" title="심사 대기 중인 인증이 없어요" />
       ) : (
         <div className="grid gap-3">
           {missionGroups.map(m => (
@@ -85,7 +85,7 @@ function ProgramReviewsBundlePage() {
               key={m.mission_id}
               type="button"
               onClick={() => navigate(`/programs/${id}/reviews/${bundleParam}/${m.mission_id}`)}
-              className="w-full flex items-center gap-3 p-4 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-emerald-300 transition text-left"
+              className="w-full flex items-center gap-3 p-4 bg-white border border-gray-200 rounded-2xl hover:bg-gray-50 hover:border-emerald-300 transition text-left"
             >
               <div className="flex-1 min-w-0">
                 <h3 className="font-medium text-gray-800 truncate">{m.title}</h3>

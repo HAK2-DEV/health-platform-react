@@ -5,6 +5,8 @@ import { ChevronRight } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { queryKeys, fetchProgram, fetchPendingReviewsEnriched } from '../../lib/queries'
 import StickyBackBar from '../../components/common/StickyBackBar'
+import LoadingState from '../../components/common/LoadingState'
+import EmptyState from '../../components/common/EmptyState'
 
 // 운영자 심사 메인 — 묶음(카테고리) 목록
 // 라우트: /programs/:id/reviews
@@ -44,13 +46,13 @@ function ProgramReviewsPage() {
   }, [pending])
 
   if (isProgramLoading) {
-    return <div className="p-6 max-w-4xl mx-auto text-center text-gray-500">불러오는 중...</div>
+    return <LoadingState variant="page" />
   }
   if (!program) {
     return (
       <div className="p-6 max-w-4xl mx-auto">
         <p className="p-4 bg-red-100 text-red-700 rounded">프로그램을 찾을 수 없습니다</p>
-        <Link to="/dashboard" className="block mt-4 text-green-600 hover:underline">← 대시보드로</Link>
+        <Link to="/dashboard" className="block mt-4 text-emerald-600 hover:underline">← 대시보드로</Link>
       </div>
     )
   }
@@ -69,7 +71,7 @@ function ProgramReviewsPage() {
     <div className="px-4 pt-2 pb-6 max-w-4xl mx-auto">
       <StickyBackBar fallbackPath={`/programs/${id}`} title="프로그램으로" />
 
-      <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
+      <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
         <p className="text-xs text-gray-500 mb-1">{program.name}</p>
         <h1 className="text-2xl font-medium text-gray-800 flex items-center gap-2">
           ✅ 인증 심사
@@ -80,14 +82,9 @@ function ProgramReviewsPage() {
       </div>
 
       {isPendingLoading ? (
-        <div className="bg-gray-50 p-8 rounded-lg text-center text-gray-500 text-sm">
-          불러오는 중...
-        </div>
+        <LoadingState />
       ) : pending.length === 0 ? (
-        <div className="bg-gray-50 p-8 rounded-2xl text-center">
-          <div className="text-4xl mb-2 opacity-60">📭</div>
-          <p className="text-sm text-gray-500">심사 대기 중인 인증이 없어요</p>
-        </div>
+        <EmptyState icon="📭" title="심사 대기 중인 인증이 없어요" />
       ) : (
         <div className="grid gap-3">
           {bundleGroups.map(group => {
@@ -98,7 +95,7 @@ function ProgramReviewsPage() {
                 key={group.bundleTitle || '__solo__'}
                 type="button"
                 onClick={() => navigate(`/programs/${id}/reviews/${bundleParam}`)}
-                className="w-full flex items-center gap-3 p-4 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-emerald-300 transition text-left"
+                className="w-full flex items-center gap-3 p-4 bg-white border border-gray-200 rounded-2xl hover:bg-gray-50 hover:border-emerald-300 transition text-left"
               >
                 <div className="flex-1 min-w-0">
                   <h3 className="font-medium text-gray-800 truncate">

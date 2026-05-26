@@ -9,6 +9,8 @@ import { formatKoreanDate, isUpcomingByStartDate } from '../../lib/formatters'
 import MissionCard from '../../components/program/MissionCard'
 import StickyBackBar from '../../components/common/StickyBackBar'
 import UserAvatar from '../../components/common/UserAvatar'
+import EmptyState from '../../components/common/EmptyState'
+import LoadingState from '../../components/common/LoadingState'
 import ProgramEditModal from '../../components/program/ProgramEditModal'
 import MissionCreateModal from '../../components/program/MissionCreateModal'
 import MissionLibraryModal from '../../components/program/MissionLibraryModal'
@@ -131,9 +133,7 @@ function ProgramDetailPage() {
 
   if (isProgramLoading) {
     return (
-      <div className="p-6 max-w-4xl mx-auto text-center text-gray-500">
-        불러오는 중...
-      </div>
+      <LoadingState variant="page" />
     )
   }
 
@@ -141,7 +141,7 @@ function ProgramDetailPage() {
     return (
       <div className="p-6 max-w-4xl mx-auto">
         <p className="p-4 bg-red-100 text-red-700 rounded">프로그램을 찾을 수 없습니다</p>
-        <Link to="/dashboard" className="block mt-4 text-green-600 hover:underline">
+        <Link to="/dashboard" className="block mt-4 text-emerald-600 hover:underline">
           ← 대시보드로
         </Link>
       </div>
@@ -153,7 +153,7 @@ function ProgramDetailPage() {
       <StickyBackBar onClick={() => navigate(-1)} />
 
       {/* 프로그램 헤더 */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
+      <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
         <div className="flex items-start justify-between mb-3">
           <h1 className="text-2xl font-medium text-gray-800">{program.name}</h1>
           {(() => {
@@ -162,7 +162,7 @@ function ProgramDetailPage() {
             const isUpcoming = isPublished && isUpcomingByStartDate(program.start_date)
             const label = isPublished ? (isUpcoming ? '예정' : '진행중') : program.status
             const cls = (isPublished && !isUpcoming)
-              ? 'bg-green-100 text-green-700'
+              ? 'bg-emerald-100 text-emerald-700'
               : 'bg-gray-100 text-gray-600'
             return <span className={`px-2 py-0.5 rounded text-xs ${cls}`}>{label}</span>
           })()}
@@ -239,9 +239,9 @@ function ProgramDetailPage() {
                 <span className="text-sm text-blue-600 ml-1">/ {todayMax}P</span>
               </p>
             </div>
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <p className="text-xs text-green-700 mb-1">누적</p>
-              <p className="font-medium text-green-800">
+            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+              <p className="text-xs text-emerald-700 mb-1">누적</p>
+              <p className="font-medium text-emerald-800">
                 <span className="text-2xl">{scores.total}</span>
                 <span className="text-base"> P</span>
               </p>
@@ -286,7 +286,7 @@ function ProgramDetailPage() {
             <button
               type="button"
               onClick={() => setIsLibraryOpen(true)}
-              className="flex items-center gap-1 px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-sm rounded-full transition"
+              className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white text-sm rounded-full transition"
             >
               <Plus className="w-4 h-4" />
               미션 추가
@@ -295,9 +295,7 @@ function ProgramDetailPage() {
         </div>
       </div>
       {missions.length === 0 ? (
-        <div className="bg-gray-50 p-8 rounded-lg text-center text-gray-500 text-sm">
-          미션이 아직 없어요
-        </div>
+        <EmptyState icon="🎯" title="미션이 아직 없어요" />
       ) : (
         <motion.div layout className="grid gap-3">
           <AnimatePresence initial={false}>
@@ -340,7 +338,7 @@ function ProgramDetailPage() {
                   exit={{ opacity: 0, scale: 0.96 }}
                   transition={{ duration: 0.25, ease: 'easeOut' }}
                   onClick={() => navigate(`/programs/${id}/bundles/${bundleParam}`)}
-                  className="w-full flex items-center gap-3 p-4 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-emerald-300 transition text-left"
+                  className="w-full flex items-center gap-3 p-4 bg-white border border-gray-200 rounded-2xl hover:bg-gray-50 hover:border-emerald-300 transition text-left"
                 >
                   <div className="flex-1 min-w-0">
                     <h3 className="font-medium text-gray-800 truncate">{group.bundleTitle}</h3>
@@ -359,9 +357,7 @@ function ProgramDetailPage() {
       {/* 랭킹 */}
       <h2 className="text-lg font-medium text-gray-800 mb-3 mt-8">🏆 랭킹</h2>
       {ranking.length === 0 ? (
-        <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-500 text-sm">
-          아직 참여자가 없어요
-        </div>
+        <EmptyState icon="👥" title="아직 참여자가 없어요" size="sm" />
       ) : (
         <div className="grid gap-2">
           {ranking.map(row => {
@@ -377,7 +373,7 @@ function ProgramDetailPage() {
                 key={row.user_id}
                 className={`
                   flex items-center justify-between p-3 rounded-lg border
-                  ${isMe ? 'bg-green-50 border-green-300' : 'bg-white border-gray-200'}
+                  ${isMe ? 'bg-emerald-50 border-emerald-300' : 'bg-white border-gray-200'}
                 `}
               >
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -388,12 +384,12 @@ function ProgramDetailPage() {
                     {row.rank}
                   </span>
                   <UserAvatar avatarPath={row.avatar_path} nickname={row.nickname} size="md" />
-                  <span className={`font-medium truncate ${isMe ? 'text-green-800' : 'text-gray-800'}`}>
+                  <span className={`font-medium truncate ${isMe ? 'text-emerald-800' : 'text-gray-800'}`}>
                     {row.nickname}
-                    {isMe && <span className="ml-1 text-xs text-green-600">(나)</span>}
+                    {isMe && <span className="ml-1 text-xs text-emerald-600">(나)</span>}
                   </span>
                 </div>
-                <span className={`text-sm font-medium ${isMe ? 'text-green-700' : 'text-gray-600'}`}>
+                <span className={`text-sm font-medium ${isMe ? 'text-emerald-700' : 'text-gray-600'}`}>
                   {row.total_score}P
                 </span>
               </div>

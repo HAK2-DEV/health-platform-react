@@ -14,6 +14,8 @@ import {
   fetchActivePrograms,
   fetchPublicPrograms,
 } from '../../lib/queries'
+import EmptyState from '../../components/common/EmptyState'
+import LoadingState from '../../components/common/LoadingState'
 
 // 📋 프로그램 탭 — 3섹션 전체 표시
 // 본인 [feedback_state_consistency] — 대시보드 "내 프로그램" 과 동일 동작 + 동일 캐시
@@ -93,7 +95,7 @@ function ProgramListPage() {
       {/* CTA — 프로그램 생성하기 (Dashboard 와 동일 패턴, 높이 살짝 줄임) */}
       <Link
         to="/programs/new"
-        className="flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white font-medium py-2.5 rounded-2xl shadow-md shadow-emerald-200/40 mb-8 transition"
+        className="flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-medium py-2.5 rounded-2xl shadow-md shadow-emerald-200/40 mb-8 transition"
       >
         <Plus className="w-5 h-5" />
         프로그램 생성하기
@@ -103,7 +105,7 @@ function ProgramListPage() {
       <section className="mb-8">
         <div className="flex items-center justify-between mb-4">
           <h2 className="flex items-center gap-2 text-lg text-gray-800">
-            <Activity className="w-5 h-5 text-green-500" />
+            <Activity className="w-5 h-5 text-emerald-500" />
             내 프로그램 <span className="text-sm text-gray-500">({myPrograms.length})</span>
           </h2>
           {myPrograms.length > 2 && (
@@ -119,11 +121,9 @@ function ProgramListPage() {
         </div>
 
         {isMyLoading ? (
-          <div className="bg-gray-50 p-6 rounded-lg text-center text-gray-500 text-sm">불러오는 중...</div>
+          <LoadingState size="sm" />
         ) : myPrograms.length === 0 ? (
-          <div className="bg-gray-50 p-6 rounded-lg text-center text-gray-500 text-sm">
-            아직 만든 프로그램이 없어요
-          </div>
+          <EmptyState icon="📋" title="아직 만든 프로그램이 없어요" size="sm" />
         ) : (
           <motion.div layout className="grid gap-3">
             <AnimatePresence initial={false}>
@@ -133,7 +133,7 @@ function ProgramListPage() {
                 const statusLabel = isDraft ? '임시저장' : isUpcoming ? '예정' : '진행중'
                 const statusClass = (isDraft || isUpcoming)
                   ? 'bg-gray-100 text-gray-600'
-                  : 'bg-green-100 text-green-700'
+                  : 'bg-emerald-100 text-emerald-700'
                 return (
                   <motion.div
                     key={program.id}
@@ -149,7 +149,7 @@ function ProgramListPage() {
                         setSelectedProgram(program)
                       }
                     }}
-                    className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition cursor-pointer"
+                    className="bg-white border border-gray-200 rounded-2xl p-4 hover:shadow-md transition cursor-pointer"
                   >
                     <div className="flex items-start justify-between mb-2">
                       <h3 className="font-medium text-gray-800">{program.name}</h3>
@@ -208,11 +208,9 @@ function ProgramListPage() {
         </div>
 
         {isActiveLoading ? (
-          <div className="bg-gray-50/60 p-8 rounded-2xl text-center text-gray-500 text-sm">불러오는 중...</div>
+          <LoadingState />
         ) : activePrograms.length === 0 ? (
-          <div className="bg-gray-50/60 p-8 rounded-2xl text-center text-gray-500 text-sm">
-            아직 참여한 프로그램이 없어요
-          </div>
+          <EmptyState icon="🎯" title="아직 참여한 프로그램이 없어요" />
         ) : (
           <motion.div layout className="grid gap-3">
             <AnimatePresence initial={false}>
@@ -225,7 +223,7 @@ function ProgramListPage() {
                   exit={{ opacity: 0, scale: 0.96 }}
                   transition={{ duration: 0.25, ease: 'easeOut' }}
                   onClick={() => navigate(`/programs/${program.id}`)}
-                  className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition cursor-pointer"
+                  className="bg-white border border-gray-200 rounded-2xl p-4 hover:shadow-md transition cursor-pointer"
                 >
                   <h3 className="font-medium text-gray-800 mb-2">{program.name}</h3>
                   {program.description && (
@@ -260,11 +258,9 @@ function ProgramListPage() {
         </div>
 
         {isPublicLoading ? (
-          <div className="bg-gray-50/60 p-8 rounded-2xl text-center text-gray-500 text-sm">불러오는 중...</div>
+          <LoadingState />
         ) : publicPrograms.length === 0 ? (
-          <div className="bg-gray-50/60 p-8 rounded-2xl text-center text-gray-500 text-sm">
-            아직 둘러볼 공개 프로그램이 없어요
-          </div>
+          <EmptyState icon="🔍" title="아직 둘러볼 공개 프로그램이 없어요" />
         ) : (
           <motion.div layout className="grid gap-3">
             <AnimatePresence initial={false}>
@@ -277,7 +273,7 @@ function ProgramListPage() {
                   exit={{ opacity: 0, scale: 0.96 }}
                   transition={{ duration: 0.25, ease: 'easeOut' }}
                   onClick={() => setSelectedProgram(program)}
-                  className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition cursor-pointer"
+                  className="bg-white border border-gray-200 rounded-2xl p-4 hover:shadow-md transition cursor-pointer"
                 >
                   <h3 className="font-medium text-gray-800 mb-2">{program.name}</h3>
                   {program.description && (

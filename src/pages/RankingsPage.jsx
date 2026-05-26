@@ -11,6 +11,8 @@ import {
   fetchProgramRanking,
 } from '../lib/queries'
 import UserAvatar from '../components/common/UserAvatar'
+import EmptyState from '../components/common/EmptyState'
+import LoadingState from '../components/common/LoadingState'
 
 // 랭킹 페이지 — Bottom Tab Bar 🏆 진입점
 // 강화 (Day 55):
@@ -77,44 +79,32 @@ function RankingsPage() {
 
   // ─── 로딩 ──────────────────────────────────────────────
   if (isLoadingPrograms) {
-    return (
-      <div className="p-6 max-w-4xl mx-auto text-center text-gray-500 text-sm">
-        불러오는 중...
-      </div>
-    )
+    return <LoadingState variant="page" />
   }
 
   // ─── 참여 프로그램 0개 ──────────────────────────────────
   if (activePrograms.length === 0) {
     return (
       <div className="px-4 pt-4 max-w-4xl mx-auto">
-        <h1 className="flex items-center gap-2 text-xl text-gray-800 mb-4">
+        <h1 className="flex items-center gap-2 text-2xl text-gray-800 mb-4">
           <Trophy className="w-5 h-5 text-amber-500" />
           랭킹
         </h1>
-        <div className="bg-emerald-50/40 p-8 rounded-2xl text-center">
-          <div className="w-24 h-24 mx-auto mb-3 flex items-center justify-center text-5xl">
-            🏆
-          </div>
-          <p className="font-medium text-gray-800 mb-1">참여 중인 프로그램이 없어요</p>
-          <p className="text-sm text-gray-500 mb-5">
-            프로그램에 참여하면 랭킹이 표시돼요
-          </p>
-          <button
-            type="button"
-            onClick={() => navigate('/programs')}
-            className="inline-flex items-center gap-1 px-6 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-full text-sm font-medium transition shadow-sm"
-          >
-            프로그램 둘러보기
-          </button>
-        </div>
+        <EmptyState
+          icon="🏆"
+          title="참여 중인 프로그램이 없어요"
+          description="프로그램에 참여하면 랭킹이 표시돼요"
+          variant="mint"
+          size="lg"
+          action={{ label: '프로그램 둘러보기', onClick: () => navigate('/programs') }}
+        />
       </div>
     )
   }
 
   return (
     <div className="px-4 pt-4 pb-6 max-w-4xl mx-auto">
-      <h1 className="flex items-center gap-2 text-xl text-gray-800 mb-4">
+      <h1 className="flex items-center gap-2 text-2xl text-gray-800 mb-4">
         <Trophy className="w-5 h-5 text-amber-500" />
         랭킹
       </h1>
@@ -149,7 +139,7 @@ function RankingsPage() {
         <div className="bg-gradient-to-r from-emerald-50 via-emerald-50/80 to-teal-50 border border-emerald-100 rounded-2xl p-4 mb-4">
           <p className="text-xs text-emerald-700 mb-1">{selectedProgram.name}</p>
           {isLoadingRanking ? (
-            <p className="text-sm text-gray-500">불러오는 중...</p>
+            <LoadingState variant="inline" />
           ) : myRow ? (
             <div className="flex items-end gap-3">
               <p className="text-3xl font-bold text-emerald-700 leading-none">
@@ -179,13 +169,9 @@ function RankingsPage() {
 
       {/* 랭킹 목록 (포디움 있으면 4등부터, 없으면 전체) */}
       {isLoadingRanking ? (
-        <div className="bg-gray-50 p-8 rounded-2xl text-center text-gray-500 text-sm">
-          불러오는 중...
-        </div>
+        <LoadingState />
       ) : ranking.length === 0 ? (
-        <div className="bg-gray-50 p-8 rounded-2xl text-center text-gray-500 text-sm">
-          아직 참여자가 없어요
-        </div>
+        <EmptyState icon="👥" title="아직 참여자가 없어요" />
       ) : restRanking.length === 0 ? (
         // 정확히 3명 — 포디움만 (리스트 비움)
         null
@@ -236,7 +222,7 @@ function RankingsPage() {
             exit={{ opacity: 0, y: 20, scale: 0.9 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
             onClick={scrollToMyRow}
-            className="fixed bottom-20 right-4 z-40 inline-flex items-center gap-1.5 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium rounded-full shadow-lg shadow-emerald-500/30 transition"
+            className="fixed bottom-20 right-4 z-40 inline-flex items-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white text-sm font-medium rounded-full shadow-lg shadow-emerald-500/30 transition"
           >
             <MapPin className="w-4 h-4" />
             내 위치 ({myRow.rank}등)

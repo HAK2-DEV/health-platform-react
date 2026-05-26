@@ -17,6 +17,8 @@ import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
 import MissionCard from '../../components/program/MissionCard'
 import StickyBackBar from '../../components/common/StickyBackBar'
+import EmptyState from '../../components/common/EmptyState'
+import LoadingState from '../../components/common/LoadingState'
 import {
   queryKeys,
   fetchProgram,
@@ -111,11 +113,7 @@ function BundleDetailPage() {
   }, [allCompleted])
 
   if (isProgramLoading || !program) {
-    return (
-      <div className="p-6 max-w-4xl mx-auto text-center text-gray-500">
-        불러오는 중...
-      </div>
-    )
+    return <LoadingState variant="page" />
   }
 
   if (bundleMissions.length === 0) {
@@ -129,9 +127,7 @@ function BundleDetailPage() {
         >
           <ChevronLeft className="w-5 h-5 text-gray-600" />
         </button>
-        <p className="p-4 bg-gray-50 text-gray-500 text-center rounded">
-          이 묶음에 미션이 없어요
-        </p>
+        <EmptyState icon="📦" title="이 묶음에 미션이 없어요" />
       </div>
     )
   }
@@ -143,7 +139,7 @@ function BundleDetailPage() {
       <StickyBackBar fallbackPath={`/programs/${id}`} title="프로그램으로" />
 
       {/* 묶음 헤더 */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
+      <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
         <p className="text-xs text-gray-500 mb-1">{program.name}</p>
         <h1 className="text-2xl font-medium text-gray-800 mb-2">{bundleTitle}</h1>
         <p className="text-sm text-gray-500">

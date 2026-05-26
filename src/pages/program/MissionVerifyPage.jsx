@@ -8,11 +8,12 @@ import { supabase } from '../../supabaseClient'
 import { CATEGORY } from '../../lib/constants'
 import { checkMissionToday } from '../../lib/formatters'
 import { queryKeys, fetchMission } from '../../lib/queries'
+import LoadingState from '../../components/common/LoadingState'
 
 // 카테고리 → 히어로 그라데이션
 const CATEGORY_HERO = {
   WALKING:    { from: 'from-emerald-100', via: 'via-emerald-50/80', to: 'to-teal-50/40',    chip: 'bg-emerald-500' },
-  DIET:       { from: 'from-green-100',   via: 'via-green-50/80',   to: 'to-emerald-50/40', chip: 'bg-green-500' },
+  DIET:       { from: 'from-emerald-100',   via: 'via-emerald-50/80',   to: 'to-emerald-50/40', chip: 'bg-emerald-500' },
   EMPATHY:    { from: 'from-pink-100',    via: 'via-pink-50/80',    to: 'to-rose-50/40',    chip: 'bg-pink-500' },
   MINDCARE:   { from: 'from-orange-100',  via: 'via-orange-50/80',  to: 'to-amber-50/40',   chip: 'bg-orange-500' },
   SLEEP:      { from: 'from-purple-100',  via: 'via-purple-50/80',  to: 'to-indigo-50/40',  chip: 'bg-purple-500' },
@@ -231,8 +232,8 @@ function MissionVerifyPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center text-gray-500 text-sm">
-        불러오는 중...
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <LoadingState variant="inline" />
       </div>
     )
   }
@@ -493,7 +494,7 @@ function MissionVerifyPage() {
             type="button"
             onClick={handleSubmit}
             disabled={!canSubmit}
-            className="flex-[2] px-4 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-medium rounded-xl transition disabled:bg-gray-300 shadow-sm"
+            className="flex-[2] px-4 py-3 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-medium rounded-xl transition disabled:bg-gray-300 shadow-sm"
           >
             {isSubmitting ? '제출 중...' : '인증 제출'}
           </button>

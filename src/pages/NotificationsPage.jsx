@@ -6,6 +6,8 @@ import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../supabaseClient'
 import { formatRelativeKstDay } from '../lib/formatters'
 import { queryKeys, fetchNotifications } from '../lib/queries'
+import EmptyState from '../components/common/EmptyState'
+import LoadingState from '../components/common/LoadingState'
 
 // 알림 센터 — Bottom Tab Bar 🔔 진입점
 // MVP 1차: polling — Bell 클릭 또는 페이지 진입/포커스 시 fetch
@@ -94,14 +96,9 @@ function NotificationsPage() {
       </div>
 
       {isLoading ? (
-        <div className="bg-gray-50 p-8 rounded-lg text-center text-gray-500 text-sm">
-          불러오는 중...
-        </div>
+        <LoadingState />
       ) : notifications.length === 0 ? (
-        <div className="bg-gray-50 p-8 rounded-2xl text-center">
-          <div className="text-4xl mb-2 opacity-60">📭</div>
-          <p className="text-sm text-gray-500">아직 알림이 없어요</p>
-        </div>
+        <EmptyState icon="📭" title="아직 알림이 없어요" />
       ) : (
         <motion.div layout className="grid gap-2">
           <AnimatePresence initial={false}>

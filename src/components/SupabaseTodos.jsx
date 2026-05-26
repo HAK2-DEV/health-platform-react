@@ -193,7 +193,7 @@ function SupabaseTodos({ session }) {
 
   return (
     <div className="bg-white p-4 rounded-md shadow-md max-w-2xl mx-auto my-4">
-      <h2 className="flex items-center justify-center gap-2 text-lg text-green-500 mb-4">
+      <h2 className="flex items-center justify-center gap-2 text-lg text-emerald-500 mb-4">
         <ClipboardList className="w-5 h-5" />
         나의 할 일 ({todos.length}개)
       </h2>
@@ -206,11 +206,11 @@ function SupabaseTodos({ session }) {
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             placeholder="할 일을 입력하세요"
-            className="flex-1 min-w-0 px-3 py-2 text-base border-2 border-gray-200 rounded-md focus:outline-none focus:border-green-500"
+            className="flex-1 min-w-0 px-3 py-2 text-base border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500"
           />
           <button
             type="submit"
-            className="flex-shrink-0 px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-md whitespace-nowrap transition"
+            className="flex-shrink-0 px-4 py-2 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white text-sm font-medium rounded-md whitespace-nowrap transition"
           >
             추가
           </button>
@@ -262,7 +262,7 @@ function SupabaseTodos({ session }) {
               <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                 <span>
                   {todo.done ? (
-                    <Check className="w-5 h-5 text-green-500" />
+                    <Check className="w-5 h-5 text-emerald-500" />
                   ) : (
                     <Clock className="w-5 h-5 text-yellow-500" />
                   )}

@@ -134,7 +134,7 @@ function Step4Summary({ initialData, programId, onPrev }) {
           type="button"
           onClick={handlePublish}
           disabled={isPublishing}
-          className="flex-[2] px-4 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-medium rounded-md transition disabled:bg-gray-400"
+          className="flex-[2] px-4 py-3 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-medium rounded-md transition disabled:bg-gray-400"
         >
           {isPublishing ? '게시 중...' : '🎉 프로그램 만들기'}
         </button>

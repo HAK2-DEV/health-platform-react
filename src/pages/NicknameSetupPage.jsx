@@ -76,8 +76,8 @@ const handleSubmit = async (e) => {
     <div className="flex flex-col items-center justify-center min-h-[80vh] p-6">
       <div className="bg-white p-6 rounded-lg shadow-md w-full max-w-md mx-auto">
         <div className="flex items-center justify-center gap-2 mb-4">
-          <UserPlus className="w-6 h-6 text-green-500" />
-          <h2 className="text-xl text-green-500">닉네임 설정</h2>
+          <UserPlus className="w-6 h-6 text-emerald-500" />
+          <h2 className="text-xl text-emerald-500">닉네임 설정</h2>
         </div>
         
         <p className="text-sm text-gray-600 text-center mb-6">
@@ -98,7 +98,7 @@ const handleSubmit = async (e) => {
           <button
             type="submit"
             disabled={!status.available || isSaving}
-            className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white font-medium rounded-md disabled:bg-gray-400 disabled:cursor-not-allowed transition"
+            className="px-4 py-2 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-medium rounded-md disabled:bg-gray-400 disabled:cursor-not-allowed transition"
           >
             {isSaving ? '저장 중...' : '시작하기'}
           </button>

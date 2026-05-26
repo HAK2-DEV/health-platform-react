@@ -5,6 +5,8 @@ import { ChevronLeft } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { queryKeys, fetchProgram, fetchProgramStats } from '../../lib/queries'
 import StickyBackBar from '../../components/common/StickyBackBar'
+import LoadingState from '../../components/common/LoadingState'
+import EmptyState from '../../components/common/EmptyState'
 
 // 운영자 — 미션별 인증 현황 디테일 (묶음 그루핑 + 세부 미션)
 // 라우트: /programs/:id/stats/missions
@@ -29,13 +31,13 @@ function ProgramStatsMissionsPage() {
   })
 
   if (isProgramLoading) {
-    return <div className="p-6 max-w-4xl mx-auto text-center text-gray-500">불러오는 중...</div>
+    return <LoadingState variant="page" />
   }
   if (!program) {
     return (
       <div className="p-6 max-w-4xl mx-auto">
         <p className="p-4 bg-red-100 text-red-700 rounded">프로그램을 찾을 수 없습니다</p>
-        <Link to="/dashboard" className="block mt-4 text-green-600 hover:underline">← 대시보드로</Link>
+        <Link to="/dashboard" className="block mt-4 text-emerald-600 hover:underline">← 대시보드로</Link>
       </div>
     )
   }
@@ -66,7 +68,7 @@ function ProgramStatsMissionsPage() {
     <div className="px-4 pt-2 pb-6 max-w-4xl mx-auto">
       <StickyBackBar fallbackPath={`/programs/${id}/stats`} title="통계로" />
 
-      <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
+      <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
         <p className="text-xs text-gray-500 mb-1">{program.name}</p>
         <h1 className="text-2xl font-medium text-gray-800 flex items-center gap-2">
           🎯 미션별 인증 현황
@@ -74,13 +76,9 @@ function ProgramStatsMissionsPage() {
       </div>
 
       {isStatsLoading || !stats ? (
-        <div className="bg-gray-50 p-8 rounded-lg text-center text-gray-500 text-sm">
-          불러오는 중...
-        </div>
+        <LoadingState />
       ) : stats.bundleStats.length === 0 ? (
-        <div className="bg-gray-50 p-8 rounded-lg text-center text-gray-500 text-sm">
-          아직 인증 기록이 없어요
-        </div>
+        <EmptyState icon="📊" title="아직 인증 기록이 없어요" />
       ) : (
         <motion.div
           initial={{ opacity: 0 }}
@@ -94,7 +92,7 @@ function ProgramStatsMissionsPage() {
             return (
               <div
                 key={bundle.bundleTitle || '__solo__'}
-                className="bg-white border border-gray-200 rounded-lg overflow-hidden"
+                className="bg-white border border-gray-200 rounded-2xl overflow-hidden"
               >
                 <div className="p-4">
                   <div className="flex items-center justify-between mb-1.5">

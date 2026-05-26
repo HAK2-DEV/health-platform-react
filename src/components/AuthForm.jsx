@@ -35,7 +35,7 @@ function AuthForm() {
 
   return (
     <div className="bg-white p-6 rounded-lg shadow-md w-full max-w-md mx-auto">
-      <h2 className="flex items-center justify-center gap-2 text-xl text-green-500 mb-4">
+      <h2 className="flex items-center justify-center gap-2 text-xl text-emerald-500 mb-4">
         <KeyRound className="w-5 h-5" />
         로그인
       </h2>
@@ -47,7 +47,7 @@ function AuthForm() {
           onChange={(e) => setEmail(e.target.value)}
           placeholder="이메일"
           required
-          className="px-3 py-2 text-base border-2 border-gray-200 rounded-md focus:outline-none focus:border-green-500"
+          className="px-3 py-2 text-base border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500"
         />
         <input 
           type="password"
@@ -56,12 +56,12 @@ function AuthForm() {
           placeholder="비밀번호 (6자 이상)"
           required
           minLength={6}
-          className="px-3 py-2 text-base border-2 border-gray-200 rounded-md focus:outline-none focus:border-green-500"
+          className="px-3 py-2 text-base border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500"
         />
         <button 
           type="submit" 
           disabled={isLoading}
-          className="px-4 py-2 bg-green-500 text-white text-base font-medium rounded-md hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition"
+          className="px-4 py-2 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white text-base font-medium rounded-md disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed transition"
         >
           {isLoading ? "처리 중..." : "로그인"}
         </button>
@@ -69,7 +69,7 @@ function AuthForm() {
 
       <p className="mt-4 text-center text-gray-600 text-sm">
         계정이 없나요?
-        <Link to="/signup" className="ml-2 text-green-500 underline">
+        <Link to="/signup" className="ml-2 text-emerald-500 underline">
           회원가입
         </Link>
       </p>

@@ -18,7 +18,7 @@ function NicknameInput({ value, onChange, currentUserId = null }) {
           onChange={(e) => onChange(e.target.value)}
           maxLength={NICKNAME.MAX_LENGTH}
           placeholder="닉네임을 입력하세요"
-          className="w-full px-3 py-2 pr-10 text-base border-2 border-gray-200 rounded-md focus:outline-none focus:border-green-500"
+          className="w-full px-3 py-2 pr-10 text-base border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500"
         />
         
         {/* 상태 아이콘 */}
@@ -27,7 +27,7 @@ function NicknameInput({ value, onChange, currentUserId = null }) {
             <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
           )}
           {!status.checking && status.available === true && (
-            <Check className="w-5 h-5 text-green-500" />
+            <Check className="w-5 h-5 text-emerald-500" />
           )}
           {!status.checking && status.available === false && (
             <X className="w-5 h-5 text-red-500" />
@@ -37,7 +37,7 @@ function NicknameInput({ value, onChange, currentUserId = null }) {
       
       {/* 상태 메시지 */}
       {!status.checking && status.available === true && (
-        <p className="mt-1 text-sm text-green-600">
+        <p className="mt-1 text-sm text-emerald-600">
           사용 가능한 닉네임입니다
         </p>
       )}

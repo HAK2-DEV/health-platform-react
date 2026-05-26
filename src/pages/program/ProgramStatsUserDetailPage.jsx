@@ -8,6 +8,8 @@ import { supabase } from '../../supabaseClient'
 import { formatRelativeKstDay, getTodayKST } from '../../lib/formatters'
 import { queryKeys, fetchProgram, fetchProgramStats, formatKstDate } from '../../lib/queries'
 import StickyBackBar from '../../components/common/StickyBackBar'
+import LoadingState from '../../components/common/LoadingState'
+import EmptyState from '../../components/common/EmptyState'
 import UserAvatar from '../../components/common/UserAvatar'
 
 // 한 유저의 활동 메인 — 핵심 지표 + 14일 차트 + 2개 진입 카드 (미션별 분포 / 인증 기록)
@@ -73,7 +75,7 @@ function ProgramStatsUserDetailPage() {
   const maxDayCount = recent14Days.reduce((m, d) => Math.max(m, d.count), 0) || 1
 
   if (!program) {
-    return <div className="p-6 max-w-4xl mx-auto text-center text-gray-500">불러오는 중...</div>
+    return <LoadingState variant="page" />
   }
   if (!isOwner) {
     return (
@@ -104,7 +106,7 @@ function ProgramStatsUserDetailPage() {
       <StickyBackBar fallbackPath={`/programs/${id}/stats/users`} title="목록으로" />
 
       {/* 유저 헤더 */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
+      <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
         <p className="text-xs text-gray-500 mb-2">{program.name}</p>
         <div className="flex items-center gap-3">
           <UserAvatar avatarPath={userInfo.avatar_path} nickname={userInfo.nickname} size="lg" />
@@ -149,7 +151,7 @@ function ProgramStatsUserDetailPage() {
 
       {/* 최근 14일 활동 */}
       <h2 className="text-lg font-medium text-gray-800 mb-3">📅 최근 14일 활동</h2>
-      <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6">
+      <div className="bg-white border border-gray-200 rounded-2xl p-4 mb-6">
         <div className="flex items-end gap-1 h-20">
           {recent14Days.map(d => {
             const h = d.count === 0 ? 4 : Math.round((d.count / maxDayCount) * 76) + 4

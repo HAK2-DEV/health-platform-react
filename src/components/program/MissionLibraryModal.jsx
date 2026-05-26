@@ -500,7 +500,7 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
                 type="button"
                 onClick={handleAddSelected}
                 disabled={isSaving || selectedCount === 0}
-                className="flex-[2] px-4 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-medium rounded-md transition disabled:bg-gray-400"
+                className="flex-[2] px-4 py-3 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-medium rounded-md transition disabled:bg-gray-400"
               >
                 {isSaving
                   ? '추가 중...'

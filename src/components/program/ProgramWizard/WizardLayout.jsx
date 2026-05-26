@@ -33,9 +33,9 @@ function WizardLayout({ currentStep, children }) {
             <div className={`
               w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
               ${currentStep === step.number 
-                ? 'bg-green-500 text-white' 
+                ? 'bg-emerald-500 text-white' 
                 : currentStep > step.number 
-                  ? 'bg-green-200 text-green-700' 
+                  ? 'bg-emerald-200 text-emerald-700' 
                   : 'bg-gray-200 text-gray-500'}
             `}>
               {step.number}
@@ -45,7 +45,7 @@ function WizardLayout({ currentStep, children }) {
             {index < STEPS.length - 1 && (
               <div className={`
                 flex-1 h-0.5 mx-2
-                ${currentStep > step.number ? 'bg-green-300' : 'bg-gray-200'}
+                ${currentStep > step.number ? 'bg-emerald-300' : 'bg-gray-200'}
               `} />
             )}
           </div>

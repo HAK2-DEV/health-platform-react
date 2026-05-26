@@ -53,7 +53,7 @@ function MissionCard({
     : null
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-4 flex items-center justify-between gap-3">
+    <div className="bg-white border border-gray-200 rounded-2xl p-4 flex items-center justify-between gap-3">
       <div className="flex-1 min-w-0">
         <h3 className="font-medium text-gray-800 mb-1">{mission.title}</h3>
         <p className="text-xs text-gray-500">
@@ -62,7 +62,7 @@ function MissionCard({
         </p>
       </div>
 
-      <span className="px-2 py-1 bg-green-100 text-green-700 text-sm rounded font-medium flex-shrink-0">
+      <span className="px-2 py-1 bg-emerald-100 text-emerald-700 text-sm rounded font-medium flex-shrink-0">
         {mission.point}P
       </span>
 
@@ -101,7 +101,7 @@ function MissionCard({
             onClick={() => navigate(`/programs/${programId}/missions/${mission.id}`, {
               state: navigateState ?? null,
             })}
-            className="px-3 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm rounded transition whitespace-nowrap"
+            className="px-3 py-2 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white text-sm rounded transition whitespace-nowrap"
           >
             {buttonLabel}
           </button>

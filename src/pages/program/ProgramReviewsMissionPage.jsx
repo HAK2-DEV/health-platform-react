@@ -6,6 +6,8 @@ import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
 import { queryKeys, fetchProgram, fetchPendingReviewsEnriched } from '../../lib/queries'
 import StickyBackBar from '../../components/common/StickyBackBar'
+import LoadingState from '../../components/common/LoadingState'
+import EmptyState from '../../components/common/EmptyState'
 import UserAvatar from '../../components/common/UserAvatar'
 
 // 운영자 심사 — 개별 미션의 PENDING 인증들 + 승인/반려 액션
@@ -139,7 +141,7 @@ function ProgramReviewsMissionPage() {
   }
 
   if (!program) {
-    return <div className="p-6 max-w-4xl mx-auto text-center text-gray-500">불러오는 중...</div>
+    return <LoadingState variant="page" />
   }
   if (!isOwner) {
     return (
@@ -156,7 +158,7 @@ function ProgramReviewsMissionPage() {
     <div className="px-4 pt-2 pb-6 max-w-4xl mx-auto">
       <StickyBackBar fallbackPath={`/programs/${id}/reviews/${bundleParam}`} title="미션 목록" />
 
-      <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
+      <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
         <p className="text-xs text-gray-500 mb-1">{program.name}</p>
         <h1 className="text-2xl font-medium text-gray-800">{missionTitle}</h1>
         <p className="text-sm text-amber-700 mt-1">
@@ -165,10 +167,7 @@ function ProgramReviewsMissionPage() {
       </div>
 
       {missionPending.length === 0 ? (
-        <div className="bg-gray-50 p-8 rounded-2xl text-center">
-          <div className="text-4xl mb-2 opacity-60">📭</div>
-          <p className="text-sm text-gray-500">이 미션의 심사 대기 인증을 모두 처리했어요</p>
-        </div>
+        <EmptyState icon="✅" title="이 미션의 심사 대기 인증을 모두 처리했어요" />
       ) : (
         <div className="space-y-3">
           {missionPending.map(r => {
@@ -284,7 +283,7 @@ function ProgramReviewsMissionPage() {
                       type="button"
                       onClick={() => handleApprove(r.v_id)}
                       disabled={isProcessing}
-                      className="flex items-center justify-center gap-1 flex-[2] px-3 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm rounded-md transition disabled:bg-gray-400"
+                      className="flex items-center justify-center gap-1 flex-[2] px-3 py-2 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white text-sm rounded-md transition disabled:bg-gray-400"
                     >
                       <Check className="w-4 h-4" />
                       승인

@@ -222,7 +222,7 @@ function ProfilePage() {
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={isAvatarBusy}
-              className="absolute -bottom-1 -right-1 w-9 h-9 bg-emerald-500 hover:bg-emerald-600 text-white rounded-full shadow-md flex items-center justify-center transition disabled:opacity-50"
+              className="absolute -bottom-1 -right-1 w-9 h-9 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white rounded-full shadow-md flex items-center justify-center transition disabled:opacity-50"
               title="프로필 사진 변경"
             >
               <Camera className="w-4 h-4" />
@@ -299,7 +299,7 @@ function ProfilePage() {
                     || !cooldownInfo.canChange
                     || (!nickIsSame && !nickStatus.available)
                   }
-                  className="flex-1 px-3 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm rounded-md transition disabled:bg-gray-300"
+                  className="flex-1 px-3 py-2 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white text-sm rounded-md transition disabled:bg-gray-300"
                 >
                   {nicknameMutation.isPending ? '저장 중...' : '저장'}
                 </button>

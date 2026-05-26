@@ -236,7 +236,7 @@ function ReviewModal({ program, isOpen, onClose, onSuccess }) {
                       type="button"
                       onClick={() => handleApprove(r.v_id)}
                       disabled={isProcessing}
-                      className="flex items-center justify-center gap-1 flex-[2] px-3 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm rounded-md transition disabled:bg-gray-400"
+                      className="flex items-center justify-center gap-1 flex-[2] px-3 py-2 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white text-sm rounded-md transition disabled:bg-gray-400"
                     >
                       <Check className="w-4 h-4" />
                       승인

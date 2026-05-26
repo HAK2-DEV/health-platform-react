@@ -9,6 +9,8 @@ import { formatKoreanDate, checkMissionToday, isUpcomingByStartDate } from '../l
 import { CATEGORY } from '../lib/constants'
 import ProgramDetailModal from '../components/program/ProgramDetailModal'
 import DeleteProgramConfirmModal from '../components/program/DeleteProgramConfirmModal'
+import EmptyState from '../components/common/EmptyState'
+import LoadingState from '../components/common/LoadingState'
 import {
   queryKeys,
   fetchMyPrograms,
@@ -35,7 +37,7 @@ const itemVariants = {
 // 카테고리별 파스텔 색상 매핑 (Tailwind JIT 안전 — 명시적 클래스명)
 const CATEGORY_COLORS = {
   WALKING:    { bg: 'bg-emerald-50', border: 'border-emerald-100', accent: 'bg-emerald-400' },
-  DIET:       { bg: 'bg-green-50',   border: 'border-green-100',   accent: 'bg-green-400' },
+  DIET:       { bg: 'bg-emerald-50',   border: 'border-emerald-100',   accent: 'bg-emerald-400' },
   EMPATHY:    { bg: 'bg-pink-50',    border: 'border-pink-100',    accent: 'bg-pink-400' },
   MINDCARE:   { bg: 'bg-orange-50',  border: 'border-orange-100',  accent: 'bg-orange-400' },
   SLEEP:      { bg: 'bg-purple-50',  border: 'border-purple-100',  accent: 'bg-purple-400' },
@@ -285,7 +287,7 @@ function DashboardPage() {
       >
         <Link
           to="/programs/new"
-          className="flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white font-medium py-3 rounded-2xl shadow-md shadow-emerald-200/40 mb-5 transition"
+          className="flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-medium py-3 rounded-2xl shadow-md shadow-emerald-200/40 mb-5 transition"
         >
           <Plus className="w-5 h-5" />
           프로그램 생성하기
@@ -379,11 +381,11 @@ function DashboardPage() {
         </div>
 
         {todayMissions.length === 0 ? (
-          <div className="bg-gray-50 p-6 rounded-lg text-center text-gray-500 text-sm">
-            오늘 인증할 미션이 없어요
-            <br />
-            <span className="text-xs text-gray-400">참여 중인 프로그램이 시작되면 여기에 표시돼요</span>
-          </div>
+          <EmptyState
+            icon="✨"
+            title="오늘 인증할 미션이 없어요"
+            description="참여 중인 프로그램이 시작되면 여기에 표시돼요"
+          />
         ) : (
           <motion.div layout className="space-y-3">
             <AnimatePresence initial={false}>
@@ -527,7 +529,7 @@ function DashboardPage() {
                             <button
                               type="button"
                               onClick={() => navigate(`/programs/${mission.program_id}/missions/${mission.id}`)}
-                              className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs rounded-full transition whitespace-nowrap flex-shrink-0 font-medium"
+                              className="px-3 py-1.5 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white text-xs rounded-full transition whitespace-nowrap flex-shrink-0 font-medium"
                             >
                               {buttonLabel}
                             </button>
@@ -548,7 +550,7 @@ function DashboardPage() {
       <section className="mb-8">
         <div className="flex items-center justify-between mb-4">
           <h2 className="flex items-center gap-2 text-xl text-gray-800">
-            <Activity className="w-5 h-5 text-green-500" />
+            <Activity className="w-5 h-5 text-emerald-500" />
             내 프로그램
           </h2>
           <div className="flex items-center gap-2">
@@ -567,7 +569,7 @@ function DashboardPage() {
             {myPrograms.length === 0 && (
               <Link
                 to="/programs/new"
-                className="flex items-center gap-1 px-3 py-2 bg-green-500 hover:bg-green-600 text-white text-sm rounded-md transition"
+                className="flex items-center gap-1 px-3 py-2 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white text-sm rounded-md transition"
               >
                 <Plus className="w-4 h-4" />
                 새 프로그램
@@ -577,15 +579,13 @@ function DashboardPage() {
         </div>
 
         {isLoading ? (
-          <div className="bg-gray-50 p-8 rounded-lg text-center text-gray-500">
-            불러오는 중...
-          </div>
+          <LoadingState />
         ) : myPrograms.length === 0 ? (
-          <div className="bg-gray-50 p-8 rounded-lg text-center text-gray-500">
-            아직 만든 프로그램이 없어요
-            <br />
-            <span className="text-sm">위의 "새 프로그램" 버튼으로 시작해보세요</span>
-          </div>
+          <EmptyState
+            icon="📋"
+            title="아직 만든 프로그램이 없어요"
+            description="위의 '프로그램 생성하기' 버튼으로 시작해보세요"
+          />
         ) : (
           <motion.div layout className="grid gap-3">
             <AnimatePresence initial={false}>
@@ -595,7 +595,7 @@ function DashboardPage() {
               const statusLabel = isDraft ? '임시저장' : isUpcoming ? '예정' : '진행중'
               const statusClass = (isDraft || isUpcoming)
                 ? 'bg-gray-100 text-gray-600'
-                : 'bg-green-100 text-green-700'
+                : 'bg-emerald-100 text-emerald-700'
               return (
                 <motion.div
                   key={program.id}
@@ -611,7 +611,7 @@ function DashboardPage() {
                       setSelectedProgram(program)
                     }
                   }}
-                  className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition cursor-pointer"
+                  className="bg-white border border-gray-200 rounded-2xl p-4 hover:shadow-md transition cursor-pointer"
                 >
                   <div className="flex items-start justify-between mb-2">
                     <h3 className="font-medium text-gray-800">{program.name}</h3>
@@ -673,33 +673,16 @@ function DashboardPage() {
         </div>
 
         {isLoadingActive ? (
-          <div className="bg-gray-50/60 p-8 rounded-2xl text-center text-gray-500 text-sm">
-            불러오는 중...
-          </div>
+          <LoadingState />
         ) : activePrograms.length === 0 ? (
-          <div className="bg-emerald-50/40 p-8 rounded-2xl text-center">
-            {/* 빈 상태 일러스트 자리 — public/illustrations/empty-box.png 있으면 자동 표시 */}
-            <div className="w-32 h-32 mx-auto mb-4 relative">
-              <span className="absolute inset-0 flex items-center justify-center text-6xl opacity-60">
-                📦
-              </span>
-              <img
-                src="/illustrations/empty-box.png"
-                alt=""
-                className="absolute inset-0 w-full h-full object-contain"
-                onError={(e) => { e.currentTarget.style.display = 'none' }}
-              />
-            </div>
-            <p className="font-medium text-gray-800 mb-1">참여 중인 프로그램이 없어요</p>
-            <p className="text-sm text-gray-500 mb-5">새로운 건강 프로그램에 참여해보세요</p>
-            <button
-              type="button"
-              onClick={() => navigate('/programs')}
-              className="inline-flex items-center gap-1 px-6 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-full text-sm font-medium transition shadow-sm"
-            >
-              프로그램 둘러보기
-            </button>
-          </div>
+          <EmptyState
+            icon="🎯"
+            title="참여 중인 프로그램이 없어요"
+            description="새로운 건강 프로그램에 참여해보세요"
+            variant="mint"
+            size="lg"
+            action={{ label: '프로그램 둘러보기', onClick: () => navigate('/programs') }}
+          />
         ) : (
           <motion.div layout className="grid gap-3">
             <AnimatePresence initial={false}>

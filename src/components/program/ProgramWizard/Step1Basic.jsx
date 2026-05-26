@@ -88,7 +88,7 @@ function Step1Basic({ initialData, onNext, onSave }) {
             onChange={(e) => setName(e.target.value)}
             maxLength={PROGRAM.NAME_MAX_LENGTH}
             placeholder="예: 봄철 걷기 챌린지"
-            className="w-full px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-green-500"
+            className="w-full px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500"
           />
           <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">
             {name.length}/{PROGRAM.NAME_MAX_LENGTH}
@@ -107,7 +107,7 @@ function Step1Basic({ initialData, onNext, onSave }) {
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
             min={getTodayKST()}
-            className="flex-1 px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-green-500"
+            className="flex-1 px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500"
           />
           <span className="text-gray-500">~</span>
           <input
@@ -115,7 +115,7 @@ function Step1Basic({ initialData, onNext, onSave }) {
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
             min={startDate || getTodayKST()} 
-            className="flex-1 px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-green-500"
+            className="flex-1 px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500"
           />
         </div>
       </div>
@@ -132,7 +132,7 @@ function Step1Basic({ initialData, onNext, onSave }) {
             maxLength={PROGRAM.DESCRIPTION_MAX_LENGTH}
             placeholder="예: 매일 7천보 이상 걷고, 건강한 습관을 만들어봐요!"
             rows={4}
-            className="w-full px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-green-500 resize-none"
+            className="w-full px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 resize-none"
           />
           <span className="absolute right-3 bottom-2 text-xs text-gray-400">
             {description.length}/{PROGRAM.DESCRIPTION_MAX_LENGTH}
@@ -156,7 +156,7 @@ function Step1Basic({ initialData, onNext, onSave }) {
                 className={`
                   flex items-center justify-center gap-1 px-3 py-2 rounded-md border-2 text-sm transition
                   ${isSelected 
-                    ? 'border-green-500 bg-green-50 text-green-700' 
+                    ? 'border-emerald-500 bg-emerald-50 text-emerald-700' 
                     : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}
                 `}
               >
@@ -187,7 +187,7 @@ function Step1Basic({ initialData, onNext, onSave }) {
         <button
           type="button"
           onClick={handleNext}
-          className="flex-1 px-4 py-3 bg-green-500 hover:bg-green-600 text-white font-medium rounded-md transition"
+          className="flex-1 px-4 py-3 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-medium rounded-md transition"
         >
           다음
         </button>

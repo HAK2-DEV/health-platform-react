@@ -53,14 +53,14 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
               className={`
                 w-full p-4 rounded-lg border-2 text-left transition
                 ${isSelected
-                  ? 'border-green-500 bg-green-50'
+                  ? 'border-emerald-500 bg-emerald-50'
                   : 'border-gray-200 bg-white hover:border-gray-300'}
               `}
             >
               <div className="flex items-start gap-3">
                 <span className="text-2xl">{type.emoji}</span>
                 <div className="flex-1">
-                  <div className={`font-medium mb-1 ${isSelected ? 'text-green-700' : 'text-gray-800'}`}>
+                  <div className={`font-medium mb-1 ${isSelected ? 'text-emerald-700' : 'text-gray-800'}`}>
                     {type.label}
                   </div>
                   <div className="text-sm text-gray-600">
@@ -68,7 +68,7 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
                   </div>
                 </div>
                 {isSelected && (
-                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                  <div className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center flex-shrink-0">
                     <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                     </svg>
@@ -173,7 +173,7 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
         <button
           type="button"
           onClick={handleNext}
-          className="flex-1 px-4 py-3 bg-green-500 hover:bg-green-600 text-white font-medium rounded-md transition"
+          className="flex-1 px-4 py-3 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-medium rounded-md transition"
         >
           다음
         </button>

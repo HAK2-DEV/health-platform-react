@@ -142,7 +142,7 @@ function ProgramDetailModal({ program, isOpen, onClose }) {
               {categoryLabels.map((label, i) => (
                 <span
                   key={i}
-                  className="px-2 py-0.5 bg-green-50 text-green-700 text-xs rounded"
+                  className="px-2 py-0.5 bg-emerald-50 text-emerald-700 text-xs rounded"
                 >
                   {label}
                 </span>
@@ -189,22 +189,22 @@ function ProgramDetailModal({ program, isOpen, onClose }) {
             {participationStatus === 'active' && (
               <div>
                 {justJoined ? (
-                  <div className="p-4 bg-green-100 border-2 border-green-400 text-green-800 text-center rounded-lg mb-3 animate-pulse">
+                  <div className="p-4 bg-emerald-100 border-2 border-emerald-400 text-emerald-800 text-center rounded-lg mb-3 animate-pulse">
                     <div className="text-3xl mb-1">🎉</div>
                     <div className="font-medium">참여 완료!</div>
-                    <div className="text-xs mt-1 text-green-700">
+                    <div className="text-xs mt-1 text-emerald-700">
                       아래 버튼으로 활동 페이지에 들어가세요
                     </div>
                   </div>
                 ) : (
-                  <div className="p-3 bg-green-50 text-green-700 text-sm text-center rounded mb-3">
+                  <div className="p-3 bg-emerald-50 text-emerald-700 text-sm text-center rounded mb-3">
                     ✓ 참여 중
                   </div>
                 )}
                 <button
                   type="button"
                   onClick={goToActivity}
-                  className="w-full px-4 py-3 bg-green-500 hover:bg-green-600 text-white font-medium rounded-md transition"
+                  className="w-full px-4 py-3 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-medium rounded-md transition"
                 >
                   활동 페이지로 →
                 </button>
@@ -236,7 +236,7 @@ function ProgramDetailModal({ program, isOpen, onClose }) {
                     type="button"
                     onClick={handleJoin}
                     disabled={isJoining}
-                    className="w-full px-4 py-3 bg-green-500 hover:bg-green-600 text-white font-medium rounded-md transition disabled:bg-gray-400"
+                    className="w-full px-4 py-3 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-medium rounded-md transition disabled:bg-gray-400"
                   >
                     {isJoining ? '참여 중...' : '참여하기'}
                   </button>

@@ -52,7 +52,7 @@ function BottomTabBar() {
               className={({ isActive }) => `
                 flex-1 flex flex-col items-center gap-1 py-2 transition relative
                 ${isActive
-                  ? 'text-green-600'
+                  ? 'text-emerald-600'
                   : 'text-gray-500 hover:text-gray-700'}
               `}
             >

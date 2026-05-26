@@ -167,7 +167,7 @@ function Step3JoinConditions({ initialData, onNext, onSave, onPrev }) {
         <button
           type="button"
           onClick={handleNext}
-          className="flex-1 px-4 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-medium rounded-md transition"
+          className="flex-1 px-4 py-3 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-medium rounded-md transition"
         >
           다음
         </button>
