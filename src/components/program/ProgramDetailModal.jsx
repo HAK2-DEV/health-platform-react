@@ -237,7 +237,7 @@ function ProgramDetailModal({ program, isOpen, onClose }) {
 
             {participationStatus === 'owner' && (
               <div>
-                <p className="text-center text-sm text-gray-500 mb-3">
+                <p className="text-center text-sm text-gray-500 mb-5">
                   내가 운영하는 프로그램입니다
                 </p>
                 <button
@@ -253,12 +253,12 @@ function ProgramDetailModal({ program, isOpen, onClose }) {
             {participationStatus === 'active' && (
               <div>
                 {justJoined ? (
-                  <div className="p-4 bg-emerald-100 border-2 border-emerald-400 text-emerald-800 text-center rounded-2xl mb-3 animate-pulse">
+                  <div className="p-4 bg-emerald-100 border-2 border-emerald-400 text-emerald-800 text-center rounded-2xl mb-5 animate-pulse">
                     <div className="text-3xl mb-1">🎉</div>
                     <div className="font-medium">참여 완료!</div>
                   </div>
                 ) : (
-                  <div className="p-3 bg-emerald-50 text-emerald-700 text-sm text-center rounded-2xl mb-3">
+                  <div className="p-3 bg-emerald-50 text-emerald-700 text-sm text-center rounded-2xl mb-5">
                     ✓ 참여 중
                   </div>
                 )}

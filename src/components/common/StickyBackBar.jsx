@@ -24,7 +24,7 @@ function StickyBackBar({ onClick, fallbackPath, title }) {
   const handleClick = onClick || smartBack
 
   return (
-    <div className="sticky top-0 z-30 -mx-4 mb-2 px-4 py-2 bg-white/80 backdrop-blur-sm">
+    <div className="sticky top-0 z-30 -mx-4 mb-1 px-4 py-1 bg-white/80 backdrop-blur-sm">
       <div className="flex items-center gap-2">
         <button
           type="button"

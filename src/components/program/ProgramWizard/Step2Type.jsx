@@ -17,6 +17,8 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
     initialData?.ranking_enabled !== undefined ? !!initialData.ranking_enabled : true
   )
   const [podiumEnabled, setPodiumEnabled] = useState(initialData?.podium_enabled || false)
+  const [trendEnabled, setTrendEnabled] = useState(initialData?.trend_enabled || false)
+  const [periodFilterEnabled, setPeriodFilterEnabled] = useState(initialData?.period_filter_enabled || false)
   const [previewOpen, setPreviewOpen] = useState(true)
 
   // Step 1 에서 선택한 카테고리들에 매칭되는 추천 미션 묶음
@@ -29,8 +31,10 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
     // program_type 폐기 (Day 58) — 새 프로그램은 NULL 로 저장
     feed_enabled: feedEnabled,
     ranking_enabled: rankingEnabled,
-    // 랭킹 꺼져있으면 포디움도 의미 없음 → 자동으로 false
+    // 랭킹 꺼져있으면 포디움/추세/기간필터 모두 의미 없음 → 자동으로 false
     podium_enabled: rankingEnabled ? podiumEnabled : false,
+    trend_enabled: rankingEnabled ? trendEnabled : false,
+    period_filter_enabled: rankingEnabled ? periodFilterEnabled : false,
   })
 
   const handleNext = () => onNext(collectData())
@@ -111,39 +115,108 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
         </div>
       </button>
 
-      {/* 포디움 토글 — 랭킹 ON 일 때만 노출 */}
+      {/* 포디움 / 추세 / 기간 필터 — 랭킹 ON 일 때만 노출 (랭킹 하위 옵션) */}
       {rankingEnabled && (
-        <button
-          type="button"
-          onClick={() => setPodiumEnabled(!podiumEnabled)}
-          className={`
-            w-full p-4 rounded-2xl border-2 text-left transition mb-6
-            ${podiumEnabled
-              ? 'border-amber-500 bg-amber-50'
-              : 'border-gray-200 bg-white hover:border-gray-300'}
-          `}
-        >
-          <div className="flex items-start gap-3">
-            <span className="text-2xl">🏆</span>
-            <div className="flex-1">
-              <div className={`font-medium mb-1 ${podiumEnabled ? 'text-amber-700' : 'text-gray-800'}`}>
-                포디움 활성화 (Top 3 시상대)
+        <>
+          {/* 포디움 토글 */}
+          <button
+            type="button"
+            onClick={() => setPodiumEnabled(!podiumEnabled)}
+            className={`
+              w-full p-4 rounded-2xl border-2 text-left transition mb-3
+              ${podiumEnabled
+                ? 'border-amber-500 bg-amber-50'
+                : 'border-gray-200 bg-white hover:border-gray-300'}
+            `}
+          >
+            <div className="flex items-start gap-3">
+              <span className="text-2xl">🏆</span>
+              <div className="flex-1">
+                <div className={`font-medium mb-1 ${podiumEnabled ? 'text-amber-700' : 'text-gray-800'}`}>
+                  포디움 활성화 (Top 3 시상대)
+                </div>
+                <div className="text-sm text-gray-600">
+                  랭킹 페이지 상단에 1·2·3등을 올림픽 시상대처럼 강조해서 표시해요. 끄면 평면 랭킹만.
+                </div>
               </div>
-              <div className="text-sm text-gray-600">
-                랭킹 페이지 상단에 1·2·3등을 올림픽 시상대처럼 강조해서 표시해요. 끄면 평면 랭킹만.
-              </div>
-            </div>
-            <div className={`
-              relative w-10 h-6 rounded-full flex-shrink-0 transition
-              ${podiumEnabled ? 'bg-amber-500' : 'bg-gray-300'}
-            `}>
               <div className={`
-                absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform
-                ${podiumEnabled ? 'translate-x-4' : 'translate-x-0.5'}
-              `} />
+                relative w-10 h-6 rounded-full flex-shrink-0 transition
+                ${podiumEnabled ? 'bg-amber-500' : 'bg-gray-300'}
+              `}>
+                <div className={`
+                  absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform
+                  ${podiumEnabled ? 'translate-x-4' : 'translate-x-0.5'}
+                `} />
+              </div>
             </div>
-          </div>
-        </button>
+          </button>
+
+          {/* 추세 표시 토글 — 본인 14일 점수 sparkline */}
+          <button
+            type="button"
+            onClick={() => setTrendEnabled(!trendEnabled)}
+            className={`
+              w-full p-4 rounded-2xl border-2 text-left transition mb-3
+              ${trendEnabled
+                ? 'border-violet-500 bg-violet-50'
+                : 'border-gray-200 bg-white hover:border-gray-300'}
+            `}
+          >
+            <div className="flex items-start gap-3">
+              <span className="text-2xl">📊</span>
+              <div className="flex-1">
+                <div className={`font-medium mb-1 ${trendEnabled ? 'text-violet-700' : 'text-gray-800'}`}>
+                  본인 14일 점수 추세 표시
+                </div>
+                <div className="text-sm text-gray-600">
+                  랭킹 페이지의 본인 요약 카드에 최근 14일 점수 그래프(스파크라인)를 보여줘요. 꾸준함 시각화.
+                </div>
+              </div>
+              <div className={`
+                relative w-10 h-6 rounded-full flex-shrink-0 transition
+                ${trendEnabled ? 'bg-violet-500' : 'bg-gray-300'}
+              `}>
+                <div className={`
+                  absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform
+                  ${trendEnabled ? 'translate-x-4' : 'translate-x-0.5'}
+                `} />
+              </div>
+            </div>
+          </button>
+
+          {/* 기간 필터 토글 — 전체 / 최근 7일 / 최근 30일 */}
+          <button
+            type="button"
+            onClick={() => setPeriodFilterEnabled(!periodFilterEnabled)}
+            className={`
+              w-full p-4 rounded-2xl border-2 text-left transition mb-6
+              ${periodFilterEnabled
+                ? 'border-cyan-500 bg-cyan-50'
+                : 'border-gray-200 bg-white hover:border-gray-300'}
+            `}
+          >
+            <div className="flex items-start gap-3">
+              <span className="text-2xl">⏱️</span>
+              <div className="flex-1">
+                <div className={`font-medium mb-1 ${periodFilterEnabled ? 'text-cyan-700' : 'text-gray-800'}`}>
+                  기간 필터 표시 (최근 7일 / 30일)
+                </div>
+                <div className="text-sm text-gray-600">
+                  참여자가 랭킹을 '전체 / 최근 7일 / 최근 30일' 로 전환해서 볼 수 있어요. 단기 분위기 환기에 좋음.
+                </div>
+              </div>
+              <div className={`
+                relative w-10 h-6 rounded-full flex-shrink-0 transition
+                ${periodFilterEnabled ? 'bg-cyan-500' : 'bg-gray-300'}
+              `}>
+                <div className={`
+                  absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform
+                  ${periodFilterEnabled ? 'translate-x-4' : 'translate-x-0.5'}
+                `} />
+              </div>
+            </div>
+          </button>
+        </>
       )}
       {!rankingEnabled && <div className="mb-6" />}
 

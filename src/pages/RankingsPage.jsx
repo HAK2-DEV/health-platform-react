@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Trophy, MapPin } from 'lucide-react'
+import { Trophy, MapPin, TrendingUp } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../hooks/useAuth'
 import { CATEGORY } from '../lib/constants'
@@ -9,10 +9,26 @@ import {
   queryKeys,
   fetchActivePrograms,
   fetchProgramRanking,
+  fetchMyRecentScoreSeries,
 } from '../lib/queries'
 import UserAvatar from '../components/common/UserAvatar'
 import EmptyState from '../components/common/EmptyState'
 import LoadingState from '../components/common/LoadingState'
+
+// 시간 범위 옵션 — period 값을 ISO 시작점 문자열로 변환
+const PERIOD_OPTIONS = [
+  { value: 'all', label: '전체' },
+  { value: '7d', label: '최근 7일' },
+  { value: '30d', label: '최근 30일' },
+]
+
+const periodToISOStart = (period) => {
+  if (period === 'all') return null
+  const days = period === '7d' ? 7 : 30
+  const d = new Date()
+  d.setDate(d.getDate() - days)
+  return d.toISOString()
+}
 
 // 랭킹 페이지 — Bottom Tab Bar 🏆 진입점
 // 강화 (Day 55):
@@ -24,6 +40,8 @@ function RankingsPage() {
   const userId = session?.user?.id
 
   const [selectedProgramId, setSelectedProgramId] = useState(null)
+  const [period, setPeriod] = useState('all')
+  const periodStart = useMemo(() => periodToISOStart(period), [period])
 
   const { data: allActivePrograms = [], isLoading: isLoadingPrograms } = useQuery({
     queryKey: queryKeys.activePrograms(userId),
@@ -41,14 +59,35 @@ function RankingsPage() {
     }
   }, [activePrograms, selectedProgramId])
 
+  const selectedProgram = activePrograms.find(p => p.id === selectedProgramId)
+
+  // 운영자 옵션 — 마법사/Edit 모달에서 켜야만 해당 UI 노출 + fetch
+  const trendVisible = !!selectedProgram?.trend_enabled
+  const periodFilterVisible = !!selectedProgram?.period_filter_enabled
+
   const { data: ranking = [], isLoading: isLoadingRanking } = useQuery({
-    queryKey: queryKeys.programRanking(selectedProgramId),
-    queryFn: () => fetchProgramRanking(selectedProgramId),
+    queryKey: queryKeys.programRanking(selectedProgramId, period),
+    queryFn: () => fetchProgramRanking(selectedProgramId, periodStart),
     enabled: !!selectedProgramId,
   })
 
-  const selectedProgram = activePrograms.find(p => p.id === selectedProgramId)
+  // 본인 14일 점수 추세 (선택된 프로그램 + 본인) — sparkline 용
+  //   운영자가 trend_enabled 옵션 켜야만 fetch (불필요한 RPC 절약)
+  const { data: myScoreSeries = [] } = useQuery({
+    queryKey: queryKeys.myRecentScores(selectedProgramId, userId, 14),
+    queryFn: () => fetchMyRecentScoreSeries(selectedProgramId, userId, 14),
+    enabled: !!selectedProgramId && !!userId && trendVisible,
+  })
+
   const myRow = ranking.find(r => r.user_id === userId)
+
+  // 기간 필터가 꺼져있는데 사용자가 '7d'/'30d' 를 선택한 상태에서 다른 프로그램으로 전환했다면
+  // 자동으로 'all' 로 리셋 (운영자가 옵션 끈 의도 존중)
+  useEffect(() => {
+    if (!periodFilterVisible && period !== 'all') {
+      setPeriod('all')
+    }
+  }, [periodFilterVisible, period])
 
   // 포디움 / 본인 행 점프 관련 ─────────────────────────────────
   //   포디움은 (1) 프로그램 옵션 podium_enabled=true 이고 (2) 3명 이상일 때만 표시.
@@ -138,22 +177,61 @@ function RankingsPage() {
         })}
       </div>
 
-      {/* 본인 요약 카드 */}
+      {/* 시간 범위 토글 — 운영자가 period_filter_enabled 켰을 때만 노출 */}
+      {selectedProgram && periodFilterVisible && (
+        <div className="flex gap-1.5 mb-4 p-1 bg-gray-100 rounded-full">
+          {PERIOD_OPTIONS.map(opt => {
+            const isActive = opt.value === period
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setPeriod(opt.value)}
+                className={`
+                  flex-1 py-1.5 text-xs font-medium rounded-full transition
+                  ${isActive
+                    ? 'bg-white text-gray-800 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'}
+                `}
+              >
+                {opt.label}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {/* 본인 요약 카드 + 14일 추세 스파크라인 */}
       {selectedProgram && (
         <div className="bg-gradient-to-r from-emerald-50 via-emerald-50/80 to-teal-50 border border-emerald-100 rounded-2xl p-4 mb-4">
-          <p className="text-xs text-emerald-700 mb-1">{selectedProgram.name}</p>
+          <p className="text-xs text-emerald-700 mb-1">
+            {selectedProgram.name}
+            {period !== 'all' && (
+              <span className="ml-1.5 text-[10px] text-emerald-600/70">
+                · {PERIOD_OPTIONS.find(o => o.value === period)?.label} 기준
+              </span>
+            )}
+          </p>
           {isLoadingRanking ? (
             <LoadingState variant="inline" />
           ) : myRow ? (
-            <div className="flex items-end gap-3">
-              <p className="text-3xl font-bold text-emerald-700 leading-none">
-                {myRow.rank}<span className="text-base font-medium text-emerald-600">등</span>
-              </p>
-              <p className="text-sm text-gray-600 pb-0.5">
-                {myRow.total_score}P
-                <span className="text-gray-400 mx-1">·</span>
-                전체 {ranking.length}명 중
-              </p>
+            <div className="flex items-end gap-3 justify-between">
+              <div>
+                <div className="flex items-end gap-3">
+                  <p className="text-3xl font-bold text-emerald-700 leading-none">
+                    {myRow.rank}<span className="text-base font-medium text-emerald-600">등</span>
+                  </p>
+                  <p className="text-sm text-gray-600 pb-0.5">
+                    {myRow.total_score}P
+                    <span className="text-gray-400 mx-1">·</span>
+                    전체 {ranking.length}명 중
+                  </p>
+                </div>
+              </div>
+              {/* 14일 스파크라인 — 운영자가 trend_enabled 켰을 때만 노출 */}
+              {trendVisible && myScoreSeries.length > 0 && (
+                <ScoreSparkline series={myScoreSeries} />
+              )}
             </div>
           ) : (
             <p className="text-sm text-gray-500">
@@ -233,6 +311,43 @@ function RankingsPage() {
           </motion.button>
         )}
       </AnimatePresence>
+    </div>
+  )
+}
+
+// ─── 14일 점수 스파크라인 ────────────────────────────────────
+// SVG polyline + 마지막 점 강조. 모든 점수 0 이면 일직선 (max=1 로 가드).
+function ScoreSparkline({ series }) {
+  const w = 88
+  const h = 32
+  const max = Math.max(1, ...series.map(s => s.point))
+  const stepX = series.length > 1 ? w / (series.length - 1) : w
+  const pointsStr = series.map((s, i) => {
+    const x = i * stepX
+    const y = h - (s.point / max) * h
+    return `${x},${y}`
+  }).join(' ')
+  const last = series[series.length - 1]
+  const lastX = (series.length - 1) * stepX
+  const lastY = h - (last.point / max) * h
+  const total14d = series.reduce((sum, s) => sum + s.point, 0)
+  return (
+    <div className="flex flex-col items-end flex-shrink-0">
+      <div className="flex items-center gap-0.5 text-[10px] text-emerald-700 mb-0.5">
+        <TrendingUp className="w-3 h-3" />
+        <span>14일 +{total14d}P</span>
+      </div>
+      <svg width={w} height={h} className="overflow-visible">
+        <polyline
+          points={pointsStr}
+          fill="none"
+          stroke="rgb(16, 185, 129)"
+          strokeWidth="1.5"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+        <circle cx={lastX} cy={lastY} r="2.5" fill="rgb(16, 185, 129)" />
+      </svg>
     </div>
   )
 }

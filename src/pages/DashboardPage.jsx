@@ -11,6 +11,7 @@ import ProgramDetailModal from '../components/program/ProgramDetailModal'
 import DeleteProgramConfirmModal from '../components/program/DeleteProgramConfirmModal'
 import EmptyState from '../components/common/EmptyState'
 import LoadingState from '../components/common/LoadingState'
+import ProgramCover from '../components/common/ProgramCover'
 import {
   queryKeys,
   fetchMyPrograms,
@@ -365,7 +366,7 @@ function DashboardPage() {
       {/* 오늘의 미션 — 프로그램별 그루핑 (3개까지만, 전체보기 토글) */}
       <section className="mb-8">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="flex items-center gap-2 text-xl text-gray-800">
+          <h2 className="flex items-center gap-2 text-xl font-medium text-gray-800">
             ✨ 오늘의 미션
           </h2>
           {totalItemCount > 2 && (
@@ -549,7 +550,7 @@ function DashboardPage() {
       {/* 내가 만든 프로그램 — 최대 3개 요약 (전체는 /programs) */}
       <section className="mb-8">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="flex items-center gap-2 text-xl text-gray-800">
+          <h2 className="flex items-center gap-2 text-xl font-medium text-gray-800">
             <Activity className="w-5 h-5 text-emerald-500" />
             내 프로그램
           </h2>
@@ -611,41 +612,51 @@ function DashboardPage() {
                       setSelectedProgram(program)
                     }
                   }}
-                  className="bg-white border border-gray-200 rounded-2xl p-4 hover:shadow-md transition cursor-pointer"
+                  className="bg-white border border-gray-200 rounded-2xl p-3 hover:shadow-md transition cursor-pointer"
                 >
-                  <div className="flex items-start justify-between mb-2">
-                    <h3 className="font-medium text-gray-800">{program.name}</h3>
-                    <div className="flex items-center gap-2">
-                      <span className={`px-2 py-0.5 rounded text-xs ${statusClass}`}>
-                        {statusLabel}
-                      </span>
-                      {/* 삭제 — 모든 상태. DRAFT 는 simple confirm / PUBLISHED 는 이름 재입력 모달 */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleDelete(program)
-                        }}
-                        disabled={deleteMutation.isPending}
-                        className="p-1 text-gray-400 hover:text-red-500 transition disabled:opacity-40"
-                        title="삭제"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                  <div className="flex gap-3">
+                    <ProgramCover
+                      imagePath={program.cover_image_path}
+                      categories={program.categories}
+                      name={program.name}
+                      variant="thumb"
+                      className="w-16 h-16"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2 mb-1">
+                        <h3 className="font-medium text-gray-800 truncate">{program.name}</h3>
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <span className={`px-2 py-0.5 rounded text-xs ${statusClass}`}>
+                            {statusLabel}
+                          </span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDelete(program)
+                            }}
+                            disabled={deleteMutation.isPending}
+                            className="p-1 text-gray-400 hover:text-red-500 transition disabled:opacity-40"
+                            title="삭제"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                      {program.description && program.description.trim() !== program.name?.trim() && (
+                        <p className="text-xs text-gray-600 mb-1 line-clamp-1">
+                          {program.description}
+                        </p>
+                      )}
+                      <p className="text-xs text-gray-500">
+                        {formatKoreanDate(program.start_date)} ~ {formatKoreanDate(program.end_date)}
+                      </p>
+                      {isDraft && (
+                        <p className="text-[11px] text-emerald-600 mt-1">
+                          ✏️ 클릭하면 이어서 작성할 수 있어요
+                        </p>
+                      )}
                     </div>
                   </div>
-                  {program.description && (
-                    <p className="text-sm text-gray-600 mb-2 line-clamp-2">
-                      {program.description}
-                    </p>
-                  )}
-                  <p className="text-xs text-gray-500">
-                    {formatKoreanDate(program.start_date)} ~ {formatKoreanDate(program.end_date)}
-                  </p>
-                  {isDraft && (
-                    <p className="text-[11px] text-emerald-600 mt-1.5">
-                      ✏️ 클릭하면 이어서 작성할 수 있어요
-                    </p>
-                  )}
                 </motion.div>
               )
             })}
@@ -657,7 +668,7 @@ function DashboardPage() {
       {/* 참여 중인 프로그램 — 최대 3개 요약 */}
       <section className="mb-8">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="flex items-center gap-2 text-xl text-gray-800">
+          <h2 className="flex items-center gap-2 text-xl font-medium text-gray-800">
             🎯 참여 중인 프로그램
           </h2>
           {activePrograms.length > 2 && (
@@ -703,18 +714,14 @@ function DashboardPage() {
                   onClick={() => navigate(`/programs/${program.id}`)}
                   className={`${colors.bg} ${colors.border} border rounded-2xl p-3 hover:shadow-md transition cursor-pointer flex items-center gap-3`}
                 >
-                  {/* 일러스트 박스 — 본인의 public/illustrations/categories/{key}.png 있으면 자동 표시 */}
-                  <div className="w-16 h-16 flex-shrink-0 bg-white/70 rounded-2xl relative overflow-hidden">
-                    <span className="absolute inset-0 flex items-center justify-center text-3xl">
-                      {cat.emoji}
-                    </span>
-                    <img
-                      src={`/illustrations/categories/${cat.key}.png`}
-                      alt=""
-                      className="absolute inset-0 w-full h-full object-contain"
-                      onError={(e) => { e.currentTarget.style.display = 'none' }}
-                    />
-                  </div>
+                  {/* 표지 사진 — cover_image_path 있으면 그 이미지, 없으면 카테고리 이모지 fallback */}
+                  <ProgramCover
+                    imagePath={program.cover_image_path}
+                    categories={program.categories}
+                    name={program.name}
+                    variant="thumb"
+                    className="w-16 h-16 rounded-2xl"
+                  />
 
                   {/* 정보 */}
                   <div className="flex-1 min-w-0">

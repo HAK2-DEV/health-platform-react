@@ -1,15 +1,21 @@
 import { useState } from 'react'
 import { CATEGORY_LIST, PROGRAM } from '../../../lib/constants'
 import { getTodayKST } from '../../../lib/formatters'
+import { useAuth } from '../../../hooks/useAuth'
+import CoverImageUploader from '../../common/CoverImageUploader'
 
 // 운영 요일 / 제외 기간 은 미션 단위로 이동 (032 마이그레이션, MissionCreateModal 에서 설정).
 // 프로그램에는 더 이상 세부 설정 토글이 없음.
 function Step1Basic({ initialData, onNext, onSave }) {
+  const { session } = useAuth()
+  const ownerId = session?.user?.id
+
   const [name, setName] = useState(initialData?.name || '')
   const [description, setDescription] = useState(initialData?.description || '')
   const [startDate, setStartDate] = useState(initialData?.start_date || '')
   const [endDate, setEndDate] = useState(initialData?.end_date || '')
   const [categories, setCategories] = useState(initialData?.categories || [])
+  const [coverImagePath, setCoverImagePath] = useState(initialData?.cover_image_path || null)
   const [error, setError] = useState(null)
 
   // 카테고리 토글
@@ -45,6 +51,7 @@ function Step1Basic({ initialData, onNext, onSave }) {
     start_date: startDate || null,
     end_date: endDate || null,
     categories,
+    cover_image_path: coverImagePath,
   })
 
   const handleNext = () => {
@@ -75,7 +82,21 @@ function Step1Basic({ initialData, onNext, onSave }) {
       <p className="text-sm text-gray-600 mb-6">
         프로그램의 기본 정보를 입력해주세요
       </p>
-      
+
+      {/* 대표 사진 (선택) — 카테고리 선택 전이면 ETC 이모지 fallback */}
+      <div className="mb-5">
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          대표 사진 (선택)
+        </label>
+        <CoverImageUploader
+          ownerId={ownerId}
+          imagePath={coverImagePath}
+          onChange={setCoverImagePath}
+          categories={categories}
+          name={name}
+        />
+      </div>
+
       {/* 프로그램 이름 */}
       <div className="mb-5">
         <label className="block text-sm font-medium text-gray-700 mb-1">

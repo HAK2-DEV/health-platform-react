@@ -93,6 +93,8 @@ function Step4Summary({ initialData, programId, onPrev }) {
                 initialData?.feed_enabled && '📷 피드',
                 (initialData?.ranking_enabled === false) ? '🚫 랭킹 미표시' : '📈 랭킹',
                 initialData?.podium_enabled && '🏆 포디움',
+                initialData?.trend_enabled && '📊 추세',
+                initialData?.period_filter_enabled && '⏱️ 기간 필터',
               ].filter(Boolean).join(' · ') || '기본'}
             </dd>
           </div>

@@ -16,6 +16,7 @@ import {
 } from '../../lib/queries'
 import EmptyState from '../../components/common/EmptyState'
 import LoadingState from '../../components/common/LoadingState'
+import ProgramCover from '../../components/common/ProgramCover'
 
 // 📋 프로그램 탭 — 3섹션 전체 표시
 // 본인 [feedback_state_consistency] — 대시보드 "내 프로그램" 과 동일 동작 + 동일 캐시
@@ -104,7 +105,7 @@ function ProgramListPage() {
       {/* 내 프로그램 — 3개 + 전체보기 + framer */}
       <section className="mb-8">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="flex items-center gap-2 text-lg text-gray-800">
+          <h2 className="flex items-center gap-2 text-lg font-medium text-gray-800">
             <Activity className="w-5 h-5 text-emerald-500" />
             내 프로그램 <span className="text-sm text-gray-500">({myPrograms.length})</span>
           </h2>
@@ -149,38 +150,49 @@ function ProgramListPage() {
                         setSelectedProgram(program)
                       }
                     }}
-                    className="bg-white border border-gray-200 rounded-2xl p-4 hover:shadow-md transition cursor-pointer"
+                    className="bg-white border border-gray-200 rounded-2xl p-3 hover:shadow-md transition cursor-pointer"
                   >
-                    <div className="flex items-start justify-between mb-2">
-                      <h3 className="font-medium text-gray-800">{program.name}</h3>
-                      <div className="flex items-center gap-2">
-                        <span className={`px-2 py-0.5 rounded text-xs ${statusClass}`}>
-                          {statusLabel}
-                        </span>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleDelete(program)
-                          }}
-                          disabled={deleteMutation.isPending}
-                          className="p-1 text-gray-400 hover:text-red-500 transition disabled:opacity-40"
-                          title="삭제"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                    <div className="flex gap-3">
+                      <ProgramCover
+                        imagePath={program.cover_image_path}
+                        categories={program.categories}
+                        name={program.name}
+                        variant="thumb"
+                        className="w-16 h-16"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <h3 className="font-medium text-gray-800 truncate">{program.name}</h3>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <span className={`px-2 py-0.5 rounded text-xs ${statusClass}`}>
+                              {statusLabel}
+                            </span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleDelete(program)
+                              }}
+                              disabled={deleteMutation.isPending}
+                              className="p-1 text-gray-400 hover:text-red-500 transition disabled:opacity-40"
+                              title="삭제"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                        {program.description && program.description.trim() !== program.name?.trim() && (
+                          <p className="text-xs text-gray-600 mb-1 line-clamp-1">{program.description}</p>
+                        )}
+                        <p className="text-xs text-gray-500">
+                          {formatKoreanDate(program.start_date)} ~ {formatKoreanDate(program.end_date)}
+                        </p>
+                        {isDraft && (
+                          <p className="text-[11px] text-emerald-600 mt-1">
+                            ✏️ 클릭하면 이어서 작성할 수 있어요
+                          </p>
+                        )}
                       </div>
                     </div>
-                    {program.description && (
-                      <p className="text-sm text-gray-600 mb-2 line-clamp-2">{program.description}</p>
-                    )}
-                    <p className="text-xs text-gray-500">
-                      {formatKoreanDate(program.start_date)} ~ {formatKoreanDate(program.end_date)}
-                    </p>
-                    {isDraft && (
-                      <p className="text-[11px] text-emerald-600 mt-1.5">
-                        ✏️ 클릭하면 이어서 작성할 수 있어요
-                      </p>
-                    )}
                   </motion.div>
                 )
               })}
@@ -192,7 +204,7 @@ function ProgramListPage() {
       {/* 참여 중인 프로그램 — 3개 + 전체보기 토글 + framer 애니메이션 */}
       <section className="mb-8">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="flex items-center gap-2 text-lg text-gray-800">
+          <h2 className="flex items-center gap-2 text-lg font-medium text-gray-800">
             🎯 참여 중인 프로그램 <span className="text-sm text-gray-500">({activePrograms.length})</span>
           </h2>
           {activePrograms.length > 2 && (
@@ -223,15 +235,26 @@ function ProgramListPage() {
                   exit={{ opacity: 0, scale: 0.96 }}
                   transition={{ duration: 0.25, ease: 'easeOut' }}
                   onClick={() => navigate(`/programs/${program.id}`)}
-                  className="bg-white border border-gray-200 rounded-2xl p-4 hover:shadow-md transition cursor-pointer"
+                  className="bg-white border border-gray-200 rounded-2xl p-3 hover:shadow-md transition cursor-pointer"
                 >
-                  <h3 className="font-medium text-gray-800 mb-2">{program.name}</h3>
-                  {program.description && (
-                    <p className="text-sm text-gray-600 mb-2 line-clamp-2">{program.description}</p>
-                  )}
-                  <p className="text-xs text-gray-500">
-                    {formatKoreanDate(program.start_date)} ~ {formatKoreanDate(program.end_date)}
-                  </p>
+                  <div className="flex gap-3">
+                    <ProgramCover
+                      imagePath={program.cover_image_path}
+                      categories={program.categories}
+                      name={program.name}
+                      variant="thumb"
+                      className="w-16 h-16"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-medium text-gray-800 mb-1 truncate">{program.name}</h3>
+                      {program.description && program.description.trim() !== program.name?.trim() && (
+                        <p className="text-xs text-gray-600 mb-1 line-clamp-1">{program.description}</p>
+                      )}
+                      <p className="text-xs text-gray-500">
+                        {formatKoreanDate(program.start_date)} ~ {formatKoreanDate(program.end_date)}
+                      </p>
+                    </div>
+                  </div>
                 </motion.div>
               ))}
             </AnimatePresence>
@@ -242,7 +265,7 @@ function ProgramListPage() {
       {/* 공개 둘러보기 — 3개 + 전체보기 토글 + framer 애니메이션 */}
       <section className="mb-8">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="flex items-center gap-2 text-lg text-gray-800">
+          <h2 className="flex items-center gap-2 text-lg font-medium text-gray-800">
             🔍 공개 프로그램 둘러보기 <span className="text-sm text-gray-500">({publicPrograms.length})</span>
           </h2>
           {publicPrograms.length > 2 && (
@@ -273,15 +296,26 @@ function ProgramListPage() {
                   exit={{ opacity: 0, scale: 0.96 }}
                   transition={{ duration: 0.25, ease: 'easeOut' }}
                   onClick={() => setSelectedProgram(program)}
-                  className="bg-white border border-gray-200 rounded-2xl p-4 hover:shadow-md transition cursor-pointer"
+                  className="bg-white border border-gray-200 rounded-2xl p-3 hover:shadow-md transition cursor-pointer"
                 >
-                  <h3 className="font-medium text-gray-800 mb-2">{program.name}</h3>
-                  {program.description && (
-                    <p className="text-sm text-gray-600 mb-2 line-clamp-2">{program.description}</p>
-                  )}
-                  <p className="text-xs text-gray-500">
-                    {formatKoreanDate(program.start_date)} ~ {formatKoreanDate(program.end_date)}
-                  </p>
+                  <div className="flex gap-3">
+                    <ProgramCover
+                      imagePath={program.cover_image_path}
+                      categories={program.categories}
+                      name={program.name}
+                      variant="thumb"
+                      className="w-16 h-16"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-medium text-gray-800 mb-1 truncate">{program.name}</h3>
+                      {program.description && program.description.trim() !== program.name?.trim() && (
+                        <p className="text-xs text-gray-600 mb-1 line-clamp-1">{program.description}</p>
+                      )}
+                      <p className="text-xs text-gray-500">
+                        {formatKoreanDate(program.start_date)} ~ {formatKoreanDate(program.end_date)}
+                      </p>
+                    </div>
+                  </div>
                 </motion.div>
               ))}
             </AnimatePresence>

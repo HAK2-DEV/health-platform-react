@@ -3,6 +3,7 @@ import Modal from '../common/Modal'
 import { supabase } from '../../supabaseClient'
 import { CATEGORY_LIST, PROGRAM } from '../../lib/constants'
 import { formatKoreanDate } from '../../lib/formatters'
+import CoverImageUploader from '../common/CoverImageUploader'
 
 // 운영자가 PUBLISHED 프로그램의 안전 항목만 수정.
 // 수정 가능: name, description, categories, end_date, max_participants, is_public
@@ -20,6 +21,9 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
   const [isPublic, setIsPublic] = useState(false)
   const [feedEnabled, setFeedEnabled] = useState(false)
   const [podiumEnabled, setPodiumEnabled] = useState(false)
+  const [trendEnabled, setTrendEnabled] = useState(false)
+  const [periodFilterEnabled, setPeriodFilterEnabled] = useState(false)
+  const [coverImagePath, setCoverImagePath] = useState(null)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState(null)
 
@@ -34,6 +38,9 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
       setIsPublic(!!program.is_public)
       setFeedEnabled(!!program.feed_enabled)
       setPodiumEnabled(!!program.podium_enabled)
+      setTrendEnabled(!!program.trend_enabled)
+      setPeriodFilterEnabled(!!program.period_filter_enabled)
+      setCoverImagePath(program.cover_image_path || null)
       setError(null)
       setIsSaving(false)
     }
@@ -84,6 +91,9 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
         is_public: isPublic,
         feed_enabled: feedEnabled,
         podium_enabled: podiumEnabled,
+        trend_enabled: trendEnabled,
+        period_filter_enabled: periodFilterEnabled,
+        cover_image_path: coverImagePath,
       })
       .eq('id', program.id)
 
@@ -102,9 +112,27 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
     <Modal isOpen={isOpen} onClose={onClose}>
       {program && (
         <div className="p-6">
-          <h2 className="text-xl font-medium text-gray-800 mb-4 pr-8">
-            프로그램 수정
+          <h2 className="text-xl font-medium text-gray-800 mb-1 pr-8">
+            ✏️ 프로그램 수정
           </h2>
+          <p className="text-xs text-gray-500 mb-4">
+            {program.name}
+          </p>
+
+          {/* 대표 사진 */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              대표 사진 (선택)
+            </label>
+            <CoverImageUploader
+              ownerId={program.owner_id}
+              imagePath={coverImagePath}
+              onChange={setCoverImagePath}
+              categories={categories}
+              name={name}
+              disabled={isSaving}
+            />
+          </div>
 
           {/* 이름 */}
           <div className="mb-4">
@@ -262,7 +290,7 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
             onClick={() => setPodiumEnabled(!podiumEnabled)}
             disabled={isSaving}
             className={`
-              w-full mb-4 p-3 rounded-lg border-2 text-left transition disabled:opacity-50
+              w-full mb-3 p-3 rounded-lg border-2 text-left transition disabled:opacity-50
               ${podiumEnabled
                 ? 'border-amber-500 bg-amber-50'
                 : 'border-gray-200 bg-white hover:border-gray-300'}
@@ -285,6 +313,74 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
                 <div className={`
                   absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform
                   ${podiumEnabled ? 'translate-x-4' : 'translate-x-0.5'}
+                `} />
+              </div>
+            </div>
+          </button>
+
+          {/* 본인 14일 점수 추세 표시 */}
+          <button
+            type="button"
+            onClick={() => setTrendEnabled(!trendEnabled)}
+            disabled={isSaving}
+            className={`
+              w-full mb-3 p-3 rounded-lg border-2 text-left transition disabled:opacity-50
+              ${trendEnabled
+                ? 'border-violet-500 bg-violet-50'
+                : 'border-gray-200 bg-white hover:border-gray-300'}
+            `}
+          >
+            <div className="flex items-start gap-2.5">
+              <span className="text-xl">📊</span>
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm font-medium ${trendEnabled ? 'text-violet-700' : 'text-gray-800'}`}>
+                  본인 14일 점수 추세 표시
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  본인 요약 카드에 최근 14일 점수 스파크라인. 꾸준함 시각화.
+                </p>
+              </div>
+              <div className={`
+                relative w-9 h-5 rounded-full flex-shrink-0 transition mt-0.5
+                ${trendEnabled ? 'bg-violet-500' : 'bg-gray-300'}
+              `}>
+                <div className={`
+                  absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform
+                  ${trendEnabled ? 'translate-x-4' : 'translate-x-0.5'}
+                `} />
+              </div>
+            </div>
+          </button>
+
+          {/* 기간 필터 표시 */}
+          <button
+            type="button"
+            onClick={() => setPeriodFilterEnabled(!periodFilterEnabled)}
+            disabled={isSaving}
+            className={`
+              w-full mb-4 p-3 rounded-lg border-2 text-left transition disabled:opacity-50
+              ${periodFilterEnabled
+                ? 'border-cyan-500 bg-cyan-50'
+                : 'border-gray-200 bg-white hover:border-gray-300'}
+            `}
+          >
+            <div className="flex items-start gap-2.5">
+              <span className="text-xl">⏱️</span>
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm font-medium ${periodFilterEnabled ? 'text-cyan-700' : 'text-gray-800'}`}>
+                  기간 필터 표시 (최근 7일 / 30일)
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  참여자가 '전체 / 최근 7일 / 최근 30일' 토글로 단기 분위기 확인 가능.
+                </p>
+              </div>
+              <div className={`
+                relative w-9 h-5 rounded-full flex-shrink-0 transition mt-0.5
+                ${periodFilterEnabled ? 'bg-cyan-500' : 'bg-gray-300'}
+              `}>
+                <div className={`
+                  absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform
+                  ${periodFilterEnabled ? 'translate-x-4' : 'translate-x-0.5'}
                 `} />
               </div>
             </div>

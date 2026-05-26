@@ -11,6 +11,7 @@ import StickyBackBar from '../../components/common/StickyBackBar'
 import UserAvatar from '../../components/common/UserAvatar'
 import EmptyState from '../../components/common/EmptyState'
 import LoadingState from '../../components/common/LoadingState'
+import ProgramCover from '../../components/common/ProgramCover'
 import ProgramEditModal from '../../components/program/ProgramEditModal'
 import MissionCreateModal from '../../components/program/MissionCreateModal'
 import MissionLibraryModal from '../../components/program/MissionLibraryModal'
@@ -153,8 +154,15 @@ function ProgramDetailPage() {
     <div className="px-4 pt-2 pb-6 max-w-4xl mx-auto">
       <StickyBackBar onClick={() => navigate(-1)} />
 
-      {/* 프로그램 헤더 */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
+      {/* 프로그램 헤더 — 표지 사진 + 정보 */}
+      <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden mb-6">
+        <ProgramCover
+          imagePath={program.cover_image_path}
+          categories={program.categories}
+          name={program.name}
+          variant="card"
+        />
+        <div className="p-6">
         <div className="flex items-start justify-between mb-3">
           <h1 className="text-2xl font-medium text-gray-800">{program.name}</h1>
           {(() => {
@@ -169,7 +177,10 @@ function ProgramDetailPage() {
           })()}
         </div>
 
-        {program.description && (
+        {/* description 이 name 과 다를 때만 표시 — 중복 회피 (ProgramDetailModal 과 동일 규칙) */}
+        {program.description
+          && program.description.trim()
+          && program.description.trim() !== program.name?.trim() && (
           <p className="text-gray-600 mb-3 whitespace-pre-wrap">{program.description}</p>
         )}
 
@@ -178,6 +189,7 @@ function ProgramDetailPage() {
             📅 {formatKoreanDate(program.start_date)} ~ {formatKoreanDate(program.end_date)}
           </p>
         )}
+        </div>
       </div>
 
       {/* 운영자 패널 */}
