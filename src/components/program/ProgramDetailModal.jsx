@@ -5,7 +5,7 @@ import Modal from '../common/Modal'
 import { formatKoreanDate } from '../../lib/formatters'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
-import { CATEGORY, JOIN_TYPE } from '../../lib/constants'
+import { CATEGORY } from '../../lib/constants'
 import { queryKeys } from '../../lib/queries'
 
 // 참여 상태: 'loading' | 'owner' | 'active' | 'pending' | 'rejected' | 'none'
@@ -135,15 +135,6 @@ function ProgramDetailModal({ program, isOpen, onClose }) {
     .filter(Boolean)
     .join(', ')
 
-  const joinTypeLabel = Object.values(JOIN_TYPE)
-    .find(j => j.key === program?.join_type)?.label || '자유 참여'
-
-  const optionLabels = [
-    program?.feed_enabled && '📷 피드',
-    program?.podium_enabled && '🏆 포디움',
-    program?.ranking_enabled === false && '🚫 랭킹 미표시',
-  ].filter(Boolean).join(' · ') || '기본'
-
   // 기간 검증 (시작 전 / 종료 후 차단)
   const now = new Date()
   const programStart = program?.start_date
@@ -206,20 +197,6 @@ function ProgramDetailModal({ program, isOpen, onClose }) {
                   <dd className="flex-1 text-gray-800">{categoryLabels}</dd>
                 </div>
               )}
-              <div className="flex">
-                <dt className="w-20 text-gray-500 flex-shrink-0">옵션</dt>
-                <dd className="flex-1 text-gray-800">{optionLabels}</dd>
-              </div>
-              <div className="flex">
-                <dt className="w-20 text-gray-500 flex-shrink-0">참여 방식</dt>
-                <dd className="flex-1 text-gray-800">{joinTypeLabel}</dd>
-              </div>
-              <div className="flex">
-                <dt className="w-20 text-gray-500 flex-shrink-0">공개 여부</dt>
-                <dd className="flex-1 text-gray-800">
-                  {program.is_public ? '공개 (둘러보기에 노출)' : '비공개'}
-                </dd>
-              </div>
               {program.max_participants && (
                 <div className="flex">
                   <dt className="w-20 text-gray-500 flex-shrink-0">정원</dt>

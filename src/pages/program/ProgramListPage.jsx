@@ -1,10 +1,10 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
-import { Plus, Activity, Trash2, ChevronRight } from 'lucide-react'
+import { Plus, Activity, Trash2, ChevronRight, Search, X } from 'lucide-react'
 import { formatKoreanDate, isUpcomingByStartDate } from '../../lib/formatters'
 import ProgramDetailModal from '../../components/program/ProgramDetailModal'
 import DeleteProgramConfirmModal from '../../components/program/DeleteProgramConfirmModal'
@@ -17,6 +17,7 @@ import {
 import EmptyState from '../../components/common/EmptyState'
 import LoadingState from '../../components/common/LoadingState'
 import ProgramCover from '../../components/common/ProgramCover'
+import PageHeader from '../../components/common/PageHeader'
 
 // 📋 프로그램 탭 — 3섹션 전체 표시
 // 본인 [feedback_state_consistency] — 대시보드 "내 프로그램" 과 동일 동작 + 동일 캐시
@@ -32,6 +33,9 @@ function ProgramListPage() {
   const [showAllMy, setShowAllMy] = useState(false)
   const [showAllActive, setShowAllActive] = useState(false)
   const [showAllPublic, setShowAllPublic] = useState(false)
+  // 검색 — 3섹션 모두 클라이언트 측 필터링 (name + description 매칭)
+  const [searchQuery, setSearchQuery] = useState('')
+  const isSearching = searchQuery.trim().length > 0
 
   // ─── React Query — 대시보드와 같은 캐시 키 공유 ──────────
   const { data: myPrograms = [], isLoading: isMyLoading } = useQuery({
@@ -51,6 +55,25 @@ function ProgramListPage() {
     queryFn: () => fetchPublicPrograms(userId),
     enabled: !!userId,
   })
+
+  // 검색 필터 — name 또는 description 에 query 포함 (대소문자 무시)
+  const filterByQuery = (programs) => {
+    if (!isSearching) return programs
+    const q = searchQuery.trim().toLowerCase()
+    return programs.filter(p =>
+      (p.name || '').toLowerCase().includes(q)
+      || (p.description || '').toLowerCase().includes(q)
+    )
+  }
+
+  const filteredMy = useMemo(() => filterByQuery(myPrograms), [myPrograms, searchQuery])
+  const filteredActive = useMemo(() => filterByQuery(activePrograms), [activePrograms, searchQuery])
+  const filteredPublic = useMemo(() => filterByQuery(publicPrograms), [publicPrograms, searchQuery])
+
+  // 검색 중에는 전체보기 토글 무관 — 매칭된 결과 모두 노출
+  const displayedMy = isSearching ? filteredMy : (showAllMy ? filteredMy : filteredMy.slice(0, 2))
+  const displayedActive = isSearching ? filteredActive : (showAllActive ? filteredActive : filteredActive.slice(0, 2))
+  const displayedPublic = isSearching ? filteredPublic : (showAllPublic ? filteredPublic : filteredPublic.slice(0, 2))
 
   // ─── 삭제 — DashboardPage 와 동일 패턴 ────────────────
   const deleteMutation = useMutation({
@@ -90,26 +113,49 @@ function ProgramListPage() {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-2xl text-gray-800 mb-6">📋 프로그램</h1>
+    <div className="p-4 max-w-4xl mx-auto">
+      {/* 페이지 타이틀 — 공통 PageHeader */}
+      <PageHeader>📋 프로그램</PageHeader>
 
-      {/* CTA — 프로그램 생성하기 (Dashboard 와 동일 패턴, 높이 살짝 줄임) */}
-      <Link
-        to="/programs/new"
-        className="flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-medium py-2.5 rounded-2xl shadow-md shadow-emerald-200/40 mb-8 transition"
-      >
-        <Plus className="w-5 h-5" />
-        프로그램 생성하기
-      </Link>
+      {/* 검색바 — 3섹션 모두 클라이언트 측 필터 */}
+      <div className="relative mb-6">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="프로그램 이름이나 설명 검색..."
+          className="w-full pl-9 pr-9 py-2.5 bg-gray-50 border border-gray-200 rounded-2xl text-sm focus:outline-none focus:bg-white focus:border-emerald-400 transition"
+        />
+        {isSearching && (
+          <button
+            type="button"
+            onClick={() => setSearchQuery('')}
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 transition"
+            title="검색 지우기"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
+      </div>
 
-      {/* 내 프로그램 — 3개 + 전체보기 + framer */}
+      {/* 검색 중일 때 결과 요약 — 모든 섹션 매칭 0개면 안내 */}
+      {isSearching && filteredMy.length + filteredActive.length + filteredPublic.length === 0 && (
+        <EmptyState
+          icon="🔍"
+          title="검색 결과가 없어요"
+          description={`"${searchQuery.trim()}" 와 일치하는 프로그램이 없어요`}
+        />
+      )}
+
+      {/* 내 프로그램 — 헤더 + "+ 생성하기" 버튼 + 카드 */}
       <section className="mb-8">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-3">
           <h2 className="flex items-center gap-2 text-lg font-medium text-gray-800">
             <Activity className="w-5 h-5 text-emerald-500" />
-            내 프로그램 <span className="text-sm text-gray-500">({myPrograms.length})</span>
+            내 프로그램 <span className="text-sm text-gray-500">({filteredMy.length})</span>
           </h2>
-          {myPrograms.length > 2 && (
+          {!isSearching && myPrograms.length > 2 && (
             <button
               type="button"
               onClick={() => setShowAllMy(!showAllMy)}
@@ -121,14 +167,27 @@ function ProgramListPage() {
           )}
         </div>
 
+        {/* 프로그램 생성하기 — 내 프로그램 섹션의 첫 줄. 검색 중에는 숨김 */}
+        {!isSearching && (
+          <Link
+            to="/programs/new"
+            className="flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-medium py-2.5 rounded-2xl shadow-md shadow-emerald-200/40 mb-3 transition"
+          >
+            <Plus className="w-5 h-5" />
+            프로그램 생성하기
+          </Link>
+        )}
+
         {isMyLoading ? (
           <LoadingState size="sm" />
         ) : myPrograms.length === 0 ? (
-          <EmptyState icon="📋" title="아직 만든 프로그램이 없어요" size="sm" />
+          !isSearching && <EmptyState icon="📋" title="아직 만든 프로그램이 없어요" size="sm" />
+        ) : displayedMy.length === 0 ? (
+          isSearching && <p className="text-xs text-gray-400 text-center py-3">매칭된 내 프로그램이 없어요</p>
         ) : (
           <motion.div layout className="grid gap-3">
             <AnimatePresence initial={false}>
-              {(showAllMy ? myPrograms : myPrograms.slice(0, 2)).map(program => {
+              {displayedMy.map(program => {
                 const isDraft = program.status === 'DRAFT'
                 const isUpcoming = !isDraft && isUpcomingByStartDate(program.start_date)
                 const statusLabel = isDraft ? '임시저장' : isUpcoming ? '예정' : '진행중'
@@ -201,13 +260,13 @@ function ProgramListPage() {
         )}
       </section>
 
-      {/* 참여 중인 프로그램 — 3개 + 전체보기 토글 + framer 애니메이션 */}
-      <section className="mb-8">
-        <div className="flex items-center justify-between mb-4">
+      {/* 참여 중인 프로그램 — 파스텔 sky/emerald 박스로 감싸 시각 구분 */}
+      <section className="mb-6 p-4 rounded-2xl bg-gradient-to-br from-sky-50 via-cyan-50/60 to-emerald-50/40 border border-sky-100/50">
+        <div className="flex items-center justify-between mb-3">
           <h2 className="flex items-center gap-2 text-lg font-medium text-gray-800">
-            🎯 참여 중인 프로그램 <span className="text-sm text-gray-500">({activePrograms.length})</span>
+            🎯 참여 중인 프로그램 <span className="text-sm text-gray-500">({filteredActive.length})</span>
           </h2>
-          {activePrograms.length > 2 && (
+          {!isSearching && activePrograms.length > 2 && (
             <button
               type="button"
               onClick={() => setShowAllActive(!showAllActive)}
@@ -222,11 +281,13 @@ function ProgramListPage() {
         {isActiveLoading ? (
           <LoadingState />
         ) : activePrograms.length === 0 ? (
-          <EmptyState icon="🎯" title="아직 참여한 프로그램이 없어요" />
+          !isSearching && <EmptyState icon="🎯" title="아직 참여한 프로그램이 없어요" />
+        ) : displayedActive.length === 0 ? (
+          isSearching && <p className="text-xs text-gray-400 text-center py-3">매칭된 참여 프로그램이 없어요</p>
         ) : (
           <motion.div layout className="grid gap-3">
             <AnimatePresence initial={false}>
-              {(showAllActive ? activePrograms : activePrograms.slice(0, 2)).map(program => (
+              {displayedActive.map(program => (
                 <motion.div
                   key={program.id}
                   layout
@@ -262,13 +323,13 @@ function ProgramListPage() {
         )}
       </section>
 
-      {/* 공개 둘러보기 — 3개 + 전체보기 토글 + framer 애니메이션 */}
-      <section className="mb-8">
-        <div className="flex items-center justify-between mb-4">
+      {/* 공개 둘러보기 — 파스텔 violet/pink 박스로 감싸 시각 구분 */}
+      <section className="mb-6 p-4 rounded-2xl bg-gradient-to-br from-violet-100/70 via-purple-50/80 to-pink-100/50 border border-violet-200/50">
+        <div className="flex items-center justify-between mb-3">
           <h2 className="flex items-center gap-2 text-lg font-medium text-gray-800">
-            🔍 공개 프로그램 둘러보기 <span className="text-sm text-gray-500">({publicPrograms.length})</span>
+            🔍 둘러보기 <span className="text-sm text-gray-500">({filteredPublic.length})</span>
           </h2>
-          {publicPrograms.length > 2 && (
+          {!isSearching && publicPrograms.length > 2 && (
             <button
               type="button"
               onClick={() => setShowAllPublic(!showAllPublic)}
@@ -283,11 +344,13 @@ function ProgramListPage() {
         {isPublicLoading ? (
           <LoadingState />
         ) : publicPrograms.length === 0 ? (
-          <EmptyState icon="🔍" title="아직 둘러볼 공개 프로그램이 없어요" />
+          !isSearching && <EmptyState icon="🔍" title="아직 둘러볼 공개 프로그램이 없어요" />
+        ) : displayedPublic.length === 0 ? (
+          isSearching && <p className="text-xs text-gray-400 text-center py-3">매칭된 둘러보기 프로그램이 없어요</p>
         ) : (
           <motion.div layout className="grid gap-3">
             <AnimatePresence initial={false}>
-              {(showAllPublic ? publicPrograms : publicPrograms.slice(0, 2)).map(program => (
+              {displayedPublic.map(program => (
                 <motion.div
                   key={program.id}
                   layout

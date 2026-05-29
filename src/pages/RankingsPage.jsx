@@ -14,6 +14,7 @@ import {
 import UserAvatar from '../components/common/UserAvatar'
 import EmptyState from '../components/common/EmptyState'
 import LoadingState from '../components/common/LoadingState'
+import PageHeader from '../components/common/PageHeader'
 
 // 시간 범위 옵션 — period 값을 ISO 시작점 문자열로 변환
 const PERIOD_OPTIONS = [
@@ -129,10 +130,10 @@ function RankingsPage() {
   if (activePrograms.length === 0) {
     return (
       <div className="px-4 pt-4 max-w-4xl mx-auto">
-        <h1 className="flex items-center gap-2 text-2xl text-gray-800 mb-4">
-          <Trophy className="w-5 h-5 text-amber-500" />
+        <PageHeader>
+          <Trophy className="w-6 h-6 text-amber-500" />
           랭킹
-        </h1>
+        </PageHeader>
         <EmptyState
           icon="🏆"
           title="참여 중인 프로그램이 없어요"
@@ -147,10 +148,10 @@ function RankingsPage() {
 
   return (
     <div className="px-4 pt-4 pb-6 max-w-4xl mx-auto">
-      <h1 className="flex items-center gap-2 text-2xl text-gray-800 mb-4">
-        <Trophy className="w-5 h-5 text-amber-500" />
+      <PageHeader>
+        <Trophy className="w-6 h-6 text-amber-500" />
         랭킹
-      </h1>
+      </PageHeader>
 
       {/* 프로그램 선택 칩 */}
       <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 mb-4 scrollbar-hide">
@@ -371,7 +372,7 @@ function PodiumTop3({ top3, userId }) {
         crown: '👑',
         rankColor: 'text-amber-700',
         scoreColor: 'text-amber-700',
-        height: 'h-44',
+        height: 'min-h-[11rem]',
         scale: 'scale-100',
       },
       2: {
@@ -381,7 +382,7 @@ function PodiumTop3({ top3, userId }) {
         crown: null,
         rankColor: 'text-gray-600',
         scoreColor: 'text-gray-700',
-        height: 'h-36',
+        height: 'min-h-[9rem]',
         scale: 'scale-95',
       },
       3: {
@@ -391,7 +392,7 @@ function PodiumTop3({ top3, userId }) {
         crown: null,
         rankColor: 'text-orange-700',
         scoreColor: 'text-orange-700',
-        height: 'h-32',
+        height: 'min-h-[8.5rem]',
         scale: 'scale-95',
       },
     }

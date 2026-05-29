@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { Camera, X } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
 import ProgramCover from './ProgramCover'
+import ImageCropModal from './ImageCropModal'
 
 // 프로그램 표지 사진 업로더 — 마법사 Step 1 + ProgramEditModal 재사용
 // props:
@@ -14,57 +15,74 @@ import ProgramCover from './ProgramCover'
 //   disabled:   상위 폼이 저장 중일 때 비활성화
 //
 // 동작:
-//   - 파일 선택 → 검증(5MB) → 기존 이미지 있으면 storage 에서 삭제 → 새 파일 업로드 → onChange(newPath)
+//   - 파일 선택 → 검증(10MB) → 크롭 모달(16:9) → 1200x675 Blob → 기존 삭제 후 업로드 → onChange(newPath)
 //   - 삭제 버튼 → storage 삭제 + onChange(null)
 //   - 업로드 중 로딩 표시 (덮개 + 스피너)
 
-const MAX_SIZE_BYTES = 5 * 1024 * 1024  // 5MB
+const MAX_SIZE_BYTES = 10 * 1024 * 1024  // 10MB (crop 후 축소되므로 원본은 넉넉히)
 
 function CoverImageUploader({ ownerId, imagePath, onChange, categories, name, disabled }) {
   const inputRef = useRef(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState(null)
+  // 크롭 모달 — 파일 선택 시 바로 업로드하지 않고 크롭 먼저
+  const [cropImageSrc, setCropImageSrc] = useState(null)
+  const [isCropOpen, setIsCropOpen] = useState(false)
 
   const triggerPick = () => {
     if (disabled || uploading) return
     inputRef.current?.click()
   }
 
-  const handleFile = async (e) => {
+  // 파일 선택 → 크롭 모달 열기 (업로드는 크롭 후)
+  const handleFile = (e) => {
     const file = e.target.files?.[0]
-    // input 값 리셋 — 같은 파일 다시 선택 가능하게
-    e.target.value = ''
+    e.target.value = '' // 같은 파일 다시 선택 가능하게
     if (!file || !ownerId) return
 
     if (file.size > MAX_SIZE_BYTES) {
-      setError('이미지가 너무 커요 (최대 5MB)')
+      setError('이미지가 너무 커요 (최대 10MB)')
       return
     }
     if (!file.type.startsWith('image/')) {
       setError('이미지 파일만 업로드 가능해요')
       return
     }
+    setError(null)
+    const url = URL.createObjectURL(file)
+    setCropImageSrc(url)
+    setIsCropOpen(true)
+  }
 
+  const closeCropModal = () => {
+    setIsCropOpen(false)
+    setCropImageSrc(prev => {
+      if (prev) URL.revokeObjectURL(prev)
+      return null
+    })
+  }
+
+  // 크롭 완료 → 1200x675 JPEG Blob 업로드
+  const handleCropComplete = async (blob) => {
     setUploading(true)
     setError(null)
-
     try {
       // 1) 기존 이미지가 있으면 먼저 storage 에서 삭제 (orphan 방지)
       if (imagePath) {
         await supabase.storage.from('program-covers').remove([imagePath])
       }
 
-      // 2) 새 파일 업로드 — path: {ownerId}/{timestamp}.{ext}
-      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
-      const newPath = `${ownerId}/${Date.now()}.${ext}`
+      // 2) 새 파일 업로드 — crop 결과는 항상 jpeg
+      const newPath = `${ownerId}/${Date.now()}.jpg`
       const { error: upErr } = await supabase.storage
         .from('program-covers')
-        .upload(newPath, file, { upsert: false, contentType: file.type })
+        .upload(newPath, blob, { upsert: false, contentType: 'image/jpeg' })
 
       if (upErr) throw upErr
 
-      // 3) 부모에 새 path 알림
+      // 3) 부모에 새 path 알림 + 모달 닫기
       onChange(newPath)
+      closeCropModal()
     } catch (err) {
       console.error('표지 업로드 실패:', err)
       setError(err.message || '업로드에 실패했습니다')
@@ -138,7 +156,7 @@ function CoverImageUploader({ ownerId, imagePath, onChange, categories, name, di
       {/* 삭제 버튼 + 안내 */}
       <div className="flex items-center justify-between mt-2">
         <p className="text-xs text-gray-500">
-          가로형 사진 권장 · 최대 5MB
+          가로형(16:9) 권장 · 최대 10MB
         </p>
         {imagePath && !uploading && (
           <button
@@ -158,6 +176,21 @@ function CoverImageUploader({ ownerId, imagePath, onChange, categories, name, di
           {error}
         </p>
       )}
+
+      {/* 표지 크롭 모달 — 16:9 사각형, 1200x675 */}
+      <ImageCropModal
+        isOpen={isCropOpen}
+        imageSrc={cropImageSrc}
+        onClose={closeCropModal}
+        onComplete={handleCropComplete}
+        isUploading={uploading}
+        aspect={16 / 9}
+        cropShape="rect"
+        outputWidth={1200}
+        outputHeight={675}
+        title="대표 사진 편집"
+        description="드래그하고 확대·축소해 표지 영역을 맞춰주세요"
+      />
     </div>
   )
 }

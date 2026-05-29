@@ -6,6 +6,8 @@ import { useAuth } from '../hooks/useAuth'
 import { useNicknameCheck } from '../hooks/useNicknameCheck'
 import { NICKNAME } from '../lib/constants'
 import UserAvatar from '../components/common/UserAvatar'
+import PageHeader from '../components/common/PageHeader'
+import ImageCropModal from '../components/common/ImageCropModal'
 
 // 프로필 페이지 — Bottom Tab Bar 👤 진입점
 // 기능 (Day 56):
@@ -102,15 +104,18 @@ function ProfilePage() {
   // ─── 아바타 업로드 / 삭제 ─────────────────────────────────
   const fileInputRef = useRef(null)
   const [avatarError, setAvatarError] = useState(null)
+  // 크롭 모달 — 파일 선택 시 바로 업로드하지 않고 크롭 모달을 먼저 띄움
+  const [cropImageSrc, setCropImageSrc] = useState(null)
+  const [isCropOpen, setIsCropOpen] = useState(false)
 
   const avatarMutation = useMutation({
-    mutationFn: async (file) => {
-      // 1) 새 파일 업로드
-      const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
-      const newPath = `${userId}/${Date.now()}.${ext}`
+    // 크롭 완료 후 512x512 JPEG Blob 을 받아 업로드
+    mutationFn: async (blob) => {
+      // 1) 새 파일 업로드 (crop 결과는 항상 jpeg)
+      const newPath = `${userId}/${Date.now()}.jpg`
       const { error: upErr } = await supabase.storage
         .from('profile-avatars')
-        .upload(newPath, file, { upsert: false })
+        .upload(newPath, blob, { upsert: false, contentType: 'image/jpeg' })
       if (upErr) throw new Error(`업로드 실패: ${upErr.message}`)
 
       // 2) users.avatar_path 갱신
@@ -138,6 +143,7 @@ function ProfilePage() {
       queryClient.invalidateQueries({ queryKey: ['feed'] })
       queryClient.invalidateQueries({ queryKey: ['stats'] })
       setAvatarError(null)
+      closeCropModal()
     },
     onError: (err) => {
       console.error('아바타 업로드 실패:', err)
@@ -169,6 +175,8 @@ function ProfilePage() {
     },
   })
 
+  // 파일 선택 → 바로 업로드하지 않고 크롭 모달을 띄움
+  //   원본은 crop 후 512x512 로 축소되므로 제한을 10MB 로 완화 (모바일 사진 수용)
   const handleFileSelect = (e) => {
     const file = e.target.files?.[0]
     e.target.value = '' // 같은 파일 재선택 가능하게 reset
@@ -177,12 +185,28 @@ function ProfilePage() {
       setAvatarError('이미지 파일만 업로드할 수 있어요')
       return
     }
-    if (file.size > 2 * 1024 * 1024) {
-      setAvatarError('파일 크기는 2MB 이하여야 해요')
+    if (file.size > 10 * 1024 * 1024) {
+      setAvatarError('파일 크기는 10MB 이하여야 해요')
       return
     }
     setAvatarError(null)
-    avatarMutation.mutate(file)
+    const url = URL.createObjectURL(file)
+    setCropImageSrc(url)
+    setIsCropOpen(true)
+  }
+
+  // 크롭 모달 닫기 — objectURL 메모리 해제
+  const closeCropModal = () => {
+    setIsCropOpen(false)
+    setCropImageSrc(prev => {
+      if (prev) URL.revokeObjectURL(prev)
+      return null
+    })
+  }
+
+  // 크롭 완료 → 512x512 Blob 업로드
+  const handleCropComplete = (blob) => {
+    avatarMutation.mutate(blob)
   }
 
   const handleRemoveAvatar = () => {
@@ -198,7 +222,7 @@ function ProfilePage() {
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
-      <h1 className="text-2xl text-gray-800 mb-6">👤 프로필</h1>
+      <PageHeader>👤 프로필</PageHeader>
 
       {/* 아바타 + 닉네임 카드 */}
       <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-3">
@@ -331,6 +355,21 @@ function ProfilePage() {
         <LogOut className="w-4 h-4" />
         로그아웃
       </button>
+
+      {/* 프로필 사진 크롭 모달 — 1:1 원형, 512x512 */}
+      <ImageCropModal
+        isOpen={isCropOpen}
+        imageSrc={cropImageSrc}
+        onClose={closeCropModal}
+        onComplete={handleCropComplete}
+        isUploading={avatarMutation.isPending}
+        aspect={1}
+        cropShape="round"
+        outputWidth={512}
+        outputHeight={512}
+        title="프로필 사진 편집"
+        description="원 안에서 드래그하고 확대·축소해 위치를 맞춰주세요"
+      />
     </div>
   )
 }

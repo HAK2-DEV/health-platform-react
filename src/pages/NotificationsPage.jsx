@@ -8,6 +8,7 @@ import { formatRelativeKstDay } from '../lib/formatters'
 import { queryKeys, fetchNotifications } from '../lib/queries'
 import EmptyState from '../components/common/EmptyState'
 import LoadingState from '../components/common/LoadingState'
+import PageHeader from '../components/common/PageHeader'
 
 // 알림 센터 — Bottom Tab Bar 🔔 진입점
 // MVP 1차: polling — Bell 클릭 또는 페이지 진입/포커스 시 fetch
@@ -80,20 +81,21 @@ function NotificationsPage() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl text-gray-800">🔔 알림</h1>
-        {unreadCount > 0 && (
+      <PageHeader
+        action={unreadCount > 0 && (
           <button
             type="button"
             onClick={() => markAllReadMutation.mutate()}
             disabled={markAllReadMutation.isPending}
-            className="flex items-center gap-1 px-3 py-1.5 text-xs text-gray-600 hover:text-gray-800 bg-gray-50 hover:bg-gray-100 rounded-md transition disabled:opacity-50"
+            className="flex items-center gap-1 px-3 py-1.5 text-xs text-gray-600 hover:text-gray-800 bg-white/70 hover:bg-white rounded-full transition disabled:opacity-50"
           >
             <Check className="w-3.5 h-3.5" />
             모두 읽음 ({unreadCount})
           </button>
         )}
-      </div>
+      >
+        🔔 알림
+      </PageHeader>
 
       {isLoading ? (
         <LoadingState />
