@@ -8,7 +8,7 @@ import { queryKeys, fetchProgram, fetchProgramQuizzes } from '../../lib/queries'
 import StickyBackBar from '../../components/common/StickyBackBar'
 import LoadingState from '../../components/common/LoadingState'
 import EmptyState from '../../components/common/EmptyState'
-import { formatKoreanDate } from '../../lib/formatters'
+import { formatKoreanDateTime } from '../../lib/formatters'
 
 // 게시물 관리 — 운영자 전용. 라우트: /programs/:id/posts
 //   현재는 퀴즈만. 추후 공지사항 등 다른 게시물 유형 확장 예정.
@@ -142,8 +142,8 @@ function PostsManagePage() {
                       {isExpired
                         ? '마감'
                         : isNotStarted
-                          ? `${formatKoreanDate(quiz.start_at)} 시작`
-                          : quiz.due_at ? `~ ${formatKoreanDate(quiz.due_at)}` : '기한 없음'}
+                          ? `${formatKoreanDateTime(quiz.start_at)} 시작`
+                          : quiz.due_at ? `~ ${formatKoreanDateTime(quiz.due_at)}` : '기한 없음'}
                     </span>
                   )}
                   {quiz.reveal_answers && (

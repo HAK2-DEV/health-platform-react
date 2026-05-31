@@ -117,27 +117,33 @@ function Step1Basic({ initialData, onNext, onSave }) {
         </div>
       </div>
       
-      {/* 운영 기간 */}
+      {/* 운영 기간 — 모바일 세로/데스크탑 가로 */}
       <div className="mb-3">
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-gray-700 mb-2">
           운영 기간
         </label>
-        <div className="flex items-center gap-2">
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            min={getTodayKST()}
-            className="flex-1 px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500"
-          />
-          <span className="text-gray-500">~</span>
-          <input
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            min={startDate || getTodayKST()} 
-            className="flex-1 px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500"
-          />
+        <div className="flex flex-col sm:flex-row sm:items-end gap-2">
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] text-gray-500 mb-1">📅 시작</p>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              min={getTodayKST()}
+              className="w-full px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500"
+            />
+          </div>
+          <span className="hidden sm:inline text-gray-500 flex-shrink-0 pb-2">~</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] text-gray-500 mb-1">📅 종료</p>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              min={startDate || getTodayKST()}
+              className="w-full px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500"
+            />
+          </div>
         </div>
       </div>
       

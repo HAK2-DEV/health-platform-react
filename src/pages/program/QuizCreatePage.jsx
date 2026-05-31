@@ -223,25 +223,30 @@ function QuizCreatePage() {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">풀이 기한 (선택)</label>
-          <div className="flex items-center gap-2">
-            <input
-              type="datetime-local"
-              value={startAt}
-              onChange={handleStartChange}
-              className="flex-1 min-w-0 px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500"
-              placeholder="시작"
-            />
-            <span className="text-gray-400 flex-shrink-0">~</span>
-            <input
-              ref={dueAtRef}
-              type="datetime-local"
-              value={dueAt}
-              onChange={handleDueChange}
-              min={startAt || undefined}
-              className="flex-1 min-w-0 px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500"
-              placeholder="종료"
-            />
+          <label className="block text-sm font-medium text-gray-700 mb-2">풀이 기한 (선택)</label>
+          {/* 모바일은 세로(풀폭), 데스크탑은 가로 — 모바일에서 input 좁아 picker 가독성 나빠지는 것 방지 */}
+          <div className="flex flex-col sm:flex-row sm:items-end gap-2">
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] text-gray-500 mb-1">📅 시작</p>
+              <input
+                type="datetime-local"
+                value={startAt}
+                onChange={handleStartChange}
+                className="w-full px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+            <span className="hidden sm:inline text-gray-400 flex-shrink-0 pb-2">~</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] text-gray-500 mb-1">📅 종료</p>
+              <input
+                ref={dueAtRef}
+                type="datetime-local"
+                value={dueAt}
+                onChange={handleDueChange}
+                min={startAt || undefined}
+                className="w-full px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500"
+              />
+            </div>
           </div>
           <p className="text-xs text-gray-400 mt-1">
             시작 비우면 즉시 시작 / 종료 비우면 무기한

@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../../hooks/useAuth'
 import { ChevronLeft, Plus, ChevronRight } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
-import { formatKoreanDate, isUpcomingByStartDate } from '../../lib/formatters'
+import { formatKoreanDate, formatKoreanDateTime, isUpcomingByStartDate } from '../../lib/formatters'
 import MissionCard from '../../components/program/MissionCard'
 import StickyBackBar from '../../components/common/StickyBackBar'
 import UserAvatar from '../../components/common/UserAvatar'
@@ -406,10 +406,10 @@ function ProgramDetailPage() {
                       {sub
                         ? (sub.status === 'PENDING' ? '채점 중' : `완료 · ${sub.total_score}점`)
                         : isNotStarted
-                          ? `${formatKoreanDate(quiz.start_at)} 시작`
+                          ? `${formatKoreanDateTime(quiz.start_at)} 시작`
                           : isExpired
                             ? '마감됨'
-                            : quiz.due_at ? `~ ${formatKoreanDate(quiz.due_at)}` : '미응시'}
+                            : quiz.due_at ? `~ ${formatKoreanDateTime(quiz.due_at)}` : '미응시'}
                     </p>
                   </div>
                   {sub ? (

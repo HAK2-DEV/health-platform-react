@@ -11,7 +11,7 @@ import {
 } from '../../lib/queries'
 import StickyBackBar from '../../components/common/StickyBackBar'
 import LoadingState from '../../components/common/LoadingState'
-import { formatKoreanDate } from '../../lib/formatters'
+import { formatKoreanDateTime } from '../../lib/formatters'
 
 // 참가자 퀴즈 풀이/결과 페이지
 // 라우트: /programs/:id/quiz/:quizId
@@ -111,8 +111,8 @@ function QuizSolvePage() {
               {isExpired
                 ? '마감됨'
                 : isNotStarted
-                  ? `${formatKoreanDate(quiz.start_at)} 시작 예정`
-                  : quiz.due_at ? `~ ${formatKoreanDate(quiz.due_at)}` : '기한 없음'}
+                  ? `${formatKoreanDateTime(quiz.start_at)} 시작 예정`
+                  : quiz.due_at ? `~ ${formatKoreanDateTime(quiz.due_at)}` : '기한 없음'}
             </span>
           )}
         </div>

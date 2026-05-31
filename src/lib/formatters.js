@@ -25,6 +25,20 @@ export function formatKoreanDate(dateString) {
   return dateString.replaceAll('-', '.')
 }
 
+// ISO timestamp → KST 'YYYY.MM.DD HH:mm' (퀴즈 기한처럼 시간 포함 표시용)
+const _KST_DATETIME_FORMATTER = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Seoul',
+  year: 'numeric', month: '2-digit', day: '2-digit',
+  hour: '2-digit', minute: '2-digit',
+  hour12: false,
+})
+export function formatKoreanDateTime(timestamp) {
+  if (!timestamp) return ''
+  const parts = _KST_DATETIME_FORMATTER.formatToParts(new Date(timestamp))
+  const get = (t) => parts.find(p => p.type === t)?.value || ''
+  return `${get('year')}.${get('month')}.${get('day')} ${get('hour')}:${get('minute')}`
+}
+
 // 프로그램 시작일이 오늘(KST) 이후면 true — "예정" 상태 판정용
 export function isUpcomingByStartDate(startDate) {
   if (!startDate) return false
