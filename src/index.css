@@ -1,1 +1,9 @@
 @import "tailwindcss";
+
+/* iOS Safari auto-zoom 방지 — 모바일에서 input 폰트가 16px 미만이면
+   포커스 시 자동 확대 + zoom out 안 됨. 16px 강제로 차단. */
+@media (max-width: 640px) {
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+}

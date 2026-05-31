@@ -197,7 +197,6 @@ function ProgramListPage() {
                 return (
                   <motion.div
                     key={program.id}
-                    layout
                     initial={{ opacity: 0, scale: 0.96 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.96 }}
@@ -290,7 +289,6 @@ function ProgramListPage() {
               {displayedActive.map(program => (
                 <motion.div
                   key={program.id}
-                  layout
                   initial={{ opacity: 0, scale: 0.96 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.96 }}
@@ -353,7 +351,6 @@ function ProgramListPage() {
               {displayedPublic.map(program => (
                 <motion.div
                   key={program.id}
-                  layout
                   initial={{ opacity: 0, scale: 0.96 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.96 }}
