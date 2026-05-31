@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -18,6 +18,7 @@ import EmptyState from '../../components/common/EmptyState'
 import LoadingState from '../../components/common/LoadingState'
 import ProgramCover from '../../components/common/ProgramCover'
 import PageHeader from '../../components/common/PageHeader'
+import { CATEGORY_COLORS, calcProgress } from '../../lib/programVisuals'
 
 // 📋 프로그램 탭 — 3섹션 전체 표시
 // 본인 [feedback_state_consistency] — 대시보드 "내 프로그램" 과 동일 동작 + 동일 캐시
@@ -36,6 +37,16 @@ function ProgramListPage() {
   // 검색 — 3섹션 모두 클라이언트 측 필터링 (name + description 매칭)
   const [searchQuery, setSearchQuery] = useState('')
   const isSearching = searchQuery.trim().length > 0
+
+  // 전체보기 토글 시 해당 섹션을 viewport 상단으로 스크롤 — 새 카드 자연 노출
+  const myRef = useRef(null)
+  const activeRef = useRef(null)
+  const publicRef = useRef(null)
+  const scrollToSection = (ref) => {
+    requestAnimationFrame(() => {
+      ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  }
 
   // ─── React Query — 대시보드와 같은 캐시 키 공유 ──────────
   const { data: myPrograms = [], isLoading: isMyLoading } = useQuery({
@@ -149,7 +160,7 @@ function ProgramListPage() {
       )}
 
       {/* 내 프로그램 — 헤더 + "+ 생성하기" 버튼 + 카드 */}
-      <section className="mb-8">
+      <section ref={myRef} className="mb-8 scroll-mt-4">
         <div className="flex items-center justify-between mb-3">
           <h2 className="flex items-center gap-2 text-lg font-medium text-gray-800">
             <Activity className="w-5 h-5 text-emerald-500" />
@@ -158,7 +169,7 @@ function ProgramListPage() {
           {!isSearching && myPrograms.length > 2 && (
             <button
               type="button"
-              onClick={() => setShowAllMy(!showAllMy)}
+              onClick={() => { setShowAllMy(!showAllMy); scrollToSection(myRef) }}
               className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700"
             >
               {showAllMy ? '간단히 보기' : `전체보기 (${myPrograms.length})`}
@@ -185,7 +196,7 @@ function ProgramListPage() {
         ) : displayedMy.length === 0 ? (
           isSearching && <p className="text-xs text-gray-400 text-center py-3">매칭된 내 프로그램이 없어요</p>
         ) : (
-          <motion.div layout className="grid grid-cols-1 gap-3">
+          <motion.div className="grid grid-cols-1 gap-3">
             <AnimatePresence initial={false}>
               {displayedMy.map(program => {
                 const isDraft = program.status === 'DRAFT'
@@ -197,10 +208,6 @@ function ProgramListPage() {
                 return (
                   <motion.div
                     key={program.id}
-                    initial={{ opacity: 0, scale: 0.96 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.96 }}
-                    transition={{ duration: 0.25, ease: 'easeOut' }}
                     onClick={() => {
                       if (isDraft) {
                         navigate(`/programs/new?id=${program.id}`)
@@ -260,7 +267,7 @@ function ProgramListPage() {
       </section>
 
       {/* 참여 중인 프로그램 — 파스텔 sky/emerald 박스로 감싸 시각 구분 */}
-      <section className="mb-6 p-4 rounded-2xl bg-gradient-to-br from-sky-50 via-cyan-50/60 to-emerald-50/40 border border-sky-100/50">
+      <section ref={activeRef} className="mb-6 p-4 rounded-2xl bg-gradient-to-br from-sky-50 via-cyan-50/60 to-emerald-50/40 border border-sky-100/50 scroll-mt-4">
         <div className="flex items-center justify-between mb-3">
           <h2 className="flex items-center gap-2 text-lg font-medium text-gray-800">
             🎯 참여 중인 프로그램 <span className="text-sm text-gray-500">({filteredActive.length})</span>
@@ -268,7 +275,7 @@ function ProgramListPage() {
           {!isSearching && activePrograms.length > 2 && (
             <button
               type="button"
-              onClick={() => setShowAllActive(!showAllActive)}
+              onClick={() => { setShowAllActive(!showAllActive); scrollToSection(activeRef) }}
               className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700"
             >
               {showAllActive ? '간단히 보기' : `전체보기 (${activePrograms.length})`}
@@ -284,45 +291,51 @@ function ProgramListPage() {
         ) : displayedActive.length === 0 ? (
           isSearching && <p className="text-xs text-gray-400 text-center py-3">매칭된 참여 프로그램이 없어요</p>
         ) : (
-          <motion.div layout className="grid grid-cols-1 gap-3">
+          <motion.div className="grid grid-cols-1 gap-3">
             <AnimatePresence initial={false}>
-              {displayedActive.map(program => (
-                <motion.div
-                  key={program.id}
-                  initial={{ opacity: 0, scale: 0.96 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.96 }}
-                  transition={{ duration: 0.25, ease: 'easeOut' }}
-                  onClick={() => navigate(`/programs/${program.id}`)}
-                  className="bg-white border border-gray-200 rounded-2xl p-3 hover:shadow-md transition cursor-pointer"
-                >
-                  <div className="flex gap-3">
+              {displayedActive.map(program => {
+                // Dashboard 참여중 카드와 동일 룩 — 카테고리 파스텔 배경 + 진행률 바
+                const catKey = program.categories?.[0] || 'ETC'
+                const colors = CATEGORY_COLORS[catKey] || CATEGORY_COLORS.ETC
+                const progress = calcProgress(program.start_date, program.end_date)
+                return (
+                  <motion.div
+                    key={program.id}
+                    onClick={() => navigate(`/programs/${program.id}`)}
+                    className={`${colors.bg} ${colors.border} border rounded-2xl p-3 hover:shadow-md transition cursor-pointer flex items-center gap-3`}
+                  >
                     <ProgramCover
                       imagePath={program.cover_image_path}
                       categories={program.categories}
                       name={program.name}
                       variant="thumb"
-                      className="w-16 h-16"
+                      className="w-16 h-16 rounded-2xl"
                     />
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-medium text-gray-800 mb-1 truncate">{program.name}</h3>
+                      <h3 className="font-medium text-gray-800 truncate">{program.name}</h3>
                       {program.description && program.description.trim() !== program.name?.trim() && (
-                        <p className="text-xs text-gray-600 mb-1 line-clamp-1">{program.description}</p>
+                        <p className="text-xs text-gray-500 truncate mt-0.5">{program.description}</p>
                       )}
-                      <p className="text-xs text-gray-500">
-                        {formatKoreanDate(program.start_date)} ~ {formatKoreanDate(program.end_date)}
-                      </p>
+                      <div className="flex items-center gap-2 mt-2">
+                        <div className="flex-1 h-1.5 bg-white/80 rounded-full overflow-hidden">
+                          <div
+                            className={`${colors.accent} h-full rounded-full transition-all`}
+                            style={{ width: `${progress}%` }}
+                          />
+                        </div>
+                        <span className="text-xs text-gray-600 font-medium flex-shrink-0">{progress}%</span>
+                      </div>
                     </div>
-                  </div>
-                </motion.div>
-              ))}
+                  </motion.div>
+                )
+              })}
             </AnimatePresence>
           </motion.div>
         )}
       </section>
 
       {/* 공개 둘러보기 — 파스텔 violet/pink 박스로 감싸 시각 구분 */}
-      <section className="mb-6 p-4 rounded-2xl bg-gradient-to-br from-violet-100/70 via-purple-50/80 to-pink-100/50 border border-violet-200/50">
+      <section ref={publicRef} className="mb-6 p-4 rounded-2xl bg-gradient-to-br from-violet-100/70 via-purple-50/80 to-pink-100/50 border border-violet-200/50 scroll-mt-4">
         <div className="flex items-center justify-between mb-3">
           <h2 className="flex items-center gap-2 text-lg font-medium text-gray-800">
             🔍 둘러보기 <span className="text-sm text-gray-500">({filteredPublic.length})</span>
@@ -330,7 +343,7 @@ function ProgramListPage() {
           {!isSearching && publicPrograms.length > 2 && (
             <button
               type="button"
-              onClick={() => setShowAllPublic(!showAllPublic)}
+              onClick={() => { setShowAllPublic(!showAllPublic); scrollToSection(publicRef) }}
               className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700"
             >
               {showAllPublic ? '간단히 보기' : `전체보기 (${publicPrograms.length})`}
@@ -346,15 +359,11 @@ function ProgramListPage() {
         ) : displayedPublic.length === 0 ? (
           isSearching && <p className="text-xs text-gray-400 text-center py-3">매칭된 둘러보기 프로그램이 없어요</p>
         ) : (
-          <motion.div layout className="grid grid-cols-1 gap-3">
+          <motion.div className="grid grid-cols-1 gap-3">
             <AnimatePresence initial={false}>
               {displayedPublic.map(program => (
                 <motion.div
                   key={program.id}
-                  initial={{ opacity: 0, scale: 0.96 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.96 }}
-                  transition={{ duration: 0.25, ease: 'easeOut' }}
                   onClick={() => setSelectedProgram(program)}
                   className="bg-white border border-gray-200 rounded-2xl p-3 hover:shadow-md transition cursor-pointer"
                 >

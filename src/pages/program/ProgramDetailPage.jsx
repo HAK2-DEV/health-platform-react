@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -37,6 +37,16 @@ function ProgramDetailPage() {
   const [isMissionCreateOpen, setIsMissionCreateOpen] = useState(false)
   const [editingMission, setEditingMission] = useState(null)  // 미션 수정 — null 이면 생성 모드
   const [showAllMissions, setShowAllMissions] = useState(false)
+  const [showAllQuizzes, setShowAllQuizzes] = useState(false)
+
+  // 전체보기 토글 시 해당 섹션 viewport 상단으로
+  const missionSectionRef = useRef(null)
+  const quizSectionRef = useRef(null)
+  const scrollToSection = (ref) => {
+    requestAnimationFrame(() => {
+      ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  }
 
   // 5개 useQuery 로 분리 — 각각 독립 캐시. 다른 화면(대시보드/랭킹/묶음 디테일)도 같은 키 공유.
   const { data: program, isLoading: isProgramLoading, error: programError } = useQuery({
@@ -296,13 +306,13 @@ function ProgramDetailPage() {
       )}
 
       {/* 미션 목록 — 3개 + 전체보기 토글 + framer 부드러운 전환 */}
-      <div className="flex items-center justify-between mb-3">
+      <div ref={missionSectionRef} className="flex items-center justify-between mb-3 scroll-mt-16">
         <h2 className="text-lg font-medium text-gray-800">📋 미션 목록</h2>
         <div className="flex items-center gap-2">
           {missionCards.length > 2 && (
             <button
               type="button"
-              onClick={() => setShowAllMissions(!showAllMissions)}
+              onClick={() => { setShowAllMissions(!showAllMissions); scrollToSection(missionSectionRef) }}
               className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700"
             >
               {showAllMissions ? '간단히 보기' : `전체보기 (${missionCards.length})`}
@@ -384,10 +394,22 @@ function ProgramDetailPage() {
 
       {/* 퀴즈 섹션 — 참가자 전용, 퀴즈가 있을 때만 노출 */}
       {!isOwner && participantQuizzes.length > 0 && (
-        <div className="mt-8">
-          <h2 className="text-lg font-medium text-gray-800 mb-3">📝 퀴즈</h2>
+        <div ref={quizSectionRef} className="mt-8 scroll-mt-16">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-medium text-gray-800">📝 퀴즈</h2>
+            {participantQuizzes.length > 2 && (
+              <button
+                type="button"
+                onClick={() => { setShowAllQuizzes(!showAllQuizzes); scrollToSection(quizSectionRef) }}
+                className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700"
+              >
+                {showAllQuizzes ? '간단히 보기' : `전체보기 (${participantQuizzes.length})`}
+                {!showAllQuizzes && <ChevronRight className="w-3 h-3" />}
+              </button>
+            )}
+          </div>
           <div className="grid grid-cols-1 gap-3">
-            {participantQuizzes.map(quiz => {
+            {(showAllQuizzes ? participantQuizzes : participantQuizzes.slice(0, 2)).map(quiz => {
               const sub = quiz.mySubmission
               const now = new Date()
               const isNotStarted = quiz.start_at && new Date(quiz.start_at) > now

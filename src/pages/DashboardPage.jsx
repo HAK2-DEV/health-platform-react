@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -12,6 +12,7 @@ import DeleteProgramConfirmModal from '../components/program/DeleteProgramConfir
 import EmptyState from '../components/common/EmptyState'
 import LoadingState from '../components/common/LoadingState'
 import ProgramCover from '../components/common/ProgramCover'
+import { CATEGORY_COLORS, calcProgress } from '../lib/programVisuals'
 import {
   queryKeys,
   fetchMyPrograms,
@@ -34,31 +35,6 @@ const itemVariants = {
   hidden: { opacity: 0, y: 10 },
   show: { opacity: 1, y: 0, transition: { duration: 0.3 } },
 }
-
-// 카테고리별 파스텔 색상 매핑 (Tailwind JIT 안전 — 명시적 클래스명)
-const CATEGORY_COLORS = {
-  WALKING:    { bg: 'bg-emerald-50', border: 'border-emerald-100', accent: 'bg-emerald-400' },
-  DIET:       { bg: 'bg-emerald-50',   border: 'border-emerald-100',   accent: 'bg-emerald-400' },
-  EMPATHY:    { bg: 'bg-pink-50',    border: 'border-pink-100',    accent: 'bg-pink-400' },
-  MINDCARE:   { bg: 'bg-orange-50',  border: 'border-orange-100',  accent: 'bg-orange-400' },
-  SLEEP:      { bg: 'bg-purple-50',  border: 'border-purple-100',  accent: 'bg-purple-400' },
-  NO_SMOKING: { bg: 'bg-yellow-50',  border: 'border-yellow-100',  accent: 'bg-yellow-400' },
-  ETC:        { bg: 'bg-gray-50',    border: 'border-gray-100',    accent: 'bg-gray-400' },
-}
-
-// 시간 기반 진행률 (KST)
-const calcProgress = (startDate, endDate) => {
-  if (!startDate || !endDate) return 0
-  const now = new Date()
-  const start = new Date(`${startDate}T00:00:00+09:00`)
-  const end = new Date(`${endDate}T23:59:59+09:00`)
-  if (now < start) return 0
-  if (now > end) return 100
-  const total = end - start
-  const passed = now - start
-  return Math.round((passed / total) * 100)
-}
-
 
 function DashboardPage() {
   const { session } = useAuth()
@@ -149,6 +125,16 @@ function DashboardPage() {
   }, [todayMissions])
 
   // 오늘의 미션 전체 보기 토글 — 카드 단위 3개 (프로그램 단위 X)
+  // 전체보기 토글 시 해당 섹션 viewport 상단으로 스크롤
+  const todayMissionsRef = useRef(null)
+  const myProgramsRef = useRef(null)
+  const activeProgramsRef = useRef(null)
+  const scrollToSection = (ref) => {
+    requestAnimationFrame(() => {
+      ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  }
+
   const [showAllTodayMissions, setShowAllTodayMissions] = useState(false)
   // 내 프로그램 / 참여 중인 프로그램 전체보기 토글
   const [showAllMyPrograms, setShowAllMyPrograms] = useState(false)
@@ -364,7 +350,7 @@ function DashboardPage() {
       </motion.section>
 
       {/* 오늘의 미션 — 프로그램별 그루핑 (3개까지만, 전체보기 토글) */}
-      <section className="mb-8">
+      <section ref={todayMissionsRef} className="mb-8 scroll-mt-4">
         <div className="flex items-center justify-between mb-4">
           <h2 className="flex items-center gap-2 text-xl font-medium text-gray-800">
             ✨ 오늘의 미션
@@ -372,7 +358,7 @@ function DashboardPage() {
           {totalItemCount > 2 && (
             <button
               type="button"
-              onClick={() => setShowAllTodayMissions(!showAllTodayMissions)}
+              onClick={() => { setShowAllTodayMissions(!showAllTodayMissions); scrollToSection(todayMissionsRef) }}
               className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700"
             >
               {showAllTodayMissions ? '간단히 보기' : `전체보기 (${totalItemCount})`}
@@ -388,7 +374,7 @@ function DashboardPage() {
             description="참여 중인 프로그램이 시작되면 여기에 표시돼요"
           />
         ) : (
-          <motion.div layout className="space-y-3">
+          <motion.div className="space-y-3">
             <AnimatePresence initial={false}>
             {displayedPrograms.map(programBucket => {
               const catKey = programBucket.program?.categories?.[0] || 'ETC'
@@ -398,10 +384,6 @@ function DashboardPage() {
               return (
                 <motion.div
                   key={programBucket.programId}
-                  initial={{ opacity: 0, scale: 0.96 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.96 }}
-                  transition={{ duration: 0.25, ease: 'easeOut' }}
                 >
                   {/* 프로그램 헤더 — 배경 칩으로 시각 분리 */}
                   <div className="flex items-center mb-2">
@@ -547,7 +529,7 @@ function DashboardPage() {
       </section>
 
       {/* 내가 만든 프로그램 — 최대 3개 요약 (전체는 /programs) */}
-      <section className="mb-8">
+      <section ref={myProgramsRef} className="mb-8 scroll-mt-4">
         <div className="flex items-center justify-between mb-4">
           <h2 className="flex items-center gap-2 text-xl font-medium text-gray-800">
             <Activity className="w-5 h-5 text-emerald-500" />
@@ -557,7 +539,7 @@ function DashboardPage() {
             {myPrograms.length > 2 && (
               <button
                 type="button"
-                onClick={() => setShowAllMyPrograms(!showAllMyPrograms)}
+                onClick={() => { setShowAllMyPrograms(!showAllMyPrograms); scrollToSection(myProgramsRef) }}
                 className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700"
               >
                 {showAllMyPrograms ? '간단히 보기' : `전체보기 (${myPrograms.length})`}
@@ -587,7 +569,7 @@ function DashboardPage() {
             description="위의 '프로그램 생성하기' 버튼으로 시작해보세요"
           />
         ) : (
-          <motion.div layout className="grid grid-cols-1 gap-3">
+          <motion.div className="grid grid-cols-1 gap-3">
             <AnimatePresence initial={false}>
             {(showAllMyPrograms ? myPrograms : myPrograms.slice(0, 2)).map(program => {
               const isDraft = program.status === 'DRAFT'
@@ -599,10 +581,6 @@ function DashboardPage() {
               return (
                 <motion.div
                   key={program.id}
-                  initial={{ opacity: 0, scale: 0.96 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.96 }}
-                  transition={{ duration: 0.25, ease: 'easeOut' }}
                   onClick={() => {
                     if (isDraft) {
                       navigate(`/programs/new?id=${program.id}`)
@@ -664,7 +642,7 @@ function DashboardPage() {
       </section>
 
       {/* 참여 중인 프로그램 — 최대 3개 요약 */}
-      <section className="mb-8">
+      <section ref={activeProgramsRef} className="mb-8 scroll-mt-4">
         <div className="flex items-center justify-between mb-4">
           <h2 className="flex items-center gap-2 text-xl font-medium text-gray-800">
             🎯 참여 중인 프로그램
@@ -672,7 +650,7 @@ function DashboardPage() {
           {activePrograms.length > 2 && (
             <button
               type="button"
-              onClick={() => setShowAllActivePrograms(!showAllActivePrograms)}
+              onClick={() => { setShowAllActivePrograms(!showAllActivePrograms); scrollToSection(activeProgramsRef) }}
               className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700"
             >
               {showAllActivePrograms ? '간단히 보기' : `전체보기 (${activePrograms.length})`}
@@ -693,7 +671,7 @@ function DashboardPage() {
             action={{ label: '프로그램 둘러보기', onClick: () => navigate('/programs') }}
           />
         ) : (
-          <motion.div layout className="grid grid-cols-1 gap-3">
+          <motion.div className="grid grid-cols-1 gap-3">
             <AnimatePresence initial={false}>
             {(showAllActivePrograms ? activePrograms : activePrograms.slice(0, 2)).map(program => {
               const catKey = program.categories?.[0] || 'ETC'
@@ -704,10 +682,6 @@ function DashboardPage() {
               return (
                 <motion.div
                   key={program.id}
-                  initial={{ opacity: 0, scale: 0.96 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.96 }}
-                  transition={{ duration: 0.25, ease: 'easeOut' }}
                   onClick={() => navigate(`/programs/${program.id}`)}
                   className={`${colors.bg} ${colors.border} border rounded-2xl p-3 hover:shadow-md transition cursor-pointer flex items-center gap-3`}
                 >

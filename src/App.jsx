@@ -54,7 +54,8 @@ function AppShell() {
   //   나머지 페이지는 BottomTabBar 의 🔔 알림 탭으로 충분 → 중복 헤더 제거.
   // BottomTabBar 숨김 — 운영자 집중(마법사) + 참여자 집중(미션 인증)
   const isMissionVerify = /^\/programs\/[^/]+\/missions\/[^/]+$/.test(location.pathname)
-  const hideBottomBar = location.pathname === '/programs/new' || isMissionVerify
+  const isQuizSolve = /^\/programs\/[^/]+\/quiz\/[^/]+$/.test(location.pathname)
+  const hideBottomBar = location.pathname === '/programs/new' || isMissionVerify || isQuizSolve
 
   return (
    <div className="app">
