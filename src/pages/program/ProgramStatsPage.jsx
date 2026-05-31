@@ -1,12 +1,13 @@
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { ChevronLeft, ChevronRight, Target, Users } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Target, Users, FileText } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import {
   queryKeys,
   fetchProgram,
   fetchProgramStats,
+  fetchProgramQuizStats,
 } from '../../lib/queries'
 import StickyBackBar from '../../components/common/StickyBackBar'
 import LoadingState from '../../components/common/LoadingState'
@@ -32,6 +33,13 @@ function ProgramStatsPage() {
   const { data: stats, isLoading: isStatsLoading } = useQuery({
     queryKey: queryKeys.programStats(id),
     queryFn: () => fetchProgramStats(id),
+    enabled: !!session && !!id && isOwner,
+  })
+
+  // 퀴즈 요약 — 카드 미리보기 + 디테일 페이지 공유 캐시
+  const { data: quizStats = [] } = useQuery({
+    queryKey: queryKeys.programQuizStats(id),
+    queryFn: () => fetchProgramQuizStats(id),
     enabled: !!session && !!id && isOwner,
   })
 
@@ -131,6 +139,31 @@ function ProgramStatsPage() {
                   : topUser
                     ? `${userCount}명 참여 · 최다 ${topUser.nickname} (${topUser.totalCount}건)`
                     : `${userCount}명 참여`}
+              </p>
+            </div>
+            <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
+          </button>
+
+          {/* 퀴즈 카드 */}
+          <button
+            type="button"
+            onClick={() => navigate(`/programs/${id}/stats/quizzes`)}
+            className="w-full flex items-center gap-4 p-5 bg-white border border-gray-200 rounded-2xl hover:bg-gray-50 hover:border-violet-300 transition text-left"
+          >
+            <div className="w-12 h-12 flex-shrink-0 bg-violet-100 rounded-xl flex items-center justify-center">
+              <FileText className="w-6 h-6 text-violet-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-base font-medium text-gray-800 mb-0.5">
+                📝 퀴즈 현황
+              </h2>
+              <p className="text-xs text-gray-500">
+                {(() => {
+                  if (quizStats.length === 0) return '아직 만든 퀴즈가 없어요'
+                  const totalSub = quizStats.reduce((s, q) => s + q.submissionCount, 0)
+                  const totalPending = quizStats.reduce((s, q) => s + q.pendingCount, 0)
+                  return `퀴즈 ${quizStats.length}개 · 누적 제출 ${totalSub}건${totalPending > 0 ? ` · 채점 대기 ${totalPending}` : ''}`
+                })()}
               </p>
             </div>
             <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />

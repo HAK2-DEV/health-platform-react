@@ -1,9 +1,9 @@
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, AlertCircle } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
-import { queryKeys, fetchProgram, fetchPendingReviewsEnriched } from '../../lib/queries'
+import { queryKeys, fetchProgram, fetchPendingReviewsEnriched, fetchProgramQuizStats } from '../../lib/queries'
 import StickyBackBar from '../../components/common/StickyBackBar'
 import LoadingState from '../../components/common/LoadingState'
 import EmptyState from '../../components/common/EmptyState'
@@ -29,6 +29,15 @@ function ProgramReviewsPage() {
     queryFn: () => fetchPendingReviewsEnriched(id),
     enabled: !!session && !!id && isOwner,
   })
+
+  // 퀴즈 채점 대기 — pendingCount > 0 인 퀴즈만
+  const { data: quizStats = [] } = useQuery({
+    queryKey: queryKeys.programQuizStats(id),
+    queryFn: () => fetchProgramQuizStats(id),
+    enabled: !!session && !!id && isOwner,
+  })
+  const pendingQuizzes = quizStats.filter(q => q.pendingCount > 0)
+  const totalQuizPending = pendingQuizzes.reduce((s, q) => s + q.pendingCount, 0)
 
   // 묶음별 그루핑
   const bundleGroups = useMemo(() => {
@@ -77,9 +86,38 @@ function ProgramReviewsPage() {
           ✅ 인증 심사
         </h1>
         <p className="text-sm text-gray-500 mt-1">
-          심사 대기 {pending.length}건
+          미션 인증 대기 {pending.length}건
+          {totalQuizPending > 0 && ` · 퀴즈 채점 대기 ${totalQuizPending}건`}
         </p>
       </div>
+
+      {/* 퀴즈 채점 대기 섹션 — 있을 때만 노출 */}
+      {pendingQuizzes.length > 0 && (
+        <section className="mb-6">
+          <h2 className="text-lg font-medium text-gray-800 mb-3">📝 퀴즈 채점 대기</h2>
+          <div className="grid gap-3">
+            {pendingQuizzes.map(q => (
+              <button
+                key={q.id}
+                type="button"
+                onClick={() => navigate(`/programs/${id}/posts/quiz/${q.id}`)}
+                className="w-full flex items-center gap-3 p-4 bg-white border border-amber-200 rounded-2xl hover:bg-amber-50 hover:border-amber-400 transition text-left"
+              >
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-medium text-gray-800 truncate">{q.title}</h3>
+                  <p className="text-xs text-amber-700 mt-0.5 inline-flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    채점 대기 {q.pendingCount}건 (서술형 수동 채점)
+                  </p>
+                </div>
+                <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <h2 className="text-lg font-medium text-gray-800 mb-3">🎯 미션 인증 심사</h2>
 
       {isPendingLoading ? (
         <LoadingState />

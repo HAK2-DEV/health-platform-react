@@ -22,6 +22,7 @@ import {
   fetchProgramScores,
   fetchProgramRanking,
   fetchTodayCounts,
+  fetchParticipantQuizzes,
 } from '../../lib/queries'
 
 function ProgramDetailPage() {
@@ -70,6 +71,13 @@ function ProgramDetailPage() {
 
   const isOwner = program?.owner_id === userId
 
+  // 참가자용 퀴즈 목록 — 참여자(비운영자)에게만. owner 는 게시물 관리로.
+  const { data: participantQuizzes = [] } = useQuery({
+    queryKey: queryKeys.participantQuizzes(id, userId),
+    queryFn: () => fetchParticipantQuizzes(id),
+    enabled: !!session && !!id && !!program && !isOwner,
+  })
+
   // 미션 그루핑 — bundle_title 별. null = 직접 만들기 (단독 카드), string = 라이브러리 묶음 (그룹 카드)
   const missionGroups = useMemo(() => {
     const map = new Map()
@@ -98,7 +106,9 @@ function ProgramDetailPage() {
 
   // 모달 mutation 후 갱신 헬퍼
   const invalidateProgramData = () => {
-    queryClient.invalidateQueries({ queryKey: queryKeys.program(id) })
+    // 상세 + 미션 외에, 다른 페이지(Dashboard/ProgramList)의 myPrograms/activePrograms/publicPrograms 도
+    // 모두 갱신해야 표지/이름 변경이 즉시 반영됨. ['programs'] prefix 로 전부 무효화.
+    queryClient.invalidateQueries({ queryKey: ['programs'] })
     queryClient.invalidateQueries({ queryKey: queryKeys.programMissions(id) })
   }
 
@@ -209,12 +219,11 @@ function ProgramDetailPage() {
             </button>
             <button
               type="button"
-              disabled
-              className="px-3 py-2 bg-white border border-amber-200 rounded text-sm text-gray-400 cursor-not-allowed text-left"
-              title="추후 진화"
+              onClick={() => navigate(`/programs/${id}/posts`)}
+              className="px-3 py-2 bg-white border border-amber-300 hover:border-amber-500 hover:bg-amber-100 rounded text-sm text-amber-800 transition text-left"
             >
               📋 게시물 관리
-              <span className="block text-xs">(COMMUNITY 도입 시)</span>
+              <span className="block text-xs text-amber-700">퀴즈 생성·관리</span>
             </button>
             <button
               type="button"
@@ -371,6 +380,52 @@ function ProgramDetailPage() {
             })}
           </AnimatePresence>
         </motion.div>
+      )}
+
+      {/* 퀴즈 섹션 — 참가자 전용, 퀴즈가 있을 때만 노출 */}
+      {!isOwner && participantQuizzes.length > 0 && (
+        <div className="mt-8">
+          <h2 className="text-lg font-medium text-gray-800 mb-3">📝 퀴즈</h2>
+          <div className="grid gap-3">
+            {participantQuizzes.map(quiz => {
+              const sub = quiz.mySubmission
+              const now = new Date()
+              const isNotStarted = quiz.start_at && new Date(quiz.start_at) > now
+              const isExpired = quiz.due_at && new Date(quiz.due_at) < now
+              return (
+                <button
+                  key={quiz.id}
+                  type="button"
+                  onClick={() => navigate(`/programs/${id}/quiz/${quiz.id}`)}
+                  className="w-full flex items-center gap-3 p-4 bg-white border border-gray-200 rounded-2xl hover:bg-gray-50 hover:border-emerald-300 transition text-left"
+                >
+                  <span className="text-2xl flex-shrink-0">📝</span>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-medium text-gray-800 truncate">{quiz.title}</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {sub
+                        ? (sub.status === 'PENDING' ? '채점 중' : `완료 · ${sub.total_score}점`)
+                        : isNotStarted
+                          ? `${formatKoreanDate(quiz.start_at)} 시작`
+                          : isExpired
+                            ? '마감됨'
+                            : quiz.due_at ? `~ ${formatKoreanDate(quiz.due_at)}` : '미응시'}
+                    </p>
+                  </div>
+                  {sub ? (
+                    <span className="px-2 py-0.5 rounded text-xs bg-emerald-100 text-emerald-700 flex-shrink-0">완료</span>
+                  ) : isNotStarted ? (
+                    <span className="px-2 py-0.5 rounded text-xs bg-amber-100 text-amber-700 flex-shrink-0">예정</span>
+                  ) : isExpired ? (
+                    <span className="px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-500 flex-shrink-0">마감</span>
+                  ) : (
+                    <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        </div>
       )}
 
       {/* 랭킹 — program.ranking_enabled=false 면 섹션 자체 숨김 */}

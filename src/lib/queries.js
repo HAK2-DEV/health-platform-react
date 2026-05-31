@@ -41,6 +41,16 @@ export const queryKeys = {
   // 알림
   notifications: (userId) => ['notifications', 'list', userId],
   notificationsUnread: (userId) => ['notifications', 'unread', userId],
+  // 프로그램 퀴즈 목록 (운영자 게시물 관리)
+  programQuizzes: (programId) => ['quizzes', 'byProgram', programId],
+  // 참가자용 퀴즈 목록 (프로그램 상세 퀴즈 섹션) — 본인 제출 상태 포함
+  participantQuizzes: (programId, userId) => ['quizzes', 'participant', programId, userId],
+  // 퀴즈 상세 (참가자 풀이/결과) — RPC 기반
+  quizDetail: (quizId, userId) => ['quizzes', 'detail', quizId, userId],
+  // 운영자 퀴즈 결과 (제출 목록 + 답안 + 사용자) — 수동 채점/통계용
+  quizResults: (quizId) => ['quizzes', 'results', quizId],
+  // 운영자 통계: 프로그램 퀴즈별 요약 (제출 수/평균/정답률/채점 대기)
+  programQuizStats: (programId) => ['quizzes', 'stats', programId],
 }
 
 // ─── 쿼리 함수들 ─────────────────────────────────────────────
@@ -223,6 +233,174 @@ export const fetchMyRecentScoreSeries = async (programId, userId, days = 14) => 
     series.push({ date: key, point: byDate[key] || 0 })
   }
   return series
+}
+
+// 프로그램 퀴즈 목록 (운영자용) — 문제 수 + 제출 수 집계 포함
+//   quiz_questions / quiz_submissions count 는 owner RLS 로 허용됨
+export const fetchProgramQuizzes = async (programId) => {
+  const { data, error } = await supabase
+    .from('quizzes')
+    .select('*, quiz_questions(count), quiz_submissions(count)')
+    .eq('program_id', programId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return (data || []).map(q => ({
+    ...q,
+    questionCount: q.quiz_questions?.[0]?.count || 0,
+    submissionCount: q.quiz_submissions?.[0]?.count || 0,
+  }))
+}
+
+// 참가자용 퀴즈 목록 — quizzes(RLS: 참여자 SELECT 허용) + 본인 제출 상태
+//   quiz_submissions 는 RLS 로 본인 것만 조인됨 → mySubmission 으로 풀이 여부 판단
+export const fetchParticipantQuizzes = async (programId) => {
+  const { data, error } = await supabase
+    .from('quizzes')
+    .select('id, title, description, start_at, due_at, reveal_answers, created_at, quiz_submissions(id, total_score, status)')
+    .eq('program_id', programId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return (data || []).map(q => ({
+    ...q,
+    mySubmission: q.quiz_submissions?.[0] || null,
+  }))
+}
+
+// 퀴즈 상세 (정답 제외) + 본인 제출/답안 — RPC
+export const fetchQuizForParticipant = async (quizId) => {
+  const { data, error } = await supabase.rpc('get_quiz_for_participant', { p_quiz_id: quizId })
+  if (error) throw error
+  return data
+}
+
+// 퀴즈 제출 + 자동 채점 — RPC. answers: [{ question_id, answer }]
+export const submitQuiz = async (quizId, answers) => {
+  const { data, error } = await supabase.rpc('submit_quiz', { p_quiz_id: quizId, p_answers: answers })
+  if (error) throw error
+  return data
+}
+
+// 운영자 퀴즈 결과 — 퀴즈/문제/모든 제출/답/사용자 통합 fetch
+//   owner RLS 로 quiz_questions/submissions/answers 모두 SELECT 가능
+export const fetchQuizResults = async (quizId) => {
+  const { data: quiz, error: qErr } = await supabase
+    .from('quizzes').select('*').eq('id', quizId).maybeSingle()
+  if (qErr) throw qErr
+  if (!quiz) return null
+
+  const [questionsRes, submissionsRes] = await Promise.all([
+    supabase.from('quiz_questions').select('*').eq('quiz_id', quizId).order('order_index'),
+    supabase.from('quiz_submissions').select('*').eq('quiz_id', quizId).order('submitted_at', { ascending: false }),
+  ])
+  if (questionsRes.error) throw questionsRes.error
+  if (submissionsRes.error) throw submissionsRes.error
+
+  const questions = questionsRes.data || []
+  const submissions = submissionsRes.data || []
+
+  if (submissions.length === 0) {
+    return { quiz, questions, submissions: [] }
+  }
+
+  const subIds = submissions.map(s => s.id)
+  const userIds = Array.from(new Set(submissions.map(s => s.user_id)))
+
+  const [answersRes, usersRes] = await Promise.all([
+    supabase.from('quiz_answers').select('*').in('submission_id', subIds),
+    supabase.from('users').select('id, nickname, avatar_path').in('id', userIds),
+  ])
+  if (answersRes.error) throw answersRes.error
+  if (usersRes.error) throw usersRes.error
+
+  const userMap = new Map((usersRes.data || []).map(u => [u.id, u]))
+  const answersMap = new Map()
+  for (const a of answersRes.data || []) {
+    if (!answersMap.has(a.submission_id)) answersMap.set(a.submission_id, [])
+    answersMap.get(a.submission_id).push(a)
+  }
+
+  return {
+    quiz,
+    questions,
+    submissions: submissions.map(s => ({
+      ...s,
+      user: userMap.get(s.user_id) || null,
+      answers: answersMap.get(s.id) || [],
+    })),
+  }
+}
+
+// 운영자 수동 채점 — RPC
+export const gradeQuizAnswer = async (answerId, isCorrect) => {
+  const { data, error } = await supabase.rpc('grade_quiz_answer', {
+    p_answer_id: answerId,
+    p_is_correct: isCorrect,
+  })
+  if (error) throw error
+  return data
+}
+
+// 운영자 통계 — 프로그램 퀴즈별 요약
+//   각 퀴즈마다: 제출 수 / 참여율 / 평균 점수 / 채점 대기 / 정답률(자동채점 답 기준)
+//   참여율 분모 = ACTIVE 참여자 수
+export const fetchProgramQuizStats = async (programId) => {
+  // 1) 퀴즈 + 문제 + 제출 + 답안 한 번에
+  const { data: quizzes, error: qErr } = await supabase
+    .from('quizzes')
+    .select(`
+      id, title, start_at, due_at, reveal_answers, created_at,
+      quiz_questions(id, point),
+      quiz_submissions(id, total_score, status, quiz_answers(is_correct))
+    `)
+    .eq('program_id', programId)
+    .order('created_at', { ascending: false })
+  if (qErr) throw qErr
+
+  // 2) ACTIVE 참여자 수 (참여율 분모)
+  const { count: participantCount, error: pErr } = await supabase
+    .from('program_participants')
+    .select('*', { count: 'exact', head: true })
+    .eq('program_id', programId)
+    .eq('status', 'ACTIVE')
+  if (pErr) throw pErr
+
+  return (quizzes || []).map(q => {
+    const subs = q.quiz_submissions || []
+    const submissionCount = subs.length
+    const avgScore = submissionCount > 0
+      ? Math.round(subs.reduce((s, sub) => s + (sub.total_score || 0), 0) / submissionCount)
+      : 0
+    const pendingCount = subs.filter(s => s.status === 'PENDING').length
+
+    // 정답률 — 자동 채점된 답안(is_correct !== null)만 집계
+    let totalGraded = 0
+    let correctCount = 0
+    for (const sub of subs) {
+      for (const a of (sub.quiz_answers || [])) {
+        if (a.is_correct !== null) {
+          totalGraded++
+          if (a.is_correct === true) correctCount++
+        }
+      }
+    }
+    const correctRate = totalGraded > 0 ? Math.round((correctCount / totalGraded) * 100) : null
+
+    return {
+      id: q.id,
+      title: q.title,
+      start_at: q.start_at,
+      due_at: q.due_at,
+      created_at: q.created_at,
+      questionCount: q.quiz_questions?.length || 0,
+      totalPoints: (q.quiz_questions || []).reduce((s, qq) => s + (qq.point || 0), 0),
+      submissionCount,
+      participantCount: participantCount || 0,
+      participationRate: participantCount ? Math.round((submissionCount / participantCount) * 100) : 0,
+      avgScore,
+      pendingCount,
+      correctRate,
+    }
+  })
 }
 
 export const fetchPendingReviews = async (programId) => {

@@ -20,10 +20,15 @@ import ProgramStatsUserMissionsPage from './pages/program/ProgramStatsUserMissio
 import ProgramStatsUserVerificationsPage from './pages/program/ProgramStatsUserVerificationsPage'
 import ProgramStatsUserVerificationsBundlePage from './pages/program/ProgramStatsUserVerificationsBundlePage'
 import ProgramStatsUserVerificationsMissionPage from './pages/program/ProgramStatsUserVerificationsMissionPage'
+import ProgramStatsQuizzesPage from './pages/program/ProgramStatsQuizzesPage'
 import ProgramReviewsPage from './pages/program/ProgramReviewsPage'
 import ProgramReviewsBundlePage from './pages/program/ProgramReviewsBundlePage'
 import ProgramReviewsMissionPage from './pages/program/ProgramReviewsMissionPage'
 import ProgramFeedPage from './pages/program/ProgramFeedPage'
+import PostsManagePage from './pages/program/PostsManagePage'
+import QuizCreatePage from './pages/program/QuizCreatePage'
+import QuizSolvePage from './pages/program/QuizSolvePage'
+import QuizResultsPage from './pages/program/QuizResultsPage'
 import MissionVerifyPage from './pages/program/MissionVerifyPage'
 import ProgramListPage from './pages/program/ProgramListPage'
 import RankingsPage from './pages/RankingsPage'
@@ -100,6 +105,9 @@ function AppShell() {
   <Route path="/programs/:id/stats/users/:userId/verifications/:bundleParam/:missionId" element={
     <ProtectedRoute><ProgramStatsUserVerificationsMissionPage /></ProtectedRoute>
   } />
+  <Route path="/programs/:id/stats/quizzes" element={
+    <ProtectedRoute><ProgramStatsQuizzesPage /></ProtectedRoute>
+  } />
   <Route path="/programs/:id/reviews" element={
     <ProtectedRoute><ProgramReviewsPage /></ProtectedRoute>
   } />
@@ -111,6 +119,18 @@ function AppShell() {
   } />
   <Route path="/programs/:id/feed" element={
     <ProtectedRoute><ProgramFeedPage /></ProtectedRoute>
+  } />
+  <Route path="/programs/:id/posts" element={
+    <ProtectedRoute><PostsManagePage /></ProtectedRoute>
+  } />
+  <Route path="/programs/:id/posts/quiz/new" element={
+    <ProtectedRoute><QuizCreatePage /></ProtectedRoute>
+  } />
+  <Route path="/programs/:id/posts/quiz/:quizId" element={
+    <ProtectedRoute><QuizResultsPage /></ProtectedRoute>
+  } />
+  <Route path="/programs/:id/quiz/:quizId" element={
+    <ProtectedRoute><QuizSolvePage /></ProtectedRoute>
   } />
   <Route path="/programs/:programId/missions/:missionId" element={
     <ProtectedRoute><MissionVerifyPage /></ProtectedRoute>
