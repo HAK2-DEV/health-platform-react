@@ -38,7 +38,10 @@ function BottomTabBar() {
   ]
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50">
+    <nav
+      className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50 pb-3"
+      style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0.75rem)' }}
+    >
       <div className="max-w-4xl mx-auto flex">
         {tabs.map(tab => {
           const Icon = tab.icon
