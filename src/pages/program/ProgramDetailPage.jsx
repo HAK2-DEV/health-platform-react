@@ -324,7 +324,7 @@ function ProgramDetailPage() {
       {missions.length === 0 ? (
         <EmptyState icon="🎯" title="미션이 아직 없어요" />
       ) : (
-        <motion.div layout className="grid gap-3">
+        <motion.div layout className="grid grid-cols-1 gap-3">
           <AnimatePresence initial={false}>
             {displayedMissionCards.map(card => {
               if (card.kind === 'solo') {
@@ -386,7 +386,7 @@ function ProgramDetailPage() {
       {!isOwner && participantQuizzes.length > 0 && (
         <div className="mt-8">
           <h2 className="text-lg font-medium text-gray-800 mb-3">📝 퀴즈</h2>
-          <div className="grid gap-3">
+          <div className="grid grid-cols-1 gap-3">
             {participantQuizzes.map(quiz => {
               const sub = quiz.mySubmission
               const now = new Date()

@@ -185,7 +185,7 @@ function ProgramListPage() {
         ) : displayedMy.length === 0 ? (
           isSearching && <p className="text-xs text-gray-400 text-center py-3">매칭된 내 프로그램이 없어요</p>
         ) : (
-          <motion.div layout className="grid gap-3">
+          <motion.div layout className="grid grid-cols-1 gap-3">
             <AnimatePresence initial={false}>
               {displayedMy.map(program => {
                 const isDraft = program.status === 'DRAFT'
@@ -285,7 +285,7 @@ function ProgramListPage() {
         ) : displayedActive.length === 0 ? (
           isSearching && <p className="text-xs text-gray-400 text-center py-3">매칭된 참여 프로그램이 없어요</p>
         ) : (
-          <motion.div layout className="grid gap-3">
+          <motion.div layout className="grid grid-cols-1 gap-3">
             <AnimatePresence initial={false}>
               {displayedActive.map(program => (
                 <motion.div
@@ -348,7 +348,7 @@ function ProgramListPage() {
         ) : displayedPublic.length === 0 ? (
           isSearching && <p className="text-xs text-gray-400 text-center py-3">매칭된 둘러보기 프로그램이 없어요</p>
         ) : (
-          <motion.div layout className="grid gap-3">
+          <motion.div layout className="grid grid-cols-1 gap-3">
             <AnimatePresence initial={false}>
               {displayedPublic.map(program => (
                 <motion.div

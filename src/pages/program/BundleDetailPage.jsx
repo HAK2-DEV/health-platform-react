@@ -158,7 +158,7 @@ function BundleDetailPage() {
       </div>
 
       {/* 미션 목록 */}
-      <div className="grid gap-3">
+      <div className="grid grid-cols-1 gap-3">
         {bundleMissions.map(m => (
           <MissionCard
             key={m.id}

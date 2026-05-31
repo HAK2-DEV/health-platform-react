@@ -108,7 +108,7 @@ function QuizResultsPage() {
       {submissions.length === 0 ? (
         <EmptyState icon="📝" title="아직 제출한 참가자가 없어요" />
       ) : (
-        <div className="grid gap-3">
+        <div className="grid grid-cols-1 gap-3">
           {submissions.map(sub => {
             const expanded = expandedId === sub.id
             return (

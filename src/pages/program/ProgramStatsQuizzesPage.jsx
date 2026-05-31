@@ -83,7 +83,7 @@ function ProgramStatsQuizzesPage() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.3 }}
-          className="grid gap-3"
+          className="grid grid-cols-1 gap-3"
         >
           {stats.map(q => {
             const isExpired = q.due_at && new Date(q.due_at) < new Date()

@@ -588,7 +588,7 @@ function DashboardPage() {
             description="위의 '프로그램 생성하기' 버튼으로 시작해보세요"
           />
         ) : (
-          <motion.div layout className="grid gap-3">
+          <motion.div layout className="grid grid-cols-1 gap-3">
             <AnimatePresence initial={false}>
             {(showAllMyPrograms ? myPrograms : myPrograms.slice(0, 2)).map(program => {
               const isDraft = program.status === 'DRAFT'
@@ -695,7 +695,7 @@ function DashboardPage() {
             action={{ label: '프로그램 둘러보기', onClick: () => navigate('/programs') }}
           />
         ) : (
-          <motion.div layout className="grid gap-3">
+          <motion.div layout className="grid grid-cols-1 gap-3">
             <AnimatePresence initial={false}>
             {(showAllActivePrograms ? activePrograms : activePrograms.slice(0, 2)).map(program => {
               const catKey = program.categories?.[0] || 'ETC'

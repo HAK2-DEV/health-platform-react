@@ -103,7 +103,7 @@ function PostsManagePage() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.3 }}
-          className="grid gap-3"
+          className="grid grid-cols-1 gap-3"
         >
           {quizzes.map(quiz => {
             const now = new Date()

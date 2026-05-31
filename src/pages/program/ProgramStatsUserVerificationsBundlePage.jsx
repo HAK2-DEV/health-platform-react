@@ -111,7 +111,7 @@ function ProgramStatsUserVerificationsBundlePage() {
       {missionGroups.length === 0 ? (
         <EmptyState icon="📊" title="아직 인증 기록이 없어요" />
       ) : (
-        <div className="grid gap-3">
+        <div className="grid grid-cols-1 gap-3">
           {missionGroups.map(m => (
             <button
               key={m.mission_id}

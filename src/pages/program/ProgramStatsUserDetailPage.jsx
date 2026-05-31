@@ -180,7 +180,7 @@ function ProgramStatsUserDetailPage() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.1 }}
-        className="grid gap-3"
+        className="grid grid-cols-1 gap-3"
       >
         <button
           type="button"

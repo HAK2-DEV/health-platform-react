@@ -95,7 +95,7 @@ function ProgramReviewsPage() {
       {pendingQuizzes.length > 0 && (
         <section className="mb-6">
           <h2 className="text-lg font-medium text-gray-800 mb-3">📝 퀴즈 채점 대기</h2>
-          <div className="grid gap-3">
+          <div className="grid grid-cols-1 gap-3">
             {pendingQuizzes.map(q => (
               <button
                 key={q.id}
@@ -124,7 +124,7 @@ function ProgramReviewsPage() {
       ) : pending.length === 0 ? (
         <EmptyState icon="📭" title="심사 대기 중인 인증이 없어요" />
       ) : (
-        <div className="grid gap-3">
+        <div className="grid grid-cols-1 gap-3">
           {bundleGroups.map(group => {
             const isSolo = group.bundleTitle === null
             const bundleParam = isSolo ? 'solo' : encodeURIComponent(group.bundleTitle)
