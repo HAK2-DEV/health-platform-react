@@ -58,7 +58,10 @@ function AppShell() {
 
   return (
    <div className="app">
-      <main className={`app-main ${session && !hideBottomBar ? 'pb-24' : 'pb-4'}`}>
+      <main
+        className={`app-main ${session && !hideBottomBar ? 'pb-24' : 'pb-4'}`}
+        style={{ paddingTop: 'max(env(safe-area-inset-top), 0.75rem)' }}
+      >
         <Routes>
   {/* 보호 X (누구나) */}
   <Route path="/" element={<HomePage />} />
