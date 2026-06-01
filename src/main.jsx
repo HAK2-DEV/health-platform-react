@@ -6,6 +6,12 @@ import { BrowserRouter } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext.jsx'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
+import { registerSW } from 'virtual:pwa-register'
+
+// Service Worker 등록 — autoUpdate 전략
+//   새 배포 감지 시 백그라운드에서 새 SW 다운로드 → 다음 페이지 진입(또는 즉시 reload)에 적용
+//   사용자가 PWA 를 매번 삭제·재추가할 필요 없음
+registerSW({ immediate: true })
 
 // React Query 단일 client — 모든 화면이 같은 캐시를 봄
 // staleTime: 1분 — 본인이 같은 화면을 1분 안에 다시 들어와도 재요청 안 함 (가벼움)
