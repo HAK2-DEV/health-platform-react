@@ -83,9 +83,11 @@ function BundleDetailPage() {
 
   const handleMissionDelete = (mission) => {
     if (!window.confirm(
-      `"${mission.title}" 미션을 삭제할까요?\n\n` +
-      `⚠️ 이 미션의 모든 인증 기록과 부여된 점수가 함께 삭제돼요. 되돌릴 수 없어요.`
+      `⚠️ "${mission.title}" 미션을 삭제하면\n` +
+      `참가자의 모든 인증 기록과 부여된 점수가 함께 삭제됩니다.\n` +
+      `되돌릴 수 없어요.`
     )) return
+    if (!window.confirm('그래도 삭제하시겠습니까?')) return
     deleteMissionMutation.mutate(mission.id)
   }
 

@@ -24,6 +24,7 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
   const [trendEnabled, setTrendEnabled] = useState(false)
   const [periodFilterEnabled, setPeriodFilterEnabled] = useState(false)
   const [coverImagePath, setCoverImagePath] = useState(null)
+  const [inviteCode, setInviteCode] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState(null)
 
@@ -41,6 +42,7 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
       setTrendEnabled(!!program.trend_enabled)
       setPeriodFilterEnabled(!!program.period_filter_enabled)
       setCoverImagePath(program.cover_image_path || null)
+      setInviteCode(program.invite_code || '')
       setError(null)
       setIsSaving(false)
     }
@@ -94,6 +96,10 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
         trend_enabled: trendEnabled,
         period_filter_enabled: periodFilterEnabled,
         cover_image_path: coverImagePath,
+        // INVITE_CODE 모드면 코드 수정 반영 — 빈 칸이면 기존 코드 유지(공백 저장 안 함)
+        ...(program.join_type === 'INVITE_CODE' && inviteCode.trim()
+          ? { invite_code: inviteCode.trim() }
+          : {}),
       })
       .eq('id', program.id)
 
@@ -249,6 +255,26 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
               다른 사용자들의 둘러보기에 노출돼요
             </p>
           </div>
+
+          {/* 초대 코드 — INVITE_CODE 프로그램만 노출 */}
+          {program.join_type === 'INVITE_CODE' && (
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                초대 코드
+              </label>
+              <input
+                type="text"
+                value={inviteCode}
+                onChange={(e) => setInviteCode(e.target.value)}
+                disabled={isSaving}
+                placeholder="비우면 기존 코드 유지"
+                className="w-full px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 disabled:bg-gray-50"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                참가자에게 이 코드로 참여 안내. 변경하면 기존 코드는 즉시 무효 — 새로 공유 필요.
+              </p>
+            </div>
+          )}
 
           {/* 피드 활성화 — 커뮤니티 모드 */}
           <button

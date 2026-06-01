@@ -57,7 +57,7 @@ export const PROGRAM_STATUS = {
 // 프로그램 기본 정보 길이 제한
 export const PROGRAM = {
   NAME_MAX_LENGTH: 20,
-  DESCRIPTION_MAX_LENGTH: 200,
+  DESCRIPTION_MAX_LENGTH: 150,
 }
 
 // 프로그램 유형

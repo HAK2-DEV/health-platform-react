@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { JOIN_TYPE_LIST } from '../../../lib/constants'
+import { generateInviteCode } from '../../../lib/queries'
 
 // 마법사 Step3 (구 Step5Complete 의 참여 조건 입력 부분)
 // 본인 (가) 진화 — Step3 features / Step4 scoring 폐기 후
@@ -15,9 +16,7 @@ function Step3JoinConditions({ initialData, onNext, onSave, onPrev }) {
 
   const validate = () => {
     if (!joinType) return '참여 방식을 선택해주세요'
-    if (joinType === 'INVITE_CODE' && !inviteCode.trim()) {
-      return '초대 코드를 입력해주세요'
-    }
+    // 초대 코드 — 빈 칸 허용 (저장 시 자동 생성)
     if (joinType === 'APPROVAL' && hasEntryQuestion && !entryQuestion.trim()) {
       return '입장 질문을 입력하거나 토글을 꺼주세요'
     }
@@ -28,7 +27,10 @@ function Step3JoinConditions({ initialData, onNext, onSave, onPrev }) {
     join_type: joinType,
     is_public: isPublic,
     max_participants: maxParticipants === '' ? null : parseInt(maxParticipants),
-    invite_code: joinType === 'INVITE_CODE' ? inviteCode.trim() : null,
+    // INVITE_CODE 인데 빈 칸이면 자동 생성 (6자리 영숫자, 혼동 글자 제외)
+    invite_code: joinType === 'INVITE_CODE'
+      ? (inviteCode.trim() || generateInviteCode())
+      : null,
     entry_question: (joinType === 'APPROVAL' && hasEntryQuestion)
       ? entryQuestion.trim()
       : null,
@@ -93,21 +95,21 @@ function Step3JoinConditions({ initialData, onNext, onSave, onPrev }) {
         </div>
       </div>
 
-      {/* 초대 코드 (INVITE_CODE 모드 시) */}
+      {/* 초대 코드 (INVITE_CODE 모드 시) — 빈 칸이면 자동 생성 */}
       {joinType === 'INVITE_CODE' && (
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            초대 코드
+            초대 코드 (선택)
           </label>
           <input
             type="text"
             value={inviteCode}
             onChange={(e) => setInviteCode(e.target.value)}
-            placeholder="예: HEALTH2026"
+            placeholder="비우면 자동 생성 (예: HEALTH2026)"
             className="w-full px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500"
           />
           <p className="text-xs text-gray-500 mt-1">
-            이 코드를 가진 사람만 참여할 수 있어요
+            비우면 6자리 코드가 자동 생성돼요. 직접 입력하면 그 값으로 (중복이면 저장 시 안내).
           </p>
         </div>
       )}

@@ -11,7 +11,8 @@
     <!-- PWA — manifest 는 vite-plugin-pwa 가 빌드 시 자동 inject -->
     <meta name="theme-color" content="#10b981" />
 
-    <!-- iOS PWA standalone (Safari 는 manifest 무시 — 별도 메타 필요) -->
+    <!-- PWA standalone — 웹 표준 (Chrome/Android) + iOS 호환 (둘 다 필요) -->
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Health" />

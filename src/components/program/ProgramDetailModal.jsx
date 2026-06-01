@@ -43,10 +43,10 @@ function ProgramDetailModal({ program, isOpen, onClose }) {
   const handleJoin = async () => {
     if (!session || !program) return
 
-    // INVITE_CODE 는 /join 페이지로
+    // INVITE_CODE 는 /join 페이지로 (사용자가 코드 직접 입력)
     if (program.join_type === 'INVITE_CODE') {
       onClose()
-      navigate(`/join?program=${program.id}`)
+      navigate('/join')
       return
     }
 
@@ -169,22 +169,11 @@ function ProgramDetailModal({ program, isOpen, onClose }) {
           </h2>
 
           {/* 요약 — Step4 Summary 스타일 */}
-          <div className="bg-gray-50/60 p-4 rounded-2xl mb-5">
+          <div className="bg-gray-50/60 p-4 rounded-2xl mb-3">
             <h3 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-1">
               📋 프로그램 정보
             </h3>
             <dl className="space-y-2 text-sm">
-              {/* 목표 (description 이 이름과 다를 때만) */}
-              {program.description
-                && program.description.trim()
-                && program.description.trim() !== program.name?.trim() && (
-                <div className="flex">
-                  <dt className="w-20 text-gray-500 flex-shrink-0">목표</dt>
-                  <dd className="flex-1 text-gray-800 whitespace-pre-wrap break-words">
-                    {program.description}
-                  </dd>
-                </div>
-              )}
               <div className="flex">
                 <dt className="w-20 text-gray-500 flex-shrink-0">기간</dt>
                 <dd className="flex-1 text-gray-800">
@@ -205,6 +194,17 @@ function ProgramDetailModal({ program, isOpen, onClose }) {
               )}
             </dl>
           </div>
+
+          {/* 목표 설명 — 프로그램 정보 카드 다음 (운영자가 입력한 안내) */}
+          {program.description
+            && program.description.trim()
+            && program.description.trim() !== program.name?.trim() && (
+            <div className="px-1 mb-5">
+              <p className="text-sm text-gray-700 whitespace-pre-wrap break-words leading-relaxed">
+                {program.description}
+              </p>
+            </div>
+          )}
 
           {/* 참여 상태 분기 */}
           <div className="border-t pt-4">

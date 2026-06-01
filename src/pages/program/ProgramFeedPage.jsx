@@ -1,12 +1,12 @@
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query'
 import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { Heart, MessageCircle, Image as ImageIcon, BarChart3, Send, Trash2 } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
 import { formatRelativeKstDay } from '../../lib/formatters'
-import { queryKeys, fetchProgram, fetchFeedPosts, formatKstDate } from '../../lib/queries'
+import { queryKeys, fetchProgram, fetchFeedPosts, FEED_PAGE_SIZE, formatKstDate } from '../../lib/queries'
 import StickyBackBar from '../../components/common/StickyBackBar'
 import UserAvatar from '../../components/common/UserAvatar'
 import EmptyState from '../../components/common/EmptyState'
@@ -38,11 +38,28 @@ function ProgramFeedPage() {
     enabled: !!session && !!id,
   })
 
-  const { data: posts = [], isLoading: isPostsLoading } = useQuery({
+  // 페이지네이션 — 한 번에 10개씩. 더보기 클릭으로 다음 10개 fetch.
+  //   참여자/인증 많아질 때 한 번에 fetch 부담 회피.
+  //   좋아요/댓글/삭제 mutation 의 invalidate 는 feedPosts(id) prefix 로 모든 page 무효화 → 자동 refetch.
+  const {
+    data: infiniteData,
+    isLoading: isPostsLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
     queryKey: queryKeys.feedPosts(id),
-    queryFn: () => fetchFeedPosts(id),
+    queryFn: ({ pageParam = 0 }) => fetchFeedPosts(id, pageParam, FEED_PAGE_SIZE),
+    getNextPageParam: (lastPage, allPages) => {
+      // lastPage 가 FEED_PAGE_SIZE 미만이면 다음 페이지 없음
+      if (!lastPage || lastPage.length < FEED_PAGE_SIZE) return undefined
+      return allPages.length // 다음 page index
+    },
+    initialPageParam: 0,
     enabled: !!session && !!id && !!program?.feed_enabled,
   })
+  // page 들을 평탄화 → 기존 코드 그대로 posts 배열로 사용
+  const posts = infiniteData?.pages.flat() || []
 
   // 타겟 댓글 또는 게시물로 스크롤
   //   c 가 있으면 댓글로 (block: 'center' — 화면 중앙에 댓글 표시)
@@ -469,6 +486,20 @@ function ProgramFeedPage() {
               </article>
             )
           })}
+
+          {/* 더보기 — 다음 페이지 있을 때만 */}
+          {hasNextPage && (
+            <div className="flex justify-center pt-2 pb-4">
+              <button
+                type="button"
+                onClick={() => fetchNextPage()}
+                disabled={isFetchingNextPage}
+                className="px-12 py-2.5 text-sm font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-full border border-emerald-200 transition disabled:opacity-50"
+              >
+                {isFetchingNextPage ? '불러오는 중...' : '더보기'}
+              </button>
+            </div>
+          )}
         </motion.div>
       )}
     </div>

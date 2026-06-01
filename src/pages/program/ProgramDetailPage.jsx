@@ -12,6 +12,7 @@ import UserAvatar from '../../components/common/UserAvatar'
 import EmptyState from '../../components/common/EmptyState'
 import LoadingState from '../../components/common/LoadingState'
 import ProgramCover from '../../components/common/ProgramCover'
+import { calcProgress } from '../../lib/programVisuals'
 import ProgramEditModal from '../../components/program/ProgramEditModal'
 import MissionCreateModal from '../../components/program/MissionCreateModal'
 import MissionLibraryModal from '../../components/program/MissionLibraryModal'
@@ -38,6 +39,7 @@ function ProgramDetailPage() {
   const [editingMission, setEditingMission] = useState(null)  // 미션 수정 — null 이면 생성 모드
   const [showAllMissions, setShowAllMissions] = useState(false)
   const [showAllQuizzes, setShowAllQuizzes] = useState(false)
+  const [showAllRanking, setShowAllRanking] = useState(false)
 
   // 전체보기 토글 시 해당 섹션 viewport 상단으로
   const missionSectionRef = useRef(null)
@@ -147,9 +149,11 @@ function ProgramDetailPage() {
 
   const handleMissionDelete = (mission) => {
     if (!window.confirm(
-      `"${mission.title}" 미션을 삭제할까요?\n\n` +
-      `⚠️ 이 미션의 모든 인증 기록과 부여된 점수가 함께 삭제돼요. 되돌릴 수 없어요.`
+      `⚠️ "${mission.title}" 미션을 삭제하면\n` +
+      `참가자의 모든 인증 기록과 부여된 점수가 함께 삭제됩니다.\n` +
+      `되돌릴 수 없어요.`
     )) return
+    if (!window.confirm('그래도 삭제하시겠습니까?')) return
     deleteMissionMutation.mutate(mission.id)
   }
 
@@ -174,43 +178,55 @@ function ProgramDetailPage() {
     <div className="px-4 pt-2 pb-6 max-w-4xl mx-auto">
       <StickyBackBar onClick={() => navigate(-1)} />
 
-      {/* 프로그램 헤더 — 표지 사진 + 정보 */}
-      <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden mb-6">
-        <ProgramCover
-          imagePath={program.cover_image_path}
-          categories={program.categories}
-          name={program.name}
-          variant="card"
-        />
-        <div className="p-6">
-        <div className="flex items-start justify-between mb-3">
-          <h1 className="text-2xl font-medium text-gray-800">{program.name}</h1>
-          {(() => {
-            // PUBLISHED + 시작일 미래 → "예정" (회색) / PUBLISHED + 진행 중 → "진행중" (초록) / 그 외 → status 그대로
-            const isPublished = program.status === 'PUBLISHED'
-            const isUpcoming = isPublished && isUpcomingByStartDate(program.start_date)
-            const label = isPublished ? (isUpcoming ? '예정' : '진행중') : program.status
-            const cls = (isPublished && !isUpcoming)
-              ? 'bg-emerald-100 text-emerald-700'
-              : 'bg-gray-100 text-gray-600'
-            return <span className={`px-2 py-0.5 rounded text-xs ${cls}`}>{label}</span>
-          })()}
-        </div>
-
-        {/* description 이 name 과 다를 때만 표시 — 중복 회피 (ProgramDetailModal 과 동일 규칙) */}
-        {program.description
-          && program.description.trim()
-          && program.description.trim() !== program.name?.trim() && (
-          <p className="text-gray-600 mb-3 whitespace-pre-wrap">{program.description}</p>
-        )}
-
-        {(program.start_date || program.end_date) && (
-          <p className="text-sm text-gray-500">
-            📅 {formatKoreanDate(program.start_date)} ~ {formatKoreanDate(program.end_date)}
-          </p>
-        )}
-        </div>
-      </div>
+      {/* 프로그램 헤더 — 컴팩트 (표지 좌측 + 정보 우측 + 진행률 바) */}
+      {(() => {
+        const isPublished = program.status === 'PUBLISHED'
+        const isUpcoming = isPublished && isUpcomingByStartDate(program.start_date)
+        const statusLabel = isPublished ? (isUpcoming ? '예정' : '진행중') : program.status
+        const statusCls = (isPublished && !isUpcoming)
+          ? 'bg-emerald-100 text-emerald-700'
+          : 'bg-gray-100 text-gray-600'
+        const progress = calcProgress(program.start_date, program.end_date)
+        return (
+          <div className="bg-white border border-gray-200 rounded-2xl p-4 mb-6">
+            <div className="flex gap-3">
+              <ProgramCover
+                imagePath={program.cover_image_path}
+                categories={program.categories}
+                name={program.name}
+                variant="thumb"
+                className="w-20 h-20 rounded-2xl"
+              />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-start justify-between gap-2 mb-1">
+                  <h1 className="text-xl font-medium text-gray-800 truncate">{program.name}</h1>
+                  <span className={`px-2 py-0.5 rounded text-xs flex-shrink-0 ${statusCls}`}>{statusLabel}</span>
+                </div>
+                {(program.start_date || program.end_date) && (
+                  <p className="text-xs text-gray-500">
+                    📅 {formatKoreanDate(program.start_date)} ~ {formatKoreanDate(program.end_date)}
+                  </p>
+                )}
+                <p className="text-xs text-gray-500 mt-0.5">
+                  👥 {ranking.length}명 참여 중
+                </p>
+              </div>
+            </div>
+            {/* 진행률 바 — 시작/종료가 있을 때만 */}
+            {program.start_date && program.end_date && (
+              <div className="flex items-center gap-2 mt-3">
+                <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className="bg-emerald-400 h-full rounded-full transition-all"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+                <span className="text-xs text-gray-500 font-medium flex-shrink-0">{progress}%</span>
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       {/* 운영자 패널 */}
       {isOwner && (
@@ -257,7 +273,7 @@ function ProgramDetailPage() {
 
       {/* 초대 링크 카드 — 운영자 + INVITE_CODE + PUBLISHED + 코드 설정됨 일 때만 */}
       {isOwner && program.status === 'PUBLISHED' && program.join_type === 'INVITE_CODE' && program.invite_code && (
-        <InviteLinkCard programId={program.id} code={program.invite_code} />
+        <InviteLinkCard code={program.invite_code} />
       )}
 
       {/* 점수 요약 — 오늘 / 누적 */}
@@ -455,45 +471,70 @@ function ProgramDetailPage() {
       <h2 className="text-lg font-medium text-gray-800 mb-3 mt-8">🏆 랭킹</h2>
       {ranking.length === 0 ? (
         <EmptyState icon="👥" title="아직 참여자가 없어요" size="sm" />
-      ) : (
-        <div className="grid gap-2">
-          {ranking.map(row => {
-            const isMe = row.user_id === userId
-            const rankBadgeClass =
-              row.rank === 1 ? 'bg-yellow-100 text-yellow-700'
-              : row.rank === 2 ? 'bg-gray-200 text-gray-700'
-              : row.rank === 3 ? 'bg-orange-100 text-orange-700'
-              : 'bg-gray-50 text-gray-500'
+      ) : (() => {
+        const RANK_PAGE = 10
+        const hasMore = ranking.length > RANK_PAGE
+        const displayed = showAllRanking ? ranking : ranking.slice(0, RANK_PAGE)
+        return (
+          <>
+            <div className="relative">
+              <div className="grid gap-2">
+                {displayed.map(row => {
+                  const isMe = row.user_id === userId
+                  const rankBadgeClass =
+                    row.rank === 1 ? 'bg-yellow-100 text-yellow-700'
+                    : row.rank === 2 ? 'bg-gray-200 text-gray-700'
+                    : row.rank === 3 ? 'bg-orange-100 text-orange-700'
+                    : 'bg-gray-50 text-gray-500'
 
-            return (
-              <div
-                key={row.user_id}
-                className={`
-                  flex items-center justify-between p-3 rounded-lg border
-                  ${isMe ? 'bg-emerald-50 border-emerald-300' : 'bg-white border-gray-200'}
-                `}
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <span className={`
-                    flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium flex-shrink-0
-                    ${rankBadgeClass}
-                  `}>
-                    {row.rank}
-                  </span>
-                  <UserAvatar avatarPath={row.avatar_path} nickname={row.nickname} size="md" />
-                  <span className={`font-medium truncate ${isMe ? 'text-emerald-800' : 'text-gray-800'}`}>
-                    {row.nickname}
-                    {isMe && <span className="ml-1 text-xs text-emerald-600">(나)</span>}
-                  </span>
-                </div>
-                <span className={`text-sm font-medium ${isMe ? 'text-emerald-700' : 'text-gray-600'}`}>
-                  {row.total_score}P
-                </span>
+                  return (
+                    <div
+                      key={row.user_id}
+                      className={`
+                        flex items-center justify-between p-3 rounded-lg border
+                        ${isMe ? 'bg-emerald-50 border-emerald-300' : 'bg-white border-gray-200'}
+                      `}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className={`
+                          flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium flex-shrink-0
+                          ${rankBadgeClass}
+                        `}>
+                          {row.rank}
+                        </span>
+                        <UserAvatar avatarPath={row.avatar_path} nickname={row.nickname} size="md" />
+                        <span className={`font-medium truncate ${isMe ? 'text-emerald-800' : 'text-gray-800'}`}>
+                          {row.nickname}
+                          {isMe && <span className="ml-1 text-xs text-emerald-600">(나)</span>}
+                        </span>
+                      </div>
+                      <span className={`text-sm font-medium ${isMe ? 'text-emerald-700' : 'text-gray-600'}`}>
+                        {row.total_score}P
+                      </span>
+                    </div>
+                  )
+                })}
               </div>
-            )
-          })}
-        </div>
-      )}
+              {/* 페이드 오버레이 — 미펼침 + 더 있을 때만 (마지막 ~2 카드 점진 흐림) */}
+              {!showAllRanking && hasMore && (
+                <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-white via-white/80 to-transparent pointer-events-none rounded-b-lg" />
+              )}
+            </div>
+            {/* 더보기 버튼 */}
+            {hasMore && (
+              <div className="flex justify-center mt-3">
+                <button
+                  type="button"
+                  onClick={() => setShowAllRanking(!showAllRanking)}
+                  className="px-12 py-2.5 text-sm font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-full border border-emerald-200 transition"
+                >
+                  {showAllRanking ? '간단히 보기' : `더보기 (${ranking.length}명)`}
+                </button>
+              </div>
+            )}
+          </>
+        )
+      })()}
       </>)}
 
       {/* 모달들 */}
@@ -529,10 +570,11 @@ function ProgramDetailPage() {
 // 초대 링크 카드 — 운영자가 INVITE_CODE 프로그램의 가입 링크를 복사하도록 도와줌
 //   링크 형식: <origin>/join?program=<id>&code=<code>
 //   복사 버튼 → 클립보드 → 짧은 "복사 완료" 토스트
-function InviteLinkCard({ programId, code }) {
+function InviteLinkCard({ code }) {
   const [copied, setCopied] = useState(false)
   const origin = typeof window !== 'undefined' ? window.location.origin : ''
-  const inviteUrl = `${origin}/join?program=${programId}&code=${encodeURIComponent(code)}`
+  // code 단독 — 운영자가 ID 알릴 필요 없음 (UNIQUE 보장)
+  const inviteUrl = `${origin}/join?code=${encodeURIComponent(code)}`
 
   const handleCopy = async () => {
     try {
@@ -552,7 +594,7 @@ function InviteLinkCard({ programId, code }) {
         🎟️ 초대 링크
       </h2>
       <p className="text-xs text-sky-700 mb-3 leading-relaxed">
-        아래 링크를 친구/지인에게 공유하면, 클릭만으로 자동 참여돼요. (로그인 후 자동 진행)
+        아래 링크를 공유하면 받은 사람이 코드 입력 없이 프로그램 미리보기로 이동해요. 거기서 "참여하기"를 눌러야 가입됩니다.
       </p>
       <div className="flex items-center gap-2 bg-white border border-sky-200 rounded-xl p-2 mb-2">
         <code className="flex-1 text-xs text-gray-700 truncate select-all">{inviteUrl}</code>

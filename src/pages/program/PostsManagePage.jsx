@@ -1,13 +1,15 @@
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { Plus, Trash2, FileText, Clock, Users } from 'lucide-react'
+import { Plus, Trash2, Pencil, FileText, Clock, Users } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
 import { queryKeys, fetchProgram, fetchProgramQuizzes } from '../../lib/queries'
 import StickyBackBar from '../../components/common/StickyBackBar'
 import LoadingState from '../../components/common/LoadingState'
 import EmptyState from '../../components/common/EmptyState'
+import QuizEditModal from '../../components/program/QuizEditModal'
 import { formatKoreanDateTime } from '../../lib/formatters'
 
 // 게시물 관리 — 운영자 전용. 라우트: /programs/:id/posts
@@ -49,10 +51,18 @@ function PostsManagePage() {
     },
   })
 
+  // 수정 모달
+  const [editingQuiz, setEditingQuiz] = useState(null)
+  const handleEditSuccess = () => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.programQuizzes(id) })
+  }
+
+  // 2단계 confirm — 경고 후 한 번 더
   const handleDelete = (quiz) => {
     if (!window.confirm(
-      `"${quiz.title}" 퀴즈를 삭제할까요?\n\n⚠️ 참가자 제출/점수도 함께 삭제돼요. 되돌릴 수 없어요.`
+      `⚠️ "${quiz.title}" 퀴즈를 삭제하면\n참가자 제출 기록·답안·부여된 점수가 모두 삭제됩니다.\n되돌릴 수 없어요.`
     )) return
+    if (!window.confirm('그래도 삭제하시겠습니까?')) return
     deleteMutation.mutate(quiz.id)
   }
 
@@ -117,15 +127,25 @@ function PostsManagePage() {
               >
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <h3 className="font-medium text-gray-800 flex-1 min-w-0">{quiz.title}</h3>
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); handleDelete(quiz) }}
-                    disabled={deleteMutation.isPending}
-                    className="p-1 text-gray-400 hover:text-red-500 transition disabled:opacity-40 flex-shrink-0"
-                    title="삭제"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-0.5 flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setEditingQuiz(quiz) }}
+                      className="p-1 text-gray-400 hover:text-emerald-600 transition"
+                      title="퀴즈 수정"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); handleDelete(quiz) }}
+                      disabled={deleteMutation.isPending}
+                      className="p-1 text-gray-400 hover:text-red-500 transition disabled:opacity-40"
+                      title="삭제"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
                   <span className="inline-flex items-center gap-1">
@@ -155,6 +175,14 @@ function PostsManagePage() {
           })}
         </motion.div>
       )}
+
+      {/* 퀴즈 메타 수정 모달 */}
+      <QuizEditModal
+        quiz={editingQuiz}
+        isOpen={editingQuiz !== null}
+        onClose={() => setEditingQuiz(null)}
+        onSuccess={handleEditSuccess}
+      />
     </div>
   )
 }

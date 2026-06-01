@@ -330,6 +330,30 @@ export const fetchQuizResults = async (quizId) => {
   }
 }
 
+// 초대 코드 — 코드로 프로그램 미리보기 (가입 X)
+export const lookupInviteProgram = async (code) => {
+  const { data, error } = await supabase.rpc('lookup_invite_program', { p_code: code })
+  if (error) throw error
+  return data
+}
+
+// 초대 코드 — 가입 (code 단독)
+export const joinByInviteCode = async (code) => {
+  const { data, error } = await supabase.rpc('join_by_invite_code', { p_code: code })
+  if (error) throw error
+  return data
+}
+
+// 6자리 영숫자 코드 자동 생성 (혼동 글자 제외 — 0/O, 1/I, L 제외)
+export const generateInviteCode = () => {
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
+  let code = ''
+  for (let i = 0; i < 6; i++) {
+    code += chars[Math.floor(Math.random() * chars.length)]
+  }
+  return code
+}
+
 // 운영자 수동 채점 — RPC
 export const gradeQuizAnswer = async (answerId, isCorrect) => {
   const { data, error } = await supabase.rpc('grade_quiz_answer', {
@@ -456,8 +480,15 @@ export const fetchUnreadNotificationsCount = async () => {
 // 같은 프로그램의 ACTIVE 참여자만 SELECT (037 RLS) — feed_enabled=true 인 경우
 // 반환: [{ ...verification, user, likeCount, likedUserIds: Set, comments: [{ ...comment, user }] }]
 //   likedByMe 는 호출 측에서 likedUserIds.has(myUserId) 로 결정 (캐시는 user 무관)
-export const fetchFeedPosts = async (programId) => {
-  // 1) APPROVED + feed_visible 인증만 — 사용자가 노출 끈 인증은 피드에서 숨김
+//
+// 페이지네이션: 참여자 많아질 때 한 번에 전부 fetch 부담 → 10개씩 cursor-based
+//   page=0 → 최신 10개, page=1 → 다음 10개...
+export const FEED_PAGE_SIZE = 10
+export const fetchFeedPosts = async (programId, page = 0, pageSize = FEED_PAGE_SIZE) => {
+  const from = page * pageSize
+  const to = from + pageSize - 1
+
+  // 1) APPROVED + feed_visible 인증만 — range 로 페이지네이션
   const { data: vData, error: vErr } = await supabase
     .from('verifications')
     .select('id, mission_id, user_id, submitted_at, image_path, numeric_value, note, missions!inner(program_id, title, bundle_title)')
@@ -465,6 +496,7 @@ export const fetchFeedPosts = async (programId) => {
     .eq('status', 'APPROVED')
     .eq('feed_visible', true)
     .order('submitted_at', { ascending: false })
+    .range(from, to)
   if (vErr) throw vErr
 
   const rows = vData || []
