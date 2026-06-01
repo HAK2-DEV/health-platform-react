@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { LogOut, Camera, Pencil, X, Loader2 } from 'lucide-react'
+import { LogOut, Camera, Pencil, X, Loader2, BarChart3, ChevronRight } from 'lucide-react'
 import { supabase } from '../supabaseClient'
 import { useAuth } from '../hooks/useAuth'
 import { useNicknameCheck } from '../hooks/useNicknameCheck'
@@ -16,6 +17,7 @@ import ImageCropModal from '../components/common/ImageCropModal'
 //   - 이메일 표시 / 로그아웃
 function ProfilePage() {
   const { session, nickname, refreshNickname } = useAuth()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const userId = session?.user?.id
 
@@ -221,7 +223,7 @@ function ProfilePage() {
   const isAvatarBusy = avatarMutation.isPending || removeAvatarMutation.isPending
 
   return (
-    <div className="p-6 max-w-2xl mx-auto">
+    <div className="px-4 pt-4 pb-6 max-w-2xl mx-auto">
       <PageHeader>👤 프로필</PageHeader>
 
       {/* 아바타 + 닉네임 카드 */}
@@ -339,6 +341,22 @@ function ProfilePage() {
           )}
         </div>
       </div>
+
+      {/* 내 인증 현황 — 새 활동 통계 페이지 */}
+      <button
+        type="button"
+        onClick={() => navigate('/profile/activity')}
+        className="w-full flex items-center gap-3 p-4 mb-3 bg-white border border-gray-200 rounded-2xl hover:bg-gray-50 hover:border-emerald-300 transition text-left"
+      >
+        <div className="w-10 h-10 flex-shrink-0 bg-emerald-100 rounded-xl flex items-center justify-center">
+          <BarChart3 className="w-5 h-5 text-emerald-600" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="font-medium text-gray-800">📊 내 인증 현황</h3>
+          <p className="text-xs text-gray-500 mt-0.5">미션 제출/점수/미션별 분포</p>
+        </div>
+        <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
+      </button>
 
       {/* 이메일 */}
       <div className="bg-white border border-gray-200 rounded-2xl p-4 mb-6">

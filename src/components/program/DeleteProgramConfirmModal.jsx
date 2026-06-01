@@ -42,7 +42,7 @@ function DeleteProgramConfirmModal({ program, isOpen, onClose, onConfirm }) {
               <AlertTriangle className="w-5 h-5 text-red-600" />
             </div>
             <div>
-              <h2 className="text-lg font-medium text-gray-800 pr-8">
+              <h2 className="text-lg font-semibold text-gray-800 pr-8">
                 프로그램을 정말 삭제할까요?
               </h2>
               <p className="text-sm text-gray-600 mt-1">

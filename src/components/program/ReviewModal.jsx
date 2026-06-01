@@ -132,7 +132,7 @@ function ReviewModal({ program, isOpen, onClose, onSuccess }) {
   return (
     <Modal isOpen={isOpen} onClose={onClose}>
       <div className="p-6">
-        <h2 className="text-xl font-medium text-gray-800 mb-1 pr-8">
+        <h2 className="text-xl font-semibold text-gray-800 mb-1 pr-8">
           ✅ 인증 심사
         </h2>
         <p className="text-xs text-gray-500 mb-4">

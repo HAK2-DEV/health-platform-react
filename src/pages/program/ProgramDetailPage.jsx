@@ -3,8 +3,9 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../../hooks/useAuth'
-import { ChevronLeft, Plus, ChevronRight } from 'lucide-react'
+import { ChevronLeft, Plus, ChevronRight, Users, Trophy, Pencil } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
+import { CATEGORY } from '../../lib/constants'
 import { formatKoreanDate, formatKoreanDateTime, isUpcomingByStartDate } from '../../lib/formatters'
 import MissionCard from '../../components/program/MissionCard'
 import StickyBackBar from '../../components/common/StickyBackBar'
@@ -12,10 +13,13 @@ import UserAvatar from '../../components/common/UserAvatar'
 import EmptyState from '../../components/common/EmptyState'
 import LoadingState from '../../components/common/LoadingState'
 import ProgramCover from '../../components/common/ProgramCover'
+import MarkdownView from '../../components/common/MarkdownView'
 import { calcProgress } from '../../lib/programVisuals'
 import ProgramEditModal from '../../components/program/ProgramEditModal'
 import MissionCreateModal from '../../components/program/MissionCreateModal'
 import MissionLibraryModal from '../../components/program/MissionLibraryModal'
+import OverviewEditModal from '../../components/program/OverviewEditModal'
+import FeedContent from '../../components/program/FeedContent'
 import {
   queryKeys,
   fetchProgram,
@@ -34,12 +38,17 @@ function ProgramDetailPage() {
   const userId = session?.user?.id
 
   const [isEditOpen, setIsEditOpen] = useState(false)
+  const [isOverviewEditOpen, setIsOverviewEditOpen] = useState(false)
   const [isLibraryOpen, setIsLibraryOpen] = useState(false)
   const [isMissionCreateOpen, setIsMissionCreateOpen] = useState(false)
   const [editingMission, setEditingMission] = useState(null)  // 미션 수정 — null 이면 생성 모드
   const [showAllMissions, setShowAllMissions] = useState(false)
   const [showAllQuizzes, setShowAllQuizzes] = useState(false)
   const [showAllRanking, setShowAllRanking] = useState(false)
+
+  // 탭 상태 — 개요(overview) / 미션(missions) / 퀴즈(quizzes) / 커뮤니티(community) / 랭킹(ranking)
+  //   마법사에서 ranking 비활성화 시 랭킹 탭 자동 숨김 (program.ranking_enabled === false)
+  const [activeTab, setActiveTab] = useState('overview')
 
   // 전체보기 토글 시 해당 섹션 viewport 상단으로
   const missionSectionRef = useRef(null)
@@ -114,7 +123,7 @@ function ProgramDetailPage() {
     }
     return cards
   }, [missionGroups])
-  const displayedMissionCards = showAllMissions ? missionCards : missionCards.slice(0, 2)
+  const displayedMissionCards = showAllMissions ? missionCards : missionCards.slice(0, 3)
 
   // 모달 mutation 후 갱신 헬퍼
   const invalidateProgramData = () => {
@@ -178,63 +187,159 @@ function ProgramDetailPage() {
     <div className="px-4 pt-2 pb-6 max-w-4xl mx-auto">
       <StickyBackBar onClick={() => navigate(-1)} />
 
-      {/* 프로그램 헤더 — 컴팩트 (표지 좌측 + 정보 우측 + 진행률 바) */}
+      {/* 프로그램 헤더 — 모의도 디자인: 배경 사진 풀 블리드 + 우측 페이드 + 진행중 배지 */}
       {(() => {
         const isPublished = program.status === 'PUBLISHED'
         const isUpcoming = isPublished && isUpcomingByStartDate(program.start_date)
-        const statusLabel = isPublished ? (isUpcoming ? '예정' : '진행중') : program.status
-        const statusCls = (isPublished && !isUpcoming)
-          ? 'bg-emerald-100 text-emerald-700'
-          : 'bg-gray-100 text-gray-600'
+        const isDraft = program.status === 'DRAFT'
+        const statusLabel = isDraft ? '임시저장' : isPublished ? (isUpcoming ? '예정' : '진행중') : program.status
+        const statusCls = isDraft
+          ? 'bg-gray-500 text-white'
+          : (isPublished && !isUpcoming)
+            ? 'bg-emerald-500 text-white'
+            : 'bg-amber-500 text-white'
         const progress = calcProgress(program.start_date, program.end_date)
+        const totalDays = program.start_date && program.end_date
+          ? Math.round((new Date(program.end_date) - new Date(program.start_date)) / 86400000) + 1
+          : null
+
+        // 본인 순위 — ranking 배열에서 찾기 (랭킹 활성 시만 표시)
+        const myRow = ranking.find(r => r.user_id === userId)
+        const myRank = myRow?.rank
+
+        // 배경 사진 URL (cover_image_path → 공개 URL, 없으면 카테고리 이모지 fallback)
+        const publicUrl = program.cover_image_path
+          ? supabase.storage.from('program-covers').getPublicUrl(program.cover_image_path).data?.publicUrl
+          : null
+        const catKey = program.categories?.[0] || 'ETC'
+        const cat = CATEGORY[catKey] || CATEGORY.ETC
+
         return (
-          <div className="bg-white border border-gray-200 rounded-2xl p-4 mb-6">
-            <div className="flex gap-3">
-              <ProgramCover
-                imagePath={program.cover_image_path}
-                categories={program.categories}
-                name={program.name}
-                variant="thumb"
-                className="w-20 h-20 rounded-2xl"
-              />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between gap-2 mb-1">
-                  <h1 className="text-xl font-medium text-gray-800 truncate">{program.name}</h1>
-                  <span className={`px-2 py-0.5 rounded text-xs flex-shrink-0 ${statusCls}`}>{statusLabel}</span>
+          <div className="relative bg-white border border-gray-200 rounded-2xl overflow-hidden mb-6">
+            {/* 배경 사진 — 좌측 일부 영역에만 (전체 너비 X) */}
+            <div className="absolute inset-y-0 left-0 w-[38%]">
+              {publicUrl ? (
+                <img
+                  src={publicUrl}
+                  alt={program.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-emerald-100 via-emerald-50 to-teal-100 flex items-center justify-center">
+                  <span className="text-6xl select-none opacity-60">{cat.emoji}</span>
                 </div>
-                {(program.start_date || program.end_date) && (
-                  <p className="text-xs text-gray-500">
-                    📅 {formatKoreanDate(program.start_date)} ~ {formatKoreanDate(program.end_date)}
-                  </p>
-                )}
-                <p className="text-xs text-gray-500 mt-0.5">
-                  👥 {ranking.length}명 참여 중
+              )}
+              {/* 사진 우측 끝에서 흰색으로 페이드 — 텍스트와 자연스럽게 연결 */}
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-white" />
+            </div>
+
+            {/* 상태 배지 — 사진 위 좌상단 */}
+            <span className={`absolute top-3 left-3 z-10 px-2.5 py-1 rounded-md text-xs font-semibold ${statusCls}`}>
+              {statusLabel}
+            </span>
+
+            {/* 텍스트 영역 — 우측 (사진 끝과 살짝 겹쳐 페이드 자연스럽게) */}
+            <div className="relative z-10 pl-[34%] pr-4 sm:pr-5 py-4 sm:py-5 min-h-[140px] sm:min-h-[150px] flex flex-col justify-center">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-800 mb-1.5 sm:mb-2 leading-tight break-words">
+                {program.name}
+              </h1>
+              {(program.start_date || program.end_date) && (
+                <p className="text-xs sm:text-sm text-gray-600 mb-2 sm:mb-3 flex flex-wrap items-baseline gap-x-1.5">
+                  <span className="text-gray-400">기간</span>
+                  <span>{formatKoreanDate(program.start_date)} ~ {formatKoreanDate(program.end_date)}</span>
+                  {totalDays && <span className="text-gray-500">({totalDays}일)</span>}
                 </p>
+              )}
+              {program.start_date && program.end_date && (
+                <div className="flex items-center gap-2 mb-2 sm:mb-3">
+                  <div className="flex-1 h-2 bg-white/70 rounded-full overflow-hidden border border-gray-100">
+                    <div
+                      className="h-full bg-emerald-400 rounded-full transition-all"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                  <span className="text-sm font-semibold text-emerald-600 flex-shrink-0">{progress}%</span>
+                </div>
+              )}
+              <div className="flex items-center gap-3 sm:gap-4 text-xs sm:text-sm text-gray-600 flex-wrap">
+                <span className="inline-flex items-center gap-1">
+                  <Users className="w-3.5 h-3.5 text-gray-400" />
+                  <span className="text-gray-500">참여자</span>
+                  <span className="text-gray-800 font-semibold">{ranking.length}명</span>
+                </span>
+                {program.ranking_enabled !== false && myRank && (
+                  <span className="inline-flex items-center gap-1">
+                    <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                    <span className="text-gray-500">내 순위</span>
+                    <span className="text-gray-800 font-semibold">{myRank}등</span>
+                  </span>
+                )}
               </div>
             </div>
-            {/* 진행률 바 — 시작/종료가 있을 때만 */}
-            {program.start_date && program.end_date && (
-              <div className="flex items-center gap-2 mt-3">
-                <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                  <div
-                    className="bg-emerald-400 h-full rounded-full transition-all"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-                <span className="text-xs text-gray-500 font-medium flex-shrink-0">{progress}%</span>
-              </div>
-            )}
           </div>
         )
       })()}
 
+      {/* 탭 바 — 개요/미션/퀴즈/커뮤니티/랭킹. 랭킹은 program.ranking_enabled !== false 일 때만 노출 */}
+      {(() => {
+        const tabs = [
+          { key: 'overview', label: '개요' },
+          { key: 'missions', label: '미션' },
+          { key: 'quizzes', label: '퀴즈' },
+          { key: 'community', label: '커뮤니티' },
+          ...(program.ranking_enabled !== false ? [{ key: 'ranking', label: '랭킹' }] : []),
+        ]
+        // 방어: 랭킹 탭이 사라졌는데 현재 ranking 탭이면 overview 로 fallback
+        const safeActiveTab = (activeTab === 'ranking' && program.ranking_enabled === false)
+          ? 'overview'
+          : activeTab
+        return (
+          <div className="border-b border-gray-200 mb-6">
+            <div className="flex">
+              {tabs.map(tab => {
+                const isActive = safeActiveTab === tab.key
+                return (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setActiveTab(tab.key)}
+                    className={`
+                      flex-1 py-3 text-sm border-b-2 transition -mb-px
+                      ${isActive
+                        ? 'border-emerald-500 text-emerald-600 font-semibold'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 font-medium'}
+                    `}
+                  >
+                    {tab.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* ─── 개요 탭 ────────────────────────────────────── */}
+      {activeTab === 'overview' && (<>
+
       {/* 운영자 패널 */}
       {isOwner && (
-        <div className="bg-amber-50 border-2 border-amber-200 rounded-lg p-4 mb-6">
+        <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-4 mb-6">
           <h2 className="flex items-center gap-2 text-sm font-medium text-amber-800 mb-3">
             ⚙️ 운영자 패널
           </h2>
           <div className="grid grid-cols-2 gap-2">
+            {/* 개요 글 — 풀너비 (col-span-2). 메인 콘텐츠 작성/수정 액션이라 강조 */}
+            <button
+              type="button"
+              onClick={() => setIsOverviewEditOpen(true)}
+              className="col-span-2 px-3 py-2 bg-white border border-amber-300 hover:border-amber-500 hover:bg-amber-100 rounded text-sm text-amber-800 transition text-left"
+            >
+              📝 개요 글 {program.overview_content?.trim() ? '수정' : '작성'}
+              <span className="block text-xs text-amber-700">
+                {program.overview_content?.trim() ? '참여자에게 보이는 안내 글 수정' : '프로그램 소개·공지를 마크다운으로 작성'}
+              </span>
+            </button>
             <button
               type="button"
               onClick={() => setIsEditOpen(true)}
@@ -276,7 +381,7 @@ function ProgramDetailPage() {
         <InviteLinkCard code={program.invite_code} />
       )}
 
-      {/* 점수 요약 — 오늘 / 누적 */}
+      {/* 점수 요약 — 오늘 / 누적. 좌측 둥근 아이콘 + 우측 텍스트 (본인 결정 Day 58) */}
       {(() => {
         const todayMax = program.daily_max_score ?? missions.reduce(
           (sum, m) => sum + m.point * (m.daily_limit || 1),
@@ -284,48 +389,75 @@ function ProgramDetailPage() {
         )
         return (
           <div className="grid grid-cols-2 gap-3 mb-6">
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <p className="text-xs text-blue-700 mb-1">오늘 획득</p>
-              <p className="font-medium text-blue-800">
-                <span className="text-2xl">{scores.today}</span>
-                <span className="text-base"> P</span>
-                <span className="text-sm text-blue-600 ml-1">/ {todayMax}P</span>
-              </p>
+            <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex items-center gap-3">
+              <div className="w-10 h-10 flex-shrink-0 bg-blue-100 rounded-xl flex items-center justify-center">
+                <span className="text-xl">⭐</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-blue-700 mb-0.5">오늘 획득</p>
+                <p className="font-medium text-blue-800 leading-tight">
+                  <span className="text-xl">{scores.today}</span>
+                  <span className="text-sm"> P</span>
+                  <span className="text-xs text-blue-600 ml-1">/ {todayMax}P</span>
+                </p>
+              </div>
             </div>
-            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
-              <p className="text-xs text-emerald-700 mb-1">누적</p>
-              <p className="font-medium text-emerald-800">
-                <span className="text-2xl">{scores.total}</span>
-                <span className="text-base"> P</span>
-              </p>
+            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center gap-3">
+              <div className="w-10 h-10 flex-shrink-0 bg-emerald-100 rounded-xl flex items-center justify-center">
+                <span className="text-xl">🎁</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-emerald-700 mb-0.5">누적</p>
+                <p className="font-medium text-emerald-800 leading-tight">
+                  <span className="text-xl">{scores.total}</span>
+                  <span className="text-sm"> P</span>
+                </p>
+              </div>
             </div>
           </div>
         )
       })()}
 
-      {/* 피드 진입 카드 — feed_enabled 면 모든 참여자에게 노출 */}
-      {program.feed_enabled && (
-        <button
-          type="button"
-          onClick={() => navigate(`/programs/${id}/feed`)}
-          className="w-full flex items-center gap-3 p-4 mb-6 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-lg hover:from-emerald-100 hover:to-teal-100 transition text-left"
-        >
-          <span className="text-2xl">📷</span>
-          <div className="flex-1 min-w-0">
-            <h3 className="font-medium text-emerald-800">피드 보기</h3>
-            <p className="text-xs text-emerald-700">
-              참여자들이 올린 인증을 보고 좋아요·댓글로 응원해보세요
-            </p>
+      {/* 개요 글 — 운영자 작성 (마크다운). 본인 결정 Day 58
+          - 글 있으면: 모두에게 표시 (마크다운 렌더링)
+          - 글 없는데 운영자: 작성 안내 + 운영자 패널 버튼으로 작성
+          - 글 없고 참가자: 영역 자체 숨김 (조용한 fallback) */}
+      {(program.overview_content?.trim() || isOwner) && (
+        <div className="bg-white border border-gray-200 rounded-2xl p-5 mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold text-gray-800">📝 안내</h2>
+            {isOwner && (
+              <button
+                type="button"
+                onClick={() => setIsOverviewEditOpen(true)}
+                className="inline-flex items-center gap-0.5 text-xs text-emerald-600 hover:text-emerald-700"
+              >
+                <Pencil className="w-3 h-3" />
+                {program.overview_content?.trim() ? '수정' : '작성'}
+              </button>
+            )}
           </div>
-          <ChevronRight className="w-5 h-5 text-emerald-500 flex-shrink-0" />
-        </button>
+          {program.overview_content?.trim() ? (
+            <MarkdownView content={program.overview_content} />
+          ) : (
+            <p className="text-sm text-gray-400 text-center py-4">
+              ✏️ 우측 「작성」 을 눌러 프로그램 소개·공지를 작성해보세요
+            </p>
+          )}
+        </div>
       )}
+
+      </>)}
+      {/* ─── /개요 탭 ──────────────────────────────────── */}
+
+      {/* ─── 미션 탭 ────────────────────────────────────── */}
+      {activeTab === 'missions' && (<>
 
       {/* 미션 목록 — 3개 + 전체보기 토글 + framer 부드러운 전환 */}
       <div ref={missionSectionRef} className="flex items-center justify-between mb-3 scroll-mt-16">
-        <h2 className="text-lg font-medium text-gray-800">📋 미션 목록</h2>
+        <h2 className="text-lg font-semibold text-gray-800">📋 미션 목록</h2>
         <div className="flex items-center gap-2">
-          {missionCards.length > 2 && (
+          {missionCards.length > 3 && (
             <button
               type="button"
               onClick={() => { setShowAllMissions(!showAllMissions); scrollToSection(missionSectionRef) }}
@@ -408,12 +540,26 @@ function ProgramDetailPage() {
         </motion.div>
       )}
 
-      {/* 퀴즈 섹션 — 참가자 전용, 퀴즈가 있을 때만 노출 */}
-      {!isOwner && participantQuizzes.length > 0 && (
-        <div ref={quizSectionRef} className="mt-8 scroll-mt-16">
+      </>)}
+      {/* ─── /미션 탭 ──────────────────────────────────── */}
+
+      {/* ─── 퀴즈 탭 ────────────────────────────────────── */}
+      {activeTab === 'quizzes' && (<>
+
+      {isOwner ? (
+        <EmptyState
+          icon="📝"
+          title="퀴즈 관리는 게시물 관리에서"
+          description="운영자는 게시물 관리 메뉴(운영자 패널 → 📋)에서 퀴즈를 생성·관리할 수 있어요"
+          action={{ label: '게시물 관리로', onClick: () => navigate(`/programs/${id}/posts`) }}
+        />
+      ) : participantQuizzes.length === 0 ? (
+        <EmptyState icon="📝" title="아직 풀 수 있는 퀴즈가 없어요" />
+      ) : (
+        <div ref={quizSectionRef} className="scroll-mt-16">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-medium text-gray-800">📝 퀴즈</h2>
-            {participantQuizzes.length > 2 && (
+            <h2 className="text-lg font-semibold text-gray-800">📝 퀴즈</h2>
+            {participantQuizzes.length > 3 && (
               <button
                 type="button"
                 onClick={() => { setShowAllQuizzes(!showAllQuizzes); scrollToSection(quizSectionRef) }}
@@ -425,7 +571,7 @@ function ProgramDetailPage() {
             )}
           </div>
           <div className="grid grid-cols-1 gap-3">
-            {(showAllQuizzes ? participantQuizzes : participantQuizzes.slice(0, 2)).map(quiz => {
+            {(showAllQuizzes ? participantQuizzes : participantQuizzes.slice(0, 3)).map(quiz => {
               const sub = quiz.mySubmission
               const now = new Date()
               const isNotStarted = quiz.start_at && new Date(quiz.start_at) > now
@@ -466,9 +612,30 @@ function ProgramDetailPage() {
         </div>
       )}
 
-      {/* 랭킹 — program.ranking_enabled=false 면 섹션 자체 숨김 */}
-      {program.ranking_enabled !== false && (<>
-      <h2 className="text-lg font-medium text-gray-800 mb-3 mt-8">🏆 랭킹</h2>
+      </>)}
+      {/* ─── /퀴즈 탭 ──────────────────────────────────── */}
+
+      {/* ─── 커뮤니티 탭 ────────────────────────────────── */}
+      {/* 본인 결정 (Day 58): 진입 카드 제거 → 바로 피드 임베드. ProgramFeedPage 와 동일 컴포넌트 공유. */}
+      {activeTab === 'community' && (<>
+
+      {program.feed_enabled ? (
+        <FeedContent program={program} />
+      ) : (
+        <EmptyState
+          icon="🔒"
+          title="이 프로그램은 커뮤니티가 꺼져 있어요"
+          description="운영자가 피드 옵션을 활성화하면 참여자들의 인증을 함께 볼 수 있어요"
+        />
+      )}
+
+      </>)}
+      {/* ─── /커뮤니티 탭 ──────────────────────────────── */}
+
+      {/* ─── 랭킹 탭 ────────────────────────────────────── */}
+      {/* 랭킹 — program.ranking_enabled=false 면 탭 자체가 노출되지 않음 */}
+      {activeTab === 'ranking' && program.ranking_enabled !== false && (<>
+      <h2 className="text-lg font-semibold text-gray-800 mb-3">🏆 랭킹</h2>
       {ranking.length === 0 ? (
         <EmptyState icon="👥" title="아직 참여자가 없어요" size="sm" />
       ) : (() => {
@@ -491,7 +658,7 @@ function ProgramDetailPage() {
                     <div
                       key={row.user_id}
                       className={`
-                        flex items-center justify-between p-3 rounded-lg border
+                        flex items-center justify-between p-3 rounded-2xl border
                         ${isMe ? 'bg-emerald-50 border-emerald-300' : 'bg-white border-gray-200'}
                       `}
                     >
@@ -517,7 +684,7 @@ function ProgramDetailPage() {
               </div>
               {/* 페이드 오버레이 — 미펼침 + 더 있을 때만 (마지막 ~2 카드 점진 흐림) */}
               {!showAllRanking && hasMore && (
-                <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-white via-white/80 to-transparent pointer-events-none rounded-b-lg" />
+                <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-white via-white/80 to-transparent pointer-events-none rounded-b-2xl" />
               )}
             </div>
             {/* 더보기 버튼 */}
@@ -542,6 +709,13 @@ function ProgramDetailPage() {
         program={program}
         isOpen={isEditOpen}
         onClose={() => setIsEditOpen(false)}
+        onSuccess={invalidateProgramData}
+      />
+
+      <OverviewEditModal
+        program={program}
+        isOpen={isOverviewEditOpen}
+        onClose={() => setIsOverviewEditOpen(false)}
         onSuccess={invalidateProgramData}
       />
 

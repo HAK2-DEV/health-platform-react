@@ -166,7 +166,7 @@ function VerificationSubmitModal({ mission, isOpen, onClose, onSuccess }) {
     <Modal isOpen={isOpen} onClose={handleClose}>
       {mission && (
         <div className="p-6">
-          <h2 className="text-xl font-medium text-gray-800 mb-1 pr-8">
+          <h2 className="text-xl font-semibold text-gray-800 mb-1 pr-8">
             {mission.title}
           </h2>
           <p className="text-sm text-gray-500 mb-4">

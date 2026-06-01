@@ -69,7 +69,7 @@ function ImageCropModal({
   return (
     <Modal isOpen={isOpen} onClose={busy ? () => {} : onClose}>
       <div className="p-6">
-        <h2 className="text-xl font-medium text-gray-800 mb-1 pr-8">
+        <h2 className="text-xl font-semibold text-gray-800 mb-1 pr-8">
           {title}
         </h2>
         <p className="text-xs text-gray-500 mb-4">

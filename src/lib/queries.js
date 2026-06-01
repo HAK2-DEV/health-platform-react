@@ -51,6 +51,11 @@ export const queryKeys = {
   quizResults: (quizId) => ['quizzes', 'results', quizId],
   // 운영자 통계: 프로그램 퀴즈별 요약 (제출 수/평균/정답률/채점 대기)
   programQuizStats: (programId) => ['quizzes', 'stats', programId],
+  // 본인 활동 (인증 현황) — 프로그램별
+  myActivity: (programId, userId) => ['my-activity', programId, userId],
+  // 본인 인증 카드 (한 묶음 내, 페이지네이션)
+  myVerificationsByBundle: (programId, userId, bundleParam) =>
+    ['my-activity', 'verifications', programId, userId, bundleParam],
 }
 
 // ─── 쿼리 함수들 ─────────────────────────────────────────────
@@ -342,6 +347,93 @@ export const joinByInviteCode = async (code) => {
   const { data, error } = await supabase.rpc('join_by_invite_code', { p_code: code })
   if (error) throw error
   return data
+}
+
+// 본인 인증 현황 — 한 프로그램에서 본인의 활동 통합 (통계용 — 가벼운 필드만)
+//   image_path/note 같은 무거운 필드 제외 (카드 fetch 는 fetchMyVerificationsByBundle 별도)
+//   집계만 필요: 4지표, 14일 차트, 미션별 분포, 묶음 그룹 카운트
+//   RLS: 본인 SELECT 모두 허용
+export const fetchMyActivity = async (programId, userId) => {
+  const { data: verifs, error: vErr } = await supabase
+    .from('verifications')
+    .select('id, mission_id, status, submitted_at, missions!inner(title, bundle_title, point, program_id)')
+    .eq('user_id', userId)
+    .eq('missions.program_id', programId)
+    .order('submitted_at', { ascending: false })
+  if (vErr) throw vErr
+
+  const { data: scores, error: sErr } = await supabase
+    .from('score_ledgers')
+    .select('point, created_at')
+    .eq('user_id', userId)
+    .eq('program_id', programId)
+  if (sErr) throw sErr
+
+  const rows = verifs || []
+  const totalCount = rows.length
+  const approvedCount = rows.filter(v => v.status === 'APPROVED').length
+  const pendingCount = rows.filter(v => v.status === 'PENDING_REVIEW').length
+  const rejectedCount = rows.filter(v => v.status === 'REJECTED').length
+  const totalScore = (scores || []).reduce((s, l) => s + (l.point || 0), 0)
+
+  // 활동 일수 (KST, APPROVED 기준)
+  const dateSet = new Set(
+    rows.filter(v => v.status === 'APPROVED').map(v => formatKstDate(new Date(v.submitted_at)))
+  )
+  const activeDays = dateSet.size
+
+  // 미션별 분포 (APPROVED 만 카운트)
+  const missionMap = new Map()
+  for (const v of rows) {
+    if (v.status !== 'APPROVED') continue
+    const mId = v.mission_id
+    if (!missionMap.has(mId)) {
+      missionMap.set(mId, {
+        mission_id: mId,
+        title: v.missions?.title || '(삭제된 미션)',
+        bundleTitle: v.missions?.bundle_title || null,
+        point: v.missions?.point || 0,
+        count: 0,
+      })
+    }
+    missionMap.get(mId).count += 1
+  }
+  const missionStats = Array.from(missionMap.values()).sort((a, b) => b.count - a.count)
+
+  return {
+    verifications: rows,
+    totalCount, approvedCount, pendingCount, rejectedCount,
+    totalScore, activeDays,
+    missionStats,
+  }
+}
+
+// 본인 인증 카드 — 한 묶음 내, 페이지네이션 (이미지/소감 포함 무거운 필드)
+//   bundleParam: 'solo' (단독 미션) 또는 bundle_title (encoded 되기 전 원본)
+//   참여자 많아도 본인 묶음당 fetch 양만큼만 부담
+export const MY_VERIFICATIONS_PAGE_SIZE = 10
+export const fetchMyVerificationsByBundle = async (programId, userId, bundleParam, page = 0, pageSize = MY_VERIFICATIONS_PAGE_SIZE) => {
+  const from = page * pageSize
+  const to = from + pageSize - 1
+
+  let query = supabase
+    .from('verifications')
+    .select('id, mission_id, status, submitted_at, image_path, numeric_value, note, missions!inner(title, bundle_title, program_id)')
+    .eq('user_id', userId)
+    .eq('missions.program_id', programId)
+    .order('submitted_at', { ascending: false })
+    .range(from, to)
+
+  // bundleParam='solo' → bundle_title IS NULL / 그 외 → 정확 일치
+  if (bundleParam === 'solo') {
+    query = query.is('missions.bundle_title', null)
+  } else {
+    query = query.eq('missions.bundle_title', bundleParam)
+  }
+
+  const { data, error } = await query
+  if (error) throw error
+  return data || []
 }
 
 // 6자리 영숫자 코드 자동 생성 (혼동 글자 제외 — 0/O, 1/I, L 제외)

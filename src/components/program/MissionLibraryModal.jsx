@@ -150,7 +150,7 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
       <Modal isOpen={isOpen} onClose={onClose}>
         {program && (
           <div className="p-6">
-            <h2 className="text-xl font-medium text-gray-800 mb-1 pr-8">
+            <h2 className="text-xl font-semibold text-gray-800 mb-1 pr-8">
               💡 추천 미션 라이브러리
             </h2>
             <p className="text-xs text-gray-500 mb-5">
@@ -235,7 +235,7 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
             라이브러리로
           </button>
 
-          <h2 className="text-xl font-medium text-gray-800 mb-1 pr-8 flex items-center gap-2">
+          <h2 className="text-xl font-semibold text-gray-800 mb-1 pr-8 flex items-center gap-2">
             <span className="text-2xl">{bundle.emoji}</span>
             {bundle.title}
           </h2>

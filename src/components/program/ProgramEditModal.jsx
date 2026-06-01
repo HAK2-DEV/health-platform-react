@@ -20,6 +20,7 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
   const [maxParticipants, setMaxParticipants] = useState('')
   const [isPublic, setIsPublic] = useState(false)
   const [feedEnabled, setFeedEnabled] = useState(false)
+  const [rankingEnabled, setRankingEnabled] = useState(true)
   const [podiumEnabled, setPodiumEnabled] = useState(false)
   const [trendEnabled, setTrendEnabled] = useState(false)
   const [periodFilterEnabled, setPeriodFilterEnabled] = useState(false)
@@ -38,6 +39,8 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
       setMaxParticipants(program.max_participants ?? '')
       setIsPublic(!!program.is_public)
       setFeedEnabled(!!program.feed_enabled)
+      // ranking_enabled DEFAULT true — undefined/null 이면 켜진 상태로 (마법사와 동일 동작)
+      setRankingEnabled(program.ranking_enabled !== false)
       setPodiumEnabled(!!program.podium_enabled)
       setTrendEnabled(!!program.trend_enabled)
       setPeriodFilterEnabled(!!program.period_filter_enabled)
@@ -92,9 +95,11 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
         max_participants: maxParticipants === '' ? null : parseInt(maxParticipants),
         is_public: isPublic,
         feed_enabled: feedEnabled,
-        podium_enabled: podiumEnabled,
-        trend_enabled: trendEnabled,
-        period_filter_enabled: periodFilterEnabled,
+        // ranking_enabled OFF 면 podium/trend/period_filter 모두 자동 OFF (마법사 패턴 일관성)
+        ranking_enabled: rankingEnabled,
+        podium_enabled: rankingEnabled ? podiumEnabled : false,
+        trend_enabled: rankingEnabled ? trendEnabled : false,
+        period_filter_enabled: rankingEnabled ? periodFilterEnabled : false,
         cover_image_path: coverImagePath,
         // INVITE_CODE 모드면 코드 수정 반영 — 빈 칸이면 기존 코드 유지(공백 저장 안 함)
         ...(program.join_type === 'INVITE_CODE' && inviteCode.trim()
@@ -118,7 +123,7 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
     <Modal isOpen={isOpen} onClose={onClose}>
       {program && (
         <div className="p-6">
-          <h2 className="text-xl font-medium text-gray-800 mb-1 pr-8">
+          <h2 className="text-xl font-semibold text-gray-800 mb-1 pr-8">
             ✏️ 프로그램 수정
           </h2>
           <p className="text-xs text-gray-500 mb-4">
@@ -310,107 +315,146 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
             </div>
           </button>
 
-          {/* 포디움 활성화 — Top 3 시상대 */}
+          {/* 랭킹 표시 — 끄면 랭킹 페이지/탭에서 숨김 (단순 습관 형성 모드) */}
           <button
             type="button"
-            onClick={() => setPodiumEnabled(!podiumEnabled)}
+            onClick={() => setRankingEnabled(!rankingEnabled)}
             disabled={isSaving}
             className={`
               w-full mb-3 p-3 rounded-lg border-2 text-left transition disabled:opacity-50
-              ${podiumEnabled
-                ? 'border-amber-500 bg-amber-50'
+              ${rankingEnabled
+                ? 'border-sky-500 bg-sky-50'
                 : 'border-gray-200 bg-white hover:border-gray-300'}
             `}
           >
             <div className="flex items-start gap-2.5">
-              <span className="text-xl">🏆</span>
+              <span className="text-xl">📈</span>
               <div className="flex-1 min-w-0">
-                <p className={`text-sm font-medium ${podiumEnabled ? 'text-amber-700' : 'text-gray-800'}`}>
-                  랭킹 Top 3 (시상대)
+                <p className={`text-sm font-medium ${rankingEnabled ? 'text-sky-700' : 'text-gray-800'}`}>
+                  랭킹 표시
                 </p>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  랭킹 페이지에 1·2·3등 시상대 시각화. 끄면 평면 랭킹.
+                  참여자 간 점수 순위. 끄면 경쟁 요소 없는 순수 습관 형성 프로그램이 돼요.
                 </p>
               </div>
               <div className={`
                 relative w-9 h-5 rounded-full flex-shrink-0 transition mt-0.5
-                ${podiumEnabled ? 'bg-amber-500' : 'bg-gray-300'}
+                ${rankingEnabled ? 'bg-sky-500' : 'bg-gray-300'}
               `}>
                 <div className={`
                   absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform
-                  ${podiumEnabled ? 'translate-x-4' : 'translate-x-0.5'}
+                  ${rankingEnabled ? 'translate-x-4' : 'translate-x-0.5'}
                 `} />
               </div>
             </div>
           </button>
 
-          {/* 본인 14일 점수 추세 표시 */}
-          <button
-            type="button"
-            onClick={() => setTrendEnabled(!trendEnabled)}
-            disabled={isSaving}
-            className={`
-              w-full mb-3 p-3 rounded-lg border-2 text-left transition disabled:opacity-50
-              ${trendEnabled
-                ? 'border-violet-500 bg-violet-50'
-                : 'border-gray-200 bg-white hover:border-gray-300'}
-            `}
-          >
-            <div className="flex items-start gap-2.5">
-              <span className="text-xl">📊</span>
-              <div className="flex-1 min-w-0">
-                <p className={`text-sm font-medium ${trendEnabled ? 'text-violet-700' : 'text-gray-800'}`}>
-                  본인 14일 점수 추세 표시
-                </p>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  본인 요약 카드에 최근 14일 점수 스파크라인. 꾸준함 시각화.
-                </p>
-              </div>
-              <div className={`
-                relative w-9 h-5 rounded-full flex-shrink-0 transition mt-0.5
-                ${trendEnabled ? 'bg-violet-500' : 'bg-gray-300'}
-              `}>
-                <div className={`
-                  absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform
-                  ${trendEnabled ? 'translate-x-4' : 'translate-x-0.5'}
-                `} />
-              </div>
-            </div>
-          </button>
+          {/* 포디움 / 추세 / 기간 필터 — 랭킹 ON 일 때만 노출 (마법사 패턴 일관성) */}
+          {rankingEnabled && (
+            <>
+              {/* 포디움 활성화 — Top 3 시상대 */}
+              <button
+                type="button"
+                onClick={() => setPodiumEnabled(!podiumEnabled)}
+                disabled={isSaving}
+                className={`
+                  w-full mb-3 p-3 rounded-lg border-2 text-left transition disabled:opacity-50
+                  ${podiumEnabled
+                    ? 'border-amber-500 bg-amber-50'
+                    : 'border-gray-200 bg-white hover:border-gray-300'}
+                `}
+              >
+                <div className="flex items-start gap-2.5">
+                  <span className="text-xl">🏆</span>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-medium ${podiumEnabled ? 'text-amber-700' : 'text-gray-800'}`}>
+                      랭킹 Top 3 (시상대)
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      랭킹 페이지에 1·2·3등 시상대 시각화. 끄면 평면 랭킹.
+                    </p>
+                  </div>
+                  <div className={`
+                    relative w-9 h-5 rounded-full flex-shrink-0 transition mt-0.5
+                    ${podiumEnabled ? 'bg-amber-500' : 'bg-gray-300'}
+                  `}>
+                    <div className={`
+                      absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform
+                      ${podiumEnabled ? 'translate-x-4' : 'translate-x-0.5'}
+                    `} />
+                  </div>
+                </div>
+              </button>
 
-          {/* 기간 필터 표시 */}
-          <button
-            type="button"
-            onClick={() => setPeriodFilterEnabled(!periodFilterEnabled)}
-            disabled={isSaving}
-            className={`
-              w-full mb-4 p-3 rounded-lg border-2 text-left transition disabled:opacity-50
-              ${periodFilterEnabled
-                ? 'border-cyan-500 bg-cyan-50'
-                : 'border-gray-200 bg-white hover:border-gray-300'}
-            `}
-          >
-            <div className="flex items-start gap-2.5">
-              <span className="text-xl">⏱️</span>
-              <div className="flex-1 min-w-0">
-                <p className={`text-sm font-medium ${periodFilterEnabled ? 'text-cyan-700' : 'text-gray-800'}`}>
-                  기간 필터 표시 (최근 7일 / 30일)
-                </p>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  참여자가 '전체 / 최근 7일 / 최근 30일' 토글로 단기 분위기 확인 가능.
-                </p>
-              </div>
-              <div className={`
-                relative w-9 h-5 rounded-full flex-shrink-0 transition mt-0.5
-                ${periodFilterEnabled ? 'bg-cyan-500' : 'bg-gray-300'}
-              `}>
-                <div className={`
-                  absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform
-                  ${periodFilterEnabled ? 'translate-x-4' : 'translate-x-0.5'}
-                `} />
-              </div>
-            </div>
-          </button>
+              {/* 본인 14일 점수 추세 표시 */}
+              <button
+                type="button"
+                onClick={() => setTrendEnabled(!trendEnabled)}
+                disabled={isSaving}
+                className={`
+                  w-full mb-3 p-3 rounded-lg border-2 text-left transition disabled:opacity-50
+                  ${trendEnabled
+                    ? 'border-violet-500 bg-violet-50'
+                    : 'border-gray-200 bg-white hover:border-gray-300'}
+                `}
+              >
+                <div className="flex items-start gap-2.5">
+                  <span className="text-xl">📊</span>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-medium ${trendEnabled ? 'text-violet-700' : 'text-gray-800'}`}>
+                      본인 14일 점수 추세 표시
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      본인 요약 카드에 최근 14일 점수 스파크라인. 꾸준함 시각화.
+                    </p>
+                  </div>
+                  <div className={`
+                    relative w-9 h-5 rounded-full flex-shrink-0 transition mt-0.5
+                    ${trendEnabled ? 'bg-violet-500' : 'bg-gray-300'}
+                  `}>
+                    <div className={`
+                      absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform
+                      ${trendEnabled ? 'translate-x-4' : 'translate-x-0.5'}
+                    `} />
+                  </div>
+                </div>
+              </button>
+
+              {/* 기간 필터 표시 */}
+              <button
+                type="button"
+                onClick={() => setPeriodFilterEnabled(!periodFilterEnabled)}
+                disabled={isSaving}
+                className={`
+                  w-full mb-4 p-3 rounded-lg border-2 text-left transition disabled:opacity-50
+                  ${periodFilterEnabled
+                    ? 'border-cyan-500 bg-cyan-50'
+                    : 'border-gray-200 bg-white hover:border-gray-300'}
+                `}
+              >
+                <div className="flex items-start gap-2.5">
+                  <span className="text-xl">⏱️</span>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-medium ${periodFilterEnabled ? 'text-cyan-700' : 'text-gray-800'}`}>
+                      기간 필터 표시 (최근 7일 / 30일)
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      참여자가 '전체 / 최근 7일 / 최근 30일' 토글로 단기 분위기 확인 가능.
+                    </p>
+                  </div>
+                  <div className={`
+                    relative w-9 h-5 rounded-full flex-shrink-0 transition mt-0.5
+                    ${periodFilterEnabled ? 'bg-cyan-500' : 'bg-gray-300'}
+                  `}>
+                    <div className={`
+                      absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform
+                      ${periodFilterEnabled ? 'translate-x-4' : 'translate-x-0.5'}
+                    `} />
+                  </div>
+                </div>
+              </button>
+            </>
+          )}
 
           {/* 에러 */}
           {error && (

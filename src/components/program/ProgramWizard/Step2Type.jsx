@@ -45,7 +45,7 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
 
   return (
     <div>
-      <h2 className="text-xl font-medium text-gray-800 mb-2">
+      <h2 className="text-xl font-semibold text-gray-800 mb-2">
         2단계: 프로그램 옵션
       </h2>
       <p className="text-sm text-gray-600 mb-6">

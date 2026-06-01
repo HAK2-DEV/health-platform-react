@@ -80,7 +80,7 @@ function NotificationsPage() {
   const unreadCount = notifications.filter(n => !n.is_read).length
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="px-4 pt-4 pb-6 max-w-4xl mx-auto">
       <PageHeader
         action={unreadCount > 0 && (
           <button
@@ -122,7 +122,7 @@ function NotificationsPage() {
                   }
                 }}
                 className={`
-                  w-full p-3 rounded-lg border text-left transition cursor-pointer
+                  w-full p-3 rounded-2xl border text-left transition cursor-pointer
                   ${n.is_read
                     ? 'bg-white border-gray-200 hover:bg-gray-50'
                     : 'bg-emerald-50/50 border-emerald-200 hover:bg-emerald-50'}

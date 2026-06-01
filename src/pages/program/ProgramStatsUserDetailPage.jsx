@@ -150,7 +150,7 @@ function ProgramStatsUserDetailPage() {
       </motion.div>
 
       {/* 최근 14일 활동 */}
-      <h2 className="text-lg font-medium text-gray-800 mb-3">📅 최근 14일 활동</h2>
+      <h2 className="text-lg font-semibold text-gray-800 mb-3">📅 최근 14일 활동</h2>
       <div className="bg-white border border-gray-200 rounded-2xl p-4 mb-6">
         <div className="flex items-end gap-1 h-20">
           {recent14Days.map(d => {
@@ -191,9 +191,9 @@ function ProgramStatsUserDetailPage() {
             <Target className="w-6 h-6 text-emerald-600" />
           </div>
           <div className="flex-1 min-w-0">
-            <h2 className="text-base font-medium text-gray-800 mb-0.5">
+            <h3 className="font-medium text-gray-800 mb-0.5">
               🎯 미션별 분포
-            </h2>
+            </h3>
             <p className="text-xs text-gray-500">
               어떤 미션을 얼마나 했는지 묶음별 분석
             </p>
@@ -210,9 +210,9 @@ function ProgramStatsUserDetailPage() {
             <FileText className="w-6 h-6 text-sky-600" />
           </div>
           <div className="flex-1 min-w-0">
-            <h2 className="text-base font-medium text-gray-800 mb-0.5">
+            <h3 className="font-medium text-gray-800 mb-0.5">
               📝 인증 기록
-            </h2>
+            </h3>
             <p className="text-xs text-gray-500">
               실제 제출한 사진 · 기록 · 소감을 카테고리별로 확인
             </p>

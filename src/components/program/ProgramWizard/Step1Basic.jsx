@@ -76,7 +76,7 @@ function Step1Basic({ initialData, onNext, onSave }) {
   
   return (
     <div>
-      <h2 className="text-xl font-medium text-gray-800 mb-2">
+      <h2 className="text-xl font-semibold text-gray-800 mb-2">
         1단계: 기본 정보 입력
       </h2>
       <p className="text-sm text-gray-600 mb-6">
@@ -199,7 +199,7 @@ function Step1Basic({ initialData, onNext, onSave }) {
       
       {/* 에러 */}
       {error && (
-        <p className="p-2 mb-8 bg-red-100 text-red-700 rounded text-sm text-center">
+        <p className="p-2 mb-8 bg-red-100 text-red-700 rounded-xl text-sm text-center">
           {error}
         </p>
       )}

@@ -164,7 +164,7 @@ function ProgramDetailModal({ program, isOpen, onClose }) {
       {program && (
         <div className="p-6">
           {/* 이름 */}
-          <h2 className="text-xl font-medium text-gray-800 mb-4 pr-8">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4 pr-8">
             {program.name}
           </h2>
 

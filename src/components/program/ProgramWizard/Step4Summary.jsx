@@ -52,7 +52,7 @@ function Step4Summary({ initialData, programId, onPrev }) {
 
   return (
     <div>
-      <h2 className="text-xl font-medium text-gray-800 mb-2">
+      <h2 className="text-xl font-semibold text-gray-800 mb-2">
         4단계: 요약 + 게시
       </h2>
       <p className="text-sm text-gray-600 mb-6">
@@ -60,7 +60,7 @@ function Step4Summary({ initialData, programId, onPrev }) {
       </p>
 
       {/* 설정 요약 */}
-      <div className="bg-gray-50 p-4 rounded-md mb-6">
+      <div className="bg-gray-50 p-4 rounded-xl mb-6">
         <h3 className="text-sm font-medium text-gray-700 mb-3">
           📋 프로그램 설정 요약
         </h3>
@@ -126,7 +126,7 @@ function Step4Summary({ initialData, programId, onPrev }) {
       </div>
 
       {/* 미션 추가 안내 */}
-      <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-md mb-6">
+      <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl mb-6">
         <h3 className="text-sm font-medium text-emerald-800 mb-1">
           ✨ 게시 후 미션을 추가해주세요
         </h3>
@@ -138,7 +138,7 @@ function Step4Summary({ initialData, programId, onPrev }) {
 
       {/* 에러 */}
       {error && (
-        <p className="p-2 mb-4 bg-red-100 text-red-700 rounded text-sm text-center">
+        <p className="p-2 mb-4 bg-red-100 text-red-700 rounded-xl text-sm text-center">
           {error}
         </p>
       )}

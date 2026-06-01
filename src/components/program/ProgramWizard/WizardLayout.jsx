@@ -53,7 +53,7 @@ function WizardLayout({ currentStep, children }) {
       </div>
       
       {/* 단계별 콘텐츠 */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
+      <div className="bg-white border border-gray-200 rounded-2xl p-6">
         {children}
       </div>
     </div>

@@ -200,7 +200,7 @@ function QuizSolvePage() {
       </div>
 
       {submitError && (
-        <p className="mt-4 p-2 bg-red-100 text-red-700 rounded text-sm text-center">{submitError}</p>
+        <p className="mt-4 p-2 bg-red-100 text-red-700 rounded-xl text-sm text-center">{submitError}</p>
       )}
 
       {/* 제출 버튼 (미제출 + 기한 내 + 시작됨) */}

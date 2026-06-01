@@ -248,7 +248,7 @@ function MissionVerifyPage() {
         >
           <ChevronLeft className="w-5 h-5 text-gray-600" />
         </button>
-        <p className="p-4 bg-red-50 text-red-700 rounded-lg text-center">
+        <p className="p-4 bg-red-50 text-red-700 rounded-xl text-center">
           미션을 찾을 수 없어요
         </p>
       </div>

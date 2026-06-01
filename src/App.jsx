@@ -34,6 +34,10 @@ import ProgramListPage from './pages/program/ProgramListPage'
 import RankingsPage from './pages/RankingsPage'
 import NotificationsPage from './pages/NotificationsPage'
 import ProfilePage from './pages/ProfilePage'
+import MyActivityPage from './pages/MyActivityPage'
+import MyActivityMissionsPage from './pages/MyActivityMissionsPage'
+import MyActivityVerificationsPage from './pages/MyActivityVerificationsPage'
+import MyActivityVerificationsBundlePage from './pages/MyActivityVerificationsBundlePage'
 import JoinByCodePage from './pages/JoinByCodePage'
 import BottomTabBar from './components/common/BottomTabBar'
 import ProtectedRoute from './components/ProtectedRoute'   // ⭐ 추가
@@ -150,6 +154,18 @@ function AppShell() {
   } />
   <Route path="/profile" element={
     <ProtectedRoute><ProfilePage /></ProtectedRoute>
+  } />
+  <Route path="/profile/activity" element={
+    <ProtectedRoute><MyActivityPage /></ProtectedRoute>
+  } />
+  <Route path="/profile/activity/:programId/missions" element={
+    <ProtectedRoute><MyActivityMissionsPage /></ProtectedRoute>
+  } />
+  <Route path="/profile/activity/:programId/verifications" element={
+    <ProtectedRoute><MyActivityVerificationsPage /></ProtectedRoute>
+  } />
+  <Route path="/profile/activity/:programId/verifications/:bundleParam" element={
+    <ProtectedRoute><MyActivityVerificationsBundlePage /></ProtectedRoute>
   } />
   <Route path="/join" element={<JoinByCodePage />} />
   <Route path="/todos" element={

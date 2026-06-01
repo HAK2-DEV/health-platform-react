@@ -100,7 +100,7 @@ function PostsManagePage() {
       </button>
 
       {/* 퀴즈 목록 */}
-      <h2 className="text-lg font-medium text-gray-800 mb-3 flex items-center gap-2">
+      <h2 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
         📝 퀴즈 <span className="text-sm text-gray-500">({quizzes.length})</span>
       </h2>
 

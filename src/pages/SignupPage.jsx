@@ -45,7 +45,7 @@ function SignupPage() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[80vh] p-6">
-      <h1 className="flex items-center gap-2 text-2xl md:text-3xl text-emerald-500 mb-2">
+      <h1 className="flex items-center gap-2 text-2xl md:text-3xl font-medium text-emerald-500 mb-2">
         <Activity className="w-8 h-8" />
         건강증진 플랫폼
       </h1>
@@ -53,10 +53,10 @@ function SignupPage() {
         함께 건강한 습관을 만들어요
       </p>
 
-      <div className="bg-white p-6 rounded-lg shadow-md w-full max-w-md mx-auto">
+      <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-md w-full max-w-md mx-auto">
         <div className="flex items-center justify-center gap-2 mb-4">
           <UserPlus className="w-5 h-5 text-emerald-500" />
-          <h2 className="text-xl text-emerald-500">회원가입</h2>
+          <h2 className="text-xl font-semibold text-emerald-500">회원가입</h2>
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-2">
@@ -87,7 +87,7 @@ function SignupPage() {
         </form>
 
         {error && (
-          <p className="mt-4 p-2 text-center bg-red-100 text-red-700 rounded text-sm">
+          <p className="mt-4 p-2 text-center bg-red-100 text-red-700 rounded-xl text-sm">
             {error}
           </p>
         )}

@@ -209,16 +209,16 @@ function DashboardPage() {
 
   return (
     <div className="min-h-screen">
-      {/* 상단 풀 너비 그라데이션 풍경 영역 (컴팩트) */}
+      {/* 상단 풀 너비 그라데이션 풍경 영역 (컴팩트) — pb 축소 (본인 결정 Day 58): CTA 제거 후 빈 공간 줄임 */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.4 }}
-        className="relative bg-gradient-to-b from-emerald-100 via-emerald-50/80 to-teal-50/50 pt-5 pb-28 overflow-hidden"
+        className="relative bg-gradient-to-b from-emerald-100 via-emerald-50/80 to-teal-50/50 pt-4 pb-20 overflow-hidden"
       >
         <div className="max-w-4xl mx-auto px-4 relative">
           {/* 인사말 한 줄 (App.jsx 헤더 숨김 상태이므로 여기에 표시) */}
-          <div className="flex items-start justify-between mb-6">
+          <div className="flex items-start justify-between mb-4">
             <p className="text-sm text-gray-700 pr-4 leading-relaxed pt-1">
               안녕하세요, 오늘도 건강한 하루 되세요! 🌿
             </p>
@@ -266,20 +266,8 @@ function DashboardPage() {
       <div className="max-w-4xl mx-auto px-4 -mt-16 relative">
         <div className="bg-white rounded-3xl shadow-xl p-4 sm:p-6 mb-4">
 
-      {/* CTA — 프로그램 생성하기 (컴팩트 + 단색) */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.1 }}
-      >
-        <Link
-          to="/programs/new"
-          className="flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-medium py-3 rounded-2xl shadow-md shadow-emerald-200/40 mb-5 transition"
-        >
-          <Plus className="w-5 h-5" />
-          프로그램 생성하기
-        </Link>
-      </motion.div>
+      {/* CTA 제거 (본인 결정 Day 58) — 일일 사용 페이지로 깔끔하게.
+          프로그램 생성은 BottomTab 「프로그램」 → FAB(+) 으로 일원화. */}
 
       {/* 통계 4개 카드 — 가로 한 줄 (모바일 4열) + 컴팩트 */}
       <motion.section
@@ -352,7 +340,7 @@ function DashboardPage() {
       {/* 오늘의 미션 — 프로그램별 그루핑 (3개까지만, 전체보기 토글) */}
       <section ref={todayMissionsRef} className="mb-8 scroll-mt-4">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="flex items-center gap-2 text-xl font-medium text-gray-800">
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-800">
             ✨ 오늘의 미션
           </h2>
           {totalItemCount > 2 && (
@@ -427,7 +415,7 @@ function DashboardPage() {
                             </div>
 
                             <div className="flex-1 min-w-0">
-                              <h3 className="font-medium text-gray-900 truncate text-base leading-tight">
+                              <h3 className="font-medium text-gray-800 truncate text-base leading-tight">
                                 {item.bundleTitle}
                               </h3>
                               <p className="text-[11px] text-gray-500 mt-0.5">
@@ -481,7 +469,7 @@ function DashboardPage() {
                           </div>
 
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-medium text-gray-900 truncate text-base leading-tight">
+                            <h3 className="font-medium text-gray-800 truncate text-base leading-tight">
                               {mission.title}
                             </h3>
                             <span className="inline-block mt-0.5 px-1.5 py-0.5 bg-white/80 text-emerald-700 text-[10px] rounded font-medium">
@@ -531,7 +519,7 @@ function DashboardPage() {
       {/* 내가 만든 프로그램 — 최대 3개 요약 (전체는 /programs) */}
       <section ref={myProgramsRef} className="mb-8 scroll-mt-4">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="flex items-center gap-2 text-xl font-medium text-gray-800">
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-800">
             <Activity className="w-5 h-5 text-emerald-500" />
             내 프로그램
           </h2>
@@ -644,7 +632,7 @@ function DashboardPage() {
       {/* 참여 중인 프로그램 — 최대 3개 요약 */}
       <section ref={activeProgramsRef} className="mb-8 scroll-mt-4">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="flex items-center gap-2 text-xl font-medium text-gray-800">
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-800">
             🎯 참여 중인 프로그램
           </h2>
           {activePrograms.length > 2 && (

@@ -108,9 +108,9 @@ function ProgramStatsPage() {
               <Target className="w-6 h-6 text-emerald-600" />
             </div>
             <div className="flex-1 min-w-0">
-              <h2 className="text-base font-medium text-gray-800 mb-0.5">
+              <h3 className="font-medium text-gray-800 mb-0.5">
                 🎯 미션별 인증 현황
-              </h2>
+              </h3>
               <p className="text-xs text-gray-500">
                 {missionTotalCount === 0
                   ? '아직 인증 기록이 없어요'
@@ -130,9 +130,9 @@ function ProgramStatsPage() {
               <Users className="w-6 h-6 text-sky-600" />
             </div>
             <div className="flex-1 min-w-0">
-              <h2 className="text-base font-medium text-gray-800 mb-0.5">
+              <h3 className="font-medium text-gray-800 mb-0.5">
                 👥 유저별 인증 현황
-              </h2>
+              </h3>
               <p className="text-xs text-gray-500">
                 {userCount === 0
                   ? '아직 인증한 참여자가 없어요'
@@ -154,9 +154,9 @@ function ProgramStatsPage() {
               <FileText className="w-6 h-6 text-violet-600" />
             </div>
             <div className="flex-1 min-w-0">
-              <h2 className="text-base font-medium text-gray-800 mb-0.5">
+              <h3 className="font-medium text-gray-800 mb-0.5">
                 📝 퀴즈 현황
-              </h2>
+              </h3>
               <p className="text-xs text-gray-500">
                 {(() => {
                   if (quizStats.length === 0) return '아직 만든 퀴즈가 없어요'

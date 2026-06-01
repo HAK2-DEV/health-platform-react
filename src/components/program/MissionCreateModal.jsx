@@ -180,7 +180,7 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission }
     <Modal isOpen={isOpen} onClose={onClose}>
       {program && (
         <div className="p-6">
-          <h2 className="text-xl font-medium text-gray-800 mb-1 pr-8">
+          <h2 className="text-xl font-semibold text-gray-800 mb-1 pr-8">
             {isEditMode ? '✏️ 미션 수정' : '✨ 미션 추가'}
           </h2>
           <p className="text-xs text-gray-500 mb-4">

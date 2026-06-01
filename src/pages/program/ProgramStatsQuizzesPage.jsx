@@ -96,7 +96,7 @@ function ProgramStatsQuizzesPage() {
               >
                 {/* 제목 + 배지 */}
                 <div className="flex items-start justify-between gap-2 mb-3">
-                  <h2 className="font-medium text-gray-800 flex-1 min-w-0">{q.title}</h2>
+                  <h3 className="font-medium text-gray-800 flex-1 min-w-0">{q.title}</h3>
                   <div className="flex items-center gap-1.5 flex-shrink-0">
                     {q.pendingCount > 0 && (
                       <span className="px-2 py-0.5 text-xs bg-amber-100 text-amber-700 rounded inline-flex items-center gap-1">

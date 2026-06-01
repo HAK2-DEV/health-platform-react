@@ -49,7 +49,7 @@ function Step3JoinConditions({ initialData, onNext, onSave, onPrev }) {
 
   return (
     <div>
-      <h2 className="text-xl font-medium text-gray-800 mb-2">
+      <h2 className="text-xl font-semibold text-gray-800 mb-2">
         3단계: 참여 조건
       </h2>
       <p className="text-sm text-gray-600 mb-6">
@@ -212,7 +212,7 @@ function Step3JoinConditions({ initialData, onNext, onSave, onPrev }) {
 
       {/* 에러 */}
       {error && (
-        <p className="p-2 mb-4 bg-red-100 text-red-700 rounded text-sm text-center">
+        <p className="p-2 mb-4 bg-red-100 text-red-700 rounded-xl text-sm text-center">
           {error}
         </p>
       )}

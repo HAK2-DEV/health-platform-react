@@ -122,7 +122,7 @@ function ProgramStatsUsersPage() {
       {/* 승인 대기 신청자 — APPROVAL 프로그램만 / 있을 때만 */}
       {pendingApplicants.length > 0 && (
         <div className="mb-6">
-          <h2 className="text-lg font-medium text-gray-800 mb-3 flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
             🙋 승인 대기 <span className="text-sm text-amber-600">({pendingApplicants.length})</span>
           </h2>
           <div className="grid gap-2">

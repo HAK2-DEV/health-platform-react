@@ -74,10 +74,10 @@ const handleSubmit = async (e) => {
   
   return (
     <div className="flex flex-col items-center justify-center min-h-[80vh] p-6">
-      <div className="bg-white p-6 rounded-lg shadow-md w-full max-w-md mx-auto">
+      <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-md w-full max-w-md mx-auto">
         <div className="flex items-center justify-center gap-2 mb-4">
           <UserPlus className="w-6 h-6 text-emerald-500" />
-          <h2 className="text-xl text-emerald-500">닉네임 설정</h2>
+          <h2 className="text-xl font-semibold text-emerald-500">닉네임 설정</h2>
         </div>
         
         <p className="text-sm text-gray-600 text-center mb-6">
@@ -90,7 +90,7 @@ const handleSubmit = async (e) => {
           <NicknameInput value={nickname} onChange={setNickname} />
           
           {error && (
-            <p className="p-2 text-center bg-red-100 text-red-700 rounded text-sm">
+            <p className="p-2 text-center bg-red-100 text-red-700 rounded-xl text-sm">
               {error}
             </p>
           )}

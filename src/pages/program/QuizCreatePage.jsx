@@ -291,7 +291,7 @@ function QuizCreatePage() {
       </button>
 
       {error && (
-        <p className="mt-4 p-2 bg-red-100 text-red-700 rounded text-sm text-center">{error}</p>
+        <p className="mt-4 p-2 bg-red-100 text-red-700 rounded-xl text-sm text-center">{error}</p>
       )}
 
       {/* 저장 (하단 고정) */}

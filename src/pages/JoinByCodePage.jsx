@@ -174,7 +174,7 @@ function JoinByCodePage() {
             variant="card"
           />
           <div className="p-5">
-            <h2 className="text-lg font-medium text-gray-800 mb-1">{program.name}</h2>
+            <h2 className="text-lg font-semibold text-gray-800 mb-1">{program.name}</h2>
             {(() => {
               // description 첫 줄이 name 과 같으면 그 줄 제거 (중복 회피)
               const raw = (program.description || '').trim()
@@ -203,7 +203,7 @@ function JoinByCodePage() {
               <p className="text-xs text-gray-500 mb-3">정원: 최대 {program.max_participants}명</p>
             )}
 
-            <p className="text-xs text-emerald-700 mb-20 p-2 bg-emerald-50 rounded-lg text-center">
+            <p className="text-xs text-emerald-700 mb-3 p-2 bg-emerald-50 rounded-xl text-center">
               아래 버튼을 누르면 이 프로그램에 참여돼요.
             </p>
 

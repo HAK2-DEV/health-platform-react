@@ -94,7 +94,7 @@ function ProgramReviewsPage() {
       {/* 퀴즈 채점 대기 섹션 — 있을 때만 노출 */}
       {pendingQuizzes.length > 0 && (
         <section className="mb-6">
-          <h2 className="text-lg font-medium text-gray-800 mb-3">📝 퀴즈 채점 대기</h2>
+          <h2 className="text-lg font-semibold text-gray-800 mb-3">📝 퀴즈 채점 대기</h2>
           <div className="grid grid-cols-1 gap-3">
             {pendingQuizzes.map(q => (
               <button
@@ -117,7 +117,7 @@ function ProgramReviewsPage() {
         </section>
       )}
 
-      <h2 className="text-lg font-medium text-gray-800 mb-3">🎯 미션 인증 심사</h2>
+      <h2 className="text-lg font-semibold text-gray-800 mb-3">🎯 미션 인증 심사</h2>
 
       {isPendingLoading ? (
         <LoadingState />
