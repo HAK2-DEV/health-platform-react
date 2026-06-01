@@ -181,14 +181,16 @@ function Step1Basic({ initialData, onNext, onSave }) {
                 type="button"
                 onClick={() => toggleCategory(category.key)}
                 className={`
-                  flex items-center justify-center gap-1 px-2 py-2 rounded-md border-2 text-sm transition whitespace-nowrap min-w-0
+                  flex items-center justify-center gap-1 px-2 py-2 rounded-md border-2 text-sm transition leading-tight min-w-0
                   ${isSelected
                     ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
                     : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}
                 `}
               >
                 <span className="flex-shrink-0">{category.emoji}</span>
-                <span className="truncate">{category.label}</span>
+                <span className="whitespace-pre-line text-center">
+                  {category.label === '마음관리' ? '마음\n관리' : category.label}
+                </span>
               </button>
             )
           })}
@@ -207,14 +209,14 @@ function Step1Basic({ initialData, onNext, onSave }) {
         <button
           type="button"
           onClick={handleSave}
-          className="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-md transition"
+          className="flex-1 px-3 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-md transition whitespace-nowrap text-sm"
         >
           임시 저장
         </button>
         <button
           type="button"
           onClick={handleNext}
-          className="flex-1 px-4 py-3 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-medium rounded-md transition"
+          className="flex-1 px-3 py-3 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-medium rounded-md transition whitespace-nowrap text-sm"
         >
           다음
         </button>

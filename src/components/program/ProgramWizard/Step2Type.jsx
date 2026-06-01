@@ -11,7 +11,10 @@ import { MISSION_LIBRARY } from '../../../lib/missionLibrary'
 //   미션 단위 플래그 (requires_image / requires_numeric / requires_note) 가 실제 분기 담당.
 //   유형 선택보다 옵션 + 만들 수 있는 미션 미리보기가 운영자 입장에 더 직관적.
 function Step2Type({ initialData, onNext, onSave, onPrev }) {
-  const [feedEnabled, setFeedEnabled] = useState(initialData?.feed_enabled || false)
+  // 기본값 ON — DRAFT 재진입 시에만 저장값 사용
+  const [feedEnabled, setFeedEnabled] = useState(
+    initialData?.feed_enabled !== undefined ? !!initialData.feed_enabled : true
+  )
   // ranking_enabled DEFAULT true — 기존/신규 모두 켜진 상태로 시작
   const [rankingEnabled, setRankingEnabled] = useState(
     initialData?.ranking_enabled !== undefined ? !!initialData.ranking_enabled : true
@@ -64,7 +67,7 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
           <span className="text-2xl">📷</span>
           <div className="flex-1">
             <div className={`font-medium mb-1 ${feedEnabled ? 'text-emerald-700' : 'text-gray-800'}`}>
-              피드 활성화 (커뮤니티 모드)
+              피드 활성화<br />(커뮤니티 모드)
             </div>
             <div className="text-sm text-gray-600">
               참여자끼리 서로의 인증을 사진 피드로 보고 좋아요·댓글로 응원할 수 있어요
@@ -133,7 +136,7 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
               <span className="text-2xl">🏆</span>
               <div className="flex-1">
                 <div className={`font-medium mb-1 ${podiumEnabled ? 'text-amber-700' : 'text-gray-800'}`}>
-                  포디움 활성화 (Top 3 시상대)
+                  랭킹 Top 3 (시상대)
                 </div>
                 <div className="text-sm text-gray-600">
                   랭킹 페이지 상단에 1·2·3등을 올림픽 시상대처럼 강조해서 표시해요. 끄면 평면 랭킹만.
@@ -280,21 +283,21 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
         <button
           type="button"
           onClick={onPrev}
-          className="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-md transition"
+          className="flex-1 px-3 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-md transition whitespace-nowrap text-sm"
         >
           이전
         </button>
         <button
           type="button"
           onClick={handleSave}
-          className="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-md transition"
+          className="flex-1 px-3 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-md transition whitespace-nowrap text-sm"
         >
           임시 저장
         </button>
         <button
           type="button"
           onClick={handleNext}
-          className="flex-1 px-4 py-3 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-medium rounded-md transition"
+          className="flex-1 px-3 py-3 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-medium rounded-md transition whitespace-nowrap text-sm"
         >
           다음
         </button>

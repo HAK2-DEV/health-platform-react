@@ -300,7 +300,7 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
               <span className="text-xl">🏆</span>
               <div className="flex-1 min-w-0">
                 <p className={`text-sm font-medium ${podiumEnabled ? 'text-amber-700' : 'text-gray-800'}`}>
-                  포디움 활성화 (Top 3 시상대)
+                  랭킹 Top 3 (시상대)
                 </p>
                 <p className="text-xs text-gray-500 mt-0.5">
                   랭킹 페이지에 1·2·3등 시상대 시각화. 끄면 평면 랭킹.

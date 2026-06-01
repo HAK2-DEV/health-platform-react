@@ -175,16 +175,16 @@ function Step3JoinConditions({ initialData, onNext, onSave, onPrev }) {
         <label className="block text-sm font-medium text-gray-700 mb-1">
           최대 참여 인원 (선택)
         </label>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 w-full">
           <input
             type="number"
             value={maxParticipants}
             onChange={(e) => setMaxParticipants(e.target.value)}
             min={1}
             placeholder="무제한"
-            className="flex-1 px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500"
+            className="flex-1 min-w-0 px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500"
           />
-          <span className="text-gray-500">명</span>
+          <span className="text-gray-500 flex-shrink-0">명</span>
         </div>
       </div>
 
@@ -220,21 +220,21 @@ function Step3JoinConditions({ initialData, onNext, onSave, onPrev }) {
         <button
           type="button"
           onClick={onPrev}
-          className="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-md transition"
+          className="flex-1 px-3 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-md transition whitespace-nowrap text-sm"
         >
           이전
         </button>
         <button
           type="button"
           onClick={handleSave}
-          className="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-md transition"
+          className="flex-1 px-3 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-md transition whitespace-nowrap text-sm"
         >
           임시 저장
         </button>
         <button
           type="button"
           onClick={handleNext}
-          className="flex-1 px-4 py-3 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-medium rounded-md transition"
+          className="flex-1 px-3 py-3 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-medium rounded-md transition whitespace-nowrap text-sm"
         >
           다음
         </button>

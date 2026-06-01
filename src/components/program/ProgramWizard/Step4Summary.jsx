@@ -92,7 +92,7 @@ function Step4Summary({ initialData, programId, onPrev }) {
               {[
                 initialData?.feed_enabled && '📷 피드',
                 (initialData?.ranking_enabled === false) ? '🚫 랭킹 미표시' : '📈 랭킹',
-                initialData?.podium_enabled && '🏆 포디움',
+                initialData?.podium_enabled && '🏆 랭킹 Top 3',
                 initialData?.trend_enabled && '📊 추세',
                 initialData?.period_filter_enabled && '⏱️ 기간 필터',
               ].filter(Boolean).join(' · ') || '기본'}
@@ -149,7 +149,7 @@ function Step4Summary({ initialData, programId, onPrev }) {
           type="button"
           onClick={onPrev}
           disabled={isPublishing}
-          className="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-md transition disabled:opacity-50"
+          className="flex-1 px-3 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-md transition whitespace-nowrap text-sm disabled:opacity-50"
         >
           이전
         </button>
