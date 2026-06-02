@@ -14,14 +14,15 @@ import { registerSW } from 'virtual:pwa-register'
 registerSW({ immediate: true })
 
 // React Query 단일 client — 모든 화면이 같은 캐시를 봄
-// staleTime: 1분 — 본인이 같은 화면을 1분 안에 다시 들어와도 재요청 안 함 (가벼움)
-// gcTime: 5분 — 화면 이탈 후 5분간 캐시 유지
-// refetchOnWindowFocus: true — 탭 다시 보면 자동 갱신 (본인이 원했던 미래 자동 갱신)
+// staleTime: 5분 (Day 65 조정) — Egress 절감용. mutation onSuccess 의 invalidateQueries 가
+//   잘 되어 있어 데이터 갱신은 보장되며, 페이지 재진입/탭 전환은 캐시 사용으로 네트워크 절약.
+// gcTime: 10분 — 화면 이탈 후 10분간 캐시 유지 (재진입 시 즉시 표시 + 백그라운드 refetch).
+// refetchOnWindowFocus: true — 탭 다시 보면 자동 갱신 (단 staleTime 5분 안이면 skip).
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 60_000,
-      gcTime: 5 * 60_000,
+      staleTime: 5 * 60_000,
+      gcTime: 10 * 60_000,
       refetchOnWindowFocus: true,
       retry: 1,
     },

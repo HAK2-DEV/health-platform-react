@@ -8,6 +8,7 @@ import { supabase } from '../../supabaseClient'
 import { CATEGORY } from '../../lib/constants'
 import { checkMissionToday } from '../../lib/formatters'
 import { queryKeys, fetchMission } from '../../lib/queries'
+import { compressImage } from '../../lib/imageCompression'
 import LoadingState from '../../components/common/LoadingState'
 
 // 카테고리 → 히어로 그라데이션
@@ -136,19 +137,23 @@ function MissionVerifyPage() {
       let imagePath = null
 
       if (needsImage && selectedFile) {
+        // 1) 원본 해시 — 중복 차단 (압축은 deterministic X 라 반드시 원본으로)
         const buffer = await selectedFile.arrayBuffer()
         const hashBuffer = await crypto.subtle.digest('SHA-256', buffer)
         const hashArray = Array.from(new Uint8Array(hashBuffer))
         const imageHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
         insertData.image_hash = imageHash
 
-        const ext = selectedFile.name.split('.').pop()?.toLowerCase() || 'jpg'
-        const fileName = `${Date.now()}.${ext}`
+        // 2) 압축 — 1MB 이하 + 1920px (Egress 절감, 본인 결정 Day 65)
+        const compressed = await compressImage(selectedFile)
+
+        // 3) 업로드 — 압축 결과는 항상 image/jpeg
+        const fileName = `${Date.now()}.jpg`
         const path = `${session.user.id}/${fileName}`
 
         const { error: uploadError } = await supabase.storage
           .from('verification-images')
-          .upload(path, selectedFile)
+          .upload(path, compressed, { contentType: 'image/jpeg' })
         if (uploadError) throw new Error(`업로드 실패: ${uploadError.message}`)
         imagePath = path
         insertData.image_path = path
