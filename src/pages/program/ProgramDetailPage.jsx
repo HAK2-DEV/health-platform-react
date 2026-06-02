@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, lazy, Suspense } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -15,11 +15,16 @@ import LoadingState from '../../components/common/LoadingState'
 import ProgramCover from '../../components/common/ProgramCover'
 import MarkdownView from '../../components/common/MarkdownView'
 import { calcProgress } from '../../lib/programVisuals'
-import ProgramEditModal from '../../components/program/ProgramEditModal'
-import MissionCreateModal from '../../components/program/MissionCreateModal'
-import MissionLibraryModal from '../../components/program/MissionLibraryModal'
-import OverviewEditModal from '../../components/program/OverviewEditModal'
-import FeedContent from '../../components/program/FeedContent'
+
+// lazy 분리 — 실제 사용 시점에 chunk 다운로드 (Day 65 본인 결정)
+//   FeedContent: 커뮤니티 탭 진입 시
+//   모달 4개: 운영자가 해당 액션 클릭 시
+//   react-markdown 은 MarkdownView 와 OverviewEditModal 둘 다 사용 → 공통 chunk 로 분리됨
+const FeedContent = lazy(() => import('../../components/program/FeedContent'))
+const ProgramEditModal = lazy(() => import('../../components/program/ProgramEditModal'))
+const MissionCreateModal = lazy(() => import('../../components/program/MissionCreateModal'))
+const MissionLibraryModal = lazy(() => import('../../components/program/MissionLibraryModal'))
+const OverviewEditModal = lazy(() => import('../../components/program/OverviewEditModal'))
 import {
   queryKeys,
   fetchProgram,
@@ -620,7 +625,9 @@ function ProgramDetailPage() {
       {activeTab === 'community' && (<>
 
       {program.feed_enabled ? (
-        <FeedContent program={program} />
+        <Suspense fallback={<LoadingState text="피드 불러오는 중..." />}>
+          <FeedContent program={program} />
+        </Suspense>
       ) : (
         <EmptyState
           icon="🔒"
@@ -704,39 +711,46 @@ function ProgramDetailPage() {
       })()}
       </>)}
 
-      {/* 모달들 */}
-      <ProgramEditModal
-        program={program}
-        isOpen={isEditOpen}
-        onClose={() => setIsEditOpen(false)}
-        onSuccess={invalidateProgramData}
-      />
-
-      <OverviewEditModal
-        program={program}
-        isOpen={isOverviewEditOpen}
-        onClose={() => setIsOverviewEditOpen(false)}
-        onSuccess={invalidateProgramData}
-      />
-
-      <MissionLibraryModal
-        program={program}
-        isOpen={isLibraryOpen}
-        onClose={() => setIsLibraryOpen(false)}
-        onSuccess={invalidateProgramData}
-        onCustomCreate={() => {
-          setIsLibraryOpen(false)
-          setIsMissionCreateOpen(true)
-        }}
-      />
-
-      <MissionCreateModal
-        program={program}
-        isOpen={isMissionCreateOpen}
-        editMission={editingMission}
-        onClose={() => { setIsMissionCreateOpen(false); setEditingMission(null) }}
-        onSuccess={invalidateProgramData}
-      />
+      {/* 모달들 — lazy + 조건부 렌더. isOpen=true 되는 순간만 chunk 다운로드 */}
+      <Suspense fallback={null}>
+        {isEditOpen && (
+          <ProgramEditModal
+            program={program}
+            isOpen={true}
+            onClose={() => setIsEditOpen(false)}
+            onSuccess={invalidateProgramData}
+          />
+        )}
+        {isOverviewEditOpen && (
+          <OverviewEditModal
+            program={program}
+            isOpen={true}
+            onClose={() => setIsOverviewEditOpen(false)}
+            onSuccess={invalidateProgramData}
+          />
+        )}
+        {isLibraryOpen && (
+          <MissionLibraryModal
+            program={program}
+            isOpen={true}
+            onClose={() => setIsLibraryOpen(false)}
+            onSuccess={invalidateProgramData}
+            onCustomCreate={() => {
+              setIsLibraryOpen(false)
+              setIsMissionCreateOpen(true)
+            }}
+          />
+        )}
+        {isMissionCreateOpen && (
+          <MissionCreateModal
+            program={program}
+            isOpen={true}
+            editMission={editingMission}
+            onClose={() => { setIsMissionCreateOpen(false); setEditingMission(null) }}
+            onSuccess={invalidateProgramData}
+          />
+        )}
+      </Suspense>
     </div>
   )
 }
