@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
-import { Plus, Activity, Trash2, ChevronRight, Search, X } from 'lucide-react'
+import { Plus, Activity, Trash2, ChevronRight, Search, X, Users, Calendar, Pencil } from 'lucide-react'
 import { formatKoreanDate, isUpcomingByStartDate } from '../../lib/formatters'
 import ProgramDetailModal from '../../components/program/ProgramDetailModal'
 import DeleteProgramConfirmModal from '../../components/program/DeleteProgramConfirmModal'
@@ -12,12 +12,13 @@ import {
   queryKeys,
   fetchMyPrograms,
   fetchActivePrograms,
+  fetchActiveParticipantCounts,
   fetchPublicPrograms,
 } from '../../lib/queries'
 import EmptyState from '../../components/common/EmptyState'
 import LoadingState from '../../components/common/LoadingState'
 import ProgramCover from '../../components/common/ProgramCover'
-import PageHeader from '../../components/common/PageHeader'
+import Badge from '../../components/common/Badge'
 import { CATEGORY_COLORS, calcProgress } from '../../lib/programVisuals'
 
 // 📋 프로그램 탭 — 3섹션 전체 표시
@@ -65,6 +66,14 @@ function ProgramListPage() {
     queryKey: queryKeys.publicPrograms(userId),
     queryFn: () => fetchPublicPrograms(userId),
     enabled: !!userId,
+  })
+
+  // 참여 중 카드의 "N명이 함께 참여 중" 표시용
+  const activeProgramIds = activePrograms.map(p => p.id)
+  const { data: activeCounts = {} } = useQuery({
+    queryKey: queryKeys.activeParticipantCounts(activeProgramIds),
+    queryFn: () => fetchActiveParticipantCounts(activeProgramIds),
+    enabled: activeProgramIds.length > 0,
   })
 
   // 검색 필터 — name 또는 description 에 query 포함 (대소문자 무시)
@@ -124,31 +133,58 @@ function ProgramListPage() {
   }
 
   return (
-    <div className="p-4 max-w-4xl mx-auto">
-      {/* 페이지 타이틀 — 공통 PageHeader */}
-      <PageHeader>📋 프로그램</PageHeader>
-
-      {/* 검색바 — 3섹션 모두 클라이언트 측 필터 */}
-      <div className="relative mb-6">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="프로그램 이름이나 설명 검색..."
-          className="w-full pl-9 pr-9 py-2.5 bg-gray-50 border border-gray-200 rounded-2xl text-sm focus:outline-none focus:bg-white focus:border-emerald-400 transition"
-        />
-        {isSearching && (
-          <button
-            type="button"
-            onClick={() => setSearchQuery('')}
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 transition"
-            title="검색 지우기"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        )}
+    <div className="min-h-screen bg-surface-app">
+      {/* Day 65 Phase 2 — 헤더 그라데이션 + 마스코트 (참고 사진).
+          연한 mint 그라데이션 + 우상단 잎사귀/태양 일러스트. */}
+      <div className="relative bg-gradient-to-b from-emerald-100 via-emerald-50/80 to-teal-50/40 pt-6 pb-6 overflow-hidden">
+        <div className="max-w-4xl mx-auto px-4 relative">
+          <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-800">
+            프로그램 <span className="text-xl">🌿</span>
+          </h1>
+          <p className="text-sm text-gray-600 mt-1.5 leading-relaxed">
+            나에게 맞는 프로그램을 찾고,<br />꾸준히 건강을 관리해요.
+          </p>
+        </div>
+        {/* 마스코트 일러스트 — 우상단 */}
+        <div className="absolute top-4 right-0 pointer-events-none select-none">
+          <div className="max-w-4xl mx-auto px-4 relative">
+            <div className="absolute right-2 top-0 w-24 h-24 sm:w-28 sm:h-28 opacity-90">
+              <span className="absolute inset-0 flex items-center justify-center text-5xl opacity-40">
+                🌱
+              </span>
+              <img
+                src="/illustrations/mascot.png"
+                alt=""
+                className="absolute inset-0 w-full h-full object-contain"
+                onError={(e) => { e.currentTarget.style.display = 'none' }}
+              />
+            </div>
+          </div>
+        </div>
       </div>
+
+      <div className="max-w-4xl mx-auto px-3 sm:px-4 -mt-4 relative space-y-4 pb-6">
+        {/* 검색바 — Day 65 Phase 2: 흰색 카드 + 그림자 강화 (참고 사진 톤) */}
+        <div className="relative">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="프로그램 이름이나 설명 검색..."
+            className="w-full pl-10 pr-10 py-3.5 bg-white border border-gray-100 rounded-card text-sm shadow-soft focus:outline-none focus:border-emerald-400 focus:shadow-elevated transition"
+          />
+          {isSearching && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 transition"
+              title="검색 지우기"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
 
       {/* 검색 중일 때 결과 요약 — 모든 섹션 매칭 0개면 안내 */}
       {isSearching && filteredMy.length + filteredActive.length + filteredPublic.length === 0 && (
@@ -159,12 +195,11 @@ function ProgramListPage() {
         />
       )}
 
-      {/* 참여 중인 프로그램 — 파스텔 sky/emerald 박스로 감싸 시각 구분.
-          본인 결정 (Day 58): 메인 사용 흐름이 "참여 중"이므로 최상단으로 이동. */}
-      <section ref={activeRef} className="mb-6 p-4 rounded-2xl bg-gradient-to-br from-sky-50 via-cyan-50/60 to-emerald-50/40 border border-sky-100/50 scroll-mt-4">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-800">
-            🎯 참여 중인 프로그램 <span className="text-sm text-gray-500">({filteredActive.length})</span>
+      {/* 참여 중인 프로그램 — Day 65 Phase 2: 흰 카드 + Dashboard 와 동일 카드 양식 통일. */}
+      <section ref={activeRef} className="bg-white border border-gray-100 rounded-card-lg shadow-soft p-4 scroll-mt-4">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="flex items-center gap-2 text-lg font-bold text-gray-800">
+            🎯 참여 중인 프로그램 <span className="text-sm font-medium text-gray-400">({filteredActive.length})</span>
           </h2>
           {!isSearching && activePrograms.length > 2 && (
             <button
@@ -182,8 +217,8 @@ function ProgramListPage() {
           <LoadingState />
         ) : activePrograms.length === 0 ? (
           !isSearching && (
-            /* 컴팩트 빈 상태 — Day 65 본인 결정: 가로 배치로 박스 높이 절감 */
-            <div className="bg-white/60 rounded-xl px-4 py-3 flex items-center gap-3">
+            // 컴팩트 빈 상태 — Day 65 본인 결정: 가로 배치로 박스 높이 절감
+            <div className="bg-gray-50/60 rounded-xl px-4 py-3 flex items-center gap-3">
               <div className="text-2xl opacity-70 leading-none flex-shrink-0">🎯</div>
               <p className="text-sm font-medium text-gray-700 leading-tight flex-1 min-w-0">
                 아직 참여한 프로그램이 없어요
@@ -196,37 +231,59 @@ function ProgramListPage() {
           <motion.div className="grid grid-cols-1 gap-3">
             <AnimatePresence initial={false}>
               {displayedActive.map(program => {
-                // Dashboard 참여중 카드와 동일 룩 — 카테고리 파스텔 배경 + 진행률 바
                 const catKey = program.categories?.[0] || 'ETC'
                 const colors = CATEGORY_COLORS[catKey] || CATEGORY_COLORS.ETC
                 const progress = calcProgress(program.start_date, program.end_date)
+                const percentTextCls = catKey === 'MINDCARE' ? 'text-orange-600'
+                  : catKey === 'EMPATHY' ? 'text-pink-600'
+                  : catKey === 'SLEEP' ? 'text-purple-600'
+                  : catKey === 'NO_SMOKING' ? 'text-yellow-600'
+                  : catKey === 'ETC' ? 'text-gray-600'
+                  : 'text-emerald-600'
+                const countPillCls = catKey === 'MINDCARE' ? 'bg-orange-100/80 text-orange-700'
+                  : catKey === 'EMPATHY' ? 'bg-pink-100/80 text-pink-700'
+                  : catKey === 'SLEEP' ? 'bg-purple-100/80 text-purple-700'
+                  : catKey === 'NO_SMOKING' ? 'bg-yellow-100/80 text-yellow-700'
+                  : catKey === 'ETC' ? 'bg-gray-100/80 text-gray-700'
+                  : 'bg-emerald-100/80 text-emerald-700'
                 return (
                   <motion.div
                     key={program.id}
                     onClick={() => navigate(`/programs/${program.id}`)}
-                    className={`${colors.bg} ${colors.border} border rounded-2xl p-3 hover:shadow-md transition cursor-pointer flex items-center gap-3`}
+                    className={`${colors.bg} ${colors.border} border rounded-card p-3 shadow-soft hover:shadow-elevated transition cursor-pointer flex items-center gap-3`}
                   >
-                    <ProgramCover
-                      imagePath={program.cover_image_path}
-                      categories={program.categories}
-                      name={program.name}
-                      variant="thumb"
-                      className="w-16 h-16 rounded-2xl"
-                    />
+                    <div className="relative flex-shrink-0">
+                      <ProgramCover
+                        imagePath={program.cover_image_path}
+                        categories={program.categories}
+                        name={program.name}
+                        variant="thumb"
+                        className="w-20 h-20 rounded-card"
+                      />
+                      <Badge variant="progress" size="sm" className="absolute top-1.5 left-1.5 shadow-sm">
+                        진행중
+                      </Badge>
+                    </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-medium text-gray-800 truncate">{program.name}</h3>
+                      <h3 className="font-semibold text-base text-gray-800 truncate">{program.name}</h3>
                       {program.description && program.description.trim() !== program.name?.trim() && (
                         <p className="text-xs text-gray-500 truncate mt-0.5">{program.description}</p>
                       )}
                       <div className="flex items-center gap-2 mt-2">
-                        <div className="flex-1 h-1.5 bg-white/80 rounded-full overflow-hidden">
+                        <div className="flex-1 h-2 bg-white/90 rounded-full overflow-hidden">
                           <div
                             className={`${colors.accent} h-full rounded-full transition-all`}
                             style={{ width: `${progress}%` }}
                           />
                         </div>
-                        <span className="text-xs text-gray-600 font-medium flex-shrink-0">{progress}%</span>
+                        <span className={`text-base font-bold flex-shrink-0 ${percentTextCls}`}>{progress}%</span>
                       </div>
+                      {activeCounts[program.id] != null && (
+                        <div className={`inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-pill text-[11px] font-medium w-fit ${countPillCls}`}>
+                          <Users className="w-3 h-3 flex-shrink-0" />
+                          <span>{activeCounts[program.id].toLocaleString()}명이 함께 참여 중</span>
+                        </div>
+                      )}
                     </div>
                   </motion.div>
                 )
@@ -236,11 +293,11 @@ function ProgramListPage() {
         )}
       </section>
 
-      {/* 공개 둘러보기 — 파스텔 violet/pink 박스로 감싸 시각 구분 */}
-      <section ref={publicRef} className="mb-6 p-4 rounded-2xl bg-gradient-to-br from-violet-100/70 via-purple-50/80 to-pink-100/50 border border-violet-200/50 scroll-mt-4">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-800">
-            🔍 둘러보기 <span className="text-sm text-gray-500">({filteredPublic.length})</span>
+      {/* 공개 둘러보기 — Day 65 Phase 2: 흰 카드 + 큰 이미지 + 추천 뱃지 + 원형 화살표. */}
+      <section ref={publicRef} className="bg-white border border-gray-100 rounded-card-lg shadow-soft p-4 scroll-mt-4">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="flex items-center gap-2 text-lg font-bold text-gray-800">
+            🔍 둘러보기 <span className="text-sm font-medium text-gray-400">({filteredPublic.length})</span>
           </h2>
           {!isSearching && publicPrograms.length > 2 && (
             <button
@@ -267,25 +324,34 @@ function ProgramListPage() {
                 <motion.div
                   key={program.id}
                   onClick={() => setSelectedProgram(program)}
-                  className="bg-white border border-gray-200 rounded-2xl p-3 hover:shadow-md transition cursor-pointer"
+                  className="bg-white border border-gray-100 rounded-card p-3 shadow-soft hover:shadow-elevated transition cursor-pointer flex items-center gap-3"
                 >
-                  <div className="flex gap-3">
+                  {/* 큰 표지 + 추천 뱃지 오버레이 */}
+                  <div className="relative flex-shrink-0">
                     <ProgramCover
                       imagePath={program.cover_image_path}
                       categories={program.categories}
                       name={program.name}
                       variant="thumb"
-                      className="w-16 h-16"
+                      className="w-24 h-24 rounded-card"
                     />
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-medium text-gray-800 mb-1 truncate">{program.name}</h3>
-                      {program.description && program.description.trim() !== program.name?.trim() && (
-                        <p className="text-xs text-gray-600 mb-1 line-clamp-1">{program.description}</p>
-                      )}
-                      <p className="text-xs text-gray-500">
-                        {formatKoreanDate(program.start_date)} ~ {formatKoreanDate(program.end_date)}
-                      </p>
-                    </div>
+                    <Badge variant="recommend" size="sm" className="absolute top-1.5 left-1.5">
+                      추천
+                    </Badge>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-base text-gray-800 mb-1 truncate">{program.name}</h3>
+                    {program.description && program.description.trim() !== program.name?.trim() && (
+                      <p className="text-xs text-gray-500 mb-1.5 line-clamp-2 leading-snug">{program.description}</p>
+                    )}
+                    <p className="text-xs text-emerald-600 font-medium flex items-center gap-1">
+                      <Calendar className="w-3 h-3 flex-shrink-0" />
+                      <span>{formatKoreanDate(program.start_date)} ~ {formatKoreanDate(program.end_date)}</span>
+                    </p>
+                  </div>
+                  {/* 원형 화살표 버튼 (장식, 전체 카드 클릭으로 동작) */}
+                  <div className="w-9 h-9 flex-shrink-0 bg-emerald-50 rounded-full flex items-center justify-center">
+                    <ChevronRight className="w-4 h-4 text-emerald-600" />
                   </div>
                 </motion.div>
               ))}
@@ -294,12 +360,12 @@ function ProgramListPage() {
         )}
       </section>
 
-      {/* 내 프로그램 — Day 65 본인 결정: 제일 아래로 이동 (운영자 관점 보조 정보). */}
-      <section ref={myRef} className="mb-6 scroll-mt-4">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-800">
+      {/* 내 프로그램 — Day 65 Phase 2: 흰 카드 + Dashboard 와 동일 카드 양식 통일. */}
+      <section ref={myRef} className="bg-white border border-gray-100 rounded-card-lg shadow-soft p-4 scroll-mt-4">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="flex items-center gap-2 text-lg font-bold text-gray-800">
             <Activity className="w-5 h-5 text-emerald-500" />
-            내 프로그램 <span className="text-sm text-gray-500">({filteredMy.length})</span>
+            내 프로그램 <span className="text-sm font-medium text-gray-400">({filteredMy.length})</span>
           </h2>
           {!isSearching && myPrograms.length > 2 && (
             <button
@@ -325,10 +391,8 @@ function ProgramListPage() {
               {displayedMy.map(program => {
                 const isDraft = program.status === 'DRAFT'
                 const isUpcoming = !isDraft && isUpcomingByStartDate(program.start_date)
+                const badgeVariant = isDraft ? 'draft' : isUpcoming ? 'upcoming' : 'progress'
                 const statusLabel = isDraft ? '임시저장' : isUpcoming ? '예정' : '진행중'
-                const statusClass = (isDraft || isUpcoming)
-                  ? 'bg-gray-100 text-gray-600'
-                  : 'bg-emerald-100 text-emerald-700'
                 return (
                   <motion.div
                     key={program.id}
@@ -339,30 +403,28 @@ function ProgramListPage() {
                         setSelectedProgram(program)
                       }
                     }}
-                    className="bg-white border border-gray-200 rounded-2xl p-3 hover:shadow-md transition cursor-pointer"
+                    className="bg-white border border-gray-100 rounded-card p-3 shadow-soft hover:shadow-elevated transition cursor-pointer"
                   >
-                    <div className="flex gap-3">
+                    <div className="flex gap-3 items-start">
                       <ProgramCover
                         imagePath={program.cover_image_path}
                         categories={program.categories}
                         name={program.name}
                         variant="thumb"
-                        className="w-16 h-16"
+                        className="w-16 h-16 rounded-xl"
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2 mb-1">
-                          <h3 className="font-medium text-gray-800 truncate">{program.name}</h3>
+                          <h3 className="font-semibold text-gray-800 truncate">{program.name}</h3>
                           <div className="flex items-center gap-1.5 flex-shrink-0">
-                            <span className={`px-2 py-0.5 rounded text-xs ${statusClass}`}>
-                              {statusLabel}
-                            </span>
+                            <Badge variant={badgeVariant} size="sm">{statusLabel}</Badge>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation()
                                 handleDelete(program)
                               }}
                               disabled={deleteMutation.isPending}
-                              className="p-1 text-gray-400 hover:text-red-500 transition disabled:opacity-40"
+                              className="p-1 text-gray-300 hover:text-red-500 transition disabled:opacity-40"
                               title="삭제"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -370,14 +432,16 @@ function ProgramListPage() {
                           </div>
                         </div>
                         {program.description && program.description.trim() !== program.name?.trim() && (
-                          <p className="text-xs text-gray-600 mb-1 line-clamp-1">{program.description}</p>
+                          <p className="text-xs text-gray-500 mb-1 line-clamp-1">{program.description}</p>
                         )}
-                        <p className="text-xs text-gray-500">
-                          {formatKoreanDate(program.start_date)} ~ {formatKoreanDate(program.end_date)}
+                        <p className="text-xs text-gray-500 flex items-center gap-1">
+                          <Calendar className="w-3 h-3 flex-shrink-0 text-gray-400" />
+                          <span>{formatKoreanDate(program.start_date)} ~ {formatKoreanDate(program.end_date)}</span>
                         </p>
                         {isDraft && (
-                          <p className="text-[11px] text-emerald-600 mt-1">
-                            ✏️ 클릭하면 이어서 작성할 수 있어요
+                          <p className="text-[11px] text-emerald-600 mt-1.5 flex items-center gap-1">
+                            <Pencil className="w-3 h-3 flex-shrink-0" />
+                            <span>클릭하면 이어서 작성할 수 있어요</span>
                           </p>
                         )}
                       </div>
@@ -417,6 +481,7 @@ function ProgramListPage() {
         onClose={() => setProgramToDelete(null)}
         onConfirm={handleConfirmDeletePublished}
       />
+      </div>
     </div>
   )
 }

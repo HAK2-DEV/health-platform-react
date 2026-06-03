@@ -12,6 +12,8 @@ export const queryKeys = {
   myPrograms: (userId) => ['programs', 'mine', userId],
   // 본인이 참여 중인 프로그램 (대시보드 "참여 중" / 랭킹 / 오늘의 미션 기준)
   activePrograms: (userId) => ['programs', 'active', userId],
+  // 여러 프로그램의 ACTIVE 참여자 수 (Dashboard 카드용) — programIds 정렬 후 키 생성
+  activeParticipantCounts: (programIds) => ['programs', 'participant-counts', [...(programIds || [])].sort().join(',')],
   // 공개 프로그램 (둘러보기) — 대시보드는 본인 것 제외, 프로그램 탭은 전체. excludeUserId 로 캐시 분리.
   publicPrograms: (excludeUserId) => ['programs', 'public', excludeUserId || 'all'],
   // 특정 프로그램 상세
@@ -91,6 +93,23 @@ export const fetchActivePrograms = async (userId) => {
     .eq('status', 'ACTIVE')
   if (error) throw error
   return (data || []).map(row => row.programs)
+}
+
+// 여러 프로그램의 ACTIVE 참여자 수를 한 번에 조회 — Dashboard 참여 중 카드 "N명이 함께 참여 중" 용.
+// head:true + count:'exact' 로 row 본체 X, 카운트만 가져옴. N 쿼리 병렬.
+export const fetchActiveParticipantCounts = async (programIds) => {
+  if (!programIds || programIds.length === 0) return {}
+  const results = await Promise.all(
+    programIds.map(async (pid) => {
+      const { count } = await supabase
+        .from('program_participants')
+        .select('*', { count: 'exact', head: true })
+        .eq('program_id', pid)
+        .eq('status', 'ACTIVE')
+      return [pid, count || 0]
+    })
+  )
+  return Object.fromEntries(results)
 }
 
 export const fetchPublicPrograms = async (excludeUserId) => {

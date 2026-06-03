@@ -25,6 +25,17 @@ export function formatKoreanDate(dateString) {
   return dateString.replaceAll('-', '.')
 }
 
+// 오늘 날짜 + 한글 요일 (홈 헤더 표시용) — "2026.06.02 화요일"
+const _KST_WEEKDAY_FORMATTER = new Intl.DateTimeFormat('ko-KR', {
+  timeZone: 'Asia/Seoul',
+  weekday: 'long',
+})
+export function formatTodayKstWithWeekday() {
+  const ymd = getTodayKST().replaceAll('-', '.')
+  const weekday = _KST_WEEKDAY_FORMATTER.format(new Date())
+  return `${ymd} ${weekday}`
+}
+
 // ISO timestamp → KST 'YYYY.MM.DD HH:mm' (퀴즈 기한처럼 시간 포함 표시용)
 const _KST_DATETIME_FORMATTER = new Intl.DateTimeFormat('en-CA', {
   timeZone: 'Asia/Seoul',
