@@ -1,9 +1,17 @@
-import { useState,  useEffect  } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
-import { UserPlus, Activity } from 'lucide-react'
+import { UserPlus, Activity, Check } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import SocialAuthButtons from '../components/auth/SocialAuthButtons'
+
+// Day 65 — 약관 동의 흐름 추가:
+//   [필수] 만 14세 이상
+//   [필수] 이용약관 동의
+//   [필수] 개인정보 수집·이용 동의
+//   [선택] 마케팅 정보 수신 동의 (미구현 — 추후 알림 설정과 연계)
+// 모든 필수 항목 체크해야 회원가입 버튼 활성.
+// 소셜 로그인 사용자도 같은 동의 화면 거치도록 추후 /nickname-setup 에서 한 번 더 표시 권장.
 
 function SignupPage() {
   const navigate = useNavigate()
@@ -11,30 +19,52 @@ function SignupPage() {
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
-  const { session } = useAuth()  
+  const { session } = useAuth()
 
+  // 동의 체크박스 상태
+  const [agreeAge, setAgreeAge] = useState(false)
+  const [agreeTerms, setAgreeTerms] = useState(false)
+  const [agreePrivacy, setAgreePrivacy] = useState(false)
+  const [agreeMarketing, setAgreeMarketing] = useState(false)
+  const allRequired = agreeAge && agreeTerms && agreePrivacy
+  const allChecked = allRequired && agreeMarketing
 
-  // 이미 로그인됨 → 홈으로                            // ⭐ 추가
+  // "전체 동의" 토글
+  const handleAgreeAll = (checked) => {
+    setAgreeAge(checked)
+    setAgreeTerms(checked)
+    setAgreePrivacy(checked)
+    setAgreeMarketing(checked)
+  }
+
   useEffect(() => {
-    if (session) {
-      navigate('/')
-    }
+    if (session) navigate('/')
   }, [session, navigate])
-  
+
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (!allRequired) {
+      setError('필수 약관 동의가 필요해요')
+      return
+    }
     setIsLoading(true)
     setError(null)
 
     try {
-      const { data, error: signUpError } = await supabase.auth.signUp({
+      const { error: signUpError } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: {
+            // 동의 시점·항목 추적 — user_metadata 에 저장
+            agreed_terms_at: new Date().toISOString(),
+            agreed_privacy_at: new Date().toISOString(),
+            agreed_marketing: agreeMarketing,
+          },
+        },
       })
 
       if (signUpError) throw signUpError
-
-      // 회원가입 성공 → 닉네임 설정 페이지로
       navigate('/nickname-setup')
     } catch (err) {
       console.error('회원가입 실패:', err)
@@ -78,10 +108,21 @@ function SignupPage() {
             minLength={6}
             className="px-3 py-2 text-base border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500"
           />
+
+          {/* 약관 동의 박스 */}
+          <ConsentBox
+            agreeAge={agreeAge} setAgreeAge={setAgreeAge}
+            agreeTerms={agreeTerms} setAgreeTerms={setAgreeTerms}
+            agreePrivacy={agreePrivacy} setAgreePrivacy={setAgreePrivacy}
+            agreeMarketing={agreeMarketing} setAgreeMarketing={setAgreeMarketing}
+            allChecked={allChecked}
+            onAgreeAll={handleAgreeAll}
+          />
+
           <button
             type="submit"
-            disabled={isLoading}
-            className="px-4 py-2 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white text-base font-medium rounded-md disabled:bg-gray-400 disabled:cursor-not-allowed transition"
+            disabled={isLoading || !allRequired}
+            className="px-4 py-2.5 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white text-base font-medium rounded-md disabled:bg-gray-400 disabled:cursor-not-allowed transition"
           >
             {isLoading ? '처리 중...' : '회원가입'}
           </button>
@@ -104,6 +145,99 @@ function SignupPage() {
         <SocialAuthButtons />
       </div>
     </div>
+  )
+}
+
+// ─── 약관 동의 박스 ────────────────────────────────────────
+function ConsentBox({
+  agreeAge, setAgreeAge,
+  agreeTerms, setAgreeTerms,
+  agreePrivacy, setAgreePrivacy,
+  agreeMarketing, setAgreeMarketing,
+  allChecked, onAgreeAll,
+}) {
+  return (
+    <div className="mt-2 border-2 border-gray-200 rounded-md p-3 space-y-2 bg-gray-50/40">
+      {/* 전체 동의 */}
+      <label className="flex items-center gap-2 cursor-pointer pb-2 border-b border-gray-200">
+        <CheckBox checked={allChecked} onChange={(e) => onAgreeAll(e.target.checked)} />
+        <span className="text-sm font-semibold text-gray-800">전체 동의</span>
+      </label>
+
+      <ConsentItem
+        required
+        checked={agreeAge}
+        onChange={setAgreeAge}
+        label="만 14세 이상입니다"
+      />
+      <ConsentItem
+        required
+        checked={agreeTerms}
+        onChange={setAgreeTerms}
+        label="이용약관에 동의합니다"
+        linkPath="/terms"
+      />
+      <ConsentItem
+        required
+        checked={agreePrivacy}
+        onChange={setAgreePrivacy}
+        label="개인정보 수집·이용에 동의합니다"
+        linkPath="/privacy"
+      />
+      <ConsentItem
+        checked={agreeMarketing}
+        onChange={setAgreeMarketing}
+        label="마케팅 정보 수신에 동의합니다"
+      />
+    </div>
+  )
+}
+
+function ConsentItem({ required, checked, onChange, label, linkPath }) {
+  return (
+    <label className="flex items-center gap-2 cursor-pointer">
+      <CheckBox checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <span className="text-xs text-gray-700 flex-1">
+        <span className={required ? 'text-emerald-600 font-semibold' : 'text-gray-500'}>
+          [{required ? '필수' : '선택'}]
+        </span>{' '}
+        {label}
+      </span>
+      {linkPath && (
+        <Link
+          to={linkPath}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="text-xs text-emerald-600 underline flex-shrink-0"
+        >
+          보기
+        </Link>
+      )}
+    </label>
+  )
+}
+
+function CheckBox({ checked, onChange }) {
+  return (
+    <span className="relative w-5 h-5 flex-shrink-0">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={onChange}
+        className="peer sr-only"
+      />
+      <span
+        className={`
+          absolute inset-0 rounded-md border-2 flex items-center justify-center transition
+          ${checked
+            ? 'bg-brand-primary border-brand-primary'
+            : 'bg-white border-gray-300 hover:border-emerald-400'}
+        `}
+      >
+        {checked && <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />}
+      </span>
+    </span>
   )
 }
 
