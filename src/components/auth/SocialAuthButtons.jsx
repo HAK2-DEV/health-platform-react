@@ -4,13 +4,17 @@ import { supabase } from '../../supabaseClient'
 // 소셜 로그인/가입 버튼 묶음 — LoginPage / SignupPage 공유.
 // Day 65 본인 결정: Google + Kakao + Naver 단계별 도입.
 //   1단계: Google (Supabase 기본 지원) — 활성
-//   2단계: Kakao (Edge Function Custom OAuth) — 준비 중
-//   3단계: Naver (Edge Function Custom OAuth) — 준비 중
+//   2단계: Kakao (Edge Function Custom OAuth) — 활성 (kakao-oauth Edge Function 필요)
+//   3단계: Naver — 준비 중
 //
 // 소셜 가입 흐름:
-//   OAuth callback → 세션 생성 → handle_new_user 트리거가 public.users 자동 생성 (nickname NULL)
+//   Kakao: OAuth 인증 → /auth/callback → kakao-oauth Edge Function → verifyOtp → 로그인
+//   Google: Supabase 기본 OAuth → /
+//   → handle_new_user 트리거가 public.users 자동 생성 (nickname NULL)
 //   → HomePage 진입 → nickname 체크 → 미설정이면 /nickname-setup 자동 이동
-//   본인 기존 흐름과 자연스럽게 연결.
+//
+// Kakao 환경변수 (.env / Vercel env):
+//   VITE_KAKAO_REST_API_KEY  : Kakao Developers 의 REST API 키 (공개 가능 — redirect_uri 화이트리스트로 보호)
 function SocialAuthButtons() {
   const [loading, setLoading] = useState(null)  // 'google' | 'kakao' | 'naver' | null
 
@@ -32,7 +36,23 @@ function SocialAuthButtons() {
   }
 
   const handleKakao = () => {
-    alert('🔧 Kakao 로그인은 다음 단계에서 구현됩니다 (Edge Function 도입).')
+    const restApiKey = import.meta.env.VITE_KAKAO_REST_API_KEY
+    if (!restApiKey) {
+      alert('Kakao 로그인 설정이 누락됐어요 (VITE_KAKAO_REST_API_KEY).\n.env 또는 호스팅 환경변수를 확인해주세요.')
+      return
+    }
+    setLoading('kakao')
+    // Kakao OAuth authorize 페이지로 리다이렉트.
+    // scope: account_email, profile_nickname, profile_image
+    //   ※ Kakao Developers > 카카오 로그인 > 동의항목 에서 위 3개 항목을 켜둬야 함.
+    const redirectUri = `${window.location.origin}/auth/callback?provider=kakao`
+    const params = new URLSearchParams({
+      response_type: 'code',
+      client_id: restApiKey,
+      redirect_uri: redirectUri,
+      scope: 'account_email profile_nickname profile_image',
+    })
+    window.location.href = `https://kauth.kakao.com/oauth/authorize?${params.toString()}`
   }
 
   const handleNaver = () => {

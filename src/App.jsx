@@ -47,6 +47,7 @@ const MyActivityMissionsPage = lazy(() => import('./pages/MyActivityMissionsPage
 const MyActivityVerificationsPage = lazy(() => import('./pages/MyActivityVerificationsPage'))
 const MyActivityVerificationsBundlePage = lazy(() => import('./pages/MyActivityVerificationsBundlePage'))
 const JoinByCodePage = lazy(() => import('./pages/JoinByCodePage'))
+const AuthCallbackPage = lazy(() => import('./pages/AuthCallbackPage'))
 
 function AppShell() {
   const { session } = useAuth()
@@ -176,6 +177,7 @@ function AppShell() {
               <ProtectedRoute><MyActivityVerificationsBundlePage /></ProtectedRoute>
             } />
             <Route path="/join" element={<JoinByCodePage />} />
+            <Route path="/auth/callback" element={<AuthCallbackPage />} />
             <Route path="/todos" element={
               <ProtectedRoute><TodosPage /></ProtectedRoute>
             } />

@@ -25,3 +25,6 @@ dist-ssr
 
 # Claude Code (로컬 설정 / 대화 메모리)
 .claude/
+
+# Supabase CLI 내부 상태 (link 시점 정보 등)
+supabase/.temp/
