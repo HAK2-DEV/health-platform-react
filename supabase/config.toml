@@ -1,0 +1,7 @@
+# Supabase 프로젝트 설정 — supabase functions deploy 시 참조됨.
+# 본인이 supabase init 안 했어도 이 파일만 있으면 함수별 설정 적용됨.
+
+[functions.kakao-oauth]
+# JWT 검증 OFF — OAuth 콜백은 사용자가 아직 로그인 안 된 상태에서 호출되므로
+# 인증된 JWT 가 없음. 함수가 공개 접근 허용 (CORS + 비밀 토큰으로 보호).
+verify_jwt = false
