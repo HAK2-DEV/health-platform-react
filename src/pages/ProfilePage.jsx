@@ -1,13 +1,13 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { LogOut, Camera, Pencil, X, Loader2, BarChart3, ChevronRight } from 'lucide-react'
+import { LogOut, Camera, Pencil, X, Loader2, BarChart3, ChevronRight, Bell, Shield, Sprout } from 'lucide-react'
 import { supabase } from '../supabaseClient'
 import { useAuth } from '../hooks/useAuth'
 import { useNicknameCheck } from '../hooks/useNicknameCheck'
 import { NICKNAME } from '../lib/constants'
 import UserAvatar from '../components/common/UserAvatar'
-import PageHeader from '../components/common/PageHeader'
+import IconBox from '../components/common/IconBox'
 import ImageCropModal from '../components/common/ImageCropModal'
 
 // 프로필 페이지 — Bottom Tab Bar 👤 진입점
@@ -223,12 +223,22 @@ function ProfilePage() {
   const isAvatarBusy = avatarMutation.isPending || removeAvatarMutation.isPending
 
   return (
-    <div className="px-4 pt-4 pb-6 max-w-2xl mx-auto">
-      <PageHeader>👤 프로필</PageHeader>
+    <div className="min-h-screen bg-surface-app">
+      {/* Day 65 Phase 5 — 풀너비 그라데이션 헤더 + 잎사귀 일러스트 (참고 사진). */}
+      <div className="relative bg-gradient-to-b from-emerald-100 via-emerald-50/80 to-teal-50/40 pt-6 pb-6 overflow-hidden">
+        <div className="max-w-2xl mx-auto px-4 relative">
+          <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-800">
+            프로필 <span className="text-xl">🌿</span>
+          </h1>
+          <p className="text-sm text-gray-600 mt-1.5">당신의 건강 여정을 응원합니다!</p>
+        </div>
+        <div className="absolute top-2 right-4 text-3xl opacity-40 pointer-events-none select-none">🌱</div>
+      </div>
 
-      {/* 아바타 + 닉네임 + 이메일 카드 — Day 65 본인 결정: Discord 스타일 가로 배치.
-          별도 이메일 박스 제거하고 정체성 정보(아바타·닉네임·이메일)를 한 카드에 클러스터링. */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-5 mb-3">
+      <div className="max-w-2xl mx-auto px-3 sm:px-4 -mt-4 relative space-y-3 pb-6">
+
+      {/* 아바타 + 닉네임 + 이메일 카드 — Day 65 Phase 5: 흰 카드 + 상태 메시지 pill 추가. */}
+      <div className="bg-white border border-gray-100 rounded-card-lg shadow-soft p-5">
         <div className="flex items-center gap-4">
           {/* 좌측: 아바타 + 카메라 + 사진 삭제 */}
           <div className="flex flex-col items-center flex-shrink-0">
@@ -236,9 +246,9 @@ function ProfilePage() {
               <UserAvatar
                 avatarPath={profile?.avatar_path}
                 nickname={nickname}
-                size="xl"
+                size="lg"
                 cacheBust={avatarCacheBust || undefined}
-                className="ring-4 ring-emerald-100"
+                className="ring-2 ring-emerald-100"
               />
               {isAvatarBusy && (
                 <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center">
@@ -250,10 +260,10 @@ function ProfilePage() {
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isAvatarBusy}
-                className="absolute -bottom-1 -right-1 w-9 h-9 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white rounded-full shadow-md flex items-center justify-center transition disabled:opacity-50"
+                className="absolute -bottom-1 -right-1 w-8 h-8 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white rounded-full shadow-md flex items-center justify-center transition disabled:opacity-50"
                 title="프로필 사진 변경"
               >
-                <Camera className="w-4 h-4" />
+                <Camera className="w-3.5 h-3.5" />
               </button>
               <input
                 ref={fileInputRef}
@@ -281,7 +291,7 @@ function ProfilePage() {
             {!isEditingNickname ? (
               <>
                 <div className="flex items-center gap-1.5">
-                  <p className="text-lg font-medium text-gray-800 truncate">{nickname || '-'}</p>
+                  <p className="text-lg font-semibold text-gray-800 truncate">{nickname || '-'}</p>
                   <button
                     type="button"
                     onClick={() => {
@@ -297,6 +307,11 @@ function ProfilePage() {
                   </button>
                 </div>
                 <p className="text-xs text-gray-500 break-all mt-1">{session?.user?.email}</p>
+                {/* 상태 메시지 pill — 참고 사진의 "🌱 건강한 습관을 만들어가고 있어요!" */}
+                <div className="inline-flex items-center gap-1 mt-2 px-2.5 py-1 bg-emerald-50 border border-emerald-100 rounded-pill text-[11px] font-medium text-emerald-700">
+                  <Sprout className="w-3 h-3 flex-shrink-0" />
+                  <span>건강한 습관을 만들어가고 있어요!</span>
+                </div>
                 {!cooldownInfo.canChange && (
                   <p className="text-[11px] text-gray-400 mt-1">
                     닉네임은 {cooldownInfo.daysLeft}일 후 변경 가능
@@ -348,27 +363,35 @@ function ProfilePage() {
         )}
       </div>
 
-      {/* 내 인증 현황 — 새 활동 통계 페이지 */}
-      <button
-        type="button"
+      {/* Day 65 Phase 5 — 메뉴 카드 3종 (참고 사진).
+          알림 설정/계정 설정은 추후 추가 예정 — 클릭 시 안내 alert. */}
+      <ProfileMenuItem
+        tone="emerald"
+        icon={<BarChart3 className="w-5 h-5" />}
+        title="내 인증 현황"
+        description="미션 제출, 점수, 미션별 분포를 확인해보세요"
         onClick={() => navigate('/profile/activity')}
-        className="w-full flex items-center gap-3 p-4 mb-6 bg-white border border-gray-200 rounded-2xl hover:bg-gray-50 hover:border-emerald-300 transition text-left"
-      >
-        <div className="w-10 h-10 flex-shrink-0 bg-emerald-100 rounded-xl flex items-center justify-center">
-          <BarChart3 className="w-5 h-5 text-emerald-600" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h3 className="font-medium text-gray-800">📊 내 인증 현황</h3>
-          <p className="text-xs text-gray-500 mt-0.5">미션 제출/점수/미션별 분포</p>
-        </div>
-        <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
-      </button>
+      />
+      <ProfileMenuItem
+        tone="violet"
+        icon={<Bell className="w-5 h-5" />}
+        title="알림 설정"
+        description="앱 알림 및 리마인더를 관리해요"
+        onClick={() => alert('알림 설정 — 곧 추가될 예정이에요')}
+      />
+      <ProfileMenuItem
+        tone="emerald"
+        icon={<Shield className="w-5 h-5" />}
+        title="계정 설정"
+        description="비밀번호 변경 및 계정 정보를 관리해요"
+        onClick={() => alert('계정 설정 — 곧 추가될 예정이에요')}
+      />
 
-      {/* 로그아웃 */}
+      {/* 로그아웃 — 소프트 레드 (참고 사진) */}
       <button
         type="button"
         onClick={handleLogout}
-        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-md transition"
+        className="w-full mt-3 flex items-center justify-center gap-2 px-4 py-3.5 bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 font-semibold rounded-card-lg transition shadow-soft"
       >
         <LogOut className="w-4 h-4" />
         로그아웃
@@ -388,7 +411,29 @@ function ProfilePage() {
         title="프로필 사진 편집"
         description="원 안에서 드래그하고 확대·축소해 위치를 맞춰주세요"
       />
+
+      </div>
     </div>
+  )
+}
+
+// 프로필 메뉴 카드 — IconBox + 제목 + 설명 + ChevronRight (참고 사진).
+function ProfileMenuItem({ tone, icon, title, description, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full flex items-center gap-3 p-4 bg-white border border-gray-100 rounded-card-lg shadow-soft hover:shadow-elevated hover:border-emerald-200 transition text-left"
+    >
+      <IconBox tone={tone} size="lg" shape="square">
+        {icon}
+      </IconBox>
+      <div className="flex-1 min-w-0">
+        <h3 className="font-semibold text-gray-800">{title}</h3>
+        <p className="text-xs text-gray-500 mt-0.5">{description}</p>
+      </div>
+      <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
+    </button>
   )
 }
 

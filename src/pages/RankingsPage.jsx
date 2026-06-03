@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Trophy, MapPin, TrendingUp } from 'lucide-react'
+import { Trophy, MapPin, TrendingUp, ChevronRight } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../hooks/useAuth'
 import { CATEGORY } from '../lib/constants'
@@ -14,7 +14,6 @@ import {
 import UserAvatar from '../components/common/UserAvatar'
 import EmptyState from '../components/common/EmptyState'
 import LoadingState from '../components/common/LoadingState'
-import PageHeader from '../components/common/PageHeader'
 
 // 시간 범위 옵션 — period 값을 ISO 시작점 문자열로 변환
 const PERIOD_OPTIONS = [
@@ -82,6 +81,16 @@ function RankingsPage() {
 
   const myRow = ranking.find(r => r.user_id === userId)
 
+  // 최근 7일 vs 직전 7일 점수 비교 — 상승 추세일 때만 "꾸준한 참여..." 멘트 노출.
+  // 본인이 정확한 랭킹 변동 history 가 없어 점수 추세를 proxy 로 사용 (trend_enabled 켰을 때만 데이터 있음).
+  const rankTrendUp = useMemo(() => {
+    if (!trendVisible || !myScoreSeries || myScoreSeries.length < 14) return false
+    const len = myScoreSeries.length
+    const lastSum = myScoreSeries.slice(len - 7).reduce((s, x) => s + (x.point || 0), 0)
+    const prevSum = myScoreSeries.slice(len - 14, len - 7).reduce((s, x) => s + (x.point || 0), 0)
+    return lastSum > 0 && lastSum > prevSum
+  }, [trendVisible, myScoreSeries])
+
   // 기간 필터가 꺼져있는데 사용자가 '7d'/'30d' 를 선택한 상태에서 다른 프로그램으로 전환했다면
   // 자동으로 'all' 로 리셋 (운영자가 옵션 끈 의도 존중)
   useEffect(() => {
@@ -129,32 +138,29 @@ function RankingsPage() {
   // ─── 참여 프로그램 0개 ──────────────────────────────────
   if (activePrograms.length === 0) {
     return (
-      <div className="px-4 pt-4 max-w-4xl mx-auto">
-        <PageHeader>
-          <Trophy className="w-6 h-6 text-amber-500" />
-          랭킹
-        </PageHeader>
-        <EmptyState
-          icon="🏆"
-          title="참여 중인 프로그램이 없어요"
-          description="프로그램에 참여하면 랭킹이 표시돼요"
-          variant="mint"
-          size="lg"
-          action={{ label: '프로그램 둘러보기', onClick: () => navigate('/programs') }}
-        />
+      <div className="min-h-screen bg-surface-app">
+        <RankingHeader />
+        <div className="max-w-4xl mx-auto px-3 sm:px-4 -mt-4 relative">
+          <EmptyState
+            icon="🏆"
+            title="참여 중인 프로그램이 없어요"
+            description="프로그램에 참여하면 랭킹이 표시돼요"
+            variant="mint"
+            size="lg"
+            action={{ label: '프로그램 둘러보기', onClick: () => navigate('/programs') }}
+          />
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="px-4 pt-4 pb-6 max-w-4xl mx-auto">
-      <PageHeader>
-        <Trophy className="w-6 h-6 text-amber-500" />
-        랭킹
-      </PageHeader>
+    <div className="min-h-screen bg-surface-app">
+      <RankingHeader />
+      <div className="max-w-4xl mx-auto px-3 sm:px-4 -mt-4 relative space-y-4 pb-6">
 
-      {/* 프로그램 선택 칩 */}
-      <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 mb-4 scrollbar-hide">
+      {/* 프로그램 선택 칩 — 참고 사진: 선택은 그린 + 흰 텍스트, 미선택은 흰 카드 */}
+      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
         {activePrograms.map(program => {
           const catKey = program.categories?.[0] || 'ETC'
           const cat = CATEGORY[catKey] || CATEGORY.ETC
@@ -165,10 +171,10 @@ function RankingsPage() {
               type="button"
               onClick={() => setSelectedProgramId(program.id)}
               className={`
-                flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-sm transition
+                flex-shrink-0 inline-flex items-center gap-1.5 px-4 py-2.5 rounded-pill text-sm transition
                 ${isActive
-                  ? 'bg-emerald-500 text-white shadow-sm font-medium'
-                  : 'bg-white border border-gray-200 text-gray-700 hover:border-emerald-300'}
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-soft font-semibold'
+                  : 'bg-white border border-gray-200 text-gray-600 hover:border-emerald-300'}
               `}
             >
               <span>{cat.emoji}</span>
@@ -178,9 +184,9 @@ function RankingsPage() {
         })}
       </div>
 
-      {/* 시간 범위 토글 — 운영자가 period_filter_enabled 켰을 때만 노출 */}
+      {/* 시간 범위 토글 — segmented control (운영자가 period_filter_enabled 켰을 때만 노출) */}
       {selectedProgram && periodFilterVisible && (
-        <div className="flex gap-1.5 mb-4 p-1 bg-gray-100 rounded-full">
+        <div className="flex gap-1 p-1 bg-gray-100 rounded-pill">
           {PERIOD_OPTIONS.map(opt => {
             const isActive = opt.value === period
             return (
@@ -189,9 +195,9 @@ function RankingsPage() {
                 type="button"
                 onClick={() => setPeriod(opt.value)}
                 className={`
-                  flex-1 py-1.5 text-xs font-medium rounded-full transition
+                  flex-1 py-2 text-sm font-medium rounded-pill transition
                   ${isActive
-                    ? 'bg-white text-gray-800 shadow-sm'
+                    ? 'bg-white text-brand-deep shadow-sm'
                     : 'text-gray-500 hover:text-gray-700'}
                 `}
               >
@@ -202,38 +208,43 @@ function RankingsPage() {
         </div>
       )}
 
-      {/* 본인 요약 카드 + 14일 추세 스파크라인 */}
+      {/* 본인 요약 카드 — 참고 사진: 큰 등수 + 점수 + 추세 + 동기부여 박스 */}
       {selectedProgram && (
-        <div className="bg-gradient-to-r from-emerald-50 via-emerald-50/80 to-teal-50 border border-emerald-100 rounded-2xl p-4 mb-4">
-          <p className="text-xs text-emerald-700 mb-1">
-            {selectedProgram.name}
-            {period !== 'all' && (
-              <span className="ml-1.5 text-[10px] text-emerald-600/70">
-                · {PERIOD_OPTIONS.find(o => o.value === period)?.label} 기준
-              </span>
+        <div className="bg-surface-mint border border-emerald-100 rounded-card-lg p-5 shadow-soft">
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <p className="text-sm font-semibold text-emerald-700 truncate">
+              {selectedProgram.name}
+              {period !== 'all' && (
+                <span className="ml-1.5 text-[10px] font-normal text-emerald-600/70">
+                  · {PERIOD_OPTIONS.find(o => o.value === period)?.label} 기준
+                </span>
+              )}
+            </p>
+            {trendVisible && myScoreSeries.length > 0 && (
+              <ScoreSparkline series={myScoreSeries} />
             )}
-          </p>
+          </div>
           {isLoadingRanking ? (
             <LoadingState variant="inline" />
           ) : myRow ? (
-            <div className="flex items-end gap-3 justify-between">
-              <div>
-                <div className="flex items-end gap-3">
-                  <p className="text-3xl font-bold text-emerald-700 leading-none">
-                    {myRow.rank}<span className="text-base font-medium text-emerald-600">등</span>
-                  </p>
-                  <p className="text-sm text-gray-600 pb-0.5">
-                    {myRow.total_score}P
-                    <span className="text-gray-400 mx-1">·</span>
-                    전체 {ranking.length}명 중
-                  </p>
-                </div>
+            <>
+              <div className="flex items-baseline gap-3 flex-wrap">
+                <p className="text-4xl font-bold text-brand-deep leading-none">
+                  {myRow.rank}<span className="text-xl font-bold text-brand-primary ml-0.5">등</span>
+                  <span className="ml-1 text-yellow-400 text-xl">✨</span>
+                </p>
+                <p className="text-2xl font-bold text-gray-800">
+                  {myRow.total_score}<span className="text-sm text-gray-500 font-medium ml-0.5">P</span>
+                </p>
+                <p className="text-xs text-gray-500">· 전체 {ranking.length}명 중</p>
               </div>
-              {/* 14일 스파크라인 — 운영자가 trend_enabled 켰을 때만 노출 */}
-              {trendVisible && myScoreSeries.length > 0 && (
-                <ScoreSparkline series={myScoreSeries} />
+              {rankTrendUp && (
+                <p className="mt-4 px-3 py-2 bg-white/60 text-xs text-emerald-700 rounded-pill text-center flex items-center justify-center gap-1">
+                  <TrendingUp className="w-3.5 h-3.5" />
+                  <span>꾸준한 참여로 순위가 상승하고 있어요! 👏</span>
+                </p>
               )}
-            </div>
+            </>
           ) : (
             <p className="text-sm text-gray-500">
               아직 인증 기록이 없어요 — 오늘의 미션부터 도전해보세요
@@ -250,7 +261,7 @@ function RankingsPage() {
         />
       )}
 
-      {/* 랭킹 목록 (포디움 있으면 4등부터, 없으면 전체) */}
+      {/* 랭킹 목록 (포디움 있으면 4등부터, 없으면 전체) — 흰 카드 + 행 구분선 */}
       {isLoadingRanking ? (
         <LoadingState />
       ) : ranking.length === 0 ? (
@@ -263,7 +274,7 @@ function RankingsPage() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.3 }}
-          className="grid gap-2"
+          className="bg-white border border-gray-100 rounded-card-lg shadow-soft divide-y divide-gray-100"
         >
           {restRanking.map(row => {
             const isMe = row.user_id === userId
@@ -272,23 +283,26 @@ function RankingsPage() {
                 key={row.user_id}
                 ref={isMe ? myRowRef : null}
                 className={`
-                  flex items-center justify-between p-3 rounded-2xl border transition-all
-                  ${isMe ? 'bg-emerald-50 border-emerald-300 ring-2 ring-emerald-100' : 'bg-white border-gray-200'}
+                  flex items-center justify-between gap-3 px-4 py-3 transition-all
+                  ${isMe ? 'bg-emerald-50/50' : ''}
                 `}
               >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <span className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-50 text-gray-500 text-sm font-medium flex-shrink-0">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <span className="text-gray-500 text-base font-bold flex-shrink-0 w-6 text-center">
                     {row.rank}
                   </span>
                   <UserAvatar avatarPath={row.avatar_path} nickname={row.nickname} size="md" />
-                  <span className={`font-medium truncate ${isMe ? 'text-emerald-800' : 'text-gray-800'}`}>
+                  <span className={`font-semibold truncate ${isMe ? 'text-emerald-800' : 'text-gray-800'}`}>
                     {row.nickname}
-                    {isMe && <span className="ml-1 text-xs text-emerald-600">(나)</span>}
+                    {isMe && <span className="ml-1.5 text-xs text-emerald-600 font-medium">(나)</span>}
                   </span>
                 </div>
-                <span className={`text-sm font-medium flex-shrink-0 ${isMe ? 'text-emerald-700' : 'text-gray-600'}`}>
-                  {row.total_score}P
-                </span>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <span className={`text-sm font-bold ${isMe ? 'text-emerald-700' : 'text-emerald-600'}`}>
+                    {row.total_score}P
+                  </span>
+                  <ChevronRight className="w-4 h-4 text-gray-300" />
+                </div>
               </div>
             )
           })}
@@ -312,6 +326,23 @@ function RankingsPage() {
           </motion.button>
         )}
       </AnimatePresence>
+      </div>
+    </div>
+  )
+}
+
+// 랭킹 페이지 헤더 — 큰 제목 + 부제 + 트로피 일러스트 (참고 사진)
+function RankingHeader() {
+  return (
+    <div className="relative bg-gradient-to-b from-emerald-100 via-emerald-50/80 to-teal-50/40 pt-6 pb-6 overflow-hidden">
+      <div className="max-w-4xl mx-auto px-4 relative">
+        <h1 className="text-2xl font-bold text-gray-800">🏆 랭킹</h1>
+        <p className="text-sm text-gray-600 mt-1.5">참여 진도와 포인트를 비교해보세요!</p>
+      </div>
+      {/* 트로피 일러스트 — 우상단 */}
+      <div className="absolute top-4 right-4 w-24 h-24 sm:w-28 sm:h-28 opacity-90 pointer-events-none select-none">
+        <span className="absolute inset-0 flex items-center justify-center text-5xl">🏆</span>
+      </div>
     </div>
   )
 }
@@ -408,7 +439,7 @@ function PodiumTop3({ top3, userId }) {
           ease: [0.34, 1.4, 0.64, 1],
         }}
         className={`
-          relative flex flex-col items-center justify-end ${s.height} p-2.5 rounded-2xl border bg-gradient-to-b
+          relative flex flex-col items-center justify-end ${s.height} p-3 rounded-card border bg-gradient-to-b shadow-soft
           ${s.gradient} ${isMe ? 'ring-2 ring-emerald-400 border-emerald-400' : s.border}
         `}
       >
@@ -422,13 +453,17 @@ function PodiumTop3({ top3, userId }) {
             {s.crown}
           </motion.div>
         )}
-        <UserAvatar avatarPath={row.avatar_path} nickname={row.nickname} size={place === 1 ? 'lg' : 'md'} className="mb-1.5" />
-        <div className="text-lg leading-none mb-0.5">{s.medal}</div>
-        <p className={`text-[10px] font-bold mb-0.5 ${s.rankColor}`}>{place}등</p>
-        <p className={`text-xs font-medium truncate w-full text-center ${isMe ? 'text-emerald-800' : 'text-gray-800'}`}>
-          {row.nickname}{isMe && ' (나)'}
+        <div className="relative mb-1.5">
+          <UserAvatar avatarPath={row.avatar_path} nickname={row.nickname} size={place === 1 ? 'lg' : 'md'} />
+          <span className="absolute -top-1 -left-1 text-xl">{s.medal}</span>
+        </div>
+        {isMe && (
+          <span className="px-2 py-0.5 bg-emerald-500 text-white text-[10px] font-semibold rounded-pill mb-0.5">나</span>
+        )}
+        <p className={`text-xs font-semibold truncate w-full text-center ${isMe ? 'text-emerald-800' : 'text-gray-800'}`}>
+          {row.nickname}
         </p>
-        <p className={`text-xs font-semibold mt-0.5 ${s.scoreColor}`}>
+        <p className={`text-sm font-bold mt-0.5 ${s.scoreColor}`}>
           {row.total_score}P
         </p>
       </motion.div>
@@ -436,10 +471,12 @@ function PodiumTop3({ top3, userId }) {
   }
 
   return (
-    <div className="grid grid-cols-3 items-end gap-2 mb-5 mt-2">
-      {slot(second, 2)}
-      {slot(first, 1)}
-      {slot(third, 3)}
+    <div className="bg-white border border-gray-100 rounded-card-lg shadow-soft p-4">
+      <div className="grid grid-cols-3 items-end gap-2 pt-3">
+        {slot(second, 2)}
+        {slot(first, 1)}
+        {slot(third, 3)}
+      </div>
     </div>
   )
 }
