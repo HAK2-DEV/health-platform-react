@@ -48,6 +48,8 @@ const MyActivityVerificationsPage = lazy(() => import('./pages/MyActivityVerific
 const MyActivityVerificationsBundlePage = lazy(() => import('./pages/MyActivityVerificationsBundlePage'))
 const JoinByCodePage = lazy(() => import('./pages/JoinByCodePage'))
 const AuthCallbackPage = lazy(() => import('./pages/AuthCallbackPage'))
+const NotificationSettingsPage = lazy(() => import('./pages/NotificationSettingsPage'))
+const AccountSettingsPage = lazy(() => import('./pages/AccountSettingsPage'))
 
 function AppShell() {
   const { session } = useAuth()
@@ -163,6 +165,12 @@ function AppShell() {
             } />
             <Route path="/profile" element={
               <ProtectedRoute><ProfilePage /></ProtectedRoute>
+            } />
+            <Route path="/profile/notifications-settings" element={
+              <ProtectedRoute><NotificationSettingsPage /></ProtectedRoute>
+            } />
+            <Route path="/profile/account-settings" element={
+              <ProtectedRoute><AccountSettingsPage /></ProtectedRoute>
             } />
             <Route path="/profile/activity" element={
               <ProtectedRoute><MyActivityPage /></ProtectedRoute>

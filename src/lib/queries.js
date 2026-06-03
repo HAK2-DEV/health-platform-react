@@ -36,6 +36,8 @@ export const queryKeys = {
   myRecentScores: (programId, userId, days = 14) => ['scores', 'recentSeries', programId, userId, days],
   // 어제 vs 현재 등수 비교 (rank_snapshots — 071)
   myRankChange: (programId, userId) => ['rankings', 'myChange', programId, userId],
+  // 알림 환경설정 (notification_preferences — 072)
+  myNotificationPreferences: (userId) => ['notifications', 'preferences', userId],
   // 운영자 PENDING_REVIEW 목록
   pendingReviews: (programId) => ['verifications', 'pending', programId],
   // 운영자 참여자 통계
@@ -336,6 +338,35 @@ export const fetchProgramRanking = async (programId, periodStart = null) => {
 // 본인 N일 일별 점수 시계열 — RLS 본인 SELECT 허용 (019) 이라 직접 fetch
 // 반환: [{ date: 'YYYY-MM-DD' (KST), point: number }] (오늘 포함 오래된→최근 순)
 // 빈 날도 point:0 으로 채워서 sparkline 이 끊기지 않게 함.
+// 알림 환경설정 — 072 notification_preferences
+// 본인 row 없으면 기본값(모두 ON)으로 자동 생성 후 반환.
+export const fetchMyNotificationPreferences = async () => {
+  const { data, error } = await supabase.rpc('get_or_create_my_notification_preferences')
+  if (error) throw error
+  return data
+}
+
+// 알림 환경설정 갱신 — UPDATE 본인 row (RLS 로 본인만 가능)
+export const updateMyNotificationPreferences = async (patch) => {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('인증 필요')
+  const { data, error } = await supabase
+    .from('notification_preferences')
+    .update({ ...patch, updated_at: new Date().toISOString() })
+    .eq('user_id', user.id)
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+// 회원 탈퇴 — 073 delete_my_account RPC
+// auth.users DELETE → public.users 등 모든 관련 데이터 CASCADE 삭제.
+export const deleteMyAccount = async () => {
+  const { error } = await supabase.rpc('delete_my_account')
+  if (error) throw error
+}
+
 // 어제 vs 현재 등수 비교 — rank_snapshots (071)
 // 반환: { yesterday_rank, current_rank, rank_change } | null
 //   rank_change 양수 = 상승 (어제 5등 → 오늘 3등 이면 +2)

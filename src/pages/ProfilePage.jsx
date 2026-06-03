@@ -376,15 +376,15 @@ function ProfilePage() {
         tone="violet"
         icon={<Bell className="w-5 h-5" />}
         title="알림 설정"
-        description="앱 알림 및 리마인더를 관리해요"
-        onClick={() => alert('알림 설정 — 곧 추가될 예정이에요')}
+        description="앱 알림 type 별 ON/OFF 를 관리해요"
+        onClick={() => navigate('/profile/notifications-settings')}
       />
       <ProfileMenuItem
         tone="emerald"
         icon={<Shield className="w-5 h-5" />}
         title="계정 설정"
-        description="비밀번호 변경 및 계정 정보를 관리해요"
-        onClick={() => alert('계정 설정 — 곧 추가될 예정이에요')}
+        description="비밀번호 변경 · 회원 탈퇴"
+        onClick={() => navigate('/profile/account-settings')}
       />
 
       {/* 로그아웃 — 소프트 레드 (참고 사진) */}
