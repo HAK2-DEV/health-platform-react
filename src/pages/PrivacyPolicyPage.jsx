@@ -56,8 +56,7 @@ function PrivacyPolicyPage() {
               <li>오류 추적 도구(Sentry)를 통한 익명화된 에러 발생 정보</li>
             </Sub>
             <p className="text-xs text-gray-500 mt-3">
-              ⚠️ Kakao 일반 앱 단계에서는 이메일 권한이 제한되어 가상 이메일(`kakao_{ID}@kakao.local`)이 생성됩니다.
-              이는 외부에 전송되지 않으며 본 서비스 내부 식별자로만 사용됩니다.
+              {'⚠️ Kakao 일반 앱 단계에서는 이메일 권한이 제한되어 가상 이메일(kakao_{ID}@kakao.local)이 생성됩니다. 이는 외부에 전송되지 않으며 본 서비스 내부 식별자로만 사용됩니다.'}
             </p>
           </Section>
 
