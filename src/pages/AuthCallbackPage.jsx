@@ -75,9 +75,17 @@ function AuthCallbackPage() {
       body: { code, redirect_uri: redirectUri },
     })
     if (error) {
-      // functions.invoke 는 4xx/5xx 응답도 error 로 던짐
-      const detail = data?.error ?? error.message
-      throw new Error(detail || 'Edge Function 호출 실패')
+      // FunctionsHttpError 의 경우 context.json() 로 본문 추출
+      let detail = error.message
+      if (error?.context && typeof error.context.json === 'function') {
+        try {
+          const body = await error.context.json()
+          if (body?.error) detail = body.error
+        } catch { /* json 파싱 실패 시 기본 메시지 유지 */ }
+      } else if (data?.error) {
+        detail = data.error
+      }
+      throw new Error(detail)
     }
     if (!data?.email || !data?.token_hash) {
       throw new Error('서버 응답에 필수 필드가 없어요')
