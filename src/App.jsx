@@ -50,6 +50,9 @@ const JoinByCodePage = lazy(() => import('./pages/JoinByCodePage'))
 const AuthCallbackPage = lazy(() => import('./pages/AuthCallbackPage'))
 const NotificationSettingsPage = lazy(() => import('./pages/NotificationSettingsPage'))
 const AccountSettingsPage = lazy(() => import('./pages/AccountSettingsPage'))
+const PrivacyPolicyPage = lazy(() => import('./pages/PrivacyPolicyPage'))
+const TermsOfServicePage = lazy(() => import('./pages/TermsOfServicePage'))
+const InstallGuidePage = lazy(() => import('./pages/InstallGuidePage'))
 
 function AppShell() {
   const { session } = useAuth()
@@ -185,6 +188,10 @@ function AppShell() {
               <ProtectedRoute><MyActivityVerificationsBundlePage /></ProtectedRoute>
             } />
             <Route path="/join" element={<JoinByCodePage />} />
+            {/* 약관/정책 — 공개 페이지 (비로그인도 접근 가능) */}
+            <Route path="/privacy" element={<PrivacyPolicyPage />} />
+            <Route path="/terms" element={<TermsOfServicePage />} />
+            <Route path="/install" element={<InstallGuidePage />} />
             <Route path="/auth/callback" element={<AuthCallbackPage />} />
             <Route path="/todos" element={
               <ProtectedRoute><TodosPage /></ProtectedRoute>

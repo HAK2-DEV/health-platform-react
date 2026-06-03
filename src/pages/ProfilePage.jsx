@@ -397,6 +397,21 @@ function ProfilePage() {
         로그아웃
       </button>
 
+      {/* 공개 페이지 링크 — 푸터 */}
+      <div className="mt-6 pt-4 border-t border-gray-100 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] text-gray-400">
+        <button type="button" onClick={() => navigate('/install')} className="hover:text-gray-600 transition">
+          📲 앱으로 설치하기
+        </button>
+        <span>·</span>
+        <button type="button" onClick={() => navigate('/terms')} className="hover:text-gray-600 transition">
+          이용약관
+        </button>
+        <span>·</span>
+        <button type="button" onClick={() => navigate('/privacy')} className="hover:text-gray-600 transition">
+          개인정보처리방침
+        </button>
+      </div>
+
       {/* 프로필 사진 크롭 모달 — 1:1 원형, 512x512 */}
       <ImageCropModal
         isOpen={isCropOpen}
