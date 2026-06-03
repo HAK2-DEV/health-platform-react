@@ -76,8 +76,29 @@ supabase functions deploy kakao-oauth --project-ref <PROJECT_REF>
 
 ## 문제 발생 시
 
-- **"Kakao 로그인 설정이 누락됐어요"**: `VITE_KAKAO_REST_API_KEY` 미설정. `.env.local` 또는 호스팅 env 확인.
-- **"redirect_uri 가 일치하지 않아요"**: Kakao Developers 등록 URI 와 호출 URI 가 다름. 쿼리(`?provider=kakao`) 포함 여부까지 확인.
-- **"이메일 정보가 필요해요"**: 사용자가 Kakao 동의 화면에서 이메일 제공에 동의하지 않음. 동의항목에서 이메일을 "선택 동의" 또는 "필수 동의" 로 설정.
-- **"서버 설정 누락: KAKAO_REST_API_KEY"**: Supabase Edge Function secrets 미설정. 3-2 확인.
-- **Edge Function 로그 확인**: Supabase Dashboard > Edge Functions > kakao-oauth > Logs.
+본인이 첫 설정 시 실제로 만난 함정들 (해결 순서) — Naver 등 추가 시 참고:
+
+- **KOE205 — "설정하지 않은 동의 항목"**: scope 에 동의항목 켜지 않은 항목 요청.
+  본 구현은 이메일(`account_email`) 권한이 일반 앱은 "권한 없음" 이라 처음부터 scope 에서 제외.
+
+- **KOE006 — "등록하지 않은 리다이렉트 URI"**: Kakao Developers 등록 URI 와 코드 전송 URI 불일치.
+  - 등록 위치: **카카오 로그인 페이지의 "Redirect URI" 섹션** (고급 > 로그아웃 리다이렉트 URI 아님!)
+  - 쿼리스트링 X — Kakao 가 자동 제거하는 경우 있음
+  - 코드 변경 후 등록도 다시 정리 필요
+
+- **401 UNAUTHORIZED_INVALID_JWT_FORMAT**: Edge Function 의 JWT 검증이 ON 이라 익명 호출 거부.
+  - `supabase/config.toml` 의 `[functions.kakao-oauth] verify_jwt = false` 로 해결.
+  - `supabase functions deploy kakao-oauth --no-verify-jwt` 플래그로도 가능.
+
+- **KOE010 — "Bad client credentials" (invalid_client)**: Kakao 가 client_id/client_secret 거부.
+  - REST API 키가 잘못됨 (다른 키 복사, 공백 포함 등)
+  - **클라이언트 시크릿** 활성화 후 저장 안 함 → 「사용 안 함」으로 변경 후 **반드시 저장 버튼 클릭**
+  - 또는 시크릿 사용 중이면 Supabase env `KAKAO_CLIENT_SECRET` 추가
+
+- **"Only the token_hash and type should be provided"**: `verifyOtp` 호출 시 email 같이 보냄.
+  token_hash 사용 모드는 email 없이 `{token_hash, type}` 만 전달.
+
+- **"이메일 정보가 필요해요"**: scope 에 `account_email` 두고 사용자가 미동의.
+  본 구현은 가상 이메일 fallback 이라 발생 안 함.
+
+- **Edge Function 로그 확인**: Supabase Dashboard > Edge Functions > kakao-oauth > **Logs** (boot/restart) 와 **Invocations** (개별 호출 상세) 두 탭.

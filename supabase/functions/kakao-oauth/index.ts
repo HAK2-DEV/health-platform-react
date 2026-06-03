@@ -67,7 +67,7 @@ serve(async (req) => {
     })
     if (!tokenRes.ok) {
       const errText = await tokenRes.text()
-      console.error('Kakao 토큰 교환 실패:', errText)
+      console.error('[kakao-oauth] Kakao 토큰 교환 실패. status:', tokenRes.status, 'body:', errText)
       return jsonError(`Kakao 토큰 교환 실패: ${errText}`, 502)
     }
     const tokenData = await tokenRes.json()
