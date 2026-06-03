@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../supabaseClient'
 import { useAuth } from '../../hooks/useAuth'
+import { queryKeys } from '../../lib/queries'
 import WizardLayout from '../../components/program/ProgramWizard/WizardLayout'
 import Step1Basic from '../../components/program/ProgramWizard/Step1Basic'
 import Step2Type from '../../components/program/ProgramWizard/Step2Type'
@@ -13,6 +15,7 @@ import LoadingState from '../../components/common/LoadingState'
 function ProgramNewPage() {
   const { session } = useAuth()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [searchParams] = useSearchParams()
   const draftId = searchParams.get('id') // DRAFT 재진입 — 있으면 그 프로그램 로드 후 마법사 진행
 
@@ -119,7 +122,12 @@ function ProgramNewPage() {
 
   const handleSave = async (stepData) => {
     const result = await saveProgram(stepData)
-    if (result) navigate('/dashboard')
+    if (result) {
+      // myPrograms 캐시 무효화 — 대시보드/프로그램 탭에서 새 DRAFT 즉시 노출
+      // (staleTime 5분 정책으로 자동 refetch 안 됨 → 명시적 invalidate 필요)
+      queryClient.invalidateQueries({ queryKey: queryKeys.myPrograms(session.user.id) })
+      navigate('/dashboard')
+    }
   }
 
   const handlePrev = () => {

@@ -117,7 +117,9 @@ function Step1Basic({ initialData, onNext, onSave }) {
         </div>
       </div>
       
-      {/* 운영 기간 — 모바일 세로/데스크탑 가로 */}
+      {/* 운영 기간 — 모바일 세로/데스크탑 가로.
+          appearance-none + box-border + max-w-full: 모바일 Chrome 의 <input type="date">
+          가 네이티브 calendar picker indicator 폭으로 부모를 밀어내는 문제 차단. */}
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-2">
           운영 기간
@@ -130,7 +132,7 @@ function Step1Basic({ initialData, onNext, onSave }) {
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
               min={getTodayKST()}
-              className="block w-full min-w-0 px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500"
+              className="block w-full max-w-full min-w-0 box-border appearance-none px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 bg-white text-sm"
             />
           </div>
           <span className="hidden sm:inline text-gray-500 flex-shrink-0 pb-2">~</span>
@@ -141,7 +143,7 @@ function Step1Basic({ initialData, onNext, onSave }) {
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
               min={startDate || getTodayKST()}
-              className="block w-full min-w-0 px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500"
+              className="block w-full max-w-full min-w-0 box-border appearance-none px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 bg-white text-sm"
             />
           </div>
         </div>

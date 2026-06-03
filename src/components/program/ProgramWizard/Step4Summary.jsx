@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../../supabaseClient'
+import { useAuth } from '../../../hooks/useAuth'
+import { queryKeys } from '../../../lib/queries'
 import { CATEGORY, PROGRAM_TYPE, JOIN_TYPE } from '../../../lib/constants'
 import { formatKoreanDate } from '../../../lib/formatters'
 
@@ -8,6 +11,8 @@ import { formatKoreanDate } from '../../../lib/formatters'
 // 본인 (가) 진화 — 미션은 게시 후 운영자가 직접 추가
 function Step4Summary({ initialData, programId, onPrev }) {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const { session } = useAuth()
   const [isPublishing, setIsPublishing] = useState(false)
   const [error, setError] = useState(null)
 
@@ -25,6 +30,10 @@ function Step4Summary({ initialData, programId, onPrev }) {
         .eq('id', programId)
 
       if (updateError) throw updateError
+
+      // myPrograms + publicPrograms 캐시 무효화 — 상태 전환(DRAFT→PUBLISHED) 즉시 반영
+      queryClient.invalidateQueries({ queryKey: queryKeys.myPrograms(session.user.id) })
+      queryClient.invalidateQueries({ queryKey: ['programs', 'public'] })
 
       // 게시 완료 → 대시보드
       navigate('/dashboard')
