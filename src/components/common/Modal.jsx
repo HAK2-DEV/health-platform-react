@@ -14,6 +14,17 @@ function Modal({ isOpen, onClose, children }) {
     return () => document.removeEventListener('keydown', handleEsc)
   }, [isOpen, onClose])
 
+  // body 스크롤 잠금 — 모달 열렸을 때 뒤 페이지 스크롤 차단 (Day 65 본인 결정)
+  //   모바일에서 모달 안 스크롤이 부모(body)로 전파되는 scroll chaining 문제 해결
+  useEffect(() => {
+    if (!isOpen) return
+    const originalOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = originalOverflow
+    }
+  }, [isOpen])
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -30,10 +41,11 @@ function Modal({ isOpen, onClose, children }) {
             transition={{ duration: 0.18, ease: 'easeOut' }}
           />
 
-          {/* 모달 내용 — 살짝 아래에서 올라오며 페이드+scale 인. spring 으로 부드럽게 */}
+          {/* 모달 내용 — 살짝 아래에서 올라오며 페이드+scale 인. spring 으로 부드럽게.
+              overscroll-contain: 모달 내부 스크롤 끝 도달 시에도 부모로 전파 안 함 (추가 안전망) */}
           <motion.div
             className="
-              relative bg-white shadow-xl overflow-y-auto
+              relative bg-white shadow-xl overflow-y-auto overscroll-contain
               w-full max-h-[90vh] rounded-t-2xl
               sm:max-w-md sm:max-h-[85vh] sm:rounded-lg
             "

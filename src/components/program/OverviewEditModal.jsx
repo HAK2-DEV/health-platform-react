@@ -3,11 +3,11 @@ import Modal from '../common/Modal'
 import MarkdownView from '../common/MarkdownView'
 import { supabase } from '../../supabaseClient'
 
-// 운영자 전용 — ProgramDetailPage 「개요」 탭에 표시할 자유 글 (마크다운) 작성/수정.
+// 운영자 전용 — ProgramDetailPage 「개요」 탭에 표시할 자유 글 작성/수정.
 // 데이터: programs.overview_content TEXT NULL (마이그레이션 069)
-// 포맷: GFM 마크다운 (굵게/링크/리스트/체크박스/표).
+// Day 65 본인 결정: 마크다운 파싱 제거. textarea 친 그대로 (줄바꿈/공백/빈 줄) 표시.
 //
-// UI: 편집 ↔ 미리보기 토글. textarea + MarkdownView 미리보기.
+// UI: 편집 ↔ 미리보기 토글. textarea + 단순 텍스트 미리보기.
 // 길이 제한: 5000자 (블로그 글 수준).
 const MAX_LENGTH = 5000
 
@@ -59,7 +59,7 @@ function OverviewEditModal({ program, isOpen, onClose, onSuccess }) {
             📝 개요 글 수정
           </h2>
           <p className="text-xs text-gray-500 mb-4">
-            {program.name} · 마크다운 지원
+            {program.name}
           </p>
 
           {/* 편집/미리보기 토글 */}
@@ -95,12 +95,7 @@ function OverviewEditModal({ program, isOpen, onClose, onSuccess }) {
                 onChange={(e) => setContent(e.target.value)}
                 placeholder={`프로그램 소개·공지·안내 등을 자유롭게 작성하세요.
 
-마크다운 지원:
-- **굵게**, *기울임*
-- [링크](https://example.com)
-- 리스트 항목
-- 체크박스: - [ ] 미완료, - [x] 완료
-- > 인용문`}
+여기 친 그대로 (줄바꿈·공백·빈 줄) 모든 참여자에게 표시됩니다.`}
                 rows={14}
                 maxLength={MAX_LENGTH}
                 disabled={isSaving}
