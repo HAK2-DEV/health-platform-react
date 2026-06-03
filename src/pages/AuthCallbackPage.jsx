@@ -91,9 +91,9 @@ function AuthCallbackPage() {
       throw new Error('서버 응답에 필수 필드가 없어요')
     }
 
-    // verifyOtp 로 세션 생성 → 자동 로그인
+    // verifyOtp 로 세션 생성 → 자동 로그인.
+    // token_hash 사용 시 email 동봉 금지 ("Only the token_hash and type should be provided").
     const { error: verifyErr } = await supabase.auth.verifyOtp({
-      email: data.email,
       token_hash: data.token_hash,
       type: data.verification_type ?? 'magiclink',
     })
