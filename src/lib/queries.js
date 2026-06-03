@@ -56,6 +56,10 @@ export const queryKeys = {
   // 본인 인증 카드 (한 묶음 내, 페이지네이션)
   myVerificationsByBundle: (programId, userId, bundleParam) =>
     ['my-activity', 'verifications', programId, userId, bundleParam],
+  // 본인의 프로그램별 개요 (streak + activeDays + recent — 개요 탭 모의도)
+  programOverview: (programId, userId) => ['program-overview', programId, userId],
+  // 프로그램 참여 모달용 정보 (운영자 닉네임 + 참여자 수 + 미션 정보)
+  programJoinInfo: (programId) => ['program-join-info', programId],
 }
 
 // ─── 쿼리 함수들 ─────────────────────────────────────────────
@@ -192,6 +196,108 @@ export const fetchTodayCounts = async (userId) => {
     }
   })
   return counts
+}
+
+// 본인 프로그램 개요 (Day 65 본인 결정 — 「개요」 탭 모의도)
+// 한 번의 fetch 로 3가지 지표 반환:
+//   1) streak: 연속 인증 일수
+//        - 오늘 인증 있음 → 오늘부터 거꾸로 카운트
+//        - 오늘 미인증 → 어제부터 시작 (오늘 끊김으로 0 처리 X)
+//   2) activeDays: 최근 60일 내 인증한 고유 일수 (참여율 계산용)
+//   3) recent: 최근 5개 APPROVED 인증 카드 (mission title + note + point + date)
+// 범위 60일 — 베타 프로그램 대부분 30일 미만이라 충분.
+export const fetchProgramOverview = async (programId, userId) => {
+  const sixtyDaysAgo = new Date()
+  sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60)
+
+  const { data, error } = await supabase
+    .from('verifications')
+    .select('id, submitted_at, note, numeric_value, missions!inner(title, point, program_id, bundle_title)')
+    .eq('user_id', userId)
+    .eq('status', 'APPROVED')
+    .eq('missions.program_id', programId)
+    .gte('submitted_at', sixtyDaysAgo.toISOString())
+    .order('submitted_at', { ascending: false })
+  if (error) throw error
+
+  const rows = data || []
+
+  // 1) streak 계산
+  const approvedDates = new Set(rows.map(v => formatKstDate(new Date(v.submitted_at))))
+  const todayKst = formatKstDate(new Date())
+  const hasToday = approvedDates.has(todayKst)
+
+  let cursor = new Date(`${todayKst}T00:00:00+09:00`)
+  if (!hasToday) cursor.setDate(cursor.getDate() - 1)
+
+  let streak = 0
+  for (let i = 0; i < 60; i++) {
+    const dateStr = formatKstDate(cursor)
+    if (approvedDates.has(dateStr)) {
+      streak++
+      cursor.setDate(cursor.getDate() - 1)
+    } else {
+      break
+    }
+  }
+
+  // 2) activeDays (60일 내 고유 일수)
+  const activeDays = approvedDates.size
+
+  // 3) recent (최근 5개)
+  const recent = rows.slice(0, 5).map(v => ({
+    id: v.id,
+    submitted_at: v.submitted_at,
+    title: v.missions?.title || '(삭제된 미션)',
+    bundle_title: v.missions?.bundle_title || null,
+    note: v.note,
+    numeric_value: v.numeric_value,
+    point: v.missions?.point || 0,
+  }))
+
+  return { streak, hasToday, activeDays, recent }
+}
+
+// 프로그램 참여 모달용 정보 (Day 65 본인 결정 — UX 강화)
+//   - 운영자 닉네임 (신뢰성)
+//   - ACTIVE 참여자 수 (사회적 증거)
+//   - 미션 개수 + 일일 최대 획득 점수 (점수 구조 미리보기)
+// RLS: 모두 PUBLISHED + is_public 또는 운영자/참여자에게 SELECT 허용된 데이터 위주
+export const fetchProgramJoinInfo = async (programId) => {
+  const [ownerRes, countRes, missionsRes] = await Promise.all([
+    supabase
+      .from('programs')
+      .select('users:owner_id (nickname, avatar_path)')
+      .eq('id', programId)
+      .maybeSingle(),
+    supabase
+      .from('program_participants')
+      .select('*', { count: 'exact', head: true })
+      .eq('program_id', programId)
+      .eq('status', 'ACTIVE'),
+    supabase
+      .from('missions')
+      .select('id, point, daily_limit')
+      .eq('program_id', programId),
+  ])
+
+  if (ownerRes.error) console.warn('[fetchProgramJoinInfo] owner:', ownerRes.error.message)
+  if (countRes.error) console.warn('[fetchProgramJoinInfo] count:', countRes.error.message)
+  if (missionsRes.error) console.warn('[fetchProgramJoinInfo] missions:', missionsRes.error.message)
+
+  const missions = missionsRes.data || []
+  const dailyMaxScore = missions.reduce(
+    (sum, m) => sum + (m.point || 0) * (m.daily_limit || 1),
+    0
+  )
+
+  return {
+    ownerNickname: ownerRes.data?.users?.nickname || null,
+    ownerAvatarPath: ownerRes.data?.users?.avatar_path || null,
+    participantCount: countRes.count || 0,
+    missionCount: missions.length,
+    dailyMaxScore,
+  }
 }
 
 // 랭킹 — periodStart 가 null 이면 전체, ISO 문자열이면 그 시점부터 집계

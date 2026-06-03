@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../../hooks/useAuth'
-import { ChevronLeft, Plus, ChevronRight, Users, Trophy, Pencil } from 'lucide-react'
+import { ChevronLeft, Plus, ChevronRight, Users, Trophy, Pencil, Calendar, Activity, Award, Flame, Check } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
 import { CATEGORY } from '../../lib/constants'
 import { formatKoreanDate, formatKoreanDateTime, isUpcomingByStartDate } from '../../lib/formatters'
@@ -33,6 +33,7 @@ import {
   fetchProgramRanking,
   fetchTodayCounts,
   fetchParticipantQuizzes,
+  fetchProgramOverview,
 } from '../../lib/queries'
 
 function ProgramDetailPage() {
@@ -93,6 +94,13 @@ function ProgramDetailPage() {
     queryKey: queryKeys.todayCounts(userId),
     queryFn: () => fetchTodayCounts(userId),
     enabled: !!session,
+  })
+
+  // 「개요」 탭 모의도 데이터 — streak + activeDays + recent 한 번에
+  const { data: overviewData } = useQuery({
+    queryKey: queryKeys.programOverview(id, userId),
+    queryFn: () => fetchProgramOverview(id, userId),
+    enabled: !!session && !!id && !!userId,
   })
 
   const isOwner = program?.owner_id === userId
@@ -386,47 +394,98 @@ function ProgramDetailPage() {
         <InviteLinkCard code={program.invite_code} />
       )}
 
-      {/* 점수 요약 — 오늘 / 누적. 좌측 둥근 아이콘 + 우측 텍스트 (본인 결정 Day 58) */}
+      {/* ─── 모의도 콘텐츠 (Day 65 본인 결정, 상태 카드 제거 — 연속을 진행 현황으로 통합) ───
+          1) 진행 현황 카드 (활동일/전체 + 참여율 + 누적P + 🔥연속 + 진행률 바)
+          2) 오늘의 인증 미션 미리보기 (최대 3개)
+          3) 최근 인증 기록 (최대 3개) */}
+
+      {/* 1) 진행 현황 카드 */}
       {(() => {
-        const todayMax = program.daily_max_score ?? missions.reduce(
-          (sum, m) => sum + m.point * (m.daily_limit || 1),
-          0
-        )
+        // 기간 계산 (start/end 없으면 안전 fallback)
+        const startDate = program.start_date ? new Date(`${program.start_date}T00:00:00+09:00`) : null
+        const endDate = program.end_date ? new Date(`${program.end_date}T00:00:00+09:00`) : null
+        const today = new Date()
+        const programDays = (startDate && endDate)
+          ? Math.max(1, Math.round((endDate - startDate) / 86400000) + 1)
+          : null
+        const elapsedDays = startDate
+          ? Math.min(programDays || 9999, Math.max(0, Math.round((today - startDate) / 86400000) + 1))
+          : 0
+        const remainingDays = (programDays && elapsedDays != null)
+          ? Math.max(0, programDays - elapsedDays)
+          : null
+        const activeDays = overviewData?.activeDays ?? 0
+        const participationRate = elapsedDays > 0
+          ? Math.min(100, Math.round((activeDays / elapsedDays) * 100))
+          : 0
+        const progressPct = (programDays && elapsedDays != null)
+          ? Math.min(100, Math.round((elapsedDays / programDays) * 100))
+          : 0
+
         return (
-          <div className="grid grid-cols-2 gap-3 mb-6">
-            <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex items-center gap-3">
-              <div className="w-10 h-10 flex-shrink-0 bg-blue-100 rounded-xl flex items-center justify-center">
-                <span className="text-xl">⭐</span>
+          <div className="bg-white border border-gray-200 rounded-2xl p-5 mb-6">
+            <h3 className="text-sm font-semibold text-emerald-600 mb-3">나의 진행 현황</h3>
+            <div className="grid grid-cols-4 gap-2 mb-4">
+              <div>
+                <div className="flex items-center gap-0.5 text-[10px] text-gray-500 mb-1">
+                  <Calendar className="w-3 h-3 text-emerald-500" />
+                  전체 진행
+                </div>
+                <p className="font-semibold text-gray-800 leading-tight">
+                  <span className="text-base sm:text-lg">{activeDays}</span>
+                  <span className="text-[10px] text-gray-500">/{programDays || '-'}일</span>
+                </p>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs text-blue-700 mb-0.5">오늘 획득</p>
-                <p className="font-medium text-blue-800 leading-tight">
-                  <span className="text-xl">{scores.today}</span>
-                  <span className="text-sm"> P</span>
-                  <span className="text-xs text-blue-600 ml-1">/ {todayMax}P</span>
+              <div>
+                <div className="flex items-center gap-0.5 text-[10px] text-gray-500 mb-1">
+                  <Activity className="w-3 h-3 text-emerald-500" />
+                  참여율
+                </div>
+                <p className="text-base sm:text-lg font-semibold text-gray-800 leading-tight">
+                  {participationRate}<span className="text-[10px]">%</span>
+                </p>
+              </div>
+              <div>
+                <div className="flex items-center gap-0.5 text-[10px] text-gray-500 mb-1">
+                  <Award className="w-3 h-3 text-amber-500" />
+                  획득 포인트
+                </div>
+                <p className="text-base sm:text-lg font-semibold text-emerald-700 leading-tight">
+                  +{scores.total}<span className="text-[10px]">P</span>
+                </p>
+              </div>
+              <div>
+                <div className="flex items-center gap-0.5 text-[10px] text-gray-500 mb-1">
+                  <Flame className="w-3 h-3 text-orange-500" />
+                  연속
+                </div>
+                <p className="text-base sm:text-lg font-semibold text-orange-600 leading-tight">
+                  {overviewData?.streak ?? 0}<span className="text-[10px]">일</span>
                 </p>
               </div>
             </div>
-            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center gap-3">
-              <div className="w-10 h-10 flex-shrink-0 bg-emerald-100 rounded-xl flex items-center justify-center">
-                <span className="text-xl">🎁</span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs text-emerald-700 mb-0.5">누적</p>
-                <p className="font-medium text-emerald-800 leading-tight">
-                  <span className="text-xl">{scores.total}</span>
-                  <span className="text-sm"> P</span>
-                </p>
-              </div>
+            <div className="h-2 bg-gray-100 rounded-full overflow-hidden mb-1.5">
+              <div
+                className="h-full bg-emerald-400 rounded-full transition-all"
+                style={{ width: `${progressPct}%` }}
+              />
             </div>
+            <p className="text-xs text-gray-500">
+              {remainingDays != null && remainingDays > 0
+                ? `목표까지 ${remainingDays}일 남았어요!`
+                : programDays && elapsedDays >= programDays
+                  ? '프로그램이 종료되었어요'
+                  : '진행 정보 없음'}
+            </p>
           </div>
         )
       })()}
 
-      {/* 개요 글 — 운영자 작성 (마크다운). 본인 결정 Day 58
-          - 글 있으면: 모두에게 표시 (마크다운 렌더링)
-          - 글 없는데 운영자: 작성 안내 + 운영자 패널 버튼으로 작성
-          - 글 없고 참가자: 영역 자체 숨김 (조용한 fallback) */}
+      {/* 📝 안내 (개요 글) — 진행 현황 바로 아래로 이동 (Day 65 본인 결정).
+          프로그램 설명이 위쪽에 와야 사용자가 바로 봄.
+          - 글 있으면: 모두에게 표시
+          - 글 없는데 운영자: 작성 안내
+          - 글 없고 참가자: 숨김 */}
       {(program.overview_content?.trim() || isOwner) && (
         <div className="bg-white border border-gray-200 rounded-2xl p-5 mb-6">
           <div className="flex items-center justify-between mb-3">

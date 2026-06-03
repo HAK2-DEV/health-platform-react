@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import Modal from '../common/Modal'
 import { supabase } from '../../supabaseClient'
 import { ChevronLeft, ChevronDown, ChevronUp, Plus, X, Image as ImageIcon, BarChart3, MessageSquare } from 'lucide-react'
-import { CATEGORY, SCHEDULE_MODES, WEEKDAY_OPTIONS } from '../../lib/constants'
+import { CATEGORY, CATEGORY_LIST, SCHEDULE_MODES, WEEKDAY_OPTIONS } from '../../lib/constants'
 import { MISSION_LIBRARY } from '../../lib/missionLibrary'
 
 // 추천 미션 라이브러리 모달
@@ -19,6 +19,11 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState(null)
 
+  // 카테고리 탭 — Day 65 본인 결정 (라이브러리 UX 단순화):
+  //   카테고리별로 묶음을 그룹화 → 사용자가 카테고리 칩으로 탐색
+  //   기본 선택: 프로그램의 첫 카테고리 (없으면 첫 카테고리)
+  const [selectedCategory, setSelectedCategory] = useState(null)
+
   // 모달 닫힘 시 reset
   useEffect(() => {
     if (!isOpen) {
@@ -27,8 +32,27 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
       setDrafts([])
       setError(null)
       setIsSaving(false)
+    } else if (program) {
+      // 모달 열릴 때 프로그램의 첫 카테고리를 기본 선택
+      const defaultCat = program.categories?.[0] || CATEGORY_LIST[0]?.key
+      setSelectedCategory(defaultCat)
     }
-  }, [isOpen])
+  }, [isOpen, program])
+
+  // 선택된 카테고리의 묶음들만 필터링 (카테고리당 묶음 카운트도 미리 계산해서 칩에 표시)
+  const bundlesByCategory = useMemo(() => {
+    const map = {}
+    for (const b of MISSION_LIBRARY) {
+      if (!map[b.category]) map[b.category] = []
+      map[b.category].push(b)
+    }
+    return map
+  }, [])
+
+  const filteredBundles = useMemo(
+    () => bundlesByCategory[selectedCategory] || [],
+    [bundlesByCategory, selectedCategory]
+  )
 
   const openBundle = (b) => {
     setBundle(b)
@@ -144,7 +168,7 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
     onClose()
   }
 
-  // ─── 1단계: 묶음 카드 목록 ─────────────────────────────────
+  // ─── 1단계: 카테고리 탭 + 그 카테고리 묶음 목록 ─────────────
   if (step === 1) {
     return (
       <Modal isOpen={isOpen} onClose={onClose}>
@@ -153,14 +177,47 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
             <h2 className="text-xl font-semibold text-gray-800 mb-1 pr-8">
               💡 추천 미션 라이브러리
             </h2>
-            <p className="text-xs text-gray-500 mb-5">
-              묶음을 골라 한 번에 여러 미션을 추가할 수 있어요
+            <p className="text-xs text-gray-500 mb-4">
+              카테고리에서 묶음을 골라 한 번에 여러 미션을 추가하세요
             </p>
 
-            <div className="grid gap-2.5">
-              {MISSION_LIBRARY.map(b => {
-                const cat = CATEGORY[b.category] || CATEGORY.ETC
+            {/* 카테고리 칩 탭 — 가로 스크롤. 카테고리 옆에 묶음 개수 표시 */}
+            <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-1 px-1 mb-4 scrollbar-hide">
+              {CATEGORY_LIST.map(category => {
+                const count = bundlesByCategory[category.key]?.length || 0
+                const isActive = selectedCategory === category.key
                 return (
+                  <button
+                    key={category.key}
+                    type="button"
+                    onClick={() => setSelectedCategory(category.key)}
+                    className={`
+                      flex-shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs transition
+                      ${isActive
+                        ? 'bg-emerald-500 text-white shadow-sm font-medium'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}
+                    `}
+                  >
+                    <span>{category.emoji}</span>
+                    <span>{category.label}</span>
+                    {count > 0 && (
+                      <span className={`text-[10px] ${isActive ? 'text-emerald-50' : 'text-gray-400'}`}>
+                        {count}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* 선택된 카테고리의 묶음들 */}
+            <div className="grid gap-2.5">
+              {filteredBundles.length === 0 ? (
+                <p className="text-xs text-gray-400 text-center py-6">
+                  이 카테고리에 추천 묶음이 없어요 — 직접 만들기를 사용해보세요
+                </p>
+              ) : (
+                filteredBundles.map(b => (
                   <button
                     key={b.key}
                     type="button"
@@ -171,7 +228,7 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
                       transition text-left
                     "
                   >
-                    <div className="w-12 h-12 flex-shrink-0 bg-gray-50 rounded-xl flex items-center justify-center text-2xl">
+                    <div className="w-12 h-12 flex-shrink-0 bg-emerald-50 rounded-xl flex items-center justify-center text-2xl">
                       {b.emoji}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -182,14 +239,14 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
                         {b.description}
                       </p>
                       <p className="text-[11px] text-gray-400 mt-0.5">
-                        {cat.emoji} {cat.label} · 미션 {b.missions.length}개
+                        미션 {b.missions.length}개
                       </p>
                     </div>
                   </button>
-                )
-              })}
+                ))
+              )}
 
-              {/* 직접 만들기 — 라이브러리에서 빠져나가 MissionCreateModal 로 전환 */}
+              {/* 직접 만들기 — 항상 노출 (카테고리 무관) */}
               {onCustomCreate && (
                 <button
                   type="button"
@@ -208,7 +265,7 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
                       직접 만들기
                     </h3>
                     <p className="text-xs text-gray-500">
-                      추천 외 본인 프로그램에 맞는 미션을 자유롭게 추가
+                      추천 외 원하는 미션을 자유롭게 추가
                     </p>
                   </div>
                 </button>
