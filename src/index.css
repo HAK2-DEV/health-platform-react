@@ -1,5 +1,49 @@
 @import "tailwindcss";
 
+/* ============================================================
+   Day 65 Phase 0 — 디자인 토큰
+   Tailwind v4 는 @theme 블록으로 CSS 변수 정의 → 그대로 유틸 클래스 생성.
+   예: --color-brand-mint → bg-brand-mint / text-brand-mint / border-brand-mint
+   ============================================================ */
+@theme {
+  /* --- Brand 컬러 (민트/에메랄드 중심) --- */
+  --color-brand-mint: #d1fae5;          /* 가장 연한 민트 — 배경 틴트 */
+  --color-brand-sage: #a7f3d0;          /* 연한 세이지 — 보조 배경 */
+  --color-brand-primary: #10b981;       /* 메인 그린 — 버튼/링크 (emerald-500) */
+  --color-brand-deep: #047857;          /* 진한 그린 — 강조 텍스트 (emerald-700) */
+
+  /* --- 표면 (배경/카드) --- */
+  --color-surface-app: #f8fbf9;         /* 앱 배경 — 살짝 민트 도는 아이보리 */
+  --color-surface-card: #ffffff;        /* 기본 카드 */
+  --color-surface-mint: #ecfdf5;        /* 카드 틴트 — 운동/건강 강조 */
+  --color-surface-peach: #fff7ed;       /* 카드 틴트 — 마음관리 강조 */
+  --color-surface-cream: #fefce8;       /* 카드 틴트 — 랭킹/포인트 강조 */
+
+  /* --- 카테고리 액센트 (이미 programVisuals.js 에 있지만 표준 토큰화) --- */
+  --color-cat-exercise: #10b981;        /* 운동 — 그린 */
+  --color-cat-mindcare: #f97316;        /* 마음관리 — 오렌지 (orange-500) */
+  --color-cat-diet: #0ea5e9;            /* 식단 — sky-500 */
+  --color-cat-empathy: #ec4899;         /* 공감 — pink-500 */
+  --color-cat-sleep: #6366f1;           /* 수면 — indigo-500 */
+  --color-cat-nosmoke: #ef4444;         /* 금연 — red-500 */
+  --color-cat-etc: #64748b;             /* 기타 — slate-500 */
+
+  /* --- 상태 (랭킹/뱃지) --- */
+  --color-rank-gold: #f59e0b;           /* 1등 — 골드 (amber-500) */
+  --color-rank-silver: #94a3b8;         /* 2등 — 실버 (slate-400) */
+  --color-rank-bronze: #d97706;         /* 3등 — 브론즈 (amber-600) */
+
+  /* --- 그림자 (참고 사진 — 카드 fluffy 한 부드러운 그림자) --- */
+  --shadow-soft: 0 1px 2px 0 rgb(16 185 129 / 0.04), 0 4px 12px -2px rgb(16 185 129 / 0.06);
+  --shadow-elevated: 0 4px 8px -2px rgb(16 185 129 / 0.08), 0 12px 24px -4px rgb(16 185 129 / 0.10);
+  --shadow-fab: 0 6px 16px -2px rgb(16 185 129 / 0.35), 0 2px 4px -1px rgb(16 185 129 / 0.2);
+
+  /* --- 라운드 (참고 사진 — 카드 24-28px, pill 99999px) --- */
+  --radius-card: 1.5rem;                /* 24px — 기본 카드 */
+  --radius-card-lg: 1.75rem;            /* 28px — 강조 카드 (메인 헤더 등) */
+  --radius-pill: 9999px;                /* pill — 칩/뱃지/탭 */
+}
+
 /* iOS Safari auto-zoom 방지 — 모바일에서 input 폰트가 16px 미만이면
    포커스 시 자동 확대 + zoom out 안 됨. 16px 강제로 차단. */
 @media (max-width: 640px) {
