@@ -34,6 +34,8 @@ export const queryKeys = {
   programRanking: (programId, period = 'all') => ['rankings', 'byProgram', programId, period],
   // 본인의 프로그램별 최근 N일 일별 점수 시계열 (스파크라인용)
   myRecentScores: (programId, userId, days = 14) => ['scores', 'recentSeries', programId, userId, days],
+  // 어제 vs 현재 등수 비교 (rank_snapshots — 071)
+  myRankChange: (programId, userId) => ['rankings', 'myChange', programId, userId],
   // 운영자 PENDING_REVIEW 목록
   pendingReviews: (programId) => ['verifications', 'pending', programId],
   // 운영자 참여자 통계
@@ -334,6 +336,21 @@ export const fetchProgramRanking = async (programId, periodStart = null) => {
 // 본인 N일 일별 점수 시계열 — RLS 본인 SELECT 허용 (019) 이라 직접 fetch
 // 반환: [{ date: 'YYYY-MM-DD' (KST), point: number }] (오늘 포함 오래된→최근 순)
 // 빈 날도 point:0 으로 채워서 sparkline 이 끊기지 않게 함.
+// 어제 vs 현재 등수 비교 — rank_snapshots (071)
+// 반환: { yesterday_rank, current_rank, rank_change } | null
+//   rank_change 양수 = 상승 (어제 5등 → 오늘 3등 이면 +2)
+//   0 = 변동 없음, 음수 = 하락, NULL = 어제 데이터 없음 (신규)
+export const fetchMyRankChange = async (programId) => {
+  if (!programId) return null
+  const { data, error } = await supabase
+    .rpc('get_my_rank_change', { p_program_id: programId })
+  if (error) {
+    console.error('get_my_rank_change RPC 실패:', error)
+    return null
+  }
+  return Array.isArray(data) ? (data[0] || null) : data
+}
+
 export const fetchMyRecentScoreSeries = async (programId, userId, days = 14) => {
   // 14일 전 + 안전 마진 1일 = 15일 전부터 fetch (KST↔UTC 경계 안전)
   const startUtc = new Date()

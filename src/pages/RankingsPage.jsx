@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Trophy, MapPin, TrendingUp, ChevronRight } from 'lucide-react'
+import { Trophy, MapPin, TrendingUp, TrendingDown, Minus, ChevronRight } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../hooks/useAuth'
 import { CATEGORY } from '../lib/constants'
@@ -10,6 +10,7 @@ import {
   fetchActivePrograms,
   fetchProgramRanking,
   fetchMyRecentScoreSeries,
+  fetchMyRankChange,
 } from '../lib/queries'
 import UserAvatar from '../components/common/UserAvatar'
 import EmptyState from '../components/common/EmptyState'
@@ -81,15 +82,16 @@ function RankingsPage() {
 
   const myRow = ranking.find(r => r.user_id === userId)
 
-  // 최근 7일 vs 직전 7일 점수 비교 — 상승 추세일 때만 "꾸준한 참여..." 멘트 노출.
-  // 본인이 정확한 랭킹 변동 history 가 없어 점수 추세를 proxy 로 사용 (trend_enabled 켰을 때만 데이터 있음).
-  const rankTrendUp = useMemo(() => {
-    if (!trendVisible || !myScoreSeries || myScoreSeries.length < 14) return false
-    const len = myScoreSeries.length
-    const lastSum = myScoreSeries.slice(len - 7).reduce((s, x) => s + (x.point || 0), 0)
-    const prevSum = myScoreSeries.slice(len - 14, len - 7).reduce((s, x) => s + (x.point || 0), 0)
-    return lastSum > 0 && lastSum > prevSum
-  }, [trendVisible, myScoreSeries])
+  // 어제 vs 현재 등수 비교 — 071 rank_snapshots (실제 history).
+  // rank_change > 0 = 상승 (양수), 0 = 동일, < 0 = 하락, null = 신규
+  // period 가 'all' (또는 미설정) 일 때만 fetch — 7d/30d 는 기간 필터링 결과라 어제 비교 의미 없음.
+  const { data: rankChange = null } = useQuery({
+    queryKey: queryKeys.myRankChange(selectedProgramId, userId),
+    queryFn: () => fetchMyRankChange(selectedProgramId),
+    enabled: !!selectedProgramId && !!userId && period === 'all',
+  })
+  const rankChangeValue = rankChange?.rank_change ?? null
+  const rankTrendUp = rankChangeValue != null && rankChangeValue > 0
 
   // 기간 필터가 꺼져있는데 사용자가 '7d'/'30d' 를 선택한 상태에서 다른 프로그램으로 전환했다면
   // 자동으로 'all' 로 리셋 (운영자가 옵션 끈 의도 존중)
@@ -237,6 +239,8 @@ function RankingsPage() {
                   {myRow.total_score}<span className="text-sm text-gray-500 font-medium ml-0.5">P</span>
                 </p>
                 <p className="text-xs text-gray-500">· 전체 {ranking.length}명 중</p>
+                {/* 어제 대비 등수 변동 — 071 rank_snapshots */}
+                <RankChangePill change={rankChangeValue} />
               </div>
               {rankTrendUp && (
                 <p className="mt-4 px-3 py-2 bg-white/60 text-xs text-emerald-700 rounded-pill text-center flex items-center justify-center gap-1">
@@ -331,6 +335,34 @@ function RankingsPage() {
   )
 }
 
+// 어제 대비 등수 변동 pill — 071 rank_snapshots.
+// change 양수 = 상승(▲N), 0 = 동일(→), 음수 = 하락(▼N), null = 신규/데이터 없음 (미표시)
+function RankChangePill({ change }) {
+  if (change == null) return null
+  if (change > 0) {
+    return (
+      <span className="inline-flex items-center gap-0.5 mt-1.5 px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-pill text-xs font-semibold">
+        <TrendingUp className="w-3 h-3" />
+        ▲{change} <span className="font-normal opacity-80">어제보다</span>
+      </span>
+    )
+  }
+  if (change < 0) {
+    return (
+      <span className="inline-flex items-center gap-0.5 mt-1.5 px-2 py-0.5 bg-red-50 text-red-600 rounded-pill text-xs font-semibold">
+        <TrendingDown className="w-3 h-3" />
+        ▼{Math.abs(change)} <span className="font-normal opacity-80">어제보다</span>
+      </span>
+    )
+  }
+  return (
+    <span className="inline-flex items-center gap-0.5 mt-1.5 px-2 py-0.5 bg-gray-100 text-gray-600 rounded-pill text-xs font-medium">
+      <Minus className="w-3 h-3" />
+      변동 없음
+    </span>
+  )
+}
+
 // 랭킹 페이지 헤더 — 큰 제목 + 부제 + 트로피 일러스트 (참고 사진)
 function RankingHeader() {
   return (
@@ -385,8 +417,8 @@ function ScoreSparkline({ series }) {
 }
 
 // ─── Top 3 포디움 — 2-1-3 레이아웃 ───────────────────────────
-// 1등이 가운데에서 가장 크게, 2등 왼쪽 / 3등 오른쪽이 작게.
-// 각 카드: 메달, 닉네임, 점수. 본인이면 emerald 강조.
+// 1등 가운데/가장 크게, 2등 왼쪽/3등 오른쪽 작게.
+// Day 65: 메달을 원형 숫자 뱃지(참고 사진) 로 교체 + 빵빠레(confetti) 등장 모션.
 function PodiumTop3({ top3, userId }) {
   // top3[0]=1등, top3[1]=2등, top3[2]=3등
   // 시각 배치: 2등 - 1등 - 3등
@@ -399,32 +431,23 @@ function PodiumTop3({ top3, userId }) {
       1: {
         gradient: 'from-yellow-100 via-amber-50 to-yellow-50',
         border: 'border-amber-300',
-        medal: '🥇',
-        crown: '👑',
         rankColor: 'text-amber-700',
         scoreColor: 'text-amber-700',
         height: 'min-h-[11rem]',
-        scale: 'scale-100',
       },
       2: {
         gradient: 'from-gray-100 via-gray-50 to-white',
         border: 'border-gray-300',
-        medal: '🥈',
-        crown: null,
         rankColor: 'text-gray-600',
         scoreColor: 'text-gray-700',
         height: 'min-h-[9rem]',
-        scale: 'scale-95',
       },
       3: {
         gradient: 'from-orange-100 via-amber-50/60 to-white',
         border: 'border-orange-200',
-        medal: '🥉',
-        crown: null,
         rankColor: 'text-orange-700',
         scoreColor: 'text-orange-700',
         height: 'min-h-[8.5rem]',
-        scale: 'scale-95',
       },
     }
     const s = styleByPlace[place]
@@ -439,24 +462,30 @@ function PodiumTop3({ top3, userId }) {
           ease: [0.34, 1.4, 0.64, 1],
         }}
         className={`
-          relative flex flex-col items-center justify-end ${s.height} p-3 rounded-card border bg-gradient-to-b shadow-soft
+          relative flex flex-col items-center justify-end ${s.height} pt-7 px-3 pb-3 rounded-card border bg-gradient-to-b shadow-soft
           ${s.gradient} ${isMe ? 'ring-2 ring-emerald-400 border-emerald-400' : s.border}
         `}
       >
-        {s.crown && (
+        {/* 1등 왕관 — 메달 위에 살짝 떠 있음 */}
+        {place === 1 && (
           <motion.div
             initial={{ opacity: 0, y: -10, rotate: -15 }}
             animate={{ opacity: 1, y: 0, rotate: 0 }}
-            transition={{ delay: 0.55, duration: 0.3, ease: 'easeOut' }}
-            className="absolute -top-3 text-2xl"
+            transition={{ delay: 0.6, duration: 0.3, ease: 'easeOut' }}
+            className="absolute -top-7 text-3xl select-none"
           >
-            {s.crown}
+            👑
           </motion.div>
         )}
-        <div className="relative mb-1.5">
-          <UserAvatar avatarPath={row.avatar_path} nickname={row.nickname} size={place === 1 ? 'lg' : 'md'} />
-          <span className="absolute -top-1 -left-1 text-xl">{s.medal}</span>
-        </div>
+        {/* 숫자 메달 뱃지 — 카드 상단에 오버레이 */}
+        <PodiumMedalBadge place={place} />
+
+        <UserAvatar
+          avatarPath={row.avatar_path}
+          nickname={row.nickname}
+          size={place === 1 ? 'lg' : 'md'}
+          className="mb-1.5"
+        />
         {isMe && (
           <span className="px-2 py-0.5 bg-emerald-500 text-white text-[10px] font-semibold rounded-pill mb-0.5">나</span>
         )}
@@ -471,12 +500,85 @@ function PodiumTop3({ top3, userId }) {
   }
 
   return (
-    <div className="bg-white border border-gray-100 rounded-card-lg shadow-soft p-4">
-      <div className="grid grid-cols-3 items-end gap-2 pt-3">
+    <div className="relative bg-white border border-gray-100 rounded-card-lg shadow-soft p-4 overflow-hidden">
+      {/* 빵빠레 (confetti) — 1등 카드 등장 직후 1회 분출 */}
+      <ConfettiBurst />
+      <div className="relative grid grid-cols-3 items-end gap-2 pt-3">
         {slot(second, 2)}
         {slot(first, 1)}
         {slot(third, 3)}
       </div>
+    </div>
+  )
+}
+
+// 1·2·3등 원형 메달 뱃지 — 골드/실버/브론즈 그라데이션 + 숫자.
+// 1등은 시각 강조로 더 크게, 2·3등은 동일하게 작게.
+function PodiumMedalBadge({ place }) {
+  const styles = {
+    1: 'bg-gradient-to-br from-yellow-300 to-amber-500 text-amber-900 shadow-amber-300/60',
+    2: 'bg-gradient-to-br from-gray-200 to-gray-400 text-gray-700 shadow-gray-300/60',
+    3: 'bg-gradient-to-br from-orange-300 to-amber-600 text-orange-900 shadow-orange-300/60',
+  }
+  // 1등: 큰 뱃지(w-11/text-lg), 2·3등: 작은 뱃지(w-8/text-sm)
+  const sizeCls = place === 1
+    ? 'w-11 h-11 -top-4 text-lg'
+    : 'w-8 h-8 -top-3 text-sm'
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -6, scale: 0.7 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{
+        delay: 0.4 + place * 0.04,
+        duration: 0.35,
+        ease: [0.34, 1.5, 0.64, 1],
+      }}
+      className={`absolute left-1/2 -translate-x-1/2 z-10 rounded-full ring-2 ring-white shadow-lg flex items-center justify-center ${sizeCls} ${styles[place]}`}
+    >
+      <span className="font-bold leading-none">{place}</span>
+    </motion.div>
+  )
+}
+
+// 빵빠레 — 포디움 등장 직후 1회 분출. 색 confetti 입자가 사방으로 흩어지며 회전·페이드.
+const CONFETTI_COLORS = ['#fcd34d', '#34d399', '#fb923c', '#f472b6', '#a78bfa', '#60a5fa']
+function ConfettiBurst() {
+  // 입자 위치/회전 안정화 — 매 렌더마다 새로 생성되면 애니메이션이 점프함.
+  // delay 0~0.15s: 포디움 카드 등장 모션과 동시에 분출 (1등 카드 delay 0.2 보다 살짝 빠르게 시작).
+  const particles = useMemo(() => Array.from({ length: 24 }).map((_, i) => ({
+    angle: (i / 24) * Math.PI * 2 + (Math.random() - 0.5) * 0.4,
+    dist: 60 + Math.random() * 80,
+    color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+    size: 4 + Math.random() * 5,
+    rot: (Math.random() - 0.5) * 720,
+    delay: Math.random() * 0.15,
+    isSquare: i % 2 === 0,
+  })), [])
+
+  return (
+    <div className="pointer-events-none absolute inset-0 overflow-visible">
+      {particles.map((p, i) => (
+        <motion.span
+          key={i}
+          initial={{ x: 0, y: 0, opacity: 1, rotate: 0 }}
+          animate={{
+            x: Math.cos(p.angle) * p.dist,
+            y: Math.sin(p.angle) * p.dist + 40,  // 약간 아래로 떨어지는 느낌
+            opacity: 0,
+            rotate: p.rot,
+          }}
+          transition={{ delay: p.delay, duration: 1.4, ease: 'easeOut' }}
+          style={{
+            position: 'absolute',
+            left: '50%',
+            top: '38%',  // 1등 카드 메달 근처에서 분출
+            width: p.size,
+            height: p.size,
+            backgroundColor: p.color,
+            borderRadius: p.isSquare ? '2px' : '50%',
+          }}
+        />
+      ))}
     </div>
   )
 }
