@@ -43,14 +43,15 @@ function SocialAuthButtons() {
     }
     setLoading('kakao')
     // Kakao OAuth authorize 페이지로 리다이렉트.
-    // scope: account_email, profile_nickname, profile_image
-    //   ※ Kakao Developers > 카카오 로그인 > 동의항목 에서 위 3개 항목을 켜둬야 함.
+    // scope: profile_nickname, profile_image (이메일은 비즈 앱 권한 필요해 제외)
+    //   ※ Kakao Developers > 카카오 로그인 > 동의항목 에서 위 2개 항목 필수 동의로 설정해둬야 함.
+    //   ※ account_email 은 비즈 앱 전환 후 추가 가능 — 현재는 가상 이메일(kakao_{id}@kakao.local)로 가입.
     const redirectUri = `${window.location.origin}/auth/callback?provider=kakao`
     const params = new URLSearchParams({
       response_type: 'code',
       client_id: restApiKey,
       redirect_uri: redirectUri,
-      scope: 'account_email profile_nickname profile_image',
+      scope: 'profile_nickname profile_image',
     })
     window.location.href = `https://kauth.kakao.com/oauth/authorize?${params.toString()}`
   }

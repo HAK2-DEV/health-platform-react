@@ -88,16 +88,19 @@ serve(async (req) => {
     const kakaoUser = await userRes.json()
     const kakaoId = String(kakaoUser?.id ?? '')
     const kakaoAccount = kakaoUser?.kakao_account ?? {}
-    const email = (kakaoAccount?.email as string | undefined)?.trim()
+    const rawEmail = (kakaoAccount?.email as string | undefined)?.trim()
     const nickname = kakaoAccount?.profile?.nickname as string | undefined
     const avatarUrl = kakaoAccount?.profile?.profile_image_url as string | undefined
 
-    if (!email) {
-      return jsonError(
-        '이메일 정보가 필요해요. Kakao 동의 화면에서 이메일 제공에 동의해주세요.',
-        400
-      )
+    if (!kakaoId) {
+      return jsonError('Kakao 사용자 ID 가 없어요', 400)
     }
+
+    // 이메일 접근 권한이 없거나(비즈 앱 미전환) 사용자가 미동의한 경우 — 가상 이메일 생성.
+    // 같은 Kakao 계정은 항상 같은 가상 이메일 → Supabase 사용자 식별 일관성 유지.
+    // 나중에 비즈 앱 전환 + 실제 이메일 수집 시 user_metadata 의 placeholder_email 플래그로 마이그레이션 가능.
+    const email = rawEmail || `kakao_${kakaoId}@kakao.local`
+    const isPlaceholderEmail = !rawEmail
 
     // ─── 3) Supabase Admin — find or create user ──────────
     const supabase = createClient(
@@ -130,6 +133,8 @@ serve(async (req) => {
           avatar_url: avatarUrl ?? null,
           provider: 'kakao',
           kakao_id: kakaoId,
+          // 가상 이메일 여부 — 나중에 비즈 앱 전환 후 진짜 이메일로 마이그레이션 시 식별용
+          placeholder_email: isPlaceholderEmail,
         },
       })
       if (createErr) {

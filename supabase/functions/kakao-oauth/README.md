@@ -19,10 +19,11 @@
    - 개발용: `http://localhost:5173/auth/callback?provider=kakao`
    - 프로덕션: `https://본인도메인/auth/callback?provider=kakao`
    - ⚠️ **`?provider=kakao` 쿼리까지 정확히 일치해야 함** (SocialAuthButtons.jsx 와 동일)
-3. **동의항목** 탭 → 다음 3개 활성화:
+3. **동의항목** 탭 → 다음 2개 활성화 (**필수 동의**로 설정):
    - **닉네임** (`profile_nickname`)
    - **프로필 사진** (`profile_image`)
-   - **카카오계정(이메일)** (`account_email`) — "선택 동의" 권장
+
+   > ⚠️ **이메일(`account_email`)은 비즈 앱 권한 필요**해서 일반 앱은 "권한 없음" 상태로 보임. 본 구현은 이메일 없이 동작 — Kakao ID 로 가상 이메일(`kakao_{id}@kakao.local`) 자동 생성. 나중에 비즈 앱 전환 후 진짜 이메일로 마이그레이션 가능 (user_metadata.placeholder_email 플래그 활용).
 
 ## 3. 환경변수 설정
 
