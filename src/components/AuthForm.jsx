@@ -3,6 +3,7 @@ import { useState } from "react"
 import { Link } from "react-router-dom"
 import { supabase } from "../supabaseClient"
 import { KeyRound } from 'lucide-react'
+import SocialAuthButtons from "./auth/SocialAuthButtons"
 
 function AuthForm() {
   const [email, setEmail] = useState("")
@@ -73,12 +74,15 @@ function AuthForm() {
           회원가입
         </Link>
       </p>
-      
+
       {message && (
         <p className="mt-4 p-2 text-center bg-gray-100 rounded text-sm">
           {message}
         </p>
       )}
+
+      {/* 소셜 로그인 — Day 65 본인 결정 */}
+      <SocialAuthButtons />
     </div>
   )
 }

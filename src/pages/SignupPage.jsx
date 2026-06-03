@@ -2,7 +2,8 @@ import { useState,  useEffect  } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 import { UserPlus, Activity } from 'lucide-react'
-import { useAuth } from '../hooks/useAuth'  
+import { useAuth } from '../hooks/useAuth'
+import SocialAuthButtons from '../components/auth/SocialAuthButtons'
 
 function SignupPage() {
   const navigate = useNavigate()
@@ -98,6 +99,9 @@ function SignupPage() {
             로그인
           </Link>
         </p>
+
+        {/* 소셜 회원가입 — Day 65 본인 결정 */}
+        <SocialAuthButtons />
       </div>
     </div>
   )
