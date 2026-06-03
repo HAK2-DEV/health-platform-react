@@ -117,11 +117,21 @@ export const fetchActiveParticipantCounts = async (programIds) => {
 }
 
 export const fetchPublicPrograms = async (excludeUserId) => {
+  // KST 오늘 (YYYY-MM-DD) — 종료된 프로그램 필터용
+  const todayKst = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date())
+
   let query = supabase
     .from('programs')
     .select('*')
     .eq('status', 'PUBLISHED')
     .eq('is_public', true)
+    // Day 65 — 종료된 프로그램은 둘러보기에서 제외.
+    // end_date 없으면 (상시) 노출, end_date 가 오늘 이전이면 숨김.
+    // 본인이 만든 프로그램은 「내 프로그램」, 참여한 프로그램은 「참여 중인 프로그램」 에서 보임.
+    .or(`end_date.is.null,end_date.gte.${todayKst}`)
   if (excludeUserId) query = query.neq('owner_id', excludeUserId)
   const { data, error } = await query.order('published_at', { ascending: false })
   if (error) throw error

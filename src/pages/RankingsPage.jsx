@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Trophy, MapPin, TrendingUp, TrendingDown, Minus, ChevronRight } from 'lucide-react'
+import { Trophy, MapPin, TrendingUp, ChevronRight } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../hooks/useAuth'
 import { CATEGORY } from '../lib/constants'
@@ -239,8 +239,6 @@ function RankingsPage() {
                   {myRow.total_score}<span className="text-sm text-gray-500 font-medium ml-0.5">P</span>
                 </p>
                 <p className="text-xs text-gray-500">· 전체 {ranking.length}명 중</p>
-                {/* 어제 대비 등수 변동 — 071 rank_snapshots */}
-                <RankChangePill change={rankChangeValue} />
               </div>
               {rankTrendUp && (
                 <p className="mt-4 px-3 py-2 bg-white/60 text-xs text-emerald-700 rounded-pill text-center flex items-center justify-center gap-1">
@@ -332,34 +330,6 @@ function RankingsPage() {
       </AnimatePresence>
       </div>
     </div>
-  )
-}
-
-// 어제 대비 등수 변동 pill — 071 rank_snapshots.
-// change 양수 = 상승(▲N), 0 = 동일(→), 음수 = 하락(▼N), null = 신규/데이터 없음 (미표시)
-function RankChangePill({ change }) {
-  if (change == null) return null
-  if (change > 0) {
-    return (
-      <span className="inline-flex items-center gap-0.5 mt-1.5 px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-pill text-xs font-semibold">
-        <TrendingUp className="w-3 h-3" />
-        ▲{change} <span className="font-normal opacity-80">어제보다</span>
-      </span>
-    )
-  }
-  if (change < 0) {
-    return (
-      <span className="inline-flex items-center gap-0.5 mt-1.5 px-2 py-0.5 bg-red-50 text-red-600 rounded-pill text-xs font-semibold">
-        <TrendingDown className="w-3 h-3" />
-        ▼{Math.abs(change)} <span className="font-normal opacity-80">어제보다</span>
-      </span>
-    )
-  }
-  return (
-    <span className="inline-flex items-center gap-0.5 mt-1.5 px-2 py-0.5 bg-gray-100 text-gray-600 rounded-pill text-xs font-medium">
-      <Minus className="w-3 h-3" />
-      변동 없음
-    </span>
   )
 }
 

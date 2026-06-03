@@ -324,16 +324,16 @@ function ProgramListPage() {
                 <motion.div
                   key={program.id}
                   onClick={() => setSelectedProgram(program)}
-                  className="bg-white border border-gray-100 rounded-card p-3 shadow-soft hover:shadow-elevated transition cursor-pointer flex items-center gap-3"
+                  className="bg-white border border-gray-100 rounded-card p-3 shadow-soft hover:shadow-elevated transition cursor-pointer flex items-center gap-2.5"
                 >
-                  {/* 큰 표지 + 추천 뱃지 오버레이 */}
+                  {/* 표지 + 추천 뱃지 오버레이 — 날짜 한 줄 확보 위해 w-24 → w-20 축소 */}
                   <div className="relative flex-shrink-0">
                     <ProgramCover
                       imagePath={program.cover_image_path}
                       categories={program.categories}
                       name={program.name}
                       variant="thumb"
-                      className="w-24 h-24 rounded-card"
+                      className="w-20 h-20 rounded-card"
                     />
                     <Badge variant="recommend" size="sm" className="absolute top-1.5 left-1.5">
                       추천
@@ -344,13 +344,14 @@ function ProgramListPage() {
                     {program.description && program.description.trim() !== program.name?.trim() && (
                       <p className="text-xs text-gray-500 mb-1.5 line-clamp-2 leading-snug">{program.description}</p>
                     )}
-                    <p className="text-xs text-emerald-600 font-medium flex items-center gap-1">
+                    {/* 날짜 — text-[11px] 로 한 줄에 풀 날짜 노출 */}
+                    <p className="text-[11px] text-emerald-600 flex items-center gap-1 whitespace-nowrap">
                       <Calendar className="w-3 h-3 flex-shrink-0" />
                       <span>{formatKoreanDate(program.start_date)} ~ {formatKoreanDate(program.end_date)}</span>
                     </p>
                   </div>
-                  {/* 원형 화살표 버튼 (장식, 전체 카드 클릭으로 동작) */}
-                  <div className="w-9 h-9 flex-shrink-0 bg-emerald-50 rounded-full flex items-center justify-center">
+                  {/* 원형 화살표 버튼 (장식, 전체 카드 클릭으로 동작) — w-8 로 축소 */}
+                  <div className="w-8 h-8 flex-shrink-0 bg-emerald-50 rounded-full flex items-center justify-center">
                     <ChevronRight className="w-4 h-4 text-emerald-600" />
                   </div>
                 </motion.div>
