@@ -46,7 +46,10 @@ function SocialAuthButtons() {
     // scope: profile_nickname, profile_image (이메일은 비즈 앱 권한 필요해 제외)
     //   ※ Kakao Developers > 카카오 로그인 > 동의항목 에서 위 2개 항목 필수 동의로 설정해둬야 함.
     //   ※ account_email 은 비즈 앱 전환 후 추가 가능 — 현재는 가상 이메일(kakao_{id}@kakao.local)로 가입.
-    const redirectUri = `${window.location.origin}/auth/callback?provider=kakao`
+    // redirect_uri 에 쿼리스트링 X — Kakao 가 자동 제거하는 경우가 있어 정확 일치 보장 위해 path-only.
+    // 어떤 provider 인지는 sessionStorage 로 callback 페이지에 전달.
+    sessionStorage.setItem('oauth_provider', 'kakao')
+    const redirectUri = `${window.location.origin}/auth/callback`
     const params = new URLSearchParams({
       response_type: 'code',
       client_id: restApiKey,

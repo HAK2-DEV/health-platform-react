@@ -31,7 +31,9 @@ function AuthCallbackPage() {
     if (handledRef.current) return
     handledRef.current = true
 
-    const provider = searchParams.get('provider')
+    // provider 는 SocialAuthButtons 에서 sessionStorage 에 저장 — Kakao Redirect URI 정확 일치 위해 쿼리 X.
+    const provider = sessionStorage.getItem('oauth_provider')
+    sessionStorage.removeItem('oauth_provider')  // 한 번만 사용
     const code = searchParams.get('code')
     const providerError = searchParams.get('error')
 

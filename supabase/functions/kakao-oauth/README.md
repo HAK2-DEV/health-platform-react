@@ -15,10 +15,11 @@
 ## 2. Kakao 로그인 활성화 + redirect URI 등록
 
 1. 생성한 앱 > **카카오 로그인** 탭 → 활성화 토글 **ON**
-2. **Redirect URI** 추가 (여러 개 등록 가능):
-   - 개발용: `http://localhost:5173/auth/callback?provider=kakao`
-   - 프로덕션: `https://본인도메인/auth/callback?provider=kakao`
-   - ⚠️ **`?provider=kakao` 쿼리까지 정확히 일치해야 함** (SocialAuthButtons.jsx 와 동일)
+2. **Redirect URI** 추가 (여러 개 등록 가능, **쿼리스트링 X**):
+   - 개발용: `http://localhost:5173/auth/callback`
+   - 프로덕션: `https://본인도메인/auth/callback`
+   - ⚠️ **path-only — `?provider=kakao` 같은 쿼리 X** (Kakao 가 자동 제거하는 경우 있어 정확 일치 위해)
+   - provider 정보는 frontend sessionStorage 로 callback 페이지에 전달함
 3. **동의항목** 탭 → 다음 2개 활성화 (**필수 동의**로 설정):
    - **닉네임** (`profile_nickname`)
    - **프로필 사진** (`profile_image`)
