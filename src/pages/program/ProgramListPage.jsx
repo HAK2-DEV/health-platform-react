@@ -181,7 +181,15 @@ function ProgramListPage() {
         {isActiveLoading ? (
           <LoadingState />
         ) : activePrograms.length === 0 ? (
-          !isSearching && <EmptyState icon="🎯" title="아직 참여한 프로그램이 없어요" />
+          !isSearching && (
+            /* 컴팩트 빈 상태 — Day 65 본인 결정: 가로 배치로 박스 높이 절감 */
+            <div className="bg-white/60 rounded-xl px-4 py-3 flex items-center gap-3">
+              <div className="text-2xl opacity-70 leading-none flex-shrink-0">🎯</div>
+              <p className="text-sm font-medium text-gray-700 leading-tight flex-1 min-w-0">
+                아직 참여한 프로그램이 없어요
+              </p>
+            </div>
+          )
         ) : displayedActive.length === 0 ? (
           isSearching && <p className="text-xs text-gray-400 text-center py-3">매칭된 참여 프로그램이 없어요</p>
         ) : (
@@ -228,8 +236,66 @@ function ProgramListPage() {
         )}
       </section>
 
-      {/* 내 프로그램 — 헤더 + "+ 생성하기" 버튼 + 카드. 본인 결정 (Day 58): 참여 중 아래로 이동 */}
-      <section ref={myRef} className="mb-8 scroll-mt-4">
+      {/* 공개 둘러보기 — 파스텔 violet/pink 박스로 감싸 시각 구분 */}
+      <section ref={publicRef} className="mb-6 p-4 rounded-2xl bg-gradient-to-br from-violet-100/70 via-purple-50/80 to-pink-100/50 border border-violet-200/50 scroll-mt-4">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-800">
+            🔍 둘러보기 <span className="text-sm text-gray-500">({filteredPublic.length})</span>
+          </h2>
+          {!isSearching && publicPrograms.length > 2 && (
+            <button
+              type="button"
+              onClick={() => { setShowAllPublic(!showAllPublic); scrollToSection(publicRef) }}
+              className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700"
+            >
+              {showAllPublic ? '간단히 보기' : `전체보기 (${publicPrograms.length})`}
+              {!showAllPublic && <ChevronRight className="w-3 h-3" />}
+            </button>
+          )}
+        </div>
+
+        {isPublicLoading ? (
+          <LoadingState />
+        ) : publicPrograms.length === 0 ? (
+          !isSearching && <EmptyState icon="🔍" title="아직 둘러볼 공개 프로그램이 없어요" />
+        ) : displayedPublic.length === 0 ? (
+          isSearching && <p className="text-xs text-gray-400 text-center py-3">매칭된 둘러보기 프로그램이 없어요</p>
+        ) : (
+          <motion.div className="grid grid-cols-1 gap-3">
+            <AnimatePresence initial={false}>
+              {displayedPublic.map(program => (
+                <motion.div
+                  key={program.id}
+                  onClick={() => setSelectedProgram(program)}
+                  className="bg-white border border-gray-200 rounded-2xl p-3 hover:shadow-md transition cursor-pointer"
+                >
+                  <div className="flex gap-3">
+                    <ProgramCover
+                      imagePath={program.cover_image_path}
+                      categories={program.categories}
+                      name={program.name}
+                      variant="thumb"
+                      className="w-16 h-16"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-medium text-gray-800 mb-1 truncate">{program.name}</h3>
+                      {program.description && program.description.trim() !== program.name?.trim() && (
+                        <p className="text-xs text-gray-600 mb-1 line-clamp-1">{program.description}</p>
+                      )}
+                      <p className="text-xs text-gray-500">
+                        {formatKoreanDate(program.start_date)} ~ {formatKoreanDate(program.end_date)}
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </motion.div>
+        )}
+      </section>
+
+      {/* 내 프로그램 — Day 65 본인 결정: 제일 아래로 이동 (운영자 관점 보조 정보). */}
+      <section ref={myRef} className="mb-6 scroll-mt-4">
         <div className="flex items-center justify-between mb-3">
           <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-800">
             <Activity className="w-5 h-5 text-emerald-500" />
@@ -319,64 +385,6 @@ function ProgramListPage() {
                   </motion.div>
                 )
               })}
-            </AnimatePresence>
-          </motion.div>
-        )}
-      </section>
-
-      {/* 공개 둘러보기 — 파스텔 violet/pink 박스로 감싸 시각 구분 */}
-      <section ref={publicRef} className="mb-6 p-4 rounded-2xl bg-gradient-to-br from-violet-100/70 via-purple-50/80 to-pink-100/50 border border-violet-200/50 scroll-mt-4">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-800">
-            🔍 둘러보기 <span className="text-sm text-gray-500">({filteredPublic.length})</span>
-          </h2>
-          {!isSearching && publicPrograms.length > 2 && (
-            <button
-              type="button"
-              onClick={() => { setShowAllPublic(!showAllPublic); scrollToSection(publicRef) }}
-              className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700"
-            >
-              {showAllPublic ? '간단히 보기' : `전체보기 (${publicPrograms.length})`}
-              {!showAllPublic && <ChevronRight className="w-3 h-3" />}
-            </button>
-          )}
-        </div>
-
-        {isPublicLoading ? (
-          <LoadingState />
-        ) : publicPrograms.length === 0 ? (
-          !isSearching && <EmptyState icon="🔍" title="아직 둘러볼 공개 프로그램이 없어요" />
-        ) : displayedPublic.length === 0 ? (
-          isSearching && <p className="text-xs text-gray-400 text-center py-3">매칭된 둘러보기 프로그램이 없어요</p>
-        ) : (
-          <motion.div className="grid grid-cols-1 gap-3">
-            <AnimatePresence initial={false}>
-              {displayedPublic.map(program => (
-                <motion.div
-                  key={program.id}
-                  onClick={() => setSelectedProgram(program)}
-                  className="bg-white border border-gray-200 rounded-2xl p-3 hover:shadow-md transition cursor-pointer"
-                >
-                  <div className="flex gap-3">
-                    <ProgramCover
-                      imagePath={program.cover_image_path}
-                      categories={program.categories}
-                      name={program.name}
-                      variant="thumb"
-                      className="w-16 h-16"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-medium text-gray-800 mb-1 truncate">{program.name}</h3>
-                      {program.description && program.description.trim() !== program.name?.trim() && (
-                        <p className="text-xs text-gray-600 mb-1 line-clamp-1">{program.description}</p>
-                      )}
-                      <p className="text-xs text-gray-500">
-                        {formatKoreanDate(program.start_date)} ~ {formatKoreanDate(program.end_date)}
-                      </p>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
             </AnimatePresence>
           </motion.div>
         )}

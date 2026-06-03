@@ -337,6 +337,83 @@ function DashboardPage() {
         </motion.div>
       </motion.section>
 
+      {/* 참여 중인 프로그램 — Day 65 본인 결정: 오늘의 미션 위로 이동 (메인 흐름 우선) */}
+      <section ref={activeProgramsRef} className="mb-8 scroll-mt-4">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-800">
+            🎯 참여 중인 프로그램
+          </h2>
+          {activePrograms.length > 2 && (
+            <button
+              type="button"
+              onClick={() => { setShowAllActivePrograms(!showAllActivePrograms); scrollToSection(activeProgramsRef) }}
+              className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700"
+            >
+              {showAllActivePrograms ? '간단히 보기' : `전체보기 (${activePrograms.length})`}
+              {!showAllActivePrograms && <ChevronRight className="w-3 h-3" />}
+            </button>
+          )}
+        </div>
+
+        {isLoadingActive ? (
+          <LoadingState />
+        ) : activePrograms.length === 0 ? (
+          <EmptyState
+            icon="🎯"
+            title="참여 중인 프로그램이 없어요"
+            description="새로운 건강 프로그램에 참여해보세요"
+            variant="mint"
+            size="lg"
+            action={{ label: '프로그램 둘러보기', onClick: () => navigate('/programs') }}
+          />
+        ) : (
+          <motion.div className="grid grid-cols-1 gap-3">
+            <AnimatePresence initial={false}>
+            {(showAllActivePrograms ? activePrograms : activePrograms.slice(0, 2)).map(program => {
+              const catKey = program.categories?.[0] || 'ETC'
+              const cat = CATEGORY[catKey] || CATEGORY.ETC
+              const colors = CATEGORY_COLORS[catKey] || CATEGORY_COLORS.ETC
+              const progress = calcProgress(program.start_date, program.end_date)
+
+              return (
+                <motion.div
+                  key={program.id}
+                  onClick={() => navigate(`/programs/${program.id}`)}
+                  className={`${colors.bg} ${colors.border} border rounded-2xl p-3 hover:shadow-md transition cursor-pointer flex items-center gap-3`}
+                >
+                  {/* 표지 사진 — cover_image_path 있으면 그 이미지, 없으면 카테고리 이모지 fallback */}
+                  <ProgramCover
+                    imagePath={program.cover_image_path}
+                    categories={program.categories}
+                    name={program.name}
+                    variant="thumb"
+                    className="w-16 h-16 rounded-2xl"
+                  />
+
+                  {/* 정보 */}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-medium text-gray-800 truncate">{program.name}</h3>
+                    {program.description && (
+                      <p className="text-xs text-gray-500 truncate mt-0.5">{program.description}</p>
+                    )}
+                    <div className="flex items-center gap-2 mt-2">
+                      <div className="flex-1 h-1.5 bg-white/80 rounded-full overflow-hidden">
+                        <div
+                          className={`${colors.accent} h-full rounded-full transition-all`}
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
+                      <span className="text-xs text-gray-600 font-medium flex-shrink-0">{progress}%</span>
+                    </div>
+                  </div>
+                </motion.div>
+              )
+            })}
+            </AnimatePresence>
+          </motion.div>
+        )}
+      </section>
+
       {/* 오늘의 미션 — 프로그램별 그루핑 (3개까지만, 전체보기 토글) */}
       <section ref={todayMissionsRef} className="mb-8 scroll-mt-4">
         <div className="flex items-center justify-between mb-4">
@@ -356,11 +433,21 @@ function DashboardPage() {
         </div>
 
         {todayMissions.length === 0 ? (
-          <EmptyState
-            icon="✨"
-            title="오늘 인증할 미션이 없어요"
-            description="참여 중인 프로그램이 시작되면 여기에 표시돼요"
-          />
+          /* 컴팩트 빈 상태 — DashboardPage 전용 인라인 (Day 65 본인 결정).
+             공용 EmptyState 보다 작은 사이즈 + description 한 줄 강제 (글자 자동 축소).
+             둘러보기 버튼은 의도적으로 제외 — 참여 중인 프로그램 박스에 이미 있음. */
+          <div className="bg-gray-50/60 rounded-2xl px-4 py-3 flex items-center gap-3">
+            <div className="text-2xl opacity-70 leading-none flex-shrink-0">✨</div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-700 leading-tight">오늘 인증할 미션이 없어요</p>
+              <p
+                className="text-gray-500 whitespace-nowrap mt-0.5"
+                style={{ fontSize: 'clamp(9px, 2.8vw, 11px)' }}
+              >
+                참여 중인 프로그램이 시작되면 표시돼요
+              </p>
+            </div>
+          </div>
         ) : (
           <motion.div className="space-y-3">
             <AnimatePresence initial={false}>
@@ -619,83 +706,6 @@ function DashboardPage() {
                           ✏️ 클릭하면 이어서 작성할 수 있어요
                         </p>
                       )}
-                    </div>
-                  </div>
-                </motion.div>
-              )
-            })}
-            </AnimatePresence>
-          </motion.div>
-        )}
-      </section>
-
-      {/* 참여 중인 프로그램 — 최대 3개 요약 */}
-      <section ref={activeProgramsRef} className="mb-8 scroll-mt-4">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-800">
-            🎯 참여 중인 프로그램
-          </h2>
-          {activePrograms.length > 2 && (
-            <button
-              type="button"
-              onClick={() => { setShowAllActivePrograms(!showAllActivePrograms); scrollToSection(activeProgramsRef) }}
-              className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700"
-            >
-              {showAllActivePrograms ? '간단히 보기' : `전체보기 (${activePrograms.length})`}
-              {!showAllActivePrograms && <ChevronRight className="w-3 h-3" />}
-            </button>
-          )}
-        </div>
-
-        {isLoadingActive ? (
-          <LoadingState />
-        ) : activePrograms.length === 0 ? (
-          <EmptyState
-            icon="🎯"
-            title="참여 중인 프로그램이 없어요"
-            description="새로운 건강 프로그램에 참여해보세요"
-            variant="mint"
-            size="lg"
-            action={{ label: '프로그램 둘러보기', onClick: () => navigate('/programs') }}
-          />
-        ) : (
-          <motion.div className="grid grid-cols-1 gap-3">
-            <AnimatePresence initial={false}>
-            {(showAllActivePrograms ? activePrograms : activePrograms.slice(0, 2)).map(program => {
-              const catKey = program.categories?.[0] || 'ETC'
-              const cat = CATEGORY[catKey] || CATEGORY.ETC
-              const colors = CATEGORY_COLORS[catKey] || CATEGORY_COLORS.ETC
-              const progress = calcProgress(program.start_date, program.end_date)
-
-              return (
-                <motion.div
-                  key={program.id}
-                  onClick={() => navigate(`/programs/${program.id}`)}
-                  className={`${colors.bg} ${colors.border} border rounded-2xl p-3 hover:shadow-md transition cursor-pointer flex items-center gap-3`}
-                >
-                  {/* 표지 사진 — cover_image_path 있으면 그 이미지, 없으면 카테고리 이모지 fallback */}
-                  <ProgramCover
-                    imagePath={program.cover_image_path}
-                    categories={program.categories}
-                    name={program.name}
-                    variant="thumb"
-                    className="w-16 h-16 rounded-2xl"
-                  />
-
-                  {/* 정보 */}
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-medium text-gray-800 truncate">{program.name}</h3>
-                    {program.description && (
-                      <p className="text-xs text-gray-500 truncate mt-0.5">{program.description}</p>
-                    )}
-                    <div className="flex items-center gap-2 mt-2">
-                      <div className="flex-1 h-1.5 bg-white/80 rounded-full overflow-hidden">
-                        <div
-                          className={`${colors.accent} h-full rounded-full transition-all`}
-                          style={{ width: `${progress}%` }}
-                        />
-                      </div>
-                      <span className="text-xs text-gray-600 font-medium flex-shrink-0">{progress}%</span>
                     </div>
                   </div>
                 </motion.div>

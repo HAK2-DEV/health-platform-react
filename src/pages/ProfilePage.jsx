@@ -226,127 +226,133 @@ function ProfilePage() {
     <div className="px-4 pt-4 pb-6 max-w-2xl mx-auto">
       <PageHeader>👤 프로필</PageHeader>
 
-      {/* 아바타 + 닉네임 카드 */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-3">
-        <div className="flex flex-col items-center">
-          {/* 아바타 */}
-          <div className="relative mb-3">
-            <UserAvatar
-              avatarPath={profile?.avatar_path}
-              nickname={nickname}
-              size="xl"
-              cacheBust={avatarCacheBust || undefined}
-              className="ring-4 ring-emerald-100"
-            />
-            {isAvatarBusy && (
-              <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center">
-                <Loader2 className="w-6 h-6 text-white animate-spin" />
-              </div>
-            )}
-            {/* 카메라 버튼 — 우하단 */}
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isAvatarBusy}
-              className="absolute -bottom-1 -right-1 w-9 h-9 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white rounded-full shadow-md flex items-center justify-center transition disabled:opacity-50"
-              title="프로필 사진 변경"
-            >
-              <Camera className="w-4 h-4" />
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleFileSelect}
-              className="hidden"
-            />
-          </div>
-
-          {profile?.avatar_path && (
-            <button
-              type="button"
-              onClick={handleRemoveAvatar}
-              disabled={isAvatarBusy}
-              className="text-xs text-gray-400 hover:text-red-500 transition mb-3 disabled:opacity-50"
-            >
-              사진 삭제
-            </button>
-          )}
-
-          {avatarError && (
-            <p className="mb-3 text-xs text-red-600 text-center">{avatarError}</p>
-          )}
-
-          {/* 닉네임 — 보기/편집 모드 */}
-          {!isEditingNickname ? (
-            <div className="flex items-center gap-2 mt-1">
-              <p className="text-xl font-medium text-gray-800">{nickname || '-'}</p>
+      {/* 아바타 + 닉네임 + 이메일 카드 — Day 65 본인 결정: Discord 스타일 가로 배치.
+          별도 이메일 박스 제거하고 정체성 정보(아바타·닉네임·이메일)를 한 카드에 클러스터링. */}
+      <div className="bg-white border border-gray-200 rounded-2xl p-5 mb-3">
+        <div className="flex items-center gap-4">
+          {/* 좌측: 아바타 + 카메라 + 사진 삭제 */}
+          <div className="flex flex-col items-center flex-shrink-0">
+            <div className="relative">
+              <UserAvatar
+                avatarPath={profile?.avatar_path}
+                nickname={nickname}
+                size="xl"
+                cacheBust={avatarCacheBust || undefined}
+                className="ring-4 ring-emerald-100"
+              />
+              {isAvatarBusy && (
+                <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center">
+                  <Loader2 className="w-6 h-6 text-white animate-spin" />
+                </div>
+              )}
+              {/* 카메라 버튼 — 우하단 */}
               <button
                 type="button"
-                onClick={() => {
-                  if (!cooldownInfo.canChange) {
-                    setNickError(`${cooldownInfo.daysLeft}일 후 변경 가능합니다`)
-                  }
-                  setIsEditingNickname(true)
-                }}
-                className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-full transition"
-                title="닉네임 변경"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isAvatarBusy}
+                className="absolute -bottom-1 -right-1 w-9 h-9 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white rounded-full shadow-md flex items-center justify-center transition disabled:opacity-50"
+                title="프로필 사진 변경"
               >
-                <Pencil className="w-4 h-4" />
+                <Camera className="w-4 h-4" />
               </button>
-            </div>
-          ) : (
-            <div className="w-full max-w-xs mt-2">
-              <NicknameEditor
-                value={draftNickname}
-                onChange={setDraftNickname}
-                status={nickStatus}
-                isSame={nickIsSame}
-                canChange={cooldownInfo.canChange}
-                daysLeft={cooldownInfo.daysLeft}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileSelect}
+                className="hidden"
               />
-              {nickError && (
-                <p className="mt-2 text-xs text-red-600 text-center">{nickError}</p>
-              )}
-              <div className="flex gap-2 mt-3">
-                <button
-                  type="button"
-                  onClick={() => { setIsEditingNickname(false); setNickError(null) }}
-                  disabled={nicknameMutation.isPending}
-                  className="flex-1 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm rounded-md transition disabled:opacity-50"
-                >
-                  취소
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSaveNickname}
-                  disabled={
-                    nicknameMutation.isPending
-                    || !cooldownInfo.canChange
-                    || (!nickIsSame && !nickStatus.available)
-                  }
-                  className="flex-1 px-3 py-2 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white text-sm rounded-md transition disabled:bg-gray-300"
-                >
-                  {nicknameMutation.isPending ? '저장 중...' : '저장'}
-                </button>
-              </div>
             </div>
-          )}
 
-          {/* 쿨다운 안내 */}
-          {!isEditingNickname && !cooldownInfo.canChange && (
-            <p className="text-[11px] text-gray-400 mt-1">
-              닉네임은 {cooldownInfo.daysLeft}일 후 변경 가능
-            </p>
-          )}
+            {profile?.avatar_path && (
+              <button
+                type="button"
+                onClick={handleRemoveAvatar}
+                disabled={isAvatarBusy}
+                className="text-[11px] text-gray-400 hover:text-red-500 transition mt-2 disabled:opacity-50"
+              >
+                사진 삭제
+              </button>
+            )}
+          </div>
+
+          {/* 우측: 닉네임 (펜) + 이메일 + (편집 폼 / 쿨다운) */}
+          <div className="flex-1 min-w-0">
+            {!isEditingNickname ? (
+              <>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-lg font-medium text-gray-800 truncate">{nickname || '-'}</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!cooldownInfo.canChange) {
+                        setNickError(`${cooldownInfo.daysLeft}일 후 변경 가능합니다`)
+                      }
+                      setIsEditingNickname(true)
+                    }}
+                    className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-full transition flex-shrink-0"
+                    title="닉네임 변경"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 break-all mt-1">{session?.user?.email}</p>
+                {!cooldownInfo.canChange && (
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    닉네임은 {cooldownInfo.daysLeft}일 후 변경 가능
+                  </p>
+                )}
+              </>
+            ) : (
+              <>
+                <NicknameEditor
+                  value={draftNickname}
+                  onChange={setDraftNickname}
+                  status={nickStatus}
+                  isSame={nickIsSame}
+                  canChange={cooldownInfo.canChange}
+                  daysLeft={cooldownInfo.daysLeft}
+                />
+                {nickError && (
+                  <p className="mt-2 text-xs text-red-600 text-center">{nickError}</p>
+                )}
+                <div className="flex gap-2 mt-2">
+                  <button
+                    type="button"
+                    onClick={() => { setIsEditingNickname(false); setNickError(null) }}
+                    disabled={nicknameMutation.isPending}
+                    className="flex-1 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm rounded-md transition disabled:opacity-50"
+                  >
+                    취소
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveNickname}
+                    disabled={
+                      nicknameMutation.isPending
+                      || !cooldownInfo.canChange
+                      || (!nickIsSame && !nickStatus.available)
+                    }
+                    className="flex-1 px-3 py-2 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white text-sm rounded-md transition disabled:bg-gray-300"
+                  >
+                    {nicknameMutation.isPending ? '저장 중...' : '저장'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
+
+        {avatarError && (
+          <p className="mt-3 text-xs text-red-600 text-center">{avatarError}</p>
+        )}
       </div>
 
       {/* 내 인증 현황 — 새 활동 통계 페이지 */}
       <button
         type="button"
         onClick={() => navigate('/profile/activity')}
-        className="w-full flex items-center gap-3 p-4 mb-3 bg-white border border-gray-200 rounded-2xl hover:bg-gray-50 hover:border-emerald-300 transition text-left"
+        className="w-full flex items-center gap-3 p-4 mb-6 bg-white border border-gray-200 rounded-2xl hover:bg-gray-50 hover:border-emerald-300 transition text-left"
       >
         <div className="w-10 h-10 flex-shrink-0 bg-emerald-100 rounded-xl flex items-center justify-center">
           <BarChart3 className="w-5 h-5 text-emerald-600" />
@@ -357,12 +363,6 @@ function ProfilePage() {
         </div>
         <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
       </button>
-
-      {/* 이메일 */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-4 mb-6">
-        <p className="text-xs text-gray-500 mb-1">이메일</p>
-        <p className="text-gray-800 break-all">{session?.user?.email}</p>
-      </div>
 
       {/* 로그아웃 */}
       <button
