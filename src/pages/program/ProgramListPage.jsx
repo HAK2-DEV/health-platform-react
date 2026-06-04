@@ -232,9 +232,13 @@ function ProgramListPage() {
             <AnimatePresence initial={false}>
               {displayedActive.map(program => {
                 const catKey = program.categories?.[0] || 'ETC'
-                const colors = CATEGORY_COLORS[catKey] || CATEGORY_COLORS.ETC
+                const catColors = CATEGORY_COLORS[catKey] || CATEGORY_COLORS.ETC
                 const progress = calcProgress(program.start_date, program.end_date)
                 const urgency = progressUrgency(progress)
+                const isEnded = urgency.urgency === 'ended'
+                const colors = isEnded
+                  ? { bg: 'bg-gray-100', border: 'border-gray-200', accent: 'bg-gray-400' }
+                  : catColors
                 const barAccentCls = urgency.barCls || colors.accent
                 const catPercentCls = catKey === 'MINDCARE' ? 'text-orange-600'
                   : catKey === 'EMPATHY' ? 'text-pink-600'
@@ -263,8 +267,8 @@ function ProgramListPage() {
                         variant="thumb"
                         className="w-20 h-20 rounded-card"
                       />
-                      <Badge variant="progress" size="sm" className="absolute top-1.5 left-1.5 shadow-sm">
-                        진행중
+                      <Badge variant={isEnded ? 'ended' : 'progress'} size="sm" className="absolute top-1.5 left-1.5 shadow-sm">
+                        {isEnded ? '종료' : '진행중'}
                       </Badge>
                     </div>
                     <div className="flex-1 min-w-0">

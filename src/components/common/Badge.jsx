@@ -7,7 +7,7 @@
 //   progress:  진행중 (연한 그린 배경 + 진한 그린 텍스트)
 //   draft:     임시저장 (연한 회색 배경 + 회색 텍스트)
 //   upcoming:  참여예정 (연한 sky 배경 + sky 텍스트)
-//   ended:     종료 (연한 red 배경 + red 텍스트)
+//   ended:     종료 (회색 — 더 이상 진행 X 의미)
 //   recommend: 추천 (그린 배경 + 흰 텍스트, 강조)
 //   point:     포인트 (+10P 같은 라벨, mint 배경 + 진한 그린)
 //   info:      안내 (sky)
@@ -22,7 +22,7 @@ const VARIANT = {
   progress: 'bg-emerald-100 text-emerald-700',
   draft: 'bg-gray-100 text-gray-500',
   upcoming: 'bg-sky-100 text-sky-700',
-  ended: 'bg-red-50 text-red-500',
+  ended: 'bg-gray-200 text-gray-600',
   recommend: 'bg-emerald-500 text-white shadow-sm',
   point: 'bg-emerald-50 text-emerald-700 font-semibold',
   info: 'bg-sky-50 text-sky-700',

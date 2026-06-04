@@ -358,9 +358,14 @@ function DashboardPage() {
             <AnimatePresence initial={false}>
             {(showAllActivePrograms ? activePrograms : activePrograms.slice(0, 2)).map(program => {
               const catKey = program.categories?.[0] || 'ETC'
-              const colors = CATEGORY_COLORS[catKey] || CATEGORY_COLORS.ETC
+              const catColors = CATEGORY_COLORS[catKey] || CATEGORY_COLORS.ETC
               const progress = calcProgress(program.start_date, program.end_date)
               const urgency = progressUrgency(progress)
+              const isEnded = urgency.urgency === 'ended'
+              // 종료된 프로그램은 회색 카드 — 시각적으로 「현재 활성 ≠ 종료」 구분
+              const colors = isEnded
+                ? { bg: 'bg-gray-100', border: 'border-gray-200', accent: 'bg-gray-400' }
+                : catColors
               const barAccentCls = urgency.barCls || colors.accent
               // 카테고리별 % 텍스트 컬러 — 카드 톤과 일관성
               const catPercentCls = catKey === 'MINDCARE' ? 'text-orange-600'
@@ -393,8 +398,8 @@ function DashboardPage() {
                       variant="thumb"
                       className="w-20 h-20 rounded-card"
                     />
-                    <Badge variant="progress" size="sm" className="absolute top-1.5 left-1.5 shadow-sm">
-                      진행중
+                    <Badge variant={isEnded ? 'ended' : 'progress'} size="sm" className="absolute top-1.5 left-1.5 shadow-sm">
+                      {isEnded ? '종료' : '진행중'}
                     </Badge>
                   </div>
 

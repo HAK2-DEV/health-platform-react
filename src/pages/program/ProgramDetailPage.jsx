@@ -426,9 +426,10 @@ function ProgramDetailPage() {
         const participationRate = elapsedDays > 0
           ? Math.min(100, Math.round((activeDays / elapsedDays) * 100))
           : 0
-        const progressPct = (programDays && elapsedDays != null)
-          ? Math.min(100, Math.round((elapsedDays / programDays) * 100))
-          : 0
+        // 헤더 막대(calcProgress) 와 동일 계산식 사용 — 임계값 경계에서 두 막대가
+        // 다른 단계로 보이는 시각 불일치 방지 (elapsedDays/programDays 는 일 단위
+        // round 라 시간 정확도 떨어짐).
+        const progressPct = calcProgress(program.start_date, program.end_date)
         const progressUrg = progressUrgency(progressPct)
 
         return (
