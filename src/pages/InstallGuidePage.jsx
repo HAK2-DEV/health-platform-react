@@ -68,15 +68,21 @@ function InstallGuidePage() {
           </p>
         </div>
 
-        {platform === 'installed' || installed ? (
-          <InstalledCard />
-        ) : platform === 'ios' ? (
-          <IOSGuide />
-        ) : platform === 'android' ? (
-          <AndroidGuide deferredPrompt={deferredPrompt} onInstall={handleInstallClick} />
-        ) : (
-          <DesktopGuide deferredPrompt={deferredPrompt} onInstall={handleInstallClick} />
-        )}
+        {(platform === 'installed' || installed) && <InstalledCard />}
+
+        {/* 3개 기기 가이드 모두 노출 — 본인 기기엔 "현재 기기" 뱃지.
+            사용자가 다른 기기 사용자에게 링크 공유할 때도 한 페이지에서 다 봄. */}
+        <IOSGuide isCurrent={platform === 'ios'} />
+        <AndroidGuide
+          isCurrent={platform === 'android'}
+          deferredPrompt={deferredPrompt}
+          onInstall={handleInstallClick}
+        />
+        <DesktopGuide
+          isCurrent={platform === 'desktop'}
+          deferredPrompt={deferredPrompt}
+          onInstall={handleInstallClick}
+        />
 
         <BenefitsCard />
       </div>
@@ -97,12 +103,19 @@ function InstalledCard() {
 }
 
 // iOS Safari — 자동 install prompt 미지원. 사용자 직접 「공유 → 홈 화면에 추가」 필요.
-function IOSGuide() {
+function IOSGuide({ isCurrent }) {
   return (
-    <div className="bg-white border border-gray-100 rounded-card-lg shadow-soft p-5 mb-4">
-      <div className="flex items-center gap-2 mb-4">
-        <Apple className="w-5 h-5 text-gray-700" />
-        <h2 className="text-base font-bold text-gray-800">iPhone · iPad (Safari)</h2>
+    <div className={`bg-white rounded-card-lg shadow-soft p-5 mb-4 ${isCurrent ? 'border-2 border-emerald-300' : 'border border-gray-100'}`}>
+      <div className="flex items-center justify-between gap-2 mb-4">
+        <div className="flex items-center gap-2">
+          <Apple className="w-5 h-5 text-gray-700" />
+          <h2 className="text-base font-bold text-gray-800">iPhone · iPad (Safari)</h2>
+        </div>
+        {isCurrent && (
+          <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-semibold rounded-pill">
+            현재 기기
+          </span>
+        )}
       </div>
 
       <Step
@@ -132,12 +145,19 @@ function IOSGuide() {
 }
 
 // Android Chrome — beforeinstallprompt 자동 활성 가능
-function AndroidGuide({ deferredPrompt, onInstall }) {
+function AndroidGuide({ isCurrent, deferredPrompt, onInstall }) {
   return (
-    <div className="bg-white border border-gray-100 rounded-card-lg shadow-soft p-5 mb-4">
-      <div className="flex items-center gap-2 mb-4">
-        <Smartphone className="w-5 h-5 text-emerald-600" />
-        <h2 className="text-base font-bold text-gray-800">Android (Chrome)</h2>
+    <div className={`bg-white rounded-card-lg shadow-soft p-5 mb-4 ${isCurrent ? 'border-2 border-emerald-300' : 'border border-gray-100'}`}>
+      <div className="flex items-center justify-between gap-2 mb-4">
+        <div className="flex items-center gap-2">
+          <Smartphone className="w-5 h-5 text-emerald-600" />
+          <h2 className="text-base font-bold text-gray-800">Android (Chrome)</h2>
+        </div>
+        {isCurrent && (
+          <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-semibold rounded-pill">
+            현재 기기
+          </span>
+        )}
       </div>
 
       {deferredPrompt ? (
@@ -181,12 +201,19 @@ function AndroidGuide({ deferredPrompt, onInstall }) {
 }
 
 // Desktop Chrome/Edge — 주소창에 install 아이콘
-function DesktopGuide({ deferredPrompt, onInstall }) {
+function DesktopGuide({ isCurrent, deferredPrompt, onInstall }) {
   return (
-    <div className="bg-white border border-gray-100 rounded-card-lg shadow-soft p-5 mb-4">
-      <div className="flex items-center gap-2 mb-4">
-        <Monitor className="w-5 h-5 text-gray-700" />
-        <h2 className="text-base font-bold text-gray-800">데스크탑 (Chrome · Edge)</h2>
+    <div className={`bg-white rounded-card-lg shadow-soft p-5 mb-4 ${isCurrent ? 'border-2 border-emerald-300' : 'border border-gray-100'}`}>
+      <div className="flex items-center justify-between gap-2 mb-4">
+        <div className="flex items-center gap-2">
+          <Monitor className="w-5 h-5 text-gray-700" />
+          <h2 className="text-base font-bold text-gray-800">데스크탑 (Chrome · Edge)</h2>
+        </div>
+        {isCurrent && (
+          <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-semibold rounded-pill">
+            현재 기기
+          </span>
+        )}
       </div>
 
       {deferredPrompt && (
