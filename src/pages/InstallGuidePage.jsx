@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Share, MoreVertical, Plus, Check, Smartphone, Monitor, Apple } from 'lucide-react'
 import StickyBackBar from '../components/common/StickyBackBar'
+import InAppBrowserWarning from '../components/install/InAppBrowserWarning'
+import { detectInAppBrowser } from '../lib/inAppBrowser'
 
 // Day 65 — PWA 설치 가이드 페이지.
 // 사용자 플랫폼 감지 후 단계별 설치 안내. iOS Safari / Android Chrome / Desktop Chrome 분기.
@@ -23,11 +25,13 @@ function detectPlatform() {
 
 function InstallGuidePage() {
   const [platform, setPlatform] = useState('unknown')
+  const [inAppBrowser, setInAppBrowser] = useState(null)
   const [deferredPrompt, setDeferredPrompt] = useState(null)
   const [installed, setInstalled] = useState(false)
 
   useEffect(() => {
     setPlatform(detectPlatform())
+    setInAppBrowser(detectInAppBrowser())
 
     // Android Chrome / Desktop Chrome — beforeinstallprompt 이벤트 캐치
     const handleBeforeInstall = (e) => {
@@ -67,6 +71,10 @@ function InstallGuidePage() {
             홈 화면에 추가하면 일반 앱처럼 빠르게 열고, 알림도 받을 수 있어요
           </p>
         </div>
+
+        {/* 인앱 브라우저(카톡 등) 감지 시 최상단에 경고 + 외부 브라우저 열기 안내.
+            군 베타 환경 — 카메라 잠겨 QR 스캔 불가. 카톡 링크 → 외부 브라우저 흐름이 유일. */}
+        <InAppBrowserWarning browser={inAppBrowser} />
 
         {(platform === 'installed' || installed) && <InstalledCard />}
 
