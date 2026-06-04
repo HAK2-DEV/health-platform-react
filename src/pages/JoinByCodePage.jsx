@@ -6,6 +6,7 @@ import { useAuth } from '../hooks/useAuth'
 import { queryKeys, lookupInviteProgram, joinByInviteCode, fetchProgramJoinInfo } from '../lib/queries'
 import ProgramCover from '../components/common/ProgramCover'
 import UserAvatar from '../components/common/UserAvatar'
+import StickyBackBar from '../components/common/StickyBackBar'
 import { formatKoreanDate } from '../lib/formatters'
 import { CATEGORY } from '../lib/constants'
 
@@ -102,7 +103,9 @@ function JoinByCodePage() {
   // ─── 비로그인 ─────────────────────────────────────────
   if (!session) {
     return (
-      <div className="px-4 pt-10 pb-6 max-w-md mx-auto text-center">
+      <div className="px-4 pt-2 pb-6 max-w-md mx-auto">
+        <StickyBackBar fallbackPath="/dashboard" title="이전 페이지로" />
+        <div className="text-center pt-8">
         <div className="text-5xl mb-3">🔐</div>
         <h1 className="text-xl font-medium text-gray-800 mb-2">로그인이 필요해요</h1>
         <p className="text-sm text-gray-500 mb-6">
@@ -115,13 +118,15 @@ function JoinByCodePage() {
         >
           로그인하러 가기
         </button>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="px-4 pt-6 pb-6 max-w-md mx-auto">
-      <h1 className="text-2xl font-medium text-gray-800 mb-1">🎟️ 초대 코드 참여</h1>
+    <div className="px-4 pt-2 pb-6 max-w-md mx-auto">
+      <StickyBackBar fallbackPath="/dashboard" title="이전 페이지로" />
+      <h1 className="text-2xl font-medium text-gray-800 mb-1 mt-2">🎟️ 초대 코드 참여</h1>
       <p className="text-sm text-gray-500 mb-6">
         프로그램 운영자가 알려준 코드를 입력해주세요.
       </p>
