@@ -848,13 +848,16 @@ export const fetchFeedPosts = async (programId, page = 0, pageSize = FEED_PAGE_S
 //   bundleStats: [{ bundleTitle, totalCount, missions: [{ mission_id, title, count }] }]
 //                bundleTitle=null = 단독 미션 그룹. totalCount 내림차순.
 export const fetchProgramStats = async (programId) => {
-  // 1) ACTIVE 참여자 수
-  const { count: participantsCount, error: pErr } = await supabase
+  // 1) ACTIVE 참여자 — head:false 로 user_id 전체 fetch (인증 0건도 목록에 포함시키기 위해).
+  // Day 65: 위젯 「휴면」 카운트와 실제 목록 일치 위해 변경 (이전엔 count 만 가져옴).
+  const { data: ppData, error: pErr } = await supabase
     .from('program_participants')
-    .select('*', { count: 'exact', head: true })
+    .select('user_id, joined_at')
     .eq('program_id', programId)
     .eq('status', 'ACTIVE')
   if (pErr) throw pErr
+  const activeParticipants = ppData || []
+  const participantsCount = activeParticipants.length
 
   // 2-4) verifications + 미션 JOIN (program_id 필터)
   //   users 는 따로 fetch — verifications 에 user_id + reviewer_id 둘 다 users 참조라
@@ -961,6 +964,23 @@ export const fetchProgramStats = async (programId) => {
     if (u) u.totalScore += (l.point || 0)
   }
 
+  // 인증 0건 ACTIVE 참여자도 userMap 에 추가 — Day 65 위젯 「휴면」 일치성
+  for (const pp of activeParticipants) {
+    if (!userMap.has(pp.user_id)) {
+      userMap.set(pp.user_id, {
+        user_id: pp.user_id,
+        nickname: '(닉네임 없음)',
+        totalCount: 0,
+        todayCount: 0,
+        totalScore: 0,
+        activeDays: 0,
+        lastActiveAt: null,
+        joinedAt: pp.joined_at || null,
+        _dateSet: new Set(),
+      })
+    }
+  }
+
   // nickname + avatar_path 별도 fetch — RLS 가 모든 authenticated SELECT 허용 (003)
   const userIds = Array.from(userMap.keys())
   if (userIds.length > 0) {
@@ -978,7 +998,13 @@ export const fetchProgramStats = async (programId) => {
     }
   }
 
-  const userStats = Array.from(userMap.values()).sort((a, b) => b.totalCount - a.totalCount)
+  // 정렬: totalCount 내림차순. totalCount 동일하면 lastActiveAt 최근 우선 (null 은 가장 아래).
+  const userStats = Array.from(userMap.values()).sort((a, b) => {
+    if (b.totalCount !== a.totalCount) return b.totalCount - a.totalCount
+    if (!a.lastActiveAt && b.lastActiveAt) return 1
+    if (a.lastActiveAt && !b.lastActiveAt) return -1
+    return 0
+  })
 
   return {
     participantsCount: participantsCount || 0,

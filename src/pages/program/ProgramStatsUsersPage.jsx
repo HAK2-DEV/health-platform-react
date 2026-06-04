@@ -281,7 +281,9 @@ function ProgramStatsUsersPage() {
                   </span>
                   <span className="text-gray-300">·</span>
                   <span>
-                    🕒 <span className="text-gray-700 font-medium">{formatRelativeKstDay(u.lastActiveAt)}</span>
+                    🕒 <span className={`font-medium ${u.lastActiveAt ? 'text-gray-700' : 'text-rose-500'}`}>
+                      {u.lastActiveAt ? formatRelativeKstDay(u.lastActiveAt) : '활동 없음'}
+                    </span>
                   </span>
                 </div>
               </button>

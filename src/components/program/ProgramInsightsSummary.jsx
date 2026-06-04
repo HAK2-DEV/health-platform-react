@@ -79,7 +79,8 @@ function computeInsights(stats, program) {
   const trendDeltaPct = prev7Count > 0 ? Math.round((trendDelta / prev7Count) * 100) : null
 
   // ─── 참여자 상태 분포 ──────────────────────
-  // 활발: 최근 3일 인증 / 보통: 3-7일 / 휴면: 7일+
+  // 활발: 최근 3일 인증 / 보통: 3-7일 / 휴면: 7일+ (인증 0건 = lastActiveAt null = 휴면)
+  // userStats 가 이제 인증 0건도 포함하므로 inactiveZero 보정 불필요 (Day 65 수정).
   const dormancyThreshold3 = Date.now() - 3 * DAY_MS
   const dormancyThreshold7 = Date.now() - 7 * DAY_MS
   let activeCount = 0, normalCount = 0, dormantCount = 0
@@ -89,9 +90,6 @@ function computeInsights(stats, program) {
     else if (lastTs >= dormancyThreshold7) normalCount++
     else dormantCount++
   }
-  // userStats 에 없는 ACTIVE 참여자 (인증 0건) 도 휴면으로
-  const inactiveZero = Math.max(0, participantsCount - userStats.length)
-  dormantCount += inactiveZero
   const totalParticipants = activeCount + normalCount + dormantCount
 
   // ─── 하이라이트 자동 추출 ──────────────────
@@ -106,9 +104,9 @@ function computeInsights(stats, program) {
   const streakers = userStats.filter(u => (u.activeDays || 0) >= 5)
     .sort((a, b) => (b.activeDays || 0) - (a.activeDays || 0))
     .slice(0, 3)
-  // 신규 참여자 (lastActiveAt 이 program 시작일 이후 + activeDays 작은 사람) — 정확한 가입일은 없으나 first activity 시점 proxy
-  const newComers = userStats.filter(u => (u.activeDays || 0) === 1)
-  const newComersCount = newComers.length + inactiveZero  // 인증 0건도 신규 추정
+  // 신규/낮은 활동 참여자 — activeDays 0~1 인 사람 (인증 0건 포함)
+  const newComers = userStats.filter(u => (u.activeDays || 0) <= 1)
+  const newComersCount = newComers.length
 
   // 자동 추천 메시지 — 따뜻한 톤 (본인 정체성 반영)
   const highlights = []
