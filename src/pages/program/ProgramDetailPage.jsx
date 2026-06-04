@@ -14,7 +14,7 @@ import EmptyState from '../../components/common/EmptyState'
 import LoadingState from '../../components/common/LoadingState'
 import ProgramCover from '../../components/common/ProgramCover'
 import MarkdownView from '../../components/common/MarkdownView'
-import { calcProgress } from '../../lib/programVisuals'
+import { calcProgress, progressUrgency } from '../../lib/programVisuals'
 
 // lazy 분리 — 실제 사용 시점에 chunk 다운로드 (Day 65 본인 결정)
 //   FeedContent: 커뮤니티 탭 진입 시
@@ -212,6 +212,7 @@ function ProgramDetailPage() {
             ? 'bg-emerald-500 text-white'
             : 'bg-amber-500 text-white'
         const progress = calcProgress(program.start_date, program.end_date)
+        const urgency = progressUrgency(progress)
         const totalDays = program.start_date && program.end_date
           ? Math.round((new Date(program.end_date) - new Date(program.start_date)) / 86400000) + 1
           : null
@@ -264,14 +265,21 @@ function ProgramDetailPage() {
                 </p>
               )}
               {program.start_date && program.end_date && (
-                <div className="flex items-center gap-2 mb-2 sm:mb-3">
-                  <div className="flex-1 h-2 bg-white/70 rounded-full overflow-hidden border border-gray-100">
-                    <div
-                      className="h-full bg-emerald-400 rounded-full transition-all"
-                      style={{ width: `${progress}%` }}
-                    />
+                <div className="mb-2 sm:mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 h-2 bg-white/70 rounded-full overflow-hidden border border-gray-100">
+                      <div
+                        className={`h-full rounded-full transition-all ${urgency.barCls || 'bg-emerald-400'}`}
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
+                    <span className={`text-sm font-semibold flex-shrink-0 ${urgency.textCls || 'text-emerald-600'}`}>{progress}%</span>
                   </div>
-                  <span className="text-sm font-semibold text-emerald-600 flex-shrink-0">{progress}%</span>
+                  {urgency.label && (
+                    <p className={`text-[11px] font-medium mt-1 ${urgency.textCls}`}>
+                      {urgency.urgency === 'ended' ? '🏁' : urgency.urgency === 'imminent' ? '🔥' : '⏳'} {urgency.label}
+                    </p>
+                  )}
                 </div>
               )}
               <div className="flex items-center gap-3 sm:gap-4 text-xs sm:text-sm text-gray-600 flex-wrap">
@@ -421,6 +429,7 @@ function ProgramDetailPage() {
         const progressPct = (programDays && elapsedDays != null)
           ? Math.min(100, Math.round((elapsedDays / programDays) * 100))
           : 0
+        const progressUrg = progressUrgency(progressPct)
 
         return (
           <div className="bg-white border border-gray-200 rounded-2xl p-5 mb-6">
@@ -466,16 +475,22 @@ function ProgramDetailPage() {
             </div>
             <div className="h-2 bg-gray-100 rounded-full overflow-hidden mb-1.5">
               <div
-                className="h-full bg-emerald-400 rounded-full transition-all"
+                className={`h-full rounded-full transition-all ${progressUrg.barCls || 'bg-emerald-400'}`}
                 style={{ width: `${progressPct}%` }}
               />
             </div>
-            <p className="text-xs text-gray-500">
-              {remainingDays != null && remainingDays > 0
-                ? `목표까지 ${remainingDays}일 남았어요!`
-                : programDays && elapsedDays >= programDays
-                  ? '프로그램이 종료되었어요'
-                  : '진행 정보 없음'}
+            <p className={`text-xs ${progressUrg.textCls || 'text-gray-500'}`}>
+              {progressUrg.urgency === 'ended'
+                ? '🏁 프로그램이 종료되었어요'
+                : progressUrg.urgency === 'imminent'
+                  ? `🔥 마무리 임박 — ${remainingDays}일 남았어요. 끝까지 화이팅!`
+                  : progressUrg.urgency === 'soon'
+                    ? `⏳ 마무리 단계 — ${remainingDays}일 남았어요`
+                    : remainingDays != null && remainingDays > 0
+                      ? `목표까지 ${remainingDays}일 남았어요!`
+                      : programDays && elapsedDays >= programDays
+                        ? '프로그램이 종료되었어요'
+                        : '진행 정보 없음'}
             </p>
           </div>
         )

@@ -24,3 +24,16 @@ export const calcProgress = (startDate, endDate) => {
   const passed = now - start
   return Math.round((passed / total) * 100)
 }
+
+// Day 65 — 진행도 막대의 종료 임박 시각화.
+//   normal   (<70%): 카테고리 색 그대로 (override null)
+//   soon   (70-89%): amber — 마무리 단계
+//   imminent (90-99%): rose — 임박 (마지막 며칠)
+//   ended    (=100%): gray — 종료
+// 호출처는 override 가 null 이면 카테고리 색을 쓰고, 아니면 덮어씀.
+export const progressUrgency = (progress) => {
+  if (progress >= 100) return { urgency: 'ended',    barCls: 'bg-gray-400',    textCls: 'text-gray-500',  label: '종료' }
+  if (progress >= 90)  return { urgency: 'imminent', barCls: 'bg-rose-500',    textCls: 'text-rose-600',  label: '마무리 임박' }
+  if (progress >= 70)  return { urgency: 'soon',     barCls: 'bg-amber-400',   textCls: 'text-amber-600', label: '마무리 단계' }
+  return { urgency: 'normal', barCls: null, textCls: null, label: null }
+}

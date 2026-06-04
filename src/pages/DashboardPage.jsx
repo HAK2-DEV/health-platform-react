@@ -14,7 +14,7 @@ import DeleteProgramConfirmModal from '../components/program/DeleteProgramConfir
 import EmptyState from '../components/common/EmptyState'
 import LoadingState from '../components/common/LoadingState'
 import ProgramCover from '../components/common/ProgramCover'
-import { CATEGORY_COLORS, calcProgress } from '../lib/programVisuals'
+import { CATEGORY_COLORS, calcProgress, progressUrgency } from '../lib/programVisuals'
 import {
   queryKeys,
   fetchMyPrograms,
@@ -360,13 +360,16 @@ function DashboardPage() {
               const catKey = program.categories?.[0] || 'ETC'
               const colors = CATEGORY_COLORS[catKey] || CATEGORY_COLORS.ETC
               const progress = calcProgress(program.start_date, program.end_date)
+              const urgency = progressUrgency(progress)
+              const barAccentCls = urgency.barCls || colors.accent
               // 카테고리별 % 텍스트 컬러 — 카드 톤과 일관성
-              const percentTextCls = catKey === 'MINDCARE' ? 'text-orange-600'
+              const catPercentCls = catKey === 'MINDCARE' ? 'text-orange-600'
                 : catKey === 'EMPATHY' ? 'text-pink-600'
                 : catKey === 'SLEEP' ? 'text-purple-600'
                 : catKey === 'NO_SMOKING' ? 'text-yellow-600'
                 : catKey === 'ETC' ? 'text-gray-600'
                 : 'text-emerald-600'
+              const percentTextCls = urgency.textCls || catPercentCls
               // 참여자 수 pill — 카드 배경보다 한 단계 진한 톤 (참고 사진)
               const countPillCls = catKey === 'MINDCARE' ? 'bg-orange-100/80 text-orange-700'
                 : catKey === 'EMPATHY' ? 'bg-pink-100/80 text-pink-700'
@@ -404,12 +407,17 @@ function DashboardPage() {
                     <div className="flex items-center gap-2 mt-2">
                       <div className="flex-1 h-2 bg-white/90 rounded-full overflow-hidden">
                         <div
-                          className={`${colors.accent} h-full rounded-full transition-all`}
+                          className={`${barAccentCls} h-full rounded-full transition-all`}
                           style={{ width: `${progress}%` }}
                         />
                       </div>
                       <span className={`text-base font-bold flex-shrink-0 ${percentTextCls}`}>{progress}%</span>
                     </div>
+                    {urgency.label && (
+                      <p className={`text-[11px] font-medium mt-1 ${percentTextCls}`}>
+                        {urgency.urgency === 'ended' ? '🏁' : urgency.urgency === 'imminent' ? '🔥' : '⏳'} {urgency.label}
+                      </p>
+                    )}
                     {/* 참여자 수 pill — 카드 배경 카테고리와 같은 톤 (참고 사진) */}
                     {activeCounts[program.id] != null && (
                       <div className={`inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-pill text-[11px] font-medium w-fit ${countPillCls}`}>
