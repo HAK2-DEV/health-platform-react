@@ -65,9 +65,34 @@ function computeInsights(stats, program) {
   // ─── 시간대 패턴 (KST 0-23) ────────────────
   // 전체 누적 인증의 시간대 분포 — 운영자가 미션 시간을 조정할 때의 근거
   const hourly = new Array(24).fill(0)
+  // 미션별 시간대 분포도 같이 — highlights 의 「미션 시간 편중」 추천에 사용
+  const missionHourly = new Map() // mission_id → { title, hourly, total, peakHour, peakCount }
   for (const r of verifications) {
-    hourly[getKstHour(r.submitted_at)]++
+    const h = getKstHour(r.submitted_at)
+    hourly[h]++
+    const mid = r.mission_id
+    if (!missionHourly.has(mid)) {
+      missionHourly.set(mid, {
+        mission_id: mid,
+        title: r.missions?.title || '(삭제된 미션)',
+        hourly: new Array(24).fill(0),
+        total: 0,
+      })
+    }
+    const bucket = missionHourly.get(mid)
+    bucket.hourly[h]++
+    bucket.total++
   }
+  for (const m of missionHourly.values()) {
+    let peakH = null, peakC = -1
+    for (let h = 0; h < 24; h++) {
+      if (m.hourly[h] > peakC) { peakC = m.hourly[h]; peakH = h }
+    }
+    m.peakHour = peakH
+    m.peakCount = peakC
+    m.peakConcentration = m.total > 0 ? peakC / m.total : 0
+  }
+
   const hourlyTotal = hourly.reduce((s, n) => s + n, 0)
   let peakHour = null
   if (hourlyTotal > 0) {
@@ -173,6 +198,42 @@ function computeInsights(stats, program) {
         emoji: '⏰',
         text: `${topBucket.emoji} ${topBucket.label} 시간대 인증이 ${topBucket.pct}%로 가장 많아요. 미션 알림이나 새 미션 시간을 이 구간 직전으로 맞춰보세요.`,
       })
+    }
+
+    // 미션별 강한 시간대 편중 — 인증 5건+ 이고 peak 집중도 40%+ 인 미션 중 최상위
+    //   본인 의도 「산책은 아침에, 명상은 저녁에」 같은 패턴 자동 인식
+    const focusedMissions = [...missionHourly.values()]
+      .filter(m => m.total >= 5 && m.peakConcentration >= 0.4)
+      .sort((a, b) => b.peakConcentration - a.peakConcentration)
+    if (focusedMissions.length > 0) {
+      const m = focusedMissions[0]
+      const peakBucket = bucketOfHour(m.peakHour)
+      const pct = Math.round(m.peakConcentration * 100)
+      highlights.push({
+        kind: 'positive',
+        emoji: '🎯',
+        text: `「${m.title}」은 ${peakBucket.emoji} ${formatHour12(m.peakHour)} 즈음에 ${pct}% 인증이 몰려있어요. 같은 시간대를 활용하는 새 미션을 추가하시면 효과적일 수 있어요.`,
+      })
+    }
+
+    // 묶음 안에서 미션 간 시간대 차이가 큰 경우 — 인기 미션은 활발한데 다른 미션은 시간대가 어긋남
+    //   인증 0건 + 같은 묶음에 인기 미션이 있는 경우, 인기 시간대로 옮겨보기 추천
+    for (const b of bundleStats) {
+      if (b.missions.length < 2) continue
+      const topInBundle = b.missions.find(mi => mi.count >= 5)
+      const zeroInBundle = b.missions.find(mi => mi.count === 0)
+      if (topInBundle && zeroInBundle) {
+        const topHour = missionHourly.get(topInBundle.mission_id)
+        if (topHour && topHour.peakConcentration >= 0.35) {
+          const peakBucket = bucketOfHour(topHour.peakHour)
+          highlights.push({
+            kind: 'suggestion',
+            emoji: '💡',
+            text: `「${zeroInBundle.title}」은 아직 인증이 없는데, 같은 묶음의 「${topInBundle.title}」은 ${peakBucket.emoji} ${peakBucket.label}에 활발해요. 시간대를 ${peakBucket.label}로 옮겨보시면 어떠세요?`,
+          })
+          break  // 묶음당 하이라이트 1개로 제한 — 메시지 폭주 방지
+        }
+      }
     }
   }
   if (dormantCount > 0 && totalParticipants > 0 && dormantCount / totalParticipants >= 0.3) {
