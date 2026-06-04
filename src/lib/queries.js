@@ -987,5 +987,8 @@ export const fetchProgramStats = async (programId) => {
     todayActiveParticipants,
     bundleStats,
     userStats,
+    // Day 65 — ProgramInsightsSummary 위젯이 시계열·분포 계산용으로 사용.
+    // 원본 verification rows (id/mission_id/user_id/submitted_at + missions JOIN).
+    _raw: rows,
   }
 }

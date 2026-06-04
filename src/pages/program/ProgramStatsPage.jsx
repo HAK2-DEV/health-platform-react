@@ -12,6 +12,7 @@ import {
 import StickyBackBar from '../../components/common/StickyBackBar'
 import LoadingState from '../../components/common/LoadingState'
 import EmptyState from '../../components/common/EmptyState'
+import ProgramInsightsSummary from '../../components/program/ProgramInsightsSummary'
 
 // 운영자 통계 메인 — 미션별 / 유저별 두 디테일 페이지로의 진입 카드 2장
 // 라우트: /programs/:id/stats
@@ -92,6 +93,12 @@ function ProgramStatsPage() {
       {isStatsLoading || !stats ? (
         <LoadingState />
       ) : (
+        <>
+        {/* Day 65 — 운영자 인사이트 위젯 4종 (상단). 본인 정체성 (전문성+따뜻함) 반영 */}
+        <ProgramInsightsSummary stats={stats} program={program} />
+
+        {/* 「자세히 보기」 드릴다운 카드 3종 (기존) */}
+        <p className="text-xs text-gray-500 font-medium px-1 mb-2">자세히 보기</p>
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -169,6 +176,7 @@ function ProgramStatsPage() {
             <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
           </button>
         </motion.div>
+        </>
       )}
     </div>
   )
