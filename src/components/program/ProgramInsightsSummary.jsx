@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Activity, Sparkles, TrendingUp, TrendingDown, Minus, Lightbulb, ChevronRight } from 'lucide-react'
+import { Activity, Sparkles, TrendingUp, TrendingDown, Minus, Lightbulb, ChevronRight, Clock } from 'lucide-react'
 import { formatKstDate } from '../../lib/queries'
 
 // Day 65 — 운영자 인사이트 위젯 4종 (ProgramStatsPage 상단).
@@ -19,6 +19,30 @@ function getDaysAgo(n) {
   const d = new Date()
   d.setDate(d.getDate() - n)
   return formatKstDate(d)
+}
+
+// 브라우저 타임존과 무관하게 KST(UTC+9) 기준 0-23 시 추출
+function getKstHour(timestamp) {
+  const utc = new Date(timestamp).getTime()
+  return new Date(utc + 9 * 60 * 60 * 1000).getUTCHours()
+}
+
+// 12시간제 표기 — 운영자 직관성 (24시제는 시간 조정 결정에 가독성 떨어짐)
+function formatHour12(hour) {
+  if (hour === 0) return '자정'
+  if (hour === 12) return '정오'
+  if (hour < 12) return `오전 ${hour}시`
+  return `오후 ${hour - 12}시`
+}
+
+const TIME_BUCKETS = [
+  { key: 'dawn',     label: '새벽',     emoji: '🌙', range: [0, 5],   color: 'bg-indigo-400' },
+  { key: 'morning',  label: '아침',     emoji: '🌅', range: [6, 11],  color: 'bg-amber-400' },
+  { key: 'afternoon',label: '낮',       emoji: '☀️', range: [12, 17], color: 'bg-emerald-400' },
+  { key: 'evening',  label: '저녁/밤',  emoji: '🌆', range: [18, 23], color: 'bg-rose-400' },
+]
+function bucketOfHour(hour) {
+  return TIME_BUCKETS.find(b => hour >= b.range[0] && hour <= b.range[1])
 }
 
 // rows: [{ user_id, mission_id, submitted_at, missions: {...} }]
@@ -58,6 +82,27 @@ function computeInsights(stats, program) {
     if (recent7Dates.has(d)) activeDays.add(d)
   }
   const consistency = Math.round((activeDays.size / 7) * 100)
+
+  // ─── 시간대 패턴 (KST 0-23) ────────────────
+  // 전체 누적 인증의 시간대 분포 — 운영자가 미션 시간을 조정할 때의 근거
+  const hourly = new Array(24).fill(0)
+  for (const r of verifications) {
+    hourly[getKstHour(r.submitted_at)]++
+  }
+  const hourlyTotal = hourly.reduce((s, n) => s + n, 0)
+  let peakHour = null
+  if (hourlyTotal > 0) {
+    let maxCount = -1
+    for (let h = 0; h < 24; h++) {
+      if (hourly[h] > maxCount) { maxCount = hourly[h]; peakHour = h }
+    }
+  }
+  // 시간대 4구간 묶음 — 운영자의 「시간대 조정」 판단 보조
+  const bucketCounts = TIME_BUCKETS.map(b => {
+    let count = 0
+    for (let h = b.range[0]; h <= b.range[1]; h++) count += hourly[h]
+    return { ...b, count, pct: hourlyTotal > 0 ? Math.round((count / hourlyTotal) * 100) : 0 }
+  })
 
   // ─── 7일 시계열 ────────────────────────────
   const trend7 = []
@@ -140,6 +185,17 @@ function computeInsights(stats, program) {
       text: `${sample}${zeroMissions.length > 2 ? ` 외 ${zeroMissions.length - 2}건` : ''} 참여도가 낮습니다. 적절한 조치를 권고드립니다.`,
     })
   }
+  // 시간대 편중 — 한 구간이 50% 이상 차지하면 운영 시점 조정 힌트
+  if (hourlyTotal >= 10) {
+    const topBucket = [...bucketCounts].sort((a, b) => b.count - a.count)[0]
+    if (topBucket && topBucket.pct >= 50) {
+      highlights.push({
+        kind: 'suggestion',
+        emoji: '⏰',
+        text: `${topBucket.emoji} ${topBucket.label} 시간대 인증이 ${topBucket.pct}%로 가장 많아요. 미션 알림이나 새 미션 시간을 이 구간 직전으로 맞춰보세요.`,
+      })
+    }
+  }
   if (dormantCount > 0 && totalParticipants > 0 && dormantCount / totalParticipants >= 0.3) {
     highlights.push({
       kind: 'suggestion',
@@ -164,6 +220,10 @@ function computeInsights(stats, program) {
     trendDelta,
     trendDeltaPct,
     distribution: { activeCount, normalCount, dormantCount, total: totalParticipants },
+    hourly,
+    hourlyTotal,
+    peakHour,
+    bucketCounts,
     highlights,
   }
 }
@@ -188,6 +248,7 @@ function ProgramInsightsSummary({ stats, program }) {
     >
       <WidgetMetrics insights={insights} />
       <WidgetTrend insights={insights} />
+      <WidgetHourly insights={insights} />
       <WidgetDistribution insights={insights} onSegmentClick={goToFilteredUsers} />
       <WidgetHighlights insights={insights} />
     </motion.div>
@@ -293,6 +354,99 @@ function WidgetTrend({ insights }) {
         {trend7.map((d, i) => (
           <span key={i}>{(['일','월','화','수','목','금','토'])[new Date(d.date).getDay()]}</span>
         ))}
+      </div>
+    </div>
+  )
+}
+
+// ─── 위젯 2.5: 시간대 패턴 — KST 0-23시 인증 분포 ─────────────
+// 운영자가 「명상 시간 바꿔야겠다」 같은 미션 시간 조정 결정의 직접 근거.
+// 4구간 (새벽·아침·낮·저녁/밤) 묶음으로 큰 그림도 제공.
+function WidgetHourly({ insights }) {
+  const { hourly, hourlyTotal, peakHour, bucketCounts } = insights
+
+  if (hourlyTotal === 0) {
+    return (
+      <div className="bg-white border border-gray-100 rounded-card-lg shadow-soft p-5">
+        <div className="flex items-center gap-2 mb-2">
+          <Clock className="w-4 h-4 text-emerald-600" />
+          <h3 className="text-sm font-bold text-gray-800">시간대 패턴</h3>
+        </div>
+        <p className="text-xs text-gray-500">아직 인증 기록이 없어요</p>
+      </div>
+    )
+  }
+
+  const maxCount = Math.max(...hourly)
+  const peakBucket = peakHour !== null ? bucketOfHour(peakHour) : null
+  const topBucket = [...bucketCounts].sort((a, b) => b.count - a.count)[0]
+
+  return (
+    <div className="bg-white border border-gray-100 rounded-card-lg shadow-soft p-5">
+      <div className="flex items-center gap-2 mb-1">
+        <Clock className="w-4 h-4 text-emerald-600" />
+        <h3 className="text-sm font-bold text-gray-800">시간대 패턴</h3>
+        <span className="text-[11px] text-gray-400 ml-auto">누적 {hourlyTotal}건 · KST</span>
+      </div>
+      {peakHour !== null && (
+        <p className="text-xs text-gray-600 mb-3">
+          <span className="font-semibold text-emerald-700">{formatHour12(peakHour)}</span>
+          {peakBucket && <span className="text-gray-500"> ({peakBucket.emoji}{peakBucket.label})</span>}
+          {' '}에 인증이 가장 활발해요.
+        </p>
+      )}
+
+      {/* 24개 막대 — peak 강조 색 */}
+      <div className="flex items-end gap-[2px] h-14 mb-1">
+        {hourly.map((count, h) => {
+          const pct = maxCount > 0 ? (count / maxCount) * 100 : 0
+          const isPeak = h === peakHour && count > 0
+          const bucket = bucketOfHour(h)
+          return (
+            <div
+              key={h}
+              className="flex-1 flex flex-col justify-end h-full"
+              title={`${formatHour12(h)} · ${count}건`}
+            >
+              <div
+                className={`w-full rounded-sm transition-all ${
+                  count === 0
+                    ? 'bg-gray-100'
+                    : isPeak
+                      ? 'bg-emerald-500'
+                      : `${bucket.color} opacity-60`
+                }`}
+                style={{ height: count === 0 ? '4px' : `${Math.max(8, pct)}%` }}
+              />
+            </div>
+          )
+        })}
+      </div>
+      {/* 시간 ticks — 0/6/12/18/24 */}
+      <div className="relative h-3 text-[10px] text-gray-400 mb-3">
+        <span className="absolute left-0">0</span>
+        <span className="absolute left-1/4 -translate-x-1/2">6</span>
+        <span className="absolute left-1/2 -translate-x-1/2">12</span>
+        <span className="absolute left-3/4 -translate-x-1/2">18</span>
+        <span className="absolute right-0">24</span>
+      </div>
+
+      {/* 4구간 분포 — 시간대 비중 */}
+      <div className="grid grid-cols-4 gap-1.5">
+        {bucketCounts.map(b => {
+          const isTop = b.key === topBucket?.key && b.count > 0
+          return (
+            <div
+              key={b.key}
+              className={`text-center p-2 rounded-lg ${isTop ? 'bg-emerald-50' : 'bg-gray-50'}`}
+            >
+              <p className="text-[11px] text-gray-600 mb-0.5">{b.emoji} {b.label}</p>
+              <p className={`text-sm font-bold ${isTop ? 'text-emerald-700' : 'text-gray-700'}`}>
+                {b.pct}%
+              </p>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
