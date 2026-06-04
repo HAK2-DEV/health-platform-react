@@ -80,15 +80,11 @@ function ProgramStatsPage() {
 
   return (
     <div className="px-4 pt-2 pb-6 max-w-4xl mx-auto">
-      <StickyBackBar fallbackPath={`/programs/${id}`} title="프로그램으로" />
-
-      {/* 헤더 */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
-        <p className="text-xs text-gray-500 mb-1">{program.name}</p>
-        <h1 className="text-2xl font-medium text-gray-800 flex items-center gap-2">
-          📊 참여자 통계
-        </h1>
-      </div>
+      <StickyBackBar
+        fallbackPath={`/programs/${id}`}
+        title="프로그램으로"
+        breadcrumb={[program.name, '참여자 통계']}
+      />
 
       {isStatsLoading || !stats ? (
         <LoadingState />

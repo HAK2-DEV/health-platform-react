@@ -1,4 +1,4 @@
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { ChevronLeft, ChevronRight, Check, X } from 'lucide-react'
@@ -11,6 +11,25 @@ import LoadingState from '../../components/common/LoadingState'
 import EmptyState from '../../components/common/EmptyState'
 import UserAvatar from '../../components/common/UserAvatar'
 
+// 활동 상태 필터 (?filter=active|normal|dormant) — ProgramInsightsSummary 위젯 3 클릭 시 도착
+const DAY_MS = 86_400_000
+const FILTER_META = {
+  active: { label: '🟢 활발 (3일 내)', threshold: 3 },
+  normal: { label: '🟡 보통 (3-7일)', threshold: 7 },
+  dormant: { label: '🔴 휴면 (7일+)', threshold: null },
+}
+function matchesFilter(user, filterKey) {
+  if (!filterKey || !FILTER_META[filterKey]) return true
+  const lastTs = user.lastActiveAt ? new Date(user.lastActiveAt).getTime() : 0
+  const now = Date.now()
+  const days3 = now - 3 * DAY_MS
+  const days7 = now - 7 * DAY_MS
+  if (filterKey === 'active') return lastTs >= days3
+  if (filterKey === 'normal') return lastTs < days3 && lastTs >= days7
+  if (filterKey === 'dormant') return lastTs < days7
+  return true
+}
+
 // 운영자 — 유저별 인증 현황 디테일
 // 라우트: /programs/:id/stats/users
 function ProgramStatsUsersPage() {
@@ -19,6 +38,8 @@ function ProgramStatsUsersPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const userId = session?.user?.id
+  const [searchParams, setSearchParams] = useSearchParams()
+  const filterKey = searchParams.get('filter')  // 'active' | 'normal' | 'dormant' | null
 
   const { data: program, isLoading: isProgramLoading } = useQuery({
     queryKey: queryKeys.program(id),
@@ -107,17 +128,35 @@ function ProgramStatsUsersPage() {
   }
 
   const maxUserCount = stats?.userStats?.[0]?.totalCount || 1
+  const filteredUserStats = stats?.userStats?.filter(u => matchesFilter(u, filterKey)) || []
+  const activeFilterMeta = filterKey ? FILTER_META[filterKey] : null
 
   return (
     <div className="px-4 pt-2 pb-6 max-w-4xl mx-auto">
-      <StickyBackBar fallbackPath={`/programs/${id}/stats`} title="통계로" />
+      <StickyBackBar
+        fallbackPath={`/programs/${id}/stats`}
+        title="통계로"
+        breadcrumb={[program.name, '참여자 통계', '유저별']}
+      />
 
-      <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
-        <p className="text-xs text-gray-500 mb-1">{program.name}</p>
-        <h1 className="text-2xl font-medium text-gray-800 flex items-center gap-2">
-          👥 유저별 인증 현황
-        </h1>
-      </div>
+      {/* 활성 필터 칩 — 위젯 3 클릭으로 진입 시 표시 */}
+      {activeFilterMeta && (
+        <div className="mt-2 mb-4 flex items-center gap-2">
+          <span className="text-xs text-gray-500">필터:</span>
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-pill text-sm font-medium">
+            {activeFilterMeta.label}
+            <button
+              type="button"
+              onClick={() => setSearchParams({})}
+              className="p-0.5 hover:bg-emerald-100 rounded-full"
+              title="필터 해제"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </span>
+          <span className="text-xs text-gray-400 ml-1">{filteredUserStats.length}명</span>
+        </div>
+      )}
 
       {/* 승인 대기 신청자 — APPROVAL 프로그램만 / 있을 때만 */}
       {pendingApplicants.length > 0 && (
@@ -180,6 +219,8 @@ function ProgramStatsUsersPage() {
         <LoadingState />
       ) : stats.userStats.length === 0 ? (
         <EmptyState icon="👥" title="아직 인증한 참여자가 없어요" />
+      ) : filteredUserStats.length === 0 ? (
+        <EmptyState icon="🔍" title={`${activeFilterMeta?.label || ''} 그룹에 해당하는 참여자가 없어요`} />
       ) : (
         <motion.div
           initial={{ opacity: 0 }}
@@ -187,7 +228,7 @@ function ProgramStatsUsersPage() {
           transition={{ duration: 0.3 }}
           className="grid gap-2"
         >
-          {stats.userStats.map((u, idx) => {
+          {filteredUserStats.map((u, idx) => {
             const percent = Math.round((u.totalCount / maxUserCount) * 100)
             const rankBadgeClass =
               idx === 0 ? 'bg-yellow-100 text-yellow-700'

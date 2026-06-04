@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Activity, Sparkles, TrendingUp, TrendingDown, Minus, Lightbulb } from 'lucide-react'
+import { Activity, Sparkles, TrendingUp, TrendingDown, Minus, Lightbulb, ChevronRight } from 'lucide-react'
 import { formatKstDate } from '../../lib/queries'
 
 // Day 65 — 운영자 인사이트 위젯 4종 (ProgramStatsPage 상단).
@@ -170,8 +171,15 @@ function computeInsights(stats, program) {
 }
 
 function ProgramInsightsSummary({ stats, program }) {
+  const { id: programId } = useParams()
+  const navigate = useNavigate()
   const insights = useMemo(() => computeInsights(stats, program), [stats, program])
   if (!insights) return null
+
+  // 위젯 3 (분포) 클릭 → 사용자 목록 페이지로 필터링 진입
+  const goToFilteredUsers = (filter) => {
+    navigate(`/programs/${programId}/stats/users?filter=${filter}`)
+  }
 
   return (
     <motion.div
@@ -182,7 +190,7 @@ function ProgramInsightsSummary({ stats, program }) {
     >
       <WidgetMetrics insights={insights} />
       <WidgetTrend insights={insights} />
-      <WidgetDistribution insights={insights} />
+      <WidgetDistribution insights={insights} onSegmentClick={goToFilteredUsers} />
       <WidgetHighlights insights={insights} />
     </motion.div>
   )
@@ -292,8 +300,8 @@ function WidgetTrend({ insights }) {
   )
 }
 
-// ─── 위젯 3: 참여자 상태 분포 ────────────────
-function WidgetDistribution({ insights }) {
+// ─── 위젯 3: 참여자 상태 분포 — 범례 클릭 시 해당 그룹 사용자 목록으로 진입 ────
+function WidgetDistribution({ insights, onSegmentClick }) {
   const { activeCount, normalCount, dormantCount, total } = insights.distribution
   if (total === 0) {
     return (
@@ -305,9 +313,9 @@ function WidgetDistribution({ insights }) {
   }
   const pct = (n) => Math.round((n / total) * 100)
   const segments = [
-    { label: '활발 (3일 내)', count: activeCount, color: 'bg-emerald-500', emoji: '🟢' },
-    { label: '보통 (3-7일)', count: normalCount, color: 'bg-amber-400', emoji: '🟡' },
-    { label: '휴면 (7일+)', count: dormantCount, color: 'bg-red-400', emoji: '🔴' },
+    { key: 'active', label: '활발 (3일 내)', count: activeCount, color: 'bg-emerald-500', hover: 'hover:bg-emerald-50', emoji: '🟢' },
+    { key: 'normal', label: '보통 (3-7일)', count: normalCount, color: 'bg-amber-400', hover: 'hover:bg-amber-50', emoji: '🟡' },
+    { key: 'dormant', label: '휴면 (7일+)', count: dormantCount, color: 'bg-red-400', hover: 'hover:bg-red-50', emoji: '🔴' },
   ]
   return (
     <div className="bg-white border border-gray-100 rounded-card-lg shadow-soft p-5">
@@ -315,29 +323,43 @@ function WidgetDistribution({ insights }) {
         <h3 className="text-sm font-bold text-gray-800">참여자 상태</h3>
         <span className="text-xs text-gray-400 ml-auto">총 {total}명</span>
       </div>
-      {/* 가로 스택 바 */}
+      {/* 가로 스택 바 — 각 segment 클릭 가능 */}
       <div className="flex h-3 rounded-full overflow-hidden bg-gray-100 mb-3">
         {segments.map((s, i) => s.count > 0 && (
-          <div
+          <button
             key={i}
-            className={s.color}
+            type="button"
+            onClick={() => onSegmentClick?.(s.key)}
+            className={`${s.color} cursor-pointer transition hover:brightness-110`}
             style={{ width: `${(s.count / total) * 100}%` }}
-            title={`${s.label}: ${s.count}명`}
+            title={`${s.label}: ${s.count}명 — 클릭해서 보기`}
+            aria-label={`${s.label} ${s.count}명 보기`}
           />
         ))}
       </div>
-      {/* 범례 */}
-      <div className="space-y-1.5">
+      {/* 범례 — 행 전체 클릭 가능 */}
+      <div className="space-y-0.5">
         {segments.map((s, i) => (
-          <div key={i} className="flex items-center justify-between text-xs">
+          <button
+            key={i}
+            type="button"
+            onClick={() => onSegmentClick?.(s.key)}
+            disabled={s.count === 0}
+            className={`w-full flex items-center justify-between text-xs px-2 py-1.5 rounded-lg transition text-left ${
+              s.count === 0 ? 'opacity-50 cursor-default' : `cursor-pointer ${s.hover}`
+            }`}
+          >
             <span className="flex items-center gap-1.5 text-gray-600">
               <span>{s.emoji}</span>
               <span>{s.label}</span>
             </span>
-            <span className="text-gray-800 font-semibold">
-              {s.count}명 <span className="text-gray-400 font-normal">({pct(s.count)}%)</span>
+            <span className="flex items-center gap-1">
+              <span className="text-gray-800 font-semibold">
+                {s.count}명 <span className="text-gray-400 font-normal">({pct(s.count)}%)</span>
+              </span>
+              {s.count > 0 && <ChevronRight className="w-3.5 h-3.5 text-gray-400" />}
             </span>
-          </div>
+          </button>
         ))}
       </div>
     </div>
