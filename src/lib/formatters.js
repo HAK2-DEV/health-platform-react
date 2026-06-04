@@ -14,6 +14,31 @@ export function getTodayKST() {
   return _KST_FORMATTER.format(new Date())
 }
 
+// 브라우저 타임존 무관 — UTC+9 기준 0-23 시. 시간대 패턴 분석용 (Day 65).
+export function getKstHour(timestamp) {
+  const utc = new Date(timestamp).getTime()
+  return new Date(utc + 9 * 60 * 60 * 1000).getUTCHours()
+}
+
+// 0-23 → 「오전 7시」 / 「오후 8시」 / 「자정」 / 「정오」
+export function formatHour12(hour) {
+  if (hour === 0) return '자정'
+  if (hour === 12) return '정오'
+  if (hour < 12) return `오전 ${hour}시`
+  return `오후 ${hour - 12}시`
+}
+
+// 시간대 4구간 — 아침·낮·저녁/밤·새벽
+export const TIME_BUCKETS = [
+  { key: 'dawn',      label: '새벽',    emoji: '🌙', range: [0, 5],   color: 'bg-indigo-400' },
+  { key: 'morning',   label: '아침',    emoji: '🌅', range: [6, 11],  color: 'bg-amber-400' },
+  { key: 'afternoon', label: '낮',      emoji: '☀️', range: [12, 17], color: 'bg-emerald-400' },
+  { key: 'evening',   label: '저녁/밤', emoji: '🌆', range: [18, 23], color: 'bg-rose-400' },
+]
+export function bucketOfHour(hour) {
+  return TIME_BUCKETS.find(b => hour >= b.range[0] && hour <= b.range[1])
+}
+
 // Date 객체 → KST YYYY-MM-DD
 export function toKSTDateString(date) {
   return _KST_FORMATTER.format(new Date(date))

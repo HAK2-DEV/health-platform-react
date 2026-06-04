@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Activity, Sparkles, TrendingUp, TrendingDown, Minus, Lightbulb, ChevronRight, Clock } from 'lucide-react'
 import { formatKstDate } from '../../lib/queries'
+import { getKstHour, formatHour12, TIME_BUCKETS, bucketOfHour } from '../../lib/formatters'
 
 // Day 65 — 운영자 인사이트 위젯 4종 (ProgramStatsPage 상단).
 //   1) 3대 지표 (참여율/다양성/꾸준함) — 종합 점수 대신 각 bar 로 분리
@@ -21,29 +22,7 @@ function getDaysAgo(n) {
   return formatKstDate(d)
 }
 
-// 브라우저 타임존과 무관하게 KST(UTC+9) 기준 0-23 시 추출
-function getKstHour(timestamp) {
-  const utc = new Date(timestamp).getTime()
-  return new Date(utc + 9 * 60 * 60 * 1000).getUTCHours()
-}
-
-// 12시간제 표기 — 운영자 직관성 (24시제는 시간 조정 결정에 가독성 떨어짐)
-function formatHour12(hour) {
-  if (hour === 0) return '자정'
-  if (hour === 12) return '정오'
-  if (hour < 12) return `오전 ${hour}시`
-  return `오후 ${hour - 12}시`
-}
-
-const TIME_BUCKETS = [
-  { key: 'dawn',     label: '새벽',     emoji: '🌙', range: [0, 5],   color: 'bg-indigo-400' },
-  { key: 'morning',  label: '아침',     emoji: '🌅', range: [6, 11],  color: 'bg-amber-400' },
-  { key: 'afternoon',label: '낮',       emoji: '☀️', range: [12, 17], color: 'bg-emerald-400' },
-  { key: 'evening',  label: '저녁/밤',  emoji: '🌆', range: [18, 23], color: 'bg-rose-400' },
-]
-function bucketOfHour(hour) {
-  return TIME_BUCKETS.find(b => hour >= b.range[0] && hour <= b.range[1])
-}
+// 시간대 헬퍼는 lib/formatters.js 로 이동 (Day 65 — 미션 페이지 공유)
 
 // rows: [{ user_id, mission_id, submitted_at, missions: {...} }]
 function computeInsights(stats, program) {
