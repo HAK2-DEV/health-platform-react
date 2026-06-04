@@ -28,3 +28,20 @@ dist-ssr
 
 # Supabase CLI 내부 상태 (link 시점 정보 등)
 supabase/.temp/
+
+# Capacitor — 네이티브 빌드 산출물 (소스는 커밋, 빌드는 제외)
+android/app/build/
+android/build/
+android/.gradle/
+android/local.properties
+android/.idea/
+android/app/release/
+android/captures/
+ios/App/build/
+ios/App/Pods/
+ios/App/output/
+ios/DerivedData/
+ios/App/App.xcworkspace/xcuserdata/
+ios/App/App.xcodeproj/xcuserdata/
+ios/App/App.xcodeproj/project.xcworkspace/xcuserdata/
+.gradle/

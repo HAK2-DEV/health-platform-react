@@ -1,0 +1,165 @@
+# GitHub Actions — iOS 빌드 (Mac runner)
+# Day 65 Capacitor 도입.
+#
+# 트리거: mvp-v2 또는 main 브랜치 푸시 + 수동 실행
+# 결과: 빌드 된 .ipa 아티팩트 (App Store 업로드용)
+#
+# 본인 후속 액션:
+#   1) Apple Developer Program 등록 후 App ID + 인증서 생성
+#   2) Repository Secrets 등록:
+#      - APP_STORE_CONNECT_API_KEY_ID
+#      - APP_STORE_CONNECT_API_ISSUER_ID
+#      - APP_STORE_CONNECT_API_KEY (base64 인코딩된 .p8 파일 내용)
+#      - APPLE_TEAM_ID
+#      - APPLE_DISTRIBUTION_CERTIFICATE_BASE64 (배포 인증서 .p12 → base64)
+#      - APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD
+#      - APPLE_PROVISIONING_PROFILE_BASE64
+#   3) main 머지 시 자동 빌드 → TestFlight 업로드
+#
+# 무료 한도: macOS runner 는 보통 runner 의 10배 분당 비용. 월 2000분 무료 = 약 200분 macOS.
+# 1회 빌드 ~10-15분 → 월 13-20회 빌드 가능 (베타 단계 충분).
+
+name: iOS Build
+
+on:
+  push:
+    branches: [main, mvp-v2]
+    paths:
+      - 'src/**'
+      - 'ios/**'
+      - 'capacitor.config.ts'
+      - 'package*.json'
+      - '.github/workflows/ios-build.yml'
+  workflow_dispatch:  # 수동 실행
+
+jobs:
+  build:
+    runs-on: macos-14  # Apple Silicon, 빠른 빌드
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web assets
+        env:
+          VITE_KAKAO_REST_API_KEY: ${{ secrets.VITE_KAKAO_REST_API_KEY }}
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+        run: npm run build
+
+      - name: Sync Capacitor iOS
+        run: npx cap sync ios
+
+      - name: Install CocoaPods dependencies
+        working-directory: ios/App
+        run: pod install
+
+      # 인증서·프로비저닝 프로파일 셋업
+      - name: Install Apple certificate
+        if: ${{ secrets.APPLE_DISTRIBUTION_CERTIFICATE_BASE64 != '' }}
+        env:
+          CERT_BASE64: ${{ secrets.APPLE_DISTRIBUTION_CERTIFICATE_BASE64 }}
+          CERT_PASSWORD: ${{ secrets.APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD }}
+          PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          # 인증서 임시 keychain 에 import
+          CERT_PATH=$RUNNER_TEMP/cert.p12
+          PROFILE_PATH=$RUNNER_TEMP/profile.mobileprovision
+          KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain
+          KEYCHAIN_PASSWORD=$(uuidgen)
+
+          echo "$CERT_BASE64" | base64 --decode > $CERT_PATH
+          echo "$PROVISIONING_PROFILE_BASE64" | base64 --decode > $PROFILE_PATH
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security import $CERT_PATH -P "$CERT_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security list-keychain -d user -s $KEYCHAIN_PATH
+
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp $PROFILE_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
+
+      - name: Build .ipa (Archive + Export)
+        if: ${{ secrets.APPLE_DISTRIBUTION_CERTIFICATE_BASE64 != '' }}
+        working-directory: ios/App
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          xcodebuild -workspace App.xcworkspace \
+            -scheme App \
+            -sdk iphoneos \
+            -configuration Release \
+            -archivePath $RUNNER_TEMP/App.xcarchive \
+            archive \
+            DEVELOPMENT_TEAM=$APPLE_TEAM_ID \
+            CODE_SIGN_STYLE=Manual
+
+          # Export options plist
+          cat > $RUNNER_TEMP/ExportOptions.plist <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store</string>
+            <key>teamID</key>
+            <string>$APPLE_TEAM_ID</string>
+            <key>uploadBitcode</key>
+            <false/>
+            <key>uploadSymbols</key>
+            <true/>
+          </dict>
+          </plist>
+          EOF
+
+          xcodebuild -exportArchive \
+            -archivePath $RUNNER_TEMP/App.xcarchive \
+            -exportOptionsPlist $RUNNER_TEMP/ExportOptions.plist \
+            -exportPath $RUNNER_TEMP/export
+
+      # 인증서 없으면 unsigned 빌드만 (PR 검증·dev 용)
+      - name: Build unsigned (dev/PR)
+        if: ${{ secrets.APPLE_DISTRIBUTION_CERTIFICATE_BASE64 == '' }}
+        working-directory: ios/App
+        run: |
+          xcodebuild -workspace App.xcworkspace \
+            -scheme App \
+            -sdk iphonesimulator \
+            -configuration Debug \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=
+
+      - name: Upload .ipa artifact
+        if: ${{ secrets.APPLE_DISTRIBUTION_CERTIFICATE_BASE64 != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa
+          path: ${{ runner.temp }}/export/*.ipa
+          retention-days: 30
+
+      # TestFlight 자동 업로드 (선택 — secret 설정 후 활성)
+      - name: Upload to TestFlight
+        if: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID != '' }}
+        env:
+          API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          API_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+        run: |
+          mkdir -p ~/.appstoreconnect/private_keys
+          echo "$API_PRIVATE_KEY" | base64 --decode > ~/.appstoreconnect/private_keys/AuthKey_${API_KEY_ID}.p8
+
+          xcrun altool --upload-app \
+            --type ios \
+            --file $RUNNER_TEMP/export/*.ipa \
+            --apiKey $API_KEY_ID \
+            --apiIssuer $API_ISSUER_ID

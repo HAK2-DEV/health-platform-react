@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">건강증진 플랫폼</string>
+    <string name="title_activity_main">건강증진 플랫폼</string>
+    <string name="package_name">com.healthplatform.app</string>
+    <string name="custom_url_scheme">com.healthplatform.app</string>
+</resources>
