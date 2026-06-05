@@ -186,3 +186,36 @@ export function getStageEmoji(track, stage) {
 export function getCollection(flowerKeys) {
   return (flowerKeys || []).map(getFlowerByKey).filter(Boolean)
 }
+
+// ─── 마일스톤 도달 감지 ──────────────────────
+// 인증 성공 직후 호출. 직전 상태 vs 현재 상태 비교해서 새로 도달한 마일스톤 반환.
+//
+// before / after: { streak, totalCount, stage }
+// streakMilestones: number[] (예: [7, 14, 30])
+//
+// 반환: 토스트 메시지 배열 (도달 순서대로)
+//   [{ kind, message, icon, variant }]
+export function detectMilestonesReached(before, after, streakMilestones = []) {
+  const reached = []
+
+  // 1) 연속 보너스 — streakMilestones 중 before 미도달 + after 도달
+  for (const m of streakMilestones) {
+    if ((before?.streak || 0) < m && (after?.streak || 0) >= m) {
+      reached.push({ kind: 'streak', message: `${m}일 연속 달성!`, icon: '🔥', variant: 'achievement' })
+    }
+  }
+
+  // 2) 누적 보너스 — CUMULATIVE_MILESTONES (50, 100)
+  for (const m of CUMULATIVE_MILESTONES) {
+    if ((before?.totalCount || 0) < m && (after?.totalCount || 0) >= m) {
+      reached.push({ kind: 'cumulative', message: `누적 ${m}건 인증 달성!`, icon: '🎯', variant: 'achievement' })
+    }
+  }
+
+  // 3) 5단계 도달 (만개) — 성장형 트랙
+  if ((before?.stage || 0) < 5 && (after?.stage || 0) >= 5) {
+    reached.push({ kind: 'stage', message: '만개! 식물의 정체가 공개됐어요', icon: '🌸', variant: 'achievement' })
+  }
+
+  return reached
+}

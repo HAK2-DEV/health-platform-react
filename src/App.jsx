@@ -6,6 +6,7 @@ import { useAuth } from './hooks/useAuth'
 import BottomTabBar from './components/common/BottomTabBar'
 import ProtectedRoute from './components/ProtectedRoute'
 import LoadingState from './components/common/LoadingState'
+import { ToastProvider } from './contexts/ToastContext'
 
 // 코드 스플리팅 — 페이지별 lazy chunk 분리 (Day 65 본인 결정)
 //   첫 진입 시 메인 번들(~1.2MB) 한 번에 다운로드 X → 필요한 페이지만 점진적 로드.
@@ -207,8 +208,13 @@ function AppShell() {
 }
 
 // useNavigate/useLocation 은 Router 컨텍스트 안에서만 사용 가능하므로 main.jsx 의 BrowserRouter 안에서 렌더링.
+// ToastProvider 는 전역 마일스톤 토스트 등에 사용 (Day 65).
 function App() {
-  return <AppShell />
+  return (
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  )
 }
 
 export default App

@@ -7,7 +7,9 @@ import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
 import { CATEGORY } from '../../lib/constants'
 import { checkMissionToday } from '../../lib/formatters'
-import { queryKeys, fetchMission } from '../../lib/queries'
+import { queryKeys, fetchMission, fetchProgramOverview, fetchProgram } from '../../lib/queries'
+import { detectMilestonesReached, resolveStreakMilestones, computeStage } from '../../lib/gamification'
+import { useToast } from '../../contexts/ToastContext'
 import { compressImage } from '../../lib/imageCompression'
 import LoadingState from '../../components/common/LoadingState'
 
@@ -31,8 +33,10 @@ function MissionVerifyPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const queryClient = useQueryClient()
+  const toast = useToast()
   const fileInputRef = useRef(null)
   const errorRef = useRef(null) // 에러 메시지 — 화면 중앙 스크롤 + 진동
+  const beforeOverviewRef = useRef(null) // 인증 직전 overview snapshot — 마일스톤 비교용
 
   // 인증 페이지 진입 시 location.state.returnPath 가 있으면 제출/뒤로 후 그 페이지로 복귀
   // (예: BundleDetailPage 에서 진입 → 같은 BundleDetailPage 로 복귀)
@@ -178,7 +182,7 @@ function MissionVerifyPage() {
         throw new Error(`인증 제출 실패: ${insertError.message}`)
       }
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       // 인증 성공 → 점수/카운트/랭킹 모두 무효화 → 다른 화면 진입 시 fresh
       // prefix 무효화로 한 번에 처리 (새 키 추가 시 빠질 위험 줄임)
       queryClient.invalidateQueries({ queryKey: ['scores'] })
@@ -187,8 +191,44 @@ function MissionVerifyPage() {
       queryClient.invalidateQueries({ queryKey: ['missions', 'today'] })
       queryClient.invalidateQueries({ queryKey: ['stats'] })
       queryClient.invalidateQueries({ queryKey: ['feed'] })
-      // 운영자 본인이 자기 미션 인증한 경우 PENDING 도 갱신될 수 있음
-      // 묶음 진입이었으면 묶음 모달로 자동 복귀 (다른 미션 연속 인증 가능)
+
+      // Day 65 — 마일스톤 토스트. 직전 snapshot 과 비교해서 새로 도달한 마일스톤 알림.
+      try {
+        const before = beforeOverviewRef.current
+        const newOverview = await fetchProgramOverview(programId, session.user.id)
+        queryClient.setQueryData(queryKeys.programOverview(programId, session.user.id), newOverview)
+
+        // streak_preset/streak_milestones 조회 위해 program 가져옴 (cache hit 우선)
+        let program = queryClient.getQueryData(queryKeys.program(programId))
+        if (!program) program = await fetchProgram(programId)
+
+        const milestones = resolveStreakMilestones(program?.streak_preset, program?.streak_milestones)
+
+        // stage 계산 — 성장형 트랙에서만 의미
+        const programDays = (program?.start_date && program?.end_date)
+          ? Math.max(1, Math.round((new Date(`${program.end_date}T23:59:59+09:00`) - new Date(`${program.start_date}T00:00:00+09:00`)) / 86400000) + 1)
+          : 1
+        const beforeStage = computeStage({ activeDays: before?.activeDays || 0, totalCount: before?.totalCount || 0, programDays })
+        const afterStage = computeStage({ activeDays: newOverview.activeDays, totalCount: newOverview.totalCount, programDays })
+
+        const reached = detectMilestonesReached(
+          { streak: before?.streak || 0, totalCount: before?.totalCount || 0, stage: beforeStage },
+          { streak: newOverview.streak, totalCount: newOverview.totalCount, stage: afterStage },
+          milestones,
+        )
+        // 토스트 순서대로 표시 (살짝 지연으로 겹침 방지)
+        reached.forEach((m, idx) => {
+          setTimeout(() => toast.show(m.message, { variant: m.variant, icon: m.icon }), idx * 400)
+        })
+        // 마일스톤 있으면 redirect 살짝 지연 — 사용자가 토스트 인지
+        if (reached.length > 0) {
+          setTimeout(backToProgram, Math.min(2400, 800 + reached.length * 400))
+          return
+        }
+      } catch (e) {
+        // 마일스톤 체크 실패는 silent — 핵심 인증 흐름 방해 X
+        console.warn('마일스톤 체크 실패:', e)
+      }
       backToProgram()
     },
     onError: (err) => {
@@ -199,6 +239,11 @@ function MissionVerifyPage() {
 
   const handleSubmit = () => {
     if (!session || !mission) return
+
+    // Day 65 — 마일스톤 비교용 직전 snapshot 캡처 (현재 cache 데이터).
+    beforeOverviewRef.current = queryClient.getQueryData(
+      queryKeys.programOverview(programId, session.user.id)
+    )
 
     if (needsImage && !selectedFile) {
       setError('사진을 선택해주세요')
