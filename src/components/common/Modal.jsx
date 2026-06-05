@@ -1,17 +1,15 @@
-import { X } from 'lucide-react'
+import { X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useEffect } from 'react'
 import { motion, AnimatePresence, useDragControls } from 'framer-motion'
 
-// 스와이프 임계값 (Day 65 본인 모바일 UX 요청)
+// 스와이프 다운 임계값 — 모달 닫기용. 좌우 스와이프는 브라우저 swipe-to-navigate
+// 와 충돌이 잦아 본인 결정으로 제거. 대신 좌·우 fade 버튼으로 대체 (Day 65).
 const SWIPE_CLOSE_DISTANCE = 100     // 아래로 끌어 닫기 — 100px 이상
 const SWIPE_CLOSE_VELOCITY = 500     // 또는 빠른 플릭 (px/s)
-const SWIPE_NAV_DISTANCE = 80        // 좌우 prev/next — 80px 이상
-const SWIPE_NAV_VELOCITY = 400
 
 // props:
 //   isOpen / onClose — 기본
-//   onPrev / onNext — 좌우 스와이프 시 호출. 없으면 좌우 제스처 비활성.
-//                      예: setSelectedProgram(programs[currentIndex - 1])
+//   onPrev / onNext — 좌우 화살표 버튼 클릭 시 호출. undefined 면 해당 버튼 숨김 (첫/마지막).
 function Modal({ isOpen, onClose, children, onPrev, onNext }) {
   // 상단 핸들에서만 drag 시작 — 본문 스크롤과 충돌 방지
   const dragControls = useDragControls()
@@ -58,18 +56,14 @@ function Modal({ isOpen, onClose, children, onPrev, onNext }) {
               overscroll-contain: 모달 내부 스크롤 끝 도달 시에도 부모로 전파 안 함 (추가 안전망)
               drag y: 상단 핸들에서 시작 (dragListener=false + dragControls).
               onPanEnd: 좌우 스와이프 감지 — onPrev/onNext 있을 때만 navigation. */}
-          {/* 외부 motion.div — drag/pan 처리 전담. touch-action: none 으로 브라우저의
-              forward/back swipe gesture 차단 (이걸 안 하면 모바일 safari 가 좌우
-              swipe 를 history navigation 으로 가로채감 — 본인 보고: 「2번 모달에서
-              좌로 슬라이드하면 다른 화면으로 이동」 의 직접 원인).
-              내부 scroll 은 inner div 에서 별도 처리. */}
+          {/* 모달 본체. drag y 는 핸들에서만 시작 (dragListener=false) — 본문 스크롤과 충돌 X.
+              좌우 스와이프는 브라우저 swipe-to-navigate 와 충돌이 잦아 제거 → fade 버튼으로 대체. */}
           <motion.div
             className="
-              relative bg-white shadow-xl overflow-hidden
-              w-full max-h-[90vh] rounded-t-2xl flex flex-col
+              relative bg-white shadow-xl overflow-y-auto overscroll-contain
+              w-full max-h-[90vh] rounded-t-2xl
               sm:max-w-md sm:max-h-[85vh] sm:rounded-lg
             "
-            style={{ touchAction: 'none' }}
             onClick={(e) => e.stopPropagation()}
             initial={{ y: 32, opacity: 0, scale: 0.97 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
@@ -90,21 +84,10 @@ function Modal({ isOpen, onClose, children, onPrev, onNext }) {
                 onClose()
               }
             }}
-            onPanEnd={(_, info) => {
-              if (!onPrev && !onNext) return
-              const { offset, velocity } = info
-              // 수평 우세 (수직보다 1.5배 이상) + 임계값 통과 시에만
-              if (Math.abs(offset.x) < Math.abs(offset.y) * 1.5) return
-              // 본인 의도(page-flip 메타포): 우로 스와이프 → 다음, 좌로 스와이프 → 이전.
-              const goNext = offset.x > SWIPE_NAV_DISTANCE || velocity.x > SWIPE_NAV_VELOCITY
-              const goPrev = offset.x < -SWIPE_NAV_DISTANCE || velocity.x < -SWIPE_NAV_VELOCITY
-              if (goNext && onNext) onNext()
-              else if (goPrev && onPrev) onPrev()
-            }}
           >
-            {/* 모바일 손잡이 — 여기서만 drag y 시작. touch-none 으로 native gesture 차단. */}
+            {/* 모바일 손잡이 — 여기서만 drag y 시작 → 본문 스크롤과 분리 */}
             <div
-              className="sm:hidden flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing flex-shrink-0"
+              className="sm:hidden flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing"
               style={{ touchAction: 'none' }}
               onPointerDown={(e) => dragControls.start(e)}
             >
@@ -119,15 +102,34 @@ function Modal({ isOpen, onClose, children, onPrev, onNext }) {
               <X className="w-5 h-5" />
             </button>
 
-            {/* 내부 scroll 영역 — touch-action: pan-y 로 수직 native scroll 만 허용.
-                수평은 외부 motion.div 의 onPanEnd 가 처리. */}
-            <div
-              className="flex-1 overflow-y-auto overscroll-contain"
-              style={{ touchAction: 'pan-y' }}
-            >
-              {children}
-            </div>
+            {children}
           </motion.div>
+
+          {/* prev/next fade 버튼 — 모달 좌·우 가장자리 세로 중앙.
+              화면 좌표 기준 fixed 라 모달 스크롤과 독립적 위치.
+              undefined 면 안 렌더 (첫/마지막 자연 인지). */}
+          {onPrev && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onPrev() }}
+              className="fixed left-2 sm:left-4 top-1/2 -translate-y-1/2 z-[70] w-10 h-10 flex items-center justify-center bg-white/70 hover:bg-white text-gray-700 rounded-full shadow-md backdrop-blur-sm transition"
+              title="이전"
+              aria-label="이전 프로그램"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+          )}
+          {onNext && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onNext() }}
+              className="fixed right-2 sm:right-4 top-1/2 -translate-y-1/2 z-[70] w-10 h-10 flex items-center justify-center bg-white/70 hover:bg-white text-gray-700 rounded-full shadow-md backdrop-blur-sm transition"
+              title="다음"
+              aria-label="다음 프로그램"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          )}
         </div>
       )}
     </AnimatePresence>
