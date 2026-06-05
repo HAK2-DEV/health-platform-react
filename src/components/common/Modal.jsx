@@ -89,10 +89,11 @@ function Modal({ isOpen, onClose, children, onPrev, onNext }) {
               const { offset, velocity } = info
               // 수평 우세 (수직보다 1.5배 이상) + 임계값 통과 시에만
               if (Math.abs(offset.x) < Math.abs(offset.y) * 1.5) return
-              const goPrev = offset.x > SWIPE_NAV_DISTANCE || velocity.x > SWIPE_NAV_VELOCITY
-              const goNext = offset.x < -SWIPE_NAV_DISTANCE || velocity.x < -SWIPE_NAV_VELOCITY
-              if (goPrev && onPrev) onPrev()
-              else if (goNext && onNext) onNext()
+              // 본인 의도(page-flip 메타포): 우로 스와이프 → 다음, 좌로 스와이프 → 이전.
+              const goNext = offset.x > SWIPE_NAV_DISTANCE || velocity.x > SWIPE_NAV_VELOCITY
+              const goPrev = offset.x < -SWIPE_NAV_DISTANCE || velocity.x < -SWIPE_NAV_VELOCITY
+              if (goNext && onNext) onNext()
+              else if (goPrev && onPrev) onPrev()
             }}
           >
             {/* 모바일 손잡이 — 여기서만 drag y 시작 → 본문 스크롤과 분리 */}
