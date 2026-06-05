@@ -278,7 +278,7 @@ function MissionVerifyPage() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.3 }}
-        className={`relative bg-gradient-to-b ${hero.from} ${hero.via} ${hero.to} pt-2 pb-10 px-5 overflow-hidden`}
+        className={`relative bg-gradient-to-b ${hero.from} ${hero.via} ${hero.to} pt-2 pb-8 px-5 overflow-hidden`}
       >
 
         {/* 라이브러리 미션 일러스트 — 히어로 풀블리드 (Day 65, 본인 모의도 흐름).
@@ -325,23 +325,8 @@ function MissionVerifyPage() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, delay: 0.05 }}
-        className="relative -mt-6 bg-white rounded-t-3xl shadow-sm px-5 pt-5 pb-32"
+        className="relative -mt-6 bg-white rounded-t-[2rem] shadow-sm px-5 pt-5 pb-32"
       >
-        {/* 칩 라인 — 헤더에서 옮김. 입력 카드 안이라 잘리지 않음. */}
-        <div className="flex items-center gap-2 flex-wrap mb-4">
-          <span className={`inline-flex items-center px-2.5 py-1 ${hero.chip} text-white text-xs rounded-full font-medium`}>
-            +{mission.point}P
-          </span>
-          <span className="inline-flex items-center px-2.5 py-1 bg-gray-100 text-gray-700 text-xs rounded-full font-medium">
-            {mission.verification_type === 'AUTO' ? '⚡ 자동 승인' : '✅ 운영자 심사'}
-          </span>
-          {isMulti && (
-            <span className="inline-flex items-center px-2.5 py-1 bg-emerald-50 text-emerald-700 text-xs rounded-full font-medium">
-              {requireCount}가지 인증
-            </span>
-          )}
-        </div>
-
         {!todayCheck.active && (
           <div className="mb-5 p-3 bg-amber-50 border border-amber-200 rounded-xl text-center">
             <p className="text-sm font-medium text-amber-800 mb-0.5">
@@ -353,11 +338,27 @@ function MissionVerifyPage() {
           </div>
         )}
 
-        {mission.instruction && (
+        {(mission.instruction || true) && (
           <div className="mb-5 p-3 bg-gray-50 rounded-xl">
-            <p className="text-xs text-gray-500 mb-1 font-medium">📋 안내</p>
+            {/* 안내 라벨 + 칩(보상/방식) 한 줄 — 본인 결정으로 통합 */}
+            <div className="flex items-center justify-between gap-2 flex-wrap mb-1.5">
+              <p className="text-xs text-gray-500 font-medium">📋 안내</p>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className={`inline-flex items-center px-2 py-0.5 ${hero.chip} text-white text-[11px] rounded-full font-medium`}>
+                  +{mission.point}P
+                </span>
+                <span className="inline-flex items-center px-2 py-0.5 bg-white text-gray-700 text-[11px] rounded-full font-medium border border-gray-200">
+                  {mission.verification_type === 'AUTO' ? '⚡ 자동 승인' : '✅ 운영자 심사'}
+                </span>
+                {isMulti && (
+                  <span className="inline-flex items-center px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[11px] rounded-full font-medium">
+                    {requireCount}가지 인증
+                  </span>
+                )}
+              </div>
+            </div>
             <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
-              {mission.instruction}
+              {mission.instruction || '인증 시 점수가 자동 적립돼요.'}
             </p>
           </div>
         )}
