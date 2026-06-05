@@ -67,6 +67,7 @@ export const MISSION_LIBRARY = [
       {
         title: '취침 시간 기록',
         instruction: '오늘 잠든 시간을 시·분 단위 숫자로 기록해요 (예: 23.5 = 23시 30분)',
+        icon: 'sleep/sleep_bedtime_log.png',
         requires_image: false,
         requires_numeric: true,
         requires_note: false,
@@ -77,6 +78,7 @@ export const MISSION_LIBRARY = [
       {
         title: '아침 기상 기록',
         instruction: '오늘 일어난 시간을 시·분 단위 숫자로 기록해요',
+        icon: 'sleep/sleep_morning_log.png',
         requires_image: false,
         requires_numeric: true,
         requires_note: false,
@@ -87,6 +89,7 @@ export const MISSION_LIBRARY = [
       {
         title: '수면 한 줄 소감',
         instruction: '오늘 수면 어땠나요? 한 줄로 남겨주세요',
+        icon: 'sleep/sleep_note.png',
         requires_image: false,
         requires_numeric: false,
         requires_note: true,
@@ -139,6 +142,7 @@ export const MISSION_LIBRARY = [
       {
         title: '명상 인증 사진',
         instruction: '오늘 명상한 순간을 사진으로 인증해요',
+        icon: 'mind/mind_meditation_photo.png',
         requires_image: true,
         requires_numeric: false,
         requires_note: false,
@@ -149,6 +153,7 @@ export const MISSION_LIBRARY = [
       {
         title: '명상 시간 기록',
         instruction: '오늘 명상한 시간(분)을 기록해요',
+        icon: 'mind/mind_meditation_time.png',
         requires_image: false,
         requires_numeric: true,
         requires_note: false,
@@ -159,6 +164,7 @@ export const MISSION_LIBRARY = [
       {
         title: '마음 한 줄 소감',
         instruction: '오늘 마음 상태를 한 줄로 남겨주세요',
+        icon: 'mind/mind_meditation_note.png',
         requires_image: false,
         requires_numeric: false,
         requires_note: true,
@@ -458,6 +464,7 @@ export const MISSION_LIBRARY = [
       {
         title: '취침 전 스트레칭/명상',
         instruction: '오늘 잠자기 전 5분 이상 스트레칭 또는 명상을 했다면 인증',
+        icon: 'sleep/sleep_bedtime_routine.png',
         requires_image: false,
         requires_numeric: false,
         requires_note: true,
@@ -468,6 +475,7 @@ export const MISSION_LIBRARY = [
       {
         title: '취침 시각 기록',
         instruction: '오늘 잠든 시각을 기록해요 (예: 23.5 = 23시 30분)',
+        icon: 'sleep/sleep_bedtime_clock.png',
         requires_image: false,
         requires_numeric: true,
         requires_note: false,
@@ -489,6 +497,7 @@ export const MISSION_LIBRARY = [
       {
         title: '오늘 감사한 일 3가지',
         instruction: '오늘 감사했던 일 3가지를 한 줄로 정리해서 남겨주세요',
+        icon: 'mind/mind_gratitude_diary.png',
         requires_image: false,
         requires_numeric: false,
         requires_note: true,
@@ -509,6 +518,7 @@ export const MISSION_LIBRARY = [
       {
         title: '스트레스 해소 활동',
         instruction: '오늘 한 스트레스 해소 활동을 한 줄로 남겨주세요 (음악/산책/취미 등)',
+        icon: 'mind/mind_stress_relief.png',
         requires_image: false,
         requires_numeric: false,
         requires_note: true,
@@ -519,6 +529,7 @@ export const MISSION_LIBRARY = [
       {
         title: '심호흡 시간',
         instruction: '오늘 심호흡한 시간(분)을 기록해요',
+        icon: 'mind/mind_breathing_time.png',
         requires_image: false,
         requires_numeric: true,
         requires_note: false,
