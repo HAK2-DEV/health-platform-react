@@ -278,7 +278,7 @@ function MissionVerifyPage() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.3 }}
-        className={`relative bg-gradient-to-b ${hero.from} ${hero.via} ${hero.to} pt-2 pb-6 px-5 overflow-hidden`}
+        className={`relative bg-gradient-to-b ${hero.from} ${hero.via} ${hero.to} pt-2 pb-10 px-5 overflow-hidden`}
       >
 
         {/* 라이브러리 미션 일러스트 — 히어로 풀블리드 (Day 65, 본인 모의도 흐름).
@@ -325,7 +325,7 @@ function MissionVerifyPage() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, delay: 0.05 }}
-        className="relative -mt-10 bg-white rounded-t-3xl shadow-sm px-5 pt-5 pb-32"
+        className="relative -mt-6 bg-white rounded-t-3xl shadow-sm px-5 pt-5 pb-32"
       >
         {/* 칩 라인 — 헤더에서 옮김. 입력 카드 안이라 잘리지 않음. */}
         <div className="flex items-center gap-2 flex-wrap mb-4">
