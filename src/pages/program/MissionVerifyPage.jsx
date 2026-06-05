@@ -269,6 +269,20 @@ function MissionVerifyPage() {
         transition={{ duration: 0.3 }}
         className={`relative bg-gradient-to-b ${hero.from} ${hero.via} ${hero.to} pt-3 pb-20 px-5 overflow-hidden`}
       >
+        {/* 라이브러리 미션 아이콘 — 우상단 장식 (Day 65). icon_path 없는 미션은 기존 모습. */}
+        {mission.icon_path && (
+          <motion.img
+            initial={{ opacity: 0, scale: 0.9, x: 10 }}
+            animate={{ opacity: 1, scale: 1, x: 0 }}
+            transition={{ duration: 0.4, delay: 0.1 }}
+            src={`/mission-icons/${mission.icon_path}`}
+            alt=""
+            className="absolute top-2 right-2 w-24 h-24 sm:w-28 sm:h-28 object-contain drop-shadow-md pointer-events-none select-none"
+            aria-hidden="true"
+            onError={(e) => { e.currentTarget.style.display = 'none' }}
+          />
+        )}
+
         <button
           type="button"
           onClick={handleClose}
@@ -278,6 +292,8 @@ function MissionVerifyPage() {
           <ChevronLeft className="w-5 h-5 text-gray-700" />
         </button>
 
+        {/* 아이콘 있을 때만 텍스트 영역 우측 여유 확보 — 아이콘과 텍스트 겹침 방지 */}
+        <div className={mission.icon_path ? 'pr-24 sm:pr-28' : ''}>
         <p className="text-xs text-gray-600 mb-1 flex items-center gap-1">
           <span className="text-base leading-none">{catMeta.emoji}</span>
           <span className="font-medium">{catMeta.label}</span>
@@ -301,6 +317,7 @@ function MissionVerifyPage() {
               {requireCount}가지 인증
             </span>
           )}
+        </div>
         </div>
       </motion.div>
 
