@@ -269,31 +269,37 @@ function MissionVerifyPage() {
         transition={{ duration: 0.3 }}
         className={`relative bg-gradient-to-b ${hero.from} ${hero.via} ${hero.to} pt-3 pb-20 px-5 overflow-hidden`}
       >
-        {/* 라이브러리 미션 아이콘 — 우상단 장식 (Day 65). icon_path 없는 미션은 기존 모습. */}
-        {mission.icon_path && (
-          <motion.img
-            initial={{ opacity: 0, scale: 0.9, x: 10 }}
-            animate={{ opacity: 1, scale: 1, x: 0 }}
-            transition={{ duration: 0.4, delay: 0.1 }}
-            src={`/mission-icons/${mission.icon_path}`}
-            alt=""
-            className="absolute top-2 right-2 w-24 h-24 sm:w-28 sm:h-28 object-contain drop-shadow-md pointer-events-none select-none"
-            aria-hidden="true"
-            onError={(e) => { e.currentTarget.style.display = 'none' }}
-          />
-        )}
-
         <button
           type="button"
           onClick={handleClose}
-          className="flex items-center justify-center w-9 h-9 bg-white/80 hover:bg-white rounded-full shadow-sm transition mb-4"
+          className="relative z-10 flex items-center justify-center w-9 h-9 bg-white/80 hover:bg-white rounded-full shadow-sm transition mb-2"
           title="뒤로"
         >
           <ChevronLeft className="w-5 h-5 text-gray-700" />
         </button>
 
-        {/* 아이콘 있을 때만 텍스트 영역 우측 여유 확보 — 아이콘과 텍스트 겹침 방지 */}
-        <div className={mission.icon_path ? 'pr-24 sm:pr-28' : ''}>
+        {/* 라이브러리 미션 일러스트 — 히어로 상단 풀블리드 + 하단 마스크 페이드 (Day 65).
+            본인 의도: 모의도처럼 일러스트가 그라데이션 배경에 자연스럽게 녹아들고
+            그 아래 큰 제목이 자리잡는 흐름. icon_path 없는 미션은 기존 텍스트 위주.
+            CSS mask-image 로 일러스트 하단 30% 가 transparent 로 페이드 — text 와 부드러운 연결. */}
+        {mission.icon_path && (
+          <motion.img
+            initial={{ opacity: 0, scale: 0.94, y: -6 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ duration: 0.45, delay: 0.05 }}
+            src={`/mission-icons/${mission.icon_path}`}
+            alt=""
+            className="block mx-auto w-48 sm:w-56 h-48 sm:h-56 object-contain pointer-events-none select-none drop-shadow-sm"
+            style={{
+              WebkitMaskImage: 'linear-gradient(to bottom, black 65%, transparent 100%)',
+              maskImage: 'linear-gradient(to bottom, black 65%, transparent 100%)',
+            }}
+            aria-hidden="true"
+            onError={(e) => { e.currentTarget.style.display = 'none' }}
+          />
+        )}
+
+        <div>
         <p className="text-xs text-gray-600 mb-1 flex items-center gap-1">
           <span className="text-base leading-none">{catMeta.emoji}</span>
           <span className="font-medium">{catMeta.label}</span>
