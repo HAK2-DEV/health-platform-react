@@ -125,14 +125,11 @@ function ProgramStatsMissionsPage() {
 
   return (
     <div className="px-4 pt-2 pb-6 max-w-4xl mx-auto">
-      <StickyBackBar fallbackPath={`/programs/${id}/stats`} title="통계로" />
-
-      <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
-        <p className="text-xs text-gray-500 mb-1">{program.name}</p>
-        <h1 className="text-2xl font-medium text-gray-800 flex items-center gap-2">
-          🎯 미션별 인증 현황
-        </h1>
-      </div>
+      <StickyBackBar
+        fallbackPath={`/programs/${id}/stats`}
+        title="통계로"
+        breadcrumb={[program.name, '참여자 통계', '미션별']}
+      />
 
       {isStatsLoading || !stats ? (
         <LoadingState />

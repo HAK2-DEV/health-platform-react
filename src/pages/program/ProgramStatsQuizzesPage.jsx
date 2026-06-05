@@ -55,21 +55,18 @@ function ProgramStatsQuizzesPage() {
 
   return (
     <div className="px-4 pt-2 pb-6 max-w-2xl mx-auto">
-      <StickyBackBar fallbackPath={`/programs/${id}/stats`} title="통계로" />
+      <StickyBackBar
+        fallbackPath={`/programs/${id}/stats`}
+        title="통계로"
+        breadcrumb={[program.name, '참여자 통계', '퀴즈']}
+      />
 
-      {/* 헤더 */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-4">
-        <p className="text-xs text-gray-500 mb-1">{program.name}</p>
-        <h1 className="text-2xl font-medium text-gray-800 flex items-center gap-2">
-          📝 퀴즈 현황
-        </h1>
-        {totalQuizzes > 0 && (
-          <p className="text-xs text-gray-500 mt-2">
-            퀴즈 {totalQuizzes}개 · 누적 제출 {totalSubmissions}건
-            {totalPending > 0 && <span className="text-amber-600 font-medium"> · 채점 대기 {totalPending}</span>}
-          </p>
-        )}
-      </div>
+      {totalQuizzes > 0 && (
+        <p className="text-xs text-gray-500 mt-2 mb-3 px-1">
+          퀴즈 {totalQuizzes}개 · 누적 제출 {totalSubmissions}건
+          {totalPending > 0 && <span className="text-amber-600 font-medium"> · 채점 대기 {totalPending}</span>}
+        </p>
+      )}
 
       {stats.length === 0 ? (
         <EmptyState
