@@ -267,7 +267,7 @@ function MissionVerifyPage() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.3 }}
-        className={`relative bg-gradient-to-b ${hero.from} ${hero.via} ${hero.to} pt-3 pb-20 px-5 overflow-hidden`}
+        className={`relative bg-gradient-to-b ${hero.from} ${hero.via} ${hero.to} pt-3 pb-12 px-5 overflow-hidden`}
       >
         <button
           type="button"
