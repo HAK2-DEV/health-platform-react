@@ -153,6 +153,7 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
       active_days: m.schedule_mode === 'CUSTOM' ? m.active_days : [],
       excluded_periods: m.excluded_periods.filter(p => p.start_date && p.end_date),
       bundle_title: bundleTitle,
+      icon_path: m.icon || null,  // Day 65 — 라이브러리 사전 제작 아이콘 (075 마이그레이션)
     }))
 
     const { error: insertError } = await supabase.from('missions').insert(rows)

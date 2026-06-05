@@ -56,8 +56,18 @@ function MissionCard({
 
   return (
     <div className="bg-white border border-gray-200 rounded-2xl p-4">
-      {/* 1행 — 참여자/운영자 공통: 제목 + 5P + 인증 액션 */}
+      {/* 1행 — 참여자/운영자 공통: [썸네일] 제목 + 5P + 인증 액션 */}
       <div className="flex items-center justify-between gap-3">
+      {/* 좌측 썸네일 — 라이브러리 사전 제작 아이콘. 없으면 미표시 (절약된 공간만큼 제목 확장) */}
+      {mission.icon_path && (
+        <img
+          src={`/mission-icons/${mission.icon_path}`}
+          alt=""
+          className="w-14 h-14 flex-shrink-0 rounded-xl object-contain bg-gray-50"
+          loading="lazy"
+          onError={(e) => { e.currentTarget.style.display = 'none' }}
+        />
+      )}
       <div className="flex-1 min-w-0">
         <h3 className="font-medium text-gray-800 mb-1">{mission.title}</h3>
         <p className="text-xs text-gray-500">

@@ -24,6 +24,7 @@ export const MISSION_LIBRARY = [
       {
         title: '아침 식단 사진',
         instruction: '오늘 아침에 먹은 음식을 사진으로 인증해요',
+        icon: 'diet/diet_breakfast_photo.png',
         requires_image: true,
         requires_numeric: false,
         requires_note: false,
@@ -34,6 +35,7 @@ export const MISSION_LIBRARY = [
       {
         title: '점심 식단 사진',
         instruction: '오늘 점심에 먹은 음식을 사진으로 인증해요',
+        icon: 'diet/diet_lunch_photo.png',
         requires_image: true,
         requires_numeric: false,
         requires_note: false,
@@ -44,6 +46,7 @@ export const MISSION_LIBRARY = [
       {
         title: '저녁 식단 사진',
         instruction: '오늘 저녁에 먹은 음식을 사진으로 인증해요',
+        icon: 'diet/diet_dinner_photo.png',
         requires_image: true,
         requires_numeric: false,
         requires_note: false,
@@ -104,6 +107,7 @@ export const MISSION_LIBRARY = [
       {
         title: '물 마신 횟수 기록',
         instruction: '오늘 마신 컵 수를 기록해요',
+        icon: 'diet/diet_water_count.png',
         requires_image: false,
         requires_numeric: true,
         requires_note: false,
@@ -114,6 +118,7 @@ export const MISSION_LIBRARY = [
       {
         title: '수분 섭취 한 줄 소감',
         instruction: '컨디션이 어땠나요? 한 줄로 남겨주세요',
+        icon: 'diet/diet_water_note.png',
         requires_image: false,
         requires_numeric: false,
         requires_note: true,
@@ -378,6 +383,7 @@ export const MISSION_LIBRARY = [
       {
         title: '단백질 식사 사진',
         instruction: '오늘 먹은 단백질 식품을 사진으로 인증해요 (계란/닭가슴살/두부 등)',
+        icon: 'diet/diet_protein_photo.png',
         requires_image: true,
         requires_numeric: false,
         requires_note: false,
@@ -388,6 +394,7 @@ export const MISSION_LIBRARY = [
       {
         title: '단백질 섭취량 기록',
         instruction: '오늘 섭취한 단백질량(g)을 기록해요',
+        icon: 'diet/diet_protein_log.png',
         requires_image: false,
         requires_numeric: true,
         requires_note: false,
@@ -408,6 +415,7 @@ export const MISSION_LIBRARY = [
       {
         title: '채소 식단 사진',
         instruction: '오늘 채소가 들어간 식사를 사진으로 인증해요',
+        icon: 'diet/diet_veggie_photo.png',
         requires_image: true,
         requires_numeric: false,
         requires_note: false,
@@ -418,6 +426,7 @@ export const MISSION_LIBRARY = [
       {
         title: '채소 한 줄 소감',
         instruction: '오늘 어떤 채소를 먹었나요?',
+        icon: 'diet/diet_veggie_note.png',
         requires_image: false,
         requires_numeric: false,
         requires_note: true,
