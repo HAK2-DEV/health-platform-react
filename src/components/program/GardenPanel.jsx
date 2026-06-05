@@ -198,7 +198,7 @@ function GardenPanel({ participation, activeDays, totalCount, programDays, onPla
             onClick={() => setSelectedCell(null)}
           >
             <motion.div
-              className="bg-white rounded-t-2xl sm:rounded-2xl p-5 pb-8 w-full sm:max-w-sm mb-16 sm:mb-0"
+              className="bg-white rounded-2xl p-5 pb-8 w-[calc(100%-2rem)] mx-4 sm:max-w-sm sm:mx-0 mb-20 sm:mb-0"
               initial={{ y: 24, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 24, opacity: 0 }}
