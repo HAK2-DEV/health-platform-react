@@ -596,6 +596,7 @@ export const MISSION_LIBRARY = [
       {
         title: '아침 기상 시각',
         instruction: '오늘 일어난 시각을 기록해요 (예: 6.5 = 6시 30분)',
+        icon: 'etc/etc_morning_wake_time.png',
         requires_image: false,
         requires_numeric: true,
         requires_note: false,
@@ -606,6 +607,7 @@ export const MISSION_LIBRARY = [
       {
         title: '아침 활동 한 줄',
         instruction: '오늘 아침에 한 첫 활동을 한 줄로 남겨주세요',
+        icon: 'etc/etc_morning_note.png',
         requires_image: false,
         requires_numeric: false,
         requires_note: true,
@@ -626,6 +628,7 @@ export const MISSION_LIBRARY = [
       {
         title: '독서 시간 기록',
         instruction: '오늘 책 읽은 시간(분)을 기록해요',
+        icon: 'etc/etc_reading_time.png',
         requires_image: false,
         requires_numeric: true,
         requires_note: false,
@@ -636,6 +639,7 @@ export const MISSION_LIBRARY = [
       {
         title: '독서 한 줄 소감',
         instruction: '오늘 읽은 책에서 인상 깊은 한 문장을 남겨주세요',
+        icon: 'etc/etc_reading_note.png',
         requires_image: false,
         requires_numeric: false,
         requires_note: true,
@@ -646,6 +650,7 @@ export const MISSION_LIBRARY = [
       {
         title: '독서 인증 사진',
         instruction: '오늘 읽은 책 페이지를 사진으로 인증해요',
+        icon: 'etc/etc_reading_photo.png',
         requires_image: true,
         requires_numeric: false,
         requires_note: false,
@@ -666,6 +671,7 @@ export const MISSION_LIBRARY = [
       {
         title: '취미 활동 사진',
         instruction: '오늘 즐긴 취미를 사진으로 남겨요',
+        icon: 'etc/etc_hobby_photo.png',
         requires_image: true,
         requires_numeric: false,
         requires_note: false,
@@ -676,6 +682,7 @@ export const MISSION_LIBRARY = [
       {
         title: '취미 시간',
         instruction: '오늘 취미에 쓴 시간(분)을 기록해요',
+        icon: 'etc/etc_hobby_time.png',
         requires_image: false,
         requires_numeric: true,
         requires_note: false,
