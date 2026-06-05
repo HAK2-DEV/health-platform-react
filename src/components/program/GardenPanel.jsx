@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Sprout, Droplets, Sun, Book } from 'lucide-react'
+import { Sprout, Droplets, Sun, Book, Info } from 'lucide-react'
 import {
   FLOWERS,
   getFlowerByKey,
@@ -36,6 +36,9 @@ const GRID_COLS = 4
 
 function GardenPanel({ participation, activeDays, totalCount, programDays, onPlantSeed }) {
   const [selectedCell, setSelectedCell] = useState(null)  // [row, col] — 정보 모달용
+  // 본인 비전 (Day 65) — 식물 클릭 시 물·햇빛 주는 모션. 본인 결정 「자동 부여 + 모션 시각화」.
+  const [careCell, setCareCell] = useState(null)         // [row, col] — 모션 중인 셀
+  const careTimer = useRef(null)
 
   const garden = participation?.growth_state?.garden || {}
   const plants = garden.plants || []
@@ -66,7 +69,10 @@ function GardenPanel({ participation, activeDays, totalCount, programDays, onPla
     const key = `${row},${col}`
     const existing = cellPlant.get(key)
     if (existing) {
-      setSelectedCell([row, col])
+      // 식물 클릭 → 물·햇빛 주는 모션 (1.6초). 그 사이는 정보 모달 X.
+      if (careTimer.current) clearTimeout(careTimer.current)
+      setCareCell([row, col])
+      careTimer.current = setTimeout(() => setCareCell(null), 1600)
       return
     }
     // 빈 칸 — 첫 식물만 허용 (베타 MVP). 이미 1개 있으면 안내.
@@ -81,7 +87,7 @@ function GardenPanel({ participation, activeDays, totalCount, programDays, onPla
 
   return (
     <div className="space-y-4">
-      {/* 헤더 — 현재 단계 + 진행 바 */}
+      {/* 헤더 — 현재 단계 + 진행 바 + 정보 버튼 */}
       <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl p-4 border border-emerald-100">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
@@ -95,7 +101,7 @@ function GardenPanel({ participation, activeDays, totalCount, programDays, onPla
               </p>
             </div>
           </div>
-          <div className="flex gap-3 text-xs">
+          <div className="flex items-center gap-3 text-xs">
             <span className="inline-flex items-center gap-1 text-sky-700">
               <Droplets className="w-3.5 h-3.5" />
               물 {totalCount}
@@ -104,6 +110,17 @@ function GardenPanel({ participation, activeDays, totalCount, programDays, onPla
               <Sun className="w-3.5 h-3.5" />
               햇빛 {activeDays}
             </span>
+            {firstPlant && (
+              <button
+                type="button"
+                onClick={() => setSelectedCell(firstPlant.position)}
+                className="p-1 -mr-1 text-emerald-600 hover:bg-emerald-100 rounded-full transition"
+                title="내 식물 정보"
+                aria-label="내 식물 정보"
+              >
+                <Info className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
         <div className="h-2 bg-white/70 rounded-full overflow-hidden">
@@ -126,13 +143,14 @@ function GardenPanel({ participation, activeDays, totalCount, programDays, onPla
             const isPlanted = !!plant
             const cellEmoji = isPlanted ? getStageEmoji('garden', stage) : ''
 
+            const isCaring = careCell && careCell[0] === row && careCell[1] === col
             return (
               <button
                 key={idx}
                 type="button"
                 onClick={() => handleCellClick(row, col)}
                 className={`
-                  aspect-square rounded-xl flex items-center justify-center transition-all
+                  relative aspect-square rounded-xl flex items-center justify-center transition-all overflow-hidden
                   ${isPlanted
                     ? 'bg-gradient-to-br from-emerald-100 to-teal-100 border-2 border-emerald-300 shadow-sm'
                     : 'bg-amber-100/60 border border-amber-200 hover:bg-amber-100 hover:scale-105'}
@@ -142,15 +160,69 @@ function GardenPanel({ participation, activeDays, totalCount, programDays, onPla
                 {isPlanted ? (
                   <motion.span
                     key={stage}
-                    initial={{ scale: 0.8, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    className="text-3xl select-none"
+                    animate={isCaring ? {
+                      scale: [1, 1.15, 0.95, 1.1, 1],
+                      rotate: [0, -5, 5, -3, 0],
+                    } : { scale: 1, rotate: 0 }}
+                    transition={isCaring ? { duration: 1.2, ease: 'easeInOut' } : { duration: 0.3 }}
+                    className="text-3xl select-none z-10"
                   >
                     {cellEmoji}
                   </motion.span>
                 ) : (
                   <span className="text-xs text-amber-500/60">+</span>
                 )}
+
+                {/* 물·햇빛 주는 모션 — 식물 클릭 시 1.6초 */}
+                <AnimatePresence>
+                  {isCaring && (
+                    <>
+                      {/* 햇빛 광선 — 식물 뒤에서 펄스 */}
+                      <motion.div
+                        className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: [0, 0.6, 0.4, 0] }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 1.4 }}
+                      >
+                        <div className="w-full h-full bg-gradient-to-br from-amber-200/70 via-yellow-100/40 to-transparent rounded-full" />
+                      </motion.div>
+                      {/* 물방울 3개 — 위에서 식물로 떨어짐 */}
+                      {[0, 1, 2].map(i => (
+                        <motion.div
+                          key={`drop-${i}`}
+                          className="absolute pointer-events-none text-base"
+                          style={{ left: `${30 + i * 18}%`, top: '-10%' }}
+                          initial={{ y: 0, opacity: 0 }}
+                          animate={{ y: 60, opacity: [0, 1, 1, 0] }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.9, delay: i * 0.15, ease: 'easeIn' }}
+                        >
+                          💧
+                        </motion.div>
+                      ))}
+                      {/* +1 floating text */}
+                      <motion.div
+                        className="absolute top-1 left-1/2 -translate-x-1/2 pointer-events-none text-[10px] font-bold text-sky-700 whitespace-nowrap"
+                        initial={{ y: 5, opacity: 0 }}
+                        animate={{ y: -10, opacity: [0, 1, 1, 0] }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 1.4, delay: 0.3 }}
+                      >
+                        💧 +물
+                      </motion.div>
+                      <motion.div
+                        className="absolute bottom-1 left-1/2 -translate-x-1/2 pointer-events-none text-[10px] font-bold text-amber-700 whitespace-nowrap"
+                        initial={{ y: -5, opacity: 0 }}
+                        animate={{ y: 10, opacity: [0, 1, 1, 0] }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 1.4, delay: 0.5 }}
+                      >
+                        ☀️ +햇빛
+                      </motion.div>
+                    </>
+                  )}
+                </AnimatePresence>
               </button>
             )
           })}
