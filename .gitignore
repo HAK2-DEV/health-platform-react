@@ -29,6 +29,9 @@ dist-ssr
 # Supabase CLI 내부 상태 (link 시점 정보 등)
 supabase/.temp/
 
+# 미션 아이콘 누끼 작업 시 백업 (확인 후 수동 삭제 가능)
+public/mission-icons.bak/
+
 # Capacitor — 네이티브 빌드 산출물 (소스는 커밋, 빌드는 제외)
 android/app/build/
 android/build/
