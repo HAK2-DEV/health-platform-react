@@ -209,6 +209,7 @@ export const MISSION_LIBRARY = [
       {
         title: '운동 사진',
         instruction: '오늘 운동한 순간을 사진으로 인증해요',
+        icon: 'walk/walk_workout_photo.png',
         requires_image: true,
         requires_numeric: false,
         requires_note: false,
@@ -219,6 +220,7 @@ export const MISSION_LIBRARY = [
       {
         title: '운동 후 한 줄 소감',
         instruction: '오늘 운동 어땠나요? 한 줄로 남겨주세요',
+        icon: 'walk/walk_workout_note.png',
         requires_image: false,
         requires_numeric: false,
         requires_note: true,
@@ -239,6 +241,7 @@ export const MISSION_LIBRARY = [
       {
         title: '걸음 수 기록',
         instruction: '오늘 걸은 걸음 수를 기록해요',
+        icon: 'walk/walk_steps_log.png',
         requires_image: false,
         requires_numeric: true,
         requires_note: false,
@@ -249,6 +252,7 @@ export const MISSION_LIBRARY = [
       {
         title: '산책 사진',
         instruction: '오늘 산책한 풍경을 사진으로 인증해요',
+        icon: 'walk/walk_walking_photo.png',
         requires_image: true,
         requires_numeric: false,
         requires_note: false,
@@ -259,6 +263,7 @@ export const MISSION_LIBRARY = [
       {
         title: '걷기 후 컨디션',
         instruction: '걷기 후 느낌을 한 줄로 남겨주세요',
+        icon: 'walk/walk_walking_mood.png',
         requires_image: false,
         requires_numeric: false,
         requires_note: true,
@@ -312,6 +317,7 @@ export const MISSION_LIBRARY = [
       {
         title: '러닝 거리 기록',
         instruction: '오늘 달린 거리를 km 단위로 기록해요 (예: 3.5)',
+        icon: 'walk/walk_running_distance.png',
         requires_image: false,
         requires_numeric: true,
         requires_note: false,
@@ -322,6 +328,7 @@ export const MISSION_LIBRARY = [
       {
         title: '러닝 인증 사진',
         instruction: '러닝 후 풍경이나 워치 화면을 사진으로 인증해요',
+        icon: 'walk/walk_running_photo.png',
         requires_image: true,
         requires_numeric: false,
         requires_note: false,
@@ -332,6 +339,7 @@ export const MISSION_LIBRARY = [
       {
         title: '러닝 한 줄 소감',
         instruction: '오늘 러닝 어땠나요? 한 줄로 남겨주세요',
+        icon: 'walk/walk_running_note.png',
         requires_image: false,
         requires_numeric: false,
         requires_note: true,
@@ -352,6 +360,7 @@ export const MISSION_LIBRARY = [
       {
         title: '스트레칭 시간 기록',
         instruction: '오늘 스트레칭한 시간(분)을 기록해요',
+        icon: 'walk/walk_stretching_time.png',
         requires_image: false,
         requires_numeric: true,
         requires_note: false,
@@ -362,6 +371,7 @@ export const MISSION_LIBRARY = [
       {
         title: '스트레칭 인증',
         instruction: '스트레칭 후 컨디션을 한 줄로 남겨요',
+        icon: 'walk/walk_stretching_photo.png',
         requires_image: false,
         requires_numeric: false,
         requires_note: true,
