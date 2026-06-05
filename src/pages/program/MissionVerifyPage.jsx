@@ -278,21 +278,25 @@ function MissionVerifyPage() {
           <ChevronLeft className="w-5 h-5 text-gray-700" />
         </button>
 
-        {/* 라이브러리 미션 일러스트 — 히어로 상단 풀블리드 + 하단 마스크 페이드 (Day 65).
-            본인 의도: 모의도처럼 일러스트가 그라데이션 배경에 자연스럽게 녹아들고
-            그 아래 큰 제목이 자리잡는 흐름. icon_path 없는 미션은 기존 텍스트 위주.
-            CSS mask-image 로 일러스트 하단 30% 가 transparent 로 페이드 — text 와 부드러운 연결. */}
+        {/* 라이브러리 미션 일러스트 — 히어로 풀블리드 (Day 65, 본인 모의도 흐름).
+            본인 피드백: 일러스트가 헤더 배경과 「사각형 영역」 으로 명확히 구분되어 보임.
+            해결:
+              (1) 크기 키우기 — 모바일 폭의 80% (max 360px) 까지
+              (2) 사방 페이드 — radial gradient mask 로 좌·우·하단 모두 transparent
+                  → 일러스트 가장자리가 배경 그라데이션에 자연스럽게 녹아듦 (vignette). */}
         {mission.icon_path && (
           <motion.img
-            initial={{ opacity: 0, scale: 0.94, y: -6 }}
+            initial={{ opacity: 0, scale: 0.96, y: -4 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={{ duration: 0.45, delay: 0.05 }}
             src={`/mission-icons/${mission.icon_path}`}
             alt=""
-            className="block mx-auto w-48 sm:w-56 h-48 sm:h-56 object-contain pointer-events-none select-none drop-shadow-sm"
+            className="block mx-auto w-[80%] max-w-[360px] aspect-square object-contain pointer-events-none select-none -mt-2 -mb-4"
             style={{
-              WebkitMaskImage: 'linear-gradient(to bottom, black 65%, transparent 100%)',
-              maskImage: 'linear-gradient(to bottom, black 65%, transparent 100%)',
+              WebkitMaskImage:
+                'radial-gradient(ellipse 70% 70% at 50% 45%, black 50%, rgba(0,0,0,0.6) 75%, transparent 100%)',
+              maskImage:
+                'radial-gradient(ellipse 70% 70% at 50% 45%, black 50%, rgba(0,0,0,0.6) 75%, transparent 100%)',
             }}
             aria-hidden="true"
             onError={(e) => { e.currentTarget.style.display = 'none' }}
