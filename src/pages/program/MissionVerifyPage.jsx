@@ -262,21 +262,24 @@ function MissionVerifyPage() {
 
   return (
     <div className="-mx-4 -mt-2">
+      {/* 뒤로가기 — fixed 좌상단 floating (스크롤해도 그 자리 고정).
+          헤더 안에서 공간 차지 X → 일러스트가 위로 올라와 전체 높이 절약. */}
+      <button
+        type="button"
+        onClick={handleClose}
+        className="fixed top-3 left-3 z-40 flex items-center justify-center w-9 h-9 bg-white/85 hover:bg-white rounded-full shadow-md backdrop-blur-sm transition"
+        title="뒤로"
+      >
+        <ChevronLeft className="w-5 h-5 text-gray-700" />
+      </button>
+
       {/* 히어로 영역 */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.3 }}
-        className={`relative bg-gradient-to-b ${hero.from} ${hero.via} ${hero.to} pt-3 pb-8 px-5 overflow-hidden`}
+        className={`relative bg-gradient-to-b ${hero.from} ${hero.via} ${hero.to} pt-2 pb-6 px-5 overflow-hidden`}
       >
-        <button
-          type="button"
-          onClick={handleClose}
-          className="relative z-10 flex items-center justify-center w-9 h-9 bg-white/80 hover:bg-white rounded-full shadow-sm transition mb-2"
-          title="뒤로"
-        >
-          <ChevronLeft className="w-5 h-5 text-gray-700" />
-        </button>
 
         {/* 라이브러리 미션 일러스트 — 히어로 풀블리드 (Day 65, 본인 모의도 흐름).
             본인 피드백: 일러스트가 헤더 배경과 「사각형 영역」 으로 명확히 구분되어 보임.
@@ -291,7 +294,7 @@ function MissionVerifyPage() {
             transition={{ duration: 0.45, delay: 0.05 }}
             src={`/mission-icons/${mission.icon_path}`}
             alt=""
-            className="block mx-auto w-[72%] max-w-[300px] aspect-square object-contain pointer-events-none select-none -mt-2 -mb-6"
+            className="block mx-auto w-[60%] max-w-[240px] aspect-square object-contain pointer-events-none select-none -mt-1 -mb-4"
             style={{
               WebkitMaskImage:
                 'radial-gradient(ellipse 70% 70% at 50% 45%, black 50%, rgba(0,0,0,0.6) 75%, transparent 100%)',
