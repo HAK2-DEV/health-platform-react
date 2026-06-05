@@ -55,7 +55,9 @@ function MissionCard({
     : null
 
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl p-4 flex items-center justify-between gap-3">
+    <div className="bg-white border border-gray-200 rounded-2xl p-4">
+      {/* 1행 — 참여자/운영자 공통: 제목 + 5P + 인증 액션 */}
+      <div className="flex items-center justify-between gap-3">
       <div className="flex-1 min-w-0">
         <h3 className="font-medium text-gray-800 mb-1">{mission.title}</h3>
         <p className="text-xs text-gray-500">
@@ -115,27 +117,32 @@ function MissionCard({
         </div>
       )}
 
+      </div>
+
+      {/* 2행 — 운영자 액션 (제목 공간 압박 방지 위해 별도 행) */}
       {isOwner && (
-        <div className="flex items-center gap-0.5 flex-shrink-0">
+        <div className="flex items-center justify-end gap-0.5 mt-3 pt-2 border-t border-gray-100">
           {onEdit && (
             <button
               type="button"
               onClick={() => onEdit(mission)}
               disabled={isDeletePending}
-              className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded transition disabled:opacity-40"
+              className="inline-flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded transition disabled:opacity-40"
               title="미션 수정"
             >
-              <Pencil className="w-4 h-4" />
+              <Pencil className="w-3.5 h-3.5" />
+              수정
             </button>
           )}
           <button
             type="button"
             onClick={() => onDelete(mission)}
             disabled={isDeletePending}
-            className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition disabled:opacity-40"
+            className="inline-flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-red-500 hover:bg-red-50 rounded transition disabled:opacity-40"
             title="미션 삭제"
           >
-            <Trash2 className="w-4 h-4" />
+            <Trash2 className="w-3.5 h-3.5" />
+            삭제
           </button>
         </div>
       )}
