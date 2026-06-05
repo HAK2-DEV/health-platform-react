@@ -267,7 +267,7 @@ function MissionVerifyPage() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.3 }}
-        className={`relative bg-gradient-to-b ${hero.from} ${hero.via} ${hero.to} pt-3 pb-12 px-5 overflow-hidden`}
+        className={`relative bg-gradient-to-b ${hero.from} ${hero.via} ${hero.to} pt-3 pb-8 px-5 overflow-hidden`}
       >
         <button
           type="button"
@@ -291,7 +291,7 @@ function MissionVerifyPage() {
             transition={{ duration: 0.45, delay: 0.05 }}
             src={`/mission-icons/${mission.icon_path}`}
             alt=""
-            className="block mx-auto w-[80%] max-w-[360px] aspect-square object-contain pointer-events-none select-none -mt-2 -mb-4"
+            className="block mx-auto w-[72%] max-w-[300px] aspect-square object-contain pointer-events-none select-none -mt-2 -mb-6"
             style={{
               WebkitMaskImage:
                 'radial-gradient(ellipse 70% 70% at 50% 45%, black 50%, rgba(0,0,0,0.6) 75%, transparent 100%)',
