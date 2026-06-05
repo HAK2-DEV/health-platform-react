@@ -58,7 +58,7 @@ function ProgramStatsQuizzesPage() {
       <StickyBackBar
         fallbackPath={`/programs/${id}/stats`}
         title="통계로"
-        breadcrumb={[program.name, '참여자 통계', '퀴즈']}
+        breadcrumb={[program.name, '통계', '퀴즈']}
       />
 
       {totalQuizzes > 0 && (

@@ -128,7 +128,7 @@ function ProgramStatsMissionsPage() {
       <StickyBackBar
         fallbackPath={`/programs/${id}/stats`}
         title="통계로"
-        breadcrumb={[program.name, '참여자 통계', '미션별']}
+        breadcrumb={[program.name, '통계', '미션별']}
       />
 
       {isStatsLoading || !stats ? (

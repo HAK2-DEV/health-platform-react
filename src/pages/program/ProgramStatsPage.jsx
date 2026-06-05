@@ -83,7 +83,7 @@ function ProgramStatsPage() {
       <StickyBackBar
         fallbackPath={`/programs/${id}`}
         title="프로그램으로"
-        breadcrumb={[program.name, '참여자 통계']}
+        breadcrumb={[program.name, '통계']}
       />
 
       {isStatsLoading || !stats ? (

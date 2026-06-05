@@ -136,7 +136,7 @@ function ProgramStatsUsersPage() {
       <StickyBackBar
         fallbackPath={`/programs/${id}/stats`}
         title="통계로"
-        breadcrumb={[program.name, '참여자 통계', '유저별']}
+        breadcrumb={[program.name, '통계', '유저별']}
       />
 
       {/* 활성 필터 칩 — 위젯 3 클릭으로 진입 시 표시 */}

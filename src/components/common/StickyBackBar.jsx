@@ -51,13 +51,16 @@ function StickyBackBar({ onClick, fallbackPath, title, breadcrumb }) {
           <nav aria-label="breadcrumb" className="flex items-center min-w-0 text-sm">
             {breadcrumb.map((label, idx) => {
               const isLast = idx === breadcrumb.length - 1
+              // 첫 항목 (프로그램명 등) 만 truncate — 짧은 「통계」/「미션별」 은 항상 보이도록.
+              // 첫 항목이 min-w-0 flex 안에서 줄어들며 우측 항목 공간을 확보.
+              const isFirst = idx === 0
               return (
-                <span key={idx} className="flex items-center min-w-0">
+                <span key={idx} className={`flex items-center ${isFirst ? 'min-w-0' : 'flex-shrink-0'}`}>
                   {idx > 0 && (
                     <ChevronRight className="w-3 h-3 text-gray-300 mx-1 flex-shrink-0" />
                   )}
                   <span
-                    className={`truncate ${
+                    className={`${isFirst ? 'truncate' : ''} ${
                       isLast
                         ? 'text-gray-800 font-semibold'
                         : 'text-gray-500'
