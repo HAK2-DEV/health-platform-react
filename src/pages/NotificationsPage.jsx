@@ -164,10 +164,6 @@ function NotificationsPage() {
             </button>
           )}
         </div>
-        {/* 잎사귀 일러스트 — 우상단 (작게) */}
-        <div className="absolute top-2 right-16 opacity-40 pointer-events-none select-none text-3xl">
-          🌱
-        </div>
       </div>
 
       <div className="max-w-4xl mx-auto px-3 sm:px-4 -mt-4 relative space-y-4 pb-6">
