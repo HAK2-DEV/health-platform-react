@@ -150,10 +150,11 @@ function GardenPanel({ participation, activeDays, totalCount, programDays, onPla
                 type="button"
                 onClick={() => handleCellClick(row, col)}
                 className={`
-                  relative aspect-square rounded-xl flex items-center justify-center transition-all overflow-hidden
+                  relative aspect-square rounded-xl flex items-center justify-center transition-all
                   ${isPlanted
-                    ? 'bg-gradient-to-br from-emerald-100 to-teal-100 border-2 border-emerald-300 shadow-sm'
+                    ? 'bg-gradient-to-br from-emerald-100 to-teal-100 border-2 border-emerald-300 shadow-sm z-10'
                     : 'bg-amber-100/60 border border-amber-200 hover:bg-amber-100 hover:scale-105'}
+                  ${isCaring ? 'z-20' : ''}
                 `}
                 aria-label={isPlanted ? '내 식물' : '빈 흙'}
               >
@@ -201,22 +202,22 @@ function GardenPanel({ participation, activeDays, totalCount, programDays, onPla
                           💧
                         </motion.div>
                       ))}
-                      {/* +1 floating text */}
+                      {/* +1 floating text — 셀 외부 위/아래로 떠올라 사라짐 (z-30 으로 다른 셀 위에) */}
                       <motion.div
-                        className="absolute top-1 left-1/2 -translate-x-1/2 pointer-events-none text-[10px] font-bold text-sky-700 whitespace-nowrap"
-                        initial={{ y: 5, opacity: 0 }}
-                        animate={{ y: -10, opacity: [0, 1, 1, 0] }}
+                        className="absolute -top-6 left-1/2 -translate-x-1/2 pointer-events-none text-xs font-bold text-sky-700 whitespace-nowrap z-30 drop-shadow-sm"
+                        initial={{ y: 8, opacity: 0 }}
+                        animate={{ y: -8, opacity: [0, 1, 1, 0] }}
                         exit={{ opacity: 0 }}
-                        transition={{ duration: 1.4, delay: 0.3 }}
+                        transition={{ duration: 1.4, delay: 0.2 }}
                       >
                         💧 +물
                       </motion.div>
                       <motion.div
-                        className="absolute bottom-1 left-1/2 -translate-x-1/2 pointer-events-none text-[10px] font-bold text-amber-700 whitespace-nowrap"
-                        initial={{ y: -5, opacity: 0 }}
-                        animate={{ y: 10, opacity: [0, 1, 1, 0] }}
+                        className="absolute -bottom-6 left-1/2 -translate-x-1/2 pointer-events-none text-xs font-bold text-amber-700 whitespace-nowrap z-30 drop-shadow-sm"
+                        initial={{ y: -8, opacity: 0 }}
+                        animate={{ y: 8, opacity: [0, 1, 1, 0] }}
                         exit={{ opacity: 0 }}
-                        transition={{ duration: 1.4, delay: 0.5 }}
+                        transition={{ duration: 1.4, delay: 0.4 }}
                       >
                         ☀️ +햇빛
                       </motion.div>
