@@ -360,14 +360,14 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
                 Step 1 에서 카테고리를 먼저 선택해주세요
               </p>
             ) : (
-              <div className="grid gap-2">
+              <div className="grid gap-2 min-w-0">
                 {recommendedBundles.map(b => (
                   <div
                     key={b.key}
-                    className="flex items-center gap-3 p-3 bg-white rounded-xl border border-gray-100"
+                    className="flex items-center gap-3 p-3 bg-white rounded-xl border border-gray-100 w-full min-w-0 overflow-hidden"
                   >
                     <span className="text-xl flex-shrink-0">{b.emoji}</span>
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0 overflow-hidden">
                       <p className="text-sm font-medium text-gray-800 truncate">{b.title}</p>
                       <p className="text-[11px] text-gray-500 truncate">
                         {b.description} · 미션 {b.missions.length}개
