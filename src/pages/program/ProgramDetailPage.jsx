@@ -8,6 +8,8 @@ import { supabase } from '../../supabaseClient'
 import { CATEGORY } from '../../lib/constants'
 import { formatKoreanDate, formatKoreanDateTime, isUpcomingByStartDate } from '../../lib/formatters'
 import MissionCard from '../../components/program/MissionCard'
+import GardenPanel from '../../components/program/GardenPanel'
+import ConstellationPanel from '../../components/program/ConstellationPanel'
 import StickyBackBar from '../../components/common/StickyBackBar'
 import UserAvatar from '../../components/common/UserAvatar'
 import EmptyState from '../../components/common/EmptyState'
@@ -113,6 +115,71 @@ function ProgramDetailPage() {
     queryFn: () => fetchProgramOverview(id, userId),
     enabled: !!session && !!id && !!userId,
   })
+
+  // Day 65 게이미피케이션 — 본인 참여자 row (growth_state JSONB 보유).
+  // 정원/별자리 트랙일 때만 fetch.
+  const isGrowthTrack = program?.gamification_type === 'GARDEN' || program?.gamification_type === 'CONSTELLATION'
+  const { data: myParticipation } = useQuery({
+    queryKey: ['my-participation', id, userId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('program_participants')
+        .select('*')
+        .eq('program_id', id)
+        .eq('user_id', userId)
+        .maybeSingle()
+      if (error) throw error
+      return data
+    },
+    enabled: !!session && !!id && !!userId && isGrowthTrack,
+  })
+
+  // 정원/별자리에 전달할 프로그램 일수 — start/end 차이 (KST).
+  const programDaysForGrowth = useMemo(() => {
+    if (!program?.start_date || !program?.end_date) return 1
+    const start = new Date(`${program.start_date}T00:00:00+09:00`)
+    const end = new Date(`${program.end_date}T23:59:59+09:00`)
+    return Math.max(1, Math.round((end - start) / 86400000) + 1)
+  }, [program?.start_date, program?.end_date])
+
+  // 정원 — 씨앗 심기 (위치 + 추첨된 꽃 key). growth_state.garden.plants 에 추가.
+  const handlePlantSeed = async (position, flowerKey) => {
+    if (!userId || !id) return
+    const current = myParticipation?.growth_state || {}
+    const garden = current.garden || { plants: [], collection: [] }
+    const newPlant = {
+      id: crypto.randomUUID(),
+      position,
+      flower_type: flowerKey,
+      planted_at: new Date().toISOString(),
+      water_count: 0,
+      sun_count: 0,
+      stage: 0,
+      revealed: false,
+    }
+    const updated = { ...current, garden: { ...garden, plants: [...garden.plants, newPlant] } }
+    const { error } = await supabase
+      .from('program_participants')
+      .update({ growth_state: updated })
+      .eq('program_id', id)
+      .eq('user_id', userId)
+    if (error) { console.error('씨앗 심기 실패:', error); return }
+    queryClient.invalidateQueries({ queryKey: ['my-participation', id, userId] })
+  }
+
+  // 별자리 — 첫 로드 시 랜덤 추첨 결과 저장.
+  const handleInitConstellation = async (key) => {
+    if (!userId || !id) return
+    const current = myParticipation?.growth_state || {}
+    const updated = { ...current, constellation: { type: key, stars_lit: 0 } }
+    const { error } = await supabase
+      .from('program_participants')
+      .update({ growth_state: updated })
+      .eq('program_id', id)
+      .eq('user_id', userId)
+    if (error) { console.error('별자리 초기화 실패:', error); return }
+    queryClient.invalidateQueries({ queryKey: ['my-participation', id, userId] })
+  }
 
   const isOwner = program?.owner_id === userId
 
@@ -312,17 +379,20 @@ function ProgramDetailPage() {
         )
       })()}
 
-      {/* 탭 바 — 개요/미션/퀴즈/커뮤니티/랭킹. 랭킹은 program.ranking_enabled !== false 일 때만 노출 */}
+      {/* 탭 바 — 개요/미션/퀴즈/커뮤니티/성장. 마지막 탭 라벨은 gamification_type 에 따라 분기.
+          본인 결정 (Day 65): 정원/별자리도 「성장」 통합 라벨로 일원화. */}
       {(() => {
+        const gType = program.gamification_type || (program.ranking_enabled !== false ? 'RANKING' : null)
+        const growthLabel = gType === 'GARDEN' ? '성장' : gType === 'CONSTELLATION' ? '성장' : gType === 'RANKING' ? '랭킹' : null
         const tabs = [
           { key: 'overview', label: '개요' },
           { key: 'missions', label: '미션' },
           { key: 'quizzes', label: '퀴즈' },
           { key: 'community', label: '커뮤니티' },
-          ...(program.ranking_enabled !== false ? [{ key: 'ranking', label: '랭킹' }] : []),
+          ...(growthLabel ? [{ key: 'ranking', label: growthLabel }] : []),
         ]
-        // 방어: 랭킹 탭이 사라졌는데 현재 ranking 탭이면 overview 로 fallback
-        const safeActiveTab = (activeTab === 'ranking' && program.ranking_enabled === false)
+        // 방어: 성장/랭킹 탭이 사라졌는데 현재 ranking 탭이면 overview 로 fallback
+        const safeActiveTab = (activeTab === 'ranking' && !growthLabel)
           ? 'overview'
           : activeTab
         return (
@@ -725,9 +795,30 @@ function ProgramDetailPage() {
       </>)}
       {/* ─── /커뮤니티 탭 ──────────────────────────────── */}
 
-      {/* ─── 랭킹 탭 ────────────────────────────────────── */}
-      {/* 랭킹 — program.ranking_enabled=false 면 탭 자체가 노출되지 않음 */}
-      {activeTab === 'ranking' && program.ranking_enabled !== false && (<>
+      {/* ─── 성장 탭 (랭킹 / 정원 / 별자리 분기) ───────────────────── */}
+      {activeTab === 'ranking' && (program.gamification_type === 'GARDEN') && (
+        <GardenPanel
+          participation={myParticipation}
+          activeDays={overviewData?.activeDays || 0}
+          totalCount={overviewData?.totalCount || 0}
+          programDays={programDaysForGrowth}
+          onPlantSeed={(position, flowerKey) => handlePlantSeed(position, flowerKey)}
+        />
+      )}
+      {activeTab === 'ranking' && (program.gamification_type === 'CONSTELLATION') && (
+        <ConstellationPanel
+          participation={myParticipation}
+          activeDays={overviewData?.activeDays || 0}
+          totalCount={overviewData?.totalCount || 0}
+          programDays={programDaysForGrowth}
+          onInitConstellation={(key) => handleInitConstellation(key)}
+        />
+      )}
+
+      {/* 랭킹 — gamification_type=RANKING (또는 legacy ranking_enabled=true) */}
+      {activeTab === 'ranking'
+        && (program.gamification_type === 'RANKING' || (!program.gamification_type && program.ranking_enabled !== false))
+        && (<>
       <h2 className="text-lg font-semibold text-gray-800 mb-3">🏆 랭킹</h2>
       {ranking.length === 0 ? (
         <EmptyState icon="👥" title="아직 참여자가 없어요" size="sm" />

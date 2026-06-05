@@ -288,7 +288,10 @@ export const fetchProgramOverview = async (programId, userId) => {
     point: v.missions?.point || 0,
   }))
 
-  return { streak, hasToday, activeDays, recent }
+  // 4) totalCount (60일 내 APPROVED 인증 총 횟수) — 게이미피케이션 「물」
+  const totalCount = rows.length
+
+  return { streak, hasToday, activeDays, recent, totalCount }
 }
 
 // 프로그램 참여 모달용 정보 (Day 65 본인 결정 — UX 강화)
