@@ -112,7 +112,7 @@ function Modal({ isOpen, onClose, children, onPrev, onNext }) {
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onPrev() }}
-              className="fixed left-2 sm:left-4 top-1/2 -translate-y-1/2 z-[70] w-10 h-10 flex items-center justify-center bg-white/70 hover:bg-white text-gray-700 rounded-full shadow-md backdrop-blur-sm transition"
+              className="fixed left-2 sm:left-4 top-[58%] -translate-y-1/2 z-[70] w-10 h-10 flex items-center justify-center bg-white/70 hover:bg-white text-gray-700 rounded-full shadow-md backdrop-blur-sm transition"
               title="이전"
               aria-label="이전 프로그램"
             >
@@ -123,7 +123,7 @@ function Modal({ isOpen, onClose, children, onPrev, onNext }) {
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onNext() }}
-              className="fixed right-2 sm:right-4 top-1/2 -translate-y-1/2 z-[70] w-10 h-10 flex items-center justify-center bg-white/70 hover:bg-white text-gray-700 rounded-full shadow-md backdrop-blur-sm transition"
+              className="fixed right-2 sm:right-4 top-[58%] -translate-y-1/2 z-[70] w-10 h-10 flex items-center justify-center bg-white/70 hover:bg-white text-gray-700 rounded-full shadow-md backdrop-blur-sm transition"
               title="다음"
               aria-label="다음 프로그램"
             >
