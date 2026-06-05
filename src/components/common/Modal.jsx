@@ -58,12 +58,18 @@ function Modal({ isOpen, onClose, children, onPrev, onNext }) {
               overscroll-contain: 모달 내부 스크롤 끝 도달 시에도 부모로 전파 안 함 (추가 안전망)
               drag y: 상단 핸들에서 시작 (dragListener=false + dragControls).
               onPanEnd: 좌우 스와이프 감지 — onPrev/onNext 있을 때만 navigation. */}
+          {/* 외부 motion.div — drag/pan 처리 전담. touch-action: none 으로 브라우저의
+              forward/back swipe gesture 차단 (이걸 안 하면 모바일 safari 가 좌우
+              swipe 를 history navigation 으로 가로채감 — 본인 보고: 「2번 모달에서
+              좌로 슬라이드하면 다른 화면으로 이동」 의 직접 원인).
+              내부 scroll 은 inner div 에서 별도 처리. */}
           <motion.div
             className="
-              relative bg-white shadow-xl overflow-y-auto overscroll-contain
-              w-full max-h-[90vh] rounded-t-2xl
+              relative bg-white shadow-xl overflow-hidden
+              w-full max-h-[90vh] rounded-t-2xl flex flex-col
               sm:max-w-md sm:max-h-[85vh] sm:rounded-lg
             "
+            style={{ touchAction: 'none' }}
             onClick={(e) => e.stopPropagation()}
             initial={{ y: 32, opacity: 0, scale: 0.97 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
@@ -96,9 +102,10 @@ function Modal({ isOpen, onClose, children, onPrev, onNext }) {
               else if (goPrev && onPrev) onPrev()
             }}
           >
-            {/* 모바일 손잡이 — 여기서만 drag y 시작 → 본문 스크롤과 분리 */}
+            {/* 모바일 손잡이 — 여기서만 drag y 시작. touch-none 으로 native gesture 차단. */}
             <div
-              className="sm:hidden flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none"
+              className="sm:hidden flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing flex-shrink-0"
+              style={{ touchAction: 'none' }}
               onPointerDown={(e) => dragControls.start(e)}
             >
               <div className="w-10 h-1 bg-gray-300 rounded-full" />
@@ -107,12 +114,19 @@ function Modal({ isOpen, onClose, children, onPrev, onNext }) {
             {/* 닫기 버튼 */}
             <button
               onClick={onClose}
-              className="absolute top-3 right-3 p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition z-10"
+              className="absolute top-3 right-3 p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition z-20"
             >
               <X className="w-5 h-5" />
             </button>
 
-            {children}
+            {/* 내부 scroll 영역 — touch-action: pan-y 로 수직 native scroll 만 허용.
+                수평은 외부 motion.div 의 onPanEnd 가 처리. */}
+            <div
+              className="flex-1 overflow-y-auto overscroll-contain"
+              style={{ touchAction: 'pan-y' }}
+            >
+              {children}
+            </div>
           </motion.div>
         </div>
       )}
