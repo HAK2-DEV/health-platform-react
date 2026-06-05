@@ -314,23 +314,9 @@ function MissionVerifyPage() {
           <span className="truncate">{program?.name}</span>
         </p>
 
-        <h1 className="text-2xl font-medium text-gray-800 leading-tight mb-2">
+        <h1 className="text-2xl font-medium text-gray-800 leading-tight">
           {mission.title}
         </h1>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className={`inline-flex items-center px-2.5 py-1 ${hero.chip} text-white text-xs rounded-full font-medium`}>
-            +{mission.point}P
-          </span>
-          <span className="inline-flex items-center px-2.5 py-1 bg-white/80 text-gray-700 text-xs rounded-full font-medium">
-            {mission.verification_type === 'AUTO' ? '⚡ 자동 승인' : '✅ 운영자 심사'}
-          </span>
-          {isMulti && (
-            <span className="inline-flex items-center px-2.5 py-1 bg-white/80 text-emerald-700 text-xs rounded-full font-medium">
-              {requireCount}가지 인증
-            </span>
-          )}
-        </div>
         </div>
       </motion.div>
 
@@ -339,8 +325,23 @@ function MissionVerifyPage() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, delay: 0.05 }}
-        className="relative -mt-10 bg-white rounded-t-3xl shadow-sm px-5 pt-6 pb-32"
+        className="relative -mt-10 bg-white rounded-t-3xl shadow-sm px-5 pt-5 pb-32"
       >
+        {/* 칩 라인 — 헤더에서 옮김. 입력 카드 안이라 잘리지 않음. */}
+        <div className="flex items-center gap-2 flex-wrap mb-4">
+          <span className={`inline-flex items-center px-2.5 py-1 ${hero.chip} text-white text-xs rounded-full font-medium`}>
+            +{mission.point}P
+          </span>
+          <span className="inline-flex items-center px-2.5 py-1 bg-gray-100 text-gray-700 text-xs rounded-full font-medium">
+            {mission.verification_type === 'AUTO' ? '⚡ 자동 승인' : '✅ 운영자 심사'}
+          </span>
+          {isMulti && (
+            <span className="inline-flex items-center px-2.5 py-1 bg-emerald-50 text-emerald-700 text-xs rounded-full font-medium">
+              {requireCount}가지 인증
+            </span>
+          )}
+        </div>
+
         {!todayCheck.active && (
           <div className="mb-5 p-3 bg-amber-50 border border-amber-200 rounded-xl text-center">
             <p className="text-sm font-medium text-amber-800 mb-0.5">
