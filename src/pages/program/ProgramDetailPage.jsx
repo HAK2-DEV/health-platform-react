@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, lazy, Suspense } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../../hooks/useAuth'
@@ -54,7 +54,18 @@ function ProgramDetailPage() {
 
   // 탭 상태 — 개요(overview) / 미션(missions) / 퀴즈(quizzes) / 커뮤니티(community) / 랭킹(ranking)
   //   마법사에서 ranking 비활성화 시 랭킹 탭 자동 숨김 (program.ranking_enabled === false)
-  const [activeTab, setActiveTab] = useState('overview')
+  // Day 65: URL searchParam (?tab=) 으로 관리 — 미션 클릭 후 인증 페이지에서 뒤로가기 시
+  //   탭 상태가 보존됨 (이전엔 useState 라 항상 overview 로 리셋됨).
+  const [searchParams, setSearchParams] = useSearchParams()
+  const activeTab = searchParams.get('tab') || 'overview'
+  const setActiveTab = (key) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      if (key === 'overview') next.delete('tab')
+      else next.set('tab', key)
+      return next
+    }, { replace: true })
+  }
 
   // 전체보기 토글 시 해당 섹션 viewport 상단으로
   const missionSectionRef = useRef(null)
