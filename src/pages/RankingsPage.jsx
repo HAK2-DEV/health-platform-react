@@ -2,8 +2,9 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Trophy, MapPin, TrendingUp, ChevronRight } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../hooks/useAuth'
+import { supabase } from '../supabaseClient'
 import { CATEGORY } from '../lib/constants'
 import {
   queryKeys,
@@ -11,10 +12,13 @@ import {
   fetchProgramRanking,
   fetchMyRecentScoreSeries,
   fetchMyRankChange,
+  fetchProgramOverview,
 } from '../lib/queries'
 import UserAvatar from '../components/common/UserAvatar'
 import EmptyState from '../components/common/EmptyState'
 import LoadingState from '../components/common/LoadingState'
+import GardenPanel from '../components/program/GardenPanel'
+import ConstellationPanel from '../components/program/ConstellationPanel'
 
 // 시간 범위 옵션 — period 값을 ISO 시작점 문자열로 변환
 const PERIOD_OPTIONS = [
@@ -38,6 +42,7 @@ const periodToISOStart = (period) => {
 function RankingsPage() {
   const { session } = useAuth()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const userId = session?.user?.id
 
   const [selectedProgramId, setSelectedProgramId] = useState(null)
@@ -50,9 +55,16 @@ function RankingsPage() {
     enabled: !!userId,
   })
 
-  // 랭킹 페이지에서는 ranking_enabled !== false 인 프로그램만 노출
-  //   (false 명시한 프로그램은 칩에서 숨김 — 단순 습관 형성 모드)
-  const activePrograms = allActivePrograms.filter(p => p.ranking_enabled !== false)
+  // Day 65: 모든 활성 프로그램 노출 — RANKING/GARDEN/CONSTELLATION 트랙 모두.
+  //   본인 결정 (2026-06-05): 「랭킹 탭 = 성장 탭. 프로그램 선택 후 트랙별 분기」.
+  //   기존 ranking_enabled=false 는 GARDEN 으로 마이그레이션 안 됐을 수 있어 같이 표시 차단.
+  const activePrograms = allActivePrograms.filter(p => {
+    const gType = p.gamification_type
+    if (gType === 'GARDEN' || gType === 'CONSTELLATION') return true
+    if (gType === 'RANKING') return true
+    // legacy — gamification_type 미설정 → ranking_enabled 로 판단
+    return p.ranking_enabled !== false
+  })
 
   useEffect(() => {
     if (!selectedProgramId && activePrograms.length > 0) {
@@ -62,9 +74,71 @@ function RankingsPage() {
 
   const selectedProgram = activePrograms.find(p => p.id === selectedProgramId)
 
+  // Day 65: 게이미피케이션 트랙 분기.
+  const gType = selectedProgram?.gamification_type
+  const isGrowthTrack = gType === 'GARDEN' || gType === 'CONSTELLATION'
+  const isRankingTrack = gType === 'RANKING' || (!gType && selectedProgram?.ranking_enabled !== false)
+
   // 운영자 옵션 — 마법사/Edit 모달에서 켜야만 해당 UI 노출 + fetch
   const trendVisible = !!selectedProgram?.trend_enabled
   const periodFilterVisible = !!selectedProgram?.period_filter_enabled
+
+  // Day 65: 성장 트랙 — 본인 참여자 row (growth_state) + overview (activeDays, totalCount)
+  const { data: myParticipation } = useQuery({
+    queryKey: ['my-participation', selectedProgramId, userId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('program_participants')
+        .select('*')
+        .eq('program_id', selectedProgramId)
+        .eq('user_id', userId)
+        .maybeSingle()
+      if (error) throw error
+      return data
+    },
+    enabled: !!selectedProgramId && !!userId && isGrowthTrack,
+  })
+
+  const { data: growthOverview } = useQuery({
+    queryKey: queryKeys.programOverview(selectedProgramId, userId),
+    queryFn: () => fetchProgramOverview(selectedProgramId, userId),
+    enabled: !!selectedProgramId && !!userId && isGrowthTrack,
+  })
+
+  const programDaysForGrowth = useMemo(() => {
+    if (!selectedProgram?.start_date || !selectedProgram?.end_date) return 1
+    const start = new Date(`${selectedProgram.start_date}T00:00:00+09:00`)
+    const end = new Date(`${selectedProgram.end_date}T23:59:59+09:00`)
+    return Math.max(1, Math.round((end - start) / 86400000) + 1)
+  }, [selectedProgram?.start_date, selectedProgram?.end_date])
+
+  const handlePlantSeed = async (position, flowerKey) => {
+    if (!userId || !selectedProgramId) return
+    const current = myParticipation?.growth_state || {}
+    const garden = current.garden || { plants: [], collection: [] }
+    const newPlant = {
+      id: crypto.randomUUID(), position, flower_type: flowerKey,
+      planted_at: new Date().toISOString(),
+      water_count: 0, sun_count: 0, stage: 0, revealed: false,
+    }
+    const updated = { ...current, garden: { ...garden, plants: [...garden.plants, newPlant] } }
+    const { error } = await supabase.from('program_participants')
+      .update({ growth_state: updated })
+      .eq('program_id', selectedProgramId).eq('user_id', userId)
+    if (error) { console.error('씨앗 심기 실패:', error); return }
+    queryClient.invalidateQueries({ queryKey: ['my-participation', selectedProgramId, userId] })
+  }
+
+  const handleInitConstellation = async (key) => {
+    if (!userId || !selectedProgramId) return
+    const current = myParticipation?.growth_state || {}
+    const updated = { ...current, constellation: { type: key, stars_lit: 0 } }
+    const { error } = await supabase.from('program_participants')
+      .update({ growth_state: updated })
+      .eq('program_id', selectedProgramId).eq('user_id', userId)
+    if (error) { console.error('별자리 초기화 실패:', error); return }
+    queryClient.invalidateQueries({ queryKey: ['my-participation', selectedProgramId, userId] })
+  }
 
   const { data: ranking = [], isLoading: isLoadingRanking } = useQuery({
     queryKey: queryKeys.programRanking(selectedProgramId, period),
@@ -186,6 +260,28 @@ function RankingsPage() {
         })}
       </div>
 
+      {/* Day 65: 성장 트랙 — 정원 또는 별자리 패널 (랭킹 대신 노출) */}
+      {selectedProgram && gType === 'GARDEN' && (
+        <GardenPanel
+          participation={myParticipation}
+          activeDays={growthOverview?.activeDays || 0}
+          totalCount={growthOverview?.totalCount || 0}
+          programDays={programDaysForGrowth}
+          onPlantSeed={handlePlantSeed}
+        />
+      )}
+      {selectedProgram && gType === 'CONSTELLATION' && (
+        <ConstellationPanel
+          participation={myParticipation}
+          activeDays={growthOverview?.activeDays || 0}
+          totalCount={growthOverview?.totalCount || 0}
+          programDays={programDaysForGrowth}
+          onInitConstellation={handleInitConstellation}
+        />
+      )}
+
+      {/* Day 65: 랭킹 트랙 전용 콘텐츠 (포디움/본인요약/랭킹리스트). 성장 트랙은 위에서 패널만. */}
+      {isRankingTrack && (<>
       {/* 시간 범위 토글 — segmented control (운영자가 period_filter_enabled 켰을 때만 노출) */}
       {selectedProgram && periodFilterVisible && (
         <div className="flex gap-1 p-1 bg-gray-100 rounded-pill">
@@ -328,6 +424,7 @@ function RankingsPage() {
           </motion.button>
         )}
       </AnimatePresence>
+      </>)}
       </div>
     </div>
   )
