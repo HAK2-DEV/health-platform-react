@@ -1,8 +1,21 @@
 import { X } from 'lucide-react'
 import { useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, useDragControls } from 'framer-motion'
 
-function Modal({ isOpen, onClose, children }) {
+// 스와이프 임계값 (Day 65 본인 모바일 UX 요청)
+const SWIPE_CLOSE_DISTANCE = 100     // 아래로 끌어 닫기 — 100px 이상
+const SWIPE_CLOSE_VELOCITY = 500     // 또는 빠른 플릭 (px/s)
+const SWIPE_NAV_DISTANCE = 80        // 좌우 prev/next — 80px 이상
+const SWIPE_NAV_VELOCITY = 400
+
+// props:
+//   isOpen / onClose — 기본
+//   onPrev / onNext — 좌우 스와이프 시 호출. 없으면 좌우 제스처 비활성.
+//                      예: setSelectedProgram(programs[currentIndex - 1])
+function Modal({ isOpen, onClose, children, onPrev, onNext }) {
+  // 상단 핸들에서만 drag 시작 — 본문 스크롤과 충돌 방지
+  const dragControls = useDragControls()
+
   // ESC 키로 닫기
   useEffect(() => {
     const handleEsc = (e) => {
@@ -42,7 +55,9 @@ function Modal({ isOpen, onClose, children }) {
           />
 
           {/* 모달 내용 — 살짝 아래에서 올라오며 페이드+scale 인. spring 으로 부드럽게.
-              overscroll-contain: 모달 내부 스크롤 끝 도달 시에도 부모로 전파 안 함 (추가 안전망) */}
+              overscroll-contain: 모달 내부 스크롤 끝 도달 시에도 부모로 전파 안 함 (추가 안전망)
+              drag y: 상단 핸들에서 시작 (dragListener=false + dragControls).
+              onPanEnd: 좌우 스와이프 감지 — onPrev/onNext 있을 때만 navigation. */}
           <motion.div
             className="
               relative bg-white shadow-xl overflow-y-auto overscroll-contain
@@ -59,9 +74,32 @@ function Modal({ isOpen, onClose, children }) {
               stiffness: 320,
               mass: 0.8,
             }}
+            drag="y"
+            dragControls={dragControls}
+            dragListener={false}
+            dragConstraints={{ top: 0, bottom: 0 }}
+            dragElastic={{ top: 0, bottom: 0.4 }}
+            onDragEnd={(_, info) => {
+              if (info.offset.y > SWIPE_CLOSE_DISTANCE || info.velocity.y > SWIPE_CLOSE_VELOCITY) {
+                onClose()
+              }
+            }}
+            onPanEnd={(_, info) => {
+              if (!onPrev && !onNext) return
+              const { offset, velocity } = info
+              // 수평 우세 (수직보다 1.5배 이상) + 임계값 통과 시에만
+              if (Math.abs(offset.x) < Math.abs(offset.y) * 1.5) return
+              const goPrev = offset.x > SWIPE_NAV_DISTANCE || velocity.x > SWIPE_NAV_VELOCITY
+              const goNext = offset.x < -SWIPE_NAV_DISTANCE || velocity.x < -SWIPE_NAV_VELOCITY
+              if (goPrev && onPrev) onPrev()
+              else if (goNext && onNext) onNext()
+            }}
           >
-            {/* 모바일 손잡이 (바텀시트 표시) */}
-            <div className="sm:hidden flex justify-center pt-3 pb-1">
+            {/* 모바일 손잡이 — 여기서만 drag y 시작 → 본문 스크롤과 분리 */}
+            <div
+              className="sm:hidden flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none"
+              onPointerDown={(e) => dragControls.start(e)}
+            >
               <div className="w-10 h-1 bg-gray-300 rounded-full" />
             </div>
 

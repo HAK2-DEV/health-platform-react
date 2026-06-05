@@ -45,7 +45,9 @@ function DashboardPage() {
   const queryClient = useQueryClient()
   const userId = session?.user?.id
 
-  const [selectedProgram, setSelectedProgram] = useState(null)
+  // selectedSource: { listKey, programId }. Dashboard 의 「내 프로그램」 카드에서만 모달 사용 (listKey='my').
+  // 좌우 스와이프로 myPrograms 안에서 prev/next 이동 (Day 65 본인 모바일 UX 요청).
+  const [selectedSource, setSelectedSource] = useState(null)
   const [programToDelete, setProgramToDelete] = useState(null)  // PUBLISHED 삭제용 (이중 확인 모달)
 
   // 로그아웃 시 /login 으로
@@ -687,7 +689,7 @@ function DashboardPage() {
                     if (isDraft) {
                       navigate(`/programs/new?id=${program.id}`)
                     } else {
-                      setSelectedProgram(program)
+                      setSelectedSource({ listKey: 'my', programId: program.id })
                     }
                   }}
                   className="bg-white border border-gray-100 rounded-card p-3 shadow-soft hover:shadow-elevated transition cursor-pointer"
@@ -745,12 +747,23 @@ function DashboardPage() {
 
       {/* 공개 둘러보기 섹션은 BottomTabBar 📋 프로그램 탭에 통합 — 중복 제거 */}
 
-        {/* 프로그램 상세 모달 */}
-        <ProgramDetailModal
-          program={selectedProgram}
-          isOpen={selectedProgram !== null}
-          onClose={() => setSelectedProgram(null)}
-        />
+        {/* 프로그램 상세 모달 — 좌우 스와이프로 myPrograms 안에서 prev/next */}
+        {(() => {
+          const currentIndex = selectedSource
+            ? myPrograms.findIndex(p => p.id === selectedSource.programId)
+            : -1
+          const currentProgram = currentIndex >= 0 ? myPrograms[currentIndex] : null
+          const goTo = (idx) => setSelectedSource({ listKey: 'my', programId: myPrograms[idx].id })
+          return (
+            <ProgramDetailModal
+              program={currentProgram}
+              isOpen={currentProgram !== null}
+              onClose={() => setSelectedSource(null)}
+              onPrev={currentIndex > 0 ? () => goTo(currentIndex - 1) : undefined}
+              onNext={currentIndex >= 0 && currentIndex < myPrograms.length - 1 ? () => goTo(currentIndex + 1) : undefined}
+            />
+          )
+        })()}
 
         {/* PUBLISHED 프로그램 삭제 — 이름 재입력 확인 */}
         <DeleteProgramConfirmModal

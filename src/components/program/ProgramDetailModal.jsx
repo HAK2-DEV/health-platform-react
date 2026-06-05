@@ -18,7 +18,7 @@ import UserAvatar from '../common/UserAvatar'
 //   - 참여자 수 + 미션 개수 + 일일 최대 점수 (메타 3분할)
 //   - 참여 방식 배지 (FREE / INVITE_CODE / APPROVAL)
 //   - 참여 후 흐름 안내
-function ProgramDetailModal({ program, isOpen, onClose }) {
+function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
   const { session } = useAuth()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -191,7 +191,7 @@ function ProgramDetailModal({ program, isOpen, onClose }) {
   })()
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose}>
+    <Modal isOpen={isOpen} onClose={onClose} onPrev={onPrev} onNext={onNext}>
       {program && (
         <div>
           {/* ─── 표지 banner (16:7 짧은 비율, Day 65 본인 결정 — 모달 비율 균형) ─── */}

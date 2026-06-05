@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../../hooks/useAuth'
@@ -29,12 +29,35 @@ function ProgramListPage() {
   const queryClient = useQueryClient()
   const userId = session?.user?.id
 
-  const [selectedProgram, setSelectedProgram] = useState(null)
+  // selectedSource: { listKey: 'public'|'my', programId } | null.
+  // 좌우 스와이프로 prev/next 시 listKey 의 list 안에서 index 이동 (Day 65 본인 요청).
+  // selectedProgram 은 list + id 로 derived.
+  const [selectedSource, setSelectedSource] = useState(null)
   const [programToDelete, setProgramToDelete] = useState(null)
-  // 섹션별 전체보기 토글 (3개 이상 시 활성)
-  const [showAllMy, setShowAllMy] = useState(false)
-  const [showAllActive, setShowAllActive] = useState(false)
-  const [showAllPublic, setShowAllPublic] = useState(false)
+  // 섹션별 전체보기 토글 — URL searchParam 으로 동기화 (Day 65 본인 요청).
+  // 모달 안에서 navigation 후 뒤로가도 expand 상태 보존.
+  // 형식: ?expand=public,my (콤마 구분). 빈 값이면 모두 false.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const expandSet = (() => {
+    const raw = searchParams.get('expand') || ''
+    return new Set(raw.split(',').filter(Boolean))
+  })()
+  const showAllMy = expandSet.has('my')
+  const showAllActive = expandSet.has('active')
+  const showAllPublic = expandSet.has('public')
+  const toggleExpand = (key) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      const cur = new Set((next.get('expand') || '').split(',').filter(Boolean))
+      if (cur.has(key)) cur.delete(key); else cur.add(key)
+      if (cur.size === 0) next.delete('expand')
+      else next.set('expand', Array.from(cur).join(','))
+      return next
+    }, { replace: true })
+  }
+  const setShowAllMy = () => toggleExpand('my')
+  const setShowAllActive = () => toggleExpand('active')
+  const setShowAllPublic = () => toggleExpand('public')
   // 검색 — 3섹션 모두 클라이언트 측 필터링 (name + description 매칭)
   const [searchQuery, setSearchQuery] = useState('')
   const isSearching = searchQuery.trim().length > 0
@@ -335,7 +358,7 @@ function ProgramListPage() {
               {displayedPublic.map(program => (
                 <motion.div
                   key={program.id}
-                  onClick={() => setSelectedProgram(program)}
+                  onClick={() => setSelectedSource({ listKey: 'public', programId: program.id })}
                   className="bg-white border border-gray-100 rounded-card p-3 shadow-soft hover:shadow-elevated transition cursor-pointer flex items-center gap-2.5"
                 >
                   {/* 표지 + 추천 뱃지 오버레이 — 날짜 한 줄 확보 위해 w-24 → w-20 축소 */}
@@ -413,7 +436,7 @@ function ProgramListPage() {
                       if (isDraft) {
                         navigate(`/programs/new?id=${program.id}`)
                       } else {
-                        setSelectedProgram(program)
+                        setSelectedSource({ listKey: 'my', programId: program.id })
                       }
                     }}
                     className="bg-white border border-gray-100 rounded-card p-3 shadow-soft hover:shadow-elevated transition cursor-pointer"
@@ -480,12 +503,30 @@ function ProgramListPage() {
         </Link>
       )}
 
-      {/* 프로그램 상세 모달 — 대시보드와 동일 컴포넌트 */}
-      <ProgramDetailModal
-        program={selectedProgram}
-        isOpen={selectedProgram !== null}
-        onClose={() => setSelectedProgram(null)}
-      />
+      {/* 프로그램 상세 모달 — 대시보드와 동일 컴포넌트.
+          좌우 스와이프: 선택한 섹션(public/my)의 list 안에서 prev/next 이동.
+          findIndex 로 매번 위치 재계산 — list 가 변해도(필터/refetch) 안전. */}
+      {(() => {
+        const sourceList = selectedSource?.listKey === 'public'
+          ? publicPrograms
+          : selectedSource?.listKey === 'my'
+            ? myPrograms
+            : []
+        const currentIndex = selectedSource
+          ? sourceList.findIndex(p => p.id === selectedSource.programId)
+          : -1
+        const currentProgram = currentIndex >= 0 ? sourceList[currentIndex] : null
+        const goTo = (idx) => setSelectedSource({ listKey: selectedSource.listKey, programId: sourceList[idx].id })
+        return (
+          <ProgramDetailModal
+            program={currentProgram}
+            isOpen={currentProgram !== null}
+            onClose={() => setSelectedSource(null)}
+            onPrev={currentIndex > 0 ? () => goTo(currentIndex - 1) : undefined}
+            onNext={currentIndex >= 0 && currentIndex < sourceList.length - 1 ? () => goTo(currentIndex + 1) : undefined}
+          />
+        )
+      })()}
 
       {/* PUBLISHED 삭제 — 이름 재입력 확인 (대시보드와 동일) */}
       <DeleteProgramConfirmModal
