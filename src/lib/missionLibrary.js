@@ -185,6 +185,7 @@ export const MISSION_LIBRARY = [
       {
         title: '오늘 안 피웠어요',
         instruction: '오늘 흡연하지 않았다면 인증해주세요',
+        icon: 'nosmoke/nosmoke_clean_day.png',
         requires_image: false,
         requires_numeric: false,
         requires_note: true,
@@ -195,6 +196,7 @@ export const MISSION_LIBRARY = [
       {
         title: '금연 의지 한 줄',
         instruction: '오늘 다짐을 한 줄로 남겨주세요',
+        icon: 'nosmoke/nosmoke_resolve_note.png',
         requires_image: false,
         requires_numeric: false,
         requires_note: true,
