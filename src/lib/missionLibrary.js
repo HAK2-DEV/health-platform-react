@@ -290,6 +290,7 @@ export const MISSION_LIBRARY = [
       {
         title: '오늘의 감사 한 줄',
         instruction: '오늘 감사했던 일을 한 줄로 남겨주세요',
+        icon: 'empathy/empathy_gratitude_note.png',
         requires_image: false,
         requires_numeric: false,
         requires_note: true,
@@ -300,6 +301,7 @@ export const MISSION_LIBRARY = [
       {
         title: '친절 인증 사진',
         instruction: '오늘 베푼 또는 받은 친절을 사진으로 남겨요',
+        icon: 'empathy/empathy_kindness_photo.png',
         requires_image: true,
         requires_numeric: false,
         requires_note: false,
@@ -551,6 +553,7 @@ export const MISSION_LIBRARY = [
       {
         title: '가족 안부 한 줄',
         instruction: '오늘 가족에게 보낸 메시지나 안부를 한 줄로 남겨주세요',
+        icon: 'empathy/empathy_family_note.png',
         requires_image: false,
         requires_numeric: false,
         requires_note: true,
@@ -571,6 +574,7 @@ export const MISSION_LIBRARY = [
       {
         title: '오늘의 친절 한 줄',
         instruction: '오늘 베푼 또는 받은 친절 한 가지를 한 줄로 남겨주세요',
+        icon: 'empathy/empathy_kindness_note.png',
         requires_image: false,
         requires_numeric: false,
         requires_note: true,
