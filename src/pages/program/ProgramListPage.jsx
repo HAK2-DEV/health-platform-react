@@ -491,11 +491,12 @@ function ProgramListPage() {
       </section>
 
       {/* FAB — 프로그램 생성하기. 검색 중에는 숨김 (생성 컨텍스트 X).
-          BottomTabBar 위에 떠 있도록 bottom-20 + z-40 (RankingsPage FAB 와 동일 패턴) */}
+          BottomTabBar 위에 떠 있도록 bottom-24 + z-40. 본인 피드백 (2026-06-05):
+          bottom-20 은 모바일에서 BottomTabBar 와 살짝 겹쳤음 → bottom-24 로 여유. */}
       {!isSearching && (
         <Link
           to="/programs/new"
-          className="fixed bottom-20 right-4 z-40 inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white rounded-full shadow-lg shadow-emerald-500/40 transition hover:scale-105 active:scale-95"
+          className="fixed bottom-24 right-4 z-40 inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white rounded-full shadow-lg shadow-emerald-500/40 transition hover:scale-105 active:scale-95"
           title="프로그램 생성하기"
           aria-label="프로그램 생성하기"
         >
