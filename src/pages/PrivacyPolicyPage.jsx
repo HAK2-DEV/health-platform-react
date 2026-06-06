@@ -3,7 +3,7 @@ import { LegalPageShell, Section, Sub } from '../components/legal/LegalPageShell
 
 // 개인정보처리방침 — 한국 정보통신망법 / 개인정보보호법 기준 템플릿.
 // ⚠️ 본인 후속 액션:
-//   1) [본인 정보] / [본인 이메일] 등 marker 본인 정보로 교체
+//   1) [본인 정보] / ds5acqsjh@naver.com 등 marker 본인 정보로 교체
 //   2) 변호사·전문가 검토 권장 (사업자등록 시점에 정식 검토)
 //   3) /privacy 라우트로 회원가입·푸터·프로필에 링크
 //   4) 약관 변경 시 시행일자 변경 + 공지
@@ -20,7 +20,7 @@ function PrivacyPolicyPage() {
         >
           <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3 mb-5">
             ⚠️ 본 문서는 베타 단계 템플릿입니다. 정식 서비스 출시 전 법률 전문가 검토 후
-            [회사명] / [대표자] / [주소] / [연락처] 등 자리 표시자를 실제 정보로 교체해야 합니다.
+            (개인) / 서종학 / 밀양 내일중앙길 2-3 / ds5acqsjh@naver.com 등 자리 표시자를 실제 정보로 교체해야 합니다.
           </p>
 
           <p className="leading-relaxed mb-5">
@@ -98,7 +98,7 @@ function PrivacyPolicyPage() {
             <Sub>
               <li>개인정보 열람·정정 요청 — 프로필 페이지에서 직접 수정</li>
               <li>회원 탈퇴 — 「프로필 &gt; 계정 설정 &gt; 회원 탈퇴」 메뉴에서 즉시 처리</li>
-              <li>처리 정지·동의 철회 — [본인 이메일] 로 요청</li>
+              <li>처리 정지·동의 철회 — ds5acqsjh@naver.com 로 요청</li>
             </Sub>
           </Section>
 
@@ -136,8 +136,8 @@ function PrivacyPolicyPage() {
 
           <Section title="11. 개인정보 보호책임자">
             <Sub>
-              <li>성명: [본인 이름]</li>
-              <li>연락처: [본인 이메일]</li>
+              <li>성명: 서종학</li>
+              <li>연락처: ds5acqsjh@naver.com</li>
               <li>주소: [본인 주소 또는 사업장 주소]</li>
             </Sub>
           </Section>

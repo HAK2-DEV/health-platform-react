@@ -2,7 +2,7 @@ import StickyBackBar from '../components/common/StickyBackBar'
 import { LegalPageShell, Section, Sub } from '../components/legal/LegalPageShell'
 
 // 이용약관 — 한국 표준 약관 구조 기반 템플릿.
-// ⚠️ 본인 후속: [회사명] / [본인 이메일] 등 자리 표시자 교체 + 법률 전문가 검토.
+// ⚠️ 본인 후속: (개인) / ds5acqsjh@naver.com 등 자리 표시자 교체 + 법률 전문가 검토.
 
 function TermsOfServicePage() {
   return (
@@ -16,7 +16,7 @@ function TermsOfServicePage() {
         >
           <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3 mb-5">
             ⚠️ 본 문서는 베타 단계 템플릿입니다. 정식 서비스 출시 전 법률 전문가 검토 후
-            [회사명] / [대표자] / [주소] 등 자리 표시자를 실제 정보로 교체해야 합니다.
+            (개인) / 서종학 / 밀양 내일중앙길 2-3 등 자리 표시자를 실제 정보로 교체해야 합니다.
           </p>
 
           <Section title="제1조 (목적)">
@@ -134,7 +134,7 @@ function TermsOfServicePage() {
 
           <p className="text-xs text-gray-500 mt-8 pt-4 border-t border-gray-200">
             본 약관은 2026년 6월 3일부터 시행됩니다.<br/>
-            문의: [본인 이메일]
+            문의: ds5acqsjh@naver.com
           </p>
         </LegalPageShell>
       </div>
