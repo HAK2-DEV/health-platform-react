@@ -17,8 +17,8 @@ export function installSwipeBackBlocker() {
     || window.navigator.standalone === true
   if (isStandalone) return
 
-  // iOS Safari 시스템 스와이프-백 영역 (좌측): 보통 30-40px. 안전하게 30px.
-  const EDGE_PX = 30
+  // iOS Safari 시스템 스와이프-백 영역 (좌측): 보통 30-40px. 확실히 차단 위해 50px.
+  const EDGE_PX = 50
 
   let startX = 0
   let startY = 0
