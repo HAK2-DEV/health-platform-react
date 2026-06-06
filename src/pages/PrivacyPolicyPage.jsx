@@ -20,7 +20,7 @@ function PrivacyPolicyPage() {
         >
           <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3 mb-5">
             ⚠️ 본 문서는 베타 단계 템플릿입니다. 정식 서비스 출시 전 법률 전문가 검토 후
-            (개인) / 서종학 / 밀양 내일중앙길 2-3 / ds5acqsjh@naver.com 등 자리 표시자를 실제 정보로 교체해야 합니다.
+            본인 정보 및 사업자 정보를 실제 정보로 교체·검토해야 합니다.
           </p>
 
           <p className="leading-relaxed mb-5">
@@ -138,7 +138,6 @@ function PrivacyPolicyPage() {
             <Sub>
               <li>성명: 서종학</li>
               <li>연락처: ds5acqsjh@naver.com</li>
-              <li>주소: [본인 주소 또는 사업장 주소]</li>
             </Sub>
           </Section>
 

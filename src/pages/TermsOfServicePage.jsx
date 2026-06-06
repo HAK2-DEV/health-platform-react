@@ -16,7 +16,7 @@ function TermsOfServicePage() {
         >
           <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3 mb-5">
             ⚠️ 본 문서는 베타 단계 템플릿입니다. 정식 서비스 출시 전 법률 전문가 검토 후
-            (개인) / 서종학 / 밀양 내일중앙길 2-3 등 자리 표시자를 실제 정보로 교체해야 합니다.
+            본인 정보 및 사업자 정보를 실제 정보로 교체·검토해야 합니다.
           </p>
 
           <Section title="제1조 (목적)">
