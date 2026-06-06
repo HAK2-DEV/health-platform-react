@@ -140,6 +140,28 @@ function RankingsPage() {
     queryClient.invalidateQueries({ queryKey: ['my-participation', selectedProgramId, userId] })
   }
 
+  // Day 65 — 정원·별자리 자동 동기화 (만개 도감, stars_lit 등)
+  const handleUpdateGarden = async (newGarden) => {
+    if (!userId || !selectedProgramId) return
+    const current = myParticipation?.growth_state || {}
+    const updated = { ...current, garden: newGarden }
+    const { error } = await supabase.from('program_participants')
+      .update({ growth_state: updated })
+      .eq('program_id', selectedProgramId).eq('user_id', userId)
+    if (error) { console.error('정원 동기화 실패:', error); return }
+    queryClient.invalidateQueries({ queryKey: ['my-participation', selectedProgramId, userId] })
+  }
+  const handleUpdateConstellation = async (newConstellation) => {
+    if (!userId || !selectedProgramId) return
+    const current = myParticipation?.growth_state || {}
+    const updated = { ...current, constellation: newConstellation }
+    const { error } = await supabase.from('program_participants')
+      .update({ growth_state: updated })
+      .eq('program_id', selectedProgramId).eq('user_id', userId)
+    if (error) { console.error('별자리 동기화 실패:', error); return }
+    queryClient.invalidateQueries({ queryKey: ['my-participation', selectedProgramId, userId] })
+  }
+
   const { data: ranking = [], isLoading: isLoadingRanking } = useQuery({
     queryKey: queryKeys.programRanking(selectedProgramId, period),
     queryFn: () => fetchProgramRanking(selectedProgramId, periodStart),
@@ -268,6 +290,7 @@ function RankingsPage() {
           totalCount={growthOverview?.totalCount || 0}
           programDays={programDaysForGrowth}
           onPlantSeed={handlePlantSeed}
+          onUpdateGarden={handleUpdateGarden}
         />
       )}
       {selectedProgram && gType === 'CONSTELLATION' && (
@@ -277,6 +300,7 @@ function RankingsPage() {
           totalCount={growthOverview?.totalCount || 0}
           programDays={programDaysForGrowth}
           onInitConstellation={handleInitConstellation}
+          onUpdateConstellation={handleUpdateConstellation}
         />
       )}
 

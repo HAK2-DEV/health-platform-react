@@ -240,16 +240,15 @@ export const fetchTodayCounts = async (userId) => {
 //   3) recent: 최근 5개 APPROVED 인증 카드 (mission title + note + point + date)
 // 범위 60일 — 베타 프로그램 대부분 30일 미만이라 충분.
 export const fetchProgramOverview = async (programId, userId) => {
-  const sixtyDaysAgo = new Date()
-  sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60)
-
+  // Day 65: 60일 제한 제거 — 누적 보너스 (50/100), 정원 단계, 도감 정확성 위해
+  // 프로그램 시작부터 모든 인증을 가져옴 (program_id 필터로 다른 프로그램 섞임 방지).
+  // streak 계산은 자연스럽게 끊기는 지점이 있어 60일 데이터 부족해도 무방.
   const { data, error } = await supabase
     .from('verifications')
     .select('id, submitted_at, note, numeric_value, missions!inner(title, point, program_id, bundle_title)')
     .eq('user_id', userId)
     .eq('status', 'APPROVED')
     .eq('missions.program_id', programId)
-    .gte('submitted_at', sixtyDaysAgo.toISOString())
     .order('submitted_at', { ascending: false })
   if (error) throw error
 

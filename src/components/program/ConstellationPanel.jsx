@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Sparkles, Droplets, Sun } from 'lucide-react'
 import {
@@ -20,7 +20,7 @@ import {
 // props 와 동작 흐름은 GardenPanel 과 동일 시그니처:
 //   onInitConstellation(key) — 첫 로드 시 별자리가 없으면 호출 → DB UPDATE.
 
-function ConstellationPanel({ participation, activeDays, totalCount, programDays, onInitConstellation }) {
+function ConstellationPanel({ participation, activeDays, totalCount, programDays, onInitConstellation, onUpdateConstellation }) {
   const [showInfo, setShowInfo] = useState(false)
 
   const cState = participation?.growth_state?.constellation || null
@@ -29,6 +29,14 @@ function ConstellationPanel({ participation, activeDays, totalCount, programDays
   const stage = computeStage({ activeDays, totalCount, programDays })
   const growthRatio = computeGrowthRatio({ activeDays, totalCount, programDays })
   const isRevealed = stage >= 5
+
+  // Day 65 — stars_lit 을 stage 와 동기화 (DB ↔ 클라이언트 일치).
+  useEffect(() => {
+    if (!cState || !onUpdateConstellation) return
+    if ((cState.stars_lit || 0) !== stage) {
+      onUpdateConstellation({ ...cState, stars_lit: stage })
+    }
+  }, [stage, cState?.stars_lit, cState?.type, onUpdateConstellation])
 
   // 첫 로드 시 별자리 없으면 랜덤 추첨 트리거
   // (실제 호출은 부모에서 useEffect 로. 여기선 UI 만)

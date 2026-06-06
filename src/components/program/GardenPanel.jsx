@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Sprout, Droplets, Sun, Book, Info } from 'lucide-react'
 import {
@@ -34,7 +34,7 @@ import {
 const GRID_ROWS = 4
 const GRID_COLS = 4
 
-function GardenPanel({ participation, activeDays, totalCount, programDays, onPlantSeed }) {
+function GardenPanel({ participation, activeDays, totalCount, programDays, onPlantSeed, onUpdateGarden }) {
   const [selectedCell, setSelectedCell] = useState(null)  // [row, col] — 정보 모달용
   // 본인 비전 (Day 65) — 식물 클릭 시 물·햇빛 주는 모션. 본인 결정 「자동 부여 + 모션 시각화」.
   const [careCell, setCareCell] = useState(null)         // [row, col] — 모션 중인 셀
@@ -53,6 +53,33 @@ function GardenPanel({ participation, activeDays, totalCount, programDays, onPla
   const firstPlant = plants[0] || null
   const flower = firstPlant ? getFlowerByKey(firstPlant.flower_type) : null
   const isRevealed = stage >= 5  // 5단계 만개 시 정체 공개
+
+  // Day 65 — 만개 시 도감 자동 추가 + plants[].revealed/stage 동기화 (DB ↔ 클라이언트 일치).
+  // onUpdateGarden 이 있어야 동작. 무한 호출 방지 위해 garden 안 바뀌면 호출 X.
+  useEffect(() => {
+    if (!firstPlant || !onUpdateGarden) return
+    let updatedGarden = garden
+    let changed = false
+
+    // plants[0].stage 가 최신 stage 와 다르면 갱신 (시각 일관성)
+    if ((firstPlant.stage || 0) !== stage) {
+      const updatedPlants = plants.map((p, i) => i === 0 ? { ...p, stage } : p)
+      updatedGarden = { ...updatedGarden, plants: updatedPlants }
+      changed = true
+    }
+    // 만개 시 revealed = true
+    if (isRevealed && !firstPlant.revealed) {
+      const updatedPlants = updatedGarden.plants.map((p, i) => i === 0 ? { ...p, revealed: true } : p)
+      updatedGarden = { ...updatedGarden, plants: updatedPlants }
+      changed = true
+    }
+    // 만개 시 도감(collection)에 꽃 추가 (중복 방지)
+    if (isRevealed && firstPlant.flower_type && !(updatedGarden.collection || []).includes(firstPlant.flower_type)) {
+      updatedGarden = { ...updatedGarden, collection: [...(updatedGarden.collection || []), firstPlant.flower_type] }
+      changed = true
+    }
+    if (changed) onUpdateGarden(updatedGarden)
+  }, [stage, isRevealed, firstPlant?.id, firstPlant?.stage, firstPlant?.revealed, firstPlant?.flower_type, onUpdateGarden])
 
   // 격자 cell 의 식물 매칭 — plants[i].position 으로
   const cellPlant = useMemo(() => {

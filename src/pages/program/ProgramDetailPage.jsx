@@ -181,6 +181,32 @@ function ProgramDetailPage() {
     queryClient.invalidateQueries({ queryKey: ['my-participation', id, userId] })
   }
 
+  // 정원 자동 동기화 (만개 시 도감 추가 등) — GardenPanel useEffect 가 호출.
+  const handleUpdateGarden = async (newGarden) => {
+    if (!userId || !id) return
+    const current = myParticipation?.growth_state || {}
+    const updated = { ...current, garden: newGarden }
+    const { error } = await supabase
+      .from('program_participants')
+      .update({ growth_state: updated })
+      .eq('program_id', id).eq('user_id', userId)
+    if (error) { console.error('정원 동기화 실패:', error); return }
+    queryClient.invalidateQueries({ queryKey: ['my-participation', id, userId] })
+  }
+
+  // 별자리 자동 동기화 (stars_lit) — ConstellationPanel useEffect 가 호출.
+  const handleUpdateConstellation = async (newConstellation) => {
+    if (!userId || !id) return
+    const current = myParticipation?.growth_state || {}
+    const updated = { ...current, constellation: newConstellation }
+    const { error } = await supabase
+      .from('program_participants')
+      .update({ growth_state: updated })
+      .eq('program_id', id).eq('user_id', userId)
+    if (error) { console.error('별자리 동기화 실패:', error); return }
+    queryClient.invalidateQueries({ queryKey: ['my-participation', id, userId] })
+  }
+
   const isOwner = program?.owner_id === userId
 
   // 참가자용 퀴즈 목록 — 참여자(비운영자)에게만. owner 는 게시물 관리로.
@@ -803,6 +829,7 @@ function ProgramDetailPage() {
           totalCount={overviewData?.totalCount || 0}
           programDays={programDaysForGrowth}
           onPlantSeed={(position, flowerKey) => handlePlantSeed(position, flowerKey)}
+          onUpdateGarden={handleUpdateGarden}
         />
       )}
       {activeTab === 'ranking' && (program.gamification_type === 'CONSTELLATION') && (
@@ -812,6 +839,7 @@ function ProgramDetailPage() {
           totalCount={overviewData?.totalCount || 0}
           programDays={programDaysForGrowth}
           onInitConstellation={(key) => handleInitConstellation(key)}
+          onUpdateConstellation={handleUpdateConstellation}
         />
       )}
 
