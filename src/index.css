@@ -51,3 +51,9 @@
     font-size: 16px !important;
   }
 }
+
+/* 가로 스와이프 뒤로가기 차단 (Android Chrome / 일부 브라우저).
+   iOS Safari 의 edge swipe back 은 시스템 제스처라 별도 JS 핸들러 필요 — main.jsx 참조. */
+html, body {
+  overscroll-behavior-x: none;
+}

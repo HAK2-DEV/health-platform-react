@@ -8,9 +8,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { registerSW } from 'virtual:pwa-register'
 import { initSentry, SentryErrorBoundary } from './lib/sentry'
+import { installSwipeBackBlocker } from './lib/disableSwipeBack'
 
 // Sentry 초기화 — VITE_SENTRY_DSN 있을 때만 활성. 가장 먼저 init 해야 이후 에러 추적 가능.
 initSentry()
+
+// 모바일 가로 스와이프 뒤로가기 차단 (좌·우 가장자리 터치) — PWA standalone 모드면 자동 skip.
+installSwipeBackBlocker()
 
 // Service Worker 등록 — autoUpdate 전략
 //   새 배포 감지 시 백그라운드에서 새 SW 다운로드 → 다음 페이지 진입(또는 즉시 reload)에 적용
