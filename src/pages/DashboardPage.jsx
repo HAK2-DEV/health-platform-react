@@ -466,11 +466,8 @@ function DashboardPage() {
           <div className="bg-gray-50/60 rounded-2xl px-4 py-3 flex items-center gap-3">
             <div className="text-2xl opacity-70 leading-none flex-shrink-0">✨</div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-700 leading-tight">오늘 인증할 미션이 없어요</p>
-              <p
-                className="text-gray-500 whitespace-nowrap mt-0.5"
-                style={{ fontSize: 'clamp(9px, 2.8vw, 11px)' }}
-              >
+              <p className="text-base font-medium text-gray-800 leading-tight">오늘 인증할 미션이 없어요</p>
+              <p className="text-xs text-gray-500 mt-1 break-keep leading-relaxed">
                 참여 중인 프로그램이 시작되면 표시돼요
               </p>
             </div>

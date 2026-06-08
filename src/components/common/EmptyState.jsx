@@ -30,9 +30,14 @@ const SIZE_ICON = {
   lg: 'text-5xl mb-3',
 }
 const SIZE_TITLE = {
-  sm: 'text-sm',
+  sm: 'text-base',  // Day 65 본인 피드백: 모바일 가독성 위해 sm 도 base 로
   md: 'text-base',
-  lg: 'text-base',
+  lg: 'text-lg',
+}
+const SIZE_DESC = {
+  sm: 'text-xs',
+  md: 'text-sm',  // Day 65 — 12px → 14px (모바일 가독성)
+  lg: 'text-sm',
 }
 
 function EmptyState({
@@ -64,7 +69,7 @@ function EmptyState({
         </p>
       )}
       {description && (
-        <p className="text-xs text-gray-500 break-keep leading-relaxed">
+        <p className={`${SIZE_DESC[size] || SIZE_DESC.md} text-gray-500 break-keep leading-relaxed`}>
           {description}
         </p>
       )}
