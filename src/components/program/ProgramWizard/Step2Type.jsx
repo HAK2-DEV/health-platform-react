@@ -18,7 +18,7 @@ const PRIMARY_TRACKS = [
     icon: Sprout,
     accent: 'emerald',
     headline: '개인 정원·별자리',
-    description: '경쟁 없이 본인 정원·별자리를 키우는 느낌. 인증=물·별, 출석=햇빛·연결선.',
+    description: '경쟁 없이 본인 정원·별자리를 키우는 느낌.\n인증=물·별, 출석=햇빛·연결선.',
   },
 ]
 
@@ -63,11 +63,11 @@ function OptionToggle({ emoji, title, description, enabled, onToggle, accent = '
         enabled ? a.border : 'border-gray-200 bg-white hover:border-gray-300'
       }`}
     >
-      <div className="flex items-start gap-3">
+      <div className="flex items-center gap-3">
         <span className="text-2xl flex-shrink-0">{emoji}</span>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-2 mb-1.5">
-            <p className={`font-medium break-keep ${enabled ? a.title : 'text-gray-800'}`}>
+          <div className="flex items-center justify-between gap-2">
+            <p className={`font-medium whitespace-nowrap ${enabled ? a.title : 'text-gray-800'}`}>
               {title}
             </p>
             <div className={`relative w-10 h-6 rounded-full flex-shrink-0 transition ${enabled ? a.bg : 'bg-gray-300'}`}>
@@ -76,9 +76,12 @@ function OptionToggle({ emoji, title, description, enabled, onToggle, accent = '
               }`} />
             </div>
           </div>
-          <p className="text-sm text-gray-600 leading-relaxed break-keep">
-            {description}
-          </p>
+          {/* 설명은 토글 ON 일 때만 표시 (본인 결정) — OFF 시 카드 간결화 */}
+          {enabled && (
+            <p className="text-sm text-gray-600 leading-relaxed break-keep mt-2">
+              {description}
+            </p>
+          )}
         </div>
       </div>
     </button>
@@ -169,7 +172,7 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
       {/* 피드 활성화 토글 */}
       <OptionToggle
         emoji="📷"
-        title="피드 활성화 (커뮤니티 모드)"
+        title="커뮤니티 피드"
         description="참여자끼리 서로의 인증을 사진 피드로 보고 좋아요·댓글로 응원할 수 있어요."
         enabled={feedEnabled}
         onToggle={() => setFeedEnabled(!feedEnabled)}
@@ -207,8 +210,8 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
           )
         })}
       </div>
-      {/* 선택된 트랙 상세 설명 */}
-      <p className="text-xs text-gray-600 px-2 mb-4 leading-relaxed">
+      {/* 선택된 트랙 상세 설명 — \n 줄바꿈 지원 */}
+      <p className="text-xs text-gray-600 px-2 mb-4 leading-relaxed whitespace-pre-line">
         {PRIMARY_TRACKS.find(t => t.key === primaryTrack)?.description}
       </p>
 
