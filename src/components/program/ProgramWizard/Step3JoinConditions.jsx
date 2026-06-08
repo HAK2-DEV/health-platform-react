@@ -52,7 +52,7 @@ function Step3JoinConditions({ initialData, onNext, onSave, onPrev }) {
       <h2 className="text-xl font-semibold text-gray-800 mb-2">
         3단계: 참여 조건
       </h2>
-      <p className="text-sm text-gray-600 mb-6">
+      <p className="text-sm text-gray-600 mb-6 break-keep">
         참여 방식과 공개 여부를 설정해주세요
       </p>
 

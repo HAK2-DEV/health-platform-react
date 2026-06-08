@@ -64,7 +64,7 @@ function Step4Summary({ initialData, programId, onPrev }) {
       <h2 className="text-xl font-semibold text-gray-800 mb-2">
         4단계: 요약 + 게시
       </h2>
-      <p className="text-sm text-gray-600 mb-6">
+      <p className="text-sm text-gray-600 mb-6 break-keep">
         설정한 내용을 확인하고 프로그램을 게시해주세요
       </p>
 

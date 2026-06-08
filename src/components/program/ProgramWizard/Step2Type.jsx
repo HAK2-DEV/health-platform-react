@@ -165,7 +165,7 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
       <h2 className="text-xl font-semibold text-gray-800 mb-2">
         2단계: 프로그램 옵션
       </h2>
-      <p className="text-sm text-gray-600 mb-6">
+      <p className="text-sm text-gray-600 mb-6 break-keep">
         프로그램의 분위기를 정해요. 미션은 발행 후 자유롭게 추가/수정할 수 있어요.
       </p>
 

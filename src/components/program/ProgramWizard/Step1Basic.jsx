@@ -80,7 +80,7 @@ function Step1Basic({ initialData, onNext, onSave }) {
       <h2 className="text-xl font-semibold text-gray-800 mb-2">
         1단계: 기본 정보 입력
       </h2>
-      <p className="text-sm text-gray-600 mb-6">
+      <p className="text-sm text-gray-600 mb-6 break-keep">
         프로그램의 기본 정보를 입력해주세요
       </p>
 
