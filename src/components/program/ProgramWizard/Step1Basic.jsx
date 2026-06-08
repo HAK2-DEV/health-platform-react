@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { CATEGORY_LIST, PROGRAM } from '../../../lib/constants'
 import { getTodayKST } from '../../../lib/formatters'
 import { useAuth } from '../../../hooks/useAuth'
@@ -14,6 +14,7 @@ function Step1Basic({ initialData, onNext, onSave }) {
   const [description, setDescription] = useState(initialData?.description || '')
   const [startDate, setStartDate] = useState(initialData?.start_date || '')
   const [endDate, setEndDate] = useState(initialData?.end_date || '')
+  const endDateRef = useRef(null)  // Day 65: 시작일 선택 후 자동 focus
   const [categories, setCategories] = useState(initialData?.categories || [])
   const [coverImagePath, setCoverImagePath] = useState(initialData?.cover_image_path || null)
   const [error, setError] = useState(null)
@@ -130,7 +131,13 @@ function Step1Basic({ initialData, onNext, onSave }) {
             <input
               type="date"
               value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
+              onChange={(e) => {
+                setStartDate(e.target.value)
+                // 시작일 입력 완료 시 자동으로 종료일 input focus (모바일 흐름 개선)
+                if (e.target.value) {
+                  setTimeout(() => endDateRef.current?.focus(), 50)
+                }
+              }}
               min={getTodayKST()}
               className="block w-full max-w-full min-w-0 box-border appearance-none px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 bg-white text-sm"
             />
@@ -139,6 +146,7 @@ function Step1Basic({ initialData, onNext, onSave }) {
           <div className="w-full sm:flex-1 min-w-0">
             <p className="text-[11px] text-gray-500 mb-1">📅 종료</p>
             <input
+              ref={endDateRef}
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}

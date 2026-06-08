@@ -2,28 +2,39 @@ import { useState } from 'react'
 import { ChevronDown, ChevronUp, Trophy, Sprout, Sparkles } from 'lucide-react'
 import { MISSION_LIBRARY } from '../../../lib/missionLibrary'
 
-// 게이미피케이션 트랙 옵션 (Day 65 본인 결정)
-const TRACKS = [
+// 1차 트랙 — 본인 결정 (Day 65): 「랭킹 / 성장」 2개로 단순화. 성장 선택 시 정원/별자리 서브 선택.
+const PRIMARY_TRACKS = [
   {
     key: 'RANKING',
-    label: '랭킹',
+    label: '🏆 랭킹',
     icon: Trophy,
     accent: 'amber',
-    description: '점수 순위로 경쟁. 포디움·추세·기간 필터 등 옵션 풍부.',
+    headline: '점수 순위로 경쟁',
+    description: '참여자 간 점수 순위. 포디움·추세·기간 필터 등 옵션이 풍부해요.',
   },
   {
-    key: 'GARDEN',
-    label: '정원',
+    key: 'GROWTH',  // 2차 분류로 GARDEN/CONSTELLATION 선택
+    label: '🌱 성장',
     icon: Sprout,
     accent: 'emerald',
-    description: '인증=물, 출석=햇빛. 씨앗에서 만개까지 5단계 성장.',
+    headline: '정원·별자리로 시각화 (개인 누적)',
+    description: '경쟁 없이 본인 정원·별자리를 키우는 느낌. 인증=물·별, 출석=햇빛·연결선.',
+  },
+]
+
+// 2차 — 성장 트랙 안의 컨셉 선택
+const GROWTH_CONCEPTS = [
+  {
+    key: 'GARDEN',
+    label: '🌷 정원',
+    icon: Sprout,
+    description: '씨앗에서 만개까지 5단계. 만개한 꽃은 도감에 모임.',
   },
   {
     key: 'CONSTELLATION',
-    label: '별자리',
+    label: '✨ 별자리',
     icon: Sparkles,
-    accent: 'violet',
-    description: '인증=별 점등, 출석=연결선. 5단계로 별자리 완성.',
+    description: '본인의 은하에 별 5개 점등 + 연결선. 5단계로 별자리 완성.',
   },
 ]
 
@@ -47,14 +58,19 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
   const [feedEnabled, setFeedEnabled] = useState(
     initialData?.feed_enabled !== undefined ? !!initialData.feed_enabled : true
   )
-  // Day 65: 게이미피케이션 트랙 선택 (랭킹 / 정원 / 별자리).
-  // 기존 ranking_enabled boolean → gamification_type 으로 통합. RANKING 이면 ranking_enabled=true.
-  const [gamificationType, setGamificationType] = useState(
-    initialData?.gamification_type
-      || (initialData?.ranking_enabled === false ? 'GARDEN' : 'RANKING')
+  // Day 65: 2단계 선택 구조 — 1차 (랭킹/성장) → 2차 (성장이면 정원/별자리).
+  // 기존 ranking_enabled boolean / gamification_type 호환.
+  const initialType = initialData?.gamification_type
+    || (initialData?.ranking_enabled === false ? 'GARDEN' : 'RANKING')
+  const [primaryTrack, setPrimaryTrack] = useState(
+    initialType === 'RANKING' ? 'RANKING' : 'GROWTH'
   )
-  const isRanking = gamificationType === 'RANKING'
-  const isGrowth = gamificationType === 'GARDEN' || gamificationType === 'CONSTELLATION'
+  const [growthConcept, setGrowthConcept] = useState(
+    initialType === 'CONSTELLATION' ? 'CONSTELLATION' : 'GARDEN'
+  )
+  const isRanking = primaryTrack === 'RANKING'
+  const isGrowth = primaryTrack === 'GROWTH'
+  const gamificationType = isRanking ? 'RANKING' : growthConcept  // DB 저장값
 
   const [podiumEnabled, setPodiumEnabled] = useState(initialData?.podium_enabled || false)
   const [trendEnabled, setTrendEnabled] = useState(initialData?.trend_enabled || false)
@@ -66,7 +82,7 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
     (initialData?.streak_milestones || []).join(', ')
   )
 
-  const [previewOpen, setPreviewOpen] = useState(true)
+  const [previewOpen, setPreviewOpen] = useState(false)  // 기본 닫힘 (본인 결정)
 
   // Step 1 에서 선택한 카테고리들에 매칭되는 추천 미션 묶음
   const selectedCategories = initialData?.categories || []
@@ -143,46 +159,72 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
         </div>
       </button>
 
-      {/* 게이미피케이션 트랙 선택 — Day 65 본인 결정 (랭킹 / 정원 / 별자리). */}
+      {/* 1차 트랙 선택 — 랭킹 / 성장. 각 카드에 헤드라인 + 짧은 설명 */}
       <p className="text-xs text-gray-500 font-medium mb-2 px-1">참여 동기 방식</p>
-      <div className="grid grid-cols-3 gap-2 mb-4">
-        {TRACKS.map(t => {
-          const Icon = t.icon
-          const active = gamificationType === t.key
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        {PRIMARY_TRACKS.map(t => {
+          const active = primaryTrack === t.key
           const accentBorder = {
             amber: 'border-amber-500 bg-amber-50',
             emerald: 'border-emerald-500 bg-emerald-50',
-            violet: 'border-violet-500 bg-violet-50',
-          }[t.accent]
-          const accentIcon = {
-            amber: 'text-amber-600',
-            emerald: 'text-emerald-600',
-            violet: 'text-violet-600',
           }[t.accent]
           return (
             <button
               key={t.key}
               type="button"
-              onClick={() => setGamificationType(t.key)}
-              className={`p-3 rounded-2xl border-2 text-center transition ${
+              onClick={() => setPrimaryTrack(t.key)}
+              className={`p-4 rounded-2xl border-2 text-left transition ${
                 active ? accentBorder : 'border-gray-200 bg-white hover:border-gray-300'
               }`}
             >
-              <Icon className={`w-6 h-6 mx-auto mb-1 ${active ? accentIcon : 'text-gray-400'}`} />
-              <p className={`text-sm font-medium ${active ? 'text-gray-800' : 'text-gray-600'}`}>{t.label}</p>
+              <p className={`text-base font-semibold mb-1 ${active ? 'text-gray-800' : 'text-gray-700'}`}>
+                {t.label}
+              </p>
+              <p className="text-[11px] text-gray-600 leading-snug">
+                {t.headline}
+              </p>
             </button>
           )
         })}
       </div>
-      {/* 선택된 트랙 설명 */}
+      {/* 선택된 트랙 상세 설명 */}
       <p className="text-xs text-gray-600 px-2 mb-4 leading-relaxed">
-        {TRACKS.find(t => t.key === gamificationType)?.description}
+        {PRIMARY_TRACKS.find(t => t.key === primaryTrack)?.description}
       </p>
+
+      {/* 성장 트랙 선택 시 — 2차: 정원 vs 별자리 */}
+      {isGrowth && (
+        <div className="mb-4">
+          <p className="text-xs text-gray-500 font-medium mb-2 px-1">성장 컨셉 선택</p>
+          <div className="grid grid-cols-2 gap-2">
+            {GROWTH_CONCEPTS.map(c => {
+              const active = growthConcept === c.key
+              return (
+                <button
+                  key={c.key}
+                  type="button"
+                  onClick={() => setGrowthConcept(c.key)}
+                  className={`p-3 rounded-2xl border-2 text-left transition ${
+                    active ? 'border-emerald-400 bg-white' : 'border-gray-200 bg-white hover:border-gray-300'
+                  }`}
+                >
+                  <p className={`text-sm font-medium mb-0.5 ${active ? 'text-emerald-700' : 'text-gray-700'}`}>
+                    {c.label}
+                  </p>
+                  <p className="text-[11px] text-gray-500 leading-snug">
+                    {c.description}
+                  </p>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* 성장형 트랙 — 연속 보너스 프리셋 */}
       {isGrowth && (
         <div className="mb-6 p-4 bg-gray-50 rounded-2xl border border-gray-200">
-          <p className="text-sm font-medium text-gray-800 mb-1">⭐ 연속 보너스 마일스톤</p>
+          <p className="text-sm font-medium text-gray-800 mb-1">⭐ 연속 참여 보너스</p>
           <p className="text-xs text-gray-500 mb-3">
             며칠 연속 참여하면 특별 보상을 받을지 정해요. 프로그램 기간에 맞춰 선택.
           </p>
@@ -364,13 +406,14 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
                 {recommendedBundles.map(b => (
                   <div
                     key={b.key}
-                    className="flex items-center gap-3 p-3 bg-white rounded-xl border border-gray-100 w-full min-w-0 overflow-hidden"
+                    className="flex items-start gap-3 p-3 bg-white rounded-xl border border-gray-100 w-full min-w-0"
                   >
                     <span className="text-xl flex-shrink-0">{b.emoji}</span>
-                    <div className="flex-1 min-w-0 overflow-hidden">
-                      <p className="text-sm font-medium text-gray-800 truncate">{b.title}</p>
-                      <p className="text-[11px] text-gray-500 truncate">
-                        {b.description} · 미션 {b.missions.length}개
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-800 break-keep">{b.title}</p>
+                      <p className="text-[11px] text-gray-500 leading-snug break-keep mt-0.5">
+                        {b.description}<br />
+                        <span className="text-gray-400">미션 {b.missions.length}개</span>
                       </p>
                     </div>
                   </div>
