@@ -133,9 +133,13 @@ function Step1Basic({ initialData, onNext, onSave }) {
               value={startDate}
               onChange={(e) => {
                 setStartDate(e.target.value)
-                // 시작일 입력 완료 시 자동으로 종료일 input focus (모바일 흐름 개선)
+                // 시작일 입력 완료 시 종료일 input focus + 달력 picker 자동 펼침
+                // showPicker(): Chrome 99+/Firefox 101+/Safari 16+. 사용자 제스처 직후라 보안 통과.
                 if (e.target.value) {
-                  setTimeout(() => endDateRef.current?.focus(), 50)
+                  setTimeout(() => {
+                    endDateRef.current?.focus()
+                    try { endDateRef.current?.showPicker?.() } catch { /* 미지원 브라우저 — focus 만 */ }
+                  }, 100)
                 }
               }}
               min={getTodayKST()}

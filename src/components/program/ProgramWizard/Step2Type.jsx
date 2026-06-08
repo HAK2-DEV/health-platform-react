@@ -9,7 +9,7 @@ const PRIMARY_TRACKS = [
     label: '🏆 랭킹',
     icon: Trophy,
     accent: 'amber',
-    headline: '점수 순위로 경쟁',
+    headline: '점수 순위 경쟁',
     description: '참여자 간 점수 순위. 포디움·추세·기간 필터 등 옵션이 풍부해요.',
   },
   {
@@ -17,7 +17,7 @@ const PRIMARY_TRACKS = [
     label: '🌱 성장',
     icon: Sprout,
     accent: 'emerald',
-    headline: '정원·별자리로 시각화 (개인 누적)',
+    headline: '개인 정원·별자리',
     description: '경쟁 없이 본인 정원·별자리를 키우는 느낌. 인증=물·별, 출석=햇빛·연결선.',
   },
 ]
@@ -44,6 +44,46 @@ const STREAK_PRESETS = [
   { key: 'long', label: '장기', days: [7, 14, 30], hint: '1달+ 프로그램' },
   { key: 'custom', label: '사용자 정의', days: null, hint: '직접 입력' },
 ]
+
+// Day 65: 옵션 토글 카드 헬퍼 — 토글을 제목 옆에 배치해서 설명이 전체 폭 사용.
+// 본인 피드백: 토글이 텍스트 영역 압박해서 줄바꿈 부자연스러움.
+const ACCENT_MAP = {
+  emerald: { border: 'border-emerald-500 bg-emerald-50', title: 'text-emerald-700', bg: 'bg-emerald-500' },
+  amber:   { border: 'border-amber-500 bg-amber-50',     title: 'text-amber-700',   bg: 'bg-amber-500' },
+  violet:  { border: 'border-violet-500 bg-violet-50',   title: 'text-violet-700',  bg: 'bg-violet-500' },
+  cyan:    { border: 'border-cyan-500 bg-cyan-50',       title: 'text-cyan-700',    bg: 'bg-cyan-500' },
+}
+function OptionToggle({ emoji, title, description, enabled, onToggle, accent = 'emerald' }) {
+  const a = ACCENT_MAP[accent] || ACCENT_MAP.emerald
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className={`w-full p-4 rounded-2xl border-2 text-left transition mb-3 ${
+        enabled ? a.border : 'border-gray-200 bg-white hover:border-gray-300'
+      }`}
+    >
+      <div className="flex items-start gap-3">
+        <span className="text-2xl flex-shrink-0">{emoji}</span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2 mb-1.5">
+            <p className={`font-medium break-keep ${enabled ? a.title : 'text-gray-800'}`}>
+              {title}
+            </p>
+            <div className={`relative w-10 h-6 rounded-full flex-shrink-0 transition ${enabled ? a.bg : 'bg-gray-300'}`}>
+              <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                enabled ? 'translate-x-4' : 'translate-x-0.5'
+              }`} />
+            </div>
+          </div>
+          <p className="text-sm text-gray-600 leading-relaxed break-keep">
+            {description}
+          </p>
+        </div>
+      </div>
+    </button>
+  )
+}
 
 // 2단계: 프로그램 옵션
 //   - 피드 활성화 (커뮤니티 모드)
@@ -127,37 +167,14 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
       </p>
 
       {/* 피드 활성화 토글 */}
-      <button
-        type="button"
-        onClick={() => setFeedEnabled(!feedEnabled)}
-        className={`
-          w-full p-4 rounded-2xl border-2 text-left transition mb-3
-          ${feedEnabled
-            ? 'border-emerald-500 bg-emerald-50'
-            : 'border-gray-200 bg-white hover:border-gray-300'}
-        `}
-      >
-        <div className="flex items-start gap-3">
-          <span className="text-2xl">📷</span>
-          <div className="flex-1">
-            <div className={`font-medium mb-1 ${feedEnabled ? 'text-emerald-700' : 'text-gray-800'}`}>
-              피드 활성화<br />(커뮤니티 모드)
-            </div>
-            <div className="text-sm text-gray-600">
-              참여자끼리 서로의 인증을 사진 피드로 보고 좋아요·댓글로 응원할 수 있어요
-            </div>
-          </div>
-          <div className={`
-            relative w-10 h-6 rounded-full flex-shrink-0 transition
-            ${feedEnabled ? 'bg-emerald-500' : 'bg-gray-300'}
-          `}>
-            <div className={`
-              absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform
-              ${feedEnabled ? 'translate-x-4' : 'translate-x-0.5'}
-            `} />
-          </div>
-        </div>
-      </button>
+      <OptionToggle
+        emoji="📷"
+        title="피드 활성화 (커뮤니티 모드)"
+        description="참여자끼리 서로의 인증을 사진 피드로 보고 좋아요·댓글로 응원할 수 있어요."
+        enabled={feedEnabled}
+        onToggle={() => setFeedEnabled(!feedEnabled)}
+        accent="emerald"
+      />
 
       {/* 1차 트랙 선택 — 랭킹 / 성장. 각 카드에 헤드라인 + 짧은 설명 */}
       <p className="text-xs text-gray-500 font-medium mb-2 px-1">참여 동기 방식</p>
@@ -177,12 +194,15 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
                 active ? accentBorder : 'border-gray-200 bg-white hover:border-gray-300'
               }`}
             >
-              <p className={`text-base font-semibold mb-1 ${active ? 'text-gray-800' : 'text-gray-700'}`}>
+              <p className={`text-base font-semibold ${active ? 'text-gray-800 mb-1' : 'text-gray-500'}`}>
                 {t.label}
               </p>
-              <p className="text-[11px] text-gray-600 leading-snug">
-                {t.headline}
-              </p>
+              {/* 헤드라인 — 선택된 카드만 표시 (본인 결정). 비선택은 라벨만 */}
+              {active && (
+                <p className="text-[11px] text-gray-600 leading-snug break-keep">
+                  {t.headline}
+                </p>
+              )}
             </button>
           )
         })}
@@ -269,108 +289,33 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
 
       {/* 포디움 / 추세 / 기간 필터 — 랭킹 트랙 일 때만 노출 (기존 옵션) */}
       {isRanking && (
-        <>
-          {/* 포디움 토글 */}
-          <button
-            type="button"
-            onClick={() => setPodiumEnabled(!podiumEnabled)}
-            className={`
-              w-full p-4 rounded-2xl border-2 text-left transition mb-3
-              ${podiumEnabled
-                ? 'border-amber-500 bg-amber-50'
-                : 'border-gray-200 bg-white hover:border-gray-300'}
-            `}
-          >
-            <div className="flex items-start gap-3">
-              <span className="text-2xl">🏆</span>
-              <div className="flex-1">
-                <div className={`font-medium mb-1 ${podiumEnabled ? 'text-amber-700' : 'text-gray-800'}`}>
-                  랭킹 Top 3 (시상대)
-                </div>
-                <div className="text-sm text-gray-600">
-                  랭킹 페이지 상단에 1·2·3등을 올림픽 시상대처럼 강조해서 표시해요. 끄면 평면 랭킹만.
-                </div>
-              </div>
-              <div className={`
-                relative w-10 h-6 rounded-full flex-shrink-0 transition
-                ${podiumEnabled ? 'bg-amber-500' : 'bg-gray-300'}
-              `}>
-                <div className={`
-                  absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform
-                  ${podiumEnabled ? 'translate-x-4' : 'translate-x-0.5'}
-                `} />
-              </div>
-            </div>
-          </button>
-
-          {/* 추세 표시 토글 — 본인 14일 점수 sparkline */}
-          <button
-            type="button"
-            onClick={() => setTrendEnabled(!trendEnabled)}
-            className={`
-              w-full p-4 rounded-2xl border-2 text-left transition mb-3
-              ${trendEnabled
-                ? 'border-violet-500 bg-violet-50'
-                : 'border-gray-200 bg-white hover:border-gray-300'}
-            `}
-          >
-            <div className="flex items-start gap-3">
-              <span className="text-2xl">📊</span>
-              <div className="flex-1">
-                <div className={`font-medium mb-1 ${trendEnabled ? 'text-violet-700' : 'text-gray-800'}`}>
-                  본인 14일 점수 추세 표시
-                </div>
-                <div className="text-sm text-gray-600">
-                  랭킹 페이지의 본인 요약 카드에 최근 14일 점수 그래프(스파크라인)를 보여줘요. 꾸준함 시각화.
-                </div>
-              </div>
-              <div className={`
-                relative w-10 h-6 rounded-full flex-shrink-0 transition
-                ${trendEnabled ? 'bg-violet-500' : 'bg-gray-300'}
-              `}>
-                <div className={`
-                  absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform
-                  ${trendEnabled ? 'translate-x-4' : 'translate-x-0.5'}
-                `} />
-              </div>
-            </div>
-          </button>
-
-          {/* 기간 필터 토글 — 전체 / 최근 7일 / 최근 30일 */}
-          <button
-            type="button"
-            onClick={() => setPeriodFilterEnabled(!periodFilterEnabled)}
-            className={`
-              w-full p-4 rounded-2xl border-2 text-left transition mb-6
-              ${periodFilterEnabled
-                ? 'border-cyan-500 bg-cyan-50'
-                : 'border-gray-200 bg-white hover:border-gray-300'}
-            `}
-          >
-            <div className="flex items-start gap-3">
-              <span className="text-2xl">⏱️</span>
-              <div className="flex-1">
-                <div className={`font-medium mb-1 ${periodFilterEnabled ? 'text-cyan-700' : 'text-gray-800'}`}>
-                  기간 필터 표시 (최근 7일 / 30일)
-                </div>
-                <div className="text-sm text-gray-600">
-                  참여자가 랭킹을 '전체 / 최근 7일 / 최근 30일' 로 전환해서 볼 수 있어요. 단기 분위기 환기에 좋음.
-                </div>
-              </div>
-              <div className={`
-                relative w-10 h-6 rounded-full flex-shrink-0 transition
-                ${periodFilterEnabled ? 'bg-cyan-500' : 'bg-gray-300'}
-              `}>
-                <div className={`
-                  absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform
-                  ${periodFilterEnabled ? 'translate-x-4' : 'translate-x-0.5'}
-                `} />
-              </div>
-            </div>
-          </button>
-        </>
+        <div className="mb-3">
+          <OptionToggle
+            emoji="🏆"
+            title="랭킹 Top 3 (시상대)"
+            description="랭킹 페이지 상단에 1·2·3등을 올림픽 시상대처럼 강조해서 표시해요. 끄면 평면 랭킹만."
+            enabled={podiumEnabled}
+            onToggle={() => setPodiumEnabled(!podiumEnabled)}
+            accent="amber"
+          />
+          <OptionToggle
+            emoji="📊"
+            title="본인 14일 점수 추세"
+            description="랭킹 페이지 본인 요약 카드에 최근 14일 점수 그래프(스파크라인)를 보여줘요. 꾸준함 시각화."
+            enabled={trendEnabled}
+            onToggle={() => setTrendEnabled(!trendEnabled)}
+            accent="violet"
+          />
+          <OptionToggle
+            emoji="⏱️"
+            title="기간 필터 (7일 / 30일)"
+            description="참여자가 랭킹을 '전체 / 최근 7일 / 최근 30일' 로 전환해서 볼 수 있어요. 단기 분위기 환기에 좋음."
+            enabled={periodFilterEnabled}
+            onToggle={() => setPeriodFilterEnabled(!periodFilterEnabled)}
+            accent="cyan"
+          />
+        </div>
       )}
-      {!isRanking && !isGrowth && <div className="mb-6" />}
 
       {/* 추천 미션 미리보기 — Step 1 카테고리 매칭 */}
       <div className="bg-gray-50/60 rounded-2xl border border-gray-200 mb-6 overflow-hidden">
