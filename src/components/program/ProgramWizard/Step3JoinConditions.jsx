@@ -68,7 +68,7 @@ function Step3JoinConditions({ initialData, onNext, onSave, onPrev }) {
               <label
                 key={type.key}
                 className={`
-                  flex items-start gap-3 p-3 rounded-md border-2 cursor-pointer transition
+                  flex items-center gap-2.5 p-3 rounded-md border-2 cursor-pointer transition
                   ${isSelected ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 bg-white'}
                 `}
               >
@@ -78,14 +78,14 @@ function Step3JoinConditions({ initialData, onNext, onSave, onPrev }) {
                   value={type.key}
                   checked={isSelected}
                   onChange={(e) => setJoinType(e.target.value)}
-                  className="mt-1 text-emerald-500"
+                  className="text-emerald-500 flex-shrink-0"
                 />
-                <span className="text-xl">{type.emoji}</span>
-                <div className="flex-1">
+                <span className="text-xl flex-shrink-0">{type.emoji}</span>
+                <div className="flex-1 min-w-0">
                   <div className={`font-medium ${isSelected ? 'text-emerald-700' : 'text-gray-800'}`}>
                     {type.label}
                   </div>
-                  <div className="text-sm text-gray-600">
+                  <div className="text-xs text-gray-600 break-keep leading-relaxed">
                     {type.description}
                   </div>
                 </div>

@@ -180,7 +180,10 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
       />
 
       {/* 1차 트랙 선택 — 랭킹 / 성장. 각 카드에 헤드라인 + 짧은 설명 */}
-      <p className="text-xs text-gray-500 font-medium mb-2 px-1">참여 동기 방식</p>
+      <h3 className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-1.5">
+        <span className="inline-block w-1 h-4 bg-emerald-500 rounded-full" />
+        참여 동기 방식
+      </h3>
       <div className="grid grid-cols-2 gap-2 mb-3">
         {PRIMARY_TRACKS.map(t => {
           const active = primaryTrack === t.key
@@ -218,7 +221,10 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
       {/* 성장 트랙 선택 시 — 2차: 정원 vs 별자리 */}
       {isGrowth && (
         <div className="mb-4">
-          <p className="text-xs text-gray-500 font-medium mb-2 px-1">성장 컨셉 선택</p>
+          <h3 className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-1.5">
+            <span className="inline-block w-1 h-4 bg-emerald-500 rounded-full" />
+            성장 컨셉 선택
+          </h3>
           <div className="grid grid-cols-2 gap-2">
             {GROWTH_CONCEPTS.map(c => {
               const active = growthConcept === c.key
