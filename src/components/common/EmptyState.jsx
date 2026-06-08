@@ -59,12 +59,12 @@ function EmptyState({
         </div>
       )}
       {title && (
-        <p className={`${SIZE_TITLE[size] || SIZE_TITLE.md} font-medium text-gray-800 mb-1`}>
+        <p className={`${SIZE_TITLE[size] || SIZE_TITLE.md} font-medium text-gray-800 mb-1 break-keep`}>
           {title}
         </p>
       )}
       {description && (
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-gray-500 break-keep leading-relaxed">
           {description}
         </p>
       )}
