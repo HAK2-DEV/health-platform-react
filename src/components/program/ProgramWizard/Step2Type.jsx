@@ -221,6 +221,8 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
       {/* 성장 트랙 선택 시 — 2차: 정원 vs 별자리 */}
       {isGrowth && (
         <div className="mb-4">
+          {/* 본인 결정 — 헤더 위 5px 여백 (설명과 시각 분리) */}
+          <div className="h-[5px]" aria-hidden="true" />
           <h3 className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-1.5">
             <span className="inline-block w-1 h-4 bg-emerald-500 rounded-full" />
             성장 컨셉 선택
