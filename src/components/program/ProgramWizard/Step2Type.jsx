@@ -3,6 +3,7 @@ import { ChevronDown, ChevronUp, Trophy, Sprout, Sparkles } from 'lucide-react'
 import { MISSION_LIBRARY } from '../../../lib/missionLibrary'
 
 // 1차 트랙 — 본인 결정 (Day 65): 「랭킹 / 성장」 2개로 단순화. 성장 선택 시 정원/별자리 서브 선택.
+// 베타 단계: 성장 트랙 「개발 중」 으로 비활성. 랭킹만 가능 (본인 결정 2026-06-05).
 const PRIMARY_TRACKS = [
   {
     key: 'RANKING',
@@ -19,6 +20,7 @@ const PRIMARY_TRACKS = [
     accent: 'emerald',
     headline: '개인 정원·별자리',
     description: '경쟁 없이 본인 정원·별자리를 키우는 느낌.\n인증=물·별, 출석=햇빛·연결선.',
+    comingSoon: true,  // 베타엔 비활성
   },
 ]
 
@@ -179,7 +181,8 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
         accent="emerald"
       />
 
-      {/* 1차 트랙 선택 — 랭킹 / 성장. 각 카드에 헤드라인 + 짧은 설명 */}
+      {/* 1차 트랙 선택 — 랭킹 / 성장. 각 카드에 헤드라인 + 짧은 설명.
+          베타: 성장은 「개발 중」 으로 비활성. 클릭하면 안내 후 강제로 랭킹 유지 */}
       <h3 className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-1.5">
         <span className="inline-block w-1 h-4 bg-emerald-500 rounded-full" />
         참여 동기 방식
@@ -191,20 +194,30 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
             amber: 'border-amber-500 bg-amber-50',
             emerald: 'border-emerald-500 bg-emerald-50',
           }[t.accent]
+          const disabled = t.comingSoon
           return (
             <button
               key={t.key}
               type="button"
-              onClick={() => setPrimaryTrack(t.key)}
-              className={`p-4 rounded-2xl border-2 text-left transition ${
-                active ? accentBorder : 'border-gray-200 bg-white hover:border-gray-300'
+              onClick={() => { if (!disabled) setPrimaryTrack(t.key) }}
+              disabled={disabled}
+              aria-disabled={disabled}
+              className={`relative p-4 rounded-2xl border-2 text-left transition ${
+                disabled ? 'border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed'
+                : active ? accentBorder
+                : 'border-gray-200 bg-white hover:border-gray-300'
               }`}
             >
-              <p className={`text-base font-semibold ${active ? 'text-gray-800 mb-1' : 'text-gray-500'}`}>
+              {disabled && (
+                <span className="absolute top-2 right-2 px-1.5 py-0.5 bg-gray-700 text-white text-[9px] rounded font-semibold">
+                  곧 출시
+                </span>
+              )}
+              <p className={`text-base font-semibold ${active && !disabled ? 'text-gray-800 mb-1' : 'text-gray-500'}`}>
                 {t.label}
               </p>
               {/* 헤드라인 — 선택된 카드만 표시 (본인 결정). 비선택은 라벨만 */}
-              {active && (
+              {active && !disabled && (
                 <p className="text-[11px] text-gray-600 leading-snug break-keep">
                   {t.headline}
                 </p>
