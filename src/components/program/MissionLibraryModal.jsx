@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import Modal from '../common/Modal'
 import { supabase } from '../../supabaseClient'
 import { ChevronLeft, ChevronDown, ChevronUp, Plus, X, Image as ImageIcon, BarChart3, MessageSquare } from 'lucide-react'
@@ -24,6 +24,12 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
   //   기본 선택: 프로그램의 첫 카테고리 (없으면 첫 카테고리)
   const [selectedCategory, setSelectedCategory] = useState(null)
 
+  // Day 65 본인 피드백: Step 2 에서 라이브러리로 돌아올 때 활성 카테고리 탭이
+  // 가로 스크롤 영역 안에서 보이도록 자동 스크롤. 카테고리 state 는 유지되지만
+  // 가로 스크롤 위치가 초기화돼서 사용자가 다시 찾아야 했던 문제 해결.
+  const tabStripRef = useRef(null)
+  const activeTabRef = useRef(null)
+
   // 모달 닫힘 시 reset
   useEffect(() => {
     if (!isOpen) {
@@ -38,6 +44,16 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
       setSelectedCategory(defaultCat)
     }
   }, [isOpen, program])
+
+  // Step 1 진입 시 활성 카테고리 탭을 가로 스크롤 영역 중앙으로 이동
+  useEffect(() => {
+    if (step !== 1) return
+    const strip = tabStripRef.current
+    const tab = activeTabRef.current
+    if (!strip || !tab) return
+    const offset = tab.offsetLeft - strip.clientWidth / 2 + tab.clientWidth / 2
+    strip.scrollLeft = Math.max(0, offset)
+  }, [step, selectedCategory])
 
   // 선택된 카테고리의 묶음들만 필터링 (카테고리당 묶음 카운트도 미리 계산해서 칩에 표시)
   const bundlesByCategory = useMemo(() => {
@@ -183,13 +199,14 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
             </p>
 
             {/* 카테고리 칩 탭 — 가로 스크롤. 카테고리 옆에 묶음 개수 표시 */}
-            <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-1 px-1 mb-4 scrollbar-hide">
+            <div ref={tabStripRef} className="flex gap-1.5 overflow-x-auto pb-2 -mx-1 px-1 mb-4 scrollbar-hide">
               {CATEGORY_LIST.map(category => {
                 const count = bundlesByCategory[category.key]?.length || 0
                 const isActive = selectedCategory === category.key
                 return (
                   <button
                     key={category.key}
+                    ref={isActive ? activeTabRef : null}
                     type="button"
                     onClick={() => setSelectedCategory(category.key)}
                     className={`
@@ -330,7 +347,7 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
                     <div className="flex-1 min-w-0">
                       <h3 className="font-medium text-gray-800 text-sm">{m.title}</h3>
                       {m.instruction && (
-                        <p className="text-xs text-gray-500 mt-0.5">{m.instruction}</p>
+                        <p className="text-xs text-gray-500 mt-0.5 break-keep leading-relaxed">{m.instruction}</p>
                       )}
                       <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                         {types.map((t, i) => {
@@ -548,7 +565,7 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={onClose}
+                onClick={goBackToList}
                 disabled={isSaving}
                 className="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-md transition disabled:opacity-50"
               >

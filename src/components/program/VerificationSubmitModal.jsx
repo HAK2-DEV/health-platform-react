@@ -176,7 +176,7 @@ function VerificationSubmitModal({ mission, isOpen, onClose, onSuccess }) {
 
           {/* 안내 설명 (운영자가 미션 만들 때 입력) */}
           {mission.instruction && (
-            <p className="mb-4 p-3 bg-gray-50 rounded-lg text-sm text-gray-600">
+            <p className="mb-4 p-3 bg-gray-50 rounded-lg text-sm text-gray-600 break-keep leading-relaxed">
               {mission.instruction}
             </p>
           )}

@@ -402,7 +402,7 @@ function MissionVerifyPage() {
                 )}
               </div>
             </div>
-            <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+            <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed break-keep">
               {mission.instruction || '인증 시 점수가 자동 적립돼요.'}
             </p>
           </div>
