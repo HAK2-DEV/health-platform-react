@@ -332,6 +332,16 @@ function ProgramDetailPage() {
         const catKey = program.categories?.[0] || 'ETC'
         const cat = CATEGORY[catKey] || CATEGORY.ETC
 
+        // Day 65 본인 피드백: 프로그램 제목은 절대 줄바꿈 금지. 길이에 따라
+        // 폰트 크기 자동 축소. 그래도 초과하면 ellipsis (... 표시).
+        const titleLen = (program.name || '').length
+        const titleSize =
+          titleLen <= 10 ? 'text-xl sm:text-2xl' :
+          titleLen <= 14 ? 'text-lg sm:text-xl' :
+          titleLen <= 18 ? 'text-base sm:text-lg' :
+          titleLen <= 22 ? 'text-sm sm:text-base' :
+          'text-xs sm:text-sm'
+
         return (
           <div className="relative bg-white border border-gray-200 rounded-2xl overflow-hidden mb-6">
             {/* 배경 사진 — 좌측 일부 영역에만 (전체 너비 X) */}
@@ -358,7 +368,10 @@ function ProgramDetailPage() {
 
             {/* 텍스트 영역 — 우측 (사진 끝과 살짝 겹쳐 페이드 자연스럽게) */}
             <div className="relative z-10 pl-[34%] pr-4 sm:pr-5 py-4 sm:py-5 min-h-[140px] sm:min-h-[150px] flex flex-col justify-center">
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-800 mb-1.5 sm:mb-2 leading-tight break-words">
+              <h1
+                className={`${titleSize} font-bold text-gray-800 mb-1.5 sm:mb-2 leading-tight whitespace-nowrap overflow-hidden text-ellipsis`}
+                title={program.name}
+              >
                 {program.name}
               </h1>
               {(program.start_date || program.end_date) && (
@@ -422,8 +435,10 @@ function ProgramDetailPage() {
           ? 'overview'
           : activeTab
         return (
-          <div className="border-b border-gray-200 mb-6">
-            <div className="flex">
+          // Day 65 본인 피드백: 탭은 무배경, 선택된 탭만 파스텔 그라데이션 칩.
+          // 글자 키우고 볼드 강화 — 모바일 가독성.
+          <div className="mb-6">
+            <div className="flex gap-1 p-1 bg-white rounded-2xl border border-gray-100">
               {tabs.map(tab => {
                 const isActive = safeActiveTab === tab.key
                 return (
@@ -432,10 +447,10 @@ function ProgramDetailPage() {
                     type="button"
                     onClick={() => setActiveTab(tab.key)}
                     className={`
-                      flex-1 py-3 text-sm border-b-2 transition -mb-px
+                      flex-1 py-2.5 text-sm sm:text-base rounded-xl transition-all
                       ${isActive
-                        ? 'border-emerald-500 text-emerald-600 font-semibold'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 font-medium'}
+                        ? 'bg-gradient-to-r from-emerald-100 via-teal-100/80 to-green-100 text-emerald-800 font-bold shadow-sm'
+                        : 'text-gray-600 hover:text-emerald-700 font-semibold'}
                     `}
                   >
                     {tab.label}
@@ -464,7 +479,7 @@ function ProgramDetailPage() {
               className="col-span-2 px-3 py-2 bg-white border border-amber-300 hover:border-amber-500 hover:bg-amber-100 rounded text-sm text-amber-800 transition text-left"
             >
               📝 개요 글 {program.overview_content?.trim() ? '수정' : '작성'}
-              <span className="block text-xs text-amber-700">
+              <span className="block text-xs text-amber-700 break-keep">
                 {program.overview_content?.trim() ? '참여자에게 보이는 안내 글 수정' : '프로그램 소개·공지를 마크다운으로 작성'}
               </span>
             </button>
@@ -474,7 +489,7 @@ function ProgramDetailPage() {
               className="px-3 py-2 bg-white border border-amber-300 hover:border-amber-500 hover:bg-amber-100 rounded text-sm text-amber-800 transition text-left"
             >
               ✏️ 프로그램 수정
-              <span className="block text-xs text-amber-700">이름·기간·카테고리</span>
+              <span className="block text-xs text-amber-700 break-keep">이름·기간·카테고리</span>
             </button>
             <button
               type="button"
@@ -482,7 +497,7 @@ function ProgramDetailPage() {
               className="px-3 py-2 bg-white border border-amber-300 hover:border-amber-500 hover:bg-amber-100 rounded text-sm text-amber-800 transition text-left"
             >
               📋 게시물 관리
-              <span className="block text-xs text-amber-700">퀴즈 생성·관리</span>
+              <span className="block text-xs text-amber-700 break-keep">퀴즈 생성·관리</span>
             </button>
             <button
               type="button"
@@ -490,7 +505,7 @@ function ProgramDetailPage() {
               className="px-3 py-2 bg-white border border-amber-300 hover:border-amber-500 hover:bg-amber-100 rounded text-sm text-amber-800 transition text-left"
             >
               ✅ 인증 심사
-              <span className="block text-xs text-amber-700">MANUAL 미션 승인/반려</span>
+              <span className="block text-xs text-amber-700 break-keep">MANUAL 미션 승인/반려</span>
             </button>
             <button
               type="button"
@@ -498,7 +513,7 @@ function ProgramDetailPage() {
               className="px-3 py-2 bg-white border border-amber-300 hover:border-amber-500 hover:bg-amber-100 rounded text-sm text-amber-800 transition text-left"
             >
               📊 참여자 통계
-              <span className="block text-xs text-amber-700">참여 · 인증 · 미션별 현황</span>
+              <span className="block text-xs text-amber-700 break-keep">참여 · 인증 · 미션별 현황</span>
             </button>
           </div>
         </div>
@@ -737,7 +752,7 @@ function ProgramDetailPage() {
         <EmptyState
           icon="📝"
           title="퀴즈 관리는 게시물 관리에서"
-          description="운영자는 게시물 관리 메뉴(운영자 패널 → 📋)에서 퀴즈를 생성·관리할 수 있어요"
+          description="운영자 패널의 📋 게시물 관리에서 퀴즈를 생성·관리할 수 있어요"
           action={{ label: '게시물 관리로', onClick: () => navigate(`/programs/${id}/posts`) }}
         />
       ) : participantQuizzes.length === 0 ? (
