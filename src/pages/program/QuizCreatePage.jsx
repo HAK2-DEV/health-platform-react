@@ -364,7 +364,7 @@ function QuestionEditor({ index, question: q, canRemove, onChange, onRemove, onU
         <div className="space-y-2 mb-3">
           <p className="text-xs text-gray-500">보기 (정답을 선택하세요)</p>
           {q.options.map((opt, oIdx) => (
-            <div key={oIdx} className="flex items-center gap-2">
+            <div key={oIdx} className="flex items-center gap-2 min-w-0">
               <input
                 type="radio"
                 name={`correct-${index}`}
@@ -377,7 +377,7 @@ function QuestionEditor({ index, question: q, canRemove, onChange, onRemove, onU
                 value={opt}
                 onChange={(e) => onUpdateOption(oIdx, e.target.value)}
                 placeholder={`보기 ${oIdx + 1}`}
-                className="flex-1 px-3 py-1.5 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 text-sm"
+                className="flex-1 min-w-0 px-3 py-1.5 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 text-sm"
               />
               {q.options.length > 2 && (
                 <button
