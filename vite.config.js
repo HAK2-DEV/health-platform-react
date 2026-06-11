@@ -57,4 +57,26 @@ export default defineConfig({
     }),
   ],
 
+  // 번들 분할 — 단일 거대 index 청크를 vendor 별로 쪼갬.
+  //   효과: ① 병렬 다운로드 ② vendor 캐시 유지 → 앱 코드만 바뀌는 배포에서 재다운로드 최소화
+  //         ③ markdown 등 일부 라이브러리는 쓰는 라우트에서만 로드.
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined
+          // 알려진 eager 대형 라이브러리만 분할 — catch-all 금지(lazy 전용 라이브러리를
+          //   eager 로 끌어올리는 부작용 방지: 크롭/이미지압축/markdown 은 쓰는 라우트에서만 로드).
+          if (id.includes('@sentry')) return 'sentry'
+          if (id.includes('framer-motion') || id.includes('motion-dom') || id.includes('motion-utils')) return 'motion'
+          if (id.includes('@supabase')) return 'supabase'
+          if (id.includes('react-router')) return 'router'
+          if (id.includes('@tanstack')) return 'query'
+          if (id.includes('lucide-react')) return 'icons'
+          if (id.includes('/react-dom/') || id.includes('/react/') || id.includes('/scheduler/')) return 'react'
+          return undefined
+        },
+      },
+    },
+  },
 })
