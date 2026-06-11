@@ -111,21 +111,20 @@ export const fetchActivePrograms = async (userId) => {
   return (data || []).map(row => row.programs)
 }
 
-// 여러 프로그램의 ACTIVE 참여자 수를 한 번에 조회 — Dashboard 참여 중 카드 "N명이 함께 참여 중" 용.
-// head:true + count:'exact' 로 row 본체 X, 카운트만 가져옴. N 쿼리 병렬.
+// 여러 프로그램의 ACTIVE 참여자 수 — SECURITY DEFINER RPC(082)로 한 번에.
+//   직접 COUNT 는 RLS(015) 때문에 본인 소유/참여 외 프로그램은 0~1 로 잘못 나옴 → RPC 로 정확 집계.
+//   N+1 도 제거(프로그램 N개 → 1쿼리).
 export const fetchActiveParticipantCounts = async (programIds) => {
   if (!programIds || programIds.length === 0) return {}
-  const results = await Promise.all(
-    programIds.map(async (pid) => {
-      const { count } = await supabase
-        .from('program_participants')
-        .select('*', { count: 'exact', head: true })
-        .eq('program_id', pid)
-        .eq('status', 'ACTIVE')
-      return [pid, count || 0]
-    })
-  )
-  return Object.fromEntries(results)
+  const { data, error } = await supabase.rpc('get_active_participant_counts', {
+    p_program_ids: programIds,
+  })
+  if (error) throw error
+  const map = {}
+  for (const row of (data || [])) map[row.program_id] = row.participant_count
+  // 0명 프로그램은 RPC 결과에 없음 → 0 보정
+  for (const id of programIds) if (map[id] == null) map[id] = 0
+  return map
 }
 
 export const fetchPublicPrograms = async (excludeUserId) => {
@@ -317,11 +316,8 @@ export const fetchProgramJoinInfo = async (programId) => {
       .select('users:owner_id (nickname, avatar_path)')
       .eq('id', programId)
       .maybeSingle(),
-    supabase
-      .from('program_participants')
-      .select('*', { count: 'exact', head: true })
-      .eq('program_id', programId)
-      .eq('status', 'ACTIVE'),
+    // 참여자 수 — RPC(082)로 RLS 우회 (남의 프로그램도 정확). 직접 COUNT 는 RLS 로 0~1 오집계.
+    supabase.rpc('get_active_participant_counts', { p_program_ids: [programId] }),
     supabase
       .from('missions')
       .select('id, point, daily_limit')
@@ -341,7 +337,7 @@ export const fetchProgramJoinInfo = async (programId) => {
   return {
     ownerNickname: ownerRes.data?.users?.nickname || null,
     ownerAvatarPath: ownerRes.data?.users?.avatar_path || null,
-    participantCount: countRes.count || 0,
+    participantCount: countRes.data?.[0]?.participant_count || 0,
     missionCount: missions.length,
     dailyMaxScore,
   }
