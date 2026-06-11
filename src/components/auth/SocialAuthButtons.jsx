@@ -1,5 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../../supabaseClient'
+import { detectInAppBrowser, IN_APP_BROWSER_NAME, openExternalBrowser } from '../../lib/inAppBrowser'
+import GoogleSignInButton from './GoogleSignInButton'
+
+// GIS 인페이지 로그인용 — 있으면 리다이렉트 없는 GIS 버튼, 없으면 기존 리다이렉트 폴백
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
 
 // 소셜 로그인/가입 버튼 묶음 — LoginPage / SignupPage 공유.
 // Day 65 본인 결정: Google + Kakao + Naver 단계별 도입.
@@ -18,7 +23,34 @@ import { supabase } from '../../supabaseClient'
 function SocialAuthButtons() {
   const [loading, setLoading] = useState(null)  // 'google' | 'kakao' | 'naver' | null
 
+  // OAuth 리다이렉트 중단(인앱 브라우저 차단) 또는 뒤로가기(bfcache) 로 페이지에
+  //   되돌아오면 loading 이 stuck 되어 버튼이 잠긴 채 남는다 → 페이지가 다시 보이면 초기화.
+  //   (pageshow 는 최초 로드 + bfcache 복원 모두에서 발생)
+  useEffect(() => {
+    const reset = () => setLoading(null)
+    window.addEventListener('pageshow', reset)
+    return () => window.removeEventListener('pageshow', reset)
+  }, [])
+
   const handleGoogle = async () => {
+    // 인앱 브라우저(카톡/네이버/인스타 등 웹뷰)에서는 구글 OAuth 가 차단됨
+    //   ("403: disallowed_useragent / 보안 브라우저 사용 정책").
+    //   → OAuth 시작하지 말고 외부 브라우저로 빠져나가게 유도.
+    const inApp = detectInAppBrowser()
+    if (inApp) {
+      const escaped = openExternalBrowser()
+      if (!escaped) {
+        // 강제 탈출 불가 (주로 iOS 인스타/페북 등) → 링크 복사 + 안내
+        try { await navigator.clipboard.writeText(window.location.href) } catch { /* clipboard 미지원 */ }
+        alert(
+          `${IN_APP_BROWSER_NAME[inApp] || '현재 앱'} 안에서는 Google 로그인이 막혀 있어요.\n\n` +
+          `링크를 복사했어요 — Safari/Chrome 주소창에 붙여넣어 다시 열어주세요.\n` +
+          `(또는 우측 상단 메뉴 → '다른 브라우저로 열기')`
+        )
+      }
+      return
+    }
+
     setLoading('google')
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -74,22 +106,26 @@ function SocialAuthButtons() {
 
       {/* 소셜 버튼 3개 — 세로 배치 (모바일 친화) */}
       <div className="flex flex-col gap-2">
-        {/* Google */}
-        <button
-          type="button"
-          onClick={handleGoogle}
-          disabled={loading !== null}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white border-2 border-gray-200 hover:border-gray-300 text-gray-700 text-sm font-medium rounded-xl transition disabled:opacity-50"
-        >
-          <GoogleIcon className="w-5 h-5" />
-          {loading === 'google' ? '연결 중...' : 'Google 로 계속하기'}
-        </button>
+        {/* Google — GIS 인페이지 로그인(리다이렉트 X). client ID 미설정 시 기존 리다이렉트 폴백 */}
+        {GOOGLE_CLIENT_ID ? (
+          <GoogleSignInButton clientId={GOOGLE_CLIENT_ID} />
+        ) : (
+          <button
+            type="button"
+            onClick={handleGoogle}
+            disabled={loading === 'google'}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white border-2 border-gray-200 hover:border-gray-300 text-gray-700 text-sm font-medium rounded-xl transition disabled:opacity-50"
+          >
+            <GoogleIcon className="w-5 h-5" />
+            {loading === 'google' ? '연결 중...' : 'Google 로 계속하기'}
+          </button>
+        )}
 
         {/* Kakao */}
         <button
           type="button"
           onClick={handleKakao}
-          disabled={loading !== null}
+          disabled={loading === 'kakao'}
           className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#FEE500] hover:bg-[#FDD835] text-[#3C1E1E] text-sm font-medium rounded-xl transition disabled:opacity-50"
         >
           <KakaoIcon className="w-5 h-5" />
@@ -100,7 +136,7 @@ function SocialAuthButtons() {
         <button
           type="button"
           onClick={handleNaver}
-          disabled={loading !== null}
+          disabled={loading === 'naver'}
           className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#03C75A] hover:bg-[#02B450] text-white text-sm font-medium rounded-xl transition disabled:opacity-50"
         >
           <NaverIcon className="w-5 h-5" />
