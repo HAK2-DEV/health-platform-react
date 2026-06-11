@@ -4,6 +4,8 @@ import { supabase } from '../supabaseClient'
 import { UserPlus, Activity, Check } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import SocialAuthButtons from '../components/auth/SocialAuthButtons'
+import Modal from '../components/common/Modal'
+import { TermsContent, PrivacyContent } from '../components/legal/LegalContent'
 
 // Day 65 — 약관 동의 흐름 추가:
 //   [필수] 만 14세 이상
@@ -28,6 +30,10 @@ function SignupPage() {
   const [agreeMarketing, setAgreeMarketing] = useState(false)
   const allRequired = agreeAge && agreeTerms && agreePrivacy
   const allChecked = allRequired && agreeMarketing
+
+  // 약관 「보기」 — 페이지 이동 대신 모달로 표시 (폼 입력값 보존 + 닫으면 제자리).
+  // 'terms' | 'privacy' | null
+  const [legalDoc, setLegalDoc] = useState(null)
 
   // "전체 동의" 토글
   const handleAgreeAll = (checked) => {
@@ -117,6 +123,7 @@ function SignupPage() {
             agreeMarketing={agreeMarketing} setAgreeMarketing={setAgreeMarketing}
             allChecked={allChecked}
             onAgreeAll={handleAgreeAll}
+            onView={setLegalDoc}
           />
 
           <button
@@ -144,6 +151,14 @@ function SignupPage() {
         {/* 소셜 회원가입 — Day 65 본인 결정 */}
         <SocialAuthButtons />
       </div>
+
+      {/* 약관 보기 모달 — 닫으면 회원가입 폼 그대로 복귀 (입력값·체크 유지) */}
+      <Modal isOpen={legalDoc !== null} onClose={() => setLegalDoc(null)}>
+        <div className="px-4 pb-6 pt-1">
+          {legalDoc === 'terms' && <TermsContent />}
+          {legalDoc === 'privacy' && <PrivacyContent />}
+        </div>
+      </Modal>
     </div>
   )
 }
@@ -154,7 +169,7 @@ function ConsentBox({
   agreeTerms, setAgreeTerms,
   agreePrivacy, setAgreePrivacy,
   agreeMarketing, setAgreeMarketing,
-  allChecked, onAgreeAll,
+  allChecked, onAgreeAll, onView,
 }) {
   return (
     <div className="mt-2 border-2 border-gray-200 rounded-md p-3 space-y-2 bg-gray-50/40">
@@ -175,14 +190,14 @@ function ConsentBox({
         checked={agreeTerms}
         onChange={setAgreeTerms}
         label="이용약관에 동의합니다"
-        linkPath="/terms"
+        onView={() => onView('terms')}
       />
       <ConsentItem
         required
         checked={agreePrivacy}
         onChange={setAgreePrivacy}
         label="개인정보 수집·이용에 동의합니다"
-        linkPath="/privacy"
+        onView={() => onView('privacy')}
       />
       <ConsentItem
         checked={agreeMarketing}
@@ -193,7 +208,7 @@ function ConsentBox({
   )
 }
 
-function ConsentItem({ required, checked, onChange, label, linkPath }) {
+function ConsentItem({ required, checked, onChange, label, onView }) {
   return (
     <label className="flex items-center gap-2 cursor-pointer">
       <CheckBox checked={checked} onChange={(e) => onChange(e.target.checked)} />
@@ -203,16 +218,14 @@ function ConsentItem({ required, checked, onChange, label, linkPath }) {
         </span>{' '}
         {label}
       </span>
-      {linkPath && (
-        <Link
-          to={linkPath}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
+      {onView && (
+        <button
+          type="button"
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onView() }}
           className="text-xs text-emerald-600 underline flex-shrink-0"
         >
           보기
-        </Link>
+        </button>
       )}
     </label>
   )
