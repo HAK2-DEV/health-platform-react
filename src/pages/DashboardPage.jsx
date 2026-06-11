@@ -317,7 +317,7 @@ function DashboardPage() {
           <StatCard
             tone="violet"
             icon={<Trophy className="w-5 h-5" />}
-            label="랭킹 포인트"
+            label="누적 포인트"
             value={totalPoints}
             unit="P"
           />
@@ -364,6 +364,7 @@ function DashboardPage() {
               const progress = calcProgress(program.start_date, program.end_date)
               const urgency = progressUrgency(progress)
               const isEnded = urgency.urgency === 'ended'
+              const isUpcoming = !isEnded && isUpcomingByStartDate(program.start_date)  // 예약(시작 전) 참여
               // 종료된 프로그램은 회색 카드 — 시각적으로 「현재 활성 ≠ 종료」 구분
               const colors = isEnded
                 ? { bg: 'bg-gray-100', border: 'border-gray-200', accent: 'bg-gray-400' }
@@ -400,8 +401,8 @@ function DashboardPage() {
                       variant="thumb"
                       className="w-20 h-20 rounded-card"
                     />
-                    <Badge variant={isEnded ? 'ended' : 'progress'} size="sm" className="absolute top-1.5 left-1.5 shadow-sm">
-                      {isEnded ? '종료' : '진행중'}
+                    <Badge variant={isEnded ? 'ended' : isUpcoming ? 'upcoming' : 'progress'} size="sm" className="absolute top-1.5 left-1.5 shadow-sm">
+                      {isEnded ? '종료' : isUpcoming ? '예정' : '진행중'}
                     </Badge>
                   </div>
 

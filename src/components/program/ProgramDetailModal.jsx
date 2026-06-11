@@ -105,6 +105,17 @@ function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
     queryClient.invalidateQueries({ queryKey: queryKeys.programJoinInfo(program.id) })
   }
 
+  // 시작 전 프로그램 — 참여 예약 (시작일에 자동 참여). confirm 후 handleJoin 재사용.
+  //   ACTIVE 로 등록되므로 대시보드 「참여 예정」에 자동 카운트, 시작일 지나면 「참여 중」.
+  const handleReserve = () => {
+    const isApproval = program?.join_type === 'APPROVAL'
+    const msg = isApproval
+      ? '참여를 예약 신청하시겠습니까?\n운영자 승인 후, 시작일에 자동으로 참여돼요.'
+      : `프로그램 참여를 예약하시겠습니까?\n${formatKoreanDate(program?.start_date)} 시작일에 자동으로 참여돼요.`
+    if (!window.confirm(msg)) return
+    handleJoin()
+  }
+
   // 참여 상태 조회
   useEffect(() => {
     if (!program || !session) return
@@ -153,10 +164,7 @@ function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
     : null
   const isBeforeStart = programStart && now < programStart
   const isAfterEnd = programEnd && now > programEnd
-  const isProgramInactive = isBeforeStart || isAfterEnd
-  const inactiveJoinLabel = isBeforeStart
-    ? `${formatKoreanDate(program?.start_date)} 시작 예정 — 이후 참여 가능`
-    : isAfterEnd
+  const inactiveJoinLabel = isAfterEnd
     ? `${formatKoreanDate(program?.end_date)} 에 종료된 프로그램입니다`
     : null
 
@@ -177,6 +185,13 @@ function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
     : program?.join_type === 'APPROVAL'
     ? '참여 신청하기'
     : '바로 참여하기'
+
+  // 시작 전 — 예약 버튼 라벨
+  const reserveButtonText = program?.join_type === 'INVITE_CODE'
+    ? '초대 코드로 예약하기'
+    : program?.join_type === 'APPROVAL'
+    ? '참여 예약 신청하기'
+    : '참여 예약하기'
 
   // 참여 흐름 안내 메시지
   const joinFlowMessage = (() => {
@@ -327,7 +342,9 @@ function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
               <div>
                 {justJoined && (
                   <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-center rounded-2xl mb-2 text-sm">
-                    🎉 참여 완료! 바로 첫 인증을 시작해보세요
+                    {isBeforeStart
+                      ? '🎉 참여 예약 완료! 시작일에 자동으로 참여돼요'
+                      : '🎉 참여 완료! 바로 첫 인증을 시작해보세요'}
                   </div>
                 )}
                 <button
@@ -335,7 +352,7 @@ function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
                   onClick={goToActivity}
                   className="w-full px-4 py-3 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-semibold rounded-2xl transition shadow-md shadow-emerald-300/40"
                 >
-                  {justJoined ? '첫 인증하러 가기 →' : '활동 페이지로 →'}
+                  {justJoined ? (isBeforeStart ? '프로그램 보기 →' : '첫 인증하러 가기 →') : '활동 페이지로 →'}
                 </button>
               </div>
             )}
@@ -360,7 +377,7 @@ function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
                   </p>
                 )}
 
-                {program.join_type === 'APPROVAL' && program.entry_question && !isProgramInactive && (
+                {program.join_type === 'APPROVAL' && program.entry_question && !isAfterEnd && (
                   <div className="mb-2 p-3 bg-sky-50/70 border border-sky-200 rounded-2xl">
                     <p className="text-xs font-semibold text-sky-800 mb-1.5">
                       📝 {program.entry_question}
@@ -377,7 +394,7 @@ function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
                   </div>
                 )}
 
-                {isProgramInactive ? (
+                {isAfterEnd ? (
                   <div>
                     <button
                       type="button"
@@ -388,6 +405,20 @@ function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
                     </button>
                     <p className="text-[11px] text-gray-500 mt-1.5 text-center">
                       {inactiveJoinLabel}
+                    </p>
+                  </div>
+                ) : isBeforeStart ? (
+                  <div>
+                    <button
+                      type="button"
+                      onClick={handleReserve}
+                      disabled={isJoining}
+                      className="w-full px-4 py-3 bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-500 hover:to-orange-500 text-white font-semibold rounded-2xl transition shadow-md shadow-amber-300/40 disabled:from-gray-400 disabled:to-gray-400 disabled:shadow-none"
+                    >
+                      {isJoining ? '처리 중...' : reserveButtonText}
+                    </button>
+                    <p className="text-[11px] text-amber-700 mt-1.5 text-center">
+                      {formatKoreanDate(program.start_date)} 시작 — 예약하면 시작일에 자동으로 참여돼요
                     </p>
                   </div>
                 ) : (
