@@ -16,6 +16,19 @@ initSentry()
 // 모바일 가로 스와이프 뒤로가기 차단 (좌·우 가장자리 터치) — PWA standalone 모드면 자동 skip.
 installSwipeBackBlocker()
 
+// 새 배포 후 구버전 탭 자가복구 —
+//   배포 시 Vite 가 청크 해시를 바꿔 옛 청크가 사라짐 → 구버전 탭이 아직 안 불러온
+//   화면(lazy)으로 이동하면 옛 청크 404 → "Failed to fetch dynamically imported module".
+//   vite:preloadError 를 받아 1회 새로고침으로 최신 빌드 로드.
+//   10초 가드 — 새로고침 직후 또 실패하면(네트워크 등) 무한 루프 방지.
+window.addEventListener('vite:preloadError', () => {
+  const KEY = 'vite-preload-reload-at'
+  const last = Number(sessionStorage.getItem(KEY) || 0)
+  if (Date.now() - last < 10_000) return
+  sessionStorage.setItem(KEY, String(Date.now()))
+  window.location.reload()
+})
+
 // Service Worker 등록 — autoUpdate 전략
 //   새 배포 감지 시 백그라운드에서 새 SW 다운로드 → 다음 페이지 진입(또는 즉시 reload)에 적용
 //   사용자가 PWA 를 매번 삭제·재추가할 필요 없음
