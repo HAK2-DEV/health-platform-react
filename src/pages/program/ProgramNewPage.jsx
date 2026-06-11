@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQueryClient, useQuery } from '@tanstack/react-query'
 import { supabase } from '../../supabaseClient'
 import { useAuth } from '../../hooks/useAuth'
-import { queryKeys } from '../../lib/queries'
+import { queryKeys, fetchMyLiveProgramCount } from '../../lib/queries'
+import { MAX_PROGRAMS_BETA } from '../../lib/constants'
 import WizardLayout from '../../components/program/ProgramWizard/WizardLayout'
 import Step1Basic from '../../components/program/ProgramWizard/Step1Basic'
 import Step2Type from '../../components/program/ProgramWizard/Step2Type'
@@ -25,6 +26,19 @@ function ProgramNewPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [isLoadingDraft, setIsLoadingDraft] = useState(!!draftId)
   const [error, setError] = useState(null)
+
+  // 베타 한도 검사 — 새 생성(draftId 없음)일 때만. DRAFT 재진입은 검사 안 함
+  //   (이미 만든 임시저장 이어가기 + 게시 시점 트리거가 최종 방어).
+  const isNewCreation = !draftId
+  const { data: liveCount, isLoading: isCountLoading } = useQuery({
+    queryKey: ['my-live-program-count', session?.user?.id],
+    queryFn: () => fetchMyLiveProgramCount(session.user.id),
+    enabled: !!session && isNewCreation,
+    // 진입할 때마다 최신 카운트 — 직전에 프로그램을 삭제했어도 즉시 반영 (stale 차단 방지)
+    staleTime: 0,
+    refetchOnMount: 'always',
+  })
+  const atLimit = isNewCreation && typeof liveCount === 'number' && liveCount >= MAX_PROGRAMS_BETA
 
   // 단계 전환 시 페이지 상단으로 자동 스크롤 — App.jsx 의 라우트 변경 스크롤은
   //   같은 /programs/new 안에서 step state 만 바꾸니까 작동 X
@@ -136,6 +150,34 @@ function ProgramNewPage() {
 
   if (isLoadingDraft) {
     return <LoadingState variant="page" text="임시저장 불러오는 중..." />
+  }
+
+  // 새 생성인데 한도 확인 중 — 마법사가 draft 를 만들기 전에 먼저 검사
+  if (isNewCreation && isCountLoading) {
+    return <LoadingState variant="page" text="확인 중..." />
+  }
+
+  // 베타 한도 도달 — 마법사 진입 차단 (draft 생성 전에)
+  if (atLimit) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[70vh] px-6 text-center">
+        <div className="text-5xl mb-4">🌱</div>
+        <h1 className="text-xl font-bold text-gray-800 mb-2">
+          베타에선 프로그램 {MAX_PROGRAMS_BETA}개까지예요
+        </h1>
+        <p className="text-sm text-gray-500 leading-relaxed mb-6 max-w-xs">
+          지금은 운영자 한 명당 최대 {MAX_PROGRAMS_BETA}개의 프로그램을 운영할 수 있어요.
+          새로 만들려면 기존 프로그램을 삭제한 뒤 다시 시도해주세요.
+        </p>
+        <button
+          type="button"
+          onClick={() => navigate('/programs')}
+          className="px-6 py-2.5 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white text-sm font-medium rounded-xl transition"
+        >
+          내 프로그램 보기
+        </button>
+      </div>
+    )
   }
 
   return (

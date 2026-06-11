@@ -60,6 +60,11 @@ export const PROGRAM = {
   DESCRIPTION_MAX_LENGTH: 150,
 }
 
+// 베타 한도 — 운영자 1인당 동시에 운영(PUBLISHED)할 수 있는 프로그램 수.
+//   카운트 대상: PUBLISHED 만 (DRAFT·ENDED·ARCHIVED 제외 → 종료/삭제 시 슬롯 회수)
+//   정식 출시 때 이 값만 올리면 됨. DB 트리거(079)에도 동일 값이 하드코딩돼 있으니 함께 변경.
+export const MAX_PROGRAMS_BETA = 2
+
 // 프로그램 유형
 export const PROGRAM_TYPE = {
   CERTIFICATION: { 
