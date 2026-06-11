@@ -10,6 +10,7 @@ import { registerSW } from 'virtual:pwa-register'
 import { initSentry, SentryErrorBoundary } from './lib/sentry'
 import { installSwipeBackBlocker } from './lib/disableSwipeBack'
 import { setUpdateSW, notifyNeedRefresh } from './lib/pwaUpdate'
+import ErrorFallback from './components/common/ErrorFallback'
 
 // Sentry 초기화 — VITE_SENTRY_DSN 있을 때만 활성. 가장 먼저 init 해야 이후 에러 추적 가능.
 initSentry()
@@ -59,26 +60,7 @@ const queryClient = new QueryClient({
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <SentryErrorBoundary
-      fallback={({ error }) => (
-        <div className="min-h-screen flex items-center justify-center p-6 bg-surface-app">
-          <div className="max-w-sm bg-white rounded-2xl shadow-soft border border-gray-100 p-6 text-center">
-            <div className="text-3xl mb-2">😢</div>
-            <h1 className="text-base font-bold text-gray-800 mb-1">앗, 문제가 발생했어요</h1>
-            <p className="text-xs text-gray-500 mb-4 break-words">
-              {error?.message || '예상치 못한 오류'}
-            </p>
-            <button
-              type="button"
-              onClick={() => window.location.reload()}
-              className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium rounded-full transition"
-            >
-              새로고침
-            </button>
-          </div>
-        </div>
-      )}
-    >
+    <SentryErrorBoundary fallback={(props) => <ErrorFallback {...props} />}>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <AuthProvider>
