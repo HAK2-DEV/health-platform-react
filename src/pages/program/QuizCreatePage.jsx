@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2, GripVertical } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
@@ -30,17 +30,47 @@ const newQuestion = (type = 'MULTIPLE') => ({
   correctIndex: 0,
   oxAnswer: 'O',
   shortAnswer: '',
+  explanation: '',  // 해설 (객관식/OX) — 정답 공개 ON 시 참가자에게 노출. 서술형은 미사용
+  included: true,   // 발행 포함 여부 (문항 앞 체크박스). 라이브러리 prefill 시 확인용
 })
+
+// 객관식 보기 셔플 (정답이 항상 보기1인 패턴 방지) — 라이브러리 prefill 용
+const shuffleLibOptions = (options, correctIndex) => {
+  const arr = options.map((text, i) => ({ text, isAnswer: i === correctIndex }))
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[arr[i], arr[j]] = [arr[j], arr[i]]
+  }
+  return { options: arr.map(o => o.text), correctIndex: arr.findIndex(o => o.isAnswer) }
+}
+
+// 라이브러리 문항 → QuizCreatePage 내부 문항 형태 (해설·출처·예시답안은 발행본에 미포함)
+const mapLibQuestion = (q) => {
+  const base = newQuestion(q.type)
+  if (q.type === 'MULTIPLE') {
+    const s = shuffleLibOptions(q.options, q.correctIndex ?? 0)
+    return { ...base, question_text: q.question_text, point: q.point ?? 10, options: s.options, correctIndex: s.correctIndex, award_mode: q.award_mode || 'CORRECT_ONLY', explanation: q.explanation || '' }
+  }
+  if (q.type === 'OX') {
+    return { ...base, question_text: q.question_text, point: q.point ?? 10, oxAnswer: q.oxAnswer || 'O', award_mode: q.award_mode || 'CORRECT_ONLY', explanation: q.explanation || '' }
+  }
+  // SHORT — 해설 미사용
+  return { ...base, question_text: q.question_text, point: q.point ?? 10, grading_mode: q.grading_mode || 'MANUAL', shortAnswer: q.shortAnswer || '', award_mode: q.award_mode || 'CORRECT_ONLY' }
+}
 
 function QuizCreatePage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const { session } = useAuth()
   const queryClient = useQueryClient()
   const userId = session?.user?.id
 
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
+  // 퀴즈 라이브러리에서 「편집해서 만들기」로 넘어온 경우 — 제목·문항 prefill
+  const prefillTopic = location.state?.prefillTopic || null
+
+  const [title, setTitle] = useState(prefillTopic ? `${prefillTopic.title} 퀴즈` : '')
+  const [description, setDescription] = useState(prefillTopic ? `${prefillTopic.title} 건강 상식 퀴즈` : '')
   const [startAt, setStartAt] = useState('')
   const [dueAt, setDueAt] = useState('')
   const dueAtRef = useRef(null)
@@ -70,7 +100,9 @@ function QuizCreatePage() {
     })
   }
   const [revealAnswers, setRevealAnswers] = useState(false)
-  const [questions, setQuestions] = useState([newQuestion()])
+  const [questions, setQuestions] = useState(
+    prefillTopic ? prefillTopic.questions.map(mapLibQuestion) : [newQuestion()]
+  )
   const [error, setError] = useState(null)
 
   // ─── 문제 조작 ───────────────────────────────────────
@@ -108,9 +140,11 @@ function QuizCreatePage() {
     if (startAt && dueAt && new Date(startAt) >= new Date(dueAt)) {
       return '종료일은 시작일 이후여야 해요'
     }
-    if (questions.length === 0) return '문제를 최소 1개 추가해주세요'
-    for (let i = 0; i < questions.length; i++) {
-      const q = questions[i]
+    // 체크(포함)된 문항만 검증·발행
+    const picked = questions.filter(q => q.included)
+    if (picked.length === 0) return '발행할 문항을 1개 이상 체크해주세요'
+    for (let i = 0; i < picked.length; i++) {
+      const q = picked[i]
       const n = i + 1
       if (!q.question_text.trim()) return `${n}번 문제 내용을 입력해주세요`
       if (q.point < 0) return `${n}번 문제 점수는 0 이상이어야 해요`
@@ -152,7 +186,7 @@ function QuizCreatePage() {
       if (qErr) throw qErr
 
       // 2) quiz_questions bulk INSERT
-      const rows = questions.map((q, idx) => ({
+      const rows = questions.filter(q => q.included).map((q, idx) => ({
         quiz_id: quiz.id,
         type: q.type,
         question_text: q.question_text.trim(),
@@ -161,6 +195,8 @@ function QuizCreatePage() {
         point: Number(q.point) || 0,
         award_mode: q.award_mode,
         grading_mode: q.type === 'SHORT' ? q.grading_mode : 'AUTO',
+        // 해설 — 객관식/OX 만. 정답 공개 ON 시 참가자 결과 화면에 노출
+        explanation: q.type !== 'SHORT' && q.explanation?.trim() ? q.explanation.trim() : null,
         order_index: idx,
       }))
       const { error: qqErr } = await supabase.from('quiz_questions').insert(rows)
@@ -188,7 +224,8 @@ function QuizCreatePage() {
     createMutation.mutate()
   }
 
-  const totalPoint = questions.reduce((s, q) => s + (Number(q.point) || 0), 0)
+  const includedQuestions = questions.filter(q => q.included)
+  const totalPoint = includedQuestions.reduce((s, q) => s + (Number(q.point) || 0), 0)
 
   return (
     <div className="px-4 pt-2 pb-24 max-w-2xl mx-auto">
@@ -196,7 +233,7 @@ function QuizCreatePage() {
 
       <h1 className="text-2xl font-medium text-gray-800 mb-1">📝 퀴즈 만들기</h1>
       <p className="text-sm text-gray-500 mb-6">
-        문제 {questions.length}개 · 총 {totalPoint}점
+        발행 {includedQuestions.length}개 · 총 {totalPoint}점
       </p>
 
       {/* 기본 정보 */}
@@ -294,8 +331,11 @@ function QuizCreatePage() {
         <p className="mt-4 p-2 bg-red-100 text-red-700 rounded-xl text-sm text-center">{error}</p>
       )}
 
-      {/* 저장 (하단 고정) */}
-      <div className="fixed bottom-16 left-0 right-0 px-4 pb-3 pt-2 bg-gradient-to-t from-white via-white to-transparent">
+      {/* 저장 (하단 고정) — 이 화면은 탭바 숨김(App.jsx)이라 bottom-0 + 안전영역 여백 */}
+      <div
+        className="fixed bottom-0 left-0 right-0 px-4 pt-2 bg-gradient-to-t from-white via-white to-transparent"
+        style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0.75rem)' }}
+      >
         <div className="max-w-2xl mx-auto">
           <button
             type="button"
@@ -313,13 +353,22 @@ function QuizCreatePage() {
 
 // ─── 문제 편집 카드 ─────────────────────────────────────
 function QuestionEditor({ index, question: q, canRemove, onChange, onRemove, onUpdateOption, onAddOption, onRemoveOption }) {
+  const included = q.included !== false
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl p-5">
+    <div className={`bg-white border rounded-2xl p-5 transition ${included ? 'border-gray-200' : 'border-gray-200 opacity-55'}`}>
       <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
+        <label className="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
+          {/* 발행 포함 체크박스 — 해제하면 이 문항은 발행에서 제외 */}
+          <input
+            type="checkbox"
+            checked={included}
+            onChange={(e) => onChange({ included: e.target.checked })}
+            className="w-4 h-4 accent-emerald-500"
+            title="발행에 포함"
+          />
           <GripVertical className="w-4 h-4 text-gray-300" />
           문제 {index + 1}
-        </div>
+        </label>
         {canRemove && (
           <button
             type="button"
@@ -444,6 +493,20 @@ function QuestionEditor({ index, question: q, canRemove, onChange, onRemove, onU
               className="w-full px-3 py-1.5 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 text-sm"
             />
           )}
+        </div>
+      )}
+
+      {/* 해설 — 객관식/OX 만. 정답 공개 ON 시 참가자가 제출 후 정답과 함께 봄 (서술형 제외) */}
+      {q.type !== 'SHORT' && (
+        <div className="mb-3">
+          <label className="block text-xs font-medium text-gray-600 mb-1">💡 해설 (선택)</label>
+          <textarea
+            value={q.explanation || ''}
+            onChange={(e) => onChange({ explanation: e.target.value })}
+            rows={2}
+            placeholder="정답에 대한 해설 (정답 공개 시 참가자에게 노출돼요)"
+            className="w-full px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 resize-none text-sm"
+          />
         </div>
       )}
 

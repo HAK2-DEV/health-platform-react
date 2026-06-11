@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { Plus, Trash2, Pencil, FileText, Clock, Users } from 'lucide-react'
@@ -10,6 +10,7 @@ import StickyBackBar from '../../components/common/StickyBackBar'
 import LoadingState from '../../components/common/LoadingState'
 import EmptyState from '../../components/common/EmptyState'
 import QuizEditModal from '../../components/program/QuizEditModal'
+import QuizLibraryModal from '../../components/program/QuizLibraryModal'
 import HiddenPostsSection from '../../components/program/HiddenPostsSection'
 import { formatKoreanDateTime } from '../../lib/formatters'
 
@@ -54,6 +55,21 @@ function PostsManagePage() {
 
   // 수정 모달
   const [editingQuiz, setEditingQuiz] = useState(null)
+  const [quizLibOpen, setQuizLibOpen] = useState(false)  // 퀴즈 라이브러리 모달
+
+  // 라이브러리 미리보기 복원 — 편집 폼에서 뒤로가기로 ?quizlib=aud:topic 달고 돌아오면 모달 재오픈.
+  //   파생값 — quizlib 파라미터가 있으면(편집 후 복귀) 열림 (effect 없이).
+  const [searchParams, setSearchParams] = useSearchParams()
+  const quizlibParam = searchParams.get('quizlib')
+  const isLibOpen = quizLibOpen || !!quizlibParam
+  const closeQuizLib = () => {
+    setQuizLibOpen(false)
+    if (searchParams.get('quizlib')) {
+      const next = new URLSearchParams(searchParams)
+      next.delete('quizlib')
+      setSearchParams(next, { replace: true })
+    }
+  }
   const handleEditSuccess = () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.programQuizzes(id) })
   }
@@ -93,7 +109,7 @@ function PostsManagePage() {
       {/* 퀴즈 생성 — 추후 공지사항 등 다른 유형도 여기에 추가 */}
       <button
         type="button"
-        onClick={() => navigate(`/programs/${id}/posts/quiz/new`)}
+        onClick={() => setQuizLibOpen(true)}
         className="w-full mb-6 flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-medium rounded-2xl shadow-md shadow-emerald-200/40 transition"
       >
         <Plus className="w-5 h-5" />
@@ -176,6 +192,14 @@ function PostsManagePage() {
           })}
         </motion.div>
       )}
+
+      {/* 퀴즈 라이브러리 모달 — 「퀴즈 만들기」 진입점 */}
+      <QuizLibraryModal
+        isOpen={isLibOpen}
+        onClose={closeQuizLib}
+        programId={id}
+        initialSelection={quizlibParam}
+      />
 
       {/* 가려진 게시물 모아보기 — 피드 활성 프로그램만 */}
       <HiddenPostsSection programId={id} feedEnabled={!!program.feed_enabled} />

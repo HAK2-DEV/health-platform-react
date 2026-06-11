@@ -191,7 +191,14 @@ function QuizSolvePage() {
                       <span className="text-emerald-700 font-medium">{displayAnswer(q, q.correct_answer)}</span>
                     </div>
                   )}
-                  <p className="text-xs text-gray-400">획득 {myAns?.awarded_point ?? 0}점</p>
+                  {/* 해설 (정답 공개 + 해설 있을 때) */}
+                  {quiz.reveal_answers && q.explanation && (
+                    <div className="flex items-start gap-1.5 text-sm bg-emerald-50/70 rounded-lg p-2 mt-1">
+                      <span className="flex-shrink-0">💡</span>
+                      <span className="text-gray-700 leading-snug whitespace-pre-wrap">{q.explanation}</span>
+                    </div>
+                  )}
+                  <p className="text-xs text-gray-400 mt-1">획득 {myAns?.awarded_point ?? 0}점</p>
                 </div>
               )}
             </div>

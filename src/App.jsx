@@ -73,7 +73,9 @@ function AppShell() {
   // BottomTabBar 숨김 — 운영자 집중(마법사) + 참여자 집중(미션 인증)
   const isMissionVerify = /^\/programs\/[^/]+\/missions\/[^/]+$/.test(location.pathname)
   const isQuizSolve = /^\/programs\/[^/]+\/quiz\/[^/]+$/.test(location.pathname)
-  const hideBottomBar = location.pathname === '/programs/new' || isMissionVerify || isQuizSolve
+  // 퀴즈 만들기 — 「퀴즈 발행하기」 하단 버튼 오탭(랭킹·알림) 방지 위해 탭바 숨김
+  const isQuizCreate = /^\/programs\/[^/]+\/posts\/quiz\/new$/.test(location.pathname)
+  const hideBottomBar = location.pathname === '/programs/new' || isMissionVerify || isQuizSolve || isQuizCreate
 
   return (
    <div className="app">
