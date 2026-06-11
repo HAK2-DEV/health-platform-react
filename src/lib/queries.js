@@ -89,6 +89,18 @@ export const fetchMyPrograms = async (userId) => {
   return data || []
 }
 
+// 베타 한도용 — 본인 소유의 운영 중(PUBLISHED) 프로그램 수.
+//   DRAFT(작성 중)·ENDED(종료)·ARCHIVED(숨김)는 제외 → 종료/삭제 시 슬롯 회수.
+export const fetchMyLiveProgramCount = async (userId) => {
+  const { count, error } = await supabase
+    .from('programs')
+    .select('id', { count: 'exact', head: true })
+    .eq('owner_id', userId)
+    .eq('status', 'PUBLISHED')
+  if (error) throw error
+  return count || 0
+}
+
 export const fetchActivePrograms = async (userId) => {
   const { data, error } = await supabase
     .from('program_participants')
@@ -603,7 +615,7 @@ export const fetchMyVerificationsByBundle = async (programId, userId, bundlePara
 
   let query = supabase
     .from('verifications')
-    .select('id, mission_id, status, submitted_at, image_path, numeric_value, note, missions!inner(title, bundle_title, program_id)')
+    .select('id, mission_id, status, submitted_at, image_path, numeric_value, note, missions!inner(title, bundle_title, program_id, requires_note)')
     .eq('user_id', userId)
     .eq('missions.program_id', programId)
     .order('submitted_at', { ascending: false })
@@ -619,6 +631,17 @@ export const fetchMyVerificationsByBundle = async (programId, userId, bundlePara
   const { data, error } = await query
   if (error) throw error
   return data || []
+}
+
+// 본인 인증의 소감(note)만 수정 — 전용 RPC (status/point 불변 → 랭킹 영향 X)
+//   서버측에서 user_id = auth.uid() 검증 + 300자 제한 + 필수 미션 빈값 방지
+export const updateVerificationNote = async (verificationId, note) => {
+  const { data, error } = await supabase.rpc('update_verification_note', {
+    p_verification_id: verificationId,
+    p_note: note,
+  })
+  if (error) throw error
+  return data
 }
 
 // 6자리 영숫자 코드 자동 생성 (혼동 글자 제외 — 0/O, 1/I, L 제외)
@@ -768,7 +791,7 @@ export const fetchFeedPosts = async (programId, page = 0, pageSize = FEED_PAGE_S
   // 1) APPROVED + feed_visible 인증만 — range 로 페이지네이션
   const { data: vData, error: vErr } = await supabase
     .from('verifications')
-    .select('id, mission_id, user_id, submitted_at, image_path, numeric_value, note, missions!inner(program_id, title, bundle_title)')
+    .select('id, mission_id, user_id, submitted_at, image_path, numeric_value, note, missions!inner(program_id, title, bundle_title, requires_note)')
     .eq('missions.program_id', programId)
     .eq('status', 'APPROVED')
     .eq('feed_visible', true)

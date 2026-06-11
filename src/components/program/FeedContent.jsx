@@ -2,11 +2,11 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { Heart, MessageCircle, BarChart3, Send, Trash2 } from 'lucide-react'
+import { Heart, MessageCircle, BarChart3, Send, Trash2, Pencil } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
 import { formatRelativeKstDay } from '../../lib/formatters'
-import { queryKeys, fetchFeedPosts, FEED_PAGE_SIZE, formatKstDate } from '../../lib/queries'
+import { queryKeys, fetchFeedPosts, FEED_PAGE_SIZE, formatKstDate, updateVerificationNote } from '../../lib/queries'
 import UserAvatar from '../../components/common/UserAvatar'
 import EmptyState from '../../components/common/EmptyState'
 import LoadingState from '../../components/common/LoadingState'
@@ -188,6 +188,37 @@ function FeedContent({ program, targetVerificationId = null, targetCommentId = n
     },
   })
 
+  // ─── 본인 소감 수정 (피드에서 인라인 편집) ───
+  //   update_verification_note RPC 가 note 만 변경 → status/point 불변, 랭킹 영향 없음.
+  const [editingNoteId, setEditingNoteId] = useState(null) // 편집 중인 post.id
+  const [noteDraft, setNoteDraft] = useState('')
+  const [noteError, setNoteError] = useState(null)
+
+  const editNoteMutation = useMutation({
+    mutationFn: ({ verificationId, note }) => updateVerificationNote(verificationId, note),
+    onSuccess: () => {
+      // 피드 + 본인 활동·개요 모두 갱신 (페이지 간 일관성)
+      queryClient.invalidateQueries({ queryKey: queryKeys.feedPosts(id) })
+      queryClient.invalidateQueries({ queryKey: ['my-activity'] })
+      queryClient.invalidateQueries({ queryKey: ['program-overview'] })
+      setEditingNoteId(null)
+      setNoteError(null)
+    },
+    onError: (err) => {
+      setNoteError(err.message || '수정에 실패했어요')
+    },
+  })
+
+  const startEditNote = (post) => {
+    setEditingNoteId(post.id)
+    setNoteDraft(post.note || '')
+    setNoteError(null)
+  }
+  const cancelEditNote = () => {
+    setEditingNoteId(null)
+    setNoteError(null)
+  }
+
   // 댓글 입력 상태 — verification_id → 입력 텍스트
   const [commentInputs, setCommentInputs] = useState({})
 
@@ -242,6 +273,9 @@ function FeedContent({ program, targetVerificationId = null, targetCommentId = n
         const hasImage = !!post.image_path
         const hasNumeric = post.numeric_value !== null && post.numeric_value !== undefined
         const hasNote = !!post.note && post.note.trim().length > 0
+        const isMyPost = post.user_id === myUserId
+        const canEditNote = isMyPost && !!post.missions?.requires_note
+        const isEditingNote = editingNoteId === post.id
         const isPostHighlighted = highlightedPostId === post.id
         return (
           <article
@@ -320,7 +354,7 @@ function FeedContent({ program, targetVerificationId = null, targetCommentId = n
             </div>
 
             {/* 숫자/소감 (있으면) */}
-            {(hasNumeric || hasNote) && (
+            {(hasNumeric || hasNote || canEditNote) && (
               <div className="px-4 pt-2 space-y-1">
                 {hasNumeric && (
                   <p className="text-sm text-gray-700 flex items-center gap-1">
@@ -328,11 +362,64 @@ function FeedContent({ program, targetVerificationId = null, targetCommentId = n
                     기록: <span className="font-medium">{post.numeric_value}</span>
                   </p>
                 )}
-                {hasNote && (
-                  <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                    <span className="font-medium">{post.user?.nickname}</span>{' '}
-                    {post.note}
-                  </p>
+
+                {isEditingNote ? (
+                  <div>
+                    <textarea
+                      value={noteDraft}
+                      onChange={(e) => setNoteDraft(e.target.value)}
+                      rows={3}
+                      maxLength={300}
+                      autoFocus
+                      disabled={editNoteMutation.isPending}
+                      placeholder="소감을 입력해주세요"
+                      className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-400 disabled:bg-gray-50 resize-none text-sm"
+                    />
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-[11px] text-gray-400">{noteDraft.length}/300</span>
+                      <div className="flex gap-1.5">
+                        <button
+                          type="button"
+                          onClick={cancelEditNote}
+                          disabled={editNoteMutation.isPending}
+                          className="px-3 py-1 text-xs text-gray-500 hover:text-gray-700 rounded-lg transition disabled:opacity-50"
+                        >
+                          취소
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => editNoteMutation.mutate({ verificationId: post.id, note: noteDraft })}
+                          disabled={editNoteMutation.isPending}
+                          className="px-3 py-1 text-xs font-medium text-white bg-emerald-500 hover:bg-emerald-600 rounded-lg transition disabled:opacity-50"
+                        >
+                          {editNoteMutation.isPending ? '저장 중...' : '저장'}
+                        </button>
+                      </div>
+                    </div>
+                    {noteError && (
+                      <p className="mt-1 text-[11px] text-red-600">{noteError}</p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-start gap-2">
+                    {hasNote && (
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap flex-1 min-w-0">
+                        <span className="font-medium">{post.user?.nickname}</span>{' '}
+                        {post.note}
+                      </p>
+                    )}
+                    {canEditNote && (
+                      <button
+                        type="button"
+                        onClick={() => startEditNote(post)}
+                        className="flex items-center gap-1 px-2 py-1 text-[11px] text-emerald-600 hover:bg-emerald-50 rounded-lg transition flex-shrink-0"
+                        title="소감 수정"
+                      >
+                        <Pencil className="w-3 h-3" />
+                        수정
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             )}

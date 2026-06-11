@@ -1,12 +1,26 @@
 import { useState, useEffect } from 'react'
-import { Check, Clock, X } from 'lucide-react'
+import { Check, Clock, X, Pencil } from 'lucide-react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../supabaseClient'
 import { formatKoreanDateTime } from '../../lib/formatters'
+import { updateVerificationNote } from '../../lib/queries'
 
 // 본인 인증 카드 — 이미지(verification-images signed URL) + 기록값 + 소감 + 상태 배지
 // MyActivityVerificationsPage / MyActivityVerificationsBundlePage 공유
+//
+// 소감 수정 (본인 글만):
+//   소감 미션(requires_note)인 경우 ✏️ 버튼으로 인라인 편집.
+//   update_verification_note RPC 가 note 만 변경 — status/point 불변이라 랭킹 영향 없음.
 function MyVerificationCard({ v }) {
   const [imgUrl, setImgUrl] = useState(null)
+  const queryClient = useQueryClient()
+
+  // 인라인 소감 편집 상태
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(v.note || '')
+  const [editError, setEditError] = useState(null)
+
+  const canEditNote = !!v.missions?.requires_note
 
   useEffect(() => {
     let cancelled = false
@@ -20,6 +34,30 @@ function MyVerificationCard({ v }) {
     load()
     return () => { cancelled = true }
   }, [v.image_path])
+
+  const saveMutation = useMutation({
+    mutationFn: () => updateVerificationNote(v.id, draft),
+    onSuccess: () => {
+      // 본인 활동 화면 전체 갱신 (묶음 카드 목록 등)
+      queryClient.invalidateQueries({ queryKey: ['my-activity'] })
+      queryClient.invalidateQueries({ queryKey: ['program-overview'] })
+      setEditing(false)
+      setEditError(null)
+    },
+    onError: (err) => {
+      setEditError(err.message || '수정에 실패했어요')
+    },
+  })
+
+  const startEdit = () => {
+    setDraft(v.note || '')
+    setEditError(null)
+    setEditing(true)
+  }
+  const cancelEdit = () => {
+    setEditing(false)
+    setEditError(null)
+  }
 
   const badge = (() => {
     if (v.status === 'APPROVED') return { cls: 'bg-emerald-100 text-emerald-700', icon: <Check className="w-3 h-3" />, label: '승인' }
@@ -55,10 +93,65 @@ function MyVerificationCard({ v }) {
         </p>
       )}
 
-      {v.note && v.note.trim() && (
-        <p className="text-sm text-gray-700 whitespace-pre-wrap break-words leading-relaxed mt-1">
-          {v.note}
-        </p>
+      {/* ─── 소감 ─── */}
+      {editing ? (
+        <div className="mt-1">
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            rows={3}
+            maxLength={300}
+            autoFocus
+            disabled={saveMutation.isPending}
+            placeholder="소감을 입력해주세요"
+            className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-400 disabled:bg-gray-50 resize-none text-sm"
+          />
+          <div className="flex items-center justify-between mt-1">
+            <span className="text-[11px] text-gray-400">{draft.length}/300</span>
+            <div className="flex gap-1.5">
+              <button
+                type="button"
+                onClick={cancelEdit}
+                disabled={saveMutation.isPending}
+                className="px-3 py-1 text-xs text-gray-500 hover:text-gray-700 rounded-lg transition disabled:opacity-50"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={() => saveMutation.mutate()}
+                disabled={saveMutation.isPending}
+                className="px-3 py-1 text-xs font-medium text-white bg-emerald-500 hover:bg-emerald-600 rounded-lg transition disabled:opacity-50"
+              >
+                {saveMutation.isPending ? '저장 중...' : '저장'}
+              </button>
+            </div>
+          </div>
+          {editError && (
+            <p className="mt-1 text-[11px] text-red-600">{editError}</p>
+          )}
+        </div>
+      ) : (
+        <div className="flex items-start gap-2 mt-1">
+          {v.note && v.note.trim() ? (
+            <p className="text-sm text-gray-700 whitespace-pre-wrap break-words leading-relaxed flex-1 min-w-0">
+              {v.note}
+            </p>
+          ) : (
+            canEditNote && <p className="text-sm text-gray-300 flex-1">소감 없음</p>
+          )}
+          {canEditNote && (
+            <button
+              type="button"
+              onClick={startEdit}
+              className="flex items-center gap-1 px-2 py-1 text-[11px] text-emerald-600 hover:bg-emerald-50 rounded-lg transition flex-shrink-0"
+              title="소감 수정"
+            >
+              <Pencil className="w-3 h-3" />
+              수정
+            </button>
+          )}
+        </div>
       )}
     </div>
   )
