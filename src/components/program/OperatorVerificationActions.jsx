@@ -25,6 +25,7 @@ function OperatorVerificationActions({ verification, programId, feedEnabled = tr
       queryClient.invalidateQueries({ queryKey: ['feed', 'hidden', programId] })
     }
     queryClient.invalidateQueries({ queryKey: ['rankings'] })
+    queryClient.invalidateQueries({ queryKey: ['scores'] })   // 대시보드 랭킹 포인트(totalPoints) 동기화
     queryClient.invalidateQueries({ queryKey: ['my-activity'] })
     queryClient.invalidateQueries({ queryKey: ['program-overview'] })
     queryClient.invalidateQueries({ queryKey: ['stats'] })

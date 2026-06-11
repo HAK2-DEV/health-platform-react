@@ -330,9 +330,13 @@ function RankingsPage() {
         </div>
       )}
 
-      {/* 본인 요약 카드 — 참고 사진: 큰 등수 + 점수 + 추세 + 동기부여 박스 */}
+      {/* 본인 요약 카드 — 참고 사진: 큰 등수 + 점수 + 추세 + 동기부여 박스.
+          클릭 시 「내 인증 현황」(나의 활동)으로 이동 — 포디움 여부와 무관하게 항상 진입 가능. */}
       {selectedProgram && (
-        <div className="bg-surface-mint border border-emerald-100 rounded-card-lg p-5 shadow-soft">
+        <div
+          onClick={() => navigate(`/profile/activity/${selectedProgramId}`)}
+          className="bg-surface-mint border border-emerald-100 rounded-card-lg p-5 shadow-soft cursor-pointer hover:border-emerald-200 hover:bg-emerald-50/40 transition"
+        >
           <div className="flex items-start justify-between gap-3 mb-3">
             <p className="text-sm font-semibold text-emerald-700 truncate">
               {selectedProgram.name}
@@ -372,6 +376,9 @@ function RankingsPage() {
               아직 인증 기록이 없어요 — 오늘의 미션부터 도전해보세요
             </p>
           )}
+          <p className="mt-3 pt-3 border-t border-emerald-100/70 text-[11px] text-emerald-600 flex items-center justify-end gap-0.5">
+            내 인증 현황 보기 <ChevronRight className="w-3 h-3" />
+          </p>
         </div>
       )}
 
@@ -400,13 +407,15 @@ function RankingsPage() {
         >
           {restRanking.map(row => {
             const isMe = row.user_id === userId
+            // 내 행만 클릭 가능 — 「내 인증 현황」(나의 활동)으로 이동. (남의 인증 내역은 권한상 비공개)
             return (
               <div
                 key={row.user_id}
                 ref={isMe ? myRowRef : null}
+                onClick={isMe ? () => navigate(`/profile/activity/${selectedProgramId}`) : undefined}
                 className={`
                   flex items-center justify-between gap-3 px-4 py-3 transition-all
-                  ${isMe ? 'bg-emerald-50/50' : ''}
+                  ${isMe ? 'bg-emerald-50/50 hover:bg-emerald-100/60 cursor-pointer' : ''}
                 `}
               >
                 <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -423,7 +432,7 @@ function RankingsPage() {
                   <span className={`text-sm font-bold ${isMe ? 'text-emerald-700' : 'text-emerald-600'}`}>
                     {row.total_score}P
                   </span>
-                  <ChevronRight className="w-4 h-4 text-gray-300" />
+                  {isMe && <ChevronRight className="w-4 h-4 text-emerald-400" />}
                 </div>
               </div>
             )
