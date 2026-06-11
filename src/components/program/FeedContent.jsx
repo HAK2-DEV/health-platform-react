@@ -338,35 +338,6 @@ function FeedContent({ program, targetVerificationId = null, targetCommentId = n
               </div>
             )}
 
-            {/* 좋아요 + 댓글 액션 바 */}
-            <div className="flex items-center gap-3 px-4 pt-3">
-              <button
-                type="button"
-                onClick={() => toggleLikeMutation.mutate({ verificationId: post.id, isLiked: likedByMe })}
-                disabled={toggleLikeMutation.isPending}
-                className="flex items-center gap-1 text-sm transition disabled:opacity-50"
-              >
-                <Heart className={`w-5 h-5 ${likedByMe ? 'fill-red-500 text-red-500' : 'text-gray-600'}`} />
-                <span className={likedByMe ? 'text-red-500 font-medium' : 'text-gray-600'}>
-                  {post.likeCount}
-                </span>
-              </button>
-              <div className="flex items-center gap-1 text-sm text-gray-600">
-                <MessageCircle className="w-5 h-5" />
-                <span>{post.comments.length}</span>
-              </div>
-
-              {/* 운영자 전용 — 점수 제외 / 피드 가리기 */}
-              {isProgramOwner && (
-                <OperatorVerificationActions
-                  verification={{ id: post.id, status: 'APPROVED', feed_visible: true, nickname: post.user?.nickname }}
-                  programId={id}
-                  feedEnabled
-                  layout="bar"
-                />
-              )}
-            </div>
-
             {/* 숫자/소감 (있으면) */}
             {(hasNumeric || hasNote || canEditNote) && (
               <div className="px-4 pt-2 space-y-1">
@@ -418,7 +389,6 @@ function FeedContent({ program, targetVerificationId = null, targetCommentId = n
                   <div className="flex items-start gap-2">
                     {hasNote && (
                       <p className="text-sm text-gray-700 whitespace-pre-wrap flex-1 min-w-0">
-                        <span className="font-medium">{post.user?.nickname}</span>{' '}
                         {post.note}
                       </p>
                     )}
@@ -496,8 +466,37 @@ function FeedContent({ program, targetVerificationId = null, targetCommentId = n
               </div>
             )}
 
+            {/* 좋아요 + 댓글 수 + 운영자 액션 — 댓글 입력 바로 위 */}
+            <div className="flex items-center gap-3 px-4 pt-3 pb-1">
+              <button
+                type="button"
+                onClick={() => toggleLikeMutation.mutate({ verificationId: post.id, isLiked: likedByMe })}
+                disabled={toggleLikeMutation.isPending}
+                className="flex items-center gap-1 text-sm transition disabled:opacity-50"
+              >
+                <Heart className={`w-5 h-5 ${likedByMe ? 'fill-red-500 text-red-500' : 'text-gray-600'}`} />
+                <span className={likedByMe ? 'text-red-500 font-medium' : 'text-gray-600'}>
+                  {post.likeCount}
+                </span>
+              </button>
+              <div className="flex items-center gap-1 text-sm text-gray-600">
+                <MessageCircle className="w-5 h-5" />
+                <span>{post.comments.length}</span>
+              </div>
+
+              {/* 운영자 전용 — 점수 제외 / 피드 가리기 */}
+              {isProgramOwner && (
+                <OperatorVerificationActions
+                  verification={{ id: post.id, status: 'APPROVED', feed_visible: true, nickname: post.user?.nickname }}
+                  programId={id}
+                  feedEnabled
+                  layout="bar"
+                />
+              )}
+            </div>
+
             {/* 댓글 입력 */}
-            <div className="flex items-center gap-2 px-4 py-3 mt-2 border-t border-gray-100">
+            <div className="flex items-center gap-2 px-4 py-3 border-t border-gray-100">
               <input
                 type="text"
                 value={inputValue}
