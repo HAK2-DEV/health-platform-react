@@ -334,7 +334,7 @@ function RankingsPage() {
           클릭 시 「내 인증 현황」(나의 활동)으로 이동 — 포디움 여부와 무관하게 항상 진입 가능. */}
       {selectedProgram && (
         <div
-          onClick={() => navigate(`/profile/activity/${selectedProgramId}`)}
+          onClick={() => navigate(`/profile/activity/${selectedProgramId}/verifications`)}
           className="bg-surface-mint border border-emerald-100 rounded-card-lg p-5 shadow-soft cursor-pointer hover:border-emerald-200 hover:bg-emerald-50/40 transition"
         >
           <div className="flex items-start justify-between gap-3 mb-3">
@@ -412,7 +412,7 @@ function RankingsPage() {
               <div
                 key={row.user_id}
                 ref={isMe ? myRowRef : null}
-                onClick={isMe ? () => navigate(`/profile/activity/${selectedProgramId}`) : undefined}
+                onClick={isMe ? () => navigate(`/profile/activity/${selectedProgramId}/verifications`) : undefined}
                 className={`
                   flex items-center justify-between gap-3 px-4 py-3 transition-all
                   ${isMe ? 'bg-emerald-50/50 hover:bg-emerald-100/60 cursor-pointer' : ''}
