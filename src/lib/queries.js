@@ -644,6 +644,51 @@ export const updateVerificationNote = async (verificationId, note) => {
   return data
 }
 
+// 운영자 사후 점수 제외 — 부적절한 인증을 점수에서 회수 + 반려 처리 + 참가자 알림.
+//   서버(RPC)에서 프로그램 owner 검증. AUTO 어뷰징 대응(자동승인이라도 사후 조치 가능).
+export const excludeVerificationScore = async (verificationId, reason) => {
+  const { data, error } = await supabase.rpc('exclude_verification_score', {
+    p_verification_id: verificationId,
+    p_reason: reason || null,
+  })
+  if (error) throw error
+  return data
+}
+
+// 운영자 — 인증의 커뮤니티 피드 노출 토글 (점수·승인은 유지, 노출만 차단/복구).
+//   owner RLS(verifications UPDATE)로 허용됨. status 미변경이라 점수/알림 트리거 안 울림.
+export const setVerificationFeedVisible = async (verificationId, visible) => {
+  const { error } = await supabase
+    .from('verifications')
+    .update({ feed_visible: visible })
+    .eq('id', verificationId)
+  if (error) throw error
+}
+
+// 운영자 — 피드에서 가려진 게시물 모아보기 (feed_visible=false 인 APPROVED 인증).
+//   게시물 관리에서 복구(피드 표시)용. owner SELECT RLS 로 본인 프로그램 인증 조회.
+export const fetchHiddenVerifications = async (programId) => {
+  const { data: rows, error } = await supabase
+    .from('verifications')
+    .select('id, user_id, submitted_at, image_path, numeric_value, note, status, feed_visible, missions!inner(program_id, title, bundle_title)')
+    .eq('missions.program_id', programId)
+    .eq('status', 'APPROVED')
+    .eq('feed_visible', false)
+    .order('submitted_at', { ascending: false })
+  if (error) throw error
+  const list = rows || []
+  if (list.length === 0) return []
+
+  const userIds = Array.from(new Set(list.map(r => r.user_id)))
+  const { data: users, error: uErr } = await supabase
+    .from('users')
+    .select('id, nickname, avatar_path')
+    .in('id', userIds)
+  if (uErr) throw uErr
+  const userMap = new Map((users || []).map(u => [u.id, u]))
+  return list.map(r => ({ ...r, user: userMap.get(r.user_id) || null }))
+}
+
 // 6자리 영숫자 코드 자동 생성 (혼동 글자 제외 — 0/O, 1/I, L 제외)
 export const generateInviteCode = () => {
   const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'

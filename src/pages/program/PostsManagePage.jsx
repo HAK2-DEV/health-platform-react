@@ -10,6 +10,7 @@ import StickyBackBar from '../../components/common/StickyBackBar'
 import LoadingState from '../../components/common/LoadingState'
 import EmptyState from '../../components/common/EmptyState'
 import QuizEditModal from '../../components/program/QuizEditModal'
+import HiddenPostsSection from '../../components/program/HiddenPostsSection'
 import { formatKoreanDateTime } from '../../lib/formatters'
 
 // 게시물 관리 — 운영자 전용. 라우트: /programs/:id/posts
@@ -175,6 +176,9 @@ function PostsManagePage() {
           })}
         </motion.div>
       )}
+
+      {/* 가려진 게시물 모아보기 — 피드 활성 프로그램만 */}
+      <HiddenPostsSection programId={id} feedEnabled={!!program.feed_enabled} />
 
       {/* 퀴즈 메타 수정 모달 */}
       <QuizEditModal

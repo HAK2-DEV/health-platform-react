@@ -7,6 +7,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
 import { formatRelativeKstDay } from '../../lib/formatters'
 import { queryKeys, fetchFeedPosts, FEED_PAGE_SIZE, formatKstDate, updateVerificationNote } from '../../lib/queries'
+import OperatorVerificationActions from './OperatorVerificationActions'
 import UserAvatar from '../../components/common/UserAvatar'
 import EmptyState from '../../components/common/EmptyState'
 import LoadingState from '../../components/common/LoadingState'
@@ -219,6 +220,9 @@ function FeedContent({ program, targetVerificationId = null, targetCommentId = n
     setNoteError(null)
   }
 
+  // 운영자 여부 — 피드 게시물에 점수 제외/피드 가리기 액션 노출 (OperatorVerificationActions)
+  const isProgramOwner = program.owner_id === myUserId
+
   // 댓글 입력 상태 — verification_id → 입력 텍스트
   const [commentInputs, setCommentInputs] = useState({})
 
@@ -351,6 +355,16 @@ function FeedContent({ program, targetVerificationId = null, targetCommentId = n
                 <MessageCircle className="w-5 h-5" />
                 <span>{post.comments.length}</span>
               </div>
+
+              {/* 운영자 전용 — 점수 제외 / 피드 가리기 */}
+              {isProgramOwner && (
+                <OperatorVerificationActions
+                  verification={{ id: post.id, status: 'APPROVED', feed_visible: true, nickname: post.user?.nickname }}
+                  programId={id}
+                  feedEnabled
+                  layout="bar"
+                />
+              )}
             </div>
 
             {/* 숫자/소감 (있으면) */}
@@ -429,7 +443,6 @@ function FeedContent({ program, targetVerificationId = null, targetCommentId = n
               <div className="px-4 pt-2 space-y-1.5">
                 {post.comments.map(c => {
                   const isMyComment = c.user_id === myUserId
-                  const isProgramOwner = program.owner_id === myUserId
                   const canDelete = isMyComment || isProgramOwner
                   const isLong = isLongComment(c.content)
                   const isExpanded = expandedComments.has(c.id)

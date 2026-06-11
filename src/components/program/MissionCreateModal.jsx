@@ -310,6 +310,14 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission }
                 운영자 심사
               </button>
             </div>
+
+            {/* AUTO 안내 — 검수 없이 즉시 점수. 부적절 인증 우려 시 수동 권장 */}
+            {verificationType === 'AUTO' && (
+              <p className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2 leading-relaxed">
+                자동 승인은 검수 없이 즉시 점수가 지급돼요. 정확성이 중요하거나 랭킹 경쟁이 있다면
+                「운영자 심사」를 권장해요. (자동 승인이라도 나중에 피드에서 「점수 제외」할 수 있어요.)
+              </p>
+            )}
           </div>
 
           {/* 일정 (선택) — 운영 요일 + 제외 기간 */}

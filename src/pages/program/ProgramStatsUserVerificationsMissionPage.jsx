@@ -9,6 +9,7 @@ import { queryKeys, fetchProgram, fetchProgramStats, formatKstDate } from '../..
 import StickyBackBar from '../../components/common/StickyBackBar'
 import LoadingState from '../../components/common/LoadingState'
 import EmptyState from '../../components/common/EmptyState'
+import OperatorVerificationActions from '../../components/program/OperatorVerificationActions'
 
 // 개별 미션의 날짜별 인증 카드들
 // 라우트: /programs/:id/stats/users/:userId/verifications/:bundleParam/:missionId
@@ -37,7 +38,7 @@ function ProgramStatsUserVerificationsMissionPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('verifications')
-        .select('id, mission_id, submitted_at, image_path, numeric_value, note, missions!inner(program_id, title, bundle_title)')
+        .select('id, mission_id, submitted_at, image_path, numeric_value, note, feed_visible, missions!inner(program_id, title, bundle_title)')
         .eq('missions.program_id', id)
         .eq('user_id', targetUserId)
         .eq('status', 'APPROVED')
@@ -209,6 +210,14 @@ function ProgramStatsUserVerificationsMissionPage() {
                       {!hasImage && !hasNumeric && !hasNote && (
                         <p className="text-xs text-gray-400 italic">(인증 내용 없음)</p>
                       )}
+
+                      {/* 운영자 액션 — 점수 제외 / 피드 가리기·표시 */}
+                      <OperatorVerificationActions
+                        verification={{ id: v.id, status: 'APPROVED', feed_visible: v.feed_visible, nickname: userInfo?.nickname }}
+                        programId={id}
+                        feedEnabled={!!program.feed_enabled}
+                        layout="block"
+                      />
                     </div>
                   )
                 })}
