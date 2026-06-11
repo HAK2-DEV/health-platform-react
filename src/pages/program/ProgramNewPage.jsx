@@ -29,16 +29,23 @@ function ProgramNewPage() {
 
   // 베타 한도 검사 — 새 생성(draftId 없음)일 때만. DRAFT 재진입은 검사 안 함
   //   (이미 만든 임시저장 이어가기 + 게시 시점 트리거가 최종 방어).
+  //   어드민(users.role='ADMIN')은 한도 면제 — DB 트리거(081)도 동일하게 면제.
   const isNewCreation = !draftId
-  const { data: liveCount, isLoading: isCountLoading } = useQuery({
-    queryKey: ['my-live-program-count', session?.user?.id],
-    queryFn: () => fetchMyLiveProgramCount(session.user.id),
+  const { data: gate, isLoading: isCountLoading } = useQuery({
+    queryKey: ['program-limit-gate', session?.user?.id],
+    queryFn: async () => {
+      const [count, roleRes] = await Promise.all([
+        fetchMyLiveProgramCount(session.user.id),
+        supabase.from('users').select('role').eq('id', session.user.id).maybeSingle(),
+      ])
+      return { count, isAdmin: roleRes.data?.role === 'ADMIN' }
+    },
     enabled: !!session && isNewCreation,
     // 진입할 때마다 최신 카운트 — 직전에 프로그램을 삭제했어도 즉시 반영 (stale 차단 방지)
     staleTime: 0,
     refetchOnMount: 'always',
   })
-  const atLimit = isNewCreation && typeof liveCount === 'number' && liveCount >= MAX_PROGRAMS_BETA
+  const atLimit = isNewCreation && !!gate && !gate.isAdmin && gate.count >= MAX_PROGRAMS_BETA
 
   // 단계 전환 시 페이지 상단으로 자동 스크롤 — App.jsx 의 라우트 변경 스크롤은
   //   같은 /programs/new 안에서 step state 만 바꾸니까 작동 X
