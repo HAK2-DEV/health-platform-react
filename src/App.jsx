@@ -7,6 +7,7 @@ import BottomTabBar from './components/common/BottomTabBar'
 import ProtectedRoute from './components/ProtectedRoute'
 import LoadingState from './components/common/LoadingState'
 import { ToastProvider } from './contexts/ToastContext'
+import PwaUpdatePrompt from './components/common/PwaUpdatePrompt'
 
 // 코드 스플리팅 — 페이지별 lazy chunk 분리 (Day 65 본인 결정)
 //   첫 진입 시 메인 번들(~1.2MB) 한 번에 다운로드 X → 필요한 페이지만 점진적 로드.
@@ -203,6 +204,9 @@ function AppShell() {
 
       {/* 하단 5탭 네비 (로그인 + 마법사 외 페이지) */}
       {session && !hideBottomBar && <BottomTabBar />}
+
+      {/* 새 버전 알림 배너 — 새 SW 대기 시 노출 (PWA prompt 전략) */}
+      <PwaUpdatePrompt />
     </div>
   )
 }

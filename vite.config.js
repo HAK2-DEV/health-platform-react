@@ -9,10 +9,11 @@ export default defineConfig({
     react(),
     tailwindcss(),
     // PWA — Service Worker + manifest 자동 생성/등록
-    //   registerType: 'autoUpdate' = 새 배포 감지 시 자동으로 새 SW 활성화 (다음 페이지 진입 시 적용)
-    //   사용자가 PWA 를 매번 삭제·재추가할 필요 없음 — 푸시만 하면 다음 실행 시 반영
+    //   registerType: 'prompt' = 새 배포 감지 시 사용자에게 「새 버전 있어요 — 새로고침」 배너.
+    //     사용자가 누르기 전까진 옛 SW 가 옛 청크를 계속 서빙 → 작업 중 강제 갱신/청크404 최소화.
+    //     (onNeedRefresh → PwaUpdatePrompt 배너 → applyUpdate 로 적용. main.jsx + lib/pwaUpdate.js)
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       includeAssets: ['favicon.svg'],
       manifest: {
         name: 'Health Platform',

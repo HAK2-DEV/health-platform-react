@@ -9,6 +9,7 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { registerSW } from 'virtual:pwa-register'
 import { initSentry, SentryErrorBoundary } from './lib/sentry'
 import { installSwipeBackBlocker } from './lib/disableSwipeBack'
+import { setUpdateSW, notifyNeedRefresh } from './lib/pwaUpdate'
 
 // Sentry 초기화 — VITE_SENTRY_DSN 있을 때만 활성. 가장 먼저 init 해야 이후 에러 추적 가능.
 initSentry()
@@ -29,10 +30,16 @@ window.addEventListener('vite:preloadError', () => {
   window.location.reload()
 })
 
-// Service Worker 등록 — autoUpdate 전략
-//   새 배포 감지 시 백그라운드에서 새 SW 다운로드 → 다음 페이지 진입(또는 즉시 reload)에 적용
-//   사용자가 PWA 를 매번 삭제·재추가할 필요 없음
-registerSW({ immediate: true })
+// Service Worker 등록 — prompt 전략
+//   새 배포 감지 시 onNeedRefresh → 배너(PwaUpdatePrompt) 노출. 사용자가 「새로고침」 누르면
+//   updateSW(true) 로 새 SW 활성화 + reload. 그 전까진 옛 버전 유지 (작업 중 강제 갱신 방지).
+const updateSW = registerSW({
+  immediate: true,
+  onNeedRefresh() {
+    notifyNeedRefresh()
+  },
+})
+setUpdateSW(updateSW)
 
 // React Query 단일 client — 모든 화면이 같은 캐시를 봄
 // staleTime: 5분 (Day 65 조정) — Egress 절감용. mutation onSuccess 의 invalidateQueries 가
