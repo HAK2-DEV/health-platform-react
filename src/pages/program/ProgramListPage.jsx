@@ -7,6 +7,7 @@ import { supabase } from '../../supabaseClient'
 import { Plus, Activity, Trash2, ChevronRight, Search, X, Users, Calendar, Pencil } from 'lucide-react'
 import { formatKoreanDate, isUpcomingByStartDate } from '../../lib/formatters'
 import ProgramDetailModal from '../../components/program/ProgramDetailModal'
+import ProgramBrowseModal from '../../components/program/ProgramBrowseModal'
 import DeleteProgramConfirmModal from '../../components/program/DeleteProgramConfirmModal'
 import {
   queryKeys,
@@ -34,6 +35,7 @@ function ProgramListPage() {
   // selectedProgram 은 list + id 로 derived.
   const [selectedSource, setSelectedSource] = useState(null)
   const [programToDelete, setProgramToDelete] = useState(null)
+  const [browseOpen, setBrowseOpen] = useState(false)  // 둘러보기 모달 (카테고리 필터)
   // 섹션별 전체보기 토글 — URL searchParam 으로 동기화 (Day 65 본인 요청).
   // 모달 안에서 navigation 후 뒤로가도 expand 상태 보존.
   // 형식: ?expand=public,my (콤마 구분). 빈 값이면 모두 false.
@@ -44,7 +46,6 @@ function ProgramListPage() {
   })()
   const showAllMy = expandSet.has('my')
   const showAllActive = expandSet.has('active')
-  const showAllPublic = expandSet.has('public')
   const toggleExpand = (key) => {
     setSearchParams(prev => {
       const next = new URLSearchParams(prev)
@@ -57,7 +58,6 @@ function ProgramListPage() {
   }
   const setShowAllMy = () => toggleExpand('my')
   const setShowAllActive = () => toggleExpand('active')
-  const setShowAllPublic = () => toggleExpand('public')
   // 검색 — 3섹션 모두 클라이언트 측 필터링 (name + description 매칭)
   const [searchQuery, setSearchQuery] = useState('')
   const isSearching = searchQuery.trim().length > 0
@@ -116,7 +116,8 @@ function ProgramListPage() {
   // 검색 중에는 전체보기 토글 무관 — 매칭된 결과 모두 노출
   const displayedMy = isSearching ? filteredMy : (showAllMy ? filteredMy : filteredMy.slice(0, 2))
   const displayedActive = isSearching ? filteredActive : (showAllActive ? filteredActive : filteredActive.slice(0, 2))
-  const displayedPublic = isSearching ? filteredPublic : (showAllPublic ? filteredPublic : filteredPublic.slice(0, 2))
+  // 둘러보기 — 미리보기 3개만, 전체는 「전체 둘러보기」 모달(카테고리 필터)에서
+  const displayedPublic = isSearching ? filteredPublic : filteredPublic.slice(0, 3)
 
   // ─── 삭제 — DashboardPage 와 동일 패턴 ────────────────
   const deleteMutation = useMutation({
@@ -334,14 +335,14 @@ function ProgramListPage() {
           <h2 className="flex items-center gap-2 text-lg font-bold text-gray-800">
             🔍 둘러보기 <span className="text-sm font-medium text-gray-400">({filteredPublic.length})</span>
           </h2>
-          {!isSearching && publicPrograms.length > 2 && (
+          {!isSearching && publicPrograms.length > 0 && (
             <button
               type="button"
-              onClick={() => { setShowAllPublic(!showAllPublic); scrollToSection(publicRef) }}
-              className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700"
+              onClick={() => setBrowseOpen(true)}
+              className="flex items-center gap-0.5 text-xs font-medium text-emerald-600 hover:text-emerald-700"
             >
-              {showAllPublic ? '간단히 보기' : `전체보기 (${publicPrograms.length})`}
-              {!showAllPublic && <ChevronRight className="w-3 h-3" />}
+              전체 둘러보기 ({publicPrograms.length})
+              <ChevronRight className="w-3 h-3" />
             </button>
           )}
         </div>
@@ -528,6 +529,14 @@ function ProgramListPage() {
           />
         )
       })()}
+
+      {/* 둘러보기 모달 — 카테고리 필터 + 정렬. 카드 선택 시 상세 모달로 연결 */}
+      <ProgramBrowseModal
+        isOpen={browseOpen}
+        onClose={() => setBrowseOpen(false)}
+        programs={publicPrograms}
+        onSelect={(id) => { setBrowseOpen(false); setSelectedSource({ listKey: 'public', programId: id }) }}
+      />
 
       {/* PUBLISHED 삭제 — 이름 재입력 확인 (대시보드와 동일) */}
       <DeleteProgramConfirmModal
