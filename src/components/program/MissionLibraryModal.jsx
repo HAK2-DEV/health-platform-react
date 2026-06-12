@@ -25,7 +25,14 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
   const [bundle, setBundle] = useState(null)       // 선택된 묶음 메타
   const [drafts, setDrafts] = useState([])         // 묶음의 미션 작업본 (selected/point/daily_limit 조정 가능)
   const [isSaving, setIsSaving] = useState(false)
-  const [error, setError] = useState(null)
+  const [error, setErrorRaw] = useState(null)
+  const [errorTick, setErrorTick] = useState(0)
+  const errorRef = useRef(null)
+  // 에러 설정 시 tick 증가 → 같은 메시지 재발생에도 스크롤 트리거
+  const setError = (msg) => { setErrorRaw(msg); if (msg) setErrorTick(t => t + 1) }
+  useEffect(() => {
+    if (error && errorRef.current) errorRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [errorTick, error])
 
   // 카테고리 탭 — Day 65 본인 결정 (라이브러리 UX 단순화):
   //   카테고리별로 묶음을 그룹화 → 사용자가 카테고리 칩으로 탐색
@@ -702,7 +709,7 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
           </div>
 
           {error && (
-            <p className="mt-3 p-2 bg-red-100 text-red-700 rounded text-sm text-center">
+            <p ref={errorRef} className="mt-3 p-2 bg-red-100 text-red-700 rounded text-sm text-center">
               {error}
             </p>
           )}

@@ -954,7 +954,7 @@ function ProgramDetailPage() {
             program={program}
             isOpen={true}
             onClose={() => setIsLibraryOpen(false)}
-            onSuccess={invalidateProgramData}
+            onSuccess={() => { invalidateProgramData(); setShowAllMissions(true) }}
             onCustomCreate={() => {
               setIsLibraryOpen(false)
               setIsMissionCreateOpen(true)
@@ -967,7 +967,7 @@ function ProgramDetailPage() {
             isOpen={true}
             editMission={editingMission}
             onClose={() => { setIsMissionCreateOpen(false); setEditingMission(null) }}
-            onSuccess={invalidateProgramData}
+            onSuccess={() => { invalidateProgramData(); setShowAllMissions(true) }}
             onBack={editingMission ? undefined : () => { setIsMissionCreateOpen(false); setIsLibraryOpen(true) }}
           />
         )}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Modal from '../common/Modal'
 import { supabase } from '../../supabaseClient'
 import { Image as ImageIcon, BarChart3, MessageSquare, ChevronDown, ChevronUp, ChevronLeft, Plus, X } from 'lucide-react'
@@ -37,7 +37,14 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
   const [excludedPeriods, setExcludedPeriods] = useState([])
 
   const [isSaving, setIsSaving] = useState(false)
-  const [error, setError] = useState(null)
+  const [error, setErrorRaw] = useState(null)
+  const [errorTick, setErrorTick] = useState(0)
+  const errorRef = useRef(null)
+  // 에러 설정 시 tick 증가 → 같은 메시지 재발생에도 스크롤 트리거
+  const setError = (msg) => { setErrorRaw(msg); if (msg) setErrorTick(t => t + 1) }
+  useEffect(() => {
+    if (error && errorRef.current) errorRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [errorTick, error])
 
   // 모달 닫힘 시 reset / 열림 시 editMission 으로 prefill
   useEffect(() => {
@@ -558,7 +565,7 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
 
           {/* 에러 */}
           {error && (
-            <p className="mb-3 p-2 bg-red-100 text-red-700 rounded text-sm text-center">
+            <p ref={errorRef} className="mb-3 p-2 bg-red-100 text-red-700 rounded text-sm text-center">
               {error}
             </p>
           )}
