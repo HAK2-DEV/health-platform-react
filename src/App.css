@@ -53,7 +53,10 @@ button {
 body {
   margin: 0;
   padding: 0;
-  font-family: 'Noto Sans KR', sans-serif;
+  font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+  letter-spacing: -0.01em;   /* 모던 한국 앱 톤 — 살짝 좁은 자간 */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   background-color: var(--color-bg-alt);
   color: var(--color-text);
 }
@@ -182,7 +185,7 @@ p {
   font-size: 16px;
   border: 2px solid var(--color-border);
   border-radius: var(--radius-md);
-  font-family: 'Noto Sans KR', sans-serif;
+  font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
 }
 
 .auth-form input:focus {
@@ -252,7 +255,7 @@ p {
   font-size: 16px;
   border: 2px solid var(--color-border);
   border-radius: var(--radius-md);
-  font-family: 'Noto Sans KR', sans-serif;
+  font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
 }
 
 .supabase-todos input:focus {

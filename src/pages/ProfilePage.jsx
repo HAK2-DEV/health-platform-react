@@ -230,7 +230,7 @@ function ProfilePage() {
           <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-800">
             프로필 <span className="text-xl">🌿</span>
           </h1>
-          <p className="text-sm text-gray-600 mt-1.5">당신의 건강 여정을 응원합니다!</p>
+          <p className="text-sm font-medium text-gray-700 mt-1.5">당신의 건강 여정을 응원합니다!</p>
         </div>
         <div className="absolute top-2 right-4 text-3xl opacity-40 pointer-events-none select-none">🌱</div>
       </div>

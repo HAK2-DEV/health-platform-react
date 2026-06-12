@@ -231,7 +231,7 @@ function DashboardPage() {
         <div className="max-w-4xl mx-auto px-4 relative">
           {/* 인사말 한 줄 (App.jsx 헤더 숨김 상태이므로 여기에 표시) */}
           <div className="flex items-start justify-between mb-3">
-            <p className="text-sm text-gray-700 pr-4 leading-relaxed pt-1">
+            <p className="text-[15px] font-medium text-gray-800 pr-4 leading-relaxed pt-1">
               안녕하세요, 오늘도 건강한 하루 되세요! 🌿
             </p>
             <button
@@ -254,7 +254,7 @@ function DashboardPage() {
             <span className="text-2xl">🌿</span>
             <span className="text-2xl font-bold text-brand-primary">Health-Platform</span>
           </div>
-          <p className="text-xs text-gray-500 mt-1.5 ml-0.5">
+          <p className="text-sm font-medium text-gray-600 mt-1.5 ml-0.5">
             {formatTodayKstWithWeekday()}
           </p>
         </div>

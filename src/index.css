@@ -6,6 +6,18 @@
    예: --color-brand-mint → bg-brand-mint / text-brand-mint / border-brand-mint
    ============================================================ */
 @theme {
+  /* --- 타이포그래피 (Day 66 — Pretendard 전환 + 스케일 토큰) --- */
+  --font-sans: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont,
+    system-ui, 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+
+  /* 본문 기본 상향: Tailwind 기본 text-sm 14px → 15px (가독성·모던 톤).
+     text-sm 이 본문·댓글·알림의 주력(367곳)이라 이 한 줄로 전반이 커짐. */
+  --text-sm: 0.9375rem;        /* 15px */
+  --text-sm--line-height: 1.55;
+  /* 보조 라벨도 살짝(12→12.5) — 마이크로 텍스트 답답함 완화 */
+  --text-xs: 0.78125rem;       /* 12.5px */
+  --text-xs--line-height: 1.5;
+
   /* --- Brand 컬러 (민트/에메랄드 중심) --- */
   --color-brand-mint: #d1fae5;          /* 가장 연한 민트 — 배경 틴트 */
   --color-brand-sage: #a7f3d0;          /* 연한 세이지 — 보조 배경 */

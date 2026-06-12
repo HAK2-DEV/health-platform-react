@@ -165,7 +165,7 @@ function ProgramListPage() {
           <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-800">
             프로그램 <span className="text-xl">🌿</span>
           </h1>
-          <p className="text-sm text-gray-600 mt-1.5 leading-relaxed">
+          <p className="text-sm font-medium text-gray-700 mt-1.5 leading-relaxed">
             나에게 맞는 프로그램을 찾고,<br />꾸준히 건강을 관리해요.
           </p>
         </div>

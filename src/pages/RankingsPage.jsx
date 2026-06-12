@@ -469,7 +469,7 @@ function RankingHeader() {
     <div className="relative bg-gradient-to-b from-emerald-100 via-emerald-50/80 to-teal-50/40 pt-6 pb-6 overflow-hidden">
       <div className="max-w-4xl mx-auto px-4 relative">
         <h1 className="text-2xl font-bold text-gray-800">🏆 랭킹</h1>
-        <p className="text-sm text-gray-600 mt-1.5">참여 진도와 포인트를 비교해보세요!</p>
+        <p className="text-sm font-medium text-gray-700 mt-1.5">참여 진도와 포인트를 비교해보세요!</p>
       </div>
       {/* 트로피 일러스트 — 우상단 */}
       <div className="absolute top-4 right-4 w-24 h-24 sm:w-28 sm:h-28 opacity-90 pointer-events-none select-none">

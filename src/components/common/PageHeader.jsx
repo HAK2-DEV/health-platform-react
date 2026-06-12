@@ -16,7 +16,7 @@ function PageHeader({ children, action, className = '' }) {
         ${className}
       `}
     >
-      <h1 className="flex items-center gap-2 text-2xl font-medium text-gray-800 min-w-0">
+      <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-800 min-w-0">
         {children}
       </h1>
       {action && <div className="flex-shrink-0">{action}</div>}

@@ -141,7 +141,7 @@ function NotificationsPage() {
             <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-800">
               알림 <span className="text-xl">🔔</span>
             </h1>
-            <p className="text-sm text-gray-600 mt-1.5">최근 업데이트를 확인해보세요</p>
+            <p className="text-sm font-medium text-gray-700 mt-1.5">최근 업데이트를 확인해보세요</p>
           </div>
           {unreadCount > 0 ? (
             <button

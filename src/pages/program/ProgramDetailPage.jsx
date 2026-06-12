@@ -559,40 +559,40 @@ function ProgramDetailPage() {
             <h3 className="text-sm font-semibold text-emerald-600 mb-3">나의 진행 현황</h3>
             <div className="grid grid-cols-4 gap-2 mb-4">
               <div>
-                <div className="flex items-center gap-0.5 text-[10px] text-gray-500 mb-1">
+                <div className="flex items-center gap-0.5 text-xs font-semibold text-gray-600 mb-1 whitespace-nowrap">
                   <Calendar className="w-3 h-3 text-emerald-500" />
                   전체 진행
                 </div>
                 <p className="font-semibold text-gray-800 leading-tight">
-                  <span className="text-base sm:text-lg">{activeDays}</span>
-                  <span className="text-[10px] text-gray-500">/{programDays || '-'}일</span>
+                  <span className="text-lg sm:text-xl">{activeDays}</span>
+                  <span className="text-xs text-gray-500">/{programDays || '-'}일</span>
                 </p>
               </div>
               <div>
-                <div className="flex items-center gap-0.5 text-[10px] text-gray-500 mb-1">
+                <div className="flex items-center gap-0.5 text-xs font-semibold text-gray-600 mb-1 whitespace-nowrap">
                   <Activity className="w-3 h-3 text-emerald-500" />
                   참여율
                 </div>
-                <p className="text-base sm:text-lg font-semibold text-gray-800 leading-tight">
-                  {participationRate}<span className="text-[10px]">%</span>
+                <p className="text-lg sm:text-xl font-semibold text-gray-800 leading-tight">
+                  {participationRate}<span className="text-xs">%</span>
                 </p>
               </div>
               <div>
-                <div className="flex items-center gap-0.5 text-[10px] text-gray-500 mb-1">
+                <div className="flex items-center gap-0.5 text-xs font-semibold text-gray-600 mb-1 whitespace-nowrap">
                   <Award className="w-3 h-3 text-amber-500" />
                   획득 포인트
                 </div>
-                <p className="text-base sm:text-lg font-semibold text-emerald-700 leading-tight">
-                  +{scores.total}<span className="text-[10px]">P</span>
+                <p className="text-lg sm:text-xl font-semibold text-emerald-700 leading-tight">
+                  +{scores.total}<span className="text-xs">P</span>
                 </p>
               </div>
               <div>
-                <div className="flex items-center gap-0.5 text-[10px] text-gray-500 mb-1">
+                <div className="flex items-center gap-0.5 text-xs font-semibold text-gray-600 mb-1 whitespace-nowrap">
                   <Flame className="w-3 h-3 text-orange-500" />
                   연속
                 </div>
-                <p className="text-base sm:text-lg font-semibold text-orange-600 leading-tight">
-                  {overviewData?.streak ?? 0}<span className="text-[10px]">일</span>
+                <p className="text-lg sm:text-xl font-semibold text-orange-600 leading-tight">
+                  {overviewData?.streak ?? 0}<span className="text-xs">일</span>
                 </p>
               </div>
             </div>
