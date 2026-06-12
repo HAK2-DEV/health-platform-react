@@ -16,12 +16,18 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
 
   const [title, setTitle] = useState('')
   const [instruction, setInstruction] = useState('')
-  const [point, setPoint] = useState(10)
   const [dailyLimit, setDailyLimit] = useState('')
   const [verificationType, setVerificationType] = useState('AUTO')
   const [requiresImage, setRequiresImage] = useState(true)
   const [requiresNumeric, setRequiresNumeric] = useState(false)
   const [requiresNote, setRequiresNote] = useState(false)
+  // 입력별 점수 + 필수/선택 (084) — 대표 point 는 합계로 파생
+  const [imagePoint, setImagePoint] = useState(10)
+  const [numericPoint, setNumericPoint] = useState(10)
+  const [notePoint, setNotePoint] = useState(5)
+  const [imageRequired, setImageRequired] = useState(true)
+  const [numericRequired, setNumericRequired] = useState(true)
+  const [noteRequired, setNoteRequired] = useState(true)
 
   // 일정 옵션 (032 마이그레이션 — 미션 단위 schedule_mode/active_days/excluded_periods)
   //   대부분 미션은 매일+제외없음이라 디폴트 접힘 (UI 단순화)
@@ -38,12 +44,17 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
     if (!isOpen) {
       setTitle('')
       setInstruction('')
-      setPoint(10)
       setDailyLimit('')
       setVerificationType('AUTO')
       setRequiresImage(true)
       setRequiresNumeric(false)
       setRequiresNote(false)
+      setImagePoint(10)
+      setNumericPoint(10)
+      setNotePoint(5)
+      setImageRequired(true)
+      setNumericRequired(true)
+      setNoteRequired(true)
       setShowSchedule(false)
       setScheduleMode('ALL_DAYS')
       setActiveDays([])
@@ -56,12 +67,21 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
     if (editMission) {
       setTitle(editMission.title || '')
       setInstruction(editMission.instruction || '')
-      setPoint(editMission.point ?? 10)
       setDailyLimit(editMission.daily_limit ?? '')
       setVerificationType(editMission.verification_type || 'AUTO')
       setRequiresImage(!!editMission.requires_image)
       setRequiresNumeric(!!editMission.requires_numeric)
       setRequiresNote(!!editMission.requires_note)
+      // 입력별 점수/필수 — per-input 값 있으면 그대로, 없으면(legacy) 첫 선택 타입에 point 배치(합계 보존)
+      const _legacy = editMission.image_point == null && editMission.numeric_point == null && editMission.note_point == null
+      const _p = editMission.point ?? 10
+      const _first = editMission.requires_image ? 'image' : editMission.requires_numeric ? 'numeric' : 'note'
+      setImagePoint(!_legacy ? (editMission.image_point ?? 10) : (editMission.requires_image ? (_first === 'image' ? _p : 0) : 10))
+      setNumericPoint(!_legacy ? (editMission.numeric_point ?? 10) : (editMission.requires_numeric ? (_first === 'numeric' ? _p : 0) : 10))
+      setNotePoint(!_legacy ? (editMission.note_point ?? 5) : (editMission.requires_note ? (_first === 'note' ? _p : 0) : 5))
+      setImageRequired(editMission.image_required ?? true)
+      setNumericRequired(editMission.numeric_required ?? true)
+      setNoteRequired(editMission.note_required ?? true)
       const hasSchedule =
         (editMission.schedule_mode && editMission.schedule_mode !== 'ALL_DAYS') ||
         (editMission.excluded_periods && editMission.excluded_periods.length > 0)
@@ -89,13 +109,34 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
     setExcludedPeriods(updated)
   }
 
+  // 입력별 점수 합계 (대표 점수 = 최대치 — 다 제출했을 때)
+  const pointFor = (on, val) => (on ? (parseInt(val) || 0) : 0)
+  const totalPoint =
+    pointFor(requiresImage, imagePoint) +
+    pointFor(requiresNumeric, numericPoint) +
+    pointFor(requiresNote, notePoint)
+  const requiredPoint =
+    (requiresImage && imageRequired ? (parseInt(imagePoint) || 0) : 0) +
+    (requiresNumeric && numericRequired ? (parseInt(numericPoint) || 0) : 0) +
+    (requiresNote && noteRequired ? (parseInt(notePoint) || 0) : 0)
+
+  const INPUT_ROWS = [
+    { key: 'image', on: requiresImage, label: '사진', Icon: ImageIcon, point: imagePoint, setPoint: setImagePoint, required: imageRequired, setRequired: setImageRequired },
+    { key: 'numeric', on: requiresNumeric, label: '기록', Icon: BarChart3, point: numericPoint, setPoint: setNumericPoint, required: numericRequired, setRequired: setNumericRequired },
+    { key: 'note', on: requiresNote, label: '소감', Icon: MessageSquare, point: notePoint, setPoint: setNotePoint, required: noteRequired, setRequired: setNoteRequired },
+  ]
+
   const validate = () => {
     if (!title.trim()) return '미션 제목을 입력해주세요'
-    const p = parseInt(point)
-    if (isNaN(p) || p < 1) return '점수는 1 이상이어야 합니다'
     if (!requiresImage && !requiresNumeric && !requiresNote) {
       return '인증 유형을 최소 1개 선택해주세요'
     }
+    if (totalPoint < 1) return '점수 합계는 1 이상이어야 합니다'
+    const anyRequired =
+      (requiresImage && imageRequired) ||
+      (requiresNumeric && numericRequired) ||
+      (requiresNote && noteRequired)
+    if (!anyRequired) return '필수 입력을 최소 1개 지정해주세요 (전부 선택일 수 없어요)'
     if (scheduleMode === 'CUSTOM' && activeDays.length === 0) {
       return '운영 요일을 최소 1일 선택해주세요'
     }
@@ -113,11 +154,18 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
       title: title.trim(),
       instruction: instruction.trim() || null,
       verification_type: verificationType,
-      point: parseInt(point),
+      point: totalPoint,
       daily_limit: dailyLimit ? parseInt(dailyLimit) : null,
       requires_image: requiresImage,
       requires_numeric: requiresNumeric,
       requires_note: requiresNote,
+      // 084 — 입력별 점수/필수 (미사용 입력은 point NULL → 채점 합산서 제외)
+      image_point: requiresImage ? (parseInt(imagePoint) || 0) : null,
+      numeric_point: requiresNumeric ? (parseInt(numericPoint) || 0) : null,
+      note_point: requiresNote ? (parseInt(notePoint) || 0) : null,
+      image_required: requiresImage ? imageRequired : true,
+      numeric_required: requiresNumeric ? numericRequired : true,
+      note_required: requiresNote ? noteRequired : true,
       // 일정 옵션 — 033 점수 트리거가 KST 기준으로 검사
       schedule_mode: scheduleMode,
       active_days: scheduleMode === 'CUSTOM' ? activeDays : [],
@@ -258,35 +306,76 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
             </div>
           </div>
 
-          {/* 점수 + 하루 최대 */}
-          <div className="grid grid-cols-2 gap-2 mb-4">
-            <div>
+          {/* 입력별 점수 · 필수 (084) */}
+          {(requiresImage || requiresNumeric || requiresNote) && (
+            <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                점수 (P) *
+                입력별 점수 · 필수 *
               </label>
-              <input
-                type="number"
-                value={point}
-                onChange={(e) => setPoint(e.target.value)}
-                min={1}
-                disabled={isSaving}
-                className="w-full px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 disabled:bg-gray-50"
-              />
+              <p className="text-xs text-gray-400 mb-2">
+                선택 입력은 제출 시 건너뛸 수 있고, 작성하면 추가 점수예요.
+              </p>
+              <div className="space-y-2">
+                {INPUT_ROWS.filter(r => r.on).map(r => (
+                  <div key={r.key} className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1 w-14 flex-shrink-0 text-sm font-medium text-gray-700">
+                      <r.Icon className="w-4 h-4 text-emerald-600" /> {r.label}
+                    </span>
+                    <div className="relative flex-1 min-w-0">
+                      <input
+                        type="number"
+                        min={0}
+                        value={r.point}
+                        onChange={(e) => r.setPoint(e.target.value)}
+                        disabled={isSaving}
+                        className="w-full pl-2 pr-6 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 disabled:bg-gray-50"
+                      />
+                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">P</span>
+                    </div>
+                    <div className="flex gap-1 flex-shrink-0">
+                      {[{ v: true, label: '필수' }, { v: false, label: '선택' }].map(opt => (
+                        <button
+                          key={opt.label}
+                          type="button"
+                          onClick={() => r.setRequired(opt.v)}
+                          disabled={isSaving}
+                          className={`px-2.5 py-1.5 rounded-md border text-xs transition disabled:opacity-50
+                            ${r.required === opt.v
+                              ? (opt.v
+                                  ? 'border-emerald-500 bg-emerald-50 text-emerald-700 font-semibold'
+                                  : 'border-amber-400 bg-amber-50 text-amber-700 font-semibold')
+                              : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-gray-500">
+                최대 <span className="font-bold text-emerald-600">{totalPoint}P</span>
+                {requiredPoint !== totalPoint && (
+                  <> · 필수만 제출 시 <span className="font-semibold text-gray-700">{requiredPoint}P</span></>
+                )}
+              </p>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                하루 최대 (선택)
-              </label>
-              <input
-                type="number"
-                value={dailyLimit}
-                onChange={(e) => setDailyLimit(e.target.value)}
-                min={1}
-                placeholder="무제한"
-                disabled={isSaving}
-                className="w-full px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 disabled:bg-gray-50"
-              />
-            </div>
+          )}
+
+          {/* 하루 최대 */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              하루 최대 (선택)
+            </label>
+            <input
+              type="number"
+              value={dailyLimit}
+              onChange={(e) => setDailyLimit(e.target.value)}
+              min={1}
+              placeholder="무제한"
+              disabled={isSaving}
+              className="w-full px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 disabled:bg-gray-50"
+            />
           </div>
 
           {/* 승인 방식 */}

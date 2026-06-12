@@ -90,6 +90,13 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
       showSchedule: false,
       showPreview: false,
       editingInstruction: false,
+      // 084 — 입력별 점수/필수 (라이브러리 미션은 단일타입이라 해당 타입에 point 배치)
+      image_point: m.requires_image ? (m.point ?? 10) : 10,
+      numeric_point: m.requires_numeric ? (m.point ?? 10) : 10,
+      note_point: m.requires_note ? (m.point ?? 5) : 5,
+      image_required: true,
+      numeric_required: true,
+      note_required: true,
     })))
     setError(null)
     setStep(2)
@@ -109,6 +116,12 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
   const updateDraft = (idx, field, value) => {
     setDrafts(prev => prev.map((m, i) => i === idx ? { ...m, [field]: value } : m))
   }
+
+  // 입력별 점수 합계 (대표 점수 = 최대치)
+  const draftTotal = (m) =>
+    (m.requires_image ? (parseInt(m.image_point) || 0) : 0) +
+    (m.requires_numeric ? (parseInt(m.numeric_point) || 0) : 0) +
+    (m.requires_note ? (parseInt(m.note_point) || 0) : 0)
 
   // 일정 옵션 헬퍼 — 본인의 다른 코드와 일관 (Step1Basic 폐기 흐름 + MissionCreateModal)
   const toggleActiveDay = (idx, dayNum) => {
@@ -164,6 +177,17 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
       setError(`"${drafts[noInputIdx].title}" 미션의 인증 입력을 1개 이상 선택해주세요`)
       return
     }
+    // 필수 입력 0개 차단 (전부 선택일 수 없음)
+    const noRequiredIdx = drafts.findIndex(m =>
+      m.selected &&
+      !((m.requires_image && m.image_required !== false) ||
+        (m.requires_numeric && m.numeric_required !== false) ||
+        (m.requires_note && m.note_required !== false))
+    )
+    if (noRequiredIdx >= 0) {
+      setError(`"${drafts[noRequiredIdx].title}" 미션은 필수 입력이 최소 1개 필요해요 (전부 선택일 수 없어요)`)
+      return
+    }
 
     setIsSaving(true)
     setError(null)
@@ -176,11 +200,18 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
       title: m.title,
       instruction: m.instruction || null,
       verification_type: m.verification_type,
-      point: parseInt(m.point) || 0,
+      point: draftTotal(m),
       daily_limit: m.daily_limit ? parseInt(m.daily_limit) : null,
       requires_image: m.requires_image,
       requires_numeric: m.requires_numeric,
       requires_note: m.requires_note,
+      // 084 — 입력별 점수/필수
+      image_point: m.requires_image ? (parseInt(m.image_point) || 0) : null,
+      numeric_point: m.requires_numeric ? (parseInt(m.numeric_point) || 0) : null,
+      note_point: m.requires_note ? (parseInt(m.note_point) || 0) : null,
+      image_required: m.requires_image ? (m.image_required !== false) : true,
+      numeric_required: m.requires_numeric ? (m.numeric_required !== false) : true,
+      note_required: m.requires_note ? (m.note_required !== false) : true,
       active_from: `${program.start_date}T00:00:00+09:00`,
       active_until: `${program.end_date}T23:59:59+09:00`,
       schedule_mode: m.schedule_mode,
@@ -439,34 +470,66 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <label className="block text-[11px] text-gray-500 mb-0.5">
-                            점수 (P)
-                          </label>
-                          <input
-                            type="number"
-                            value={m.point}
-                            onChange={(e) => updateDraft(idx, 'point', e.target.value)}
-                            min={1}
-                            disabled={isSaving}
-                            className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 disabled:bg-gray-50"
-                          />
+                      {/* 입력별 점수 · 필수 (084) */}
+                      <div>
+                        <label className="block text-[11px] text-gray-500 mb-1">입력별 점수 · 필수</label>
+                        <div className="space-y-1.5">
+                          {[
+                            { f: 'image_point', r: 'image_required', on: m.requires_image, label: '사진', Icon: ImageIcon },
+                            { f: 'numeric_point', r: 'numeric_required', on: m.requires_numeric, label: '기록', Icon: BarChart3 },
+                            { f: 'note_point', r: 'note_required', on: m.requires_note, label: '소감', Icon: MessageSquare },
+                          ].filter(row => row.on).map(row => (
+                            <div key={row.f} className="flex items-center gap-1.5">
+                              <span className="inline-flex items-center gap-0.5 w-11 flex-shrink-0 text-[11px] font-medium text-gray-600">
+                                <row.Icon className="w-3 h-3 text-emerald-600" /> {row.label}
+                              </span>
+                              <div className="relative flex-1 min-w-0">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  value={m[row.f] ?? 0}
+                                  onChange={(e) => updateDraft(idx, row.f, e.target.value)}
+                                  disabled={isSaving}
+                                  className="w-full pl-2 pr-5 py-1 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 disabled:bg-gray-50"
+                                />
+                                <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[11px] text-gray-400">P</span>
+                              </div>
+                              <div className="flex gap-1 flex-shrink-0">
+                                {[{ v: true, t: '필수' }, { v: false, t: '선택' }].map(opt => (
+                                  <button
+                                    key={opt.t}
+                                    type="button"
+                                    onClick={() => updateDraft(idx, row.r, opt.v)}
+                                    disabled={isSaving}
+                                    className={`px-2 py-1 rounded text-[11px] border transition disabled:opacity-50
+                                      ${(m[row.r] !== false) === opt.v
+                                        ? (opt.v
+                                            ? 'border-emerald-500 bg-emerald-50 text-emerald-700 font-semibold'
+                                            : 'border-amber-400 bg-amber-50 text-amber-700 font-semibold')
+                                        : 'border-gray-200 bg-white text-gray-500'}`}
+                                  >
+                                    {opt.t}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                        <div>
-                          <label className="block text-[11px] text-gray-500 mb-0.5">
-                            하루 최대 (선택)
-                          </label>
-                          <input
-                            type="number"
-                            value={m.daily_limit ?? ''}
-                            onChange={(e) => updateDraft(idx, 'daily_limit', e.target.value)}
-                            min={1}
-                            placeholder="무제한"
-                            disabled={isSaving}
-                            className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 disabled:bg-gray-50"
-                          />
-                        </div>
+                        <p className="mt-1 text-[11px] text-gray-500">최대 <span className="font-bold text-emerald-600">{draftTotal(m)}P</span></p>
+                      </div>
+
+                      {/* 하루 최대 */}
+                      <div>
+                        <label className="block text-[11px] text-gray-500 mb-0.5">하루 최대 (선택)</label>
+                        <input
+                          type="number"
+                          value={m.daily_limit ?? ''}
+                          onChange={(e) => updateDraft(idx, 'daily_limit', e.target.value)}
+                          min={1}
+                          placeholder="무제한"
+                          disabled={isSaving}
+                          className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 disabled:bg-gray-50"
+                        />
                       </div>
 
                       {/* 승인 방식 — 자동 / 운영자 심사 토글 */}
@@ -696,7 +759,10 @@ function SubmitPreview({ mission }) {
 
         {mission.requires_image && (
           <div>
-            <p className="text-[11px] font-medium text-gray-600 mb-1">사진</p>
+            <p className="text-[11px] font-medium text-gray-600 mb-1">
+              사진 <span className="text-emerald-600">{mission.image_point ?? 0}P</span>
+              {mission.image_required === false && <span className="ml-1 text-amber-600">(선택)</span>}
+            </p>
             <div className="flex items-center justify-center gap-1 h-16 rounded-lg border-2 border-dashed border-gray-300 text-gray-400 text-xs">
               <ImageIcon className="w-4 h-4" /> 사진 첨부
             </div>
@@ -704,13 +770,19 @@ function SubmitPreview({ mission }) {
         )}
         {mission.requires_numeric && (
           <div>
-            <p className="text-[11px] font-medium text-gray-600 mb-1">기록</p>
+            <p className="text-[11px] font-medium text-gray-600 mb-1">
+              기록 <span className="text-emerald-600">{mission.numeric_point ?? 0}P</span>
+              {mission.numeric_required === false && <span className="ml-1 text-amber-600">(선택)</span>}
+            </p>
             <div className="px-3 py-2 rounded-lg border-2 border-gray-200 text-gray-400 text-sm">숫자 입력 (예: 30)</div>
           </div>
         )}
         {mission.requires_note && (
           <div>
-            <p className="text-[11px] font-medium text-gray-600 mb-1">한 줄 소감</p>
+            <p className="text-[11px] font-medium text-gray-600 mb-1">
+              한 줄 소감 <span className="text-emerald-600">{mission.note_point ?? 0}P</span>
+              {mission.note_required === false && <span className="ml-1 text-amber-600">(선택)</span>}
+            </p>
             <div className="px-3 py-2 rounded-lg border-2 border-gray-200 text-gray-400 text-sm">오늘 어땠나요? 한 줄로 남겨주세요</div>
           </div>
         )}

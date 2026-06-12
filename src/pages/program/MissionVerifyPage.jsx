@@ -94,6 +94,23 @@ function MissionVerifyPage() {
   const requireCount = [needsImage, needsNumeric, needsNote].filter(Boolean).length
   const isMulti = requireCount >= 2
 
+  // 084 — 입력별 필수/선택 + 점수. *_required 기본 true(legacy 호환).
+  const reqImage = needsImage && mission?.image_required !== false
+  const reqNumeric = needsNumeric && mission?.numeric_required !== false
+  const reqNote = needsNote && mission?.note_required !== false
+  const optImage = needsImage && !reqImage
+  const optNumeric = needsNumeric && !reqNumeric
+  const optNote = needsNote && !reqNote
+  // per-input 점수 (없으면 legacy 단일 point)
+  const perInput = !!mission && (mission.image_point != null || mission.numeric_point != null || mission.note_point != null)
+  const imgPts = mission?.image_point ?? 0
+  const numPts = mission?.numeric_point ?? 0
+  const notePts = mission?.note_point ?? 0
+  // 현재 입력 기준 획득 예정 점수 (선택 입력 작성 시 증가)
+  const earnedPoint = perInput
+    ? ((selectedFile ? imgPts : 0) + (numericValue ? numPts : 0) + (noteText.trim() ? notePts : 0))
+    : (mission?.point ?? 0)
+
   // 카테고리 → 히어로 색
   const catKey = program?.categories?.[0] || 'ETC'
   const hero = CATEGORY_HERO[catKey] || CATEGORY_HERO.ETC
@@ -167,8 +184,9 @@ function MissionVerifyPage() {
         insertData.image_path = path
       }
 
-      if (needsNumeric) insertData.numeric_value = parseFloat(numericValue)
-      if (needsNote) insertData.note = noteText.trim()
+      // 선택 입력 미작성 시 저장하지 않음 → 채점 합산에서 제외
+      if (needsNumeric && numericValue !== '' && !isNaN(parseFloat(numericValue))) insertData.numeric_value = parseFloat(numericValue)
+      if (needsNote && noteText.trim()) insertData.note = noteText.trim()
       // 피드 노출 여부 — 프로그램이 피드 활성일 때만 의미. 디폴트 true.
       if (program?.feed_enabled) insertData.feed_visible = feedVisible
 
@@ -249,18 +267,24 @@ function MissionVerifyPage() {
       queryKeys.programOverview(programId, session.user.id)
     )
 
-    if (needsImage && !selectedFile) {
+    if (reqImage && !selectedFile) {
       setError('사진을 선택해주세요')
       return
     }
-    if (needsNumeric) {
+    if (reqNumeric) {
       const num = parseFloat(numericValue)
       if (!numericValue || isNaN(num) || num <= 0) {
         setError('0보다 큰 숫자를 입력해주세요')
         return
       }
+    } else if (optNumeric && numericValue) {
+      const num = parseFloat(numericValue)
+      if (isNaN(num) || num <= 0) {
+        setError('기록은 0보다 큰 숫자여야 해요')
+        return
+      }
     }
-    if (needsNote && !noteText.trim()) {
+    if (reqNote && !noteText.trim()) {
       setError('소감을 입력해주세요')
       return
     }
@@ -277,9 +301,9 @@ function MissionVerifyPage() {
     if (isSubmitting) return false
     if (!mission) return false
     if (!todayCheck.active) return false
-    if (needsImage && !selectedFile) return false
-    if (needsNumeric && !numericValue) return false
-    if (needsNote && !noteText.trim()) return false
+    if (reqImage && !selectedFile) return false
+    if (reqNumeric && !numericValue) return false
+    if (reqNote && !noteText.trim()) return false
     if (requireCount === 0) return false
     return true
   })()
@@ -394,7 +418,7 @@ function MissionVerifyPage() {
               <p className="text-xs text-gray-500 font-medium">📋 안내</p>
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className={`inline-flex items-center px-2 py-0.5 ${hero.chip} text-white text-[11px] rounded-full font-medium`}>
-                  +{mission.point}P
+                  +{earnedPoint}P{perInput && earnedPoint < mission.point ? ` / 최대 ${mission.point}P` : ''}
                 </span>
                 <span className="inline-flex items-center px-2 py-0.5 bg-white text-gray-700 text-[11px] rounded-full font-medium border border-gray-200">
                   {mission.verification_type === 'AUTO' ? '⚡ 자동 승인' : '✅ 운영자 심사'}
@@ -416,6 +440,8 @@ function MissionVerifyPage() {
           <div className="mb-5">
             <label className="block text-sm font-medium text-gray-700 mb-2">
               📷 인증 사진
+              {perInput && <span className="ml-1 text-xs font-normal text-emerald-600">· {imgPts}P</span>}
+              {optImage && <span className="ml-1 text-xs font-normal text-amber-600">(선택)</span>}
             </label>
             {previewUrl ? (
               <div className="relative">
@@ -461,6 +487,8 @@ function MissionVerifyPage() {
           <div className="mb-5">
             <label className="block text-sm font-medium text-gray-700 mb-2">
               📊 기록 값
+              {perInput && <span className="ml-1 text-xs font-normal text-emerald-600">· {numPts}P</span>}
+              {optNumeric && <span className="ml-1 text-xs font-normal text-amber-600">(선택)</span>}
             </label>
             <input
               type="number"
@@ -482,6 +510,8 @@ function MissionVerifyPage() {
           <div className="mb-5">
             <label className="block text-sm font-medium text-gray-700 mb-2">
               💬 한 줄 소감
+              {perInput && <span className="ml-1 text-xs font-normal text-emerald-600">· {notePts}P</span>}
+              {optNote && <span className="ml-1 text-xs font-normal text-amber-600">(선택)</span>}
             </label>
             <textarea
               value={noteText}
