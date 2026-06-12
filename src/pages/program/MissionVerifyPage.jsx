@@ -148,8 +148,12 @@ function MissionVerifyPage() {
         const imageHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
         insertData.image_hash = imageHash
 
-        // 2) 압축 — 1MB 이하 + 1920px (Egress 절감, 본인 결정 Day 65)
-        const compressed = await compressImage(selectedFile)
+        // 2) 압축 — 인증 사진은 피드(max-h-500)에서만 쓰여 1280px·0.6MB 면 충분.
+        //    모바일 로딩·Egress 절감 (1920·1MB → 1280·0.6MB, Day 66).
+        const compressed = await compressImage(selectedFile, {
+          maxWidthOrHeight: 1280,
+          maxSizeMB: 0.6,
+        })
 
         // 3) 업로드 — 압축 결과는 항상 image/jpeg
         const fileName = `${Date.now()}.jpg`

@@ -323,6 +323,8 @@ function FeedContent({ program, targetVerificationId = null, targetCommentId = n
                   <img
                     src={imageUrls[post.id]}
                     alt="인증 사진"
+                    loading="lazy"
+                    decoding="async"
                     className="w-full max-h-[500px] object-contain bg-black/5"
                   />
                 ) : failedImageIds.has(post.id) ? (
