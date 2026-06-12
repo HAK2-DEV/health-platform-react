@@ -402,7 +402,7 @@ function ProgramListPage() {
         <div className="flex items-center justify-between mb-4">
           <h2 className="flex items-center gap-2 text-lg font-bold text-gray-800">
             <Activity className="w-5 h-5 text-emerald-500" />
-            내 프로그램 <span className="text-sm font-medium text-gray-400">({filteredMy.length})</span>
+            운영중인 프로그램 <span className="text-sm font-medium text-gray-400">({filteredMy.length})</span>
           </h2>
           {!isSearching && myPrograms.length > 2 && (
             <button

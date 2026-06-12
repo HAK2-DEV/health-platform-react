@@ -296,7 +296,7 @@ function DashboardPage() {
           <StatCard
             tone="emerald"
             icon={<ClipboardList className="w-5 h-5" />}
-            label="내 프로그램"
+            label="운영 중"
             value={myPrograms.length}
             unit="개"
           />
@@ -635,7 +635,7 @@ function DashboardPage() {
         <div className="flex items-center justify-between mb-4">
           <h2 className="flex items-center gap-2 text-lg font-bold text-gray-800">
             <Activity className="w-5 h-5 text-emerald-500" />
-            내 프로그램
+            운영중인 프로그램
           </h2>
           <div className="flex items-center gap-2">
             {myPrograms.length > 2 && (

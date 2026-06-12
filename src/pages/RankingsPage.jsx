@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Trophy, MapPin, TrendingUp, ChevronRight } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -45,7 +45,14 @@ function RankingsPage() {
   const queryClient = useQueryClient()
   const userId = session?.user?.id
 
-  const [selectedProgramId, setSelectedProgramId] = useState(null)
+  // 선택 프로그램을 URL(?program=)에 보존 → 「내 인증 현황」 등 이동 후 뒤로가기 시 복원
+  const [searchParams, setSearchParams] = useSearchParams()
+  const selectedProgramId = searchParams.get('program') || null
+  const setSelectedProgramId = (id) => {
+    const next = new URLSearchParams(searchParams)
+    next.set('program', id)
+    setSearchParams(next, { replace: true })
+  }
   const [period, setPeriod] = useState('all')
   const periodStart = useMemo(() => periodToISOStart(period), [period])
 
@@ -67,7 +74,9 @@ function RankingsPage() {
   })
 
   useEffect(() => {
-    if (!selectedProgramId && activePrograms.length > 0) {
+    if (activePrograms.length === 0) return
+    // 선택값 없거나 더는 활성 목록에 없으면 첫 프로그램으로
+    if (!selectedProgramId || !activePrograms.some(p => p.id === selectedProgramId)) {
       setSelectedProgramId(activePrograms[0].id)
     }
   }, [activePrograms, selectedProgramId])
