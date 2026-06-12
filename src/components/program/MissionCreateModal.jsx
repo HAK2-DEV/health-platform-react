@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import Modal from '../common/Modal'
 import { supabase } from '../../supabaseClient'
 import { Image as ImageIcon, BarChart3, MessageSquare, ChevronDown, ChevronUp, ChevronLeft, Plus, X } from 'lucide-react'
+import MissionIconPicker from './MissionIconPicker'
 import { SCHEDULE_MODES, WEEKDAY_OPTIONS } from '../../lib/constants'
 
 // 운영자가 자기 프로그램에 미션을 직접 추가/수정 (본인 (가) 진화)
@@ -21,6 +22,7 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
   const [requiresImage, setRequiresImage] = useState(true)
   const [requiresNumeric, setRequiresNumeric] = useState(false)
   const [requiresNote, setRequiresNote] = useState(false)
+  const [iconPath, setIconPath] = useState(null)  // 미션 아이콘 (프리셋 경로 | 커스텀 URL | null)
   // 입력별 점수 + 필수/선택 (084) — 대표 point 는 합계로 파생
   const [imagePoint, setImagePoint] = useState(10)
   const [numericPoint, setNumericPoint] = useState(10)
@@ -56,6 +58,7 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
       setRequiresImage(true)
       setRequiresNumeric(false)
       setRequiresNote(false)
+      setIconPath(null)
       setImagePoint(10)
       setNumericPoint(10)
       setNotePoint(5)
@@ -79,6 +82,7 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
       setRequiresImage(!!editMission.requires_image)
       setRequiresNumeric(!!editMission.requires_numeric)
       setRequiresNote(!!editMission.requires_note)
+      setIconPath(editMission.icon_path ?? null)
       // 입력별 점수/필수 — per-input 값 있으면 그대로, 없으면(legacy) 첫 선택 타입에 point 배치(합계 보존)
       const _legacy = editMission.image_point == null && editMission.numeric_point == null && editMission.note_point == null
       const _p = editMission.point ?? 10
@@ -160,6 +164,7 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
     const payload = {
       title: title.trim(),
       instruction: instruction.trim() || null,
+      icon_path: iconPath || null,
       verification_type: verificationType,
       point: totalPoint,
       daily_limit: dailyLimit ? parseInt(dailyLimit) : null,
@@ -247,12 +252,10 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
               라이브러리로
             </button>
           )}
-          <h2 className="text-xl font-semibold text-gray-800 mb-1 pr-8">
-            {isEditMode ? '✏️ 미션 수정' : '✨ 미션 추가'}
+          <h2 className="text-xl font-semibold text-gray-800 mb-4 pr-8 flex items-baseline gap-2 min-w-0">
+            <span className="flex-shrink-0">{isEditMode ? '✏️ 미션 수정' : '✨ 미션 추가'}</span>
+            <span className="text-sm font-normal text-gray-400 truncate min-w-0">{program.name}</span>
           </h2>
-          <p className="text-xs text-gray-500 mb-4">
-            {program.name}
-          </p>
 
           {/* 제목 */}
           <div className="mb-4">
@@ -283,6 +286,19 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
               rows={2}
               disabled={isSaving}
               className="w-full px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 disabled:bg-gray-50 resize-none"
+            />
+          </div>
+
+          {/* 미션 아이콘 (선택) */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              미션 아이콘 (선택)
+            </label>
+            <MissionIconPicker
+              ownerId={program.owner_id}
+              value={iconPath}
+              onChange={setIconPath}
+              disabled={isSaving}
             />
           </div>
 
@@ -374,15 +390,21 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
             <label className="block text-sm font-medium text-gray-700 mb-1">
               하루 최대 (선택)
             </label>
-            <input
-              type="number"
-              value={dailyLimit}
-              onChange={(e) => setDailyLimit(e.target.value)}
-              min={1}
-              placeholder="무제한"
-              disabled={isSaving}
-              className="w-full px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 disabled:bg-gray-50"
-            />
+            <div className="flex items-center gap-2">
+              <div className="relative w-28">
+                <input
+                  type="number"
+                  value={dailyLimit}
+                  onChange={(e) => setDailyLimit(e.target.value)}
+                  min={1}
+                  placeholder="∞"
+                  disabled={isSaving}
+                  className="w-full pl-3 pr-7 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 disabled:bg-gray-50 text-center"
+                />
+                <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none">회</span>
+              </div>
+              <span className="text-xs text-gray-400">비우면 무제한</span>
+            </div>
           </div>
 
           {/* 승인 방식 */}

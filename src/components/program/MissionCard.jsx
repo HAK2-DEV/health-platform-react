@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { Trash2, Pencil } from 'lucide-react'
 import { formatKoreanDate, toKSTDateString, checkMissionToday } from '../../lib/formatters'
+import { resolveMissionIcon } from '../../lib/missionIcons'
 
 // 미션 카드 1장 — ProgramDetailPage / BundleDetailPage 등 여러 곳에서 재사용
 // props:
@@ -61,7 +62,7 @@ function MissionCard({
       {/* 좌측 썸네일 — 라이브러리 사전 제작 아이콘. 없으면 미표시 (절약된 공간만큼 제목 확장) */}
       {mission.icon_path && (
         <img
-          src={`/mission-icons/${mission.icon_path}`}
+          src={resolveMissionIcon(mission.icon_path)}
           alt=""
           className="w-14 h-14 flex-shrink-0 rounded-xl object-contain bg-gray-50"
           loading="lazy"

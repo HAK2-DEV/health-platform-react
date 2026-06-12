@@ -7,6 +7,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
 import { CATEGORY } from '../../lib/constants'
 import { checkMissionToday } from '../../lib/formatters'
+import { resolveMissionIcon } from '../../lib/missionIcons'
 import { queryKeys, fetchMission, fetchProgramOverview, fetchProgram } from '../../lib/queries'
 import { detectMilestonesReached, resolveStreakMilestones, computeStage } from '../../lib/gamification'
 import { useToast } from '../../contexts/ToastContext'
@@ -365,7 +366,7 @@ function MissionVerifyPage() {
             initial={{ opacity: 0, scale: 0.96, y: -4 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={{ duration: 0.45, delay: 0.05 }}
-            src={`/mission-icons/${mission.icon_path}`}
+            src={resolveMissionIcon(mission.icon_path)}
             alt=""
             className="block mx-auto w-[60%] max-w-[240px] aspect-square object-contain pointer-events-none select-none -mt-1 -mb-4"
             style={{
