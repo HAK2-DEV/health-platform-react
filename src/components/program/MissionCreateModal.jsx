@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import Modal from '../common/Modal'
 import { supabase } from '../../supabaseClient'
-import { Image as ImageIcon, BarChart3, MessageSquare, ChevronDown, ChevronUp, Plus, X } from 'lucide-react'
+import { Image as ImageIcon, BarChart3, MessageSquare, ChevronDown, ChevronUp, ChevronLeft, Plus, X } from 'lucide-react'
 import { SCHEDULE_MODES, WEEKDAY_OPTIONS } from '../../lib/constants'
 
 // 운영자가 자기 프로그램에 미션을 직접 추가/수정 (본인 (가) 진화)
@@ -10,7 +10,8 @@ import { SCHEDULE_MODES, WEEKDAY_OPTIONS } from '../../lib/constants'
 // 운영자 직접 생성 미션은 feature=NULL (017 자동 생성과 구분)
 //
 // editMission prop 있으면 수정 모드 (UPDATE), 없으면 생성 모드 (INSERT)
-function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission }) {
+// onBack: 라이브러리에서 「직접 만들기」로 진입한 경우 — 라이브러리로 돌아가기 (생성 모드만)
+function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, onBack }) {
   const isEditMode = !!editMission
 
   const [title, setTitle] = useState('')
@@ -180,6 +181,17 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission }
     <Modal isOpen={isOpen} onClose={onClose}>
       {program && (
         <div className="p-6">
+          {onBack && !isEditMode && (
+            <button
+              type="button"
+              onClick={onBack}
+              disabled={isSaving}
+              className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-3 disabled:opacity-50"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              라이브러리로
+            </button>
+          )}
           <h2 className="text-xl font-semibold text-gray-800 mb-1 pr-8">
             {isEditMode ? '✏️ 미션 수정' : '✨ 미션 추가'}
           </h2>
@@ -313,10 +325,14 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission }
 
             {/* AUTO 안내 — 검수 없이 즉시 점수. 부적절 인증 우려 시 수동 권장 */}
             {verificationType === 'AUTO' && (
-              <p className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2 leading-relaxed">
-                자동 승인은 검수 없이 즉시 점수가 지급돼요. 정확성이 중요하거나 랭킹 경쟁이 있다면
-                「운영자 심사」를 권장해요. (자동 승인이라도 나중에 피드에서 「점수 제외」할 수 있어요.)
-              </p>
+              <>
+                {/* 승인 버튼 ↔ 안내 박스 사이 투명 스페이서 (앱 섹션 간격 16px) */}
+                <div aria-hidden className="h-4" />
+                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3 leading-relaxed">
+                  자동 승인은 검수 없이 즉시 점수가 지급돼요. 정확성이 중요하거나 랭킹 경쟁이 있다면
+                  「운영자 심사」를 권장해요. (자동 승인이라도 나중에 피드에서 「점수 제외」할 수 있어요.)
+                </p>
+              </>
             )}
           </div>
 

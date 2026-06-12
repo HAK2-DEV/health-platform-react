@@ -968,6 +968,7 @@ function ProgramDetailPage() {
             editMission={editingMission}
             onClose={() => { setIsMissionCreateOpen(false); setEditingMission(null) }}
             onSuccess={invalidateProgramData}
+            onBack={editingMission ? undefined : () => { setIsMissionCreateOpen(false); setIsLibraryOpen(true) }}
           />
         )}
       </Suspense>
