@@ -70,6 +70,9 @@ function NotificationSettingsPage() {
     mutationFn: updateMyNotificationPreferences,
     onSuccess: (data) => {
       queryClient.setQueryData(queryKeys.myNotificationPreferences(userId), data)
+      // 설정 즉시 반영 — 끈 type 이 목록·배지에서 바로 사라지도록 재조회
+      queryClient.invalidateQueries({ queryKey: ['notifications', 'list'] })
+      queryClient.invalidateQueries({ queryKey: ['notifications', 'unread'] })
       setSavedAt(Date.now())
       setTimeout(() => setSavedAt(prev => (prev && Date.now() - prev >= 2900 ? null : prev)), 3000)
     },

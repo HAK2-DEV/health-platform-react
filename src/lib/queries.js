@@ -366,6 +366,28 @@ export const fetchMyNotificationPreferences = async () => {
   return data
 }
 
+// 알림 type → preference 컬럼 매핑 (072 트리거와 동일)
+const NOTIF_PREF_COLUMN = {
+  POST_LIKE: 'like_enabled',
+  POST_COMMENT: 'comment_enabled',
+  REVIEW_APPROVED: 'verify_enabled',
+  REVIEW_REJECTED: 'verify_enabled',
+  VERIFICATION_SUBMITTED: 'verify_enabled',
+  PARTICIPANT_JOINED: 'request_enabled',
+}
+
+// 현재 사용자가 OFF 한 알림 type 목록 — 조회·카운트에서 제외용.
+// 트리거(072)는 생성 시점만 막으므로, 끄기 이전 알림이나 트리거 미적용 환경에서도
+// "설정 OFF → 화면·배지에서 즉시 사라짐" 을 보장하려고 조회 시점에 한 번 더 필터.
+// preferences 조회 실패/없음 → 빈 배열(전부 표시) 로 안전 동작.
+const fetchDisabledNotificationTypes = async () => {
+  const { data, error } = await supabase.rpc('get_or_create_my_notification_preferences')
+  if (error || !data) return []
+  return Object.entries(NOTIF_PREF_COLUMN)
+    .filter(([, col]) => data[col] === false)
+    .map(([type]) => type)
+}
+
 // 알림 환경설정 갱신 — UPDATE 본인 row (RLS 로 본인만 가능)
 export const updateMyNotificationPreferences = async (patch) => {
   const { data: { user } } = await supabase.auth.getUser()
@@ -798,21 +820,31 @@ export const fetchPendingReviewsEnriched = async (programId) => {
 
 // 알림 목록 — RLS 가 본인 알림만 SELECT 허용 (040). 최신순 + 최근 50개
 export const fetchNotifications = async () => {
-  const { data, error } = await supabase
+  const disabled = await fetchDisabledNotificationTypes()
+  let query = supabase
     .from('notifications')
     .select('*')
     .order('created_at', { ascending: false })
     .limit(50)
+  if (disabled.length) {
+    query = query.not('type', 'in', `(${disabled.map(t => `"${t}"`).join(',')})`)
+  }
+  const { data, error } = await query
   if (error) throw error
   return data || []
 }
 
-// 안 읽은 알림 수 — Bell 배지용
+// 안 읽은 알림 수 — Bell 배지용 (OFF 한 type 은 제외 → 설정과 배지 일치)
 export const fetchUnreadNotificationsCount = async () => {
-  const { count, error } = await supabase
+  const disabled = await fetchDisabledNotificationTypes()
+  let query = supabase
     .from('notifications')
     .select('*', { count: 'exact', head: true })
     .eq('is_read', false)
+  if (disabled.length) {
+    query = query.not('type', 'in', `(${disabled.map(t => `"${t}"`).join(',')})`)
+  }
+  const { count, error } = await query
   if (error) throw error
   return count || 0
 }
