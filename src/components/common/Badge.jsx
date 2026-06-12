@@ -30,7 +30,8 @@ const VARIANT = {
 }
 
 const SIZE = {
-  sm: 'text-xs px-1.5 py-0.5',
+  // sm 은 상태 배지(진행중/종료/예정/추천) 전용 — 표지 위에서도 잘 보이게 살짝 크고 굵게.
+  sm: 'text-[13px] font-semibold px-2 py-0.5',
   md: 'text-xs px-2 py-0.5',
   lg: 'text-sm px-2.5 py-1',
 }

@@ -298,7 +298,7 @@ function ProgramListPage() {
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-base text-gray-800 truncate">{program.name}</h3>
                       {program.description && program.description.trim() !== program.name?.trim() && (
-                        <p className="text-xs text-gray-500 truncate mt-0.5">{program.description}</p>
+                        <p className="text-xs font-semibold text-gray-600 truncate mt-0.5">{program.description}</p>
                       )}
                       <div className="flex items-center gap-2 mt-2">
                         <div className="flex-1 h-2 bg-white/90 rounded-full overflow-hidden">
@@ -378,7 +378,7 @@ function ProgramListPage() {
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-base text-gray-800 mb-1 truncate">{program.name}</h3>
                     {program.description && program.description.trim() !== program.name?.trim() && (
-                      <p className="text-xs text-gray-500 mb-1.5 line-clamp-2 leading-snug">{program.description}</p>
+                      <p className="text-xs font-semibold text-gray-600 mb-1.5 line-clamp-2 leading-snug">{program.description}</p>
                     )}
                     {/* 날짜 — text-[11px] 로 한 줄에 풀 날짜 노출 */}
                     <p className="text-[11px] text-emerald-600 flex items-center gap-1 whitespace-nowrap">
@@ -469,7 +469,7 @@ function ProgramListPage() {
                           </div>
                         </div>
                         {program.description && program.description.trim() !== program.name?.trim() && (
-                          <p className="text-xs text-gray-500 mb-1 line-clamp-1">{program.description}</p>
+                          <p className="text-xs font-semibold text-gray-600 mb-1 line-clamp-1">{program.description}</p>
                         )}
                         <p className="text-xs text-gray-500 flex items-center gap-1">
                           <Calendar className="w-3 h-3 flex-shrink-0 text-gray-400" />

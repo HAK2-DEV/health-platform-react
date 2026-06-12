@@ -410,7 +410,7 @@ function DashboardPage() {
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-base text-gray-800 truncate">{program.name}</h3>
                     {program.description && (
-                      <p className="text-xs text-gray-500 truncate mt-0.5">{program.description}</p>
+                      <p className="text-xs font-semibold text-gray-600 truncate mt-0.5">{program.description}</p>
                     )}
                     <div className="flex items-center gap-2 mt-2">
                       <div className="flex-1 h-2 bg-white/90 rounded-full overflow-hidden">
@@ -532,7 +532,7 @@ function DashboardPage() {
                               <h3 className="font-semibold text-gray-800 truncate text-base leading-tight">
                                 {item.bundleTitle}
                               </h3>
-                              <p className="text-xs text-gray-500 mt-1">
+                              <p className="text-xs font-semibold text-gray-600 mt-1">
                                 {item.missions.length}개 미션 · 총 <span className="text-emerald-600 font-semibold">+{totalPoint}P</span>
                               </p>
                             </div>
@@ -586,7 +586,7 @@ function DashboardPage() {
                             <h3 className="font-bold text-gray-800 truncate text-base leading-tight">
                               {mission.title}
                             </h3>
-                            <p className="text-xs text-gray-500 mt-1">
+                            <p className="text-xs font-semibold text-gray-600 mt-1">
                               <span className="text-emerald-600 font-semibold">+{mission.point}P</span>
                             </p>
                           </div>
@@ -719,7 +719,7 @@ function DashboardPage() {
                         </div>
                       </div>
                       {program.description && program.description.trim() !== program.name?.trim() && (
-                        <p className="text-xs text-gray-500 mb-1 line-clamp-1">
+                        <p className="text-xs font-semibold text-gray-600 mb-1 line-clamp-1">
                           {program.description}
                         </p>
                       )}
@@ -789,8 +789,8 @@ function StatCard({ tone, icon, label, value, unit }) {
         {icon}
       </IconBox>
       <p
-        className="text-gray-500 whitespace-nowrap w-full font-medium leading-tight"
-        style={{ fontSize: 'clamp(9px, 2.6vw, 11px)' }}
+        className="text-gray-600 whitespace-nowrap w-full font-semibold leading-tight"
+        style={{ fontSize: 'clamp(11px, 3vw, 13px)' }}
       >
         {label}
       </p>
