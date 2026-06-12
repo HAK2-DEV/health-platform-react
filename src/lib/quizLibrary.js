@@ -21,17 +21,17 @@
 const A = 'CORRECT_ONLY' // award_mode 기본(맞추면 지급)
 
 // 객관식
-const mc = (question_text, options, correctIndex, explanation, source, point = 10) => ({
+const mc = (question_text, options, correctIndex, explanation, source = null, point = 10) => ({
   type: 'MULTIPLE', question_text, options, correctIndex,
   award_mode: A, grading_mode: 'AUTO', point, explanation, source,
 })
 // OX
-const ox = (question_text, oxAnswer, explanation, source, point = 10) => ({
+const ox = (question_text, oxAnswer, explanation, source = null, point = 10) => ({
   type: 'OX', question_text, oxAnswer,
   award_mode: A, grading_mode: 'AUTO', point, explanation, source,
 })
 // 주관식(다짐·성찰형 — 정답 없음, 기본 운영자 수동채점 / 맞추면 지급)
-const sa = (question_text, sampleAnswer, explanation, source, point = 10) => ({
+const sa = (question_text, sampleAnswer, explanation, source = null, point = 10) => ({
   type: 'SHORT', question_text, shortAnswer: null,
   award_mode: A, grading_mode: 'MANUAL', point, explanation, source, sampleAnswer,
 })
@@ -313,6 +313,284 @@ const TOPICS = [
   },
 ]
 
+// ─── 근로자(직장인) 대상 ───────────────────────────────────
+//   문항별 출처(공공기관·검증 완료). 각 URL은 실제 접속+주제 일치를 확인함(2026-06).
+//   ※ 자동 점검 도구에서만 막히는 사이트(브라우저는 정상) — 배포 전 1회 확인 권장:
+//     - kcgp.or.kr(1336 상담안내): SSL 중간인증서 체인 이슈
+//     - samsunghospital.com(절주 Q1): https→http 다운그레이드라 http 링크 유지
+//   ※ 신체활동 '앉아있기=흡연' 캐치프레이즈, 눈 '20-20-20'은 한국 공공 출처에 원문이 없어
+//     주제 근거 페이지로만 연결(해설에서 공식 인용처럼 쓰지 말 것).
+const SRC = {
+  // 금연
+  smokeCessation: 'https://www.cancer.go.kr/lay1/S1T199C204/sublink.do',          // 흡연과 금연(국가암정보센터)
+  ecigKhan: 'https://www.khan.co.kr/article/201806072229005',                     // 궐련형 타르(경향, 식약처 2018 인용)
+  smokeStat: 'https://www.cancer.go.kr/lay1/S1T204C225/contents.do',              // 흡연 통계(남성 34.0%)
+  noSmokeGuide: 'https://www.nosmokeguide.go.kr/',                                // 금연길라잡이(국가금연지원센터)
+  // 절주
+  alcoholKcal: 'http://www.samsunghospital.com/home/healthInfo/content/contenView.do?CONT_CLS_CD=001021005003&CONT_ID=6352&CONT_SRC=HOMEPAGE&CONT_SRC_ID=33770', // 술과 운동
+  kdcaDrink: 'https://health.kdca.go.kr/healthinfo/biz/health/gnrlzHealthInfo/gnrlzHealthInfo/gnrlzHealthInfoView.do?cntnts_sn=5297', // 음주(국가건강정보포털)
+  drinkPractice: 'https://www.cancer.go.kr/lay1/S1T231C234/contents.do',          // 절주 계획과 실천
+  // 영양
+  kdcaCarb: 'https://health.kdca.go.kr/healthinfo/biz/health/gnrlzHealthInfo/gnrlzHealthInfo/gnrlzHealthInfoView.do?cntnts_sn=1342',  // 탄수화물 섭취
+  kdcaSodium: 'https://health.kdca.go.kr/healthinfo/biz/health/gnrlzHealthInfo/gnrlzHealthInfo/gnrlzHealthInfoView.do?cntnts_sn=5335', // 염분 섭취
+  mfdsCaffeine: 'https://impfood.mfds.go.kr/CFBBB02F02/getCntntsDetail?cntntsSn=281601', // 카페인 안전 수준(식약처)
+  kdcaNutrition: 'https://health.kdca.go.kr/healthinfo/biz/health/gnrlzHealthInfo/gnrlzHealthInfo/gnrlzHealthInfoView.do?cntnts_sn=6693', // 식이영양 허브
+  // 신체활동
+  kdcaPhysical: 'https://health.kdca.go.kr/healthinfo/biz/health/gnrlzHealthInfo/gnrlzHealthInfo/gnrlzHealthInfoView.do?cntnts_sn=6251', // 신체활동(좌식·습관)
+  kdcaExercise: 'https://health.kdca.go.kr/healthinfo/biz/health/gnrlzHealthInfo/gnrlzHealthInfo/gnrlzHealthInfoView.do?cntnts_sn=5293', // 운동(10분3번·주150분)
+  // 근골격·눈
+  kdcaTurtle: 'https://health.kdca.go.kr/healthinfo/biz/health/gnrlzHealthInfo/gnrlzHealthInfo/gnrlzHealthInfoView.do?cntnts_sn=5972', // 일자목(거북목)증후군
+  vdtGuideLaw: 'https://www.law.go.kr/admRulLsInfoP.do?admRulSeq=2100000027843',  // VDT 작업관리지침(고용노동부 고시)
+  kdcaDryEye: 'https://health.kdca.go.kr/healthinfo/biz/health/gnrlzHealthInfo/gnrlzHealthInfo/gnrlzHealthInfoView.do?cntnts_sn=6306', // 안구건조증(눈 휴식)
+  // 수면
+  nhisMelatonin: 'https://www.nhis.or.kr/magazin/144/html/c06.html',              // 스마트폰·멜라토닌(건강iN)
+  nhisSleepLack: 'https://www.nhis.or.kr/magazin/160/html/sub2.html',             // 수면 부족이 질병을 부른다
+  nhisSleepHygiene: 'https://www.nhis.or.kr/magazin/137/html/c03.html',           // 꿀잠 자는 법(수면위생)
+  // 직무스트레스
+  nhisBurnout: 'https://www.nhis.or.kr/magazin/150/html/sub3.html',               // 번아웃 증후군(건강iN)
+  eapLaw: 'https://www.easylaw.go.kr/CSP/CnpClsMain.laf?popMenu=ov&csmSeq=1407&ccfNo=5&cciNo=1&cnpClsNo=2', // EAP(근로복지기본법 제83조)
+  counsel109: 'https://www.129.go.kr/109',                                        // 자살예방상담 109
+  // 구강
+  hiraStat: 'https://opendata.hira.or.kr/op/opc/olapHifrqSickInfoTab1.do',        // 다빈도질병 통계(심평원)
+  kdcaPerio: 'https://health.kdca.go.kr/healthinfo/biz/health/gnrlzHealthInfo/gnrlzHealthInfo/gnrlzHealthInfoView.do?cntnts_sn=5718', // 전신질환과 치주치료
+  toothStain: 'https://www.k-health.com/news/articleView.html?idxno=45518',       // 치아착색 원인(헬스경향, 치과 자문)
+  kdcaOralCare: 'https://health.kdca.go.kr/healthinfo/biz/health/gnrlzHealthInfo/gnrlzHealthInfo/gnrlzHealthInfoView.do?cntnts_sn=6291', // 구강병 예방·관리
+  // 중독·디지털
+  gambleLaw: 'https://www.easylaw.go.kr/CSP/CnpClsMain.laf?popMenu=ov&csmSeq=901&ccfNo=3&cciNo=1&cnpClsNo=1', // 불법도박 처벌(생활법령)
+  smartRest: 'https://www.iapc.or.kr/',                                           // 스마트쉼센터(과의존 예방)
+  mentalSleep: 'https://www.mentalhealth.go.kr/portal/disease/diseaseDetail.do?dissId=32', // 수면과 수면장애(정신건강포털)
+  gambleHelp1336: 'https://www.kcgp.or.kr/portal/main/contents.do?menuNo=200062', // 헬프라인 1336 상담안내
+  // 심뇌혈관
+  bpSixRules: 'https://www.kpanews.co.kr/news/articleView.html?idxno=534930',     // 고혈압 6대수칙(질병관리청 인용)
+  redCircle: 'https://www.korea.kr/news/policyNewsView.do?newsId=148892985',      // 레드서클 심뇌혈관 예방
+  cvdNineRules: 'https://www.korea.kr/news/policyNewsView.do?newsId=148892499',   // 심뇌혈관 9대 생활수칙
+  // 암
+  cancerScreening: 'https://www.cancer.go.kr/lay1/S1T198C261/sublink.do',         // 국가암검진 사업
+  cancerTarget: 'https://www.cancer.go.kr/lay1/S1T549C553/sublink.do',            // 검진 대상자 선정·통보
+  cancerPrevent: 'https://www.cancer.go.kr/lay1/S1T200C203/contents.do',          // 국민 암예방 수칙
+  // 비만
+  kdcaObesity: 'https://health.kdca.go.kr/healthinfo/biz/health/ntcnInfo/healthSourc/thtimtCntnts/thtimtCntntsView.do?thtimt_cntnts_sn=39', // 비만 관리(허리둘레)
+  nhisDietHarm: 'https://www.nhis.or.kr/magazin/146/html/sub2.html',              // 무리한 다이어트(요요)
+  nhisDietHealthy: 'https://www.nhis.or.kr/static/alim/paper/oldpaper/202407/sub/section1_2.html', // 건강한 다이어트(체성분·실천)
+}
+
+const WORKER_TOPICS = [
+  {
+    key: 'smoking', title: '금연', emoji: '🚭', category: 'NO_SMOKING',
+    questions: [
+      mc('하루 한 갑(4,500원)을 피우는 직장인이 10년간 담배에 쓰는 돈은 대략 얼마일까?',
+        ['약 160만 원', '약 600만 원', '약 1,600만 원', '약 5,000만 원'], 2,
+        '하루 4,500원이면 1년 약 164만 원, 10년이면 1,600만 원이 넘습니다. 중형차 한 대 값이 재가 되어 사라지는 셈입니다. "건강에 나쁘다"는 막연한 말보다, 통장에서 빠져나가는 돈이 더 크게 와닿습니다.', SRC.smokeCessation),
+      ox('담배를 끊으면 단 2주~3개월 안에 폐 기능과 혈액순환이 좋아지기 시작해, 계단 오를 때 숨이 덜 차는 변화를 직접 느낄 수 있다.', 'O',
+        '금연 효과는 20년 뒤가 아니라 며칠~몇 주 안에 시작됩니다. 20분 후 혈압·맥박이 안정되고, 2~3주면 혈액순환과 폐 기능이 나아져 일상에서 "덜 헐떡인다"는 걸 체감합니다.', SRC.smokeCessation),
+      ox('전자담배·궐련형 담배(아이코스 등)는 "덜 해롭다"고 알려졌지만, 식약처 분석에서 타르가 일반담배만큼(혹은 그 이상) 검출됐다.', 'O',
+        '식약처 분석에서 궐련형 전자담배의 타르는 일반담배와 비슷하거나 더 높게 나왔고, 1급 발암물질도 검출됐습니다. "제품만 바꾸면 괜찮다"는 생각은 흡연을 이어가는 통로가 되기 쉽습니다.', SRC.ecigKhan),
+      mc('"남자 직장인은 대부분 담배를 피운다"는 흔한 생각, 실제 우리나라 성인 남성 흡연율에 가장 가까운 것은?',
+        ['약 70%', '약 50%', '약 30%대', '약 90%'], 2,
+        '성인 남성 흡연율은 30%대까지 낮아져, 안 피우는 사람이 다수입니다. "다들 피우니까" 눈치를 보지만 실제로는 끊는 쪽이 대세입니다.', SRC.smokeStat),
+      sa('담배를 끊어 10년간 모은 1,600만 원이 통장에 있다고 상상해보세요. 그 돈으로 가장 하고 싶은 것 1가지와, 흡연 욕구가 올라오는 "내 상황"에서 담배 대신 할 행동 1가지를 적어보세요.',
+        '예: 여행·전세자금 / 점심 후엔 양치하고 5분 걷기, 스트레스엔 커피 대신 물·심호흡',
+        '막연한 결심보다 "눈에 보이는 목표"와 "구체적 상황별 대체행동"이 금연 성공률을 높입니다.', SRC.noSmokeGuide),
+    ],
+  },
+  {
+    key: 'alcohol', title: '절주', emoji: '🍺', category: 'ETC',
+    questions: [
+      ox('술은 1g당 7kcal로, 같은 무게의 밥·고기(4kcal)보다 열량이 높다. 소주 1병이면 밥 한 공기를 훌쩍 넘는 칼로리다.', 'O',
+        '알코올은 영양가 없이 열량만 높고(1g=7kcal), 몸이 술을 먼저 분해하느라 그동안 지방은 안 타고 쌓입니다. "술은 살 안 쪄"는 가장 흔한 착각입니다.', SRC.alcoholKcal),
+      mc('회식 다음 날, 종일 머리가 멍하고 일이 손에 안 잡힌 경험이 있다면 그 이유로 가장 정확한 것은?',
+        ['술이 숙면을 방해해 깊은 잠을 못 자기 때문', '술은 오히려 잠을 깊게 해줘서', '다음 날 피로와 술은 무관', '물을 적게 마셔서일 뿐'], 0,
+        '술은 잠들기는 쉽게 해도 깊은 수면(렘수면)을 방해해, 자도 잔 것 같지 않게 만듭니다. 어제의 한 잔이 오늘의 업무를 깎습니다.', SRC.kdcaDrink),
+      ox('암 예방 관점에서 "안전한 음주량"은 따로 없으며, 하루 한두 잔의 소량도 위험을 높일 수 있다.', 'O',
+        'WHO는 "안전한 음주량은 없다"고 봅니다. 알코올의 분해산물은 담배·석면과 같은 1군 발암물질입니다.', SRC.kdcaDrink),
+      mc('회식에서 분위기를 깨지 않으면서 절주 의사를 전하는 말로 가장 자연스러운 것은?',
+        ['"건강검진 결과 때문에 조절 중이라, 오늘은 제가 분위기 챙길게요!"', '"저 술 안 마십니다. 권하지 마세요."', '"다들 마시는데 저만 빠지긴 좀..."', '"한 잔만 더 주세요, 못 마시지만"'], 0,
+        '거절을 "관계 단절"이 아니라 "다른 방식의 참여"로 바꾸면 분위기도 건강도 지킵니다. 이유를 들고 대신 할 역할을 제안하는 게 잘 통합니다.', SRC.drinkPractice),
+      sa('"회식에서 OO하면 과음하게 된다"는 나의 패턴을 떠올려보고, 그 상황에서 미리 정해둘 절주 규칙을 1가지 적어보세요.',
+        '예: 분위기에 휩쓸려 원샷 → "물잔 옆에 두고 술은 반잔씩, 1차만"',
+        '폭음은 대개 "특정 상황"에서 반복됩니다. 규칙을 미리 정해두면 그 순간 의지력 싸움 대신 작전을 실행하면 됩니다.', SRC.drinkPractice),
+    ],
+  },
+  {
+    key: 'nutrition', title: '영양', emoji: '🥗', category: 'DIET',
+    questions: [
+      mc('편의점·구내식당에서 점심을 고를 때, 오후 졸음을 가장 적게 부르는 조합은?',
+        ['단백질·채소 위주(닭가슴살 샐러드, 백반+나물)', '라면+삼각김밥+탄산', '컵라면+초코바', '크림파스타+단 음료'], 0,
+        '정제 탄수화물·당이 많은 점심은 혈당을 급격히 올렸다 떨어뜨려 "식곤증"을 부릅니다. 단백질·채소·통곡물 위주면 오후 집중력이 유지됩니다.', SRC.kdcaCarb),
+      ox('국·찌개·라면 국물을 다 마시는 습관은 하루 나트륨 권고량을 훌쩍 넘기게 만들어, 혈압·붓기·체중에 부담을 준다.', 'O',
+        '한국인은 국물·김치·가공식품으로 WHO 권고(하루 2,000mg)의 1.5배 이상 나트륨을 먹습니다. 국물을 남기는 것만으로도 상당량을 줄일 수 있습니다.', SRC.kdcaSodium),
+      ox('커피를 아무리 많이 마셔도 부족한 잠을 대신할 수 없고, 오후 늦은 카페인은 오히려 밤잠을 방해해 다음 날 더 피곤하게 만든다.', 'O',
+        '카페인은 졸음을 잠깐 미룰 뿐 수면을 대체하지 못합니다. 오후 늦게 마시면 밤잠을 방해하고, 다음 날 또 커피를 찾는 악순환이 생깁니다.', SRC.mfdsCaffeine),
+      mc('에너지음료를 입에 달고 사는 동료에게 알려줄 식약처 성인 카페인 하루 권고량(커피로 환산 시)은?',
+        ['커피 약 1잔(100mg)', '커피 약 4잔(400mg)', '커피 약 10잔(1,000mg)', '제한 없음'], 1,
+        '식약처 성인 권고량은 하루 400mg(커피 약 4잔). 에너지음료 1캔에도 상당량이 들어 있어 커피와 합치면 쉽게 초과합니다.', SRC.mfdsCaffeine),
+      sa('오후 3시 피로가 몰려올 때 무심코 집는 과자·단 음료를 떠올려보고, 그것을 대신할 더 나은 간식 1가지와 "언제 미리 챙겨둘지"를 적어보세요.',
+        '예: 초코바 → 견과 한 봉지, 출근길에 미리 사서 서랍에 두기',
+        '의지로 참기보다 "건강한 선택을 미리 눈앞에 두는 것"이 효과적입니다. 서랍 속 견과 하나가 자판기 앞 결정을 바꿉니다.', SRC.kdcaNutrition),
+    ],
+  },
+  {
+    key: 'activity', title: '신체활동', emoji: '🏃', category: 'WALKING',
+    questions: [
+      ox('하루 종일 앉아 일하면, 퇴근 후 운동을 하더라도 종일 앉아 있던 위험이 충분히 사라지지 않는다. "앉아 있기는 새로운 흡연"이라 불린다.', 'O',
+        '여러 연구에서 장시간 좌식은 운동만으로 충분히 상쇄되지 않는 것으로 보고됩니다. 30~60분마다 일어나 잠깐 움직이는 게 중요합니다.', SRC.kdcaPhysical),
+      ox('바쁜 날에는 한 번에 30분을 못 내도, 10분씩 3번 나눠 걸어도 신체활동 효과를 쌓을 수 있다.', 'O',
+        '운동은 "몰아서 길게"만 효과 있는 게 아닙니다. 10분씩 나눠도 쌓이면 효과가 있습니다.', SRC.kdcaExercise),
+      mc('세계보건기구(WHO)가 권하는 성인의 일주일 운동량으로, 생각보다 부담 없는 기준은?',
+        ['매일 2시간 이상', '주당 중강도 150분(하루 20~30분꼴)', '주 10분이면 충분', '운동 기준은 없다'], 1,
+        'WHO 권고는 주당 중강도 150분, 하루로 치면 빠르게 걷기 20~30분 수준입니다. "점심 산책 + 한 정거장 걷기"로도 채울 수 있습니다.', SRC.kdcaExercise),
+      mc('사무실에서 "가만히 있으면 자꾸 안 움직이게 되는" 습관을 바꾸는, 가장 현실적인 방법은?',
+        ['엘리베이터 대신 계단을 기본 동선으로 정하기', '매일 헬스장 2시간 결심하기', '주말에 몰아서 등산', '운동은 포기하기'], 0,
+        '의지로 "운동하자"보다, 가만히 있어도 움직이게 되는 환경을 만드는 게 오래갑니다. 작은 설정이 하루 활동량을 늘립니다.', SRC.kdcaPhysical),
+      sa('근무 중 "이 신호가 오면 일어나서 움직인다"는 나만의 규칙을 정해보세요. (예: 화장실 갈 때마다 계단 한 층, 점심 후 10분 걷기)',
+        '예: 1시간마다 알림 울리면 일어나 물 뜨러 가기 + 점심 후 건물 한 바퀴',
+        '"많이 움직여야지"보다 "OO하면 일어선다"는 구체적 신호가 실제로 몸을 움직이게 합니다.', SRC.kdcaPhysical),
+    ],
+  },
+  {
+    key: 'musculo_eye', title: '근골격계·눈건강', emoji: '💺', category: 'ETC',
+    questions: [
+      mc('고개를 숙여 모니터·스마트폰을 볼 때, 목에 실리는 무게는 바른 자세(약 5kg)에서 60도 숙이면 얼마까지 늘까? (질병관리청 기준)',
+        ['약 7kg', '약 12kg', '약 27kg', '변화 없음'], 2,
+        '질병관리청에 따르면 15도 숙이면 12kg, 30도 18kg, 60도면 27kg까지 늘어납니다. 거북목·어깨 통증에는 이유가 있습니다.', SRC.kdcaTurtle),
+      ox('손목·어깨 통증이 반복되는데 "참다 보면 낫겠지" 하고 같은 자세로 버티면, 오히려 만성 통증·디스크로 악화될 수 있다.', 'O',
+        '반복되는 통증을 방치하면 만성화되기 쉽습니다. 통증은 자세·도구·휴식을 점검하라는 몸의 신호입니다. 일찍 손보는 게 비용을 줄입니다.', SRC.kdcaTurtle),
+      ox('하루 종일 컴퓨터·스마트폰 화면을 보는 작업은 목·어깨·손목 통증뿐 아니라 눈의 피로·시야 흐림과도 관련된다.', 'O',
+        'VDT(영상표시단말기) 작업은 근골격계 통증과 함께 눈 피로·건조를 부릅니다. 안전보건공단은 50분 작업 후 10분 휴식, 화면과 50cm 이상 거리를 권합니다.', SRC.vdtGuideLaw),
+      mc('눈 피로를 줄이는 "20-20-20 규칙"으로 가장 적절한 것은?',
+        ['20분마다 20피트(6m) 떨어진 곳을 20초간 바라보기', '20분마다 눈 감고 20초 자기', '하루 20분만 일하기', '화면 밝기를 20%로'], 0,
+        '20분 작업 후 약 6m 먼 곳을 20초간 바라보면 눈 근육의 긴장이 풀립니다. 잠깐 창밖을 보는 것만으로 눈이 쉽니다.', SRC.kdcaDryEye),
+      sa('내 자리에서 목·어깨·눈 부담을 줄이려고 오늘 바로 바꿀 수 있는 것 1가지를 적어보세요. (예: 모니터 높이기, 50분마다 창밖 보기)',
+        '예: 모니터 위가 눈높이에 오게 받침대 놓기 + 50분마다 일어나 목 돌리기',
+        '비싼 의자보다 "지금 당장 바꿀 수 있는 한 가지"가 통증을 줄입니다.', SRC.kdcaTurtle),
+    ],
+  },
+  {
+    key: 'sleep', title: '수면·피로관리', emoji: '😴', category: 'SLEEP',
+    questions: [
+      ox('잠들기 직전 스마트폰의 밝은 화면을 보면, 잠을 부르는 호르몬(멜라토닌)이 억제돼 오히려 잠이 더 안 온다.', 'O',
+        '밤의 밝은 빛(특히 블루라이트)은 멜라토닌 분비를 막아 수면 리듬을 늦춥니다. 자기 30분 전 화면을 끄는 것만으로 잠들기가 쉬워집니다.', SRC.nhisMelatonin),
+      mc('"4~5시간만 자도 충분하다"며 버티는 직장인이 놓치는 사실로 가장 정확한 것은?',
+        ['수면 부족은 집중력·판단력을 술 취한 수준까지 떨어뜨릴 수 있다', '잠은 적게 잘수록 단련된다', '성인은 4시간이면 충분하다', '수면과 업무능력은 무관'], 0,
+        '만성 수면 부족은 음주 상태와 비슷한 수준으로 집중력·반응속도·판단력을 떨어뜨립니다. 성인은 평균 7~8시간이 필요합니다(개인차 있음).', SRC.nhisSleepLack),
+      ox('야간·교대근무 후 낮에 잘 때는, 빛을 최대한 차단하고(암막) 소음을 줄이면 수면의 질이 올라간다.', 'O',
+        '우리 몸은 빛을 "깰 시간"으로 인식하므로, 낮잠 환경을 밤처럼 어둡고 조용하게 만들면 회복이 빨라집니다. 암막커튼·안대·귀마개가 도움이 됩니다.', SRC.nhisSleepHygiene),
+      mc('오후 늦게 마신 커피가 밤잠을 방해하는 이유로 가장 정확한 것은?',
+        ['카페인은 몸에서 절반 줄어드는 데만 몇 시간 걸려, 늦게 마시면 밤까지 각성이 남는다', '카페인은 1시간이면 다 빠진다', '커피는 수면과 무관', '카페인은 잠을 깊게 한다'], 0,
+        '카페인은 반감기가 길어 오후 늦게 마시면 잠자리에서도 각성이 남습니다. 오후엔 디카페인·물로 바꾸는 게 밤잠을 지키는 길입니다.', SRC.mfdsCaffeine),
+      sa('퇴근 후 잠을 방해하지 않기 위한 나만의 "잠자기 전 30분 루틴"을 1가지 정해보세요. (예: 폰은 거실에 두기, 따뜻한 물 샤워)',
+        '예: 23시 이후 폰은 거실 충전 + 미지근한 물 샤워 후 스탠드만 켜기',
+        '"잘 준비 신호"를 정해두면 몸이 자동으로 수면 모드로 들어갑니다. 매일 같은 루틴이 수면 리듬을 안정시킵니다.', SRC.nhisSleepHygiene),
+    ],
+  },
+  {
+    key: 'job_stress', title: '직무스트레스', emoji: '🧠', category: 'MINDCARE',
+    questions: [
+      mc('번아웃을 의심해볼 수 있는 대표적 신호로 가장 적절한 것은?',
+        ['일에 대한 무기력·냉소, 출근만 생각하면 소진되는 느낌이 2주 이상', '가끔 피곤한 것', '바쁜 날 야근하는 것', '월요일이 싫은 것'], 0,
+        '번아웃은 단순 피로가 아니라 정서적 소진·냉소·효능감 저하가 지속되는 상태입니다. 2주 이상 지속되면 신호로 보고 돌봐야 합니다.', SRC.nhisBurnout),
+      ox('번아웃은 개인의 의지가 약해서가 아니라, 과도한 업무량·낮은 재량·부족한 지지 같은 일터 환경과 깊이 관련된다.', 'O',
+        '직무스트레스는 "마음 다잡으면" 해결되는 개인 문제가 아닙니다. 구조가 핵심이라 조직 차원의 개선·도움 요청이 필요합니다. 자책할 일이 아닙니다.', SRC.nhisBurnout),
+      ox('회사에서 심리상담을 받으면 소문이나 인사 불이익이 걱정되지만, 근로자지원프로그램(EAP) 상담은 법으로 익명성·비밀이 보장된다.', 'O',
+        '근로복지기본법 제83조는 EAP 참여자의 익명성 보장을 명시합니다. 근로복지공단 EAP는 개인 연 7회까지 무료 상담을 제공하고 내용은 회사에 공유되지 않습니다.', SRC.eapLaw),
+      mc('평소 밝던 동료가 부쩍 지쳐 보이고 "다 그만두고 싶다"는 말을 자주 한다. 가장 바람직한 행동은?',
+        ['진지하게 안부를 묻고, 혼자 두지 말고 상담 자원(EAP·109)을 함께 알아본다', '괜한 참견 같아 모른 척한다', '"다들 힘들어, 참아"라고 말한다', '소문날까 봐 다른 동료에게 먼저 말한다'], 0,
+        '전문가가 아니어도 됩니다. 직접 안부를 묻는 것이 위험을 키우지 않고, 혼자가 아니라는 안도감을 줍니다. 곁의 관심과 자원 연결만으로 큰 힘이 됩니다.', SRC.counsel109),
+      sa('스트레스가 한계에 다다랐을 때 쓸 "나만의 회복 행동" 1가지와, "이때는 도움을 청한다"는 나만의 기준을 적어보세요.',
+        '예: 점심에 혼자 산책하며 음악 듣기 / 2주 넘게 무기력하면 EAP·109 상담',
+        '위기 전에 "내 회복법"과 "도움 청할 기준선"을 정해두면, 막상 힘들 때 더 쉽게 손을 내밀 수 있습니다.', SRC.nhisBurnout),
+    ],
+  },
+  {
+    key: 'oral', title: '구강건강', emoji: '🦷', category: 'ETC',
+    questions: [
+      ox('잇몸병(치주질환)은 감기를 제치고, 우리나라 사람들이 외래 진료로 병원을 가장 많이 찾는 질환 1위를 여러 해째 차지하고 있다.', 'O',
+        '건강보험심사평가원 통계에서 치은염·치주질환은 2019년 이후 외래 다빈도 1위입니다. 흔하지만 젊을수록 방치하기 쉽습니다.', SRC.hiraStat),
+      ox('잇몸병(치주질환)은 입속 문제로 끝나지 않고, 심혈관질환·당뇨 등 전신 건강과도 관련된다.', 'O',
+        '질병관리청은 치주질환이 심혈관질환·당뇨·류마티스관절염 등과 연관된다고 밝힙니다. 양치가 곧 전신 건강 관리입니다.', SRC.kdcaPerio),
+      ox('커피·흡연으로 한번 누렇게 착색된 치아는 양치를 열심히 하거나 담배를 끊어도 원래 색으로 잘 돌아오지 않는다.', 'O',
+        '착색물질이 치아에 배면 양치나 금연만으로는 원색으로 돌아오기 어렵고 전문 미백이 필요합니다. 착색을 만들지 않는 게 싸고 확실합니다.', SRC.toothStain),
+      mc('점심 후 칫솔질이 어려운 사무실에서, 구취·충치를 줄이는 현실적인 임시 대처로 가장 좋은 것은?',
+        ['물로 입안을 헹구고, 무가당 껌(자일리톨)을 씹는다', '민트사탕을 계속 빨아먹는다', '커피를 더 마셔 냄새를 덮는다', '그냥 둔다'], 0,
+        '양치가 어려우면 물 헹굼 + 무가당 껌이 차선책입니다. 침 분비를 늘려 입속 세균·산을 줄입니다. 당이 든 사탕은 오히려 충치를 키웁니다.', SRC.kdcaOralCare),
+      sa('직장 생활 중 구강 건강을 지키기 위해 오늘부터 더 챙길 습관 1가지를 적어보세요. (예: 점심 후 물 헹굼, 자기 전 치실, 연 1회 스케일링 예약)',
+        '예: 자기 전 치실 한 번 추가 + 올해 안 받은 스케일링 예약하기',
+        '양치만으로는 치아 사이 세균을 다 못 잡습니다. 치실과 건강보험 스케일링(연 1회)으로 잇몸병을 미리 막을 수 있습니다.', SRC.kdcaOralCare),
+    ],
+  },
+  {
+    key: 'addiction', title: '중독·디지털사용', emoji: '📱', category: 'MINDCARE',
+    questions: [
+      ox('온라인 불법도박은 "소액이라 괜찮다"고 생각하기 쉽지만, 금액과 상관없이 형사처벌 대상이 될 수 있고 전과·벌금이 남을 수 있다.', 'O',
+        '도박은 금액 크기보다 통제력 상실·반복성이 핵심이며, 불법도박은 소액이라도 처벌 대상입니다. 어려우면 1336으로 상담하세요.', SRC.gambleLaw),
+      mc('도박·게임·충동소비를 줄이려 할 때, "의지로 참기"보다 효과적인 전략은?',
+        ['앱 차단·결제수단 분리·사용시간 제한 같은 "장벽"을 미리 만든다', '손실을 만회하려 더 크게 한판', '월급날마다 몰아서 결제', '잠을 줄여 더 오래 한다'], 0,
+        '중독성 행동은 순간의 의지로 막기 어렵습니다. "하기 어렵게 만드는 장벽"이 훨씬 효과적입니다. 환경을 바꾸면 의지력 싸움을 줄일 수 있습니다.', SRC.smartRest),
+      ox('퇴근 후 침대에서 숏폼·게임을 하다 보면 어느새 새벽인 경험, 이는 수면 시간을 갉아먹어 다음 날 컨디션을 망친다.', 'O',
+        '"조금만 더"가 반복되며 수면을 잠식합니다. 침실 밖 충전, 사용시간 알림 같은 경계선이 잠과 다음 날을 지킵니다.', SRC.mentalSleep),
+      ox('도박·과음 문제로 힘들어 보이는 동료에게, 비난 대신 "이런 상담 창구가 있더라"라고 정보를 건네는 것만으로도 도움이 될 수 있다.', 'O',
+        '도박문제 헬프라인 1336은 본인·가족·동료 누구나 익명으로 상담할 수 있습니다. 조심스러운 정보 한마디가 회복의 계기가 됩니다.', SRC.gambleHelp1336),
+      sa('퇴근 후 스마트폰·게임·도박 사용을 줄이기 위한 나만의 "경계선"을 1가지 정해보세요. (예: 침실에 폰 안 두기, 23시 이후 앱 차단)',
+        '예: 잘 땐 폰 거실에 충전 + 게임 결제앱 삭제하고 한 달 살아보기',
+        '"물리적 경계선"이 효과적입니다. "하기 번거롭게" 만들면 자연히 줄어듭니다. 힘들면 1336에 도움을 청하세요.', SRC.smartRest),
+    ],
+  },
+  {
+    key: 'cardio', title: '심뇌혈관·대사건강', emoji: '❤️', category: 'ETC',
+    questions: [
+      ox('고혈압은 대부분 증상이 없어, 혈압을 재보기 전에는 본인이 고혈압인지 알기 어렵다. 그래서 "침묵의 살인자"로 불린다.', 'O',
+        '고혈압은 수치가 꽤 높아도 증상이 없는 경우가 많아 모른 채 혈관이 손상됩니다. 증상이 없어서 더 위험합니다. 건강검진의 혈압 수치를 꼭 확인하세요.', SRC.bpSixRules),
+      ox('젊은 직장인도 자극적인 배달음식·잦은 음주·운동부족이 쌓이면 20·30대에 고혈압이 생길 수 있다.', 'O',
+        '20·30대 고혈압 유병자가 빠르게 늘고 있고, 젊은 고혈압은 생활습관 영향이 큽니다. 젊을수록 인지율이 낮아 방치되기 쉬운 게 더 위험합니다.', SRC.bpSixRules),
+      mc('직장 건강검진에서 혈압·혈당·콜레스테롤(이상지질혈증)이 높게 나왔을 때 가장 적절한 행동은?',
+        ['"바쁘니 나중에"가 아니라, 재검·생활습관 개선·필요시 진료로 바로 이어간다', '증상 없으니 무시한다', '민간요법부터 찾아본다', '검진을 다시 안 받는다'], 0,
+        '검진 결과는 "지금 손쓰면 막을 수 있다"는 신호입니다. 이상지질혈증·고혈압·당뇨는 심근경색·뇌졸중의 직접 위험요인입니다.', SRC.redCircle),
+      mc('혈압 관리를 위해 회식·점심에서 바꿀 수 있는 가장 효과적인 한 가지는?',
+        ['국물·찌개 국물을 남기고 싱겁게 먹기', '국물까지 싹 비우기', '짠 안주에 술 곁들이기', '물 대신 탄산음료'], 0,
+        '한국인 혈압의 큰 적은 나트륨이고 그 주범이 국물입니다. 국물을 남기는 것만으로 나트륨 섭취를 크게 줄일 수 있습니다.', SRC.cvdNineRules),
+      sa('혈압·혈당 관리를 위해 직장 생활에서 실천할 행동 1가지와, "마지막으로 혈압 잰 게 언제인지"를 떠올려 적어보세요.',
+        '예: 라면 국물 남기기 + 다음 검진 때 혈압·콜레스테롤 꼭 확인',
+        '고혈압은 재봐야 압니다. 수치를 확인하고 생활습관을 조정하는 것만으로 수십 년 뒤 심근경색·뇌졸중 위험을 크게 낮출 수 있습니다.', SRC.cvdNineRules),
+    ],
+  },
+  {
+    key: 'cancer', title: '암예방·검진', emoji: '🎗️', category: 'ETC',
+    questions: [
+      mc('국가암검진은 "바쁘다"고 미루기 쉽지만, 조기 발견 시 치료 성과가 크게 달라진다. 검진의 핵심 이점으로 가장 정확한 것은?',
+        ['증상이 나타나기 전 초기에 발견해 완치율을 높인다', '암을 예방해 안 걸리게 한다', '검진만 받으면 치료가 필요 없다', '검진은 효과가 없다'], 0,
+        '암검진의 힘은 "증상 전 조기 발견"입니다. 많은 암이 초기엔 증상이 없어, 일찍 찾으면 완치율이 크게 올라갑니다.', SRC.cancerScreening),
+      ox('암 예방을 위해서는 하루 한두 잔의 소량 음주도 피하는 것이 권고된다.', 'O',
+        '국가 암예방 수칙과 WHO는 "안전한 음주량은 없다"고 봅니다. 알코올은 1군 발암물질로 소량도 여러 암 위험을 높입니다.', SRC.drinkPractice),
+      ox('국가암검진 안내문을 받으면, 바쁘더라도 대상 검진을 확인하고 받는 것이 중요하다. 대부분 무료이거나 소액 본인부담이다.', 'O',
+        '국가암검진은 부담이 적고 받아두면 큰 병을 일찍 잡을 수 있습니다. 받은 김에 바로 예약하는 게 요령입니다.', SRC.cancerTarget),
+      mc('국민 암예방 수칙에 포함되는 생활습관으로 가장 적절한 것은?',
+        ['금연·절주, 채소·과일 충분히, 규칙적 운동, 검진 챙기기', '담배는 줄이기만', '술은 독한 것만 피하기', '검진은 아플 때만'], 0,
+        '국가 암예방 수칙의 핵심은 금연·절주·균형식·운동·검진입니다. 이미 다른 주제에서 다룬 생활습관들이 그대로 암 예방이 됩니다.', SRC.cancerPrevent),
+      sa('올해 내가 받아야 할 국가암검진(또는 건강검진)이 있는지 확인하고, "언제 예약할지" 구체적 날짜·방법을 적어보세요.',
+        '예: 이번 달 안에 위내시경 예약 / 검진 안내문 확인 후 회사 근처 병원 예약',
+        '"언제·어디서 예약"이라는 구체적 계획이 실제 행동을 만듭니다. 날짜를 정하는 순간 실천 확률이 크게 올라갑니다.', SRC.cancerScreening),
+    ],
+  },
+  {
+    key: 'obesity', title: '비만·체중관리', emoji: '⚖️', category: 'ETC',
+    questions: [
+      ox('같은 체중이라도 뱃속(내장)에 지방이 몰린 "복부비만"은 당뇨·고혈압·심뇌혈관질환 위험과 더 강하게 연결된다. 체중계 숫자보다 허리둘레가 중요할 수 있다.', 'O',
+        '내장지방형 복부비만은 혈관·대사에 직접 부담을 줘, 마른 체형이어도 배만 나온 "마른 비만"이 위험할 수 있습니다. 허리둘레를 함께 봐야 합니다.', SRC.kdcaObesity),
+      mc('굶어서 단기간에 살을 확 뺐다가 다시 찌는 "요요"의 핵심 원인으로 맞는 것은?',
+        ['급격한 감량으로 근육·기초대사량이 줄어, 예전처럼 먹으면 더 쉽게 살찌는 몸이 되기 때문', '살이 원래 자리로 가려는 의지', '물을 많이 마셔서', '요요는 근거 없는 미신'], 0,
+        '급격히 굶으면 지방과 함께 근육이 빠져 기초대사량이 낮아지고, 이 상태에서 예전처럼 먹으면 남는 에너지가 지방으로 쌓입니다. 천천히가 정답입니다.', SRC.nhisDietHarm),
+      ox('체중 관리는 체중계 숫자만 보면 충분하고, 허리둘레·근육량·식습관은 볼 필요가 없다.', 'X',
+        '체중계 숫자가 줄어도 근육 손실이면 오히려 요요에 취약해집니다. 중요한 건 "체성분(근육 대 지방)"과 허리둘레입니다.', SRC.nhisDietHealthy),
+      mc('야근 후 배달음식·야식을 줄이기 위한 가장 현실적인 전략은?',
+        ['야식 충동이 오는 시간·상황을 미리 알고 대체 행동(따뜻한 차·일찍 잠자리)을 정해둔다', '배고프면 무조건 참기', '야식을 끊겠다고 결심만 한다', '더 많이 굶어서 보상받기'], 0,
+        '충동이 오는 패턴을 알고 미리 대안을 준비하는 게 효과적입니다. 야식 앱 삭제, 따뜻한 차, 일찍 눕기 같은 "환경 설계"가 충동을 줄입니다.', SRC.nhisDietHealthy),
+      sa('"빨리 빼기"가 아니라 "꾸준히"를 위해, 이번 주에 실천할 작고 지속 가능한 행동 1가지를 적어보세요. (예: 야식 주 2회로, 점심 후 10분 걷기)',
+        '예: 평일 야식은 주 1회만 + 엘리베이터 대신 계단 쓰기',
+        '건강한 체중 관리의 핵심은 "오래 갈 수 있는 작은 습관"입니다. 거창한 결심은 며칠 가지만 작은 한 가지는 평생 갑니다.', SRC.nhisDietHealthy),
+    ],
+  },
+]
+
 export const QUIZ_AUDIENCES = [
   {
     key: 'soldier_20s',
@@ -320,5 +598,12 @@ export const QUIZ_AUDIENCES = [
     emoji: '🪖',
     description: '군 장병·20대 초반 대상 건강 상식 (출처 검증 완료)',
     topics: TOPICS,
+  },
+  {
+    key: 'worker',
+    label: '근로자',
+    emoji: '🧑‍💼',
+    description: '직장인 대상 일상 건강 상식 (공공기관 자료)',
+    topics: WORKER_TOPICS,
   },
 ]
