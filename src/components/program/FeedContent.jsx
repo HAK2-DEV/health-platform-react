@@ -526,7 +526,7 @@ function FeedContent({ program, targetVerificationId = null, targetCommentId = n
             </div>
 
             {/* 날짜 */}
-            <p className="px-4 pb-3 text-[10px] text-gray-400 uppercase">
+            <p className="px-4 pb-3 text-xs text-gray-400 uppercase">
               {formatKstDate(new Date(post.submitted_at))}
             </p>
           </article>

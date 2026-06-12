@@ -126,7 +126,7 @@ function QuestionPreview({ q, index }) {
   return (
     <div className="bg-gray-50 rounded-xl p-3 text-xs">
       <div className="flex items-center gap-1.5 mb-1">
-        <span className="px-1.5 py-0.5 bg-white border border-gray-200 rounded text-[10px] text-gray-600">{typeLabel}</span>
+        <span className="px-1.5 py-0.5 bg-white border border-gray-200 rounded text-xs text-gray-600">{typeLabel}</span>
         <span className="text-gray-400">Q{index + 1}</span>
       </div>
       <p className="text-gray-800 font-medium mb-1.5 leading-snug text-[13px]">{q.question_text}</p>

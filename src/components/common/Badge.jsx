@@ -15,7 +15,7 @@
 //
 // props:
 //   variant:  위 키 중 하나
-//   size:     'sm' (text-[10px]) | 'md' (text-xs)
+//   size:     'sm'·'md' (text-xs, 패딩만 차이) | 'lg' (text-sm)
 //   icon:     선택 아이콘 (왼쪽)
 
 const VARIANT = {
@@ -30,7 +30,7 @@ const VARIANT = {
 }
 
 const SIZE = {
-  sm: 'text-[10px] px-1.5 py-0.5',
+  sm: 'text-xs px-1.5 py-0.5',
   md: 'text-xs px-2 py-0.5',
   lg: 'text-sm px-2.5 py-1',
 }

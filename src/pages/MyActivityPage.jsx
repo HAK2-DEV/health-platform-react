@@ -174,7 +174,7 @@ function MyActivityPage() {
                 )
               })}
             </div>
-            <div className="flex justify-between mt-2 text-[10px] text-gray-400">
+            <div className="flex justify-between mt-2 text-xs text-gray-400">
               <span>{recent14Days[0]?.date.slice(5).replace('-', '/')}</span>
               <span>오늘</span>
             </div>

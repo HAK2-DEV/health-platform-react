@@ -219,7 +219,7 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
                     <span>{category.emoji}</span>
                     <span>{category.label}</span>
                     {count > 0 && (
-                      <span className={`text-[10px] ${isActive ? 'text-emerald-50' : 'text-gray-400'}`}>
+                      <span className={`text-xs ${isActive ? 'text-emerald-50' : 'text-gray-400'}`}>
                         {count}
                       </span>
                     )}
@@ -355,7 +355,7 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
                           return (
                             <span
                               key={i}
-                              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-white/80 text-emerald-700 text-[10px] rounded font-medium border border-emerald-100"
+                              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-white/80 text-emerald-700 text-xs rounded font-medium border border-emerald-100"
                             >
                               <Icon className="w-3 h-3" />
                               {t.label}
@@ -504,14 +504,14 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
                                   type="button"
                                   onClick={() => addExcludedPeriod(idx)}
                                   disabled={isSaving}
-                                  className="flex items-center gap-0.5 text-[10px] text-emerald-600 hover:text-emerald-700 disabled:opacity-50"
+                                  className="flex items-center gap-0.5 text-xs text-emerald-600 hover:text-emerald-700 disabled:opacity-50"
                                 >
                                   <Plus className="w-2.5 h-2.5" />
                                   추가
                                 </button>
                               </div>
                               {m.excluded_periods.length === 0 ? (
-                                <p className="text-[10px] text-gray-400">제외 기간이 없습니다</p>
+                                <p className="text-xs text-gray-400">제외 기간이 없습니다</p>
                               ) : (
                                 <div className="space-y-1.5">
                                   {m.excluded_periods.map((period, pIdx) => (
@@ -523,7 +523,7 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
                                         disabled={isSaving}
                                         className="flex-1 min-w-0 px-1 py-0.5 text-[11px] border border-gray-200 rounded focus:outline-none focus:border-emerald-500 disabled:bg-gray-50"
                                       />
-                                      <span className="text-[10px] text-gray-400">~</span>
+                                      <span className="text-xs text-gray-400">~</span>
                                       <input
                                         type="date"
                                         value={period.end_date}

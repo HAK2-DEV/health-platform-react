@@ -152,7 +152,7 @@ function StatCell({ icon, label, value, sub }) {
         {label}
       </p>
       <p className="text-sm font-medium text-gray-800 mt-0.5">{value}</p>
-      {sub && <p className="text-[10px] text-gray-400 mt-0.5 truncate">{sub}</p>}
+      {sub && <p className="text-xs text-gray-400 mt-0.5 truncate">{sub}</p>}
     </div>
   )
 }

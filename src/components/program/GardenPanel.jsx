@@ -280,7 +280,7 @@ function GardenPanel({ participation, activeDays, totalCount, programDays, onPla
                 title={f.name}
               >
                 <span className="text-xl">{f.emoji}</span>
-                <span className="text-[9px] text-violet-700 truncate w-full text-center">{f.name}</span>
+                <span className="text-xs text-violet-700 truncate w-full text-center">{f.name}</span>
               </div>
             ))}
           </div>

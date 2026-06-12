@@ -209,7 +209,7 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
               }`}
             >
               {disabled && (
-                <span className="absolute top-2 right-2 px-1.5 py-0.5 bg-gray-700 text-white text-[9px] rounded font-semibold">
+                <span className="absolute top-2 right-2 px-1.5 py-0.5 bg-gray-700 text-white text-xs rounded font-semibold">
                   곧 출시
                 </span>
               )}

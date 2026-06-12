@@ -123,7 +123,7 @@ function ProgramBrowseModal({ isOpen, onClose, programs = [], onSelect }) {
                     {cats.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-1">
                         {cats.map(c => (
-                          <span key={c.key} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 text-[10px]">
+                          <span key={c.key} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 text-xs">
                             {c.emoji} {c.label}
                           </span>
                         ))}

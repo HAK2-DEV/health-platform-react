@@ -796,7 +796,7 @@ function StatCard({ tone, icon, label, value, unit }) {
       </p>
       <p className="leading-tight whitespace-nowrap w-full mt-0.5">
         <span className="text-2xl font-bold text-gray-800">{value}</span>
-        <span className="text-[10px] text-gray-500 ml-0.5">{unit}</span>
+        <span className="text-xs text-gray-500 ml-0.5">{unit}</span>
       </p>
     </motion.div>
   )

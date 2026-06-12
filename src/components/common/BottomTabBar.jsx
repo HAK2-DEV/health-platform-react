@@ -62,7 +62,7 @@ function BottomTabBar() {
               <div className="relative">
                 <Icon className="w-5 h-5" />
                 {hasBadge && (
-                  <span className="absolute -top-2.5 -right-3 min-w-[20px] h-[20px] px-1.5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none ring-2 ring-white shadow-md">
+                  <span className="absolute -top-2.5 -right-3 min-w-[20px] h-[20px] px-1.5 bg-red-500 text-white text-[11px] font-bold rounded-full flex items-center justify-center leading-none ring-2 ring-white shadow-md">
                     {tab.badge > 99 ? '99+' : tab.badge}
                   </span>
                 )}

@@ -195,21 +195,21 @@ function ProgramStatsMissionsPage() {
                           <div className="flex items-end gap-2">
                             <div className="flex-1 min-w-0">
                               <HourSparkline hourly={hourData.hourly} peakHour={hourData.peakHour} />
-                              <div className="relative h-2.5 text-[9px] text-gray-400 mt-0.5">
+                              <div className="relative h-2.5 text-xs text-gray-400 mt-0.5">
                                 <span className="absolute left-0">0</span>
                                 <span className="absolute left-1/2 -translate-x-1/2">12</span>
                                 <span className="absolute right-0">24</span>
                               </div>
                             </div>
                             {peakBucket && (
-                              <span className="inline-flex items-center gap-1 px-2 py-1 bg-white border border-emerald-200 rounded-pill text-[10px] font-medium text-emerald-700 whitespace-nowrap flex-shrink-0">
+                              <span className="inline-flex items-center gap-1 px-2 py-1 bg-white border border-emerald-200 rounded-pill text-xs font-medium text-emerald-700 whitespace-nowrap flex-shrink-0">
                                 <span>{peakBucket.emoji}</span>
                                 <span>{formatHour12(hourData.peakHour)}</span>
                               </span>
                             )}
                           </div>
                         ) : (
-                          <p className="text-[10px] text-gray-400 italic">{NO_DATA_HINT}</p>
+                          <p className="text-xs text-gray-400 italic">{NO_DATA_HINT}</p>
                         )}
                       </div>
                     )

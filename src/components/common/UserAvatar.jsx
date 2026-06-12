@@ -10,7 +10,7 @@ import { supabase } from '../../supabaseClient'
 //
 // avatar_path 없으면 → emerald 그라데이션 + 닉네임 첫 글자 (이모지 X — OS 별 차이 회피)
 const SIZE_MAP = {
-  sm: 'w-6 h-6 text-[10px]',
+  sm: 'w-6 h-6 text-xs',
   md: 'w-10 h-10 text-sm',
   lg: 'w-16 h-16 text-xl',
   xl: 'w-24 h-24 text-3xl',

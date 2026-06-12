@@ -73,7 +73,7 @@ function MyVerificationCard({ v }) {
           {v.missions?.title || '(삭제된 미션)'}
         </p>
         {badge && (
-          <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-[10px] flex-shrink-0 ${badge.cls}`}>
+          <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-xs flex-shrink-0 ${badge.cls}`}>
             {badge.icon}
             {badge.label}
           </span>

@@ -341,7 +341,7 @@ function RankingsPage() {
             <p className="text-sm font-semibold text-emerald-700 truncate">
               {selectedProgram.name}
               {period !== 'all' && (
-                <span className="ml-1.5 text-[10px] font-normal text-emerald-600/70">
+                <span className="ml-1.5 text-xs font-normal text-emerald-600/70">
                   · {PERIOD_OPTIONS.find(o => o.value === period)?.label} 기준
                 </span>
               )}
@@ -497,7 +497,7 @@ function ScoreSparkline({ series }) {
   const total14d = series.reduce((sum, s) => sum + s.point, 0)
   return (
     <div className="flex flex-col items-end flex-shrink-0">
-      <div className="flex items-center gap-0.5 text-[10px] text-emerald-700 mb-0.5">
+      <div className="flex items-center gap-0.5 text-xs text-emerald-700 mb-0.5">
         <TrendingUp className="w-3 h-3" />
         <span>14일 +{total14d}P</span>
       </div>
@@ -587,7 +587,7 @@ function PodiumTop3({ top3, userId }) {
           className="mb-1.5"
         />
         {isMe && (
-          <span className="px-2 py-0.5 bg-emerald-500 text-white text-[10px] font-semibold rounded-pill mb-0.5">나</span>
+          <span className="px-2 py-0.5 bg-emerald-500 text-white text-xs font-semibold rounded-pill mb-0.5">나</span>
         )}
         <p className={`text-xs font-semibold truncate w-full text-center ${isMe ? 'text-emerald-800' : 'text-gray-800'}`}>
           {row.nickname}

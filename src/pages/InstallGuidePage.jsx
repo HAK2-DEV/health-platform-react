@@ -120,7 +120,7 @@ function IOSGuide({ isCurrent }) {
           <h2 className="text-base font-bold text-gray-800">iPhone · iPad (Safari)</h2>
         </div>
         {isCurrent && (
-          <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-semibold rounded-pill">
+          <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-pill">
             현재 기기
           </span>
         )}
@@ -162,7 +162,7 @@ function AndroidGuide({ isCurrent, deferredPrompt, onInstall }) {
           <h2 className="text-base font-bold text-gray-800">Android (Chrome)</h2>
         </div>
         {isCurrent && (
-          <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-semibold rounded-pill">
+          <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-pill">
             현재 기기
           </span>
         )}
@@ -218,7 +218,7 @@ function DesktopGuide({ isCurrent, deferredPrompt, onInstall }) {
           <h2 className="text-base font-bold text-gray-800">데스크탑 (Chrome · Edge)</h2>
         </div>
         {isCurrent && (
-          <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-semibold rounded-pill">
+          <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-pill">
             현재 기기
           </span>
         )}

@@ -390,7 +390,7 @@ function WidgetTrend({ insights }) {
         <circle cx={last.x} cy={last.y} r="4" fill="rgb(16 185 129)" />
         <circle cx={last.x} cy={last.y} r="6" fill="rgb(16 185 129)" fillOpacity="0.3" />
       </svg>
-      <div className="flex justify-between mt-1 text-[10px] text-gray-400">
+      <div className="flex justify-between mt-1 text-xs text-gray-400">
         {trend7.map((d, i) => (
           <span key={i}>{(['일','월','화','수','목','금','토'])[new Date(d.date).getDay()]}</span>
         ))}
@@ -463,7 +463,7 @@ function WidgetHourly({ insights }) {
         })}
       </div>
       {/* 시간 ticks — 0/6/12/18/24 */}
-      <div className="relative h-3 text-[10px] text-gray-400 mb-3">
+      <div className="relative h-3 text-xs text-gray-400 mb-3">
         <span className="absolute left-0">0</span>
         <span className="absolute left-1/4 -translate-x-1/2">6</span>
         <span className="absolute left-1/2 -translate-x-1/2">12</span>
