@@ -247,7 +247,8 @@ function ProgramDetailPage() {
     // 상세 + 미션 외에, 다른 페이지(Dashboard/ProgramList)의 myPrograms/activePrograms/publicPrograms 도
     // 모두 갱신해야 표지/이름 변경이 즉시 반영됨. ['programs'] prefix 로 전부 무효화.
     queryClient.invalidateQueries({ queryKey: ['programs'] })
-    queryClient.invalidateQueries({ queryKey: queryKeys.programMissions(id) })
+    // ['missions'] 전체 무효화 — 목록(byProgram) + 인증 화면(detail) + 오늘의 미션 모두 갱신
+    queryClient.invalidateQueries({ queryKey: ['missions'] })
   }
 
   // 미션 삭제 — CASCADE 로 verifications + score_ledgers 함께 사라짐

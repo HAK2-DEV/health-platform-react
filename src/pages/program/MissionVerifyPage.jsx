@@ -362,22 +362,37 @@ function MissionVerifyPage() {
               (2) 사방 페이드 — radial gradient mask 로 좌·우·하단 모두 transparent
                   → 일러스트 가장자리가 배경 그라데이션에 자연스럽게 녹아듦 (vignette). */}
         {mission.icon_path && (
-          <motion.img
-            initial={{ opacity: 0, scale: 0.96, y: -4 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ duration: 0.45, delay: 0.05 }}
-            src={resolveMissionIcon(mission.icon_path)}
-            alt=""
-            className="block mx-auto w-[60%] max-w-[240px] aspect-square object-contain pointer-events-none select-none -mt-1 -mb-4"
-            style={{
-              WebkitMaskImage:
-                'radial-gradient(ellipse 70% 70% at 50% 45%, black 50%, rgba(0,0,0,0.6) 75%, transparent 100%)',
-              maskImage:
-                'radial-gradient(ellipse 70% 70% at 50% 45%, black 50%, rgba(0,0,0,0.6) 75%, transparent 100%)',
-            }}
-            aria-hidden="true"
-            onError={(e) => { e.currentTarget.style.display = 'none' }}
-          />
+          /^https?:\/\//.test(mission.icon_path) ? (
+            // 커스텀 업로드(불투명 사진) — 마스크 없이 깔끔한 라운드 카드 (흰색/초록 갈림 방지)
+            <motion.img
+              initial={{ opacity: 0, scale: 0.96, y: -4 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{ duration: 0.45, delay: 0.05 }}
+              src={resolveMissionIcon(mission.icon_path)}
+              alt=""
+              className="block mx-auto w-24 h-24 rounded-2xl object-cover shadow-sm ring-1 ring-black/5 pointer-events-none select-none mb-1"
+              aria-hidden="true"
+              onError={(e) => { e.currentTarget.style.display = 'none' }}
+            />
+          ) : (
+            // 프리셋 일러스트(투명) — 그라데이션 마스크로 배경에 자연스럽게 녹아듦
+            <motion.img
+              initial={{ opacity: 0, scale: 0.96, y: -4 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{ duration: 0.45, delay: 0.05 }}
+              src={resolveMissionIcon(mission.icon_path)}
+              alt=""
+              className="block mx-auto w-[60%] max-w-[240px] aspect-square object-contain pointer-events-none select-none -mt-1 -mb-4"
+              style={{
+                WebkitMaskImage:
+                  'radial-gradient(ellipse 70% 70% at 50% 45%, black 50%, rgba(0,0,0,0.6) 75%, transparent 100%)',
+                maskImage:
+                  'radial-gradient(ellipse 70% 70% at 50% 45%, black 50%, rgba(0,0,0,0.6) 75%, transparent 100%)',
+              }}
+              aria-hidden="true"
+              onError={(e) => { e.currentTarget.style.display = 'none' }}
+            />
+          )
         )}
 
         <div>
