@@ -1,9 +1,17 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import Modal from '../common/Modal'
 import { supabase } from '../../supabaseClient'
-import { ChevronLeft, ChevronDown, ChevronUp, Plus, X, Image as ImageIcon, BarChart3, MessageSquare } from 'lucide-react'
-import { CATEGORY, CATEGORY_LIST, SCHEDULE_MODES, WEEKDAY_OPTIONS } from '../../lib/constants'
+import { ChevronLeft, ChevronDown, ChevronUp, Plus, X, Image as ImageIcon, BarChart3, MessageSquare, Pencil, Check } from 'lucide-react'
+import { CATEGORY_LIST, SCHEDULE_MODES, WEEKDAY_OPTIONS } from '../../lib/constants'
 import { MISSION_LIBRARY } from '../../lib/missionLibrary'
+
+// 인증 입력 유형 — 한 미션에 복수 선택 가능 (사진+소감 통합 등). missions.requires_* 와 매핑.
+// 제출 화면(MissionVerifyPage)이 이미 사진/기록/소감을 한 미션에 같이 띄워 한 번에 제출함.
+const INPUT_TYPES = [
+  { field: 'requires_image', icon: ImageIcon, label: '사진' },
+  { field: 'requires_numeric', icon: BarChart3, label: '기록' },
+  { field: 'requires_note', icon: MessageSquare, label: '소감' },
+]
 
 // 추천 미션 라이브러리 모달
 // 흐름:
@@ -80,6 +88,8 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
       active_days: [],
       excluded_periods: [],
       showSchedule: false,
+      showPreview: false,
+      editingInstruction: false,
     })))
     setError(null)
     setStep(2)
@@ -144,6 +154,14 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
     )
     if (invalidScheduleIdx >= 0) {
       setError(`"${drafts[invalidScheduleIdx].title}" 미션의 운영 요일을 최소 1일 선택해주세요`)
+      return
+    }
+    // 인증 입력 유형 0개 차단 — 제출 화면이 비어버림
+    const noInputIdx = drafts.findIndex(m =>
+      m.selected && !m.requires_image && !m.requires_numeric && !m.requires_note
+    )
+    if (noInputIdx >= 0) {
+      setError(`"${drafts[noInputIdx].title}" 미션의 인증 입력을 1개 이상 선택해주세요`)
       return
     }
 
@@ -320,11 +338,6 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
 
           <div className="space-y-3">
             {drafts.map((m, idx) => {
-              const types = []
-              if (m.requires_image) types.push({ icon: ImageIcon, label: '사진' })
-              if (m.requires_numeric) types.push({ icon: BarChart3, label: '기록' })
-              if (m.requires_note) types.push({ icon: MessageSquare, label: '소감' })
-
               return (
                 <div
                   key={idx}
@@ -335,40 +348,97 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
                       : 'border-gray-200 bg-gray-50 opacity-60'}
                   `}
                 >
-                  {/* 헤더 — 토글 + 제목 + 인증유형 칩 */}
-                  <label className="flex items-start gap-3 cursor-pointer">
+                  {/* 헤더 — 체크박스 + 제목 + 수정 가능한 안내 문구 */}
+                  <div className="flex items-start gap-3">
                     <input
                       type="checkbox"
                       checked={m.selected}
                       onChange={() => toggleMission(idx)}
                       disabled={isSaving}
-                      className="mt-1 w-4 h-4 accent-emerald-500"
+                      className="mt-1 w-4 h-4 accent-emerald-500 flex-shrink-0 cursor-pointer"
                     />
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-medium text-gray-800 text-sm">{m.title}</h3>
-                      {m.instruction && (
-                        <p className="text-xs text-gray-500 mt-0.5 break-keep leading-relaxed">{m.instruction}</p>
+                      <button
+                        type="button"
+                        onClick={() => toggleMission(idx)}
+                        disabled={isSaving}
+                        className="block text-left w-full font-medium text-gray-800 text-sm"
+                      >
+                        {m.title}
+                      </button>
+                      {/* 안내 문구 — 연필 클릭 시 인라인 수정 (참여자에게 보이는 문구) */}
+                      {m.editingInstruction ? (
+                        <div className="mt-1">
+                          <textarea
+                            value={m.instruction || ''}
+                            onChange={(e) => updateDraft(idx, 'instruction', e.target.value)}
+                            disabled={isSaving}
+                            rows={2}
+                            autoFocus
+                            placeholder="참여자에게 보일 안내 문구 (예: 오늘 운동한 순간을 사진으로 인증해요)"
+                            className="w-full px-2 py-1.5 text-xs border border-emerald-300 rounded-md focus:outline-none focus:border-emerald-500 resize-none disabled:bg-gray-50"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => updateDraft(idx, 'editingInstruction', false)}
+                            disabled={isSaving}
+                            className="mt-1 inline-flex items-center gap-0.5 text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 disabled:opacity-50"
+                          >
+                            <Check className="w-3 h-3" /> 완료
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-start gap-1 mt-0.5">
+                          <p className="text-xs text-gray-500 break-keep leading-relaxed flex-1 min-w-0">
+                            {m.instruction || <span className="text-gray-400 italic">안내 문구 없음</span>}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => updateDraft(idx, 'editingInstruction', true)}
+                            disabled={isSaving}
+                            title="안내 문구 수정"
+                            className="p-0.5 text-gray-400 hover:text-emerald-600 disabled:opacity-50 flex-shrink-0"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       )}
-                      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                        {types.map((t, i) => {
-                          const Icon = t.icon
-                          return (
-                            <span
-                              key={i}
-                              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-white/80 text-emerald-700 text-xs rounded font-medium border border-emerald-100"
-                            >
-                              <Icon className="w-3 h-3" />
-                              {t.label}
-                            </span>
-                          )
-                        })}
-                      </div>
                     </div>
-                  </label>
+                  </div>
 
                   {/* 점수 / 한도 / 승인 방식 미세 조정 — 선택된 미션만 활성 */}
                   {m.selected && (
-                    <div className="mt-3 pl-7 space-y-2">
+                    <div className="mt-3 pl-7 space-y-2.5">
+                      {/* 인증 입력 유형 — 복수 선택 (사진+소감 통합 등) */}
+                      <div>
+                        <label className="block text-[11px] text-gray-500 mb-1">
+                          인증 입력 <span className="text-gray-400">(1개 이상 · 여러 개면 한 화면에서 같이 제출)</span>
+                        </label>
+                        <div className="flex gap-1.5 flex-wrap">
+                          {INPUT_TYPES.map(t => {
+                            const on = !!m[t.field]
+                            const Icon = t.icon
+                            return (
+                              <button
+                                key={t.field}
+                                type="button"
+                                onClick={() => updateDraft(idx, t.field, !on)}
+                                disabled={isSaving}
+                                className={`
+                                  inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs border transition disabled:opacity-50
+                                  ${on
+                                    ? 'border-emerald-500 bg-emerald-50 text-emerald-700 font-semibold'
+                                    : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}
+                                `}
+                              >
+                                <Icon className="w-3 h-3" />
+                                {t.label}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+
                       <div className="grid grid-cols-2 gap-2">
                         <div>
                           <label className="block text-[11px] text-gray-500 mb-0.5">
@@ -547,6 +617,20 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
                           </div>
                         )}
                       </div>
+
+                      {/* 참여자 제출 화면 미리보기 — 운영 일정 아래, 크게 */}
+                      <div className="pt-1">
+                        <button
+                          type="button"
+                          onClick={() => updateDraft(idx, 'showPreview', !m.showPreview)}
+                          disabled={isSaving}
+                          className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-lg border border-emerald-200 bg-emerald-50/60 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 transition disabled:opacity-50"
+                        >
+                          {m.showPreview ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                          참여자 제출 화면 미리보기
+                        </button>
+                        {m.showPreview && <SubmitPreview mission={m} />}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -588,6 +672,54 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
         </div>
       )}
     </Modal>
+  )
+}
+
+// 참여자 제출 화면 목업 — 선택한 입력 유형대로 사진/기록/소감 입력을 보여줌 (읽기전용).
+// 실제 화면(MissionVerifyPage)과 동일 구성: 제목 + 안내 + 입력들 + 제출 버튼.
+function SubmitPreview({ mission }) {
+  const hasAny = mission.requires_image || mission.requires_numeric || mission.requires_note
+  return (
+    <div className="mt-2 rounded-xl border border-gray-200 bg-gray-50/70 p-3">
+      <p className="text-[11px] text-gray-400 mb-2">📱 참여자에게 이렇게 보여요</p>
+      <div className="rounded-lg bg-white border border-gray-200 p-3 space-y-2.5">
+        <div>
+          <h4 className="font-bold text-gray-800 text-sm leading-tight">{mission.title || '(미션 제목)'}</h4>
+          {mission.instruction && (
+            <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{mission.instruction}</p>
+          )}
+        </div>
+
+        {!hasAny && (
+          <p className="text-xs text-amber-600">⚠️ 인증 입력을 1개 이상 선택하세요</p>
+        )}
+
+        {mission.requires_image && (
+          <div>
+            <p className="text-[11px] font-medium text-gray-600 mb-1">사진</p>
+            <div className="flex items-center justify-center gap-1 h-16 rounded-lg border-2 border-dashed border-gray-300 text-gray-400 text-xs">
+              <ImageIcon className="w-4 h-4" /> 사진 첨부
+            </div>
+          </div>
+        )}
+        {mission.requires_numeric && (
+          <div>
+            <p className="text-[11px] font-medium text-gray-600 mb-1">기록</p>
+            <div className="px-3 py-2 rounded-lg border-2 border-gray-200 text-gray-400 text-sm">숫자 입력 (예: 30)</div>
+          </div>
+        )}
+        {mission.requires_note && (
+          <div>
+            <p className="text-[11px] font-medium text-gray-600 mb-1">한 줄 소감</p>
+            <div className="px-3 py-2 rounded-lg border-2 border-gray-200 text-gray-400 text-sm">오늘 어땠나요? 한 줄로 남겨주세요</div>
+          </div>
+        )}
+
+        <div className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-500 text-white text-sm font-medium text-center opacity-90">
+          제출하기 <span className="text-emerald-50 text-xs">(미리보기)</span>
+        </div>
+      </div>
+    </div>
   )
 }
 
