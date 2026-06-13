@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- 시안 3: 새싹/싹틈 (Lucide Sprout 영감) -->
+  <!-- 건강증진 = 성장의 시작. 본인 마스코트와 가장 직접 연결 -->
+  <defs>
+    <linearGradient id="bg3" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#34d399"/>
+      <stop offset="1" stop-color="#10b981"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg3)"/>
+  <g transform="translate(512 512)" stroke="#ffffff" stroke-width="60" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <!-- 줄기 -->
+    <path d="M 0,260 L 0,30"/>
+    <!-- 왼쪽 잎 -->
+    <path d="M 0,30 Q -200,20 -250,-180 Q -50,-200 0,30 Z" fill="#ffffff"/>
+    <!-- 오른쪽 잎 -->
+    <path d="M 0,30 Q 200,20 250,-180 Q 50,-200 0,30 Z" fill="#ffffff"/>
+  </g>
+  <!-- 잎 안 그라데이션 효과 (시각 깊이) -->
+  <g transform="translate(512 512)" opacity="0.15" fill="#047857">
+    <path d="M 0,30 Q -200,20 -250,-180 Q -50,-200 0,30 Z"/>
+    <path d="M 0,30 Q 200,20 250,-180 Q 50,-200 0,30 Z"/>
+  </g>
+  <!-- 줄기 위에 점 (씨앗 흔적) -->
+  <circle cx="512" cy="650" r="20" fill="#047857" opacity="0.4"/>
+</svg>

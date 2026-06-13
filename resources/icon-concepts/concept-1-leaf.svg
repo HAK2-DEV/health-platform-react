@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- 시안 1: 민트 그라데이션 배경 + 흰 잎사귀 -->
+  <!-- 가장 단순. 32px 썸네일에서도 잘 보임. 본인 마스코트(🌱)와 시각 톤 일관 -->
+  <defs>
+    <linearGradient id="bg1" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#34d399"/>
+      <stop offset="1" stop-color="#10b981"/>
+    </linearGradient>
+  </defs>
+  <!-- 배경 (Apple 이 자동으로 둥글게 자름 — 정사각 그대로) -->
+  <rect width="1024" height="1024" fill="url(#bg1)"/>
+  <!-- 잎사귀 — 가운데 -->
+  <g transform="translate(512 512)">
+    <!-- 잎 본체 -->
+    <path d="M 0,-280
+             C 180,-280 280,-150 280,0
+             C 280,150 180,280 0,280
+             C -180,280 -280,150 -280,0
+             C -280,-150 -180,-280 0,-280 Z"
+          fill="none"/>
+    <!-- 실제 잎 모양 (물방울형 leaf) -->
+    <path d="M -180,180
+             C -240,80 -200,-80 -80,-200
+             C 40,-280 180,-240 240,-120
+             C 280,-20 220,140 80,220
+             C 0,260 -120,240 -180,180 Z"
+          fill="#ffffff" opacity="0.95"/>
+    <!-- 잎맥 (중앙선) -->
+    <path d="M -150,160 Q 30,40 220,-110"
+          stroke="#34d399" stroke-width="14" stroke-linecap="round" fill="none" opacity="0.4"/>
+    <!-- 잎맥 (서브) -->
+    <path d="M -80,90 Q 0,30 80,-20" stroke="#34d399" stroke-width="8" stroke-linecap="round" fill="none" opacity="0.3"/>
+    <path d="M -30,150 Q 60,80 140,30" stroke="#34d399" stroke-width="8" stroke-linecap="round" fill="none" opacity="0.3"/>
+    <path d="M 10,40 Q 70,-20 130,-60" stroke="#34d399" stroke-width="8" stroke-linecap="round" fill="none" opacity="0.3"/>
+  </g>
+</svg>
