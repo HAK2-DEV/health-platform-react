@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { LogOut, Camera, Pencil, X, Loader2, BarChart3, ChevronRight, Bell, Shield, Sprout } from 'lucide-react'
+import { LogOut, Camera, Pencil, X, Loader2, BarChart3, ChevronRight, Bell, Shield, Sprout, BookOpen } from 'lucide-react'
 import { supabase } from '../supabaseClient'
 import { useAuth } from '../hooks/useAuth'
 import { useNicknameCheck } from '../hooks/useNicknameCheck'
@@ -365,6 +365,13 @@ function ProfilePage() {
 
       {/* Day 65 Phase 5 — 메뉴 카드 3종 (참고 사진).
           알림 설정/계정 설정은 추후 추가 예정 — 클릭 시 안내 alert. */}
+      <ProfileMenuItem
+        tone="amber"
+        icon={<BookOpen className="w-5 h-5" />}
+        title="운영자 가이드"
+        description="프로그램·미션·퀴즈… 운영자가 할 수 있는 모든 것"
+        onClick={() => navigate('/operator-guide')}
+      />
       <ProfileMenuItem
         tone="emerald"
         icon={<BarChart3 className="w-5 h-5" />}

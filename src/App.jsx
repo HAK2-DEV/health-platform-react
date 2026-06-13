@@ -55,6 +55,7 @@ const AccountSettingsPage = lazy(() => import('./pages/AccountSettingsPage'))
 const PrivacyPolicyPage = lazy(() => import('./pages/PrivacyPolicyPage'))
 const TermsOfServicePage = lazy(() => import('./pages/TermsOfServicePage'))
 const InstallGuidePage = lazy(() => import('./pages/InstallGuidePage'))
+const OperatorGuidePage = lazy(() => import('./pages/OperatorGuidePage'))
 
 function AppShell() {
   const { session } = useAuth()
@@ -178,6 +179,9 @@ function AppShell() {
             } />
             <Route path="/profile/account-settings" element={
               <ProtectedRoute><AccountSettingsPage /></ProtectedRoute>
+            } />
+            <Route path="/operator-guide" element={
+              <ProtectedRoute><OperatorGuidePage /></ProtectedRoute>
             } />
             <Route path="/profile/activity" element={
               <ProtectedRoute><MyActivityPage /></ProtectedRoute>
