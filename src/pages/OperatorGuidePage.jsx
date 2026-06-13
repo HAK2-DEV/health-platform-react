@@ -77,10 +77,10 @@ const STEPS = [
     desc: '묶음에서 미션을 고르면 나오는 조정 화면. 제목 옆 ✏️로 안내 문구도 직접 수정할 수 있어요.',
     src: '/guide/06_mission_create_detail.png',
     markers: [
-      { n: 1, x: 6, y: 38 },
-      { n: 2, x: 6, y: 48 },
-      { n: 3, x: 6, y: 72 },
-      { n: 4, x: 8, y: 85 },
+      { n: 1, x: 4, y: 45 },
+      { n: 2, x: 4, y: 56 },
+      { n: 3, x: 4, y: 80 },
+      { n: 4, x: 10, y: 88 },
       { n: 5, x: 46, y: 92 },
     ],
     captions: [
