@@ -1,12 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { Heart, MessageCircle, BarChart3, Send, Trash2, Pencil } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
 import { formatRelativeKstDay } from '../../lib/formatters'
-import { queryKeys, fetchFeedPosts, FEED_PAGE_SIZE, formatKstDate, updateVerificationNote } from '../../lib/queries'
+import { queryKeys, fetchFeedPosts, fetchPostComments, FEED_PAGE_SIZE, formatKstDate, updateVerificationNote } from '../../lib/queries'
 import OperatorVerificationActions from './OperatorVerificationActions'
 import UserAvatar from '../../components/common/UserAvatar'
 import EmptyState from '../../components/common/EmptyState'
@@ -26,9 +25,15 @@ function FeedContent({ program, targetVerificationId = null, targetCommentId = n
   const myUserId = session?.user?.id
 
   const postRefs = useRef({})
-  const commentRefs = useRef({})
   const [highlightedPostId, setHighlightedPostId] = useState(null)
-  const [highlightedCommentId, setHighlightedCommentId] = useState(null)
+  // 댓글 펼침 — 아이콘 클릭 시 그 게시물 댓글 lazy 로드. 알림 ?v= 진입 시 해당 게시물 자동 펼침.
+  const [openComments, setOpenComments] = useState(() => new Set(targetVerificationId ? [targetVerificationId] : []))
+  const toggleComments = (vid) => setOpenComments(prev => {
+    const next = new Set(prev)
+    if (next.has(vid)) next.delete(vid)
+    else next.add(vid)
+    return next
+  })
 
   // 페이지네이션 — 한 번에 10개씩. 더보기 클릭으로 다음 10개 fetch.
   const {
@@ -49,19 +54,9 @@ function FeedContent({ program, targetVerificationId = null, targetCommentId = n
   })
   const posts = infiniteData?.pages.flat() || []
 
-  // 타겟 댓글 또는 게시물로 스크롤 (ProgramFeedPage 단독 진입 시만 의미)
+  // 타겟 게시물로 스크롤 (알림 ?v=). 댓글(?c=) 스크롤·하이라이트는 CommentsSection 이 자체 처리.
   useEffect(() => {
     if (posts.length === 0) return
-    if (targetCommentId) {
-      const el = commentRefs.current[targetCommentId]
-      if (!el) return
-      const t = setTimeout(() => {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-        setHighlightedCommentId(targetCommentId)
-        setTimeout(() => setHighlightedCommentId(null), 2500)
-      }, 250)
-      return () => clearTimeout(t)
-    }
     if (targetVerificationId) {
       const el = postRefs.current[targetVerificationId]
       if (!el) return
@@ -72,7 +67,7 @@ function FeedContent({ program, targetVerificationId = null, targetCommentId = n
       }, 250)
       return () => clearTimeout(t)
     }
-  }, [targetVerificationId, targetCommentId, posts.length])
+  }, [targetVerificationId, posts.length])
 
   // 이미지 signed URL — feed posts 의 image_path
   const [imageUrls, setImageUrls] = useState({})
@@ -150,45 +145,6 @@ function FeedContent({ program, targetVerificationId = null, targetCommentId = n
     },
   })
 
-  // 댓글 추가
-  const addCommentMutation = useMutation({
-    mutationFn: async ({ verificationId, content }) => {
-      const { error } = await supabase
-        .from('post_comments')
-        .insert({
-          verification_id: verificationId,
-          user_id: myUserId,
-          content: content.trim(),
-        })
-      if (error) throw error
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.feedPosts(id) })
-    },
-    onError: (err) => {
-      console.error('댓글 실패:', err)
-      alert(`댓글 작성에 실패했습니다: ${err.message}`)
-    },
-  })
-
-  // 댓글 삭제
-  const deleteCommentMutation = useMutation({
-    mutationFn: async (commentId) => {
-      const { error } = await supabase
-        .from('post_comments')
-        .delete()
-        .eq('id', commentId)
-      if (error) throw error
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.feedPosts(id) })
-    },
-    onError: (err) => {
-      console.error('댓글 삭제 실패:', err)
-      alert(`댓글 삭제에 실패했습니다: ${err.message}`)
-    },
-  })
-
   // ─── 본인 소감 수정 (피드에서 인라인 편집) ───
   //   update_verification_note RPC 가 note 만 변경 → status/point 불변, 랭킹 영향 없음.
   const [editingNoteId, setEditingNoteId] = useState(null) // 편집 중인 post.id
@@ -223,40 +179,6 @@ function FeedContent({ program, targetVerificationId = null, targetCommentId = n
   // 운영자 여부 — 피드 게시물에 점수 제외/피드 가리기 액션 노출 (OperatorVerificationActions)
   const isProgramOwner = program.owner_id === myUserId
 
-  // 댓글 입력 상태 — verification_id → 입력 텍스트
-  const [commentInputs, setCommentInputs] = useState({})
-
-  // 댓글 펼침 상태 — 긴 댓글 line-clamp-2 + "더 보기" 토글
-  const [expandedComments, setExpandedComments] = useState(() => new Set())
-  const toggleExpanded = (commentId) => {
-    setExpandedComments(prev => {
-      const next = new Set(prev)
-      if (next.has(commentId)) next.delete(commentId)
-      else next.add(commentId)
-      return next
-    })
-  }
-  const isLongComment = (content) =>
-    !!content && (content.length > 60 || content.includes('\n'))
-
-  const handleCommentSubmit = (verificationId) => {
-    const content = (commentInputs[verificationId] || '').trim()
-    if (!content) return
-    addCommentMutation.mutate(
-      { verificationId, content },
-      {
-        onSuccess: () => {
-          setCommentInputs(prev => ({ ...prev, [verificationId]: '' }))
-        },
-      }
-    )
-  }
-
-  const handleCommentDelete = (commentId) => {
-    if (!window.confirm('이 댓글을 삭제할까요?')) return
-    deleteCommentMutation.mutate(commentId)
-  }
-
   if (isPostsLoading) {
     return <LoadingState text="피드 불러오는 중..." />
   }
@@ -273,7 +195,6 @@ function FeedContent({ program, targetVerificationId = null, targetCommentId = n
     >
       {posts.map(post => {
         const likedByMe = post.likedUserIds.has(myUserId)
-        const inputValue = commentInputs[post.id] || ''
         const hasImage = !!post.image_path
         const hasNumeric = post.numeric_value !== null && post.numeric_value !== undefined
         const hasNote = !!post.note && post.note.trim().length > 0
@@ -410,65 +331,7 @@ function FeedContent({ program, targetVerificationId = null, targetCommentId = n
               </div>
             )}
 
-            {/* 댓글 목록 */}
-            {post.comments.length > 0 && (
-              <div className="px-4 pt-2 space-y-1.5">
-                {post.comments.map(c => {
-                  const isMyComment = c.user_id === myUserId
-                  const canDelete = isMyComment || isProgramOwner
-                  const isLong = isLongComment(c.content)
-                  const isExpanded = expandedComments.has(c.id)
-                  const clamped = isLong && !isExpanded
-                  const isCommentHighlighted = highlightedCommentId === c.id
-                  return (
-                    <div
-                      key={c.id}
-                      ref={(el) => { commentRefs.current[c.id] = el }}
-                      className={`flex items-start gap-2 text-sm rounded-lg p-1.5 -mx-1.5 transition-all duration-500 ${
-                        isCommentHighlighted
-                          ? 'bg-amber-100 ring-2 ring-amber-300'
-                          : ''
-                      }`}
-                    >
-                      <UserAvatar
-                        avatarPath={c.user?.avatar_path}
-                        nickname={c.user?.nickname}
-                        size="sm"
-                        className="mt-0.5"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className={`break-words ${clamped ? 'line-clamp-2' : ''}`}>
-                          <span className="font-medium text-gray-800">{c.user?.nickname || '(?)'}</span>{' '}
-                          <span className="text-gray-700 whitespace-pre-wrap">{c.content}</span>
-                        </p>
-                        {isLong && (
-                          <button
-                            type="button"
-                            onClick={() => toggleExpanded(c.id)}
-                            className="text-xs text-gray-400 hover:text-gray-600 mt-0.5"
-                          >
-                            {isExpanded ? '접기' : '... 더 보기'}
-                          </button>
-                        )}
-                      </div>
-                      {canDelete && (
-                        <button
-                          type="button"
-                          onClick={() => handleCommentDelete(c.id)}
-                          disabled={deleteCommentMutation.isPending}
-                          className="p-0.5 text-gray-400 hover:text-red-500 transition flex-shrink-0 disabled:opacity-40"
-                          title="댓글 삭제"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-
-            {/* 좋아요 + 댓글 수 + 운영자 액션 — 댓글 입력 바로 위 */}
+            {/* 좋아요 + 댓글 토글 + 운영자 액션 */}
             <div className="flex items-center gap-3 px-4 pt-3 pb-1">
               <button
                 type="button"
@@ -481,10 +344,14 @@ function FeedContent({ program, targetVerificationId = null, targetCommentId = n
                   {post.likeCount}
                 </span>
               </button>
-              <div className="flex items-center gap-1 text-sm text-gray-600">
+              <button
+                type="button"
+                onClick={() => toggleComments(post.id)}
+                className={`flex items-center gap-1 text-sm transition ${openComments.has(post.id) ? 'text-emerald-600' : 'text-gray-600 hover:text-gray-800'}`}
+              >
                 <MessageCircle className="w-5 h-5" />
-                <span>{post.comments.length}</span>
-              </div>
+                <span>{post.commentCount}</span>
+              </button>
 
               {/* 운영자 전용 — 점수 제외 / 피드 가리기 */}
               {isProgramOwner && (
@@ -497,33 +364,16 @@ function FeedContent({ program, targetVerificationId = null, targetCommentId = n
               )}
             </div>
 
-            {/* 댓글 입력 */}
-            <div className="flex items-center gap-2 px-4 py-3 border-t border-gray-100">
-              <input
-                type="text"
-                value={inputValue}
-                onChange={(e) => setCommentInputs(prev => ({ ...prev, [post.id]: e.target.value }))}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault()
-                    handleCommentSubmit(post.id)
-                  }
-                }}
-                placeholder="댓글 달기..."
-                maxLength={200}
-                disabled={addCommentMutation.isPending}
-                className="flex-1 px-3 py-1.5 text-sm bg-gray-50 rounded-full focus:outline-none focus:bg-white focus:ring-1 focus:ring-emerald-400 disabled:opacity-50"
+            {/* 댓글 — 아이콘 클릭 시 그 게시물 댓글을 lazy 로드 + 입력 */}
+            {openComments.has(post.id) && (
+              <CommentsSection
+                verificationId={post.id}
+                programId={id}
+                myUserId={myUserId}
+                isProgramOwner={isProgramOwner}
+                targetCommentId={targetCommentId}
               />
-              <button
-                type="button"
-                onClick={() => handleCommentSubmit(post.id)}
-                disabled={addCommentMutation.isPending || !inputValue.trim()}
-                className="p-2 text-emerald-500 hover:bg-emerald-50 rounded-full transition disabled:opacity-40"
-                title="댓글 작성"
-              >
-                <Send className="w-4 h-4" />
-              </button>
-            </div>
+            )}
 
             {/* 날짜 */}
             <p className="px-4 pb-3 text-xs text-gray-400 uppercase">
@@ -547,6 +397,131 @@ function FeedContent({ program, targetVerificationId = null, targetCommentId = n
         </div>
       )}
     </motion.div>
+  )
+}
+
+// 긴 댓글 line-clamp-2 + "더 보기" 판단
+const isLongComment = (content) => !!content && (content.length > 60 || content.includes('\n'))
+
+// 한 게시물의 댓글 — 펼칠 때만 마운트되어 그 게시물 댓글을 lazy fetch + 입력.
+//   댓글 추가/삭제 시 자기 쿼리 + 피드(댓글 수) 무효화. 알림 ?c= 딥링크는 자체 스크롤·하이라이트.
+function CommentsSection({ verificationId, programId, myUserId, isProgramOwner, targetCommentId }) {
+  const queryClient = useQueryClient()
+  const [input, setInput] = useState('')
+  const [expanded, setExpanded] = useState(() => new Set())
+  const [highlight, setHighlight] = useState(null)
+  const refs = useRef({})
+  const toggleExpanded = (cid) => setExpanded(prev => {
+    const next = new Set(prev)
+    if (next.has(cid)) next.delete(cid)
+    else next.add(cid)
+    return next
+  })
+
+  const { data: comments = [], isLoading } = useQuery({
+    queryKey: queryKeys.postComments(verificationId),
+    queryFn: () => fetchPostComments(verificationId),
+  })
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.postComments(verificationId) })
+    queryClient.invalidateQueries({ queryKey: queryKeys.feedPosts(programId) })  // 댓글 수 갱신
+  }
+  const addMutation = useMutation({
+    mutationFn: async (content) => {
+      const { error } = await supabase.from('post_comments')
+        .insert({ verification_id: verificationId, user_id: myUserId, content: content.trim() })
+      if (error) throw error
+    },
+    onSuccess: () => { setInput(''); invalidate() },
+    onError: (err) => alert(`댓글 작성에 실패했습니다: ${err.message}`),
+  })
+  const deleteMutation = useMutation({
+    mutationFn: async (commentId) => {
+      const { error } = await supabase.from('post_comments').delete().eq('id', commentId)
+      if (error) throw error
+    },
+    onSuccess: invalidate,
+    onError: (err) => alert(`댓글 삭제에 실패했습니다: ${err.message}`),
+  })
+  const submit = () => { const c = input.trim(); if (c) addMutation.mutate(c) }
+  const handleDelete = (cid) => { if (window.confirm('이 댓글을 삭제할까요?')) deleteMutation.mutate(cid) }
+
+  // 알림 ?c= 딥링크 — 해당 댓글로 스크롤 + 하이라이트
+  useEffect(() => {
+    if (!targetCommentId || comments.length === 0) return
+    if (!comments.some(c => c.id === targetCommentId)) return
+    const el = refs.current[targetCommentId]
+    if (!el) return
+    const t = setTimeout(() => {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      setHighlight(targetCommentId)
+      setTimeout(() => setHighlight(null), 2500)
+    }, 250)
+    return () => clearTimeout(t)
+  }, [comments, targetCommentId])
+
+  return (
+    <div className="border-t border-gray-100">
+      {isLoading ? (
+        <p className="px-4 py-3 text-xs text-gray-400">댓글 불러오는 중...</p>
+      ) : comments.length === 0 ? (
+        <p className="px-4 py-3 text-xs text-gray-400">아직 댓글이 없어요. 첫 댓글을 남겨보세요!</p>
+      ) : (
+        <div className="px-4 pt-3 space-y-1.5">
+          {comments.map(c => {
+            const canDelete = c.user_id === myUserId || isProgramOwner
+            const isLong = isLongComment(c.content)
+            const clamped = isLong && !expanded.has(c.id)
+            const isHi = highlight === c.id
+            return (
+              <div
+                key={c.id}
+                ref={(el) => { refs.current[c.id] = el }}
+                className={`flex items-start gap-2 text-sm rounded-lg p-1.5 -mx-1.5 transition-all duration-500 ${isHi ? 'bg-amber-100 ring-2 ring-amber-300' : ''}`}
+              >
+                <UserAvatar avatarPath={c.user?.avatar_path} nickname={c.user?.nickname} size="sm" className="mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className={`break-words ${clamped ? 'line-clamp-2' : ''}`}>
+                    <span className="font-medium text-gray-800">{c.user?.nickname || '(?)'}</span>{' '}
+                    <span className="text-gray-700 whitespace-pre-wrap">{c.content}</span>
+                  </p>
+                  {isLong && (
+                    <button type="button" onClick={() => toggleExpanded(c.id)} className="text-xs text-gray-400 hover:text-gray-600 mt-0.5">
+                      {expanded.has(c.id) ? '접기' : '... 더 보기'}
+                    </button>
+                  )}
+                </div>
+                {canDelete && (
+                  <button type="button" onClick={() => handleDelete(c.id)} disabled={deleteMutation.isPending}
+                    className="p-0.5 text-gray-400 hover:text-red-500 transition flex-shrink-0 disabled:opacity-40" title="댓글 삭제">
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* 댓글 입력 */}
+      <div className="flex items-center gap-2 px-4 py-3">
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit() } }}
+          placeholder="댓글 달기..."
+          maxLength={200}
+          disabled={addMutation.isPending}
+          className="flex-1 px-3 py-1.5 text-sm bg-gray-50 rounded-full focus:outline-none focus:bg-white focus:ring-1 focus:ring-emerald-400 disabled:opacity-50"
+        />
+        <button type="button" onClick={submit} disabled={addMutation.isPending || !input.trim()}
+          className="p-2 text-emerald-500 hover:bg-emerald-50 rounded-full transition disabled:opacity-40" title="댓글 작성">
+          <Send className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
   )
 }
 

@@ -44,6 +44,7 @@ export const queryKeys = {
   programStats: (programId) => ['stats', 'program', programId],
   // 커뮤니티 피드 — verifications + likes + comments 통합
   feedPosts: (programId) => ['feed', 'posts', programId],
+  postComments: (verificationId) => ['post-comments', verificationId],
   // 알림
   notifications: (userId) => ['notifications', 'list', userId],
   notificationsUnread: (userId) => ['notifications', 'unread', userId],
@@ -885,9 +886,8 @@ export const fetchFeedPosts = async (programId, page = 0, pageSize = FEED_PAGE_S
       .in('verification_id', verifIds),
     supabase
       .from('post_comments')
-      .select('id, verification_id, user_id, content, created_at, updated_at')
-      .in('verification_id', verifIds)
-      .order('created_at', { ascending: true }),
+      .select('verification_id')  // 댓글 수만 — 본문은 펼칠 때 lazy fetch (fetchPostComments)
+      .in('verification_id', verifIds),
   ])
   if (likesRes.error) throw likesRes.error
   if (commentsRes.error) throw commentsRes.error
@@ -896,10 +896,7 @@ export const fetchFeedPosts = async (programId, page = 0, pageSize = FEED_PAGE_S
   const comments = commentsRes.data || []
 
   // 3) 인증 작성자 + 댓글 작성자 unique user_ids → nickname 한 번에 fetch
-  const allUserIds = Array.from(new Set([
-    ...rows.map(r => r.user_id),
-    ...comments.map(c => c.user_id),
-  ]))
+  const allUserIds = Array.from(new Set(rows.map(r => r.user_id)))
   const { data: uData, error: uErr } = await supabase
     .from('users')
     .select('id, nickname, avatar_path')
@@ -918,14 +915,10 @@ export const fetchFeedPosts = async (programId, page = 0, pageSize = FEED_PAGE_S
     b.userIds.add(l.user_id)
   }
 
-  // 5) commentMap (verification_id → [comments...])
-  const commentMap = new Map()
+  // 5) commentCountMap (verification_id → 댓글 수). 본문은 펼칠 때 fetchPostComments 로.
+  const commentCountMap = new Map()
   for (const c of comments) {
-    if (!commentMap.has(c.verification_id)) commentMap.set(c.verification_id, [])
-    commentMap.get(c.verification_id).push({
-      ...c,
-      user: userMap.get(c.user_id) || null,
-    })
+    commentCountMap.set(c.verification_id, (commentCountMap.get(c.verification_id) || 0) + 1)
   }
 
   // 6) 조립
@@ -934,8 +927,27 @@ export const fetchFeedPosts = async (programId, page = 0, pageSize = FEED_PAGE_S
     user: userMap.get(r.user_id) || null,
     likeCount: likeMap.get(r.id)?.count || 0,
     likedUserIds: likeMap.get(r.id)?.userIds || new Set(),
-    comments: commentMap.get(r.id) || [],
+    commentCount: commentCountMap.get(r.id) || 0,
   }))
+}
+
+// 한 게시물의 댓글 — 댓글 아이콘 클릭(펼침) 시 lazy fetch. 작성자 닉네임/아바타 포함.
+export const fetchPostComments = async (verificationId) => {
+  const { data, error } = await supabase
+    .from('post_comments')
+    .select('id, verification_id, user_id, content, created_at, updated_at')
+    .eq('verification_id', verificationId)
+    .order('created_at', { ascending: true })
+  if (error) throw error
+  const list = data || []
+  if (list.length === 0) return []
+  const userIds = Array.from(new Set(list.map(c => c.user_id)))
+  const { data: uData } = await supabase
+    .from('users')
+    .select('id, nickname, avatar_path')
+    .in('id', userIds)
+  const userMap = new Map((uData || []).map(u => [u.id, u]))
+  return list.map(c => ({ ...c, user: userMap.get(c.user_id) || null }))
 }
 
 // 운영자 참여자 통계 — 4가지 핵심 지표 + 묶음 그루핑된 미션 통계
