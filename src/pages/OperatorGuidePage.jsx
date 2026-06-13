@@ -9,6 +9,7 @@ import StickyBackBar from '../components/common/StickyBackBar'
 //   프로필 → 「운영자 가이드」 + 첫 프로그램 직후 환영 캐러셀에서 진입 (Day 66).
 
 const TOPICS = [
+  { key: 'wizard', label: '프로그램 만들기', emoji: '✨' },
   { key: 'panel', label: '운영자 패널', emoji: '🎛️' },
   { key: 'mission', label: '미션 가이드', emoji: '🎯' },
   { key: 'quiz', label: '퀴즈 가이드', emoji: '❓' },
@@ -16,6 +17,78 @@ const TOPICS = [
 
 // 화면별 단계. topic: 소속 탭. markers: { n, x%, y% } — 스크린샷 위 번호 위치.
 const STEPS = [
+  {
+    key: 'wizard_1',
+    topic: 'wizard',
+    badge: '1단계',
+    title: '1단계: 기본 정보 입력',
+    desc: '대표 사진(선택)·이름·기간·목표·카테고리를 정해요.',
+    src: '/guide/13_wizard_1b.png',
+    markers: [
+      { n: 1, x: 8, y: 22 },
+      { n: 2, x: 8, y: 33 },
+      { n: 3, x: 8, y: 48 },
+      { n: 4, x: 8, y: 72 },
+    ],
+    captions: [
+      ['프로그램 이름', '한눈에 알아볼 이름 (예: 봄철 걷기 챌린지)'],
+      ['운영 기간', '시작 ~ 종료 날짜'],
+      ['목표 설정', '프로그램이 지향하는 목표'],
+      ['카테고리', '운동·식단·수면 등 복수 선택 가능'],
+    ],
+  },
+  {
+    key: 'wizard_2',
+    topic: 'wizard',
+    badge: '2단계',
+    title: '2단계: 프로그램 옵션',
+    desc: '피드·참여 동기 방식 등 분위기를 정해요.',
+    src: '/guide/14_wizard_2a.png',
+    markers: [
+      { n: 1, x: 8, y: 46 },
+      { n: 2, x: 8, y: 60 },
+      { n: 3, x: 8, y: 80 },
+    ],
+    captions: [
+      ['커뮤니티 피드', '참여자끼리 인증을 피드로 보고 좋아요·댓글'],
+      ['참여 동기 방식', '랭킹(점수 경쟁) / 성장(곧 출시)'],
+      ['부가 옵션', '랭킹 Top3·본인 점수 추세·기간 필터'],
+    ],
+  },
+  {
+    key: 'wizard_3',
+    topic: 'wizard',
+    badge: '3단계',
+    title: '3단계: 참여 조건',
+    desc: '참여 방식과 공개 여부를 정해요.',
+    src: '/guide/16_wizard_3a.png',
+    markers: [
+      { n: 1, x: 8, y: 42 },
+      { n: 2, x: 8, y: 72 },
+      { n: 3, x: 8, y: 82 },
+    ],
+    captions: [
+      ['참여 방식', '공개 / 승인 후 / 초대 코드 (승인 시 입장 질문, 초대 시 코드 발급)'],
+      ['최대 참여 인원', '비우면 무제한'],
+      ['공개 검색 허용', '둘러보기에 노출돼 더 많은 참여 유도'],
+    ],
+  },
+  {
+    key: 'wizard_4',
+    topic: 'wizard',
+    badge: '4단계',
+    title: '4단계: 요약 + 게시',
+    desc: '설정을 확인하고 프로그램을 게시해요.',
+    src: '/guide/19_wizard_4.png',
+    markers: [
+      { n: 1, x: 8, y: 45 },
+      { n: 2, x: 60, y: 88 },
+    ],
+    captions: [
+      ['설정 요약', '이름·기간·카테고리·옵션·참여 방식을 마지막 확인'],
+      ['프로그램 만들기', '게시! 이후 「미션 추가」로 미션을 넣어요'],
+    ],
+  },
   {
     key: 'operator_panel',
     topic: 'panel',
@@ -138,16 +211,16 @@ const STEPS = [
     desc: '대상자·주제를 고르면 이어지는 폼. 빈 퀴즈도 여기서 시작해요.',
     src: '/guide/10.png',
     markers: [
-      { n: 1, x: 5, y: 22 },
-      { n: 2, x: 5, y: 49 },
-      { n: 3, x: 5, y: 84 },
-      { n: 4, x: 40, y: 95 },
+      { n: 1, x: 8, y: 22 },
+      { n: 2, x: 8, y: 52 },
+      { n: 3, x: 8, y: 80},
+  
     ],
     captions: [
       ['제목', '퀴즈 제목 (필수)'],
       ['풀이 기한', '시작/종료 — 시작 비우면 즉시, 종료 비우면 무기한'],
       ['정답 공개', '제출 후 참가자에게 정답·해설 공개 여부'],
-      ['퀴즈 발행하기', '문항까지 작성하고 발행'],
+   
     ],
   },
   {
@@ -158,11 +231,12 @@ const STEPS = [
     desc: '문항마다 유형과 점수를 정해요. 「+ 문제 추가」로 여러 문항을 넣을 수 있어요.',
     src: '/guide/11.png',
     markers: [
-      { n: 1, x: 4, y: 14 },
-      { n: 2, x: 5, y: 33 },
-      { n: 3, x: 5, y: 57 },
+      { n: 1, x: 11, y: 12 },
+      { n: 2, x: 8, y: 33 },
+      { n: 3, x: 8, y: 55},
       { n: 4, x: 5, y: 74 },
-      { n: 5, x: 40, y: 86 },
+      { n: 5, x: 8, y: 83 },
+      { n: 6, x: 8, y: 90 },
     ],
     captions: [
       ['유형', '객관식 / OX / 서술형 중 선택'],
@@ -170,6 +244,7 @@ const STEPS = [
       ['해설', '정답 해설 — 정답 공개 시 참가자에게 노출'],
       ['점수·지급', '문항 점수 + 맞추면 지급 / 틀려도 지급'],
       ['문제 추가', '여러 문항을 추가한 뒤 발행'],
+      ['퀴즈 발행하기', '문항까지 작성하고 발행'],
     ],
   },
   {
@@ -233,7 +308,7 @@ function StepCaptions({ captions }) {
 
 function OperatorGuidePage() {
   const navigate = useNavigate()
-  const [topic, setTopic] = useState('panel')
+  const [topic, setTopic] = useState('wizard')
   const visibleSteps = STEPS.filter(s => s.topic === topic)
 
   return (
