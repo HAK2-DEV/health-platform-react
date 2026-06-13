@@ -11,6 +11,7 @@ import Badge from '../components/common/Badge'
 import { CATEGORY } from '../lib/constants'
 import ProgramDetailModal from '../components/program/ProgramDetailModal'
 import DeleteProgramConfirmModal from '../components/program/DeleteProgramConfirmModal'
+import WelcomeOperatorModal from '../components/program/WelcomeOperatorModal'
 import EmptyState from '../components/common/EmptyState'
 import LoadingState from '../components/common/LoadingState'
 import ProgramCover from '../components/common/ProgramCover'
@@ -49,6 +50,7 @@ function DashboardPage() {
   // 좌우 스와이프로 myPrograms 안에서 prev/next 이동 (Day 65 본인 모바일 UX 요청).
   const [selectedSource, setSelectedSource] = useState(null)
   const [programToDelete, setProgramToDelete] = useState(null)  // PUBLISHED 삭제용 (이중 확인 모달)
+  const [showWelcome, setShowWelcome] = useState(false)  // 첫 프로그램 발행 후 환영 캐러셀
 
   // 로그아웃 시 /login 으로
   useEffect(() => {
@@ -56,6 +58,15 @@ function DashboardPage() {
       navigate('/login')
     }
   }, [session, navigate])
+
+  // 첫 프로그램 발행 직후 환영 캐러셀 1회 표시 (Step4 가 sessionStorage 플래그 설정)
+  useEffect(() => {
+    if (sessionStorage.getItem('show_operator_welcome') === '1') {
+      sessionStorage.removeItem('show_operator_welcome')
+      localStorage.setItem('operator_welcome_seen', '1')
+      setShowWelcome(true)
+    }
+  }, [])
 
   // ─── React Query — 모든 데이터는 같은 캐시 키로 공유 ───────────
   // 인증/심사 등 mutation onSuccess 에서 invalidate 호출 시 자동으로 모든 화면 갱신
@@ -770,6 +781,9 @@ function DashboardPage() {
           onClose={() => setProgramToDelete(null)}
           onConfirm={handleConfirmDeletePublished}
         />
+
+        {/* 첫 프로그램 발행 후 환영 캐러셀 (1회) */}
+        <WelcomeOperatorModal isOpen={showWelcome} onClose={() => setShowWelcome(false)} />
 
       </div>
     </div>
