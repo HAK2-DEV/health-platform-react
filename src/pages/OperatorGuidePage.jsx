@@ -3,26 +3,28 @@ import { useNavigate } from 'react-router-dom'
 import { Plus } from 'lucide-react'
 import StickyBackBar from '../components/common/StickyBackBar'
 
-// 운영자 가이드 — 화면별 워크스루.
-//   실제 스크린샷(public/guide/*.png) 위에 번호 콜아웃을 얹고, 아래에 "여기서 무엇을" 캡션.
+// 운영자 가이드 — 주제 탭별 화면 워크스루.
+//   상단 탭(운영자 패널 / 미션 / 퀴즈…)을 누르면 그 주제 화면만 표시 → 스크롤 최소화.
+//   실제 스크린샷(public/guide/*.png) 위에 번호 콜아웃 + "여기서 무엇을" 캡션.
 //   프로필 → 「운영자 가이드」 + 첫 프로그램 직후 환영 캐러셀에서 진입 (Day 66).
-//
-//   스크린샷 파일은 public/guide/ 에 직접 추가해야 함 (채팅 이미지는 자동 저장 불가).
 
-// 한 줄 흐름 안내
-const FLOW = ['프로그램 만들기', '미션·퀴즈 추가', '인증 심사', '통계로 관리']
+const TOPICS = [
+  { key: 'panel', label: '운영자 패널', emoji: '🎛️' },
+  { key: 'mission', label: '미션 가이드', emoji: '🎯' },
+  { key: 'quiz', label: '퀴즈 가이드', emoji: '❓' },
+]
 
-// 화면별 단계. markers: { n, x%, y% } — 스크린샷 위 번호 위치.
+// 화면별 단계. topic: 소속 탭. markers: { n, x%, y% } — 스크린샷 위 번호 위치.
 const STEPS = [
   {
     key: 'operator_panel',
+    topic: 'panel',
     badge: '운영자 패널',
     title: '프로그램 상세 — 운영에 필요한 게 다 모여 있어요',
     desc: '내 프로그램을 열면 보이는 「운영자 패널」. 여기서 대부분의 운영을 합니다.',
     src: '/guide/03_operator_panel.png',
-    // 각 박스/탭의 좌상단 모서리에 배치
     markers: [
-      { n: 1, x: 28, y: 34 },
+      { n: 1, x: 25, y: 31 },
       { n: 2, x: 9, y: 49 },
       { n: 3, x: 9, y: 56 },
       { n: 4, x: 52, y: 56 },
@@ -40,12 +42,13 @@ const STEPS = [
   },
   {
     key: 'mission_tab',
+    topic: 'mission',
     badge: '미션 추가',
     title: '「미션」 탭 — 여기서 미션을 추가해요',
     desc: '프로그램 상세에서 「미션」 탭을 누르면 보이는 화면. 추가한 미션이 목록에 쌓여요.',
     src: '/guide/04_mission_create.png',
     markers: [
-      { n: 1, x: 66, y: 31 },
+      { n: 1, x: 68, y: 32 },
       { n: 2, x: 6, y: 31 },
     ],
     captions: [
@@ -55,13 +58,14 @@ const STEPS = [
   },
   {
     key: 'library',
+    topic: 'mission',
     badge: '추천 라이브러리',
     title: '추천 미션 라이브러리 — 골라서 한 번에 추가',
     desc: '「+ 미션 추가」를 누르면 나와요. 카테고리 묶음을 골라 미션을 한꺼번에 추가해요.',
     src: '/guide/05_library.png',
     markers: [
-      { n: 1, x: 6, y: 27 },
-      { n: 2, x: 8, y: 38 },
+      { n: 1, x: 6, y: 25 },
+      { n: 2, x: 8, y: 34 },
       { n: 3, x: 8, y: 87 },
     ],
     captions: [
@@ -72,16 +76,17 @@ const STEPS = [
   },
   {
     key: 'mission_adjust',
+    topic: 'mission',
     badge: '미션 조정',
     title: '미션 조정 — 점수·필수/선택까지 세밀하게',
     desc: '묶음에서 미션을 고르면 나오는 조정 화면. 제목 옆 ✏️로 안내 문구도 직접 수정할 수 있어요.',
     src: '/guide/06_mission_create_detail.png',
     markers: [
-      { n: 1, x: 3, y: 32 },   // '인증 입력' 라벨 줄 왼쪽
-      { n: 2, x: 3, y: 42 },   // '입력별 점수·필수' 라벨 줄 왼쪽
-      { n: 3, x: 3, y: 72 },   // '승인 방식' 라벨 줄 왼쪽
-      { n: 4, x: 22, y: 89 },  // '참여자 제출 화면 미리보기' ▽ 옆
-      { n: 5, x: 46, y: 92 },  // (그대로)
+      { n: 1, x: 13, y: 36 },
+      { n: 2, x: 13, y: 44 },
+      { n: 3, x: 13, y: 72 },
+      { n: 4, x: 16, y: 84 },
+      { n: 5, x: 41, y: 92 },
     ],
     captions: [
       ['인증 입력', '사진·기록·소감을 골라 한 미션에 조합 (여러 개 가능)'],
@@ -91,12 +96,25 @@ const STEPS = [
       ['미션 추가', '조정이 끝나면 눌러서 발행'],
     ],
   },
+  {
+    key: 'quiz_info',
+    topic: 'quiz',
+    badge: '퀴즈',
+    title: '퀴즈 — 건강 상식으로 참여에 재미를',
+    desc: '운영자 패널 「게시물 관리」에서 퀴즈를 만들어요. (화면 캡처는 곧 추가됩니다)',
+    src: null,
+    captions: [
+      ['퀴즈 라이브러리', '대상자·주제를 고르면 문항·정답·해설·출처가 준비돼 있어요'],
+      ['점수·정답 공개', '퀴즈 점수와 정답 공개 여부를 설정'],
+      ['자동/수동 채점', '객관식·OX는 자동 채점, 주관식은 운영자가 채점'],
+    ],
+  },
 ]
 
 // 스크린샷 + 번호 콜아웃 (이미지 없으면 자리표시자)
 function AnnotatedShot({ src, markers }) {
   const [failed, setFailed] = useState(false)
-  if (failed) {
+  if (!src || failed) {
     return (
       <div className="aspect-[9/19] w-full rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 flex flex-col items-center justify-center text-gray-400 text-xs gap-1">
         <span className="text-2xl">📱</span>
@@ -107,7 +125,7 @@ function AnnotatedShot({ src, markers }) {
   return (
     <div className="relative rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
       <img src={src} alt="" className="w-full block" onError={() => setFailed(true)} />
-      {markers.map(m => (
+      {(markers || []).map(m => (
         <span
           key={m.n}
           style={{ left: `${m.x}%`, top: `${m.y}%` }}
@@ -120,8 +138,27 @@ function AnnotatedShot({ src, markers }) {
   )
 }
 
+function StepCaptions({ captions }) {
+  return (
+    <ol className="space-y-2">
+      {captions.map((c, i) => (
+        <li key={i} className="flex items-start gap-2">
+          <span className="w-5 h-5 rounded-full bg-emerald-500 text-white text-[11px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
+            {i + 1}
+          </span>
+          <span className="text-sm text-gray-700 leading-snug">
+            <b className="text-gray-800">{c[0]}</b> — {c[1]}
+          </span>
+        </li>
+      ))}
+    </ol>
+  )
+}
+
 function OperatorGuidePage() {
   const navigate = useNavigate()
+  const [topic, setTopic] = useState('panel')
+  const visibleSteps = STEPS.filter(s => s.topic === topic)
 
   return (
     <div className="min-h-screen bg-surface-app">
@@ -134,23 +171,34 @@ function OperatorGuidePage() {
             🌿 운영자 가이드
           </h1>
           <p className="text-sm font-medium text-gray-600 mt-1.5 leading-relaxed">
-            화면을 따라가며 "어디서 무엇을" 하는지 익혀보세요.
+            주제를 골라 "어디서 무엇을" 하는지 익혀보세요.
           </p>
         </div>
 
-        {/* 흐름 한 줄 */}
-        <div className="flex items-center flex-wrap gap-1.5 mb-5">
-          {FLOW.map((f, i) => (
-            <span key={f} className="inline-flex items-center gap-1.5">
-              <span className="px-2.5 py-1 rounded-full bg-white border border-gray-200 text-xs font-semibold text-gray-700">{f}</span>
-              {i < FLOW.length - 1 && <span className="text-gray-300">›</span>}
-            </span>
-          ))}
+        {/* 주제 탭 */}
+        <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-1 px-1 mb-4 scrollbar-hide">
+          {TOPICS.map(t => {
+            const active = topic === t.key
+            return (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => setTopic(t.key)}
+                className={`flex-shrink-0 inline-flex items-center gap-1 px-3.5 py-2 rounded-full text-sm transition
+                  ${active
+                    ? 'bg-emerald-500 text-white shadow-sm font-semibold'
+                    : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+              >
+                <span>{t.emoji}</span>
+                <span>{t.label}</span>
+              </button>
+            )
+          })}
         </div>
 
-        {/* 화면별 워크스루 */}
+        {/* 선택한 주제의 화면들 */}
         <div className="space-y-5">
-          {STEPS.map(step => (
+          {visibleSteps.map(step => (
             <div key={step.key} className="bg-white border border-gray-100 rounded-card shadow-soft p-4">
               <span className="inline-block px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-semibold mb-1.5">
                 {step.badge}
@@ -158,21 +206,14 @@ function OperatorGuidePage() {
               <h2 className="font-bold text-gray-800 leading-snug">{step.title}</h2>
               <p className="text-xs font-medium text-gray-500 mt-0.5 mb-3">{step.desc}</p>
 
-              <div className="grid sm:grid-cols-2 gap-4 items-start">
-                <AnnotatedShot src={step.src} markers={step.markers} />
-                <ol className="space-y-2">
-                  {step.captions.map((c, i) => (
-                    <li key={i} className="flex items-start gap-2">
-                      <span className="w-5 h-5 rounded-full bg-emerald-500 text-white text-[11px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
-                        {i + 1}
-                      </span>
-                      <span className="text-sm text-gray-700 leading-snug">
-                        <b className="text-gray-800">{c[0]}</b> — {c[1]}
-                      </span>
-                    </li>
-                  ))}
-                </ol>
-              </div>
+              {step.src ? (
+                <div className="grid sm:grid-cols-2 gap-4 items-start">
+                  <AnnotatedShot src={step.src} markers={step.markers} />
+                  <StepCaptions captions={step.captions} />
+                </div>
+              ) : (
+                <StepCaptions captions={step.captions} />
+              )}
             </div>
           ))}
         </div>
