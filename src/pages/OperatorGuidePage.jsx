@@ -1,81 +1,71 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import {
-  ClipboardList, Target, FileQuestion, ShieldCheck, Users, Sprout, Plus,
-} from 'lucide-react'
+import { Plus } from 'lucide-react'
 import StickyBackBar from '../components/common/StickyBackBar'
 
-// 운영자 가이드 — 신규 운영자가 "여기서 뭘 할 수 있는지" 를 한눈에.
-//   프로필 → 「운영자 가이드」 진입 + 첫 프로그램 생성 직후 환영 캐러셀에서 「가이드 보기」.
-//   언제든 열람 가능한 레퍼런스 (Day 66).
-const SECTIONS = [
+// 운영자 가이드 — 화면별 워크스루.
+//   실제 스크린샷(public/guide/*.png) 위에 번호 콜아웃을 얹고, 아래에 "여기서 무엇을" 캡션.
+//   프로필 → 「운영자 가이드」 + 첫 프로그램 직후 환영 캐러셀에서 진입 (Day 66).
+//
+//   스크린샷 파일은 public/guide/ 에 직접 추가해야 함 (채팅 이미지는 자동 저장 불가).
+
+// 한 줄 흐름 안내
+const FLOW = ['프로그램 만들기', '미션·퀴즈 추가', '인증 심사', '통계로 관리']
+
+// 화면별 단계. markers: { n, x%, y% } — 스크린샷 위 번호 위치.
+const STEPS = [
   {
-    icon: ClipboardList,
-    tone: 'bg-emerald-50 text-emerald-600',
-    title: '프로그램 만들기',
-    desc: '나만의 건강 프로그램을 만드는 첫걸음이에요.',
-    points: [
-      '이름·기간·카테고리·표지를 마법사로 차근차근 설정',
-      '성장 트랙(랭킹 · 정원 · 별자리) 중 하나 선택',
-      '베타에서는 1인당 2개까지 운영할 수 있어요',
+    key: 'operator_panel',
+    badge: '운영자 패널',
+    title: '프로그램 상세 — 운영에 필요한 게 다 모여 있어요',
+    desc: '내 프로그램을 열면 보이는 「운영자 패널」. 여기서 대부분의 운영을 합니다.',
+    src: '/guide/03_operator_panel.png',
+    markers: [
+      { n: 1, x: 32, y: 37 },
+      { n: 2, x: 50, y: 52 },
+      { n: 3, x: 30, y: 59 },
+      { n: 4, x: 70, y: 59 },
+      { n: 5, x: 30, y: 66 },
+      { n: 6, x: 70, y: 66 },
+    ],
+    captions: [
+      ['「미션」 탭', '미션을 추가하고 관리해요 (라이브러리 / 직접 만들기)'],
+      ['개요 글 작성', '프로그램 소개·공지를 작성해요'],
+      ['프로그램 수정', '이름·기간·카테고리·표지 변경'],
+      ['게시물 관리', '퀴즈 생성·관리'],
+      ['인증 심사', '운영자 심사 미션을 승인/반려해요'],
+      ['참여자 통계', '참여·인증·미션별 현황을 한눈에'],
     ],
   },
-  {
-    icon: Target,
-    tone: 'bg-sky-50 text-sky-600',
-    title: '미션 추가',
-    desc: '참가자가 매일 실천할 미션을 만들어요.',
-    points: [
-      '추천 라이브러리에서 골라 한 번에 추가하거나 직접 만들기',
-      '인증 유형: 사진 · 기록 · 소감 (한 미션에 여러 개도 가능)',
-      '입력별 점수와 필수/선택 지정 (예: 사진 7P 필수 + 소감 3P 선택)',
-      '미션 아이콘은 기본 갤러리에서 고르거나 직접 업로드',
-    ],
-  },
-  {
-    icon: FileQuestion,
-    tone: 'bg-violet-50 text-violet-600',
-    title: '퀴즈 만들기',
-    desc: '건강 상식 퀴즈로 참여에 재미를 더해요.',
-    points: [
-      '퀴즈 라이브러리에서 대상자·주제를 골라 손쉽게 추가',
-      '문항·정답·해설·출처가 미리 준비돼 있어요',
-      '점수와 정답 공개 여부를 직접 설정',
-    ],
-  },
-  {
-    icon: ShieldCheck,
-    tone: 'bg-amber-50 text-amber-600',
-    title: '인증 심사',
-    desc: '공정하게 점수를 관리해요.',
-    points: [
-      '자동 승인(즉시 점수) / 운영자 심사(검토 후 점수) 선택',
-      '부적절한 인증은 「점수 제외」로 랭킹에서 빼기',
-      '「피드 가리기」로 커뮤니티에서 숨기고, 언제든 복구 가능',
-    ],
-  },
-  {
-    icon: Users,
-    tone: 'bg-pink-50 text-pink-600',
-    title: '참여자 관리',
-    desc: '함께하는 사람들을 살펴봐요.',
-    points: [
-      '가입 승인제 프로그램은 요청을 검토하고 승인',
-      '참여자별 인증 현황·미션별 분포를 통계로 확인',
-      '초대 링크로 친구·동료를 손쉽게 초대',
-    ],
-  },
-  {
-    icon: Sprout,
-    tone: 'bg-teal-50 text-teal-600',
-    title: '성장 트랙',
-    desc: '참여 동기를 북돋는 게이미피케이션이에요.',
-    points: [
-      '랭킹 — 점수로 순위를 겨뤄요',
-      '정원 — 인증할수록 꽃이 자라요',
-      '별자리 — 출석으로 별을 채워요',
-    ],
-  },
+  // 04_mission_create 등은 스크린샷 받는 대로 추가 예정
 ]
+
+// 스크린샷 + 번호 콜아웃 (이미지 없으면 자리표시자)
+function AnnotatedShot({ src, markers }) {
+  const [failed, setFailed] = useState(false)
+  if (failed) {
+    return (
+      <div className="aspect-[9/19] w-full rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 flex flex-col items-center justify-center text-gray-400 text-xs gap-1">
+        <span className="text-2xl">📱</span>
+        화면 미리보기 준비 중
+      </div>
+    )
+  }
+  return (
+    <div className="relative rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
+      <img src={src} alt="" className="w-full block" onError={() => setFailed(true)} />
+      {markers.map(m => (
+        <span
+          key={m.n}
+          style={{ left: `${m.x}%`, top: `${m.y}%` }}
+          className="absolute -translate-x-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-emerald-500 text-white text-xs font-bold flex items-center justify-center ring-2 ring-white shadow-md"
+        >
+          {m.n}
+        </span>
+      ))}
+    </div>
+  )
+}
 
 function OperatorGuidePage() {
   const navigate = useNavigate()
@@ -86,42 +76,52 @@ function OperatorGuidePage() {
         <StickyBackBar fallbackPath="/profile" title="프로필로" />
 
         {/* 헤더 */}
-        <div className="rounded-card-lg bg-gradient-to-br from-emerald-100 via-emerald-50 to-teal-50 border border-emerald-100/60 px-5 py-6 mb-5">
+        <div className="rounded-card-lg bg-gradient-to-br from-emerald-100 via-emerald-50 to-teal-50 border border-emerald-100/60 px-5 py-6 mb-4">
           <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-800">
             🌿 운영자 가이드
           </h1>
           <p className="text-sm font-medium text-gray-600 mt-1.5 leading-relaxed">
-            누구나 건강 운영자가 될 수 있어요.<br />
-            이 앱에서 무엇을 할 수 있는지 한눈에 살펴보세요.
+            화면을 따라가며 "어디서 무엇을" 하는지 익혀보세요.
           </p>
         </div>
 
-        {/* 섹션 카드 */}
-        <div className="space-y-3">
-          {SECTIONS.map((s, i) => {
-            const Icon = s.icon
-            return (
-              <div key={i} className="bg-white border border-gray-100 rounded-card shadow-soft p-4">
-                <div className="flex items-center gap-3 mb-2">
-                  <span className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${s.tone}`}>
-                    <Icon className="w-5 h-5" />
-                  </span>
-                  <div className="min-w-0">
-                    <h2 className="font-bold text-gray-800">{s.title}</h2>
-                    <p className="text-xs font-medium text-gray-500">{s.desc}</p>
-                  </div>
-                </div>
-                <ul className="space-y-1 pl-1">
-                  {s.points.map((p, j) => (
-                    <li key={j} className="flex items-start gap-1.5 text-sm text-gray-700 leading-relaxed">
-                      <span className="text-emerald-500 mt-0.5 flex-shrink-0">·</span>
-                      <span>{p}</span>
+        {/* 흐름 한 줄 */}
+        <div className="flex items-center flex-wrap gap-1.5 mb-5">
+          {FLOW.map((f, i) => (
+            <span key={f} className="inline-flex items-center gap-1.5">
+              <span className="px-2.5 py-1 rounded-full bg-white border border-gray-200 text-xs font-semibold text-gray-700">{f}</span>
+              {i < FLOW.length - 1 && <span className="text-gray-300">›</span>}
+            </span>
+          ))}
+        </div>
+
+        {/* 화면별 워크스루 */}
+        <div className="space-y-5">
+          {STEPS.map(step => (
+            <div key={step.key} className="bg-white border border-gray-100 rounded-card shadow-soft p-4">
+              <span className="inline-block px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-semibold mb-1.5">
+                {step.badge}
+              </span>
+              <h2 className="font-bold text-gray-800 leading-snug">{step.title}</h2>
+              <p className="text-xs font-medium text-gray-500 mt-0.5 mb-3">{step.desc}</p>
+
+              <div className="grid sm:grid-cols-2 gap-4 items-start">
+                <AnnotatedShot src={step.src} markers={step.markers} />
+                <ol className="space-y-2">
+                  {step.captions.map((c, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <span className="w-5 h-5 rounded-full bg-emerald-500 text-white text-[11px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
+                        {i + 1}
+                      </span>
+                      <span className="text-sm text-gray-700 leading-snug">
+                        <b className="text-gray-800">{c[0]}</b> — {c[1]}
+                      </span>
                     </li>
                   ))}
-                </ul>
+                </ol>
               </div>
-            )
-          })}
+            </div>
+          ))}
         </div>
 
         {/* 하단 CTA */}
