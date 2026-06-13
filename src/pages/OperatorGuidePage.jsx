@@ -20,13 +20,14 @@ const STEPS = [
     title: '프로그램 상세 — 운영에 필요한 게 다 모여 있어요',
     desc: '내 프로그램을 열면 보이는 「운영자 패널」. 여기서 대부분의 운영을 합니다.',
     src: '/guide/03_operator_panel.png',
+    // 글씨를 가리지 않게 각 버튼의 좌상단 모서리에 배치
     markers: [
-      { n: 1, x: 32, y: 37 },
-      { n: 2, x: 50, y: 52 },
-      { n: 3, x: 30, y: 59 },
-      { n: 4, x: 70, y: 59 },
-      { n: 5, x: 30, y: 66 },
-      { n: 6, x: 70, y: 66 },
+      { n: 1, x: 31, y: 33 },
+      { n: 2, x: 10, y: 50 },
+      { n: 3, x: 10, y: 57 },
+      { n: 4, x: 53, y: 57 },
+      { n: 5, x: 10, y: 64 },
+      { n: 6, x: 53, y: 64 },
     ],
     captions: [
       ['「미션」 탭', '미션을 추가하고 관리해요 (라이브러리 / 직접 만들기)'],
@@ -58,7 +59,7 @@ function AnnotatedShot({ src, markers }) {
         <span
           key={m.n}
           style={{ left: `${m.x}%`, top: `${m.y}%` }}
-          className="absolute -translate-x-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-emerald-500 text-white text-xs font-bold flex items-center justify-center ring-2 ring-white shadow-md"
+          className="absolute -translate-x-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white shadow-md"
         >
           {m.n}
         </span>
