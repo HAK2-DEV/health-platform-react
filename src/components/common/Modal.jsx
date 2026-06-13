@@ -1,4 +1,4 @@
-import { X, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useEffect } from 'react'
 import { motion, AnimatePresence, useDragControls } from 'framer-motion'
 
@@ -94,14 +94,7 @@ function Modal({ isOpen, onClose, children, onPrev, onNext }) {
               <div className="w-10 h-1 bg-gray-300 rounded-full" />
             </div>
 
-            {/* 닫기 버튼 */}
-            <button
-              onClick={onClose}
-              className="absolute top-3 right-3 p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition z-20"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
+            {/* 닫기: 모바일은 손잡이 슬라이드 다운, 데스크톱은 배경 클릭 + ESC (X 버튼 제거) */}
             {children}
           </motion.div>
 
