@@ -7,6 +7,8 @@ import { useAuth } from '../hooks/useAuth'
 import { useNicknameCheck } from '../hooks/useNicknameCheck'
 import { NICKNAME } from '../lib/constants'
 import UserAvatar from '../components/common/UserAvatar'
+import NotificationBell from '../components/common/NotificationBell'
+import BackButton from '../components/common/BackButton'
 import IconBox from '../components/common/IconBox'
 import ImageCropModal from '../components/common/ImageCropModal'
 
@@ -223,19 +225,33 @@ function ProfilePage() {
   const isAvatarBusy = avatarMutation.isPending || removeAvatarMutation.isPending
 
   return (
-    <div className="min-h-screen bg-surface-app">
-      {/* Day 65 Phase 5 — 풀너비 그라데이션 헤더 + 잎사귀 일러스트 (참고 사진). */}
-      <div className="relative bg-gradient-to-b from-emerald-100 via-emerald-50/80 to-teal-50/40 pt-6 pb-6 overflow-hidden">
-        <div className="max-w-2xl mx-auto px-4 relative">
-          <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-800">
-            프로필 <span className="text-xl">🌿</span>
-          </h1>
-          <p className="text-sm font-medium text-gray-700 mt-1.5">당신의 건강 여정을 응원합니다!</p>
+    <div className="min-h-screen bg-white">
+      {/* 헤더 — 풍경 일러스트 배경 (없으면 그라데이션 폴백). 홈보다 약간 낮은 높이 */}
+      <div className="relative h-44 overflow-hidden bg-gradient-to-b from-emerald-100 via-emerald-50/80 to-teal-50/40">
+        <img
+          src="/header-profile.png"
+          alt=""
+          aria-hidden="true"
+          onError={(e) => { e.currentTarget.style.display = 'none' }}
+          className="absolute inset-0 w-full h-full object-cover object-[center_30%]"
+        />
+        <div className="relative max-w-2xl mx-auto px-4 pt-5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-1.5">
+              <BackButton />
+              <div>
+                <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-800 drop-shadow-sm">
+                  프로필 <span className="text-xl">🌿</span>
+                </h1>
+                <p className="text-sm font-medium text-gray-700 mt-1.5 drop-shadow-sm">당신의 건강 여정을 응원합니다!</p>
+              </div>
+            </div>
+            <NotificationBell />
+          </div>
         </div>
-        <div className="absolute top-2 right-4 text-3xl opacity-40 pointer-events-none select-none">🌱</div>
       </div>
 
-      <div className="max-w-2xl mx-auto px-3 sm:px-4 -mt-4 relative space-y-3 pb-6">
+      <div className="w-full max-w-2xl mx-auto px-3 sm:px-4 -mt-[90px] relative space-y-3 pt-5 pb-6 bg-white rounded-t-3xl min-h-screen">
 
       {/* 아바타 + 닉네임 + 이메일 카드 — Day 65 Phase 5: 흰 카드 + 상태 메시지 pill 추가. */}
       <div className="bg-white border border-gray-100 rounded-card-lg shadow-soft p-5">

@@ -11,6 +11,7 @@ import EmptyState from '../components/common/EmptyState'
 import LoadingState from '../components/common/LoadingState'
 import PillTabs from '../components/common/PillTabs'
 import IconBox from '../components/common/IconBox'
+import BackButton from '../components/common/BackButton'
 
 // Day 65 Phase 4 — 알림 페이지 (참고 사진):
 //   - 풀너비 그라데이션 헤더 + 잎사귀 일러스트 + 설정 아이콘
@@ -133,15 +134,25 @@ function NotificationsPage() {
   const totalCount = grouped.today.length + grouped.week.length + grouped.older.length
 
   return (
-    <div className="min-h-screen bg-surface-app">
-      {/* 헤더 + 우상단 설정 + 잎사귀 일러스트 */}
-      <div className="relative bg-gradient-to-b from-emerald-100 via-emerald-50/80 to-teal-50/40 pt-6 pb-6 overflow-hidden">
-        <div className="max-w-4xl mx-auto px-4 relative flex items-start justify-between gap-3">
-          <div>
-            <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-800">
-              알림 <span className="text-xl">🔔</span>
-            </h1>
-            <p className="text-sm font-medium text-gray-700 mt-1.5">최근 업데이트를 확인해보세요</p>
+    <div className="min-h-screen bg-white">
+      {/* 헤더 + 우상단 설정 + 풍경 이미지 */}
+      <div className="relative h-44 overflow-hidden bg-gradient-to-b from-emerald-100 via-emerald-50/80 to-teal-50/40">
+        <img
+          src="/header-rankings.png"
+          alt=""
+          aria-hidden="true"
+          onError={(e) => { e.currentTarget.style.display = 'none' }}
+          className="absolute inset-0 w-full h-full object-cover object-[center_30%]"
+        />
+        <div className="max-w-4xl mx-auto px-4 relative pt-6 flex items-start justify-between gap-3">
+          <div className="flex items-start gap-1.5">
+            <BackButton />
+            <div>
+              <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-800 drop-shadow-sm">
+                알림 <span className="text-xl">🔔</span>
+              </h1>
+              <p className="text-sm font-medium text-gray-700 mt-1.5 drop-shadow-sm">최근 업데이트를 확인해보세요</p>
+            </div>
           </div>
           {unreadCount > 0 ? (
             <button
@@ -166,7 +177,7 @@ function NotificationsPage() {
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-3 sm:px-4 -mt-4 relative space-y-4 pb-6">
+      <div className="w-full max-w-4xl mx-auto px-3 sm:px-4 -mt-[76px] relative space-y-4 pt-5 pb-6 bg-white rounded-t-3xl min-h-screen">
         {/* 필터 칩 */}
         <PillTabs
           options={FILTER_OPTIONS}

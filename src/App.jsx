@@ -2,12 +2,11 @@ import { Routes, Route, useLocation } from 'react-router-dom'
 import { lazy, Suspense, useEffect } from 'react'
 import './index.css'
 import './App.css'
-import { useAuth } from './hooks/useAuth'
-import BottomTabBar from './components/common/BottomTabBar'
 import ProtectedRoute from './components/ProtectedRoute'
 import LoadingState from './components/common/LoadingState'
 import { ToastProvider } from './contexts/ToastContext'
 import PwaUpdatePrompt from './components/common/PwaUpdatePrompt'
+import SplashScreen from './components/common/SplashScreen'
 
 // 코드 스플리팅 — 페이지별 lazy chunk 분리 (Day 65 본인 결정)
 //   첫 진입 시 메인 번들(~1.2MB) 한 번에 다운로드 X → 필요한 페이지만 점진적 로드.
@@ -58,7 +57,6 @@ const InstallGuidePage = lazy(() => import('./pages/InstallGuidePage'))
 const OperatorGuidePage = lazy(() => import('./pages/OperatorGuidePage'))
 
 function AppShell() {
-  const { session } = useAuth()
   const location = useLocation()
 
   // 라우트 변경 시 무조건 페이지 상단부터 시작 — 본인 결정 (Day 55)
@@ -68,20 +66,12 @@ function AppShell() {
     window.scrollTo(0, 0)
   }, [location.pathname])
 
-  // App 레벨 헤더(인사말 + 종 아이콘) 제거 — 본인 결정 (Day 55)
-  //   Dashboard 는 자체 그라데이션 헤더(인사말 + 종 + 마스코트)를 가짐.
-  //   나머지 페이지는 BottomTabBar 의 🔔 알림 탭으로 충분 → 중복 헤더 제거.
-  // BottomTabBar 숨김 — 운영자 집중(마법사) + 참여자 집중(미션 인증)
-  const isMissionVerify = /^\/programs\/[^/]+\/missions\/[^/]+$/.test(location.pathname)
-  const isQuizSolve = /^\/programs\/[^/]+\/quiz\/[^/]+$/.test(location.pathname)
-  // 퀴즈 만들기 — 「퀴즈 발행하기」 하단 버튼 오탭(랭킹·알림) 방지 위해 탭바 숨김
-  const isQuizCreate = /^\/programs\/[^/]+\/posts\/quiz\/new$/.test(location.pathname)
-  const hideBottomBar = location.pathname === '/programs/new' || isMissionVerify || isQuizSolve || isQuizCreate
+  // 하단 탭바 제거(본인 결정) — 내비게이션은 홈 허브 + 헤더 아이콘(알림·프로필) + 뒤로가기 버튼으로.
 
   return (
    <div className="app">
       <main
-        className={`app-main ${session && !hideBottomBar ? 'pb-24' : 'pb-4'}`}
+        className="app-main pb-4"
         style={{ paddingTop: 'max(env(safe-area-inset-top), 0.75rem)' }}
       >
         {/* Suspense — lazy chunk 로딩 중 fallback. variant="page" 로 전체 페이지 스피너 */}
@@ -208,9 +198,6 @@ function AppShell() {
         </Suspense>
       </main>
 
-      {/* 하단 5탭 네비 (로그인 + 마법사 외 페이지) */}
-      {session && !hideBottomBar && <BottomTabBar />}
-
       {/* 새 버전 알림 배너 — 새 SW 대기 시 노출 (PWA prompt 전략) */}
       <PwaUpdatePrompt />
     </div>
@@ -223,6 +210,8 @@ function App() {
   return (
     <ToastProvider>
       <AppShell />
+      {/* 콜드 스타트 스플래시 — 약 1.5초 노출 후 페이드아웃 (라우터 무관 최상위 오버레이) */}
+      <SplashScreen />
     </ToastProvider>
   )
 }

@@ -20,6 +20,9 @@ import EmptyState from '../../components/common/EmptyState'
 import LoadingState from '../../components/common/LoadingState'
 import ProgramCover from '../../components/common/ProgramCover'
 import Badge from '../../components/common/Badge'
+import NotificationBell from '../../components/common/NotificationBell'
+import ProfileButton from '../../components/common/ProfileButton'
+import BackButton from '../../components/common/BackButton'
 import { CATEGORY_COLORS, calcProgress, progressUrgency } from '../../lib/programVisuals'
 
 // 📋 프로그램 탭 — 3섹션 전체 표시
@@ -157,37 +160,38 @@ function ProgramListPage() {
   }
 
   return (
-    <div className="min-h-screen bg-surface-app">
-      {/* Day 65 Phase 2 — 헤더 그라데이션 + 마스코트 (참고 사진).
-          연한 mint 그라데이션 + 우상단 잎사귀/태양 일러스트. */}
-      <div className="relative bg-gradient-to-b from-emerald-100 via-emerald-50/80 to-teal-50/40 pt-6 pb-6 overflow-hidden">
-        <div className="max-w-4xl mx-auto px-4 relative">
-          <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-800">
-            프로그램 <span className="text-xl">🌿</span>
-          </h1>
-          <p className="text-sm font-medium text-gray-700 mt-1.5 leading-relaxed">
-            나에게 맞는 프로그램을 찾고,<br />꾸준히 건강을 관리해요.
-          </p>
-        </div>
-        {/* 마스코트 일러스트 — 우상단 */}
-        <div className="absolute top-4 right-0 pointer-events-none select-none">
-          <div className="max-w-4xl mx-auto px-4 relative">
-            <div className="absolute right-2 top-0 w-24 h-24 sm:w-28 sm:h-28 opacity-90">
-              <span className="absolute inset-0 flex items-center justify-center text-5xl opacity-40">
-                🌱
-              </span>
-              <img
-                src="/illustrations/mascot.png"
-                alt=""
-                className="absolute inset-0 w-full h-full object-contain"
-                onError={(e) => { e.currentTarget.style.display = 'none' }}
-              />
+    <div className="min-h-screen bg-white">
+      {/* 헤더 — 풍경 일러스트 배경 (없으면 그라데이션 폴백). 홈보다 약간 낮은 높이 */}
+      <div className="relative h-44 overflow-hidden bg-gradient-to-b from-emerald-100 via-emerald-50/80 to-teal-50/40">
+        <img
+          src="/header-programs.png"
+          alt=""
+          aria-hidden="true"
+          onError={(e) => { e.currentTarget.style.display = 'none' }}
+          className="absolute inset-0 w-full h-full object-cover object-[center_30%]"
+        />
+        <div className="relative max-w-4xl mx-auto px-4 pt-5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-1.5">
+              <BackButton />
+              <div>
+                <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-800 drop-shadow-sm">
+                  프로그램 <span className="text-xl">🌿</span>
+                </h1>
+                <p className="text-sm font-medium text-gray-700 mt-1.5 leading-relaxed drop-shadow-sm">
+                  나에게 맞는 프로그램을 찾고,<br />꾸준히 건강을 관리해요.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <NotificationBell />
+              <ProfileButton />
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-3 sm:px-4 -mt-4 relative space-y-4 pb-6">
+      <div className="w-full max-w-4xl mx-auto px-3 sm:px-4 -mt-6 relative space-y-4 pt-5 pb-6 bg-white rounded-t-3xl min-h-screen">
         {/* 검색바 — Day 65 Phase 2: 흰색 카드 + 그림자 강화 (참고 사진 톤) */}
         <div className="relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
