@@ -15,6 +15,7 @@ import {
   fetchProgramOverview,
 } from '../lib/queries'
 import UserAvatar from '../components/common/UserAvatar'
+import NotificationBell from '../components/common/NotificationBell'
 import EmptyState from '../components/common/EmptyState'
 import LoadingState from '../components/common/LoadingState'
 import GardenPanel from '../components/program/GardenPanel'
@@ -245,9 +246,9 @@ function RankingsPage() {
   // ─── 참여 프로그램 0개 ──────────────────────────────────
   if (activePrograms.length === 0) {
     return (
-      <div className="min-h-screen bg-surface-app">
+      <div className="min-h-screen bg-white">
         <RankingHeader />
-        <div className="max-w-4xl mx-auto px-3 sm:px-4 -mt-4 relative">
+        <div className="w-full max-w-4xl mx-auto px-3 sm:px-4 -mt-6 relative pt-5 pb-6 bg-white rounded-t-3xl min-h-screen">
           <EmptyState
             icon="🏆"
             title="참여 중인 프로그램이 없어요"
@@ -261,87 +262,49 @@ function RankingsPage() {
     )
   }
 
+  // 프로그램 선택 칩 — 트랙별 위치가 달라 추출 (성장: 패널 위 / 랭킹: 시상대 아래)
+  const programChips = (
+    <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+      {activePrograms.map(program => {
+        const catKey = program.categories?.[0] || 'ETC'
+        const cat = CATEGORY[catKey] || CATEGORY.ETC
+        const isActive = program.id === selectedProgramId
+        return (
+          <button
+            key={program.id}
+            type="button"
+            onClick={() => setSelectedProgramId(program.id)}
+            className={`
+              flex-shrink-0 inline-flex items-center gap-1.5 px-4 py-2.5 rounded-pill text-sm transition
+              ${isActive
+                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-soft font-semibold'
+                : 'bg-white border border-gray-200 text-gray-600 hover:border-emerald-300'}
+            `}
+          >
+            <span>{cat.emoji}</span>
+            <span className="max-w-[140px] truncate">{program.name}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+
   return (
-    <div className="min-h-screen bg-surface-app">
+    <div className="min-h-screen bg-white">
       <RankingHeader />
-      <div className="max-w-4xl mx-auto px-3 sm:px-4 -mt-4 relative space-y-4 pb-6">
+      <div className="w-full max-w-4xl mx-auto px-3 sm:px-4 -mt-[94px] relative space-y-4 pt-5 pb-6 bg-white rounded-t-3xl min-h-screen">
 
-      {/* 프로그램 선택 칩 — 참고 사진: 선택은 그린 + 흰 텍스트, 미선택은 흰 카드 */}
-      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
-        {activePrograms.map(program => {
-          const catKey = program.categories?.[0] || 'ETC'
-          const cat = CATEGORY[catKey] || CATEGORY.ETC
-          const isActive = program.id === selectedProgramId
-          return (
-            <button
-              key={program.id}
-              type="button"
-              onClick={() => setSelectedProgramId(program.id)}
-              className={`
-                flex-shrink-0 inline-flex items-center gap-1.5 px-4 py-2.5 rounded-pill text-sm transition
-                ${isActive
-                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-soft font-semibold'
-                  : 'bg-white border border-gray-200 text-gray-600 hover:border-emerald-300'}
-              `}
-            >
-              <span>{cat.emoji}</span>
-              <span className="max-w-[140px] truncate">{program.name}</span>
-            </button>
-          )
-        })}
-      </div>
-
-      {/* Day 65: 성장 트랙 — 정원 또는 별자리 패널 (랭킹 대신 노출) */}
-      {selectedProgram && gType === 'GARDEN' && (
-        <GardenPanel
-          participation={myParticipation}
-          activeDays={growthOverview?.activeDays || 0}
-          totalCount={growthOverview?.totalCount || 0}
-          programDays={programDaysForGrowth}
-          onPlantSeed={handlePlantSeed}
-          onUpdateGarden={handleUpdateGarden}
-        />
-      )}
-      {selectedProgram && gType === 'CONSTELLATION' && (
-        <ConstellationPanel
-          participation={myParticipation}
-          activeDays={growthOverview?.activeDays || 0}
-          totalCount={growthOverview?.totalCount || 0}
-          programDays={programDaysForGrowth}
-          onInitConstellation={handleInitConstellation}
-          onUpdateConstellation={handleUpdateConstellation}
-        />
+      {/* 시상대(Top 3) — 있으면 콘텐츠 최상단 (본인 결정) */}
+      {isRankingTrack && hasPodium && !isLoadingRanking && (
+        <PodiumTop3 top3={podiumTop3} userId={userId} />
       )}
 
-      {/* Day 65: 랭킹 트랙 전용 콘텐츠 (포디움/본인요약/랭킹리스트). 성장 트랙은 위에서 패널만. */}
-      {isRankingTrack && (<>
-      {/* 시간 범위 토글 — segmented control (운영자가 period_filter_enabled 켰을 때만 노출) */}
-      {selectedProgram && periodFilterVisible && (
-        <div className="flex gap-1 p-1 bg-gray-100 rounded-pill">
-          {PERIOD_OPTIONS.map(opt => {
-            const isActive = opt.value === period
-            return (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => setPeriod(opt.value)}
-                className={`
-                  flex-1 py-2 text-sm font-medium rounded-pill transition
-                  ${isActive
-                    ? 'bg-white text-brand-deep shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'}
-                `}
-              >
-                {opt.label}
-              </button>
-            )
-          })}
-        </div>
-      )}
+      {/* 시상대 바로 아래 프로그램 선택 칩 — 시상대 있을 때만 */}
+      {isRankingTrack && hasPodium && programChips}
 
-      {/* 본인 요약 카드 — 참고 사진: 큰 등수 + 점수 + 추세 + 동기부여 박스.
-          클릭 시 「내 인증 현황」(나의 활동)으로 이동 — 포디움 여부와 무관하게 항상 진입 가능. */}
-      {selectedProgram && (
+      {/* 본인 요약 카드 — 시상대 아래. 랭킹 트랙 + 선택 프로그램일 때.
+          클릭 시 「내 인증 현황」(나의 활동)으로 이동. */}
+      {isRankingTrack && selectedProgram && (
         <div
           onClick={() => navigate(`/profile/activity/${selectedProgramId}/verifications`)}
           className="bg-surface-mint border border-emerald-100 rounded-card-lg p-5 shadow-soft cursor-pointer hover:border-emerald-200 hover:bg-emerald-50/40 transition"
@@ -391,13 +354,59 @@ function RankingsPage() {
         </div>
       )}
 
-      {/* Top 3 포디움 — 3명 이상일 때만 */}
-      {hasPodium && !isLoadingRanking && (
-        <PodiumTop3
-          top3={podiumTop3}
-          userId={userId}
+      {/* 프로그램 선택 칩 — 성장 트랙: 패널 위. (랭킹 트랙은 시상대 아래에서 렌더) */}
+      {!isRankingTrack && programChips}
+
+      {/* Day 65: 성장 트랙 — 정원 또는 별자리 패널 (랭킹 대신 노출) */}
+      {selectedProgram && gType === 'GARDEN' && (
+        <GardenPanel
+          participation={myParticipation}
+          activeDays={growthOverview?.activeDays || 0}
+          totalCount={growthOverview?.totalCount || 0}
+          programDays={programDaysForGrowth}
+          onPlantSeed={handlePlantSeed}
+          onUpdateGarden={handleUpdateGarden}
         />
       )}
+      {selectedProgram && gType === 'CONSTELLATION' && (
+        <ConstellationPanel
+          participation={myParticipation}
+          activeDays={growthOverview?.activeDays || 0}
+          totalCount={growthOverview?.totalCount || 0}
+          programDays={programDaysForGrowth}
+          onInitConstellation={handleInitConstellation}
+          onUpdateConstellation={handleUpdateConstellation}
+        />
+      )}
+
+      {/* Day 65: 랭킹 트랙 전용 콘텐츠 (포디움/본인요약/랭킹리스트). 성장 트랙은 위에서 패널만. */}
+      {isRankingTrack && (<>
+      {/* 시간 범위 토글 — segmented control (운영자가 period_filter_enabled 켰을 때만 노출) */}
+      {selectedProgram && periodFilterVisible && (
+        <div className="flex gap-1 p-1 bg-gray-100 rounded-pill">
+          {PERIOD_OPTIONS.map(opt => {
+            const isActive = opt.value === period
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setPeriod(opt.value)}
+                className={`
+                  flex-1 py-2 text-sm font-medium rounded-pill transition
+                  ${isActive
+                    ? 'bg-white text-brand-deep shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'}
+                `}
+              >
+                {opt.label}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {/* 프로그램 선택 칩 — 시상대 없을 때만 여기 (있으면 시상대 바로 아래에 표시) */}
+      {!hasPodium && programChips}
 
       {/* 랭킹 목록 (포디움 있으면 4등부터, 없으면 전체) — 흰 카드 + 행 구분선 */}
       {isLoadingRanking ? (
@@ -475,14 +484,22 @@ function RankingsPage() {
 // 랭킹 페이지 헤더 — 큰 제목 + 부제 + 트로피 일러스트 (참고 사진)
 function RankingHeader() {
   return (
-    <div className="relative bg-gradient-to-b from-emerald-100 via-emerald-50/80 to-teal-50/40 pt-6 pb-6 overflow-hidden">
-      <div className="max-w-4xl mx-auto px-4 relative">
-        <h1 className="text-2xl font-bold text-gray-800">🏆 랭킹</h1>
-        <p className="text-sm font-medium text-gray-700 mt-1.5">참여 진도와 포인트를 비교해보세요!</p>
-      </div>
-      {/* 트로피 일러스트 — 우상단 */}
-      <div className="absolute top-4 right-4 w-24 h-24 sm:w-28 sm:h-28 opacity-90 pointer-events-none select-none">
-        <span className="absolute inset-0 flex items-center justify-center text-5xl">🏆</span>
+    <div className="relative h-44 overflow-hidden bg-gradient-to-b from-emerald-100 via-emerald-50/80 to-teal-50/40">
+      <img
+        src="/header-rankings.png"
+        alt=""
+        aria-hidden="true"
+        onError={(e) => { e.currentTarget.style.display = 'none' }}
+        className="absolute inset-0 w-full h-full object-cover object-[center_30%]"
+      />
+      <div className="relative max-w-4xl mx-auto px-4 pt-5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800 drop-shadow-sm">🏆 랭킹</h1>
+            <p className="text-sm font-medium text-gray-700 mt-1.5 drop-shadow-sm">참여 진도와 포인트를 비교해보세요!</p>
+          </div>
+          <NotificationBell />
+        </div>
       </div>
     </div>
   )

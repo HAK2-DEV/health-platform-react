@@ -16,7 +16,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 //   title:      버튼 tooltip
 //   breadcrumb: string[] — 뒤로가기 옆에 「A > B > C」 형태로 표시 (선택)
 //                마지막 항목이 현재 페이지 — 진하게, 나머지는 회색
-function StickyBackBar({ onClick, fallbackPath, title, breadcrumb }) {
+function StickyBackBar({ onClick, fallbackPath, title, breadcrumb, rightSlot }) {
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -33,7 +33,8 @@ function StickyBackBar({ onClick, fallbackPath, title, breadcrumb }) {
 
   return (
     <div className="sticky top-0 z-30 -mx-4 mb-1 px-4 py-1 pointer-events-none">
-      <div className={`flex items-center gap-2 pointer-events-auto ${hasBreadcrumb ? 'bg-white/85 backdrop-blur-sm rounded-full pr-3 shadow-sm' : ''}`}>
+      <div className="flex items-center gap-2">
+      <div className={`flex items-center gap-2 min-w-0 pointer-events-auto ${hasBreadcrumb ? 'bg-white/85 backdrop-blur-sm rounded-full pr-3 shadow-sm' : ''}`}>
         <button
           type="button"
           onClick={handleClick}
@@ -73,6 +74,8 @@ function StickyBackBar({ onClick, fallbackPath, title, breadcrumb }) {
             })}
           </nav>
         )}
+      </div>
+      {rightSlot && <div className="ml-auto pointer-events-auto">{rightSlot}</div>}
       </div>
     </div>
   )

@@ -10,7 +10,10 @@ import { formatKoreanDate, formatKoreanDateTime, isUpcomingByStartDate } from '.
 import MissionCard from '../../components/program/MissionCard'
 import GardenPanel from '../../components/program/GardenPanel'
 import ConstellationPanel from '../../components/program/ConstellationPanel'
+import PodiumTop3 from '../../components/program/PodiumTop3'
+import ScoreSparkline from '../../components/program/ScoreSparkline'
 import StickyBackBar from '../../components/common/StickyBackBar'
+import ProfileButton from '../../components/common/ProfileButton'
 import UserAvatar from '../../components/common/UserAvatar'
 import EmptyState from '../../components/common/EmptyState'
 import LoadingState from '../../components/common/LoadingState'
@@ -33,10 +36,25 @@ import {
   fetchProgramMissions,
   fetchProgramScores,
   fetchProgramRanking,
+  fetchMyRecentScoreSeries,
   fetchTodayCounts,
   fetchParticipantQuizzes,
   fetchProgramOverview,
 } from '../../lib/queries'
+
+// 기간 필터 옵션 (period_filter_enabled 옵션 시) — period → ISO 시작점
+const PERIOD_OPTIONS = [
+  { value: 'all', label: '전체' },
+  { value: '7d', label: '최근 7일' },
+  { value: '30d', label: '최근 30일' },
+]
+const periodToISOStart = (p) => {
+  if (p === 'all') return null
+  const days = p === '7d' ? 7 : 30
+  const d = new Date()
+  d.setDate(d.getDate() - days)
+  return d.toISOString()
+}
 
 function ProgramDetailPage() {
   const { id } = useParams()
@@ -97,11 +115,27 @@ function ProgramDetailPage() {
     enabled: !!session && !!id,
   })
 
+  const [period, setPeriod] = useState('all')
+  const periodStart = useMemo(() => periodToISOStart(period), [period])
+  const periodFilterVisible = !!program?.period_filter_enabled
   const { data: ranking = [] } = useQuery({
-    queryKey: queryKeys.programRanking(id),
-    queryFn: () => fetchProgramRanking(id),
+    queryKey: queryKeys.programRanking(id, period),
+    queryFn: () => fetchProgramRanking(id, periodStart),
     enabled: !!session && !!id,
   })
+
+  // 추세 sparkline — 운영자가 trend_enabled 켰을 때만 fetch (불필요 RPC 절약)
+  const trendVisible = !!program?.trend_enabled
+  const { data: myScoreSeries = [] } = useQuery({
+    queryKey: queryKeys.myRecentScores(id, userId, 14),
+    queryFn: () => fetchMyRecentScoreSeries(id, userId, 14),
+    enabled: !!session && !!id && !!userId && trendVisible,
+  })
+
+  // 시상대 — podium_enabled + 3명 이상일 때만. 미만/OFF 면 기존 평면 랭킹.
+  const hasPodium = !!program?.podium_enabled && ranking.length >= 3
+  const podiumTop3 = hasPodium ? ranking.slice(0, 3) : []
+  const restRanking = hasPodium ? ranking.slice(3) : ranking
 
   const { data: todayCounts = {} } = useQuery({
     queryKey: queryKeys.todayCounts(userId),
@@ -303,7 +337,7 @@ function ProgramDetailPage() {
 
   return (
     <div className="px-4 pt-2 pb-6 max-w-4xl mx-auto">
-      <StickyBackBar onClick={() => navigate(-1)} />
+      <StickyBackBar onClick={() => navigate(-1)} rightSlot={<ProfileButton />} />
 
       {/* 프로그램 헤더 — 모의도 디자인: 배경 사진 풀 블리드 + 우측 페이드 + 진행중 배지 */}
       {(() => {
@@ -368,7 +402,7 @@ function ProgramDetailPage() {
             </span>
 
             {/* 텍스트 영역 — 우측 (사진 끝과 살짝 겹쳐 페이드 자연스럽게) */}
-            <div className="relative z-10 pl-[34%] pr-4 sm:pr-5 py-4 sm:py-5 min-h-[140px] sm:min-h-[150px] flex flex-col justify-center">
+            <div className="relative z-10 pl-[34%] pr-4 sm:pr-5 py-2 sm:py-3 min-h-[124px] sm:min-h-[134px] flex flex-col justify-center">
               <h1
                 className={`${titleSize} font-bold text-gray-800 mb-1.5 sm:mb-2 leading-tight whitespace-nowrap overflow-hidden text-ellipsis`}
                 title={program.name}
@@ -393,14 +427,14 @@ function ProgramDetailPage() {
                     </div>
                     <span className={`text-sm font-semibold flex-shrink-0 ${urgency.textCls || 'text-emerald-600'}`}>{progress}%</span>
                   </div>
-                  {urgency.label && (
-                    <p className={`text-[11px] font-medium mt-1 ${urgency.textCls}`}>
-                      {urgency.urgency === 'ended' ? '🏁' : urgency.urgency === 'imminent' ? '🔥' : '⏳'} {urgency.label}
-                    </p>
-                  )}
                 </div>
               )}
               <div className="flex items-center gap-3 sm:gap-4 text-xs sm:text-sm text-gray-600 flex-wrap">
+                {urgency.label && (
+                  <span className={`inline-flex items-center gap-1 font-medium ${urgency.textCls}`}>
+                    {urgency.urgency === 'ended' ? '🏁' : urgency.urgency === 'imminent' ? '🔥' : '⏳'} {urgency.label}
+                  </span>
+                )}
                 <span className="inline-flex items-center gap-1">
                   <Users className="w-3.5 h-3.5 text-gray-400" />
                   <span className="text-gray-500">참여자</span>
@@ -864,12 +898,49 @@ function ProgramDetailPage() {
         && (program.gamification_type === 'RANKING' || (!program.gamification_type && program.ranking_enabled !== false))
         && (<>
       <h2 className="text-lg font-semibold text-gray-800 mb-3">🏆 랭킹</h2>
+
+      {/* 기간 필터 — period_filter_enabled 옵션 시 (전체/7일/30일) */}
+      {periodFilterVisible && (
+        <div className="flex gap-1 p-1 bg-gray-100 rounded-pill mb-3">
+          {PERIOD_OPTIONS.map(opt => {
+            const isActive = opt.value === period
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setPeriod(opt.value)}
+                className={`flex-1 py-2 text-sm font-medium rounded-pill transition ${isActive ? 'bg-white text-brand-deep shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                {opt.label}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {/* 추세 — trend_enabled 옵션 시 본인 14일 sparkline (라벨 카드로 맥락 부여) */}
+      {trendVisible && myScoreSeries.length > 0 && (
+        <div className="flex items-center justify-between gap-3 bg-white border border-gray-100 rounded-card shadow-soft px-4 py-3 mb-4">
+          <span className="text-sm font-semibold text-gray-700">📈 내 14일 점수 추세</span>
+          <ScoreSparkline series={myScoreSeries} />
+        </div>
+      )}
+
+      {/* 시상대 — podium_enabled + 3명 이상일 때만 콘텐츠 상단 */}
+      {hasPodium && (
+        <div className="mb-4">
+          <PodiumTop3 top3={podiumTop3} userId={userId} />
+        </div>
+      )}
+
       {ranking.length === 0 ? (
         <EmptyState icon="👥" title="아직 참여자가 없어요" size="sm" />
+      ) : restRanking.length === 0 ? (
+        null
       ) : (() => {
         const RANK_PAGE = 10
-        const hasMore = ranking.length > RANK_PAGE
-        const displayed = showAllRanking ? ranking : ranking.slice(0, RANK_PAGE)
+        const hasMore = restRanking.length > RANK_PAGE
+        const displayed = showAllRanking ? restRanking : restRanking.slice(0, RANK_PAGE)
         return (
           <>
             <div className="relative">
@@ -923,7 +994,7 @@ function ProgramDetailPage() {
                   onClick={() => setShowAllRanking(!showAllRanking)}
                   className="px-12 py-2.5 text-sm font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-full border border-emerald-200 transition"
                 >
-                  {showAllRanking ? '간단히 보기' : `더보기 (${ranking.length}명)`}
+                  {showAllRanking ? '간단히 보기' : `더보기 (${restRanking.length}명)`}
                 </button>
               </div>
             )}
