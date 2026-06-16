@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>로고 락업 미리보기 — 도담</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css"/>
+<style>
+  :root{
+    --primary:#059669; --accent:#34D399; --bg:#ECFDF5; --ink:#073B33;
+    font-family:'Pretendard Variable',-apple-system,system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:#f4f4f5;color:var(--ink);padding:28px;}
+  h1{font-size:20px;margin:0 0 4px;}
+  .sub{color:#71717a;font-size:13px;margin:0 0 24px;}
+  .row{display:flex;flex-wrap:wrap;gap:18px;}
+  .panel{background:#fff;border:1px solid #e4e4e7;border-radius:18px;padding:26px;
+         display:flex;flex-direction:column;align-items:center;gap:14px;min-width:240px;box-shadow:0 1px 3px rgba(0,0,0,.05);}
+  .panel.dark{background:linear-gradient(160deg,var(--accent),var(--primary));}
+  .panel .cap{font-size:12px;color:#a1a1aa;font-weight:600;}
+  .panel.dark .cap{color:rgba(255,255,255,.85);}
+  .ico{width:56px;height:56px;border-radius:14px;}
+  .ico.sm{width:34px;height:34px;border-radius:9px;}
+  .ico.lg{width:88px;height:88px;border-radius:22px;}
+  .ico svg{width:100%;height:100%;display:block;}
+
+  /* 워드마크 */
+  .wm{font-weight:800;letter-spacing:-.04em;line-height:1;}
+  .desc{font-weight:600;letter-spacing:.02em;}
+  .vstack{display:flex;flex-direction:column;align-items:center;gap:8px;}
+  .vstack .wm{font-size:34px;color:var(--ink);}
+  .vstack .desc{font-size:13px;color:#6b7280;margin-top:2px;}
+
+  .hstack{display:flex;align-items:center;gap:12px;}
+  .hstack .wm{font-size:26px;color:var(--ink);}
+  .hstack .desc{font-size:12px;color:#9ca3af;border-left:1px solid #d1d5db;padding-left:10px;}
+
+  /* 헤더 시뮬레이션 (에메랄드 배경 위 흰 글자) */
+  .hstack.onbrand .wm{color:#fff;}
+  .hstack.onbrand .desc{color:rgba(255,255,255,.8);border-left-color:rgba(255,255,255,.35);}
+
+  .mono{font-size:26px;font-weight:800;color:var(--ink);letter-spacing:-.04em;}
+  .note{font-size:12px;color:#71717a;margin-top:28px;line-height:1.7;}
+  .sec{font-size:14px;font-weight:700;color:#52525b;margin:30px 0 10px;}
+</style>
+</head>
+<body>
+  <h1>로고 락업 미리보기 — 「도담」</h1>
+  <p class="sub">Emerald Refresh 팔레트 · Pretendard. 아이콘은 배치 확인용 임시(최종엔 본인 시안으로 교체).</p>
+
+  <div class="sec">① 세로형 — 앱 아이콘 / 스플래시 / 시작화면</div>
+  <div class="row">
+    <div class="panel">
+      <span class="cap">설명어 포함</span>
+      <span class="ico lg" id="i1"></span>
+      <div class="vstack"><span class="wm">도담</span><span class="desc">건강증진 플랫폼</span></div>
+    </div>
+    <div class="panel">
+      <span class="cap">브랜드명만 (인지도 ↑ 이후)</span>
+      <span class="ico lg" id="i2"></span>
+      <div class="vstack"><span class="wm">도담</span></div>
+    </div>
+  </div>
+
+  <div class="sec">② 가로형 — 헤더 / 문서 / 명함</div>
+  <div class="row">
+    <div class="panel">
+      <span class="cap">라이트 배경</span>
+      <div class="hstack"><span class="ico" id="i3"></span><span class="wm">도담</span><span class="desc">건강증진 플랫폼</span></div>
+    </div>
+    <div class="panel">
+      <span class="cap">브랜드명만</span>
+      <div class="hstack"><span class="ico" id="i4"></span><span class="wm">도담</span></div>
+    </div>
+  </div>
+
+  <div class="sec">③ 앱 헤더 시뮬레이션 (현재 에메랄드 그라데이션 영역 교체용)</div>
+  <div class="row">
+    <div class="panel dark">
+      <span class="cap">에메랄드 배경 · 흰 글자</span>
+      <div class="hstack onbrand"><span class="ico" id="i5"></span><span class="wm">도담</span><span class="desc">건강증진 플랫폼</span></div>
+    </div>
+    <div class="panel dark">
+      <span class="cap">브랜드명만</span>
+      <div class="hstack onbrand"><span class="ico" id="i6"></span><span class="wm">도담</span></div>
+    </div>
+  </div>
+
+  <div class="sec">④ 모노 / 파비콘 (단색)</div>
+  <div class="row">
+    <div class="panel">
+      <span class="cap">32px 파비콘</span>
+      <span class="ico sm" id="i7"></span>
+    </div>
+    <div class="panel">
+      <span class="cap">텍스트 모노</span>
+      <span class="mono">도담</span>
+    </div>
+  </div>
+
+  <p class="note">
+    ※ 「도담」이 주인공, 「건강증진 플랫폼」은 작은 보조 설명(위계 차이 큼).<br/>
+    ※ 태그라인 "운영은 쉽게, 건강은 단단하게."는 로고와 별개로 캠페인 문구로 사용.
+  </p>
+
+<script>
+function iconSVG(){return `
+<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+ <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+   <stop offset="0" stop-color="#34D399"/><stop offset="1" stop-color="#059669"/></linearGradient></defs>
+ <rect width="1024" height="1024" rx="220" fill="url(#g)"/>
+ <g transform="translate(512 560)" fill="#ffffff">
+   <path d="M 0,120 C -70,40 -70,-120 0,-230 C 70,-120 70,40 0,120 Z" opacity="0.98"/>
+   <path d="M -28,130 C -150,80 -210,-30 -225,-150 C -110,-130 -10,-40 18,110 Z" opacity="0.9"/>
+   <path d="M 28,130 C 150,80 210,-30 225,-150 C 110,-130 10,-40 -18,110 Z" opacity="0.9"/>
+ </g>
+ <g transform="translate(512 560)" stroke="#ffffff" stroke-width="34" stroke-linecap="round" fill="none" opacity="0.95">
+   <path d="M 0,120 L 0,230"/></g>
+</svg>`;}
+['i1','i2','i3','i4','i5','i6','i7'].forEach(id=>{document.getElementById(id).innerHTML=iconSVG();});
+</script>
+</body>
+</html>

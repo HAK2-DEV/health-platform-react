@@ -14,24 +14,36 @@ export default defineConfig({
     //     (onNeedRefresh → PwaUpdatePrompt 배너 → applyUpdate 로 적용. main.jsx + lib/pwaUpdate.js)
     VitePWA({
       registerType: 'prompt',
-      includeAssets: ['favicon.svg'],
+      includeAssets: ['favicon.svg', 'app-icon.png'],
       manifest: {
-        name: 'Health Platform',
-        short_name: 'Health',
-        description: '건강증진 프로그램을 함께 만들고 참여하는 PWA',
+        name: '도담 · 건강증진 플랫폼',
+        short_name: '도담',
+        description: '운영은 쉽게, 건강은 단단하게 — 건강증진 프로그램을 함께 만들고 참여하는 PWA',
         start_url: '/',
         scope: '/',
         display: 'standalone',
         orientation: 'portrait',
         background_color: '#ffffff',
-        theme_color: '#10b981',
+        theme_color: '#059669',
         lang: 'ko',
         icons: [
+          {
+            src: '/app-icon.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'any maskable',
+          },
+          {
+            src: '/app-icon.png',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'any maskable',
+          },
           {
             src: '/favicon.svg',
             sizes: 'any',
             type: 'image/svg+xml',
-            purpose: 'any maskable',
+            purpose: 'any',
           },
         ],
       },

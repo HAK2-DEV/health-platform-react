@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>브랜딩 미리보기 — 색 팔레트 · 아이콘 · 이름</title>
+<style>
+  :root { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #f4f4f5; color: #18181b; padding: 24px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 15px; color: #52525b; margin: 28px 0 12px; font-weight: 600; }
+  .sub { color: #71717a; font-size: 13px; margin: 0 0 8px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px; }
+
+  /* 팔레트 카드 = 미니 앱 목업 */
+  .pcard { background:#fff; border:1px solid #e4e4e7; border-radius:16px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.05); }
+  .ptitle { padding:10px 12px; font-weight:700; font-size:13px; display:flex; justify-content:space-between; align-items:center; }
+  .ptitle small { font-weight:500; color:#a1a1aa; font-size:11px; }
+  .screen { padding:14px; }
+  .appbar { display:flex; align-items:center; gap:8px; margin-bottom:12px; }
+  .appname { font-weight:800; font-size:16px; letter-spacing:-.02em; }
+  .ico { width:34px; height:34px; border-radius:9px; flex:none; }
+  .ico svg { width:100%; height:100%; display:block; border-radius:9px; }
+  .growth { border-radius:12px; padding:10px 12px; margin-bottom:10px; }
+  .growth .lbl { font-size:11px; font-weight:700; opacity:.9; }
+  .bar { height:8px; border-radius:99px; background:rgba(0,0,0,.08); overflow:hidden; margin-top:6px; }
+  .bar > i { display:block; height:100%; border-radius:99px; }
+  .mcard { border-radius:12px; padding:10px; display:flex; align-items:center; gap:8px; }
+  .mthumb { width:38px; height:38px; border-radius:9px; flex:none; display:flex; align-items:center; justify-content:center; font-size:20px; }
+  .mtitle { font-size:13px; font-weight:700; }
+  .mpoint { font-size:11px; font-weight:700; }
+  .btn { margin-left:auto; border:none; color:#fff; font-weight:700; font-size:12px; padding:7px 12px; border-radius:99px; }
+  .swatches { display:flex; gap:6px; padding:0 14px 14px; }
+  .sw { width:26px; height:26px; border-radius:7px; border:1px solid rgba(0,0,0,.06); }
+
+  /* 이름 워드마크 */
+  .names { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px,1fr)); gap:14px; }
+  .ncard { background:#fff; border:1px solid #e4e4e7; border-radius:14px; padding:18px 16px; display:flex; align-items:center; gap:12px; }
+  .ncard .meaning { font-size:11px; color:#71717a; margin-top:3px; }
+  .wm { font-weight:800; font-size:22px; letter-spacing:-.03em; }
+  .note { font-size:12px; color:#71717a; line-height:1.6; }
+  .pill { display:inline-block; font-size:10px; font-weight:700; color:#fff; padding:2px 7px; border-radius:99px; vertical-align:middle; }
+</style>
+</head>
+<body>
+  <h1>브랜딩 미리보기</h1>
+  <p class="sub">① 색 팔레트 5종 (미니 앱 목업) · ② 아이콘 "함께 자라는 잎" · ③ 이름 워드마크 후보. 마음에 드는 조합을 골라주세요.</p>
+
+  <h2>① 색 팔레트 — 각 카드는 그 색으로 칠한 미니 홈 화면</h2>
+  <div class="grid" id="palettes"></div>
+
+  <h2>② &amp; ③ 이름 워드마크 후보 <span class="note">(아래는 권장 팔레트 기준. 색은 위에서 따로 고름)</span></h2>
+  <div class="names" id="names"></div>
+
+  <p class="note" style="margin-top:24px">
+    ※ "정원/가꿈/건강정원" 계열은 제외하고, <b>담당자가 프로그램을 운영·개선하고 사용자 건강을 돕는 플랫폼</b> 정체성(연결·동행·매일의 누적)에 맞춘 후보들입니다.
+  </p>
+
+<script>
+// "함께 자라는 잎" 아이콘 — bg 그라데이션은 팔레트로 교체
+function iconSVG(c1, c2, leaf){ return `
+<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+ <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+   <stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></linearGradient></defs>
+ <rect width="1024" height="1024" rx="220" fill="url(#g)"/>
+ <g transform="translate(512 560)" fill="${leaf}">
+   <path d="M 0,120 C -70,40 -70,-120 0,-230 C 70,-120 70,40 0,120 Z" opacity="0.98"/>
+   <path d="M -28,130 C -150,80 -210,-30 -225,-150 C -110,-130 -10,-40 18,110 Z" opacity="0.9"/>
+   <path d="M 28,130 C 150,80 210,-30 225,-150 C 110,-130 10,-40 -18,110 Z" opacity="0.9"/>
+ </g>
+ <g transform="translate(512 560)" stroke="${leaf}" stroke-width="34" stroke-linecap="round" fill="none" opacity="0.95">
+   <path d="M 0,120 L 0,230"/></g>
+</svg>`; }
+
+const palettes = [
+  { name:'에메랄드 리프레시', tag:'현 톤 + 채도↑', c1:'#34d399', c2:'#059669', primary:'#059669', accent:'#10b981',
+    bg:'#ECFDF5', ink:'#064E3B', leaf:'#ffffff', mood:'지금 분위기 유지, 더 선명하게' },
+  { name:'딥 틸 + 라임', tag:'에너지·모던', c1:'#14b8a6', c2:'#0f766e', primary:'#0f766e', accent:'#84cc16',
+    bg:'#F0FDFA', ink:'#134E4A', leaf:'#ffffff', mood:'신뢰감 + 활력. 라임 포인트가 트렌디' },
+  { name:'세이지 + 샌드', tag:'차분·프리미엄', c1:'#8aa988', c2:'#5f7a5f', primary:'#5f7a5f', accent:'#d39a5e',
+    bg:'#F3F0E8', ink:'#3f3f46', leaf:'#ffffff', mood:'조용한 럭셔리. 따뜻·고급스러움' },
+  { name:'인디고 나이트 + 민트', tag:'테크·별자리', c1:'#6366f1', c2:'#4f46e5', primary:'#4f46e5', accent:'#2dd4bf',
+    bg:'#EEF2FF', ink:'#1e1b4b', leaf:'#ffffff', mood:'세련된 테크 톤. 별자리 트랙과 잘 맞음' },
+  { name:'틸 + 코랄', tag:'친근·따뜻', c1:'#2dd4bf', c2:'#0d9488', primary:'#0d9488', accent:'#fb7185',
+    bg:'#F0FDFA', ink:'#134E4A', leaf:'#ffffff', mood:'친근하고 따뜻. 코랄 강조로 생기' },
+];
+
+document.getElementById('palettes').innerHTML = palettes.map(p => `
+  <div class="pcard">
+    <div class="ptitle">${p.name} <small>${p.tag}</small></div>
+    <div class="screen" style="background:${p.bg}">
+      <div class="appbar">
+        <span class="ico">${iconSVG(p.c1,p.c2,p.leaf)}</span>
+        <span class="appname" style="color:${p.ink}">서비스명</span>
+      </div>
+      <div class="growth" style="background:${p.primary}1a">
+        <div class="lbl" style="color:${p.primary}">🌷 내 성장 · 4단계</div>
+        <div class="bar"><i style="width:72%;background:${p.primary}"></i></div>
+      </div>
+      <div class="mcard" style="background:#fff;border:1px solid ${p.primary}22">
+        <span class="mthumb" style="background:${p.primary}15">🏃</span>
+        <div>
+          <div class="mtitle" style="color:${p.ink}">오늘 걷기</div>
+          <div class="mpoint" style="color:${p.primary}">+7P</div>
+        </div>
+        <button class="btn" style="background:${p.accent}">인증</button>
+      </div>
+    </div>
+    <div class="swatches">
+      <span class="sw" style="background:${p.primary}"></span>
+      <span class="sw" style="background:${p.accent}"></span>
+      <span class="sw" style="background:${p.bg}"></span>
+      <span class="sw" style="background:${p.ink}"></span>
+      <span class="note" style="align-self:center;margin-left:4px">${p.mood}</span>
+    </div>
+  </div>`).join('');
+
+// 이름 후보 (정원 계열 제외) — 연결·동행·누적 컨셉
+const recv = palettes[1]; // 딥 틸+라임 기준으로 워드마크 렌더
+const names = [
+  { wm:'동행', meaning:'함께 가는 길 — 함께도 혼자도(균형). 따뜻한 동반자.' },
+  { wm:'이음', meaning:'잇다 — 담당자와 참여자를 연결. 민주화·연결.' },
+  { wm:'온하루', meaning:'따뜻한(溫) 매일 — 매일의 누적(건강=재산).' },
+  { wm:'곁',   meaning:'곁에 있다 — 짧고 따뜻한 동반자 느낌.' },
+];
+document.getElementById('names').innerHTML = names.map(n => `
+  <div class="ncard">
+    <span class="ico" style="width:40px;height:40px">${iconSVG(recv.c1,recv.c2,recv.leaf)}</span>
+    <div>
+      <div class="wm" style="color:${recv.ink}">${n.wm}</div>
+      <div class="meaning">${n.meaning}</div>
+    </div>
+  </div>`).join('');
+</script>
+</body>
+</html>

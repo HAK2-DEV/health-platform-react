@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- 아이콘: 함께 자라는 잎 — 한 뿌리에서 세 잎이 함께 자람 (다수성 + 함께 + 성장) -->
+  <!-- 32px 썸네일에서도 형태 유지되도록 단순화. 색은 currentColor 변수로 교체 가능 -->
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#34d399"/>
+      <stop offset="1" stop-color="#10b981"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bgGrad)"/>
+
+  <g transform="translate(512 560)" fill="#ffffff">
+    <!-- 가운데 잎 (가장 큼) -->
+    <path d="M 0,120
+             C -70,40 -70,-120 0,-230
+             C 70,-120 70,40 0,120 Z" opacity="0.98"/>
+    <!-- 왼쪽 잎 (살짝 낮게, 바깥으로) -->
+    <path d="M -28,130
+             C -150,80 -210,-30 -225,-150
+             C -110,-130 -10,-40 18,110 Z" opacity="0.9"/>
+    <!-- 오른쪽 잎 (살짝 낮게, 바깥으로) -->
+    <path d="M 28,130
+             C 150,80 210,-30 225,-150
+             C 110,-130 10,-40 -18,110 Z" opacity="0.9"/>
+  </g>
+
+  <!-- 공통 뿌리/줄기 — 셋이 한 뿌리에서 나옴 -->
+  <g transform="translate(512 560)" stroke="#ffffff" stroke-width="34" stroke-linecap="round" fill="none" opacity="0.95">
+    <path d="M 0,120 L 0,230"/>
+  </g>
+  <!-- 잎맥 (중앙 잎) -->
+  <g transform="translate(512 560)" stroke="#10b981" stroke-width="14" stroke-linecap="round" fill="none" opacity="0.35">
+    <path d="M 0,90 L 0,-170"/>
+  </g>
+</svg>
