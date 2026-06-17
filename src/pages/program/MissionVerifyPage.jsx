@@ -13,6 +13,7 @@ import { detectMilestonesReached, resolveStreakMilestones, computeStage } from '
 import { useToast } from '../../contexts/ToastContext'
 import { compressImage } from '../../lib/imageCompression'
 import LoadingState from '../../components/common/LoadingState'
+import ImageCropModal from '../../components/common/ImageCropModal'
 
 // 카테고리 → 히어로 그라데이션
 const CATEGORY_HERO = {
@@ -71,6 +72,8 @@ function MissionVerifyPage() {
   // 입력 상태
   const [selectedFile, setSelectedFile] = useState(null)
   const [previewUrl, setPreviewUrl] = useState(null)
+  const [cropImageSrc, setCropImageSrc] = useState(null)  // 크롭 모달용 원본 objectURL
+  const [isCropOpen, setIsCropOpen] = useState(false)
   const [numericValue, setNumericValue] = useState('')
   const [noteText, setNoteText] = useState('')
   const [feedVisible, setFeedVisible] = useState(true)  // 디폴트 노출 — feed_enabled 인 프로그램만 의미 있음
@@ -119,18 +122,35 @@ function MissionVerifyPage() {
 
   const handleFileSelect = (e) => {
     const file = e.target.files?.[0]
+    e.target.value = ''  // 같은 파일 재선택 허용
     if (!file) return
     if (!file.type.startsWith('image/')) {
       setError('이미지 파일만 업로드할 수 있어요')
       return
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setError('파일 크기는 5MB 이하여야 해요')
+    // 업로드 직전 자동 압축(1280px·0.6MB)하므로 큰 사진도 OK.
+    // 단, 과도하게 큰 원본(메모리 보호)만 차단 — 30MB 상한.
+    if (file.size > 30 * 1024 * 1024) {
+      setError('사진이 너무 커요 (30MB 이하). 다른 사진을 선택해주세요')
       return
     }
     setError(null)
+    // 크롭/편집 모달 — 위치·확대 조정 후 저장 (프로필 사진과 동일 UX)
+    setCropImageSrc(URL.createObjectURL(file))
+    setIsCropOpen(true)
+  }
+
+  // 크롭 완료 → 결과(JPEG Blob)를 File 로 감싸 selectedFile 로 사용 (해시·압축 흐름 그대로)
+  const handleCropComplete = (blob) => {
+    const file = new File([blob], `mission-${Date.now()}.jpg`, { type: 'image/jpeg' })
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
     setSelectedFile(file)
     setPreviewUrl(URL.createObjectURL(file))
+    closeCrop()
+  }
+  const closeCrop = () => {
+    setIsCropOpen(false)
+    setCropImageSrc(prev => { if (prev) URL.revokeObjectURL(prev); return null })
   }
 
   const clearPreview = () => {
@@ -485,7 +505,7 @@ function MissionVerifyPage() {
               >
                 <Upload className="w-9 h-9" />
                 <span className="text-sm font-medium">사진 선택하기</span>
-                <span className="text-xs text-gray-400">JPG / PNG / 최대 5MB</span>
+                <span className="text-xs text-gray-400">JPG / PNG · 업로드 시 자동 최적화</span>
               </button>
             )}
             <input
@@ -632,6 +652,20 @@ function MissionVerifyPage() {
           </button>
         </div>
       </div>
+
+      {/* 사진 크롭/편집 모달 (프로필 사진과 동일 UX) */}
+      <ImageCropModal
+        isOpen={isCropOpen}
+        imageSrc={cropImageSrc}
+        onClose={closeCrop}
+        onComplete={handleCropComplete}
+        aspect={4 / 3}
+        cropShape="rect"
+        outputWidth={1280}
+        outputHeight={960}
+        title="사진 편집"
+        description="드래그하고 확대·축소해 원하는 부분을 맞춰주세요"
+      />
     </div>
   )
 }
