@@ -22,6 +22,7 @@ function ImageCropModal({
   onComplete,
   isUploading,
   aspect = 1,
+  aspectOptions,  // [{label, value}] — 주면 비율 토글 노출 + 출력 크기 자동(최장변 1280)
   cropShape = 'round',
   outputWidth = 512,
   outputHeight = 512,
@@ -31,6 +32,7 @@ function ImageCropModal({
 }) {
   const [crop, setCrop] = useState({ x: 0, y: 0 })
   const [zoom, setZoom] = useState(1)
+  const [activeAspect, setActiveAspect] = useState(aspect)
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null)
   const [processing, setProcessing] = useState(false)
   const [error, setError] = useState(null)
@@ -40,6 +42,7 @@ function ImageCropModal({
     if (isOpen) {
       setCrop({ x: 0, y: 0 })
       setZoom(1)
+      setActiveAspect(aspect)
       setCroppedAreaPixels(null)
       setProcessing(false)
       setError(null)
@@ -57,7 +60,14 @@ function ImageCropModal({
     setProcessing(true)
     setError(null)
     try {
-      const blob = await getCroppedImg(imageSrc, croppedAreaPixels, outputWidth, outputHeight)
+      let outW = outputWidth, outH = outputHeight
+      if (aspectOptions) {
+        // 비율 토글 모드 — 최장변 1280 기준 출력 크기 자동
+        const maxDim = 1280
+        if (activeAspect >= 1) { outW = maxDim; outH = Math.round(maxDim / activeAspect) }
+        else { outH = maxDim; outW = Math.round(maxDim * activeAspect) }
+      }
+      const blob = await getCroppedImg(imageSrc, croppedAreaPixels, outW, outH)
       onComplete(blob)
     } catch (err) {
       console.error('이미지 crop 실패:', err)
@@ -76,6 +86,25 @@ function ImageCropModal({
           {description}
         </p>
 
+        {/* 비율 토글 — aspectOptions 줄 때만 */}
+        {aspectOptions && (
+          <div className="flex gap-1 p-1 bg-gray-100 rounded-pill mb-4">
+            {aspectOptions.map(opt => (
+              <button
+                key={opt.label}
+                type="button"
+                onClick={() => { setActiveAspect(opt.value); setCrop({ x: 0, y: 0 }); setZoom(1) }}
+                disabled={busy}
+                className={`flex-1 py-1.5 text-xs font-medium rounded-pill transition disabled:opacity-50 ${
+                  activeAspect === opt.value ? 'bg-white text-brand-deep shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* 크롭 영역 — cropShape 마스크가 곧 저장될 미리보기 */}
         <div className="relative w-full aspect-square bg-gray-900 rounded-2xl overflow-hidden mb-4">
           {imageSrc && (
@@ -83,7 +112,7 @@ function ImageCropModal({
               image={imageSrc}
               crop={crop}
               zoom={zoom}
-              aspect={aspect}
+              aspect={activeAspect}
               cropShape={cropShape}
               showGrid={false}
               onCropChange={setCrop}

@@ -660,11 +660,14 @@ function MissionVerifyPage() {
         onClose={closeCrop}
         onComplete={handleCropComplete}
         aspect={4 / 3}
+        aspectOptions={[
+          { label: '정사각 1:1', value: 1 },
+          { label: '가로 4:3', value: 4 / 3 },
+          { label: '세로 3:4', value: 3 / 4 },
+        ]}
         cropShape="rect"
-        outputWidth={1280}
-        outputHeight={960}
         title="사진 편집"
-        description="드래그하고 확대·축소해 원하는 부분을 맞춰주세요"
+        description="비율을 고르고, 드래그·확대축소로 맞춰주세요"
       />
     </div>
   )
