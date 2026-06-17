@@ -1,8 +1,8 @@
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { motion } from 'framer-motion'
-import { ChevronRight, Target, FileText } from 'lucide-react'
+import { ChevronRight, Target, FileText, UserMinus } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
 import { formatRelativeKstDay, getTodayKST } from '../../lib/formatters'
@@ -53,6 +53,33 @@ function ProgramStatsUserDetailPage() {
   })
 
   const userInfo = stats?.userStats?.find(u => u.user_id === targetUserId) || null
+
+  // 운영자 — 참여자 내보내기(탈퇴): status='LEFT' → 랭킹·집계 제외 + 인증 차단 (086 RPC)
+  const queryClient = useQueryClient()
+  const removeMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.rpc('remove_participant_from_program', {
+        p_program_id: id,
+        p_user_id: targetUserId,
+      })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.programStats(id) })
+      queryClient.invalidateQueries({ queryKey: ['rankings'] })
+      queryClient.invalidateQueries({ queryKey: ['stats'] })
+      navigate(`/programs/${id}/stats/users`)
+    },
+    onError: (err) => {
+      console.error('참여자 내보내기 실패:', err)
+      alert(err.message || '내보내기에 실패했어요')
+    },
+  })
+  const handleRemove = () => {
+    if (!userInfo) return
+    if (!window.confirm(`${userInfo.nickname} 님을 이 프로그램에서 내보낼까요?\n랭킹·집계에서 제외되고 더 이상 인증할 수 없어요. (기록은 보존)`)) return
+    removeMutation.mutate()
+  }
 
   // 최근 14일 활동 — Intl Asia/Seoul 로 정확
   const recent14Days = useMemo(() => {
@@ -108,11 +135,23 @@ function ProgramStatsUserDetailPage() {
       {/* 유저 헤더 */}
       <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
         <p className="text-xs text-gray-500 mb-2">{program.name}</p>
-        <div className="flex items-center gap-3">
-          <UserAvatar avatarPath={userInfo.avatar_path} nickname={userInfo.nickname} size="lg" />
-          <h1 className="text-2xl font-medium text-gray-800">
-            {userInfo.nickname}
-          </h1>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <UserAvatar avatarPath={userInfo.avatar_path} nickname={userInfo.nickname} size="lg" />
+            <h1 className="text-2xl font-medium text-gray-800 truncate">
+              {userInfo.nickname}
+            </h1>
+          </div>
+          <button
+            type="button"
+            onClick={handleRemove}
+            disabled={removeMutation.isPending}
+            className="flex-shrink-0 inline-flex items-center gap-1 px-3 py-2 text-xs font-medium text-red-600 border border-red-200 rounded-full hover:bg-red-50 transition disabled:opacity-50"
+            title="프로그램에서 내보내기"
+          >
+            <UserMinus className="w-3.5 h-3.5" />
+            {removeMutation.isPending ? '처리 중…' : '내보내기'}
+          </button>
         </div>
       </div>
 
