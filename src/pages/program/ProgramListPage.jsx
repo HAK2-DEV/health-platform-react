@@ -21,8 +21,6 @@ import LoadingState from '../../components/common/LoadingState'
 import ProgramCover from '../../components/common/ProgramCover'
 import Badge from '../../components/common/Badge'
 import NotificationBell from '../../components/common/NotificationBell'
-import ProfileButton from '../../components/common/ProfileButton'
-import BackButton from '../../components/common/BackButton'
 import { CATEGORY_COLORS, calcProgress, progressUrgency } from '../../lib/programVisuals'
 
 // 📋 프로그램 탭 — 3섹션 전체 표시
@@ -172,21 +170,15 @@ function ProgramListPage() {
         />
         <div className="relative max-w-4xl mx-auto px-4 pt-5">
           <div className="flex items-start justify-between gap-3">
-            <div className="flex items-start gap-1.5">
-              <BackButton />
-              <div>
-                <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-800 drop-shadow-sm">
-                  프로그램 <span className="text-xl">🌿</span>
-                </h1>
-                <p className="text-sm font-medium text-gray-700 mt-1.5 leading-relaxed drop-shadow-sm">
-                  나에게 맞는 프로그램을 찾고,<br />꾸준히 건강을 관리해요.
-                </p>
-              </div>
+            <div>
+              <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-800 drop-shadow-sm">
+                프로그램 <span className="text-xl">🌿</span>
+              </h1>
+              <p className="text-sm font-medium text-gray-700 mt-1.5 leading-relaxed drop-shadow-sm">
+                나에게 맞는 프로그램을 찾고,<br />꾸준히 건강을 관리해요.
+              </p>
             </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <NotificationBell />
-              <ProfileButton />
-            </div>
+            <NotificationBell />
           </div>
         </div>
       </div>

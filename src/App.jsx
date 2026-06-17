@@ -7,6 +7,7 @@ import LoadingState from './components/common/LoadingState'
 import { ToastProvider } from './contexts/ToastContext'
 import PwaUpdatePrompt from './components/common/PwaUpdatePrompt'
 import SplashScreen from './components/common/SplashScreen'
+import BottomTabBar from './components/common/BottomTabBar'
 
 // 코드 스플리팅 — 페이지별 lazy chunk 분리 (Day 65 본인 결정)
 //   첫 진입 시 메인 번들(~1.2MB) 한 번에 다운로드 X → 필요한 페이지만 점진적 로드.
@@ -66,12 +67,14 @@ function AppShell() {
     window.scrollTo(0, 0)
   }, [location.pathname])
 
-  // 하단 탭바 제거(본인 결정) — 내비게이션은 홈 허브 + 헤더 아이콘(알림·프로필) + 뒤로가기 버튼으로.
+  // 하단 탭바 — 메인 3탭(홈·프로그램·프로필)에서만 상시 노출. 상세/마법사 등 깊은 화면은 숨기고 뒤로가기.
+  //   알림은 탭이 아니라 헤더 종 아이콘으로 진입(랭킹은 프로그램 안에서).
+  const showTabBar = ['/dashboard', '/programs', '/profile'].includes(location.pathname)
 
   return (
    <div className="app">
       <main
-        className="app-main pb-4"
+        className={`app-main ${showTabBar ? 'pb-24' : 'pb-4'}`}
         style={{ paddingTop: 'max(env(safe-area-inset-top), 0.75rem)' }}
       >
         {/* Suspense — lazy chunk 로딩 중 fallback. variant="page" 로 전체 페이지 스피너 */}
@@ -197,6 +200,9 @@ function AppShell() {
           </Routes>
         </Suspense>
       </main>
+
+      {/* 하단 탭바 — 메인 3탭에서만 */}
+      {showTabBar && <BottomTabBar />}
 
       {/* 새 버전 알림 배너 — 새 SW 대기 시 노출 (PWA prompt 전략) */}
       <PwaUpdatePrompt />

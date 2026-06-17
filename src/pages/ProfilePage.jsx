@@ -8,7 +8,6 @@ import { useNicknameCheck } from '../hooks/useNicknameCheck'
 import { NICKNAME } from '../lib/constants'
 import UserAvatar from '../components/common/UserAvatar'
 import NotificationBell from '../components/common/NotificationBell'
-import BackButton from '../components/common/BackButton'
 import IconBox from '../components/common/IconBox'
 import ImageCropModal from '../components/common/ImageCropModal'
 
@@ -237,14 +236,11 @@ function ProfilePage() {
         />
         <div className="relative max-w-2xl mx-auto px-4 pt-5">
           <div className="flex items-start justify-between gap-3">
-            <div className="flex items-start gap-1.5">
-              <BackButton />
-              <div>
-                <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-800 drop-shadow-sm">
-                  프로필 <span className="text-xl">🌿</span>
-                </h1>
-                <p className="text-sm font-medium text-gray-700 mt-1.5 drop-shadow-sm">당신의 건강 여정을 응원합니다!</p>
-              </div>
+            <div>
+              <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-800 drop-shadow-sm">
+                프로필 <span className="text-xl">🌿</span>
+              </h1>
+              <p className="text-sm font-medium text-gray-700 mt-1.5 drop-shadow-sm">당신의 건강 여정을 응원합니다!</p>
             </div>
             <NotificationBell />
           </div>

@@ -9,7 +9,6 @@ import ProgramBrowseModal from '../components/program/ProgramBrowseModal'
 import WelcomeOperatorModal from '../components/program/WelcomeOperatorModal'
 import LoadingState from '../components/common/LoadingState'
 import ProgramCover from '../components/common/ProgramCover'
-import ProfileButton from '../components/common/ProfileButton'
 import {
   queryKeys,
   fetchMyPrograms,
@@ -151,22 +150,19 @@ function DashboardPage() {
             <p className="text-[14px] font-semibold text-gray-800 pr-4 leading-relaxed pt-1 drop-shadow-sm">
               안녕하세요, 오늘도 건강한 하루 되세요! 🌿
             </p>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <button
-                type="button"
-                className="relative w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-soft hover:shadow-elevated transition"
-                title="알림"
-                onClick={() => navigate('/notifications')}
-              >
-                <Bell className="w-4 h-4 text-gray-600" />
-                {unreadNotifCount > 0 && (
-                  <span className="absolute -top-2 -right-2 min-w-[22px] h-[22px] px-1.5 bg-red-500 text-white text-[11px] font-bold rounded-full flex items-center justify-center leading-none ring-2 ring-white shadow-md">
-                    {unreadNotifCount > 99 ? '99+' : unreadNotifCount}
-                  </span>
-                )}
-              </button>
-              <ProfileButton />
-            </div>
+            <button
+              type="button"
+              className="relative w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-soft flex-shrink-0 hover:shadow-elevated transition"
+              title="알림"
+              onClick={() => navigate('/notifications')}
+            >
+              <Bell className="w-4 h-4 text-gray-600" />
+              {unreadNotifCount > 0 && (
+                <span className="absolute -top-2 -right-2 min-w-[22px] h-[22px] px-1.5 bg-red-500 text-white text-[11px] font-bold rounded-full flex items-center justify-center leading-none ring-2 ring-white shadow-md">
+                  {unreadNotifCount > 99 ? '99+' : unreadNotifCount}
+                </span>
+              )}
+            </button>
           </div>
         </div>
       </motion.div>

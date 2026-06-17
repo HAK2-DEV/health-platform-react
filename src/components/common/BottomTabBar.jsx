@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom'
-import { Home, List } from 'lucide-react'
+import { Home, List, User } from 'lucide-react'
 
 // 4탭 하단 네비 — 본인 UI 레퍼런스 패턴 (SSRD F-LAYOUT-010)
 // 세션 있을 때만 노출 (App.jsx 에서 분기)
@@ -20,6 +20,7 @@ function BottomTabBar() {
   const tabs = [
     { path: '/dashboard', label: '홈',      icon: Home },
     { path: '/programs',  label: '프로그램', icon: List },
+    { path: '/profile',   label: '프로필',   icon: User },
   ]
 
   return (
