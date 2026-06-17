@@ -1,7 +1,7 @@
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { ChevronLeft, ChevronRight, Check, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Check, X, UserPlus } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
 import { formatRelativeKstDay } from '../../lib/formatters'
@@ -99,6 +99,49 @@ function ProgramStatsUsersPage() {
     },
   })
 
+  // 내보낸(LEFT) 참여자 — 통계 목록에서 숨기고, 재참여 허용 섹션에 노출
+  const { data: leftParticipants = [] } = useQuery({
+    queryKey: ['program-left', id],
+    queryFn: async () => {
+      const { data: pp, error } = await supabase
+        .from('program_participants')
+        .select('id, user_id, left_at')
+        .eq('program_id', id)
+        .eq('status', 'LEFT')
+        .order('left_at', { ascending: false })
+      if (error) throw error
+      if (!pp || pp.length === 0) return []
+      const uids = pp.map(r => r.user_id)
+      const { data: users } = await supabase
+        .from('users')
+        .select('id, nickname, avatar_path')
+        .in('id', uids)
+      const umap = new Map((users || []).map(u => [u.id, u]))
+      return pp.map(r => ({ ...r, user: umap.get(r.user_id) || null }))
+    },
+    enabled: !!session && !!id && isOwner,
+  })
+
+  // 재참여 허용 — status 를 ACTIVE 로 복구 (승인 흐름과 동일하게 RLS 로 owner 제한)
+  const restoreMutation = useMutation({
+    mutationFn: async (participationId) => {
+      const { error } = await supabase
+        .from('program_participants')
+        .update({ status: 'ACTIVE', left_at: null })
+        .eq('id', participationId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['program-left', id] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.programStats(id) })
+      queryClient.invalidateQueries({ queryKey: ['rankings'] })
+    },
+    onError: (err) => {
+      console.error('재참여 처리 실패:', err)
+      alert(`재참여 처리에 실패했습니다: ${err.message}`)
+    },
+  })
+
   if (isProgramLoading) {
     return <LoadingState variant="page" />
   }
@@ -128,7 +171,8 @@ function ProgramStatsUsersPage() {
   }
 
   const maxUserCount = stats?.userStats?.[0]?.totalCount || 1
-  const filteredUserStats = stats?.userStats?.filter(u => matchesFilter(u, filterKey)) || []
+  const leftUserIds = new Set(leftParticipants.map(p => p.user_id))
+  const filteredUserStats = stats?.userStats?.filter(u => matchesFilter(u, filterKey) && !leftUserIds.has(u.user_id)) || []
   const activeFilterMeta = filterKey ? FILTER_META[filterKey] : null
 
   return (
@@ -290,6 +334,37 @@ function ProgramStatsUsersPage() {
             )
           })}
         </motion.div>
+      )}
+
+      {/* 내보낸 참여자 — 재참여 허용 */}
+      {leftParticipants.length > 0 && (
+        <div className="mt-8">
+          <h2 className="text-lg font-semibold text-gray-800 mb-1 flex items-center gap-2">
+            🚪 내보낸 참여자 <span className="text-sm text-gray-400">({leftParticipants.length})</span>
+          </h2>
+          <p className="text-xs text-gray-500 mb-3">재참여를 허용하면 다시 활동·랭킹에 포함돼요.</p>
+          <div className="grid gap-2">
+            {leftParticipants.map(p => (
+              <div key={p.id} className="bg-gray-50 border border-gray-200 rounded-2xl p-3 flex items-center gap-3">
+                <UserAvatar avatarPath={p.user?.avatar_path} nickname={p.user?.nickname} size="md" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-gray-700 truncate">{p.user?.nickname || '(?)'}</p>
+                  <p className="text-[11px] text-gray-400">내보냄 · {formatRelativeKstDay(p.left_at)}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => restoreMutation.mutate(p.id)}
+                  disabled={restoreMutation.isPending}
+                  className="flex-shrink-0 inline-flex items-center gap-1 px-3 py-2 text-xs font-medium text-emerald-700 border border-emerald-200 rounded-full hover:bg-emerald-50 transition disabled:opacity-50"
+                  title="재참여 허용"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  재참여
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   )

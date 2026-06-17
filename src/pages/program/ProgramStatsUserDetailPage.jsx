@@ -146,7 +146,7 @@ function ProgramStatsUserDetailPage() {
             type="button"
             onClick={handleRemove}
             disabled={removeMutation.isPending}
-            className="flex-shrink-0 inline-flex items-center gap-1 px-3 py-2 text-xs font-medium text-red-600 border border-red-200 rounded-full hover:bg-red-50 transition disabled:opacity-50"
+            className="flex-shrink-0 inline-flex items-center gap-1 px-3 py-2 text-xs font-semibold text-red-600 border-2 border-red-400 rounded-full hover:bg-red-50 transition disabled:opacity-50"
             title="프로그램에서 내보내기"
           >
             <UserMinus className="w-3.5 h-3.5" />
