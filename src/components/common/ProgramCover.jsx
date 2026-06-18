@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../../supabaseClient'
 import { CATEGORY } from '../../lib/constants'
+import { CATEGORY_HEX } from '../../lib/programVisuals'
 
 // 프로그램 대표 사진 — 상세 헤더 / 카드 / 모달 어디서나 재사용.
 // props:
@@ -25,6 +26,7 @@ const VARIANT_CLS = {
   card: 'w-full aspect-[16/9] rounded-t-2xl',
   banner: 'w-full aspect-[16/7] rounded-t-2xl',     // 모달 헤더용 (짧은 비율, Day 65 본인 결정)
   thumb: 'aspect-square rounded-xl flex-shrink-0',
+  tile: 'w-full aspect-[16/10]',                     // 둘러보기 2열 그리드 카드 상단 (모서리는 부모가 클립)
 }
 
 const VARIANT_EMOJI = {
@@ -32,17 +34,18 @@ const VARIANT_EMOJI = {
   card: 'text-5xl',
   banner: 'text-5xl',
   thumb: 'text-3xl',
+  tile: 'text-5xl',
 }
 
 // 카테고리 KEY → 자체 표지 경로 매핑 (public/illustrations/program-covers/)
 const COVER_BY_CATEGORY = {
-  WALKING: '/illustrations/program-covers/walking.jpg',
-  DIET: '/illustrations/program-covers/diet.jpg',
-  EMPATHY: '/illustrations/program-covers/empathy.jpg',
-  MINDCARE: '/illustrations/program-covers/mindcare.jpg',
-  SLEEP: '/illustrations/program-covers/sleep.jpg',
-  NO_SMOKING: '/illustrations/program-covers/no_smoking.jpg',
-  ETC: '/illustrations/program-covers/etc.jpg',
+  WALKING: '/illustrations/program-covers/walking.png',
+  DIET: '/illustrations/program-covers/diet.png',
+  EMPATHY: '/illustrations/program-covers/empathy.png',
+  MINDCARE: '/illustrations/program-covers/mindcare.png',
+  SLEEP: '/illustrations/program-covers/sleep.png',
+  NO_SMOKING: '/illustrations/program-covers/no_smoking.png',
+  ETC: '/illustrations/program-covers/etc.png',
 }
 
 function ProgramCover({ imagePath, categories, name, variant = 'hero', className = '' }) {
@@ -73,8 +76,15 @@ function ProgramCover({ imagePath, categories, name, variant = 'hero', className
     ? { objectPosition: '15% center' }
     : {}
 
+  // 표지 없을 때(이모지 폴백) — 카테고리 색으로 틴트 (금연=초록 등 카테고리별 구분)
+  const catHex = CATEGORY_HEX[firstCategory] || CATEGORY_HEX.ETC
+  const fallbackBg = showEmoji
+    ? { background: `linear-gradient(135deg, ${catHex}33, ${catHex}14)` }
+    : undefined
+
   return (
     <div
+      style={fallbackBg}
       className={`
         relative overflow-hidden flex items-center justify-center
         bg-gradient-to-br from-emerald-100 via-emerald-50 to-teal-100

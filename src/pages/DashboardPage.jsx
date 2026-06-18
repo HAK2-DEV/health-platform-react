@@ -201,7 +201,7 @@ function DashboardPage() {
   // 오늘의 활동 (값 / 소프트 캡 → 막대 비율)
   const todayMetrics = [
     { label: '미션 완료', value: today?.missionCount ?? 0, cap: 8, img: '/icons/activity/mission.png', bar: 'bg-emerald-500' },
-    { label: '기록 작성', value: today?.recordCount ?? 0, cap: 5, img: '/icons/activity/record.png', bar: 'bg-blue-500' },
+    { label: '기록 작성', value: today?.recordCount ?? 0, cap: 5, img: '/icons/activity/record.png', bar: 'bg-blue-500', scale: 1.7 },
     { label: '댓글 활동', value: today?.commentCount ?? 0, cap: 10, img: '/icons/activity/comment.png', bar: 'bg-amber-500' },
     { label: '획득 점수', value: today?.points ?? 0, cap: 300, img: '/icons/activity/points.png', bar: 'bg-purple-500' },
   ]
@@ -239,16 +239,21 @@ function DashboardPage() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.4 }}
-          className="relative overflow-hidden rounded-[10px] bg-gradient-to-r from-emerald-100 to-teal-50 min-h-[109px]"
+          className="relative overflow-hidden rounded-[10px] bg-[#eef7f1] h-[120px]"
         >
+          {/* 가로형 배너 일러스트 — 전체 배경 (카드와 ~3:1 비율이라 잘림 최소) */}
           <img
             src="/home-header.png"
             alt=""
             aria-hidden="true"
             onError={(e) => { e.currentTarget.style.display = 'none' }}
-            className="absolute inset-0 w-full h-full object-cover object-[center_30%] opacity-90"
+            className="absolute inset-0 w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-white/85 via-white/55 to-transparent" />
+          {/* 좌측 텍스트 영역은 배경색으로 완전히 덮고(이미지 안 보이게), 우측 인물로 갈수록 투명 */}
+          <div
+            className="absolute inset-0"
+            style={{ background: 'linear-gradient(to right, #eef7f1 0%, #eef7f1 36%, rgba(238,247,241,0) 60%)' }}
+          />
           <div className="relative p-4">
             <p className="text-[13px] font-medium text-gray-700 leading-tight drop-shadow-sm">
               오늘도 건강한 하루 되세요! 👋
@@ -293,22 +298,22 @@ function DashboardPage() {
                   categories={featured.categories}
                   name={featured.name}
                   variant="thumb"
-                  className="w-[137px] h-[89px] aspect-auto rounded-xl flex-shrink-0"
+                  className="w-[134px] h-[89px] aspect-auto rounded-xl flex-shrink-0"
                 />
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 flex flex-col gap-[15px]">
                   <div className="flex items-center gap-2">
-                    <h3 className="font-bold text-gray-800 truncate">{featured.name}</h3>
+                    <h3 className="font-bold text-gray-800 truncate leading-tight">{featured.name}</h3>
                     <span className={`inline-flex items-center justify-center w-[33px] h-[16px] rounded-[3px] text-[9px] font-bold flex-shrink-0 ${fUrgency?.urgency === 'ended' ? 'bg-gray-200 text-gray-600' : 'bg-emerald-100 text-emerald-700'}`}>
                       {fUrgency?.urgency === 'ended' ? '종료' : '진행중'}
                     </span>
                   </div>
-                  <p className="text-xs text-gray-500 mt-[4px] flex items-center gap-1">
+                  <p className="text-xs text-gray-500 leading-tight flex items-center gap-1">
                     <Calendar className="w-3 h-3 flex-shrink-0 text-gray-400" />
                     기간 {formatKoreanDate(featured.start_date)} ~ {formatKoreanDate(featured.end_date)}
                   </p>
-                  <div className="flex items-center gap-2 mt-[3px]">
+                  <div className="flex items-center gap-2">
                     <span className="text-xs text-gray-500 flex-shrink-0">진행률</span>
-                    <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                       <div className={`h-full rounded-full ${fUrgency?.barCls || 'bg-emerald-400'}`} style={{ width: `${fProgress}%` }} />
                     </div>
                     <span className={`text-sm font-bold flex-shrink-0 ${fUrgency?.textCls || 'text-emerald-600'}`}>{fProgress}%</span>
@@ -353,14 +358,16 @@ function DashboardPage() {
               const fill = Math.min(100, Math.round((m.value / m.cap) * 100))
               return (
                 <div key={m.label} className={`flex-1 flex flex-col items-center text-center px-2 ${i > 0 ? 'border-l border-gray-200' : ''}`}>
-                  {/* 아이콘 PNG에 투명 채널이 없어(회색 체크무늬 구워짐) 원형으로 클립 + 살짝 확대해 회색 모서리 제거 */}
+                  {/* PNG마다 연한 색 원 크기가 달라(미션·기록은 작음) 클립 안쪽에 회색 링이 남음.
+                      확대 비율을 키워 색 원이 원형 클립을 꽉 채우도록 통일 */}
                   <div className="w-9 h-9 mb-1.5 rounded-full overflow-hidden">
                     <img
                       src={m.img}
                       alt=""
                       aria-hidden="true"
                       onError={(e) => { e.currentTarget.style.visibility = 'hidden' }}
-                      className="w-full h-full object-cover scale-[1.12]"
+                      style={{ transform: `scale(${m.scale ?? 1.4})` }}
+                      className="w-full h-full object-cover"
                     />
                   </div>
                   <p className="text-lg font-extrabold text-gray-900 leading-tight">{m.value}</p>

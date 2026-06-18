@@ -12,6 +12,18 @@ export const CATEGORY_COLORS = {
   ETC:        { bg: 'bg-gray-50',    border: 'border-gray-100',    accent: 'bg-gray-400' },
 }
 
+// 카테고리별 대표 색 (hex) — 칩/진행바/버튼/표지 폴백 틴트 등 동적 색상용.
+//   본인 지정값 (임의, 추후 수정 가능). key 는 CATEGORY 키와 동일.
+export const CATEGORY_HEX = {
+  WALKING: '#22C58B',     // 운동
+  DIET: '#F5B66E',        // 식단
+  EMPATHY: '#F4B8A8',     // 공감
+  MINDCARE: '#F59E0B',    // 마음관리
+  SLEEP: '#9B7CF3',       // 수면
+  NO_SMOKING: '#14B8C4',  // 금연 (시안 청록 — 운동 초록과 구별)
+  ETC: '#A7B4C8',         // 기타
+}
+
 // 시간 기반 진행률 (KST). 시작 전=0, 종료 후=100, 중간=경과/전체 %
 export const calcProgress = (startDate, endDate) => {
   if (!startDate || !endDate) return 0
