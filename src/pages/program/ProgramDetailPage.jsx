@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../../hooks/useAuth'
 import { ChevronLeft, Plus, ChevronRight, Users, Trophy, Pencil, Calendar, Activity, Award, Flame, Check } from 'lucide-react'
+import DoorIcon from '../../components/common/DoorIcon'
 import { supabase } from '../../supabaseClient'
 import { CATEGORY } from '../../lib/constants'
 import { formatKoreanDate, formatKoreanDateTime, isUpcomingByStartDate } from '../../lib/formatters'
@@ -13,6 +14,7 @@ import ConstellationPanel from '../../components/program/ConstellationPanel'
 import PodiumTop3 from '../../components/program/PodiumTop3'
 import ScoreSparkline from '../../components/program/ScoreSparkline'
 import StickyBackBar from '../../components/common/StickyBackBar'
+import Modal from '../../components/common/Modal'
 import ProfileButton from '../../components/common/ProfileButton'
 import UserAvatar from '../../components/common/UserAvatar'
 import EmptyState from '../../components/common/EmptyState'
@@ -30,6 +32,9 @@ const ProgramEditModal = lazy(() => import('../../components/program/ProgramEdit
 const MissionCreateModal = lazy(() => import('../../components/program/MissionCreateModal'))
 const MissionLibraryModal = lazy(() => import('../../components/program/MissionLibraryModal'))
 const OverviewEditModal = lazy(() => import('../../components/program/OverviewEditModal'))
+const ProgramDetailModal = lazy(() => import('../../components/program/ProgramDetailModal'))
+const ParticipantApprovalModal = lazy(() => import('../../components/program/ParticipantApprovalModal'))
+const InviteModal = lazy(() => import('../../components/program/InviteModal'))
 import {
   queryKeys,
   fetchProgram,
@@ -250,6 +255,72 @@ function ProgramDetailPage() {
     enabled: !!session && !!id && !!program && !isOwner,
   })
 
+  // 본인 참여 상태 (자가 탈퇴 버튼용 + 비공개 접근 가드) — 비운영자만
+  const { data: myPart, isLoading: isMyPartLoading } = useQuery({
+    queryKey: ['my-part-status', id, userId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('program_participants')
+        .select('id, status')
+        .eq('program_id', id)
+        .eq('user_id', userId)
+        .maybeSingle()
+      if (error) throw error
+      return data
+    },
+    enabled: !!session && !!id && !!userId && !isOwner,
+  })
+  const isActiveParticipant = myPart?.status === 'ACTIVE'
+
+  // 열람 모드 — 미리보기 허용(preview_enabled) 프로그램의 비참여자. 보기만, 쓰기 차단.
+  //   is_public(검색 노출)과 무관 — 내부 열람은 preview_enabled 가 결정.
+  const isViewer = !!program && !isOwner && !isActiveParticipant && program.preview_enabled && program.status === 'PUBLISHED'
+  const [joinOpen, setJoinOpen] = useState(false)
+  const [isApprovalsOpen, setIsApprovalsOpen] = useState(false)
+  const [isInviteOpen, setIsInviteOpen] = useState(false)
+  const [isPanelOpen, setIsPanelOpen] = useState(false)
+
+  // 승인 대기 신청자 수 — 운영자 패널 「참여자 승인 심사」 배지
+  const { data: pendingCount = 0 } = useQuery({
+    queryKey: ['program-pending-count', id],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('program_participants')
+        .select('id', { count: 'exact', head: true })
+        .eq('program_id', id)
+        .eq('status', 'PENDING')
+      if (error) throw error
+      return count || 0
+    },
+    enabled: !!session && !!id && isOwner,
+  })
+
+  // 참여자 자가 탈퇴 — status='LEFT' (RLS: 본인 행 UPDATE 허용). 랭킹·집계서 제외, 기록 보존.
+  const leaveMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from('program_participants')
+        .update({ status: 'LEFT', left_at: new Date().toISOString() })
+        .eq('program_id', id)
+        .eq('user_id', userId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-part-status', id, userId] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.activePrograms(userId) })
+      queryClient.invalidateQueries({ queryKey: ['rankings'] })
+      navigate('/programs')
+    },
+    onError: (err) => {
+      console.error('탈퇴 실패:', err)
+      alert(`탈퇴에 실패했어요: ${err.message}`)
+    },
+  })
+  const handleLeave = () => {
+    if (!window.confirm(`"${program.name}" 프로그램에서 나갈까요?\n랭킹·집계에서 빠지고, 다시 참여해야 활동할 수 있어요. (기록은 보존)`)) return
+    leaveMutation.mutate()
+  }
+
   // 미션 그루핑 — bundle_title 별. null = 직접 만들기 (단독 카드), string = 라이브러리 묶음 (그룹 카드)
   const missionGroups = useMemo(() => {
     const map = new Map()
@@ -331,6 +402,24 @@ function ProgramDetailPage() {
         <Link to="/dashboard" className="block mt-4 text-emerald-600 hover:underline">
           ← 대시보드로
         </Link>
+      </div>
+    )
+  }
+
+  // 비공개 접근 차단 — 비운영자·비참여자가 공개 아닌(또는 미발행) 프로그램에 들어오면 잠금.
+  //   공개 프로그램은 isViewer(열람 모드)로 통과. 참여 상태 로딩 중엔 깜빡임 방지.
+  if (!isOwner && isMyPartLoading) {
+    return <LoadingState variant="page" />
+  }
+  if (!isOwner && !isActiveParticipant && !isViewer) {
+    return (
+      <div className="px-4 pt-2 pb-6 max-w-4xl mx-auto">
+        <StickyBackBar fallbackPath="/programs" title="둘러보기로" />
+        <div className="text-center py-16">
+          <div className="text-5xl mb-3 leading-none">🔒</div>
+          <p className="text-lg font-bold text-gray-800 mb-1">비공개 프로그램이에요</p>
+          <p className="text-sm text-gray-500">초대·링크로 참여한 회원만 볼 수 있어요.</p>
+        </div>
       </div>
     )
   }
@@ -435,11 +524,24 @@ function ProgramDetailPage() {
                     {urgency.urgency === 'ended' ? '🏁' : urgency.urgency === 'imminent' ? '🔥' : '⏳'} {urgency.label}
                   </span>
                 )}
-                <span className="inline-flex items-center gap-1">
-                  <Users className="w-3.5 h-3.5 text-gray-400" />
-                  <span className="text-gray-500">참여자</span>
-                  <span className="text-gray-800 font-semibold">{ranking.length}명</span>
-                </span>
+                {isOwner ? (
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/programs/${id}/stats/users`)}
+                    className="inline-flex items-center gap-1 hover:text-emerald-700 transition"
+                    title="참여 유저 관리로 이동"
+                  >
+                    <Users className="w-3.5 h-3.5 text-gray-400" />
+                    <span className="text-gray-500">참여자</span>
+                    <span className="text-gray-800 font-semibold underline underline-offset-2 decoration-gray-300">{ranking.length}명</span>
+                  </button>
+                ) : (
+                  <span className="inline-flex items-center gap-1">
+                    <Users className="w-3.5 h-3.5 text-gray-400" />
+                    <span className="text-gray-500">참여자</span>
+                    <span className="text-gray-800 font-semibold">{ranking.length}명</span>
+                  </span>
+                )}
                 {program.ranking_enabled !== false && myRank && (
                   <span className="inline-flex items-center gap-1">
                     <Trophy className="w-3.5 h-3.5 text-amber-400" />
@@ -453,15 +555,71 @@ function ProgramDetailPage() {
         )
       })()}
 
+      {/* 열람 모드 배너 — 공개 프로그램 비참여자 */}
+      {isViewer && (
+        <div className="flex items-center gap-3 mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-2xl">
+          <span className="text-xl flex-shrink-0">👀</span>
+          <p className="flex-1 min-w-0 text-xs text-emerald-800 leading-snug">
+            <span className="font-bold">둘러보는 중이에요.</span> 참여하면 인증·작성·랭킹 참여가 가능해요.
+          </p>
+          <button
+            type="button"
+            onClick={() => setJoinOpen(true)}
+            className="flex-shrink-0 px-3 py-2 bg-gradient-to-r from-emerald-400 to-teal-500 text-white text-xs font-semibold rounded-full hover:from-emerald-500 hover:to-teal-600 transition"
+          >
+            참여 신청하기
+          </button>
+        </div>
+      )}
+
+      {/* 운영자 빠른 액션 — 초대(비공개) + 운영자 패널 (모달). 탭 위에 배치 */}
+      {isOwner && (
+        <div className="flex gap-2 mb-4">
+          {program.status === 'PUBLISHED' && program.join_type === 'INVITE_CODE' && program.invite_code && (
+            <button
+              type="button"
+              onClick={() => setIsInviteOpen(true)}
+              className="flex-1 flex items-center gap-2 px-3 py-2.5 bg-white border border-emerald-200 rounded-2xl hover:bg-emerald-50 transition text-left"
+            >
+              <span className="text-lg flex-shrink-0">🎟️</span>
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-gray-800">초대</div>
+                <div className="text-[11px] text-gray-500 break-keep">링크로 참여자 초대</div>
+              </div>
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setIsPanelOpen(true)}
+            className="relative flex-1 flex items-center gap-2 px-3 py-2.5 bg-white border border-amber-200 rounded-2xl hover:bg-amber-50 transition text-left"
+          >
+            <span className="text-lg flex-shrink-0">⚙️</span>
+            <div className="min-w-0">
+              <div className="text-sm font-semibold text-gray-800">운영자 패널</div>
+              <div className="text-[11px] text-gray-500 break-keep">관리 · 심사 · 통계</div>
+            </div>
+            {pendingCount > 0 && (
+              <span className="absolute top-1.5 right-1.5 min-w-[20px] h-5 px-1.5 bg-red-500 text-white text-[11px] font-bold rounded-full flex items-center justify-center leading-none">
+                {pendingCount > 99 ? '99+' : pendingCount}
+              </span>
+            )}
+          </button>
+        </div>
+      )}
+
       {/* 탭 바 — 개요/미션/퀴즈/커뮤니티/성장. 마지막 탭 라벨은 gamification_type 에 따라 분기.
           본인 결정 (Day 65): 정원/별자리도 「성장」 통합 라벨로 일원화. */}
       {(() => {
         const gType = program.gamification_type || (program.ranking_enabled !== false ? 'RANKING' : null)
-        const growthLabel = gType === 'GARDEN' ? '성장' : gType === 'CONSTELLATION' ? '성장' : gType === 'RANKING' ? '랭킹' : null
+        // 열람자에겐 개인 정원/별자리 대신 랭킹 목록 → 라벨도 '랭킹'
+        const growthLabel = isViewer
+          ? (gType ? '랭킹' : null)
+          : gType === 'GARDEN' ? '성장' : gType === 'CONSTELLATION' ? '성장' : gType === 'RANKING' ? '랭킹' : null
         const tabs = [
           { key: 'overview', label: '개요' },
           { key: 'missions', label: '미션' },
-          { key: 'quizzes', label: '퀴즈' },
+          // 퀴즈는 참여 필요 — 열람자에겐 숨김
+          ...(isViewer ? [] : [{ key: 'quizzes', label: '퀴즈' }]),
           { key: 'community', label: '커뮤니티' },
           ...(growthLabel ? [{ key: 'ranking', label: growthLabel }] : []),
         ]
@@ -500,64 +658,7 @@ function ProgramDetailPage() {
       {/* ─── 개요 탭 ────────────────────────────────────── */}
       {activeTab === 'overview' && (<>
 
-      {/* 운영자 패널 */}
-      {isOwner && (
-        <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-4 mb-6">
-          <h2 className="flex items-center gap-2 text-sm font-medium text-amber-800 mb-3">
-            ⚙️ 운영자 패널
-          </h2>
-          <div className="grid grid-cols-2 gap-2">
-            {/* 개요 글 — 풀너비 (col-span-2). 메인 콘텐츠 작성/수정 액션이라 강조 */}
-            <button
-              type="button"
-              onClick={() => setIsOverviewEditOpen(true)}
-              className="col-span-2 px-3 py-2 bg-white border border-amber-300 hover:border-amber-500 hover:bg-amber-100 rounded text-sm text-amber-800 transition text-left"
-            >
-              📝 개요 글 {program.overview_content?.trim() ? '수정' : '작성'}
-              <span className="block text-xs text-amber-700 break-keep">
-                {program.overview_content?.trim() ? '참여자에게 보이는 안내 글 수정' : '프로그램 소개·공지를 마크다운으로 작성'}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsEditOpen(true)}
-              className="px-3 py-2 bg-white border border-amber-300 hover:border-amber-500 hover:bg-amber-100 rounded text-sm text-amber-800 transition text-left"
-            >
-              ✏️ 프로그램 수정
-              <span className="block text-xs text-amber-700 break-keep">이름·기간·카테고리</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate(`/programs/${id}/posts`)}
-              className="px-3 py-2 bg-white border border-amber-300 hover:border-amber-500 hover:bg-amber-100 rounded text-sm text-amber-800 transition text-left"
-            >
-              📋 게시물 관리
-              <span className="block text-xs text-amber-700 break-keep">퀴즈 생성·관리</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate(`/programs/${id}/reviews`)}
-              className="px-3 py-2 bg-white border border-amber-300 hover:border-amber-500 hover:bg-amber-100 rounded text-sm text-amber-800 transition text-left"
-            >
-              ✅ 인증 심사
-              <span className="block text-xs text-amber-700 break-keep">MANUAL 미션 승인/반려</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate(`/programs/${id}/stats`)}
-              className="px-3 py-2 bg-white border border-amber-300 hover:border-amber-500 hover:bg-amber-100 rounded text-sm text-amber-800 transition text-left"
-            >
-              📊 참여자 통계
-              <span className="block text-xs text-amber-700 break-keep">참여 · 인증 · 미션별 현황</span>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* 초대 링크 카드 — 운영자 + INVITE_CODE + PUBLISHED + 코드 설정됨 일 때만 */}
-      {isOwner && program.status === 'PUBLISHED' && program.join_type === 'INVITE_CODE' && program.invite_code && (
-        <InviteLinkCard code={program.invite_code} />
-      )}
+      {/* 운영자 패널·초대 링크 → 탭 위 빠른 액션 박스 + 모달로 이동 (페이지 하단 모달 렌더) */}
 
       {/* ─── 모의도 콘텐츠 (Day 65 본인 결정, 상태 카드 제거 — 연속을 진행 현황으로 통합) ───
           1) 진행 현황 카드 (활동일/전체 + 참여율 + 누적P + 🔥연속 + 진행률 바)
@@ -684,6 +785,22 @@ function ProgramDetailPage() {
         </div>
       )}
 
+      {/* 참여자 자가 탈퇴 — 자동 승인(FREE) 프로그램 + ACTIVE 참여자 (비운영자).
+          공개/비공개 무관 — 자유 참여한 프로그램은 자유롭게 나갈 수 있게. */}
+      {!isOwner && isActiveParticipant && program.join_type === 'FREE' && (
+        <div className="text-center mb-6">
+          <button
+            type="button"
+            onClick={handleLeave}
+            disabled={leaveMutation.isPending}
+            className="inline-flex items-center gap-1 text-xs font-medium text-gray-400 hover:text-red-500 transition disabled:opacity-50"
+          >
+            <DoorIcon className="w-6 h-6 text-red-500" />
+            <span className="underline underline-offset-2">이 프로그램에서 나가기</span>
+          </button>
+        </div>
+      )}
+
       </>)}
       {/* ─── /개요 탭 ──────────────────────────────────── */}
 
@@ -741,6 +858,8 @@ function ProgramDetailPage() {
                       onDelete={handleMissionDelete}
                       onEdit={(mission) => { setEditingMission(mission); setIsMissionCreateOpen(true) }}
                       programId={id}
+                      viewerMode={isViewer}
+                      onViewerAction={() => setJoinOpen(true)}
                     />
                   </motion.div>
                 )
@@ -858,7 +977,7 @@ function ProgramDetailPage() {
 
       {program.feed_enabled ? (
         <Suspense fallback={<LoadingState text="피드 불러오는 중..." />}>
-          <FeedContent program={program} />
+          <FeedContent program={program} readOnly={isViewer} />
         </Suspense>
       ) : (
         <EmptyState
@@ -872,7 +991,7 @@ function ProgramDetailPage() {
       {/* ─── /커뮤니티 탭 ──────────────────────────────── */}
 
       {/* ─── 성장 탭 (랭킹 / 정원 / 별자리 분기) ───────────────────── */}
-      {activeTab === 'ranking' && (program.gamification_type === 'GARDEN') && (
+      {activeTab === 'ranking' && !isViewer && (program.gamification_type === 'GARDEN') && (
         <GardenPanel
           participation={myParticipation}
           activeDays={overviewData?.activeDays || 0}
@@ -882,7 +1001,7 @@ function ProgramDetailPage() {
           onUpdateGarden={handleUpdateGarden}
         />
       )}
-      {activeTab === 'ranking' && (program.gamification_type === 'CONSTELLATION') && (
+      {activeTab === 'ranking' && !isViewer && (program.gamification_type === 'CONSTELLATION') && (
         <ConstellationPanel
           participation={myParticipation}
           activeDays={overviewData?.activeDays || 0}
@@ -895,7 +1014,7 @@ function ProgramDetailPage() {
 
       {/* 랭킹 — gamification_type=RANKING (또는 legacy ranking_enabled=true) */}
       {activeTab === 'ranking'
-        && (program.gamification_type === 'RANKING' || (!program.gamification_type && program.ranking_enabled !== false))
+        && (isViewer || program.gamification_type === 'RANKING' || (!program.gamification_type && program.ranking_enabled !== false))
         && (<>
       <h2 className="text-lg font-semibold text-gray-800 mb-3">🏆 랭킹</h2>
 
@@ -1005,6 +1124,24 @@ function ProgramDetailPage() {
 
       {/* 모달들 — lazy + 조건부 렌더. isOpen=true 되는 순간만 chunk 다운로드 */}
       <Suspense fallback={null}>
+        {joinOpen && (
+          <ProgramDetailModal
+            program={program}
+            isOpen={true}
+            onClose={() => {
+              setJoinOpen(false)
+              queryClient.invalidateQueries({ queryKey: ['my-part-status', id, userId] })
+              queryClient.invalidateQueries({ queryKey: queryKeys.activePrograms(userId) })
+            }}
+          />
+        )}
+        {isApprovalsOpen && (
+          <ParticipantApprovalModal
+            programId={id}
+            isOpen={true}
+            onClose={() => setIsApprovalsOpen(false)}
+          />
+        )}
         {isEditOpen && (
           <ProgramEditModal
             program={program}
@@ -1043,57 +1180,80 @@ function ProgramDetailPage() {
             onBack={editingMission ? undefined : () => { setIsMissionCreateOpen(false); setIsLibraryOpen(true) }}
           />
         )}
+        {isInviteOpen && program.invite_code && (
+          <InviteModal
+            code={program.invite_code}
+            isOpen={true}
+            onClose={() => setIsInviteOpen(false)}
+          />
+        )}
       </Suspense>
-    </div>
-  )
-}
 
-// 초대 링크 카드 — 운영자가 INVITE_CODE 프로그램의 가입 링크를 복사하도록 도와줌
-//   링크 형식: <origin>/join?program=<id>&code=<code>
-//   복사 버튼 → 클립보드 → 짧은 "복사 완료" 토스트
-function InviteLinkCard({ code }) {
-  const [copied, setCopied] = useState(false)
-  const origin = typeof window !== 'undefined' ? window.location.origin : ''
-  // code 단독 — 운영자가 ID 알릴 필요 없음 (UNIQUE 보장)
-  const inviteUrl = `${origin}/join?code=${encodeURIComponent(code)}`
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(inviteUrl)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch (err) {
-      console.error('복사 실패:', err)
-      // fallback — select + execCommand 는 모바일에서 흔히 실패. 대신 prompt 로 보여주기
-      window.prompt('이 링크를 복사해서 공유해주세요:', inviteUrl)
-    }
-  }
-
-  return (
-    <div className="bg-sky-50 border-2 border-sky-200 rounded-2xl p-4 mb-6">
-      <h2 className="flex items-center gap-2 text-sm font-medium text-sky-800 mb-2">
-        🎟️ 초대 링크
-      </h2>
-      <p className="text-xs text-sky-700 mb-3 leading-relaxed">
-        아래 링크를 공유하면 받은 사람이 코드 입력 없이 프로그램 미리보기로 이동해요. 거기서 "참여하기"를 눌러야 가입됩니다.
-      </p>
-      <div className="flex items-center gap-2 bg-white border border-sky-200 rounded-xl p-2 mb-2">
-        <code className="flex-1 text-xs text-gray-700 truncate select-all">{inviteUrl}</code>
-        <button
-          type="button"
-          onClick={handleCopy}
-          className={`px-3 py-1.5 text-xs font-medium rounded-lg transition flex-shrink-0 ${
-            copied
-              ? 'bg-emerald-500 text-white'
-              : 'bg-sky-500 hover:bg-sky-600 text-white'
-          }`}
-        >
-          {copied ? '✓ 복사됨' : '복사'}
-        </button>
-      </div>
-      <p className="text-[11px] text-sky-600">
-        초대 코드: <span className="font-mono font-medium">{code}</span>
-      </p>
+      {/* 운영자 패널 모달 — 탭 위 「운영자 패널」 박스에서 진입 */}
+      {isOwner && (
+        <Modal isOpen={isPanelOpen} onClose={() => setIsPanelOpen(false)}>
+          <div className="p-5">
+            <h2 className="flex items-center gap-2 text-lg font-bold text-gray-800 mb-4">⚙️ 운영자 패널</h2>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => { setIsPanelOpen(false); setIsOverviewEditOpen(true) }}
+                className="col-span-2 px-3 py-2 bg-white border border-amber-300 hover:border-amber-500 hover:bg-amber-100 rounded text-sm text-amber-800 transition text-left"
+              >
+                📝 개요 글 {program.overview_content?.trim() ? '수정' : '작성'}
+                <span className="block text-xs text-amber-700 break-keep">
+                  {program.overview_content?.trim() ? '참여자에게 보이는 안내 글 수정' : '프로그램 소개·공지를 마크다운으로 작성'}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setIsPanelOpen(false); setIsEditOpen(true) }}
+                className="px-3 py-2 bg-white border border-amber-300 hover:border-amber-500 hover:bg-amber-100 rounded text-sm text-amber-800 transition text-left"
+              >
+                ✏️ 프로그램 수정
+                <span className="block text-xs text-amber-700 break-keep">이름·기간·카테고리</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setIsPanelOpen(false); navigate(`/programs/${id}/posts`) }}
+                className="px-3 py-2 bg-white border border-amber-300 hover:border-amber-500 hover:bg-amber-100 rounded text-sm text-amber-800 transition text-left"
+              >
+                📋 게시물 관리
+                <span className="block text-xs text-amber-700 break-keep">퀴즈 생성·관리</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setIsPanelOpen(false); navigate(`/programs/${id}/reviews`) }}
+                className="px-3 py-2 bg-white border border-amber-300 hover:border-amber-500 hover:bg-amber-100 rounded text-sm text-amber-800 transition text-left"
+              >
+                ✅ 미션 인증 심사
+                <span className="block text-xs text-amber-700 break-keep">MANUAL 미션 승인/반려</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setIsPanelOpen(false); setIsApprovalsOpen(true) }}
+                className="relative px-3 py-2 bg-white border border-amber-300 hover:border-amber-500 hover:bg-amber-100 rounded text-sm text-amber-800 transition text-left"
+              >
+                🙋 참여자 승인 심사
+                <span className="block text-xs text-amber-700 break-keep">신청자 답변 확인 · 승인/거절</span>
+                {pendingCount > 0 && (
+                  <span className="absolute top-1.5 right-1.5 min-w-[20px] h-5 px-1.5 bg-red-500 text-white text-[11px] font-bold rounded-full flex items-center justify-center leading-none">
+                    {pendingCount > 99 ? '99+' : pendingCount}
+                  </span>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setIsPanelOpen(false); navigate(`/programs/${id}/stats`) }}
+                className="px-3 py-2 bg-white border border-amber-300 hover:border-amber-500 hover:bg-amber-100 rounded text-sm text-amber-800 transition text-left"
+              >
+                📊 참여자 통계
+                <span className="block text-xs text-amber-700 break-keep">참여 · 인증 · 미션별 현황</span>
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }

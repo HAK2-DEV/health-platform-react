@@ -85,6 +85,14 @@ function JoinByCodePage() {
     }
   }
 
+  // 비로그인으로 초대링크 진입 시 — 로그인/회원가입 완료 후 이 화면으로 복귀하도록 경로 저장.
+  // (소비/제거는 HomePage 가 1회만 — ref 가드로 StrictMode 안전)
+  useEffect(() => {
+    if (!session && urlCode) {
+      sessionStorage.setItem('post_auth_redirect', window.location.pathname + window.location.search)
+    }
+  }, [session, urlCode])
+
   // URL 에 code 있고 로그인 됐으면 lookup 자동 (가입은 X — 미리보기까지만)
   useEffect(() => {
     if (autoTried) return
@@ -113,7 +121,11 @@ function JoinByCodePage() {
         </p>
         <button
           type="button"
-          onClick={() => navigate('/login')}
+          onClick={() => {
+            // 로그인/회원가입(닉네임) 완료 후 이 초대 화면으로 자동 복귀
+            sessionStorage.setItem('post_auth_redirect', window.location.pathname + window.location.search)
+            navigate('/login')
+          }}
           className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-medium rounded-2xl shadow-md transition"
         >
           로그인하러 가기
@@ -180,27 +192,46 @@ function JoinByCodePage() {
           isJoining={status === 'joining'}
           onCancel={() => { setStatus('idle'); setProgram(null) }}
           onJoin={callJoin}
+          onPreview={() => navigate(`/programs/${program.id}`)}
         />
       )}
 
-      {/* 참여 완료 */}
+      {/* 참여 완료 / 승인 대기 */}
       {status === 'joined' && joinResult && (
-        <div className="bg-emerald-50 border border-emerald-200 p-6 rounded-2xl text-center">
-          <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-2" />
-          <p className="text-base font-medium text-emerald-800 mb-1">
-            {joinResult.already_joined ? '이미 참여 중이에요' : joinResult.rejoined ? '다시 참여 완료' : '참여 완료!'}
-          </p>
-          <p className="text-sm text-emerald-700 mb-5 break-words">
-            {joinResult.program_name}
-          </p>
-          <button
-            type="button"
-            onClick={() => navigate(`/programs/${joinResult.program_id}`)}
-            className="inline-flex items-center justify-center px-6 py-2.5 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-medium rounded-full shadow-md transition"
-          >
-            프로그램으로 이동
-          </button>
-        </div>
+        joinResult.pending ? (
+          <div className="bg-amber-50 border border-amber-200 p-6 rounded-2xl text-center">
+            <div className="text-4xl mb-2 leading-none">⏳</div>
+            <p className="text-base font-medium text-amber-800 mb-1">
+              {joinResult.already_applied ? '이미 신청했어요' : '참여 신청 완료'}
+            </p>
+            <p className="text-sm text-amber-700 mb-2 break-words">{joinResult.program_name}</p>
+            <p className="text-xs text-amber-600 mb-5 break-keep">운영자가 승인하면 활동을 시작할 수 있어요.</p>
+            <button
+              type="button"
+              onClick={() => navigate('/dashboard')}
+              className="inline-flex items-center justify-center px-6 py-2.5 bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-500 hover:to-orange-500 text-white font-medium rounded-full shadow-md transition"
+            >
+              확인
+            </button>
+          </div>
+        ) : (
+          <div className="bg-emerald-50 border border-emerald-200 p-6 rounded-2xl text-center">
+            <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-2" />
+            <p className="text-base font-medium text-emerald-800 mb-1">
+              {joinResult.already_joined ? '이미 참여 중이에요' : joinResult.rejoined ? '다시 참여 완료' : '참여 완료!'}
+            </p>
+            <p className="text-sm text-emerald-700 mb-5 break-words">
+              {joinResult.program_name}
+            </p>
+            <button
+              type="button"
+              onClick={() => navigate(`/programs/${joinResult.program_id}`)}
+              className="inline-flex items-center justify-center px-6 py-2.5 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-medium rounded-full shadow-md transition"
+            >
+              프로그램으로 이동
+            </button>
+          </div>
+        )
       )}
     </div>
   )
@@ -208,7 +239,7 @@ function JoinByCodePage() {
 
 // 미리보기 카드 — ProgramDetailModal 의 시각 구조를 차용 (banner + 카테고리 + 메타 + 소개 박스).
 // 차이점: 모달이 아니라 페이지 안에 인라인 렌더, sticky 대신 콘텐츠 바로 아래 액션 버튼.
-function PreviewCard({ program, isJoining, onCancel, onJoin }) {
+function PreviewCard({ program, isJoining, onCancel, onJoin, onPreview }) {
   const { data: joinInfo } = useQuery({
     queryKey: queryKeys.programJoinInfo(program?.id),
     queryFn: () => fetchProgramJoinInfo(program.id),
@@ -246,7 +277,9 @@ function PreviewCard({ program, isJoining, onCancel, onJoin }) {
   ]
 
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+    <>
+    {/* pb-24 — 하단 고정 버튼이 소개 글을 가리지 않게 여백 확보 */}
+    <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden pb-24">
       {/* 표지 banner + 우상단 초대 코드 배지 + 하단 페이드 */}
       <div className="relative overflow-hidden">
         <ProgramCover
@@ -256,26 +289,24 @@ function PreviewCard({ program, isJoining, onCancel, onJoin }) {
           variant="banner"
         />
         <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-b from-transparent via-white/60 to-white pointer-events-none" />
-        <span className="absolute top-3 right-3 z-10 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
-          <Lock className="w-3 h-3" />
-          초대 코드 참여
-        </span>
+        {/* 상단 바 — 카테고리(좌) + 초대 코드 배지(우) */}
+        <div className="absolute top-3 left-3 right-3 z-10 flex items-start justify-between gap-2">
+          <div className="flex flex-wrap gap-1.5">
+            {categoryLabels.map(c => (
+              <span key={c.key} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-white/90 text-gray-700 shadow-sm">
+                <span>{c.emoji}</span>{c.label}
+              </span>
+            ))}
+          </div>
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 shadow-sm flex-shrink-0 whitespace-nowrap">
+            <Lock className="w-3 h-3" />
+            초대 코드 참여
+          </span>
+        </div>
       </div>
 
       {/* 텍스트 영역 — 표지 하단과 자연스럽게 겹치도록 살짝 끌어올림 */}
       <div className="p-6 -mt-4 relative">
-        {/* 카테고리 칩 (제목 위) */}
-        {categoryLabels.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mb-2">
-            {categoryLabels.map(c => (
-              <span key={c.key} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-gray-100 text-gray-700 text-xs">
-                <span>{c.emoji}</span>
-                {c.label}
-              </span>
-            ))}
-          </div>
-        )}
-
         {/* 제목 + 운영자 */}
         <h2 className="text-xl font-bold text-gray-800 mb-2 leading-tight">
           {program.name}
@@ -336,32 +367,45 @@ function PreviewCard({ program, isJoining, onCancel, onJoin }) {
         })()}
 
         {/* 안내 */}
-        <p className="text-xs text-emerald-700 mb-3 p-2 bg-emerald-50 rounded-xl text-center">
-          아래 버튼을 누르면 이 프로그램에 참여돼요.
+        <p className="text-xs text-emerald-700 mb-3 p-2 bg-emerald-50 rounded-xl text-center break-keep">
+          {program.invite_requires_approval
+            ? '아래 버튼을 누르면 운영자 승인 대기로 신청돼요.'
+            : '아래 버튼을 누르면 이 프로그램에 참여돼요.'}
         </p>
 
-        {/* 액션 */}
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={isJoining}
-            className="flex-1 px-3 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-xl transition disabled:opacity-50"
-          >
-            다른 코드
-          </button>
-          <button
-            type="button"
-            onClick={onJoin}
-            disabled={isJoining}
-            className="flex-[2] inline-flex items-center justify-center gap-1.5 px-4 py-3 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-medium rounded-xl shadow-md disabled:from-gray-300 disabled:to-gray-300 transition"
-          >
-            {isJoining && <Loader2 className="w-4 h-4 animate-spin" />}
-            {isJoining ? '참여 중...' : '참여하기'}
-          </button>
-        </div>
       </div>
     </div>
+
+    {/* 하단 고정 버튼 — 둘러보기 + 참여 신청하기. 한 화면에서 스크롤 없이 노출 */}
+    <div
+      className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-sm border-t border-gray-100 px-4 py-3"
+      style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0.75rem)' }}
+    >
+      <div className="max-w-md mx-auto flex gap-2">
+        {program.preview_enabled && (
+          <button
+            type="button"
+            onClick={onPreview}
+            disabled={isJoining}
+            className="flex-1 px-3 py-3 bg-white border-2 border-emerald-200 text-emerald-700 text-sm font-semibold rounded-xl hover:bg-emerald-50 transition disabled:opacity-50"
+          >
+            👀 둘러보기
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={onJoin}
+          disabled={isJoining}
+          className={`${program.preview_enabled ? 'flex-[2]' : 'flex-1'} inline-flex items-center justify-center gap-1.5 px-4 py-3 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-medium rounded-xl shadow-md disabled:from-gray-300 disabled:to-gray-300 transition`}
+        >
+          {isJoining && <Loader2 className="w-4 h-4 animate-spin" />}
+          {isJoining
+            ? (program.invite_requires_approval ? '신청 중...' : '참여 중...')
+            : (program.invite_requires_approval ? '참여 신청하기' : '참여하기')}
+        </button>
+      </div>
+    </div>
+    </>
   )
 }
 

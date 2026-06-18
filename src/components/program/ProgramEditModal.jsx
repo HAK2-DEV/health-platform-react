@@ -19,6 +19,8 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
   const [endDate, setEndDate] = useState('')
   const [maxParticipants, setMaxParticipants] = useState('')
   const [isPublic, setIsPublic] = useState(false)
+  const [previewEnabled, setPreviewEnabled] = useState(false)
+  const [inviteRequiresApproval, setInviteRequiresApproval] = useState(false)
   const [feedEnabled, setFeedEnabled] = useState(false)
   const [rankingEnabled, setRankingEnabled] = useState(true)
   const [podiumEnabled, setPodiumEnabled] = useState(false)
@@ -38,6 +40,8 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
       setEndDate(program.end_date || '')
       setMaxParticipants(program.max_participants ?? '')
       setIsPublic(!!program.is_public)
+      setPreviewEnabled(!!program.preview_enabled)
+      setInviteRequiresApproval(!!program.invite_requires_approval)
       setFeedEnabled(!!program.feed_enabled)
       // ranking_enabled DEFAULT true — undefined/null 이면 켜진 상태로 (마법사와 동일 동작)
       setRankingEnabled(program.ranking_enabled !== false)
@@ -94,6 +98,8 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
         end_date: endDate,
         max_participants: maxParticipants === '' ? null : parseInt(maxParticipants),
         is_public: isPublic,
+        preview_enabled: previewEnabled,
+        ...(program.join_type === 'INVITE_CODE' ? { invite_requires_approval: inviteRequiresApproval } : {}),
         feed_enabled: feedEnabled,
         // ranking_enabled OFF 면 podium/trend/period_filter 모두 자동 OFF (마법사 패턴 일관성)
         ranking_enabled: rankingEnabled,
@@ -260,6 +266,42 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
               다른 사용자들의 둘러보기에 노출돼요
             </p>
           </div>
+
+          {/* 참여 전 미리보기 — 검색 노출과 별개로 내부 열람 허용 */}
+          <div className="mb-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={previewEnabled}
+                onChange={(e) => setPreviewEnabled(e.target.checked)}
+                disabled={isSaving}
+                className="w-4 h-4 text-emerald-500"
+              />
+              <span className="text-sm text-gray-700">참여 전 둘러보기 허용</span>
+            </label>
+            <p className="text-xs text-gray-500 mt-1 ml-6">
+              비참여자도 참여 전 미션·커뮤니티·랭킹을 볼 수 있어요 (인증·작성은 참여 후)
+            </p>
+          </div>
+
+          {/* 초대코드 승인 — 비공개(INVITE_CODE) 프로그램만 */}
+          {program.join_type === 'INVITE_CODE' && (
+            <div className="mb-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={inviteRequiresApproval}
+                  onChange={(e) => setInviteRequiresApproval(e.target.checked)}
+                  disabled={isSaving}
+                  className="w-4 h-4 text-emerald-500"
+                />
+                <span className="text-sm text-gray-700">초대코드 입장 시 운영자 승인</span>
+              </label>
+              <p className="text-xs text-gray-500 mt-1 ml-6 break-keep leading-relaxed">
+                켜면 코드를 입력해도 바로 참여되지 않고 승인 대기로 들어가요 (코드 유출 대비)
+              </p>
+            </div>
+          )}
 
           {/* 초대 코드 — INVITE_CODE 프로그램만 노출 */}
           {program.join_type === 'INVITE_CODE' && (

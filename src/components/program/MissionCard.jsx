@@ -22,6 +22,8 @@ function MissionCard({
   onEdit,
   programId,
   navigateState,
+  viewerMode,        // 공개 프로그램 비참여자 열람 — 인증 버튼 대신 '참여 필요'
+  onViewerAction,    // 열람자가 인증 시도 시 (참여 모달 열기)
 }) {
   const navigate = useNavigate()
 
@@ -94,6 +96,15 @@ function MissionCard({
         >
           🚫 {inactiveLabel}
         </span>
+      ) : viewerMode ? (
+        <button
+          type="button"
+          onClick={onViewerAction}
+          className="inline-flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-500 hover:bg-gray-200 text-xs rounded font-medium whitespace-nowrap transition"
+          title="참여하면 인증할 수 있어요"
+        >
+          🔒 참여 필요
+        </button>
       ) : reachedLimit ? (
         <div className="text-right">
           {hasPending ? (

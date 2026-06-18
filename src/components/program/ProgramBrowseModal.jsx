@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Calendar, Users, ChevronRight } from 'lucide-react'
+import { Calendar, Users, ChevronRight, Search, X } from 'lucide-react'
 import Modal from '../common/Modal'
 import ProgramCover from '../common/ProgramCover'
 import { CATEGORY } from '../../lib/constants'
@@ -20,6 +20,7 @@ const SORTS = [
 function ProgramBrowseModal({ isOpen, onClose, programs = [], onSelect }) {
   const [cat, setCat] = useState('all')
   const [sort, setSort] = useState('latest')
+  const [query, setQuery] = useState('')
 
   const programIds = useMemo(() => programs.map(p => p.id), [programs])
   // 인기순 + 카드 참여자수 표시용 — 모달 열렸을 때만 조회
@@ -37,9 +38,16 @@ function ProgramBrowseModal({ isOpen, onClose, programs = [], onSelect }) {
   }, [programs])
 
   const filtered = useMemo(() => {
-    const list = cat === 'all'
+    const q = query.trim().toLowerCase()
+    let list = cat === 'all'
       ? [...programs]
       : programs.filter(p => (p.categories || []).includes(cat))
+    if (q) {
+      list = list.filter(p =>
+        (p.name || '').toLowerCase().includes(q)
+        || (p.description || '').toLowerCase().includes(q)
+      )
+    }
     list.sort((a, b) => {
       if (sort === 'popular') return (counts[b.id] || 0) - (counts[a.id] || 0)
       // 최신순 — created_at(ISO) 내림차순, 없으면 start_date fallback
@@ -48,7 +56,7 @@ function ProgramBrowseModal({ isOpen, onClose, programs = [], onSelect }) {
       return bd.localeCompare(ad)
     })
     return list
-  }, [programs, cat, sort, counts])
+  }, [programs, cat, sort, counts, query])
 
   const chipCls = (active) =>
     `flex-shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-pill text-sm transition border ${
@@ -61,6 +69,28 @@ function ProgramBrowseModal({ isOpen, onClose, programs = [], onSelect }) {
     <Modal isOpen={isOpen} onClose={onClose}>
       <div className="p-5">
         <h2 className="text-lg font-bold text-gray-800 mb-3 pr-8">🔍 프로그램 둘러보기</h2>
+
+        {/* 검색바 — 이름·설명 */}
+        <div className="relative mb-3">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="프로그램 이름·설명 검색..."
+            className="w-full pl-9 pr-9 py-2.5 bg-gray-50 border border-gray-200 rounded-full text-sm focus:outline-none focus:border-emerald-400 focus:bg-white transition"
+          />
+          {query && (
+            <button
+              type="button"
+              onClick={() => setQuery('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 transition"
+              title="검색 지우기"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
 
         {/* 카테고리 칩 — 가로 스크롤. 전체 + 존재하는 카테고리만 */}
         <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
@@ -96,7 +126,7 @@ function ProgramBrowseModal({ isOpen, onClose, programs = [], onSelect }) {
 
         {/* 리스트 */}
         {filtered.length === 0 ? (
-          <EmptyState icon="🔍" title="해당 카테고리에 프로그램이 없어요" />
+          <EmptyState icon="🔍" title={query.trim() ? '검색 결과가 없어요' : '해당 카테고리에 프로그램이 없어요'} />
         ) : (
           <div className="grid grid-cols-1 gap-2.5">
             {filtered.map(program => {

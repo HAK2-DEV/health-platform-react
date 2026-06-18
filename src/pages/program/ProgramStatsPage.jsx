@@ -134,7 +134,7 @@ function ProgramStatsPage() {
             </div>
             <div className="flex-1 min-w-0">
               <h3 className="font-medium text-gray-800 mb-0.5">
-                👥 유저별 인증 현황
+                👥 참여 유저 관리
               </h3>
               <p className="text-xs text-gray-500">
                 {userCount === 0

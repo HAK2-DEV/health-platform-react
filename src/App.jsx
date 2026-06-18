@@ -1,4 +1,4 @@
-import { Routes, Route, useLocation } from 'react-router-dom'
+import { Routes, Route, useLocation, useNavigate } from 'react-router-dom'
 import { lazy, Suspense, useEffect } from 'react'
 import './index.css'
 import './App.css'
@@ -41,6 +41,7 @@ const QuizSolvePage = lazy(() => import('./pages/program/QuizSolvePage'))
 const QuizResultsPage = lazy(() => import('./pages/program/QuizResultsPage'))
 const MissionVerifyPage = lazy(() => import('./pages/program/MissionVerifyPage'))
 const ProgramListPage = lazy(() => import('./pages/program/ProgramListPage'))
+const RecordPage = lazy(() => import('./pages/RecordPage'))
 const RankingsPage = lazy(() => import('./pages/RankingsPage'))
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage'))
 const ProfilePage = lazy(() => import('./pages/ProfilePage'))
@@ -59,6 +60,19 @@ const OperatorGuidePage = lazy(() => import('./pages/OperatorGuidePage'))
 
 function AppShell() {
   const location = useLocation()
+  const navigate = useNavigate()
+
+  // 콜드 스타트 시 진입 화면 정규화 — 본인 결정 (Day 67)
+  //   브라우저/설치형 PWA 가 직전에 보던 메인 탭(둘러보기/프로필)으로 "복원"되면
+  //   "/" 를 거치지 않아 홈이 아닌 화면으로 시작됨. 이때만 홈으로 보낸다.
+  //   딥링크(/programs/:id, /login, 통계 등)는 정규화 대상이 아니라 그대로 유지.
+  useEffect(() => {
+    if (['/programs', '/profile', '/rankings'].includes(window.location.pathname)) {
+      navigate('/dashboard', { replace: true })
+    }
+    // 최초 마운트 1회만
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // 라우트 변경 시 무조건 페이지 상단부터 시작 — 본인 결정 (Day 55)
   //   다른 페이지로 넘어가면 스크롤 위치가 어디든 reset
@@ -67,9 +81,9 @@ function AppShell() {
     window.scrollTo(0, 0)
   }, [location.pathname])
 
-  // 하단 탭바 — 메인 3탭(홈·프로그램·프로필)에서만 상시 노출. 상세/마법사 등 깊은 화면은 숨기고 뒤로가기.
-  //   알림은 탭이 아니라 헤더 종 아이콘으로 진입(랭킹은 프로그램 안에서).
-  const showTabBar = ['/dashboard', '/programs', '/profile'].includes(location.pathname)
+  // 하단 탭바 — 메인 5탭(홈·프로그램·기록하기·랭킹·프로필)에서만 상시 노출.
+  //   기록하기는 라우트가 아니라 액션(+ 버튼). 깊은 화면은 숨기고 뒤로가기.
+  const showTabBar = ['/dashboard', '/programs', '/rankings', '/profile'].includes(location.pathname)
 
   return (
    <div className="app">
@@ -157,6 +171,9 @@ function AppShell() {
             } />
             <Route path="/programs" element={
               <ProtectedRoute><ProgramListPage /></ProtectedRoute>
+            } />
+            <Route path="/record" element={
+              <ProtectedRoute><RecordPage /></ProtectedRoute>
             } />
             <Route path="/rankings" element={
               <ProtectedRoute><RankingsPage /></ProtectedRoute>

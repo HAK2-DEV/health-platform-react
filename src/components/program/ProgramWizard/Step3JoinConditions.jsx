@@ -1,12 +1,25 @@
 import { useState } from 'react'
-import { JOIN_TYPE_LIST } from '../../../lib/constants'
 import { generateInviteCode } from '../../../lib/queries'
+
+// 참여 승인 — 자동(즉시) / 운영자 승인. 공개·비공개 공통.
+//   공개+자동=FREE, 공개+승인=APPROVAL, 비공개+자동=INVITE_CODE,
+//   비공개+승인=INVITE_CODE+invite_requires_approval (collectData 에서 도출)
+const APPROVAL_MODES = [
+  { key: 'auto', emoji: '⚡', label: '자동 승인', description: '신청하면 바로 참여돼요' },
+  { key: 'approval', emoji: '✅', label: '운영자 승인', description: '운영자가 승인해야 참여할 수 있어요' },
+]
 
 // 마법사 Step3 (구 Step5Complete 의 참여 조건 입력 부분)
 // 본인 (가) 진화 — Step3 features / Step4 scoring 폐기 후
 function Step3JoinConditions({ initialData, onNext, onSave, onPrev }) {
-  const [joinType, setJoinType] = useState(initialData?.join_type || 'FREE')
   const [isPublic, setIsPublic] = useState(initialData?.is_public || false)
+  const [previewEnabled, setPreviewEnabled] = useState(initialData?.preview_enabled || false)
+  // 참여 승인 모드 — 기존 join_type 에서 도출
+  const [approvalMode, setApprovalMode] = useState(
+    initialData?.join_type === 'APPROVAL' ? 'approval'
+      : initialData?.join_type === 'INVITE_CODE' ? (initialData?.invite_requires_approval ? 'approval' : 'auto')
+        : 'auto'
+  )
   const [maxParticipants, setMaxParticipants] = useState(initialData?.max_participants || '')
   const [inviteCode, setInviteCode] = useState(initialData?.invite_code || '')
   // 입장 질문 — APPROVAL 일 때만 의미. 토글 OFF → NULL / ON → 질문 텍스트
@@ -14,27 +27,41 @@ function Step3JoinConditions({ initialData, onNext, onSave, onPrev }) {
   const [entryQuestion, setEntryQuestion] = useState(initialData?.entry_question || '')
   const [error, setError] = useState(null)
 
+  // 공개+승인일 때만 입장질문 사용 (비공개는 코드로 들어와 운영자 승인 — 질문 없음)
+  const showEntryQuestion = isPublic && approvalMode === 'approval'
+
   const validate = () => {
-    if (!joinType) return '참여 방식을 선택해주세요'
-    // 초대 코드 — 빈 칸 허용 (저장 시 자동 생성)
-    if (joinType === 'APPROVAL' && hasEntryQuestion && !entryQuestion.trim()) {
+    if (showEntryQuestion && hasEntryQuestion && !entryQuestion.trim()) {
       return '입장 질문을 입력하거나 토글을 꺼주세요'
     }
     return null
   }
 
-  const collectData = () => ({
-    join_type: joinType,
-    is_public: isPublic,
-    max_participants: maxParticipants === '' ? null : parseInt(maxParticipants),
-    // INVITE_CODE 인데 빈 칸이면 자동 생성 (6자리 영숫자, 혼동 글자 제외)
-    invite_code: joinType === 'INVITE_CODE'
-      ? (inviteCode.trim() || generateInviteCode())
-      : null,
-    entry_question: (joinType === 'APPROVAL' && hasEntryQuestion)
-      ? entryQuestion.trim()
-      : null,
-  })
+  const collectData = () => {
+    const base = {
+      is_public: isPublic,
+      preview_enabled: previewEnabled,
+      max_participants: maxParticipants === '' ? null : parseInt(maxParticipants),
+    }
+    if (isPublic) {
+      // 공개 → 둘러보기로 참여. 자동=FREE / 승인=APPROVAL
+      return {
+        ...base,
+        join_type: approvalMode === 'approval' ? 'APPROVAL' : 'FREE',
+        invite_code: null,
+        invite_requires_approval: false,
+        entry_question: (approvalMode === 'approval' && hasEntryQuestion) ? entryQuestion.trim() : null,
+      }
+    }
+    // 비공개 → 초대코드로만 참여 (빈 칸이면 자동 생성). 승인 여부는 invite_requires_approval
+    return {
+      ...base,
+      join_type: 'INVITE_CODE',
+      invite_code: inviteCode.trim() || generateInviteCode(),
+      invite_requires_approval: approvalMode === 'approval',
+      entry_question: null,
+    }
+  }
 
   const handleNext = () => {
     const err = validate()
@@ -53,54 +80,79 @@ function Step3JoinConditions({ initialData, onNext, onSave, onPrev }) {
         3단계: 참여 조건
       </h2>
       <p className="text-sm text-gray-600 mb-6 break-keep">
-        참여 방식과 공개 여부를 설정해주세요
+        공개 범위와 참여 방식을 설정해주세요
       </p>
 
-      {/* 참여 방식 */}
+      {/* 공개 범위 — 비공개 / 공개 */}
       <div className="mb-6">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          참여 방식
-        </label>
-        <div className="space-y-2">
-          {JOIN_TYPE_LIST.map(type => {
-            const isSelected = joinType === type.key
+        <label className="block text-sm font-medium text-gray-700 mb-2">공개 범위</label>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => setIsPublic(false)}
+            className={`p-3 rounded-md border-2 text-left transition ${!isPublic ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 bg-white'}`}
+          >
+            <div className={`font-medium ${!isPublic ? 'text-emerald-700' : 'text-gray-800'}`}>🔒 비공개</div>
+            <div className="text-xs text-gray-600 mt-0.5 break-keep leading-relaxed">둘러보기에 안 보여요. 초대·링크로만 참여</div>
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsPublic(true)}
+            className={`p-3 rounded-md border-2 text-left transition ${isPublic ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 bg-white'}`}
+          >
+            <div className={`font-medium ${isPublic ? 'text-emerald-700' : 'text-gray-800'}`}>🌍 공개</div>
+            <div className="text-xs text-gray-600 mt-0.5 break-keep leading-relaxed">둘러보기에 노출돼 누구나 발견</div>
+          </button>
+        </div>
+      </div>
+
+      {/* 참여 전 미리보기 — 검색 노출(공개)과 별개로 내부 열람 허용 여부 */}
+      <div className="mb-6">
+        <label className="block text-sm font-medium text-gray-700 mb-2">참여 전 둘러보기</label>
+        <button
+          type="button"
+          onClick={() => setPreviewEnabled(!previewEnabled)}
+          className={`w-full flex items-center justify-between gap-3 p-3 rounded-md border-2 text-left transition ${previewEnabled ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 bg-white'}`}
+        >
+          <div className="min-w-0">
+            <div className={`font-medium ${previewEnabled ? 'text-emerald-700' : 'text-gray-800'}`}>👀 미리보기 허용</div>
+            <div className="text-xs text-gray-600 mt-0.5 break-keep leading-relaxed">
+              {previewEnabled
+                ? '참여 전에도 미션·커뮤니티·랭킹을 둘러볼 수 있어요 (인증·작성은 참여 후)'
+                : '참여해야 내부를 볼 수 있어요'}
+            </div>
+          </div>
+          <span className={`flex-shrink-0 w-10 h-6 rounded-full transition relative ${previewEnabled ? 'bg-emerald-500' : 'bg-gray-300'}`}>
+            <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${previewEnabled ? 'left-[18px]' : 'left-0.5'}`} />
+          </span>
+        </button>
+      </div>
+
+      {/* 참여 승인 — 자동 / 운영자 승인 */}
+      <div className="mb-6">
+        <label className="block text-sm font-medium text-gray-700 mb-2">참여 승인</label>
+        <div className="grid grid-cols-2 gap-2">
+          {APPROVAL_MODES.map(m => {
+            const isSelected = approvalMode === m.key
             return (
-              <label
-                key={type.key}
-                className={`
-                  flex items-center gap-2.5 p-3 rounded-md border-2 cursor-pointer transition
-                  ${isSelected ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 bg-white'}
-                `}
+              <button
+                key={m.key}
+                type="button"
+                onClick={() => setApprovalMode(m.key)}
+                className={`p-3 rounded-md border-2 text-left transition ${isSelected ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 bg-white'}`}
               >
-                <input
-                  type="radio"
-                  name="joinType"
-                  value={type.key}
-                  checked={isSelected}
-                  onChange={(e) => setJoinType(e.target.value)}
-                  className="text-emerald-500 flex-shrink-0"
-                />
-                <span className="text-xl flex-shrink-0">{type.emoji}</span>
-                <div className="flex-1 min-w-0">
-                  <div className={`font-medium ${isSelected ? 'text-emerald-700' : 'text-gray-800'}`}>
-                    {type.label}
-                  </div>
-                  <div className="text-xs text-gray-600 break-keep leading-relaxed">
-                    {type.description}
-                  </div>
-                </div>
-              </label>
+                <div className={`font-medium ${isSelected ? 'text-emerald-700' : 'text-gray-800'}`}>{m.emoji} {m.label}</div>
+                <div className="text-xs text-gray-600 mt-0.5 break-keep leading-relaxed">{m.description}</div>
+              </button>
             )
           })}
         </div>
       </div>
 
-      {/* 초대 코드 (INVITE_CODE 모드 시) — 빈 칸이면 자동 생성 */}
-      {joinType === 'INVITE_CODE' && (
+      {/* 비공개 → 초대 코드 안내 + 코드 (빈 칸이면 자동 생성) */}
+      {!isPublic && (
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            초대 코드 (선택)
-          </label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">초대 코드</label>
           <input
             type="text"
             value={inviteCode}
@@ -108,14 +160,17 @@ function Step3JoinConditions({ initialData, onNext, onSave, onPrev }) {
             placeholder="비우면 자동 생성 (예: HEALTH2026)"
             className="w-full px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500"
           />
-          <p className="text-xs text-gray-500 mt-1">
-            비우면 6자리 코드가 자동 생성돼요. 직접 입력하면 그 값으로 (중복이면 저장 시 안내).
+          <p className="text-xs text-gray-500 mt-1 break-keep leading-relaxed">
+            🔒 비공개 프로그램은 <b>초대 코드/링크로만</b> 참여해요. 비우면 6자리 코드가 자동 생성돼요.
+            {approvalMode === 'approval'
+              ? ' 코드를 입력하면 운영자 승인 대기로 들어가요.'
+              : ' 코드를 입력하면 바로 참여돼요.'}
           </p>
         </div>
       )}
 
-      {/* 입장 질문 (APPROVAL 모드 시) */}
-      {joinType === 'APPROVAL' && (
+      {/* 입장 질문 — 공개 + 운영자 승인일 때만 */}
+      {showEntryQuestion && (
         <div className="mb-6">
           <button
             type="button"
@@ -161,11 +216,11 @@ function Step3JoinConditions({ initialData, onNext, onSave, onPrev }) {
                 onChange={(e) => setEntryQuestion(e.target.value)}
                 placeholder="예: 이 프로그램에 참여하려는 이유를 알려주세요"
                 rows={3}
-                maxLength={300}
+                maxLength={150}
                 className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-500 text-sm resize-none"
               />
               <p className="text-[11px] text-gray-500 mt-1 text-right">
-                {entryQuestion.length}/300
+                {entryQuestion.length}/150
               </p>
             </div>
           )}
@@ -188,26 +243,6 @@ function Step3JoinConditions({ initialData, onNext, onSave, onPrev }) {
           />
           <span className="text-gray-500 flex-shrink-0">명</span>
         </div>
-      </div>
-
-      {/* 공개 여부 */}
-      <div className="mb-6">
-        <label className="flex items-start gap-3 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={isPublic}
-            onChange={(e) => setIsPublic(e.target.checked)}
-            className="mt-1 text-emerald-500 w-5 h-5"
-          />
-          <div>
-            <div className="font-medium text-gray-800">
-              공개 검색 허용
-            </div>
-            <div className="text-sm text-gray-600">
-              다른 사용자들이 둘러볼 수 있어요
-            </div>
-          </div>
-        </label>
       </div>
 
       {/* 에러 */}

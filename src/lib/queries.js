@@ -67,6 +67,25 @@ export const queryKeys = {
   programOverview: (programId, userId) => ['program-overview', programId, userId],
   // 프로그램 참여 모달용 정보 (운영자 닉네임 + 참여자 수 + 미션 정보)
   programJoinInfo: (programId) => ['program-join-info', programId],
+  // 홈 통계 카드 (Day 67 초안) — 참여자 관점 / 운영자 관점
+  myParticipantStats: (userId) => ['home-stats', 'participant', userId],
+  myOperatorStats: (userId, programIds) =>
+    ['home-stats', 'operator', userId, [...(programIds || [])].sort().join(',')],
+  // 홈 「오늘의 활동 요약」 (Day 68)
+  myTodayActivity: (userId) => ['home-stats', 'today-activity', userId],
+}
+
+// 이번 주 시작(월요일 00:00 KST)의 절대 시점 — 통계 "이번 주" 경계용.
+//   KST 는 DST 없음 → 일 단위 빼기 안전.
+const kstWeekStart = () => {
+  const now = new Date()
+  const todayKst = formatKstDate(now)
+  const wd = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Seoul', weekday: 'short' }).format(now)
+  const order = { Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 }
+  const offset = order[wd] ?? 0
+  const monday = new Date(`${todayKst}T00:00:00+09:00`)
+  monday.setTime(monday.getTime() - offset * 24 * 60 * 60 * 1000)
+  return monday
 }
 
 // ─── 쿼리 함수들 ─────────────────────────────────────────────
@@ -128,6 +147,100 @@ export const fetchActiveParticipantCounts = async (programIds) => {
   return map
 }
 
+// 홈 통계 — 참여자 관점 (Day 67 초안)
+//   이번주 인증 횟수 / 연속 인증 일수(전 프로그램 통합) / 누적 포인트 / 이번주 포인트
+export const fetchMyParticipantStats = async (userId) => {
+  const [verifRes, ledgerRes] = await Promise.all([
+    supabase.from('verifications').select('submitted_at').eq('user_id', userId).eq('status', 'APPROVED'),
+    supabase.from('score_ledgers').select('point, created_at').eq('user_id', userId),
+  ])
+  if (verifRes.error) throw verifRes.error
+  if (ledgerRes.error) throw ledgerRes.error
+
+  const verifs = verifRes.data || []
+  const ledgers = ledgerRes.data || []
+  const weekStart = kstWeekStart()
+
+  // 이번주 인증
+  const weekVerifs = verifs.filter(v => new Date(v.submitted_at) >= weekStart).length
+
+  // 연속 인증 일수 — 오늘(없으면 어제)부터 거꾸로 KST 일자 연속 카운트
+  const approvedDates = new Set(verifs.map(v => formatKstDate(new Date(v.submitted_at))))
+  const todayKst = formatKstDate(new Date())
+  const cursor = new Date(`${todayKst}T00:00:00+09:00`)
+  if (!approvedDates.has(todayKst)) cursor.setDate(cursor.getDate() - 1)
+  let streak = 0
+  for (let i = 0; i < 400; i++) {
+    if (approvedDates.has(formatKstDate(cursor))) {
+      streak++
+      cursor.setDate(cursor.getDate() - 1)
+    } else break
+  }
+
+  // 포인트
+  const totalPoints = ledgers.reduce((s, r) => s + (r.point || 0), 0)
+  const weekPoints = ledgers
+    .filter(r => new Date(r.created_at) >= weekStart)
+    .reduce((s, r) => s + (r.point || 0), 0)
+
+  return { weekVerifs, streak, totalPoints, weekPoints }
+}
+
+// 홈 통계 — 운영자 관점 (Day 67 초안)
+//   총 참여자수(내 모든 프로그램 합) / 이번주 인증률(이번주 인증한 참여자 ÷ 총 참여자)
+export const fetchMyOperatorStats = async (userId, programIds) => {
+  if (!programIds || programIds.length === 0) return { totalParticipants: 0, weekVerifyRate: 0 }
+  const weekStart = kstWeekStart()
+
+  const counts = await fetchActiveParticipantCounts(programIds)
+  const totalParticipants = Object.values(counts).reduce((s, c) => s + (c || 0), 0)
+
+  const { data: verifs, error } = await supabase
+    .from('verifications')
+    .select('user_id, missions!inner(program_id)')
+    .in('missions.program_id', programIds)
+    .eq('status', 'APPROVED')
+    .gte('submitted_at', weekStart.toISOString())
+  if (error) throw error
+
+  const activeUsersThisWeek = new Set((verifs || []).map(v => v.user_id)).size
+  const weekVerifyRate = totalParticipants > 0
+    ? Math.round((activeUsersThisWeek / totalParticipants) * 100)
+    : 0
+
+  return { totalParticipants, weekVerifyRate }
+}
+
+// 홈 「오늘의 활동 요약」 (Day 68) — 오늘(KST) 기준
+//   미션 완료(APPROVED+PENDING 인증 수) / 기록 작성(numeric|note 있는 인증) / 댓글 활동 / 획득 점수
+export const fetchMyTodayActivity = async (userId) => {
+  const todayKst = formatKstDate(new Date())
+  const startISO = new Date(`${todayKst}T00:00:00+09:00`).toISOString()
+  const [vRes, cRes, lRes] = await Promise.all([
+    supabase.from('verifications')
+      .select('id, numeric_value, note, status')
+      .eq('user_id', userId)
+      .gte('submitted_at', startISO),
+    supabase.from('post_comments')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .gte('created_at', startISO),
+    supabase.from('score_ledgers')
+      .select('point')
+      .eq('user_id', userId)
+      .gte('created_at', startISO),
+  ])
+  if (vRes.error) throw vRes.error
+  if (lRes.error) throw lRes.error
+
+  const verifs = (vRes.data || []).filter(v => v.status === 'APPROVED' || v.status === 'PENDING_REVIEW')
+  const missionCount = verifs.length
+  const recordCount = verifs.filter(v => v.numeric_value != null || (v.note && v.note.trim())).length
+  const commentCount = cRes.count || 0
+  const points = (lRes.data || []).reduce((s, r) => s + (r.point || 0), 0)
+  return { missionCount, recordCount, commentCount, points }
+}
+
 export const fetchPublicPrograms = async (excludeUserId) => {
   // KST 오늘 (YYYY-MM-DD) — 종료된 프로그램 필터용
   const todayKst = new Intl.DateTimeFormat('en-CA', {
@@ -163,7 +276,7 @@ export const fetchProgram = async (programId) => {
 export const fetchMission = async (missionId) => {
   const { data, error } = await supabase
     .from('missions')
-    .select('*, programs!inner(id, name, categories, feed_enabled)')
+    .select('*, programs!inner(id, name, categories, feed_enabled, owner_id)')
     .eq('id', missionId)
     .maybeSingle()
   if (error) throw error

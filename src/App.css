@@ -45,9 +45,9 @@ input, textarea {
   color: var(--color-text);
 }
 
-button {
-  color: inherit;
-}
+/* button { color: inherit } 제거 — Tailwind v4 Preflight 가 layer 안에서 동일 규칙을
+   이미 제공. 여기 unlayered 로 두면 text-white/text-* 색상 유틸리티를 cascade layer
+   상 항상 덮어써서 버튼 글씨색이 무시됨(토글 활성 글씨가 검정으로 보이던 원인). */
 
 /* === 기본 페이지 === */
 body {

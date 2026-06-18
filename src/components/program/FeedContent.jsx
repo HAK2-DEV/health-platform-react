@@ -18,7 +18,7 @@ import LoadingState from '../../components/common/LoadingState'
 //   program: 프로그램 객체 (feed_enabled 체크 + program.id 사용)
 //   targetVerificationId: 알림 ?v= 자동 스크롤 (ProgramFeedPage 단독 진입용)
 //   targetCommentId: 알림 ?c= 자동 스크롤 (위와 동일)
-function FeedContent({ program, targetVerificationId = null, targetCommentId = null }) {
+function FeedContent({ program, targetVerificationId = null, targetCommentId = null, readOnly = false }) {
   const id = program.id
   const { session } = useAuth()
   const queryClient = useQueryClient()
@@ -232,9 +232,22 @@ function FeedContent({ program, targetVerificationId = null, targetCommentId = n
                   </p>
                 </div>
               </div>
-              <span className="text-[11px] text-gray-400 whitespace-nowrap pt-0.5">
-                {formatRelativeKstDay(post.submitted_at)}
-              </span>
+              <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                <span className="text-[11px] text-gray-400 whitespace-nowrap pt-0.5">
+                  {formatRelativeKstDay(post.submitted_at)}
+                </span>
+                {canEditNote && !isEditingNote && (
+                  <button
+                    type="button"
+                    onClick={() => startEditNote(post)}
+                    className="flex items-center gap-1 px-2 py-0.5 text-[11px] text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition"
+                    title="소감 수정"
+                  >
+                    <Pencil className="w-3 h-3" />
+                    수정
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* 사진 (있으면) */}
@@ -261,8 +274,8 @@ function FeedContent({ program, targetVerificationId = null, targetCommentId = n
               </div>
             )}
 
-            {/* 숫자/소감 (있으면) */}
-            {(hasNumeric || hasNote || canEditNote) && (
+            {/* 숫자/소감 (있으면). 수정 버튼은 헤더(날짜 아래)로 이동 */}
+            {(hasNumeric || hasNote || isEditingNote) && (
               <div className="px-4 pt-2 space-y-1">
                 {hasNumeric && (
                   <p className="text-sm text-gray-700 flex items-center gap-1">
@@ -309,24 +322,11 @@ function FeedContent({ program, targetVerificationId = null, targetCommentId = n
                     )}
                   </div>
                 ) : (
-                  <div className="flex items-start gap-2">
-                    {hasNote && (
-                      <p className="text-sm text-gray-700 whitespace-pre-wrap flex-1 min-w-0">
-                        {post.note}
-                      </p>
-                    )}
-                    {canEditNote && (
-                      <button
-                        type="button"
-                        onClick={() => startEditNote(post)}
-                        className="flex items-center gap-1 px-2 py-1 text-[11px] text-emerald-600 hover:bg-emerald-50 rounded-lg transition flex-shrink-0"
-                        title="소감 수정"
-                      >
-                        <Pencil className="w-3 h-3" />
-                        수정
-                      </button>
-                    )}
-                  </div>
+                  hasNote && (
+                    <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                      {post.note}
+                    </p>
+                  )
                 )}
               </div>
             )}
@@ -335,9 +335,9 @@ function FeedContent({ program, targetVerificationId = null, targetCommentId = n
             <div className="flex items-center gap-3 px-4 pt-3 pb-1">
               <button
                 type="button"
-                onClick={() => toggleLikeMutation.mutate({ verificationId: post.id, isLiked: likedByMe })}
-                disabled={toggleLikeMutation.isPending}
-                className="flex items-center gap-1 text-sm transition disabled:opacity-50"
+                onClick={() => { if (!readOnly) toggleLikeMutation.mutate({ verificationId: post.id, isLiked: likedByMe }) }}
+                disabled={toggleLikeMutation.isPending || readOnly}
+                className="flex items-center gap-1 text-sm transition disabled:opacity-100 disabled:cursor-default"
               >
                 <Heart className={`w-5 h-5 ${likedByMe ? 'fill-red-500 text-red-500' : 'text-gray-600'}`} />
                 <span className={likedByMe ? 'text-red-500 font-medium' : 'text-gray-600'}>
@@ -372,6 +372,7 @@ function FeedContent({ program, targetVerificationId = null, targetCommentId = n
                 myUserId={myUserId}
                 isProgramOwner={isProgramOwner}
                 targetCommentId={targetCommentId}
+                readOnly={readOnly}
               />
             )}
 
@@ -405,11 +406,13 @@ const isLongComment = (content) => !!content && (content.length > 60 || content.
 
 // 한 게시물의 댓글 — 펼칠 때만 마운트되어 그 게시물 댓글을 lazy fetch + 입력.
 //   댓글 추가/삭제 시 자기 쿼리 + 피드(댓글 수) 무효화. 알림 ?c= 딥링크는 자체 스크롤·하이라이트.
-function CommentsSection({ verificationId, programId, myUserId, isProgramOwner, targetCommentId }) {
+function CommentsSection({ verificationId, programId, myUserId, isProgramOwner, targetCommentId, readOnly = false }) {
   const queryClient = useQueryClient()
   const [input, setInput] = useState('')
   const [expanded, setExpanded] = useState(() => new Set())
   const [highlight, setHighlight] = useState(null)
+  const [editingId, setEditingId] = useState(null)   // 수정 중인 댓글 id
+  const [editText, setEditText] = useState('')
   const refs = useRef({})
   const toggleExpanded = (cid) => setExpanded(prev => {
     const next = new Set(prev)
@@ -444,8 +447,21 @@ function CommentsSection({ verificationId, programId, myUserId, isProgramOwner, 
     onSuccess: invalidate,
     onError: (err) => alert(`댓글 삭제에 실패했습니다: ${err.message}`),
   })
+  const updateMutation = useMutation({
+    mutationFn: async ({ commentId, content }) => {
+      const { error } = await supabase.from('post_comments')
+        .update({ content: content.trim(), updated_at: new Date().toISOString() })
+        .eq('id', commentId)
+      if (error) throw error
+    },
+    onSuccess: () => { setEditingId(null); setEditText(''); invalidate() },
+    onError: (err) => alert(`댓글 수정에 실패했습니다: ${err.message}`),
+  })
   const submit = () => { const c = input.trim(); if (c) addMutation.mutate(c) }
   const handleDelete = (cid) => { if (window.confirm('이 댓글을 삭제할까요?')) deleteMutation.mutate(cid) }
+  const startEdit = (c) => { setEditingId(c.id); setEditText(c.content) }
+  const cancelEdit = () => { setEditingId(null); setEditText('') }
+  const saveEdit = (cid) => { const c = editText.trim(); if (c) updateMutation.mutate({ commentId: cid, content: c }) }
 
   // 알림 ?c= 딥링크 — 해당 댓글로 스크롤 + 하이라이트
   useEffect(() => {
@@ -470,10 +486,13 @@ function CommentsSection({ verificationId, programId, myUserId, isProgramOwner, 
       ) : (
         <div className="px-4 pt-3 space-y-1.5">
           {comments.map(c => {
-            const canDelete = c.user_id === myUserId || isProgramOwner
+            const isMine = c.user_id === myUserId
+            const canDelete = isMine || isProgramOwner
             const isLong = isLongComment(c.content)
             const clamped = isLong && !expanded.has(c.id)
             const isHi = highlight === c.id
+            const isEditing = editingId === c.id
+            const isEdited = c.updated_at && c.created_at && new Date(c.updated_at) - new Date(c.created_at) > 1000
             return (
               <div
                 key={c.id}
@@ -482,21 +501,56 @@ function CommentsSection({ verificationId, programId, myUserId, isProgramOwner, 
               >
                 <UserAvatar avatarPath={c.user?.avatar_path} nickname={c.user?.nickname} size="sm" className="mt-0.5" />
                 <div className="flex-1 min-w-0">
-                  <p className={`break-words ${clamped ? 'line-clamp-2' : ''}`}>
-                    <span className="font-medium text-gray-800">{c.user?.nickname || '(?)'}</span>{' '}
-                    <span className="text-gray-700 whitespace-pre-wrap">{c.content}</span>
-                  </p>
-                  {isLong && (
-                    <button type="button" onClick={() => toggleExpanded(c.id)} className="text-xs text-gray-400 hover:text-gray-600 mt-0.5">
-                      {expanded.has(c.id) ? '접기' : '... 더 보기'}
-                    </button>
+                  {isEditing ? (
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="text"
+                        value={editText}
+                        onChange={(e) => setEditText(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveEdit(c.id) }
+                          if (e.key === 'Escape') cancelEdit()
+                        }}
+                        maxLength={200}
+                        autoFocus
+                        disabled={updateMutation.isPending}
+                        className="flex-1 min-w-0 px-2.5 py-1 text-sm bg-white rounded-full border border-emerald-300 focus:outline-none focus:ring-1 focus:ring-emerald-400 disabled:opacity-50"
+                      />
+                      <button type="button" onClick={() => saveEdit(c.id)} disabled={updateMutation.isPending || !editText.trim()}
+                        className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 flex-shrink-0 disabled:opacity-40">저장</button>
+                      <button type="button" onClick={cancelEdit}
+                        className="text-xs text-gray-400 hover:text-gray-600 flex-shrink-0">취소</button>
+                    </div>
+                  ) : (
+                    <>
+                      <p className={`break-words ${clamped ? 'line-clamp-2' : ''}`}>
+                        <span className="font-medium text-gray-800">{c.user?.nickname || '(?)'}</span>{' '}
+                        <span className="text-gray-700 whitespace-pre-wrap">{c.content}</span>
+                        {isEdited && <span className="text-[11px] text-gray-400 ml-1">(수정됨)</span>}
+                      </p>
+                      {isLong && (
+                        <button type="button" onClick={() => toggleExpanded(c.id)} className="text-xs text-gray-400 hover:text-gray-600 mt-0.5">
+                          {expanded.has(c.id) ? '접기' : '... 더 보기'}
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
-                {canDelete && (
-                  <button type="button" onClick={() => handleDelete(c.id)} disabled={deleteMutation.isPending}
-                    className="p-0.5 text-gray-400 hover:text-red-500 transition flex-shrink-0 disabled:opacity-40" title="댓글 삭제">
-                    <Trash2 className="w-3 h-3" />
-                  </button>
+                {!isEditing && (
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    {isMine && (
+                      <button type="button" onClick={() => startEdit(c)}
+                        className="p-1.5 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-full transition" title="댓글 수정">
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                    )}
+                    {canDelete && (
+                      <button type="button" onClick={() => handleDelete(c.id)} disabled={deleteMutation.isPending}
+                        className="p-1.5 text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-full transition disabled:opacity-40" title="댓글 삭제">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             )
@@ -504,7 +558,10 @@ function CommentsSection({ verificationId, programId, myUserId, isProgramOwner, 
         </div>
       )}
 
-      {/* 댓글 입력 */}
+      {/* 댓글 입력 — 열람 모드(비참여자)에서는 안내로 대체 */}
+      {readOnly ? (
+        <p className="px-4 py-3 text-xs text-gray-400 text-center">참여하면 댓글을 남길 수 있어요</p>
+      ) : (
       <div className="flex items-center gap-2 px-4 py-3">
         <input
           type="text"
@@ -521,6 +578,7 @@ function CommentsSection({ verificationId, programId, myUserId, isProgramOwner, 
           <Send className="w-4 h-4" />
         </button>
       </div>
+      )}
     </div>
   )
 }

@@ -2,7 +2,8 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { motion } from 'framer-motion'
-import { ChevronRight, Target, FileText, UserMinus } from 'lucide-react'
+import { ChevronRight, Target, FileText } from 'lucide-react'
+import DoorIcon from '../../components/common/DoorIcon'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
 import { formatRelativeKstDay, getTodayKST } from '../../lib/formatters'
@@ -53,6 +54,23 @@ function ProgramStatsUserDetailPage() {
   })
 
   const userInfo = stats?.userStats?.find(u => u.user_id === targetUserId) || null
+
+  // 입장 질문 답변 — 승인제 + 입장질문 있는 프로그램일 때 표시 (program_participants.entry_answer)
+  const { data: participant } = useQuery({
+    queryKey: ['participant', 'entry', id, targetUserId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('program_participants')
+        .select('entry_answer')
+        .eq('program_id', id)
+        .eq('user_id', targetUserId)
+        .maybeSingle()
+      if (error) throw error
+      return data
+    },
+    enabled: !!session && !!id && !!targetUserId && isOwner,
+  })
+  const showEntryAnswer = program?.join_type === 'APPROVAL' && !!program?.entry_question && !!participant?.entry_answer
 
   // 운영자 — 참여자 내보내기(탈퇴): status='LEFT' → 랭킹·집계 제외 + 인증 차단 (086 RPC)
   const queryClient = useQueryClient()
@@ -135,10 +153,10 @@ function ProgramStatsUserDetailPage() {
       {/* 유저 헤더 */}
       <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
         <p className="text-xs text-gray-500 mb-2">{program.name}</p>
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <UserAvatar avatarPath={userInfo.avatar_path} nickname={userInfo.nickname} size="lg" />
-            <h1 className="text-2xl font-medium text-gray-800 truncate">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <UserAvatar avatarPath={userInfo.avatar_path} nickname={userInfo.nickname} size="md" />
+            <h1 className="text-xl font-medium text-gray-800 break-words leading-tight min-w-0">
               {userInfo.nickname}
             </h1>
           </div>
@@ -149,10 +167,19 @@ function ProgramStatsUserDetailPage() {
             className="flex-shrink-0 inline-flex items-center gap-1 px-3 py-2 text-xs font-semibold text-red-600 border-2 border-red-400 rounded-full hover:bg-red-50 transition disabled:opacity-50"
             title="프로그램에서 내보내기"
           >
-            <UserMinus className="w-3.5 h-3.5" />
+            <DoorIcon className="w-5 h-5" />
             {removeMutation.isPending ? '처리 중…' : '내보내기'}
           </button>
         </div>
+
+        {/* 입장 질문 답변 — 승인제 + 입장질문 프로그램만 */}
+        {showEntryAnswer && (
+          <div className="mt-4 p-3 bg-emerald-50/60 border border-emerald-100 rounded-xl">
+            <p className="text-[11px] font-semibold text-emerald-700 mb-1">입장 질문</p>
+            <p className="text-xs text-gray-500 mb-1.5 whitespace-pre-wrap break-all">{program.entry_question}</p>
+            <p className="text-sm text-gray-800 whitespace-pre-wrap break-all">💬 {participant.entry_answer}</p>
+          </div>
+        )}
       </div>
 
       {/* 핵심 지표 4카드 */}

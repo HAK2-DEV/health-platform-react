@@ -69,6 +69,24 @@ function MissionVerifyPage() {
 
   const program = mission?.programs
 
+  // 인증 권한 — ACTIVE 참여자 또는 운영자만. 공개 프로그램 '둘러보기'(비참여자)는 차단.
+  const isOwner = program?.owner_id === session?.user?.id
+  const { data: myPart, isLoading: isPartLoading } = useQuery({
+    queryKey: ['my-part-status', programId, session?.user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('program_participants')
+        .select('status')
+        .eq('program_id', programId)
+        .eq('user_id', session.user.id)
+        .maybeSingle()
+      if (error) throw error
+      return data
+    },
+    enabled: !!session && !!programId,
+  })
+  const canVerify = isOwner || myPart?.status === 'ACTIVE'
+
   // 입력 상태
   const [selectedFile, setSelectedFile] = useState(null)
   const [previewUrl, setPreviewUrl] = useState(null)
@@ -329,7 +347,7 @@ function MissionVerifyPage() {
     return true
   })()
 
-  if (isLoading) {
+  if (isLoading || isPartLoading) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
         <LoadingState variant="inline" />
@@ -350,6 +368,33 @@ function MissionVerifyPage() {
         <p className="p-4 bg-red-50 text-red-700 rounded-xl text-center">
           미션을 찾을 수 없어요
         </p>
+      </div>
+    )
+  }
+
+  // 비참여자(둘러보기) 차단 — 인증은 참여한 회원만
+  if (!canVerify) {
+    return (
+      <div className="px-4 pt-4">
+        <button
+          type="button"
+          onClick={handleClose}
+          className="flex items-center justify-center w-9 h-9 rounded-full hover:bg-gray-100 transition mb-4"
+        >
+          <ChevronLeft className="w-5 h-5 text-gray-600" />
+        </button>
+        <div className="text-center py-12">
+          <div className="text-5xl mb-3 leading-none">🔒</div>
+          <p className="text-lg font-bold text-gray-800 mb-1">참여한 회원만 인증할 수 있어요</p>
+          <p className="text-sm text-gray-500 mb-5">먼저 프로그램에 참여해 주세요.</p>
+          <button
+            type="button"
+            onClick={() => navigate(`/programs/${programId}`)}
+            className="inline-flex items-center gap-1 px-6 py-2.5 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white text-sm font-semibold rounded-full transition shadow-sm"
+          >
+            프로그램으로 가기
+          </button>
+        </div>
       </div>
     )
   }

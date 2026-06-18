@@ -82,9 +82,11 @@ function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
       insertData.status = 'ACTIVE'
     }
 
+    // upsert — 예전에 나갔던(status='LEFT') 행이 남아 있으면 INSERT 가 유니크 제약에
+    // 걸리므로, (program_id, user_id) 충돌 시 기존 행을 되살린다. left_at 도 초기화.
     const { error } = await supabase
       .from('program_participants')
-      .insert(insertData)
+      .upsert({ ...insertData, left_at: null }, { onConflict: 'program_id,user_id' })
 
     if (error) {
       console.error('참여 실패:', error)
@@ -219,11 +221,16 @@ function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
             />
             {/* 하단 흰색 페이드 — 표지와 텍스트 영역 자연스럽게 연결 (Day 65 본인 결정) */}
             <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-b from-transparent via-white/60 to-white pointer-events-none" />
-            {/* 우상단 참여 방식 배지 */}
-            <span className={`absolute top-3 right-3 z-10 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${joinTypeMeta.cls}`}>
-              <joinTypeMeta.icon className="w-3 h-3" />
-              {joinTypeMeta.label}
-            </span>
+            {/* 우상단 배지 — 공개/비공개 + 참여 방식 */}
+            <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5">
+              <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${program.is_public ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-600'}`}>
+                {program.is_public ? '🌍 공개' : '🔒 비공개'}
+              </span>
+              <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${joinTypeMeta.cls}`}>
+                <joinTypeMeta.icon className="w-3 h-3" />
+                {joinTypeMeta.label}
+              </span>
+            </div>
           </div>
 
           {/* 텍스트 영역 — 표지 하단과 자연스럽게 겹치도록 살짝 끌어올림 */}
@@ -379,15 +386,15 @@ function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
 
                 {program.join_type === 'APPROVAL' && program.entry_question && !isAfterEnd && (
                   <div className="mb-2 p-3 bg-sky-50/70 border border-sky-200 rounded-2xl">
-                    <p className="text-xs font-semibold text-sky-800 mb-1.5">
+                    <p className="text-xs font-semibold text-sky-800 mb-1.5 whitespace-pre-wrap break-words">
                       📝 {program.entry_question}
                     </p>
                     <textarea
                       value={entryAnswer}
                       onChange={(e) => setEntryAnswer(e.target.value)}
-                      placeholder="답변을 입력해주세요"
+                      placeholder="답변을 입력해주세요 (최대 200자)"
                       rows={2}
-                      maxLength={500}
+                      maxLength={200}
                       disabled={isJoining}
                       className="w-full px-3 py-2 border-2 border-gray-200 bg-white rounded-xl focus:outline-none focus:border-sky-500 text-sm resize-none disabled:bg-gray-50"
                     />
@@ -429,6 +436,17 @@ function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
                     className="w-full px-4 py-3 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-semibold rounded-2xl transition shadow-md shadow-emerald-300/40 disabled:from-gray-400 disabled:to-gray-400 disabled:shadow-none"
                   >
                     {isJoining ? '처리 중...' : joinButtonText}
+                  </button>
+                )}
+
+                {/* 미리보기 허용 프로그램 — 참여 전 내부 둘러보기(열람 전용) */}
+                {program.preview_enabled && (
+                  <button
+                    type="button"
+                    onClick={() => { onClose(); navigate(`/programs/${program.id}`) }}
+                    className="w-full mt-2 px-4 py-3 bg-white border-2 border-emerald-200 text-emerald-700 font-semibold rounded-2xl hover:bg-emerald-50 transition"
+                  >
+                    둘러보기
                   </button>
                 )}
               </>

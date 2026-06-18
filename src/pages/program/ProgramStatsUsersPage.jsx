@@ -90,6 +90,7 @@ function ProgramStatsUsersPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['program-pending', id] })
+      queryClient.invalidateQueries({ queryKey: ['program-pending-count', id] })
       queryClient.invalidateQueries({ queryKey: queryKeys.programStats(id) })
       queryClient.invalidateQueries({ queryKey: ['rankings'] })
     },
@@ -180,7 +181,7 @@ function ProgramStatsUsersPage() {
       <StickyBackBar
         fallbackPath={`/programs/${id}/stats`}
         title="통계로"
-        breadcrumb={[program.name, '통계', '유저별']}
+        breadcrumb={[program.name, '통계', '참여 유저 관리']}
       />
 
       {/* 활성 필터 칩 — 위젯 3 클릭으로 진입 시 표시 */}
@@ -208,9 +209,9 @@ function ProgramStatsUsersPage() {
           <h2 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
             🙋 승인 대기 <span className="text-sm text-amber-600">({pendingApplicants.length})</span>
           </h2>
-          <div className="grid gap-2">
+          <div className="grid grid-cols-1 gap-2">
             {pendingApplicants.map(p => (
-              <div key={p.id} className="bg-amber-50/60 border border-amber-200 rounded-2xl p-4">
+              <div key={p.id} className="bg-amber-50/60 border border-amber-200 rounded-2xl p-4 min-w-0">
                 <div className="flex items-center gap-3 mb-2">
                   <UserAvatar avatarPath={p.user?.avatar_path} nickname={p.user?.nickname} size="md" />
                   <div className="flex-1 min-w-0">
@@ -227,7 +228,7 @@ function ProgramStatsUsersPage() {
                 {p.entry_answer && (
                   <div className="bg-white rounded-xl p-3 mb-3 border border-amber-100">
                     <p className="text-[11px] text-amber-700 font-medium mb-1">📝 입장 답변</p>
-                    <p className="text-sm text-gray-700 whitespace-pre-wrap break-words">
+                    <p className="text-sm text-gray-700 whitespace-pre-wrap break-all">
                       {p.entry_answer}
                     </p>
                   </div>

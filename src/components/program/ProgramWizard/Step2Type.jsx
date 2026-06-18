@@ -11,7 +11,7 @@ const PRIMARY_TRACKS = [
     icon: Trophy,
     accent: 'amber',
     headline: '점수 순위 경쟁',
-    description: '참여자 간 점수 순위. 포디움·추세·기간 필터 등 옵션이 풍부해요.',
+    description: '참여자 간 점수 순위. 시상대·추세·기간 필터 등 옵션이 풍부해요.',
   },
   {
     key: 'GROWTH',  // 2차 분류로 GARDEN/CONSTELLATION 선택

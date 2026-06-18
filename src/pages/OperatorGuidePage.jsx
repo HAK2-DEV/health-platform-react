@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus } from 'lucide-react'
-import StickyBackBar from '../components/common/StickyBackBar'
+import { Plus, ChevronLeft, ChevronRight } from 'lucide-react'
 
 // 운영자 가이드 — 주제 탭별 화면 워크스루.
 //   상단 탭(운영자 패널 / 미션 / 퀴즈…)을 누르면 그 주제 화면만 표시 → 스크롤 최소화.
@@ -343,32 +342,44 @@ function StepCaptions({ captions }) {
 function OperatorGuidePage() {
   const navigate = useNavigate()
   const [topic, setTopic] = useState('wizard')
+  const [stepIdx, setStepIdx] = useState(0)
   const visibleSteps = STEPS.filter(s => s.topic === topic)
+  const total = visibleSteps.length
+  const safeIdx = Math.min(stepIdx, total - 1)
+  const step = visibleSteps[safeIdx]
+
+  const selectTopic = (k) => { setTopic(k); setStepIdx(0) }
 
   return (
     <div className="min-h-screen bg-surface-app">
-      <div className="max-w-2xl mx-auto px-4 pt-2 pb-10">
-        <StickyBackBar fallbackPath="/profile" title="프로필로" />
-
-        {/* 헤더 */}
-        <div className="rounded-card-lg bg-gradient-to-br from-emerald-100 via-emerald-50 to-teal-50 border border-emerald-100/60 px-5 py-6 mb-4">
+      <div className="max-w-2xl mx-auto px-4 pb-6">
+        {/* 헤더 — 뒤로가기 내장 (별도 sticky 바 제거 → 상단 여백 제거) */}
+        <div className="rounded-b-card-lg bg-gradient-to-br from-emerald-100 via-emerald-50 to-teal-50 border-b border-emerald-100/60 -mx-4 px-4 pt-3 pb-4 mb-4">
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="w-9 h-9 -ml-1 mb-1 flex items-center justify-center rounded-full text-gray-700 hover:bg-white/60 transition"
+            title="뒤로"
+          >
+            <ChevronLeft className="w-6 h-6" />
+          </button>
           <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-800">
             🌿 운영자 가이드
           </h1>
-          <p className="text-sm font-medium text-gray-600 mt-1.5 leading-relaxed">
-            주제를 골라 "어디서 무엇을" 하는지 익혀보세요.
+          <p className="text-sm font-medium text-gray-600 mt-1 leading-relaxed">
+            주제를 골라 "어디서 무엇을" 하는지 한 단계씩 익혀보세요.
           </p>
         </div>
 
         {/* 주제 탭 */}
-        <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-1 px-1 mb-4 scrollbar-hide">
+        <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-1 px-1 mb-3 scrollbar-hide">
           {TOPICS.map(t => {
             const active = topic === t.key
             return (
               <button
                 key={t.key}
                 type="button"
-                onClick={() => setTopic(t.key)}
+                onClick={() => selectTopic(t.key)}
                 className={`flex-shrink-0 inline-flex items-center gap-1 px-3.5 py-2 rounded-full text-sm transition
                   ${active
                     ? 'bg-emerald-500 text-white shadow-sm font-semibold'
@@ -381,33 +392,85 @@ function OperatorGuidePage() {
           })}
         </div>
 
-        {/* 선택한 주제의 화면들 */}
-        <div className="space-y-5">
-          {visibleSteps.map(step => (
-            <div key={step.key} className="bg-white border border-gray-100 rounded-card shadow-soft p-4">
-              <span className="inline-block px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-semibold mb-1.5">
-                {step.badge}
-              </span>
-              <h2 className="font-bold text-gray-800 leading-snug">{step.title}</h2>
-              <p className="text-xs font-medium text-gray-500 mt-0.5 mb-3">{step.desc}</p>
+        {/* 현재 단계 카드 — 스크린샷은 폰 크기로 제한 + 사진 위 좌우 페이저 */}
+        {step && (
+          <div className="bg-white border border-gray-100 rounded-card shadow-soft p-4">
+            <span className="inline-block px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-semibold mb-1.5">
+              {step.badge}
+            </span>
+            <h2 className="font-bold text-gray-800 leading-snug">{step.title}</h2>
+            <p className="text-xs font-medium text-gray-500 mt-0.5 mb-3">{step.desc}</p>
 
-              {step.src ? (
-                <div className="grid sm:grid-cols-2 gap-4 items-start">
-                  <AnnotatedShot src={step.src} markers={step.markers} />
-                  <StepCaptions captions={step.captions} />
+            {step.src ? (
+              <div className="grid sm:grid-cols-2 gap-4 items-start">
+                <div className="relative">
+                  {/* 사진 — 가운데 정렬(양옆 흰 여백 확보) */}
+                  <div className="w-full max-w-[180px] mx-auto">
+                    <AnnotatedShot src={step.src} markers={step.markers} />
+                  </div>
+                  {total > 1 && (
+                    <>
+                      {/* 좌우 화살표 — 사진 바깥 흰 여백, 세로 중앙 */}
+                      <button
+                        type="button"
+                        disabled={safeIdx === 0}
+                        onClick={() => setStepIdx(i => Math.max(0, i - 1))}
+                        className="absolute left-0 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-full bg-white shadow-md border border-gray-100 text-gray-700 hover:bg-gray-50 disabled:opacity-30 transition"
+                        title="이전"
+                      >
+                        <ChevronLeft className="w-5 h-5" />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={safeIdx >= total - 1}
+                        onClick={() => setStepIdx(i => Math.min(total - 1, i + 1))}
+                        className="absolute right-0 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-full bg-white shadow-md border border-gray-100 text-gray-700 hover:bg-gray-50 disabled:opacity-30 transition"
+                        title="다음"
+                      >
+                        <ChevronRight className="w-5 h-5" />
+                      </button>
+                      <span className="absolute bottom-1.5 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-black/45 text-white text-[10px] font-medium">
+                        {safeIdx + 1} / {total}
+                      </span>
+                    </>
+                  )}
                 </div>
-              ) : (
                 <StepCaptions captions={step.captions} />
-              )}
-            </div>
-          ))}
-        </div>
+              </div>
+            ) : (
+              <>
+                <StepCaptions captions={step.captions} />
+                {total > 1 && (
+                  <div className="flex items-center justify-between mt-4">
+                    <button
+                      type="button"
+                      disabled={safeIdx === 0}
+                      onClick={() => setStepIdx(i => Math.max(0, i - 1))}
+                      className="inline-flex items-center gap-0.5 px-3 py-1.5 text-sm font-medium text-gray-600 rounded-full hover:bg-gray-100 disabled:opacity-30 transition"
+                    >
+                      <ChevronLeft className="w-4 h-4" /> 이전
+                    </button>
+                    <span className="text-xs font-medium text-gray-400">{safeIdx + 1} / {total}</span>
+                    <button
+                      type="button"
+                      disabled={safeIdx >= total - 1}
+                      onClick={() => setStepIdx(i => Math.min(total - 1, i + 1))}
+                      className="inline-flex items-center gap-0.5 px-3 py-1.5 text-sm font-medium text-gray-600 rounded-full hover:bg-gray-100 disabled:opacity-30 transition"
+                    >
+                      다음 <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
 
         {/* 하단 CTA */}
         <button
           type="button"
           onClick={() => navigate('/programs/new')}
-          className="w-full mt-5 flex items-center justify-center gap-1.5 py-3.5 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-semibold rounded-card-lg shadow-soft transition"
+          className="w-full mt-4 flex items-center justify-center gap-1.5 py-3.5 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-semibold rounded-card-lg shadow-soft transition"
         >
           <Plus className="w-5 h-5" /> 지금 프로그램 만들기
         </button>
