@@ -1,7 +1,7 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, Fragment } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ChevronLeft, Upload, X } from 'lucide-react'
+import { ChevronLeft, Upload, X, Check, Flag, Clock, Star, Camera, MessageSquare } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
@@ -14,6 +14,7 @@ import { useToast } from '../../contexts/ToastContext'
 import { compressImage } from '../../lib/imageCompression'
 import LoadingState from '../../components/common/LoadingState'
 import ImageCropModal from '../../components/common/ImageCropModal'
+import NotificationBell from '../../components/common/NotificationBell'
 
 // 카테고리 → 히어로 그라데이션
 const CATEGORY_HERO = {
@@ -97,6 +98,8 @@ function MissionVerifyPage() {
   const [feedVisible, setFeedVisible] = useState(true)  // 디폴트 노출 — feed_enabled 인 프로그램만 의미 있음
   const [error, setErrorRaw] = useState(null)
   const [errorTick, setErrorTick] = useState(0)
+  // 제출 완료 화면 데이터 (있으면 완료 화면 렌더)
+  const [submitted, setSubmitted] = useState(null)
   // setError wrapper — 같은 메시지 재발생 시에도 스크롤/진동 트리거되도록 tick 증가
   const setError = (msg) => {
     setErrorRaw(msg)
@@ -253,11 +256,13 @@ function MissionVerifyPage() {
       queryClient.invalidateQueries({ queryKey: ['stats'] })
       queryClient.invalidateQueries({ queryKey: ['feed'] })
 
-      // Day 65 — 마일스톤 토스트. 직전 snapshot 과 비교해서 새로 도달한 마일스톤 알림.
+      // Day 65 — 마일스톤 토스트 + 연속 인증일 캡처 (완료 화면 표시용).
+      let streak = 0
       try {
         const before = beforeOverviewRef.current
         const newOverview = await fetchProgramOverview(programId, session.user.id)
         queryClient.setQueryData(queryKeys.programOverview(programId, session.user.id), newOverview)
+        streak = newOverview.streak || 0
 
         // streak_preset/streak_milestones 조회 위해 program 가져옴 (cache hit 우선)
         let program = queryClient.getQueryData(queryKeys.program(programId))
@@ -281,16 +286,23 @@ function MissionVerifyPage() {
         reached.forEach((m, idx) => {
           setTimeout(() => toast.show(m.message, { variant: m.variant, icon: m.icon }), idx * 400)
         })
-        // 마일스톤 있으면 redirect 살짝 지연 — 사용자가 토스트 인지
-        if (reached.length > 0) {
-          setTimeout(backToProgram, Math.min(2400, 800 + reached.length * 400))
-          return
-        }
       } catch (e) {
         // 마일스톤 체크 실패는 silent — 핵심 인증 흐름 방해 X
         console.warn('마일스톤 체크 실패:', e)
       }
-      backToProgram()
+
+      // 완료 화면 표시 (자동 이동 X — 사용자가 「내 기록 보기 / 프로그램으로 이동」 선택)
+      const t = new Date()
+      const timeStr = `${t.getHours() < 12 ? '오전' : '오후'} ${t.getHours() % 12 || 12}:${String(t.getMinutes()).padStart(2, '0')}`
+      setSubmitted({
+        points: earnedPoint,
+        streak,
+        timeStr,
+        note: (needsNote && noteText.trim()) ? noteText.trim() : null,
+        numeric: (needsNumeric && numericValue !== '') ? numericValue : null,
+        photoUrl: (needsImage && selectedFile) ? previewUrl : null,
+      })
+      window.scrollTo({ top: 0 })
     },
     onError: (err) => {
       console.error('인증 제출 오류:', err)
@@ -394,6 +406,131 @@ function MissionVerifyPage() {
           >
             프로그램으로 가기
           </button>
+        </div>
+      </div>
+    )
+  }
+
+  // ─── 제출 완료 화면 ──────────────────────────────────────
+  if (submitted) {
+    const STEPS_DONE = ['프로그램 선택', '미션 확인', '미션 인증']
+    return (
+      <div className="min-h-screen bg-gray-50 -mx-4 -mt-2">
+        {/* 헤더 — 뒤로 + 미션 인증 + 알림 */}
+        <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-gray-100">
+          <div className="max-w-md mx-auto h-[46px] px-4 flex items-center justify-center relative">
+            <button type="button" onClick={handleClose} className="absolute left-3 p-1.5 -ml-1.5 text-gray-500 hover:text-gray-800" aria-label="뒤로">
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <span className="text-[17px] font-bold text-gray-800">미션 인증</span>
+            <div className="absolute right-3"><NotificationBell /></div>
+          </div>
+        </header>
+
+        <div className="max-w-md mx-auto px-4 pt-3 pb-10 space-y-3">
+          {/* 단계 인디케이터 (400×82, r10) — 전 단계 완료 */}
+          <div className="w-[400px] max-w-full h-[82px] mx-auto bg-white border border-gray-100 rounded-[10px] shadow-soft px-4 flex items-center">
+            <div className="flex items-start w-full">
+              {STEPS_DONE.map((label, i) => (
+                <Fragment key={label}>
+                  {i > 0 && <div className="flex-1 h-0.5 mt-[14px] mx-1 rounded-full bg-emerald-500" />}
+                  <div className="flex flex-col items-center flex-shrink-0">
+                    <div className="w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center">
+                      <Check className="w-4 h-4" />
+                    </div>
+                    <span className={`mt-1 text-[11px] font-medium whitespace-nowrap ${i === 2 ? 'text-emerald-600' : 'text-gray-400'}`}>
+                      {label}
+                    </span>
+                  </div>
+                </Fragment>
+              ))}
+            </div>
+          </div>
+
+          {/* 완료 카드 — 🎉 + 텍스트 + 통계(2/3) 포함 */}
+          <div className="bg-white border border-gray-100 rounded-2xl shadow-soft p-5 space-y-4">
+            <div className="flex items-center gap-4">
+              <div className="text-5xl flex-shrink-0 select-none leading-none">🎉</div>
+              <div className="min-w-0">
+                <h2 className="text-[21px] font-extrabold text-gray-900 leading-tight">기록이 완료되었어요!</h2>
+                <p className="text-[12px] text-gray-500 mt-1">오늘의 미션 인증이 정상적으로 제출되었어요.</p>
+              </div>
+            </div>
+
+            {/* 인증한 미션 (미션탭 박스 — 포인트 제외) + 요약 통계 4박스 */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-3 bg-gray-50 border border-gray-100 rounded-xl p-3">
+                {mission.icon_path && (
+                  <img
+                    src={resolveMissionIcon(mission.icon_path)}
+                    alt=""
+                    className="w-11 h-11 flex-shrink-0 rounded-xl object-contain bg-white"
+                    onError={(e) => { e.currentTarget.style.display = 'none' }}
+                  />
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-[14px] font-bold text-gray-800 truncate">{mission.title}</p>
+                  <p className="text-[11px] text-gray-400 mt-0.5">
+                    {mission.verification_type === 'AUTO' ? '자동 승인' : '운영자 심사'}
+                    {mission.daily_limit ? ` · 하루 ${mission.daily_limit}회` : ' · 무제한'}
+                  </p>
+                </div>
+                <span className="flex items-center gap-1 text-[13px] font-bold text-emerald-600 flex-shrink-0">
+                  <Check className="w-3.5 h-3.5" /> 오늘 인증 완료
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <StatTile icon={<Clock className="w-4 h-4" />} iconBg="bg-purple-100 text-purple-600" label="완료 시각" value={`오늘 ${submitted.timeStr}`} />
+                <StatTile icon={<Check className="w-4 h-4" />} iconBg="bg-sky-100 text-sky-600" label="인증 상태" value="제출 완료" valueClass="text-emerald-600" />
+                <StatTile icon={<Star className="w-4 h-4 fill-current" />} iconBg="bg-amber-100 text-yellow-400" label="획득 포인트" value={`+${submitted.points}P`} valueClass="text-emerald-600" />
+                <StatTile imgSrc="/icons/activity/points.png" imgStyle={{ filter: 'hue-rotate(100deg) saturate(1.3)' }} label="연속 참여" value={`${submitted.streak}일 연속`} />
+              </div>
+            </div>
+          </div>
+
+          {/* 제출한 기록 요약 */}
+          {(submitted.photoUrl || submitted.note || submitted.numeric) && (
+            <div className="bg-white border border-gray-100 rounded-2xl shadow-soft p-4 space-y-3">
+              <h3 className="text-[14px] font-bold text-gray-800">제출한 기록 요약</h3>
+              {submitted.photoUrl && (
+                <div className="flex items-center gap-3">
+                  <img src={submitted.photoUrl} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+                  <div className="flex items-center gap-1.5 text-sm text-gray-600">
+                    <Camera className="w-4 h-4 text-emerald-500" /> 인증 사진 1장 제출
+                  </div>
+                </div>
+              )}
+              {submitted.numeric && (
+                <div className="flex items-center gap-1.5 text-sm text-gray-600">
+                  <Flag className="w-4 h-4 text-emerald-500" /> 기록 {submitted.numeric}{mission.numeric_unit ? ` ${mission.numeric_unit}` : ''}
+                </div>
+              )}
+              {submitted.note && (
+                <div className="flex items-start gap-2 text-sm text-gray-600">
+                  <MessageSquare className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
+                  <span className="leading-snug">{submitted.note}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 버튼 — 내 기록 보기 / 프로그램으로 이동 (184×36, r10, 13px) */}
+          <div className="flex gap-2 justify-center pt-1">
+            <button
+              type="button"
+              onClick={() => navigate(`/profile/activity/${programId}/verifications`)}
+              className="w-[184px] max-w-[48%] h-[36px] rounded-[10px] bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-[13px] transition"
+            >
+              내 기록 보기
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate(`/programs/${programId}`)}
+              className="w-[184px] max-w-[48%] h-[36px] rounded-[10px] bg-white border border-emerald-300 text-emerald-600 font-bold text-[13px] hover:bg-emerald-50 transition"
+            >
+              프로그램으로 이동
+            </button>
+          </div>
         </div>
       </div>
     )
@@ -714,6 +851,23 @@ function MissionVerifyPage() {
         title="사진 편집"
         description="비율을 고르고, 드래그·확대축소로 맞춰주세요"
       />
+    </div>
+  )
+}
+
+// 완료 화면 요약 통계 타일 (아이콘/이미지 왼쪽 + 라벨/값 오른쪽)
+function StatTile({ icon, iconBg, imgSrc, imgStyle, label, value, valueClass }) {
+  return (
+    <div className="flex items-center gap-2 bg-gray-50 border border-gray-100 rounded-xl p-2.5">
+      {imgSrc ? (
+        <img src={imgSrc} alt="" aria-hidden="true" className="w-8 h-8 object-contain flex-shrink-0" style={imgStyle} onError={(e) => { e.currentTarget.style.display = 'none' }} />
+      ) : (
+        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${iconBg}`}>{icon}</div>
+      )}
+      <div className="min-w-0">
+        <p className="text-[10px] text-gray-400 leading-tight">{label}</p>
+        <p className={`text-[13px] font-bold leading-tight truncate ${valueClass || 'text-gray-800'}`}>{value}</p>
+      </div>
     </div>
   )
 }

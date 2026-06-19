@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../../hooks/useAuth'
@@ -17,6 +18,7 @@ import {
   fetchMyPrograms,
   fetchPublicPrograms,
   fetchActiveParticipantCounts,
+  fetchProgramLastActivity,
 } from '../../lib/queries'
 
 // description 첫 줄(이름 중복이면 다음 줄) — 한 줄 설명
@@ -200,6 +202,45 @@ function CreateProgramCTA({ icon, title, subtitle, onClick }) {
   )
 }
 
+// 둘러보기 하단 CTA — 두 슬라이드 3초마다 옆으로 슬라이딩 교대
+function BottomCtaCarousel({ onCreate }) {
+  const slides = [
+    {
+      icon: '/icons/cta/tip.png',
+      title: '프로그램 참여 팁',
+      subtitle: '꾸준한 실천이 중요해요! 나에게 맞는 프로그램을 선택하고, 작은 목표부터 시작해보세요.',
+      onClick: undefined,
+    },
+    {
+      icon: '/icons/cta/create.png',
+      title: '마음에 드는 프로그램이 없으신가요?',
+      subtitle: '4분만에 본인이 원하는 프로그램을 직접 만들어 보세요!',
+      onClick: onCreate,
+    },
+  ]
+  const [i, setI] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => setI(v => (v + 1) % slides.length), 5000)
+    return () => clearInterval(id)
+  }, [])
+  const s = slides[i]
+  return (
+    <div className="relative overflow-hidden min-h-[86px]">
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={i}
+          initial={{ x: 60, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          exit={{ x: -60, opacity: 0 }}
+          transition={{ duration: 0.35, ease: 'easeOut' }}
+        >
+          <CreateProgramCTA icon={s.icon} title={s.title} subtitle={s.subtitle} onClick={s.onClick} />
+        </motion.div>
+      </AnimatePresence>
+    </div>
+  )
+}
+
 // 둘러보기 상단 배너 슬라이드 (점=캐러셀)
 const BROWSE_SLIDES = [
   { title: '나에게 맞는 건강 습관을\n찾아보세요! 🌿', sub: '작은 실천이 큰 변화를 만듭니다.' },
@@ -268,6 +309,20 @@ function ProgramListPage() {
     return base.filter(p => (p.categories || []).includes(catFilter))
   }, [publicPrograms, excludeIds, catFilter])
 
+  // 참여중 — 최근 인증한 프로그램이 위로. (마지막 인증 시각 내림차순, 없으면 뒤로)
+  const { data: lastActivity = {} } = useQuery({
+    queryKey: ['my-program-last-activity', userId],
+    queryFn: () => fetchProgramLastActivity(userId),
+    enabled: !!userId,
+  })
+  const sortedActive = useMemo(() => {
+    return [...activePrograms].sort((a, b) => {
+      const ta = lastActivity[a.id] ? new Date(lastActivity[a.id]).getTime() : 0
+      const tb = lastActivity[b.id] ? new Date(lastActivity[b.id]).getTime() : 0
+      return tb - ta
+    })
+  }, [activePrograms, lastActivity])
+
   return (
     <div className="min-h-screen bg-white">
       {/* 상단 헤더 — 도담 아이콘 + 프로그램 + 알림 */}
@@ -317,7 +372,7 @@ function ProgramListPage() {
                 action={{ label: '둘러보기', onClick: () => setTab('browse') }} variant="mint" size="lg" />
             ) : (
               <div className="space-y-[11px]">
-                {activePrograms.map(p => (
+                {sortedActive.map(p => (
                   <ProgramCard key={p.id} program={p} ctaLabel="계속하기" onClick={() => navigate(`/programs/${p.id}`)} />
                 ))}
               </div>
@@ -468,12 +523,8 @@ function ProgramListPage() {
               </div>
             )}
 
-            {/* 하단 — 프로그램 참여 팁 (정보성) */}
-            <CreateProgramCTA
-              icon="/icons/cta/tip.png"
-              title="프로그램 참여 팁"
-              subtitle="꾸준한 실천이 중요해요! 나에게 맞는 프로그램을 선택하고, 작은 목표부터 시작해보세요."
-            />
+            {/* 하단 — 참여 팁 ↔ 직접 만들기 CTA 교대 슬라이딩 (3초) */}
+            <BottomCtaCarousel onCreate={() => navigate('/programs/new')} />
           </>
         )}
       </div>

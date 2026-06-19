@@ -16,12 +16,25 @@ import ScoreSparkline from '../../components/program/ScoreSparkline'
 import StickyBackBar from '../../components/common/StickyBackBar'
 import Modal from '../../components/common/Modal'
 import ProfileButton from '../../components/common/ProfileButton'
+import NotificationBell from '../../components/common/NotificationBell'
 import UserAvatar from '../../components/common/UserAvatar'
 import EmptyState from '../../components/common/EmptyState'
 import LoadingState from '../../components/common/LoadingState'
 import ProgramCover from '../../components/common/ProgramCover'
 import MarkdownView from '../../components/common/MarkdownView'
 import { calcProgress, progressUrgency } from '../../lib/programVisuals'
+
+// 홈 화면과 동일한 채워진(solid) 아이콘 — 참여자/내순위용 (heroicons solid, MIT)
+const UsersSolid = ({ className }) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+    <path d="M4.5 6.375a4.125 4.125 0 1 1 8.25 0 4.125 4.125 0 0 1-8.25 0ZM14.25 8.625a3.375 3.375 0 1 1 6.75 0 3.375 3.375 0 0 1-6.75 0ZM1.5 19.125a7.125 7.125 0 0 1 14.25 0v.003l-.001.119a.75.75 0 0 1-.363.63 13.067 13.067 0 0 1-6.761 1.873c-2.472 0-4.786-.684-6.76-1.873a.75.75 0 0 1-.364-.63l-.001-.122ZM17.25 19.128l-.001.144a2.25 2.25 0 0 1-.233.96 10.088 10.088 0 0 0 5.06-1.01.75.75 0 0 0 .42-.643 4.875 4.875 0 0 0-6.957-4.611 8.586 8.586 0 0 1 1.71 5.157v.003Z" />
+  </svg>
+)
+const TrophySolid = ({ className }) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+    <path fillRule="evenodd" clipRule="evenodd" d="M5.166 2.621v.858c-1.035.148-2.059.33-3.071.543a.75.75 0 0 0-.584.859 6.753 6.753 0 0 0 6.138 5.6 6.73 6.73 0 0 0 2.743 1.347A6.707 6.707 0 0 1 9.279 15H8.54c-1.036 0-1.875.84-1.875 1.875V19.5h-.75a2.25 2.25 0 0 0-2.25 2.25c0 .414.336.75.75.75h15a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-2.25-2.25h-.75v-2.625c0-1.036-.84-1.875-1.875-1.875h-.739a6.706 6.706 0 0 1-1.112-3.173 6.73 6.73 0 0 0 2.743-1.347 6.753 6.753 0 0 0 6.139-5.6.75.75 0 0 0-.585-.858 47.077 47.077 0 0 0-3.07-.543V2.62a.75.75 0 0 0-.658-.744 49.22 49.22 0 0 0-6.093-.377c-2.063 0-4.096.128-6.093.377a.75.75 0 0 0-.657.744ZM5.166 5.25c0 1.196.312 2.32.857 3.294A5.266 5.266 0 0 1 3.16 5.337a45.6 45.6 0 0 1 2.006-.343V5.25Zm13.5 0v-.256c.674.1 1.343.214 2.006.343a5.265 5.265 0 0 1-2.863 3.207 6.72 6.72 0 0 0 .857-3.294Z" />
+  </svg>
+)
 
 // lazy 분리 — 실제 사용 시점에 chunk 다운로드 (Day 65 본인 결정)
 //   FeedContent: 커뮤니티 탭 진입 시
@@ -426,7 +439,17 @@ function ProgramDetailPage() {
 
   return (
     <div className="px-4 pt-2 pb-6 max-w-4xl mx-auto">
-      <StickyBackBar onClick={() => navigate(-1)} rightSlot={<ProfileButton />} />
+      {/* 상단 헤더 — 뒤로 + 제목 + 알림 + 프로필 (풀폭, 모서리 0) */}
+      <header className="sticky top-0 z-30 -mx-4 -mt-2 mb-[6px] bg-white/95 backdrop-blur-sm border-b border-gray-100">
+        <div className="max-w-4xl mx-auto h-[44px] px-2 flex items-center gap-1">
+          <button type="button" onClick={() => navigate(-1)} className="p-1.5 text-gray-600 hover:text-gray-900" aria-label="뒤로">
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <span className="flex-1 min-w-0 text-center text-[16px] font-bold text-gray-800 truncate px-1">{program.name}</span>
+          <NotificationBell />
+          <ProfileButton />
+        </div>
+      </header>
 
       {/* 프로그램 헤더 — 모의도 디자인: 배경 사진 풀 블리드 + 우측 페이드 + 진행중 배지 */}
       {(() => {
@@ -467,20 +490,17 @@ function ProgramDetailPage() {
           'text-xs sm:text-sm'
 
         return (
-          <div className="relative bg-white border border-gray-200 rounded-2xl overflow-hidden mb-6">
-            {/* 배경 사진 — 좌측 일부 영역에만 (전체 너비 X) */}
+          <div className="relative bg-white border border-gray-200 rounded-[10px] overflow-hidden mb-[6px] h-[108px]">
+            {/* 배경 사진 — 좌측 일부 영역에만. ProgramCover 로 목록 카드와 동일 폴백
+                (업로드사진 → 카테고리 일러스트 → 이모지). */}
             <div className="absolute inset-y-0 left-0 w-[38%]">
-              {publicUrl ? (
-                <img
-                  src={publicUrl}
-                  alt={program.name}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full bg-gradient-to-br from-emerald-100 via-emerald-50 to-teal-100 flex items-center justify-center">
-                  <span className="text-6xl select-none opacity-60">{cat.emoji}</span>
-                </div>
-              )}
+              <ProgramCover
+                imagePath={program.cover_image_path}
+                categories={program.categories}
+                name={program.name}
+                variant="hero"
+                className="w-full h-full aspect-auto rounded-none"
+              />
               {/* 사진 우측 끝에서 흰색으로 페이드 — 텍스트와 자연스럽게 연결 */}
               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-white" />
             </div>
@@ -491,23 +511,25 @@ function ProgramDetailPage() {
             </span>
 
             {/* 텍스트 영역 — 우측 (사진 끝과 살짝 겹쳐 페이드 자연스럽게) */}
-            <div className="relative z-10 pl-[34%] pr-4 sm:pr-5 py-2 sm:py-3 min-h-[124px] sm:min-h-[134px] flex flex-col justify-center">
+            <div className="relative z-10 pl-[calc(34%+15px)] pr-4 sm:pr-5 py-2 h-full flex flex-col justify-center">
               <h1
-                className={`${titleSize} font-bold text-gray-800 mb-1.5 sm:mb-2 leading-tight whitespace-nowrap overflow-hidden text-ellipsis`}
+                className={`${titleSize} font-bold text-gray-800 mb-1 leading-tight whitespace-nowrap overflow-hidden text-ellipsis`}
                 title={program.name}
               >
                 {program.name}
               </h1>
               {(program.start_date || program.end_date) && (
-                <p className="text-xs sm:text-sm text-gray-600 mb-2 sm:mb-3 flex flex-wrap items-baseline gap-x-1.5">
-                  <span className="text-gray-400">기간</span>
-                  <span>{formatKoreanDate(program.start_date)} ~ {formatKoreanDate(program.end_date)}</span>
-                  {totalDays && <span className="text-gray-500">({totalDays}일)</span>}
+                <p className="text-xs sm:text-sm text-gray-600 mb-1.5 whitespace-nowrap overflow-hidden text-ellipsis">
+                  <span className="text-gray-400">기간 </span>
+                  {/* 넓은 화면: 연도 4자리 / 좁은 화면: 연도 2자리(26.06.11) — 줄바꿈 방지 */}
+                  <span className="hidden sm:inline">{formatKoreanDate(program.start_date)} ~ {formatKoreanDate(program.end_date)}</span>
+                  <span className="sm:hidden">{formatKoreanDate(program.start_date).slice(2)} ~ {formatKoreanDate(program.end_date).slice(2)}</span>
+                  {totalDays && <span className="text-gray-500"> ({totalDays}일)</span>}
                 </p>
               )}
               {program.start_date && program.end_date && (
-                <div className="mb-2 sm:mb-3">
-                  <div className="flex items-center gap-2">
+                <div className="mb-1.5">
+                  <div className="flex items-center gap-2 pr-8">
                     <div className="flex-1 h-2 bg-white/70 rounded-full overflow-hidden border border-gray-100">
                       <div
                         className={`h-full rounded-full transition-all ${urgency.barCls || 'bg-emerald-400'}`}
@@ -531,20 +553,20 @@ function ProgramDetailPage() {
                     className="inline-flex items-center gap-1 hover:text-emerald-700 transition"
                     title="참여 유저 관리로 이동"
                   >
-                    <Users className="w-3.5 h-3.5 text-gray-400" />
+                    <UsersSolid className="w-3.5 h-3.5 text-gray-400" />
                     <span className="text-gray-500">참여자</span>
                     <span className="text-gray-800 font-semibold underline underline-offset-2 decoration-gray-300">{ranking.length}명</span>
                   </button>
                 ) : (
                   <span className="inline-flex items-center gap-1">
-                    <Users className="w-3.5 h-3.5 text-gray-400" />
+                    <UsersSolid className="w-3.5 h-3.5 text-gray-400" />
                     <span className="text-gray-500">참여자</span>
                     <span className="text-gray-800 font-semibold">{ranking.length}명</span>
                   </span>
                 )}
                 {program.ranking_enabled !== false && myRank && (
                   <span className="inline-flex items-center gap-1">
-                    <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                    <TrophySolid className="w-3.5 h-3.5 text-amber-400" />
                     <span className="text-gray-500">내 순위</span>
                     <span className="text-gray-800 font-semibold">{myRank}등</span>
                   </span>
@@ -557,7 +579,7 @@ function ProgramDetailPage() {
 
       {/* 열람 모드 배너 — 공개 프로그램 비참여자 */}
       {isViewer && (
-        <div className="flex items-center gap-3 mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-2xl">
+        <div className="flex items-center gap-3 mb-[6px] p-3 bg-emerald-50 border border-emerald-200 rounded-2xl">
           <span className="text-xl flex-shrink-0">👀</span>
           <p className="flex-1 min-w-0 text-xs text-emerald-800 leading-snug">
             <span className="font-bold">둘러보는 중이에요.</span> 참여하면 인증·작성·랭킹 참여가 가능해요.
@@ -574,7 +596,7 @@ function ProgramDetailPage() {
 
       {/* 운영자 빠른 액션 — 초대(비공개) + 운영자 패널 (모달). 탭 위에 배치 */}
       {isOwner && (
-        <div className="flex gap-2 mb-4">
+        <div className="flex gap-2 mb-[6px]">
           {program.status === 'PUBLISHED' && program.join_type === 'INVITE_CODE' && program.invite_code && (
             <button
               type="button"
@@ -628,10 +650,9 @@ function ProgramDetailPage() {
           ? 'overview'
           : activeTab
         return (
-          // Day 65 본인 피드백: 탭은 무배경, 선택된 탭만 파스텔 그라데이션 칩.
-          // 글자 키우고 볼드 강화 — 모바일 가독성.
-          <div className="mb-6">
-            <div className="flex gap-1 p-1 bg-white rounded-2xl border border-gray-100">
+          // 메뉴 선택 바 — 풀폭 언더라인 탭 (모서리 0)
+          <div className="-mx-4 mb-[6px] border-b border-gray-100">
+            <div className="max-w-4xl mx-auto flex">
               {tabs.map(tab => {
                 const isActive = safeActiveTab === tab.key
                 return (
@@ -639,14 +660,14 @@ function ProgramDetailPage() {
                     key={tab.key}
                     type="button"
                     onClick={() => setActiveTab(tab.key)}
-                    className={`
-                      flex-1 py-2.5 text-sm sm:text-base rounded-xl transition-all
-                      ${isActive
-                        ? 'bg-gradient-to-r from-emerald-100 via-teal-100/80 to-green-100 text-emerald-800 font-bold shadow-sm'
-                        : 'text-gray-600 hover:text-emerald-700 font-semibold'}
-                    `}
+                    className={`relative flex-1 h-[40px] text-[14px] transition-colors ${
+                      isActive ? 'text-emerald-600 font-bold' : 'text-gray-400 font-semibold hover:text-gray-600'
+                    }`}
                   >
                     {tab.label}
+                    {isActive && (
+                      <span className="absolute left-0 right-0 -bottom-px h-[2.5px] bg-emerald-500 rounded-full" />
+                    )}
                   </button>
                 )
               })}

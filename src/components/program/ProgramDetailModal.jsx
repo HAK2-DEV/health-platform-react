@@ -105,6 +105,10 @@ function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
     queryClient.invalidateQueries({ queryKey: ['rankings'] })
     queryClient.invalidateQueries({ queryKey: ['stats'] })
     queryClient.invalidateQueries({ queryKey: queryKeys.programJoinInfo(program.id) })
+    // 프로그램 상세/인증/댓글 권한 판정 쿼리 — 참여 직후 stale "미참여" 방지
+    queryClient.invalidateQueries({ queryKey: ['my-participation', program.id, userId] })
+    queryClient.invalidateQueries({ queryKey: ['my-part-status', program.id, userId] })
+    queryClient.invalidateQueries({ queryKey: queryKeys.publicPrograms(userId) })
   }
 
   // 시작 전 프로그램 — 참여 예약 (시작일에 자동 참여). confirm 후 handleJoin 재사용.

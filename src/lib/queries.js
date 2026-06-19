@@ -124,11 +124,29 @@ export const fetchMyLiveProgramCount = async (userId) => {
 export const fetchActivePrograms = async (userId) => {
   const { data, error } = await supabase
     .from('program_participants')
-    .select('program_id, programs!inner(*)')
+    .select('program_id, joined_at, programs!inner(*)')
     .eq('user_id', userId)
     .eq('status', 'ACTIVE')
   if (error) throw error
-  return (data || []).map(row => row.programs)
+  // 가입 시각(_joinedAt) 첨부 — "최근 참여 프로그램" 정렬용. 다른 소비자는 무시.
+  return (data || []).map(row => ({ ...row.programs, _joinedAt: row.joined_at }))
+}
+
+// 본인의 프로그램별 마지막 인증 시각 맵 { program_id: ISO } — "최근 인증순" 정렬용.
+//   verifications 에 program_id 가 없어 missions 조인으로 program_id 획득.
+export const fetchProgramLastActivity = async (userId) => {
+  const { data, error } = await supabase
+    .from('verifications')
+    .select('submitted_at, missions!inner(program_id)')
+    .eq('user_id', userId)
+    .order('submitted_at', { ascending: false })
+  if (error) throw error
+  const map = {}
+  for (const row of (data || [])) {
+    const pid = row.missions?.program_id
+    if (pid && !map[pid]) map[pid] = row.submitted_at  // 내림차순 정렬이라 첫 등장이 최신
+  }
+  return map
 }
 
 // 여러 프로그램의 ACTIVE 참여자 수 — SECURITY DEFINER RPC(082)로 한 번에.
@@ -934,10 +952,15 @@ export const fetchPendingReviewsEnriched = async (programId) => {
 
 // 알림 목록 — RLS 가 본인 알림만 SELECT 허용 (040). 최신순 + 최근 50개
 export const fetchNotifications = async () => {
+  // 본인 알림만 — RLS에 admin 전체 열람 정책이 있어 명시적으로 user_id 필터 필수.
+  const { data: { session } } = await supabase.auth.getSession()
+  const uid = session?.user?.id
+  if (!uid) return []
   const disabled = await fetchDisabledNotificationTypes()
   let query = supabase
     .from('notifications')
     .select('*')
+    .eq('user_id', uid)
     .order('created_at', { ascending: false })
     .limit(50)
   if (disabled.length) {
@@ -950,10 +973,15 @@ export const fetchNotifications = async () => {
 
 // 안 읽은 알림 수 — Bell 배지용 (OFF 한 type 은 제외 → 설정과 배지 일치)
 export const fetchUnreadNotificationsCount = async () => {
+  // 본인 알림만 — RLS admin 전체 열람 정책 때문에 user_id 명시 필터 필수.
+  const { data: { session } } = await supabase.auth.getSession()
+  const uid = session?.user?.id
+  if (!uid) return 0
   const disabled = await fetchDisabledNotificationTypes()
   let query = supabase
     .from('notifications')
     .select('*', { count: 'exact', head: true })
+    .eq('user_id', uid)
     .eq('is_read', false)
   if (disabled.length) {
     query = query.not('type', 'in', `(${disabled.map(t => `"${t}"`).join(',')})`)

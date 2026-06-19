@@ -195,7 +195,7 @@ function DashboardPage() {
     { icon: UsersSolid, label: '참여자', num: featuredParticipants != null ? `${featuredParticipants}` : '-', unit: featuredParticipants != null ? '명' : '', color: 'text-emerald-600' },
     { icon: TrophySolid, label: '내 순위', num: featuredRank?.current_rank ? `${featuredRank.current_rank}` : '-', unit: featuredRank?.current_rank ? '등' : '', color: 'text-gray-900' },
     { icon: CalendarSolid, label: '남은 기간', num: daysLeft != null ? `${daysLeft}` : '상시', unit: daysLeft != null ? '일' : '', color: 'text-gray-900' },
-    { icon: FlagSolid, label: '내 목표 달성률', num: achieveRate != null ? `${achieveRate}` : '-', unit: achieveRate != null ? '%' : '', color: 'text-emerald-600' },
+    { icon: FlagSolid, label: '목표 달성률', num: achieveRate != null ? `${achieveRate}` : '-', unit: achieveRate != null ? '%' : '', color: 'text-emerald-600' },
   ]
 
   // 오늘의 활동 (값 / 소프트 캡 → 막대 비율)
@@ -241,18 +241,19 @@ function DashboardPage() {
           transition={{ duration: 0.4 }}
           className="relative overflow-hidden rounded-[10px] bg-[#eef7f1] h-[120px]"
         >
-          {/* 가로형 배너 일러스트 — 전체 배경 (카드와 ~3:1 비율이라 잘림 최소) */}
+          {/* 일러스트 — object-cover + 상단 기준(머리 안 잘리게) → 인물 크게 (사진2처럼) */}
           <img
             src="/home-header.png"
             alt=""
             aria-hidden="true"
             onError={(e) => { e.currentTarget.style.display = 'none' }}
             className="absolute inset-0 w-full h-full object-cover"
+            style={{ objectPosition: 'center 56%' }}
           />
-          {/* 좌측 텍스트 영역은 배경색으로 완전히 덮고(이미지 안 보이게), 우측 인물로 갈수록 투명 */}
+          {/* 좌측은 배경색으로 덮고(텍스트 또렷·이음새 가림), 우측 인물로 갈수록 투명 */}
           <div
             className="absolute inset-0"
-            style={{ background: 'linear-gradient(to right, #eef7f1 0%, #eef7f1 36%, rgba(238,247,241,0) 60%)' }}
+            style={{ background: 'linear-gradient(to right, #eef7f1 0%, #eef7f1 50%, rgba(238,247,241,0) 72%)' }}
           />
           <div className="relative p-4">
             <p className="text-[13px] font-medium text-gray-700 leading-tight drop-shadow-sm">
@@ -328,13 +329,13 @@ function DashboardPage() {
                   const Icon = s.icon
                   return (
                     <div key={s.label} className={`flex-1 text-center px-1 ${i > 0 ? 'border-l border-gray-200' : ''}`}>
-                      <div className="flex items-center justify-center gap-1 text-[9px] text-gray-500">
+                      <div className="flex items-center justify-center gap-1 text-[11px] text-gray-500">
                         <Icon className="w-3 h-3 text-gray-400" />
                         <span className="break-keep">{s.label}</span>
                       </div>
                       <p className="font-bold leading-tight mt-[-5px]">
                         <span className={`text-[12px] ${s.color}`}>{s.num}</span>
-                        {s.unit && <span className="text-[9px] text-gray-500">{s.unit}</span>}
+                        {s.unit && <span className="text-[10px] text-gray-500">{s.unit}</span>}
                       </p>
                     </div>
                   )
