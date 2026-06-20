@@ -29,6 +29,7 @@ import CommunityManagePanel from '../../components/program/CommunityManagePanel'
 import CommunityPostModal from '../../components/program/CommunityPostModal'
 import CommunityPostList from '../../components/program/CommunityPostList'
 import MarkdownView from '../../components/common/MarkdownView'
+import ConfirmModal from '../../components/common/ConfirmModal'
 import { calcProgress, progressUrgency } from '../../lib/programVisuals'
 
 // 홈 화면과 동일한 채워진(solid) 아이콘 — 참여자/내순위용 (heroicons solid, MIT)
@@ -448,13 +449,12 @@ function ProgramDetailPage() {
       queryClient.invalidateQueries({ queryKey: queryKeys.programQuizzes(id) })
       queryClient.invalidateQueries({ queryKey: ['scores'] })
       queryClient.invalidateQueries({ queryKey: ['rankings'] })
+      setQuizToDelete(null)
     },
     onError: (e) => { console.error('퀴즈 삭제 실패:', e); alert(`퀴즈 삭제에 실패했습니다: ${e.message}`) },
   })
-  const handleQuizDelete = (q) => {
-    if (!window.confirm(`⚠️ "${q.title}" 퀴즈를 삭제하면\n참가자 제출과 부여된 점수가 함께 삭제됩니다.\n되돌릴 수 없어요.`)) return
-    deleteQuizMutation.mutate(q.id)
-  }
+  const [quizToDelete, setQuizToDelete] = useState(null)
+  const handleQuizDelete = (q) => setQuizToDelete(q)
 
   // 커뮤니티 관리자 — 동일 패턴 (열 때 상단 스크롤, 닫을 때 복원)
   useEffect(() => {
@@ -693,11 +693,11 @@ function ProgramDetailPage() {
         ]
       case 'quizzes':
         return [
-          { icon: '📋', label: '퀴즈 관리', desc: '퀴즈 생성·수정·결과 확인', onClick: () => closeGo(`/programs/${id}/posts`) },
+          { icon: '📋', label: '퀴즈 관리', desc: '퀴즈 생성·수정·결과 확인', onClick: () => { setIsPanelOpen(false); openQuizManage() } },
         ]
       case 'community':
         return [
-          { icon: '📋', label: '게시물 관리', desc: '커뮤니티 게시물·피드 관리', onClick: () => closeGo(`/programs/${id}/posts`) },
+          { icon: '📋', label: '커뮤니티 관리', desc: '게시판·피드·가려진 글·신고', onClick: () => { setIsPanelOpen(false); openCommunityManage() } },
         ]
       case 'ranking':
         return [
@@ -755,8 +755,8 @@ function ProgramDetailPage() {
             <span className={`absolute right-full top-1/2 -translate-y-1/2 mr-1 px-2 py-0.5 rounded-md text-[11px] font-semibold whitespace-nowrap ${hdrStatusCls}`}>{hdrStatusLabel}</span>
           </div>
           <div className="absolute right-2 flex items-center gap-0.5">
-            <NotificationBell bare />
-            <ProfileButton bare />
+            <NotificationBell bare showBack />
+            <ProfileButton bare showBack />
           </div>
         </div>
       </header>
@@ -1385,7 +1385,6 @@ function ProgramDetailPage() {
           ref={communityManageRef}
           program={program}
           onSaved={() => queryClient.invalidateQueries({ queryKey: queryKeys.program(id) })}
-          onGoPosts={() => navigate(`/programs/${id}/posts`)}
         />
       )}
 
@@ -1706,6 +1705,18 @@ function ProgramDetailPage() {
           </div>
         </Modal>
       )}
+
+      {/* 퀴즈 삭제 확인 모달 */}
+      <ConfirmModal
+        isOpen={quizToDelete != null}
+        onClose={() => setQuizToDelete(null)}
+        onConfirm={() => deleteQuizMutation.mutate(quizToDelete.id)}
+        title="퀴즈를 삭제할까요?"
+        message={quizToDelete ? `"${quizToDelete.title}" 퀴즈를 삭제하면\n참가자 제출과 부여된 점수가 함께 삭제됩니다.\n되돌릴 수 없어요.` : ''}
+        confirmLabel="삭제"
+        danger
+        busy={deleteQuizMutation.isPending}
+      />
     </div>
   )
 }

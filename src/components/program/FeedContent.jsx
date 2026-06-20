@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useMutation, useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { Heart, MessageCircle, BarChart3, Send, Trash2, Pencil } from 'lucide-react'
+import { Heart, MessageCircle, BarChart3, Send, Trash2, Pencil, Flag } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
 import { formatRelativeKstDay } from '../../lib/formatters'
@@ -10,6 +10,7 @@ import OperatorVerificationActions from './OperatorVerificationActions'
 import UserAvatar from '../../components/common/UserAvatar'
 import EmptyState from '../../components/common/EmptyState'
 import LoadingState from '../../components/common/LoadingState'
+import ReportModal from '../common/ReportModal'
 
 // 피드 본문 — ProgramFeedPage / ProgramDetailPage 「커뮤니티」 탭 공유.
 // 본인 결정 (Day 58): 커뮤니티 탭 클릭 시 진입 카드 없이 바로 피드 노출 → UX 자연스러움.
@@ -34,6 +35,9 @@ function FeedContent({ program, targetVerificationId = null, targetCommentId = n
     else next.add(vid)
     return next
   })
+
+  // 인증 신고 (100) — 누적 시 트리거가 feed_visible=false 로 자동 숨김. UI 모달(ReportModal)로 처리.
+  const [reportVid, setReportVid] = useState(null)
 
   // 페이지네이션 — 한 번에 10개씩. 더보기 클릭으로 다음 10개 fetch.
   const {
@@ -351,6 +355,17 @@ function FeedContent({ program, targetVerificationId = null, targetCommentId = n
                     수정
                   </button>
                 )}
+                {!isMyPost && !readOnly && (
+                  <button
+                    type="button"
+                    onClick={() => setReportVid(post.id)}
+                    className="flex items-center gap-1 px-2 py-0.5 text-[11px] text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition"
+                    title="신고"
+                  >
+                    <Flag className="w-3 h-3" />
+                    신고
+                  </button>
+                )}
               </div>
             </div>
 
@@ -502,6 +517,14 @@ function FeedContent({ program, targetVerificationId = null, targetCommentId = n
           </button>
         </div>
       )}
+      <ReportModal
+        isOpen={reportVid != null}
+        onClose={() => setReportVid(null)}
+        programId={id}
+        targetType="verification"
+        targetId={reportVid}
+        onReported={() => queryClient.invalidateQueries({ queryKey: queryKeys.feedPosts(id) })}
+      />
     </motion.div>
   )
 }

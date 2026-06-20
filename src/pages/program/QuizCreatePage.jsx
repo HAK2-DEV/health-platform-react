@@ -209,7 +209,7 @@ function QuizCreatePage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.programQuizzes(id) })
-      navigate(`/programs/${id}/posts`)
+      navigate(`/programs/${id}?tab=quizzes&panel=quiz`)   // 퀴즈 관리자로 복귀
     },
     onError: (err) => {
       console.error('퀴즈 생성 실패:', err)
@@ -229,7 +229,7 @@ function QuizCreatePage() {
 
   return (
     <div className="px-4 pt-2 pb-24 max-w-2xl mx-auto">
-      <StickyBackBar fallbackPath={`/programs/${id}/posts`} title="게시물 관리로" />
+      <StickyBackBar fallbackPath={`/programs/${id}?tab=quizzes&panel=quiz`} title="퀴즈 관리로" />
 
       <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5" style={{ marginBottom: '9px' }}>
         <h1 className="text-2xl font-medium text-gray-800">📝 퀴즈 만들기</h1>

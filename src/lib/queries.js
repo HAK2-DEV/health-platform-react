@@ -660,6 +660,16 @@ export const deleteCommunityPost = async (id) => {
   if (error) throw error
 }
 
+// 신고 (100) — targetType: 'post' | 'verification'. 누적 시 트리거가 자동 숨김.
+export const createReport = async ({ programId, targetType, targetId, reason }) => {
+  const { data: { session } } = await supabase.auth.getSession()
+  const uid = session?.user?.id
+  const { error } = await supabase.from('reports').insert({
+    program_id: programId, target_type: targetType, target_id: targetId, reporter_id: uid, reason: reason || null,
+  })
+  if (error) throw error
+}
+
 // 퀴즈 상세 (정답 제외) + 본인 제출/답안 — RPC
 export const fetchQuizForParticipant = async (quizId) => {
   const { data, error } = await supabase.rpc('get_quiz_for_participant', { p_quiz_id: quizId })

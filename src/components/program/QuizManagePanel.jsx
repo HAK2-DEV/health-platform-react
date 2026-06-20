@@ -8,6 +8,7 @@ import { ClipboardList, CalendarClock, BarChart3, HelpCircle, Pencil, Copy, Eye,
 const _df = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' })
 const _tf = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hour12: false })
 const fmtDT = (ts) => { if (!ts) return null; const d = new Date(ts); return `${_df.format(d).replaceAll('-', '.')} ${_tf.format(d)}` }
+const fmtDate = (ts) => { if (!ts) return null; return _df.format(new Date(ts)).replaceAll('-', '.') + '.' }
 
 const quizStatus = (q, now) => {
   const start = q.start_at ? new Date(q.start_at).getTime() : null
@@ -73,11 +74,9 @@ function QuizCard({ q, now, onEdit, onPreview, onDelete, onDuplicate, isBusy }) 
             <span className={`flex-shrink-0 px-2 py-0.5 rounded-md text-[11px] font-semibold ${meta.cls}`}>{meta.label}</span>
           </div>
           {q.description?.trim() && <p className="text-[12px] text-gray-500 truncate mt-0.5">{q.description}</p>}
-          <p className="text-[11px] text-gray-400 mt-1 break-keep">
-            문항 {q.questionCount}문항 · 배점 {q.totalPoint || 0}점
-            {q.start_at && <> · 공개 {fmtDT(q.start_at)}</>}
-            {q.due_at ? <> · 마감 {fmtDT(q.due_at)}</> : <> · 마감 없음</>}
-          </p>
+          <p className="text-[11px] text-gray-400 mt-1">문항 {q.questionCount}문항 · 배점 {q.totalPoint || 0}점</p>
+          {q.start_at && <p className="text-[11px] text-gray-400 leading-tight">공개 {fmtDate(q.start_at)}</p>}
+          <p className="text-[11px] text-gray-400 leading-tight">마감 {q.due_at ? fmtDate(q.due_at) : '없음'}</p>
         </div>
       </div>
       <div className="grid grid-cols-4 border-t border-gray-100 divide-x divide-gray-100">

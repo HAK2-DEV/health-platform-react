@@ -7,7 +7,7 @@ import { queryKeys, fetchUnreadNotificationsCount } from '../../lib/queries'
 // 우상단 알림 종 — 홈/프로그램/랭킹/프로필 헤더 공용.
 //   하단 탭에서 알림 탭을 제거(본인 결정)하여, 각 페이지 헤더로 알림 진입.
 //   안 읽은 알림 카운트 배지 (다른 화면 활동 시 invalidate 로 자동 갱신).
-function NotificationBell({ className = '', bare = false }) {
+function NotificationBell({ className = '', bare = false, showBack = false }) {
   const navigate = useNavigate()
   const { session } = useAuth()
   const userId = session?.user?.id
@@ -28,7 +28,7 @@ function NotificationBell({ className = '', bare = false }) {
       type="button"
       className={`${base} ${className}`}
       title="알림"
-      onClick={() => navigate('/notifications')}
+      onClick={() => navigate('/notifications', showBack ? { state: { showBack: true } } : undefined)}
     >
       <Bell className="w-5 h-5 text-gray-600" />
       {unreadCount > 0 && (

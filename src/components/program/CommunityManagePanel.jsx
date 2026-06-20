@@ -1,6 +1,7 @@
 import { useState, useEffect, forwardRef, useImperativeHandle } from 'react'
 import { supabase } from '../../supabaseClient'
-import { Check, FileText, Heart, MessageCircle, Plus, X, GripVertical, MoreVertical, Trash2, ChevronDown } from 'lucide-react'
+import { Check, FileText, Heart, MessageCircle, Plus, X, ChevronUp, ChevronDown, MoreVertical, Trash2 } from 'lucide-react'
+import HiddenPostsSection from './HiddenPostsSection'
 
 // 커뮤니티 관리자 — 운영자 패널(커뮤니티) 클릭 시 커뮤니티 탭 자리에 인라인 표시.
 //   ① 레이아웃(community_layout) ② 게시판 ③ 승인·노출 ④ 신고 정책 ⑤ 미리보기.
@@ -94,7 +95,7 @@ const Toggle = ({ on, onClick }) => (
 const numBadge = (n) => <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500 text-white text-[11px] font-bold">{n}</span>
 const headCls = 'flex items-center gap-1.5 text-[15px] font-bold text-gray-800 mb-3'
 
-const CommunityManagePanel = forwardRef(function CommunityManagePanel({ program, onSaved, onGoPosts }, ref) {
+const CommunityManagePanel = forwardRef(function CommunityManagePanel({ program, onSaved }, ref) {
   const [layout, setLayout] = useState('feed')
   const [boards, setBoards] = useState(DEFAULT_BOARDS)
   const [postApproval, setPostApproval] = useState(false)
@@ -115,34 +116,31 @@ const CommunityManagePanel = forwardRef(function CommunityManagePanel({ program,
     setReportPolicy(s.reportPolicy || 'auto')
   }, [program])
 
-  const addBoard = () => {
-    const name = window.prompt('새 게시판 이름 (최대 8자)')
-    if (!name || !name.trim()) return
-    setBoards(prev => [...prev, { id: `b_${prev.length}_${Math.random().toString(36).slice(2, 7)}`, name: name.trim().slice(0, 8), system: false, writePerm: 'free', commentPerm: 'free' }])
-  }
   const removeBoard = (bid) => {
     if (!window.confirm('이 게시판을 삭제하시겠습니까?')) return
     setBoards(prev => prev.filter(b => b.id !== bid))
   }
   const updateBoard = (bid, patch) => setBoards(prev => prev.map(b => b.id === bid ? { ...b, ...patch } : b))
-  const renameBoard = (b) => {
-    const name = window.prompt('게시판 이름 (최대 8자)', b.name)
-    if (name && name.trim()) updateBoard(b.id, { name: name.trim().slice(0, 8) })
-  }
-  const [dragId, setDragId] = useState(null)      // 드래그 순서 변경
-  const [menuOpenId, setMenuOpenId] = useState(null) // ⋮ 메뉴
-  const dropOnBoard = (targetId) => {
+  const moveBoard = (idx, dir) => {
     setBoards(prev => {
-      if (!dragId || dragId === targetId) return prev
+      const ni = idx + dir
+      if (ni < 0 || ni >= prev.length) return prev
       const arr = [...prev]
-      const from = arr.findIndex(b => b.id === dragId)
-      const to = arr.findIndex(b => b.id === targetId)
-      if (from < 0 || to < 0) return prev
-      const [m] = arr.splice(from, 1)
-      arr.splice(to, 0, m)
+      ;[arr[idx], arr[ni]] = [arr[ni], arr[idx]]
       return arr
     })
-    setDragId(null)
+  }
+  const [menuOpenId, setMenuOpenId] = useState(null)  // ⋮ 메뉴
+  const [nameModal, setNameModal] = useState(null)    // 게시판 이름 입력 모달 { mode:'add'|'rename', boardId, value }
+  const confirmName = () => {
+    const v = (nameModal?.value || '').trim().slice(0, 8)
+    if (!v) { setNameModal(null); return }
+    if (nameModal.mode === 'add') {
+      setBoards(prev => [...prev, { id: `b_${prev.length}_${Math.random().toString(36).slice(2, 7)}`, name: v, system: false, writePerm: 'free', commentPerm: 'free' }])
+    } else {
+      updateBoard(nameModal.boardId, { name: v })
+    }
+    setNameModal(null)
   }
 
   useImperativeHandle(ref, () => ({
@@ -196,12 +194,12 @@ const CommunityManagePanel = forwardRef(function CommunityManagePanel({ program,
             const isAll = b.id === 'all'
             return (
               <span key={b.id} className={`flex-shrink-0 inline-flex items-center gap-1.5 pl-3 pr-2 py-1.5 rounded-full text-[13px] font-semibold ${isAll ? 'bg-emerald-500 text-white' : CHIP_COLORS[i % CHIP_COLORS.length]}`}>
-                <button type="button" onClick={() => renameBoard(b)} className="hover:underline max-w-[72px] truncate">{b.name}</button>
+                <button type="button" onClick={() => setNameModal({ mode: 'rename', boardId: b.id, value: b.name })} className="hover:underline max-w-[72px] truncate">{b.name}</button>
                 <button type="button" onClick={() => removeBoard(b.id)} className="opacity-70 hover:opacity-100"><X className="w-3.5 h-3.5" /></button>
               </span>
             )
           })}
-          <button type="button" onClick={addBoard}
+          <button type="button" onClick={() => setNameModal({ mode: 'add', value: '' })}
             className="flex-shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-full border border-dashed border-gray-300 text-gray-500 text-[13px] font-semibold hover:border-emerald-400 hover:text-emerald-600 transition whitespace-nowrap">
             <Plus className="w-3.5 h-3.5" /> 새 게시판
           </button>
@@ -217,20 +215,22 @@ const CommunityManagePanel = forwardRef(function CommunityManagePanel({ program,
             <span />
           </div>
           {/* 행 */}
-          {boards.map(b => {
+          {boards.map((b, idx) => {
             const meta = BOARD_META[b.id] || { emoji: '📝', bg: 'bg-gray-100' }
             return (
               <div
                 key={b.id}
-                draggable
-                onDragStart={() => setDragId(b.id)}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={() => dropOnBoard(b.id)}
-                className={`grid grid-cols-[1.7fr_1fr_0.9fr_18px] gap-1.5 items-center py-2 border-b border-gray-50 transition ${dragId === b.id ? 'opacity-50' : ''}`}
+                className="grid grid-cols-[1.7fr_1fr_0.9fr_18px] gap-1.5 items-center py-2 border-b border-gray-50"
               >
                 {/* 게시판 */}
                 <div className="flex items-center gap-1 min-w-0">
-                  <span className="text-gray-300 flex-shrink-0 cursor-grab active:cursor-grabbing" title="드래그하여 순서 변경"><GripVertical className="w-3.5 h-3.5" /></span>
+                  {/* 순서 ▲▼ */}
+                  <div className="flex flex-col flex-shrink-0 text-gray-400">
+                    <button type="button" onClick={() => moveBoard(idx, -1)} disabled={idx === 0} title="위로"
+                      className="hover:text-emerald-600 disabled:opacity-20 disabled:hover:text-gray-400 leading-none"><ChevronUp className="w-3.5 h-3.5" /></button>
+                    <button type="button" onClick={() => moveBoard(idx, 1)} disabled={idx === boards.length - 1} title="아래로"
+                      className="hover:text-emerald-600 disabled:opacity-20 disabled:hover:text-gray-400 leading-none"><ChevronDown className="w-3.5 h-3.5" /></button>
+                  </div>
                   <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm flex-shrink-0 ${meta.bg}`}>{meta.emoji}</span>
                   <div className="min-w-0">
                     <p className="text-[12px] font-bold text-gray-800 truncate">{b.name}</p>
@@ -313,21 +313,33 @@ const CommunityManagePanel = forwardRef(function CommunityManagePanel({ program,
         </div>
       </section>
 
-      {/* 4) 신고/숨김 정책 */}
+      {/* 4) 신고/숨김 정책 — 자동 숨김 토글(off=직접 관리). off 면 임계값 버튼 숨김 */}
       <section className="bg-white border border-gray-100 rounded-2xl shadow-soft p-4">
-        <h3 className={headCls}>{numBadge(4)} 신고 / 숨김 정책 <span className="text-[11px] font-normal text-gray-400 ml-1">설정 저장</span></h3>
-        <div className="grid grid-cols-3 gap-2">
-          {REPORT_OPTIONS.map(o => {
-            const on = reportPolicy === o.key
-            return (
-              <button key={o.key} type="button" onClick={() => setReportPolicy(o.key)}
-                className={`rounded-xl border-2 p-2 text-center transition ${on ? 'border-emerald-400 bg-emerald-50/50' : 'border-gray-200 hover:border-gray-300'}`}>
-                <p className={`text-[12px] font-bold ${on ? 'text-emerald-700' : 'text-gray-700'}`}>{o.label}</p>
-                <p className="text-[9px] text-gray-400 leading-tight mt-0.5">{o.desc}</p>
-              </button>
-            )
-          })}
+        <div className="flex items-center justify-between mb-2.5">
+          <h3 className="flex items-center gap-1.5 text-[15px] font-bold text-gray-800">{numBadge(4)} 신고 / 숨김 정책</h3>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] text-gray-500">자동 숨김</span>
+            <Toggle on={reportPolicy !== 'off'} onClick={() => setReportPolicy(p => p === 'off' ? 'auto' : 'off')} />
+          </div>
         </div>
+        {reportPolicy === 'off' ? (
+          <p className="text-[11px] text-gray-400 leading-relaxed bg-gray-50 rounded-xl p-3">
+            신고가 쌓여도 자동으로 숨기지 않아요. 운영자가 「가려진 글 · 신고 관리」에서 직접 확인하고 처리합니다.
+          </p>
+        ) : (
+          <div className="grid grid-cols-3 gap-2">
+            {REPORT_OPTIONS.map(o => {
+              const on = reportPolicy === o.key
+              return (
+                <button key={o.key} type="button" onClick={() => setReportPolicy(o.key)}
+                  className={`rounded-xl border-2 p-2 text-center transition ${on ? 'border-emerald-400 bg-emerald-50/50' : 'border-gray-200 hover:border-gray-300'}`}>
+                  <p className={`text-[12px] font-bold ${on ? 'text-emerald-700' : 'text-gray-700'}`}>{o.label}</p>
+                  <p className="text-[9px] text-gray-400 leading-tight mt-0.5">{o.desc}</p>
+                </button>
+              )
+            })}
+          </div>
+        )}
       </section>
 
       {/* 5) 미리보기 */}
@@ -343,12 +355,38 @@ const CommunityManagePanel = forwardRef(function CommunityManagePanel({ program,
         </div>
       </section>
 
-      {/* 게시물 관리 (가려진 글 등) */}
-      {onGoPosts && (
-        <button type="button" onClick={onGoPosts}
-          className="w-full flex items-center justify-center gap-1.5 h-11 rounded-2xl border border-gray-200 text-gray-600 text-sm font-semibold hover:bg-gray-50 transition">
-          <FileText className="w-4 h-4" /> 게시물 관리 (가려진 글 · 신고)
-        </button>
+      {/* 가려진 글 · 신고 관리 — 인라인 (피드 활성 프로그램만) */}
+      <section className="bg-white border border-gray-100 rounded-2xl shadow-soft p-3.5">
+        <h3 className="flex items-center gap-1.5 text-[13px] font-bold text-gray-800 mb-2.5">
+          <FileText className="w-4 h-4 text-gray-500" /> 가려진 글 · 신고 관리
+        </h3>
+        {program?.feed_enabled
+          ? <HiddenPostsSection programId={program.id} feedEnabled={!!program.feed_enabled} />
+          : <p className="text-[12px] text-gray-400 py-2">피드를 사용하는 프로그램에서 신고·가려진 글을 관리할 수 있어요.</p>}
+      </section>
+
+      {/* 게시판 이름 입력 모달 (한줄 설명 모달과 동일 스타일) */}
+      {nameModal && (
+        <div className="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center p-5" onClick={() => setNameModal(null)}>
+          <div className="w-full max-w-xs bg-white rounded-2xl p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h4 className="text-[15px] font-bold text-gray-800 mb-2">{nameModal.mode === 'add' ? '새 게시판 이름' : '게시판 이름 수정'}</h4>
+            <input
+              value={nameModal.value}
+              onChange={(e) => setNameModal(m => ({ ...m, value: e.target.value }))}
+              onKeyDown={(e) => { if (e.key === 'Enter') confirmName() }}
+              maxLength={8}
+              autoFocus
+              placeholder="게시판 이름 (최대 8자)"
+              style={{ fontSize: '14px' }}
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-400"
+            />
+            <p className="text-[11px] text-gray-400 text-right mt-0.5">{(nameModal.value || '').length}/8</p>
+            <div className="flex gap-2 mt-2">
+              <button type="button" onClick={() => setNameModal(null)} className="flex-1 h-11 rounded-xl border border-gray-200 text-gray-600 text-sm font-bold hover:bg-gray-50 transition">취소</button>
+              <button type="button" onClick={confirmName} className="flex-[1.4] h-11 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold transition">확인</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
     </div>

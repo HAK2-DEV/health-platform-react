@@ -47,6 +47,12 @@ const FlagSolid = ({ className }) => (
     <path d="M3 2.25a.75.75 0 0 1 .75.75v.54l1.838-.46a9.75 9.75 0 0 1 6.725.738l.108.054a8.25 8.25 0 0 0 5.58.652l3.109-.732a.75.75 0 0 1 .917.81 47.784 47.784 0 0 0 .005 10.337.75.75 0 0 1-.574.812l-3.114.733a9.75 9.75 0 0 1-6.594-.77l-.108-.054a8.25 8.25 0 0 0-5.69-.625l-2.202.55V21a.75.75 0 0 1-1.5 0V3A.75.75 0 0 1 3 2.25Z" />
   </svg>
 )
+const ClipboardSolid = ({ className }) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+    <path fillRule="evenodd" d="M7.502 6h7.128A3.375 3.375 0 0 1 18 9.375v9.375a3 3 0 0 0 3-3V6.108c0-1.505-1.125-2.811-2.664-2.94a48.972 48.972 0 0 0-.673-.05A3 3 0 0 0 15 1.5h-1.5a3 3 0 0 0-2.663 1.618c-.225.015-.45.032-.673.05C8.662 3.295 7.554 4.542 7.502 6ZM13.5 3A1.5 1.5 0 0 0 12 4.5h4.5A1.5 1.5 0 0 0 15 3h-1.5Z" clipRule="evenodd" />
+    <path fillRule="evenodd" d="M3 9.375C3 8.339 3.84 7.5 4.875 7.5h9.75c1.036 0 1.875.84 1.875 1.875v11.25c0 1.035-.84 1.875-1.875 1.875h-9.75A1.875 1.875 0 0 1 3 20.625V9.375ZM6 12a.75.75 0 0 1 .75-.75h.008a.75.75 0 0 1 .75.75v.008a.75.75 0 0 1-.75.75H6.75a.75.75 0 0 1-.75-.75V12Zm2.25 0a.75.75 0 0 1 .75-.75h3.75a.75.75 0 0 1 0 1.5H9a.75.75 0 0 1-.75-.75ZM6 15a.75.75 0 0 1 .75-.75h.008a.75.75 0 0 1 .75.75v.008a.75.75 0 0 1-.75.75H6.75a.75.75 0 0 1-.75-.75V15Zm2.25 0a.75.75 0 0 1 .75-.75h3.75a.75.75 0 0 1 0 1.5H9a.75.75 0 0 1-.75-.75ZM6 18a.75.75 0 0 1 .75-.75h.008a.75.75 0 0 1 .75.75v.008a.75.75 0 0 1-.75.75H6.75a.75.75 0 0 1-.75-.75V18Zm2.25 0a.75.75 0 0 1 .75-.75h3.75a.75.75 0 0 1 0 1.5H9a.75.75 0 0 1-.75-.75Z" clipRule="evenodd" />
+  </svg>
+)
 
 // 섹션 카드 — 모서리 10px, 제목 + 우측 액션
 function SectionCard({ title, action, children, className = '' }) {
@@ -128,7 +134,8 @@ function DashboardPage() {
     enabled: !!userId,
   })
 
-  const activeProgramIds = activePrograms.map(p => p.id)
+  // 참여자 수 — 참여 프로그램 + 운영 프로그램(대표 카드가 운영중일 때 참여자 수 표시) 모두 집계
+  const activeProgramIds = [...new Set([...activePrograms.map(p => p.id), ...myPrograms.map(p => p.id)])]
   const { data: activeCounts = {} } = useQuery({
     queryKey: queryKeys.activeParticipantCounts(activeProgramIds),
     queryFn: () => fetchActiveParticipantCounts(activeProgramIds),
@@ -159,7 +166,9 @@ function DashboardPage() {
     enabled: !!userId,
   })
 
-  const featured = activePrograms[0] || null
+  // 운영자(소유 프로그램 보유)면 대표 카드에 운영중 프로그램을, 아니면 참여중 프로그램을 노출
+  const isOperator = myPrograms.length > 0
+  const featured = isOperator ? (myPrograms[0] || null) : (activePrograms[0] || null)
   const { data: featuredRank } = useQuery({
     queryKey: queryKeys.myRankChange(featured?.id, userId),
     queryFn: () => fetchMyRankChange(featured.id),
@@ -172,7 +181,6 @@ function DashboardPage() {
   })
 
   // ─── 파생 ─────────
-  const isOperator = myPrograms.length > 0
 
   const fProgress = featured ? calcProgress(featured.start_date, featured.end_date) : 0
   const fUrgency = featured ? progressUrgency(fProgress) : null
@@ -190,8 +198,15 @@ function DashboardPage() {
 
   const featuredParticipants = featured ? (activeCounts[featured.id] ?? null) : null
 
-  // 참여 중 프로그램 4지표 (숫자 12px / 단위 9px / 색상은 지표별)
-  const fStats = [
+  // 대표 프로그램 4지표 (숫자 12px / 단위 9px / 색상은 지표별)
+  //   운영중: 참여자 / 운영 프로그램 수 / 남은 기간 / 진행률
+  //   참여중: 참여자 / 내 순위 / 남은 기간 / 목표 달성률
+  const fStats = isOperator ? [
+    { icon: UsersSolid, label: '참여자', num: featuredParticipants != null ? `${featuredParticipants}` : '-', unit: featuredParticipants != null ? '명' : '', color: 'text-emerald-600' },
+    { icon: ClipboardSolid, label: '운영 프로그램', num: `${myPrograms.length}`, unit: '개', color: 'text-gray-900' },
+    { icon: CalendarSolid, label: '남은 기간', num: daysLeft != null ? `${daysLeft}` : '상시', unit: daysLeft != null ? '일' : '', color: 'text-gray-900' },
+    { icon: FlagSolid, label: '진행률', num: `${fProgress}`, unit: '%', color: 'text-emerald-600' },
+  ] : [
     { icon: UsersSolid, label: '참여자', num: featuredParticipants != null ? `${featuredParticipants}` : '-', unit: featuredParticipants != null ? '명' : '', color: 'text-emerald-600' },
     { icon: TrophySolid, label: '내 순위', num: featuredRank?.current_rank ? `${featuredRank.current_rank}` : '-', unit: featuredRank?.current_rank ? '등' : '', color: 'text-gray-900' },
     { icon: CalendarSolid, label: '남은 기간', num: daysLeft != null ? `${daysLeft}` : '상시', unit: daysLeft != null ? '일' : '', color: 'text-gray-900' },
@@ -274,12 +289,12 @@ function DashboardPage() {
           </div>
         </motion.div>
 
-        {/* ─── 참여 중인 프로그램 (대표 1개) ─── */}
+        {/* ─── 대표 프로그램 (운영자=운영중 / 그 외=참여중) ─── */}
         <SectionCard
-          title="참여 중인 프로그램"
-          action={activePrograms.length > 0 && (
+          title={isOperator ? '운영 중인 프로그램' : '참여 중인 프로그램'}
+          action={(isOperator ? myPrograms.length : activePrograms.length) > 0 && (
             <button type="button" onClick={() => navigate('/programs')} className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700">
-              전체 보기 {activePrograms.length > 1 && `(${activePrograms.length})`}<ChevronRight className="w-3 h-3" />
+              전체 보기 {(isOperator ? myPrograms.length : activePrograms.length) > 1 && `(${isOperator ? myPrograms.length : activePrograms.length})`}<ChevronRight className="w-3 h-3" />
             </button>
           )}
         >

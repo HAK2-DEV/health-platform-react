@@ -1,4 +1,4 @@
-import { Routes, Route, useLocation, useNavigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { lazy, Suspense, useEffect } from 'react'
 import './index.css'
 import './App.css'
@@ -35,7 +35,6 @@ const ProgramReviewsPage = lazy(() => import('./pages/program/ProgramReviewsPage
 const ProgramReviewsBundlePage = lazy(() => import('./pages/program/ProgramReviewsBundlePage'))
 const ProgramReviewsMissionPage = lazy(() => import('./pages/program/ProgramReviewsMissionPage'))
 const ProgramFeedPage = lazy(() => import('./pages/program/ProgramFeedPage'))
-const PostsManagePage = lazy(() => import('./pages/program/PostsManagePage'))
 const QuizCreatePage = lazy(() => import('./pages/program/QuizCreatePage'))
 const QuizSolvePage = lazy(() => import('./pages/program/QuizSolvePage'))
 const QuizResultsPage = lazy(() => import('./pages/program/QuizResultsPage'))
@@ -154,9 +153,9 @@ function AppShell() {
             <Route path="/programs/:id/feed" element={
               <ProtectedRoute><ProgramFeedPage /></ProtectedRoute>
             } />
-            <Route path="/programs/:id/posts" element={
-              <ProtectedRoute><PostsManagePage /></ProtectedRoute>
-            } />
+            {/* /posts 인덱스(게시물 관리) 비활성화 — 「가려진 글·신고 관리」는 커뮤니티 관리자 안으로 이동.
+                남은 quiz 하위 라우트(new/결과)는 유지. 잔존 링크는 커뮤니티 탭으로 보냄. */}
+            <Route path="/programs/:id/posts" element={<Navigate to=".." replace />} />
             <Route path="/programs/:id/posts/quiz/new" element={
               <ProtectedRoute><QuizCreatePage /></ProtectedRoute>
             } />

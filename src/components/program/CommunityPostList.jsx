@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Trash2, Pencil } from 'lucide-react'
+import { Trash2, Pencil, Flag } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
 import { deleteCommunityPost, queryKeys } from '../../lib/queries'
 import { formatRelativeKstDay } from '../../lib/formatters'
 import UserAvatar from '../common/UserAvatar'
 import EmptyState from '../common/EmptyState'
+import ReportModal from '../common/ReportModal'
 
 // 게시판 글 목록 — 작성자/내용/이미지(signed URL) + 본인·운영자 삭제.
 function CommunityPostList({ programId, boardId, posts = [], myUserId, isOwner, onEdit }) {
@@ -34,6 +35,8 @@ function CommunityPostList({ programId, boardId, posts = [], myUserId, isOwner, 
   })
   const onDelete = (p) => { if (window.confirm('이 글을 삭제할까요?')) delMutation.mutate(p.id) }
 
+  const [reportId, setReportId] = useState(null)
+
   if (posts.length === 0) {
     return <EmptyState icon="📝" title="아직 글이 없어요" description="첫 글을 남겨보세요" />
   }
@@ -54,6 +57,10 @@ function CommunityPostList({ programId, boardId, posts = [], myUserId, isOwner, 
                 </p>
               </div>
               <div className="flex items-center gap-0.5 flex-shrink-0">
+                {p.author_id !== myUserId && boardId !== 'notice' && (
+                  <button type="button" onClick={() => setReportId(p.id)}
+                    className="p-1 text-gray-400 hover:text-amber-600 transition" title="신고"><Flag className="w-4 h-4" /></button>
+                )}
                 {p.author_id === myUserId && onEdit && (
                   <button type="button" onClick={() => onEdit(p)}
                     className="p-1 text-gray-400 hover:text-emerald-600 transition" title="수정"><Pencil className="w-4 h-4" /></button>
@@ -72,6 +79,13 @@ function CommunityPostList({ programId, boardId, posts = [], myUserId, isOwner, 
           </article>
         )
       })}
+      <ReportModal
+        isOpen={reportId != null}
+        onClose={() => setReportId(null)}
+        programId={programId}
+        targetType="post"
+        targetId={reportId}
+      />
     </div>
   )
 }

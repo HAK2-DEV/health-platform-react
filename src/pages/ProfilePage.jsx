@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { LogOut, Camera, Pencil, X, Loader2, BarChart3, ChevronRight, Bell, Shield, BookOpen, MessageCircle } from 'lucide-react'
 import { supabase } from '../supabaseClient'
@@ -8,6 +8,7 @@ import { useNicknameCheck } from '../hooks/useNicknameCheck'
 import { NICKNAME } from '../lib/constants'
 import { queryKeys, fetchActivePrograms, fetchMyParticipantStats } from '../lib/queries'
 import UserAvatar from '../components/common/UserAvatar'
+import BackButton from '../components/common/BackButton'
 import NotificationBell from '../components/common/NotificationBell'
 import IconBox from '../components/common/IconBox'
 import ImageCropModal from '../components/common/ImageCropModal'
@@ -20,6 +21,8 @@ import ImageCropModal from '../components/common/ImageCropModal'
 function ProfilePage() {
   const { session, nickname, refreshNickname } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+  const showBack = location.state?.showBack === true
   const queryClient = useQueryClient()
   const userId = session?.user?.id
 
@@ -241,6 +244,9 @@ function ProfilePage() {
       {/* 상단 헤더 — 앱아이콘 + 마이페이지 + 알림 (다른 탭과 통일) */}
       <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-gray-100">
         <div className="max-w-md mx-auto h-[46px] px-4 flex items-center justify-center relative">
+          {showBack && (
+            <div className="absolute left-2"><BackButton /></div>
+          )}
           <div className="flex items-center gap-1.5">
             <img src="/app-icon.png" onError={(e) => { e.currentTarget.style.display = 'none' }} alt="" className="w-5 h-5 rounded-md" />
             <span className="text-[17px] font-bold text-gray-800">마이페이지</span>
