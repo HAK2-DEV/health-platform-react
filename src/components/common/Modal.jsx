@@ -1,5 +1,4 @@
-import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { motion, AnimatePresence, useDragControls } from 'framer-motion'
 
 // 스와이프 다운 임계값 — 모달 닫기용. 좌우 스와이프는 브라우저 swipe-to-navigate
@@ -13,6 +12,23 @@ const SWIPE_CLOSE_VELOCITY = 500     // 또는 빠른 플릭 (px/s)
 function Modal({ isOpen, onClose, children, onPrev, onNext }) {
   // 상단 핸들에서만 drag 시작 — 본문 스크롤과 충돌 방지
   const dragControls = useDragControls()
+
+  // 가로 스와이프로 이전/다음 이동 (화살표 버튼 대체).
+  //   좌→우(dx>0)=이전, 우→좌(dx<0)=다음. 세로 스크롤과 구분 위해 수평 우세 + 임계값.
+  const touchStart = useRef({ x: 0, y: 0 })
+  const onTouchStart = (e) => {
+    const t = e.touches[0]
+    touchStart.current = { x: t.clientX, y: t.clientY }
+  }
+  const onTouchEnd = (e) => {
+    const t = e.changedTouches[0]
+    const dx = t.clientX - touchStart.current.x
+    const dy = t.clientY - touchStart.current.y
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      if (dx < 0 && onNext) onNext()
+      else if (dx > 0 && onPrev) onPrev()
+    }
+  }
 
   // ESC 키로 닫기
   useEffect(() => {
@@ -65,6 +81,8 @@ function Modal({ isOpen, onClose, children, onPrev, onNext }) {
               sm:max-w-md sm:max-h-[85vh] sm:rounded-lg
             "
             onClick={(e) => e.stopPropagation()}
+            onTouchStart={onTouchStart}
+            onTouchEnd={onTouchEnd}
             initial={{ y: 32, opacity: 0, scale: 0.97 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 24, opacity: 0, scale: 0.97 }}
@@ -98,31 +116,7 @@ function Modal({ isOpen, onClose, children, onPrev, onNext }) {
             {children}
           </motion.div>
 
-          {/* prev/next fade 버튼 — 모달 좌·우 가장자리 세로 중앙.
-              화면 좌표 기준 fixed 라 모달 스크롤과 독립적 위치.
-              undefined 면 안 렌더 (첫/마지막 자연 인지). */}
-          {onPrev && (
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); onPrev() }}
-              className="fixed left-2 sm:left-4 top-[58%] -translate-y-1/2 z-[70] w-10 h-10 flex items-center justify-center bg-white/5 hover:bg-white/30 text-gray-600 rounded-full shadow-md backdrop-blur-sm transition"
-              title="이전"
-              aria-label="이전 프로그램"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-          )}
-          {onNext && (
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); onNext() }}
-              className="fixed right-2 sm:right-4 top-[58%] -translate-y-1/2 z-[70] w-10 h-10 flex items-center justify-center bg-white/5 hover:bg-white/30 text-gray-600 rounded-full shadow-md backdrop-blur-sm transition"
-              title="다음"
-              aria-label="다음 프로그램"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
-          )}
+          {/* 좌우 화살표 제거 — 가로 스와이프(onTouchStart/End)로 이전/다음 이동 */}
         </div>
       )}
     </AnimatePresence>

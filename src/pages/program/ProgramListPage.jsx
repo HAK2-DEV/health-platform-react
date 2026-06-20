@@ -333,7 +333,7 @@ function ProgramListPage() {
             <span className="text-[17px] font-bold text-gray-800">프로그램</span>
           </div>
           <div className="absolute right-3">
-            <NotificationBell />
+            <NotificationBell bare />
           </div>
         </div>
       </header>
@@ -396,10 +396,12 @@ function ProgramListPage() {
                 <h2 className="text-[16px] font-bold text-gray-800">운영 중인 프로그램</h2>
                 <p className="text-sm text-gray-400 mt-0.5">내가 만든 프로그램을 관리해요.</p>
               </div>
-              <button type="button" onClick={() => navigate('/programs/new')}
-                className="flex items-center gap-1 px-3 py-1.5 bg-emerald-50 text-emerald-700 text-xs font-semibold rounded-full hover:bg-emerald-100 transition flex-shrink-0">
-                + 만들기
-              </button>
+              {myPrograms.length > 0 && (
+                <button type="button" onClick={() => navigate('/programs/new')}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-emerald-50 text-emerald-700 text-xs font-semibold rounded-full hover:bg-emerald-100 transition flex-shrink-0">
+                  + 만들기
+                </button>
+              )}
             </div>
             {isMyLoading ? (
               <LoadingState size="sm" />
@@ -419,13 +421,15 @@ function ProgramListPage() {
               </div>
             )}
 
-            {/* 하단 — 새 프로그램 만들기 CTA (0개일 때도 표시) */}
-            <CreateProgramCTA
-              icon="/icons/cta/create.png"
-              title="새로운 프로그램을 만들어보세요!"
-              subtitle="건강한 습관을 만드는 여정을 시작해보세요."
-              onClick={() => navigate('/programs/new')}
-            />
+            {/* 하단 — 새 프로그램 만들기 CTA (운영 중 프로그램이 있을 때만) */}
+            {myPrograms.length > 0 && (
+              <CreateProgramCTA
+                icon="/icons/cta/create.png"
+                title="새로운 프로그램을 만들어보세요!"
+                subtitle="건강한 습관을 만드는 여정을 시작해보세요."
+                onClick={() => navigate('/programs/new')}
+              />
+            )}
           </>
         )}
 

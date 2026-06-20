@@ -41,7 +41,7 @@ function AuthForm() {
         로그인
       </h2>
       
-      <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-[9px]">
         <input 
           type="email"
           value={email}
@@ -68,7 +68,7 @@ function AuthForm() {
         </button>
       </form>
 
-      <p className="mt-4 text-center text-gray-600 text-sm">
+      <p className="text-center text-gray-600 text-sm" style={{ marginTop: '11px' }}>
         계정이 없나요?
         <Link to="/signup" className="ml-2 text-emerald-500 underline">
           회원가입

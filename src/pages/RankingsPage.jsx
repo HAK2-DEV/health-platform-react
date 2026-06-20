@@ -349,7 +349,7 @@ function RankingHeader() {
           <img src="/app-icon.png" onError={(e) => { e.currentTarget.style.display = 'none' }} alt="" className="w-5 h-5 rounded-md" />
           <span className="text-[17px] font-bold text-gray-800">랭킹</span>
         </div>
-        <div className="absolute right-3"><NotificationBell /></div>
+        <div className="absolute right-3"><NotificationBell bare /></div>
       </div>
     </header>
   )
@@ -373,8 +373,8 @@ function RankingBanner({ badge }) {
             {badge}
           </span>
         )}
-        <h2 className="text-[17px] font-bold text-gray-800 leading-snug drop-shadow-sm">꾸준함이 건강을 만듭니다! 💚</h2>
-        <p className="mt-1 text-[12px] text-gray-600">매일의 작은 실천이 큰 변화를 만들어요.</p>
+        <h2 className="text-[15px] font-bold text-gray-800 leading-snug drop-shadow-sm whitespace-nowrap">꾸준함이 건강을 만듭니다! 💚</h2>
+        <p className="mt-1 text-[11px] text-gray-600 whitespace-nowrap">매일의 작은 실천이 큰 변화를 만들어요.</p>
       </div>
     </div>
   )

@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { Fragment } from 'react'
 import { ArrowLeft, Check } from 'lucide-react'
 
@@ -11,16 +11,19 @@ const STEPS = [
 ]
 
 function WizardLayout({ currentStep, children }) {
+  const navigate = useNavigate()
   return (
     <div className="max-w-2xl mx-auto p-4">
       {/* 헤더 */}
       <div className="flex items-center gap-2 mb-6">
-        <Link 
-          to="/dashboard"
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
           className="p-2 hover:bg-gray-100 rounded-full transition"
+          aria-label="뒤로"
         >
           <ArrowLeft className="w-5 h-5 text-gray-600" />
-        </Link>
+        </button>
         <h1 className="text-lg font-medium text-gray-800">
           프로그램 생성
         </h1>

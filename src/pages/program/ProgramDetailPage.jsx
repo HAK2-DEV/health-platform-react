@@ -441,13 +441,16 @@ function ProgramDetailPage() {
     <div className="px-4 pt-2 pb-6 max-w-4xl mx-auto">
       {/* 상단 헤더 — 뒤로 + 제목 + 알림 + 프로필 (풀폭, 모서리 0) */}
       <header className="sticky top-0 z-30 -mx-4 -mt-2 mb-[6px] bg-white/95 backdrop-blur-sm border-b border-gray-100">
-        <div className="max-w-4xl mx-auto h-[44px] px-2 flex items-center gap-1">
-          <button type="button" onClick={() => navigate(-1)} className="p-1.5 text-gray-600 hover:text-gray-900" aria-label="뒤로">
+        <div className="max-w-4xl mx-auto h-[44px] px-2 flex items-center justify-center relative">
+          <button type="button" onClick={() => navigate(-1)} className="absolute left-2 p-1.5 text-gray-600 hover:text-gray-900" aria-label="뒤로">
             <ChevronLeft className="w-5 h-5" />
           </button>
-          <span className="flex-1 min-w-0 text-center text-[16px] font-bold text-gray-800 truncate px-1">{program.name}</span>
-          <NotificationBell />
-          <ProfileButton />
+          {/* 제목 — 항상 화면 정중앙 (좌우 버튼 폭과 무관) */}
+          <span className="text-[16px] font-bold text-gray-800 truncate max-w-[58%] px-1">{program.name}</span>
+          <div className="absolute right-2 flex items-center gap-0.5">
+            <NotificationBell bare />
+            <ProfileButton bare />
+          </div>
         </div>
       </header>
 
@@ -490,7 +493,7 @@ function ProgramDetailPage() {
           'text-xs sm:text-sm'
 
         return (
-          <div className="relative bg-white border border-gray-200 rounded-[10px] overflow-hidden mb-[6px] h-[108px]">
+          <div className="relative bg-white border border-gray-200 rounded-[10px] overflow-hidden mb-[6px] min-h-[108px]">
             {/* 배경 사진 — 좌측 일부 영역에만. ProgramCover 로 목록 카드와 동일 폴백
                 (업로드사진 → 카테고리 일러스트 → 이모지). */}
             <div className="absolute inset-y-0 left-0 w-[38%]">
@@ -511,7 +514,7 @@ function ProgramDetailPage() {
             </span>
 
             {/* 텍스트 영역 — 우측 (사진 끝과 살짝 겹쳐 페이드 자연스럽게) */}
-            <div className="relative z-10 pl-[calc(34%+15px)] pr-4 sm:pr-5 py-2 h-full flex flex-col justify-center">
+            <div className="relative z-10 pl-[calc(34%+15px)] pr-4 sm:pr-5 py-2.5 min-h-[108px] flex flex-col justify-center">
               <h1
                 className={`${titleSize} font-bold text-gray-800 mb-1 leading-tight whitespace-nowrap overflow-hidden text-ellipsis`}
                 title={program.name}
@@ -536,16 +539,13 @@ function ProgramDetailPage() {
                         style={{ width: `${progress}%` }}
                       />
                     </div>
-                    <span className={`text-sm font-semibold flex-shrink-0 ${urgency.textCls || 'text-emerald-600'}`}>{progress}%</span>
+                    <span className={`text-sm font-semibold flex-shrink-0 ${urgency.textCls || 'text-emerald-600'}`}>
+                      {urgency.label && `${urgency.urgency === 'ended' ? '🏁' : urgency.urgency === 'imminent' ? '🔥' : '⏳'} `}{progress}%
+                    </span>
                   </div>
                 </div>
               )}
               <div className="flex items-center gap-3 sm:gap-4 text-xs sm:text-sm text-gray-600 flex-wrap">
-                {urgency.label && (
-                  <span className={`inline-flex items-center gap-1 font-medium ${urgency.textCls}`}>
-                    {urgency.urgency === 'ended' ? '🏁' : urgency.urgency === 'imminent' ? '🔥' : '⏳'} {urgency.label}
-                  </span>
-                )}
                 {isOwner ? (
                   <button
                     type="button"

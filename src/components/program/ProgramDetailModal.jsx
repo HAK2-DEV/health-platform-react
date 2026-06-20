@@ -237,8 +237,8 @@ function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
             </div>
           </div>
 
-          {/* 텍스트 영역 — 표지 하단과 자연스럽게 겹치도록 살짝 끌어올림 */}
-          <div className="p-6 -mt-4 relative">
+          {/* 텍스트 영역 — 표지 하단과 자연스럽게 겹치도록 살짝 끌어올림 (하단 패딩 0 → 버튼과 9px) */}
+          <div className="px-6 pt-6 pb-0 -mt-4 relative">
             {/* ─── 카테고리 칩 (제목 위, Day 65 본인 결정) ─── */}
             {categoryLabels.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mb-2">
@@ -256,7 +256,7 @@ function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
               {program.name}
             </h2>
             {joinInfo?.ownerNickname && (
-              <div className="flex items-center gap-1.5 mb-4 text-xs text-gray-500">
+              <div className="flex items-center gap-1.5 mb-[9px] text-xs text-gray-500">
                 <UserAvatar
                   avatarPath={joinInfo.ownerAvatarPath}
                   nickname={joinInfo.ownerNickname}
@@ -295,7 +295,7 @@ function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
                 },
               ]
               return (
-                <div className="bg-white border border-gray-200 rounded-2xl px-4 py-3 mb-4 shadow-sm">
+                <div className="bg-white border border-gray-200 rounded-2xl px-4 py-3 mb-[9px] shadow-sm">
                   <dl className="divide-y divide-gray-100">
                     {rows.map((row, idx) => (
                       <div key={idx} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
@@ -319,7 +319,7 @@ function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
             {program.description
               && program.description.trim()
               && program.description.trim() !== program.name?.trim() && (
-              <div className="bg-emerald-50/60 border border-emerald-100 rounded-2xl p-4 mb-5">
+              <div className="bg-emerald-50/60 border border-emerald-100 rounded-2xl p-4 mb-[9px]">
                 <p className="text-xs font-semibold text-emerald-700 mb-1.5">📋 프로그램 소개</p>
                 <p className="text-sm text-gray-700 whitespace-pre-wrap break-words leading-relaxed">
                   {program.description}
@@ -332,7 +332,7 @@ function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
           {/* ─── 참여 상태 sticky 하단 (Day 65 본인 결정) ─── */}
           {/* 콘텐츠 영역 밖으로 분리. 모달 outer overflow-y-auto 의 스크롤 컨텍스트에서 sticky 동작.
               상단에 흰색 페이드 그라데이션으로 콘텐츠가 sticky 박스 영역으로 자연스럽게 사라짐. */}
-          <div className="sticky bottom-0 bg-white px-6 py-3 z-10">
+          <div className="sticky bottom-0 bg-white px-6 pt-0 pb-3 z-10">
             {/* 상단 페이드 — 콘텐츠가 sticky 영역에 진입할 때 부드럽게 흰색으로 사라짐 */}
             <div className="pointer-events-none absolute -top-6 left-0 right-0 h-6 bg-gradient-to-b from-transparent to-white" />
             {participationStatus === 'loading' && (
@@ -428,7 +428,7 @@ function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
                     >
                       {isJoining ? '처리 중...' : reserveButtonText}
                     </button>
-                    <p className="text-[11px] text-amber-700 mt-1.5 text-center">
+                    <p className="text-[11px] text-amber-700 text-center" style={{ marginTop: '9px' }}>
                       {formatKoreanDate(program.start_date)} 시작 — 예약하면 시작일에 자동으로 참여돼요
                     </p>
                   </div>

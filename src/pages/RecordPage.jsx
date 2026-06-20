@@ -158,7 +158,7 @@ function RecordPage() {
             <ArrowLeft className="w-5 h-5" />
           </button>
           <span className="text-[17px] font-bold text-gray-800">기록하기</span>
-          <div className="absolute right-3"><NotificationBell /></div>
+          <div className="absolute right-3"><NotificationBell bare /></div>
         </div>
       </header>
 

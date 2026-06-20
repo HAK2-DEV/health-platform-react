@@ -255,14 +255,15 @@ function DashboardPage() {
             className="absolute inset-0"
             style={{ background: 'linear-gradient(to right, #eef7f1 0%, #eef7f1 50%, rgba(238,247,241,0) 72%)' }}
           />
-          <div className="relative p-4">
+          {/* 텍스트 — 세로 균등 간격(gap-[8px] 한 곳에서 조절) */}
+          <div className="relative h-full px-4 flex flex-col justify-center gap-[8px]">
             <p className="text-[13px] font-medium text-gray-700 leading-tight drop-shadow-sm">
               오늘도 건강한 하루 되세요! 👋
             </p>
-            <p className="mt-0.5 text-2xl font-extrabold text-gray-900 leading-tight drop-shadow-sm">
+            <p className="text-2xl font-extrabold text-gray-900 leading-tight drop-shadow-sm">
               {nickname ? `${nickname}님` : '반가워요'}
             </p>
-            <div className="mt-2 flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5">
               <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[11px] font-bold">
                 {isOperator ? '운영자' : 'Lv.1'}
               </span>

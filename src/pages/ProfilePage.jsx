@@ -6,6 +6,7 @@ import { supabase } from '../supabaseClient'
 import { useAuth } from '../hooks/useAuth'
 import { useNicknameCheck } from '../hooks/useNicknameCheck'
 import { NICKNAME } from '../lib/constants'
+import { queryKeys, fetchActivePrograms, fetchMyParticipantStats } from '../lib/queries'
 import UserAvatar from '../components/common/UserAvatar'
 import NotificationBell from '../components/common/NotificationBell'
 import IconBox from '../components/common/IconBox'
@@ -34,6 +35,18 @@ function ProfilePage() {
       if (error) throw error
       return data
     },
+    enabled: !!userId,
+  })
+
+  // 통계 박스 — 참여 프로그램 수 / 누적 포인트 / 연속 인증일
+  const { data: activePrograms = [] } = useQuery({
+    queryKey: queryKeys.activePrograms(userId),
+    queryFn: () => fetchActivePrograms(userId),
+    enabled: !!userId,
+  })
+  const { data: pStats } = useQuery({
+    queryKey: queryKeys.myParticipantStats(userId),
+    queryFn: () => fetchMyParticipantStats(userId),
     enabled: !!userId,
   })
 
@@ -232,25 +245,21 @@ function ProfilePage() {
             <img src="/app-icon.png" onError={(e) => { e.currentTarget.style.display = 'none' }} alt="" className="w-5 h-5 rounded-md" />
             <span className="text-[17px] font-bold text-gray-800">마이페이지</span>
           </div>
-          <div className="absolute right-3"><NotificationBell /></div>
+          <div className="absolute right-3"><NotificationBell bare /></div>
         </div>
       </header>
 
       <div className="w-full max-w-md mx-auto px-4 pt-[9px] pb-6 space-y-[9px]">
 
-      {/* 프로필 카드 — 아바타 + 이름 + 인사말 (배경 일러스트) */}
-      <div className="relative overflow-hidden rounded-2xl bg-[#eef7f1] border border-emerald-100/60 p-5">
+      {/* 프로필 카드 — 366×200, r10 (우측 잎 일러스트) */}
+      <div className="relative w-[366px] max-w-full mx-auto h-[200px] overflow-hidden rounded-[10px] bg-[#eef7f1] border border-emerald-100/60">
         <img
           src="/illustrations/mypage-banner.png"
           alt="" aria-hidden="true"
           onError={(e) => { e.currentTarget.style.display = 'none' }}
-          className="absolute inset-0 w-full h-full object-cover"
+          className="absolute right-0 top-0 bottom-0 h-full w-auto max-w-none"
         />
-        <div
-          className="absolute inset-0"
-          style={{ background: 'linear-gradient(to right, #eef7f1 0%, #eef7f1 46%, rgba(238,247,241,0) 74%)' }}
-        />
-        <div className="relative">
+        <div className="relative px-5 pt-5">
         {!isEditingNickname ? (
           <div className="flex items-center gap-4">
             {/* 아바타 + 카메라 */}
@@ -353,6 +362,18 @@ function ProfilePage() {
         )}
         {avatarError && <p className="mt-3 text-xs text-red-600 text-center">{avatarError}</p>}
         </div>
+
+        {/* 통계 박스 — 355×73, r11, 카드 하단에서 6px */}
+        {!isEditingNickname && (
+          <div
+            className="absolute left-1/2 -translate-x-1/2 bottom-[6px] w-[342px] max-w-full h-[73px] grid items-center bg-white/95 rounded-[11px] border border-gray-100 shadow-soft"
+            style={{ gridTemplateColumns: 'calc(33.333% + 3px) calc(33.333% - 3px) 33.333%' }}
+          >
+            <ProfileStat imgSrc="/icons/profile/programs.png" imgSize="w-[42px] h-[42px]" label="참여 중" value={activePrograms.length} unit="개" />
+            <ProfileStat imgSrc="/icons/profile/point.png" label="누적 포인트" value={(pStats?.totalPoints ?? 0).toLocaleString()} unit="P" valueClass="text-emerald-600" divider />
+            <ProfileStat imgSrc="/icons/profile/streak.png" imgSize="w-[42px] h-[42px]" label="연속 인증" value={pStats?.streak ?? 0} unit="일" valueClass="text-violet-600" divider />
+          </div>
+        )}
       </div>
 
       {/* 메뉴 카드 */}
@@ -438,6 +459,25 @@ function ProfilePage() {
 }
 
 // 프로필 메뉴 카드 — IconBox + 제목 + 설명 + ChevronRight (참고 사진).
+// 프로필 통계 셀 — 아이콘(또는 이미지) + 라벨 + 값 (구분선 옵션)
+function ProfileStat({ tone, icon, imgSrc, imgStyle, imgSize, label, value, unit, valueClass, divider }) {
+  return (
+    <div className={`flex items-center gap-[5px] px-2 ${divider ? 'border-l border-gray-100' : ''}`}>
+      {imgSrc ? (
+        <img src={imgSrc} alt="" aria-hidden="true" onError={(e) => { e.currentTarget.style.display = 'none' }} className={`object-contain flex-shrink-0 ${imgSize || 'w-8 h-8'}`} style={imgStyle} />
+      ) : (
+        <IconBox tone={tone} size="sm" shape="circle">{icon}</IconBox>
+      )}
+      <div className="min-w-0">
+        <p className="text-[12px] text-gray-400 leading-tight truncate">{label}</p>
+        <p className={`text-[15px] font-extrabold leading-tight ${valueClass || 'text-gray-900'}`}>
+          {value}{unit && <span className="text-[12px]">{unit}</span>}
+        </p>
+      </div>
+    </div>
+  )
+}
+
 function ProfileMenuItem({ tone, icon, title, description, onClick }) {
   return (
     <button
