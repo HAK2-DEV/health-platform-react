@@ -17,6 +17,7 @@ function MissionCard({
   mission,
   todayCounts,
   isOwner,
+  showOwnerActions = true,   // 일반(깔끔) 뷰에서 운영자 편집/삭제 버튼 숨김 → 작업 페이지에서만 노출
   isDeletePending,
   onDelete,
   onEdit,
@@ -145,7 +146,7 @@ function MissionCard({
       </div>
 
       {/* 2행 — 운영자 액션 (제목 공간 압박 방지 위해 별도 행) */}
-      {isOwner && (
+      {isOwner && showOwnerActions && (
         <div className="flex items-center justify-end gap-0.5 mt-3 pt-2 border-t border-gray-100">
           {onEdit && (
             <button

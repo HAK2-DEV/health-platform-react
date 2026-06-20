@@ -4,6 +4,7 @@ import { supabase } from '../../supabaseClient'
 import { Image as ImageIcon, BarChart3, MessageSquare, ChevronDown, ChevronUp, ChevronLeft, Plus, X } from 'lucide-react'
 import MissionIconPicker from './MissionIconPicker'
 import { SCHEDULE_MODES, WEEKDAY_OPTIONS } from '../../lib/constants'
+import { toKSTDateString } from '../../lib/formatters'
 
 // 운영자가 자기 프로그램에 미션을 직접 추가/수정 (본인 (가) 진화)
 // 인증 유형 3가지: 사진(requires_image) / 기록(requires_numeric) / 소감(requires_note)
@@ -37,6 +38,9 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
   const [scheduleMode, setScheduleMode] = useState('ALL_DAYS')
   const [activeDays, setActiveDays] = useState([])
   const [excludedPeriods, setExcludedPeriods] = useState([])
+  // 예약 미션 — 운영 기간 (시작일 미래 → 예약)
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
 
   const [isSaving, setIsSaving] = useState(false)
   const [error, setErrorRaw] = useState(null)
@@ -69,6 +73,8 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
       setScheduleMode('ALL_DAYS')
       setActiveDays([])
       setExcludedPeriods([])
+      setStartDate(program?.start_date || '')
+      setEndDate(program?.end_date || '')
       setError(null)
       setIsSaving(false)
       return
@@ -100,6 +106,8 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
       setScheduleMode(editMission.schedule_mode || 'ALL_DAYS')
       setActiveDays(editMission.active_days || [])
       setExcludedPeriods(editMission.excluded_periods || [])
+      setStartDate(editMission.active_from ? toKSTDateString(editMission.active_from) : (program?.start_date || ''))
+      setEndDate(editMission.active_until ? toKSTDateString(editMission.active_until) : (program?.end_date || ''))
     }
   }, [isOpen, editMission])
 
@@ -151,6 +159,9 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
     if (scheduleMode === 'CUSTOM' && activeDays.length === 0) {
       return '운영 요일을 최소 1일 선택해주세요'
     }
+    if (startDate && endDate && endDate < startDate) {
+      return '종료일이 시작일보다 빠를 수 없어요'
+    }
     return null
   }
 
@@ -182,6 +193,9 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
       schedule_mode: scheduleMode,
       active_days: scheduleMode === 'CUSTOM' ? activeDays : [],
       excluded_periods: excludedPeriods.filter(p => p.start_date && p.end_date),
+      // 예약 미션 운영 기간 — 생성·수정 모두 반영 (시작 미래 → 예약)
+      active_from: `${startDate || program.start_date}T00:00:00+09:00`,
+      active_until: `${endDate || program.end_date}T23:59:59+09:00`,
     }
 
     let opError = null
@@ -200,8 +214,6 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
           ...payload,
           program_id: program.id,
           feature: null,  // 운영자 직접 생성 표식
-          active_from: `${program.start_date}T00:00:00+09:00`,
-          active_until: `${program.end_date}T23:59:59+09:00`,
         })
       opError = error
     }
@@ -452,6 +464,34 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
                 </p>
               </>
             )}
+          </div>
+
+          {/* 운영 기간 (예약) — 시작일을 미래로 두면 그날부터 활성화 */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              운영 기간 <span className="text-xs font-normal text-gray-400">(시작일을 미래로 두면 예약 미션)</span>
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={startDate}
+                min={program.start_date}
+                max={program.end_date}
+                onChange={(e) => setStartDate(e.target.value)}
+                disabled={isSaving}
+                className="flex-1 min-w-0 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500 disabled:bg-gray-50"
+              />
+              <span className="text-gray-400 flex-shrink-0">~</span>
+              <input
+                type="date"
+                value={endDate}
+                min={startDate || program.start_date}
+                max={program.end_date}
+                onChange={(e) => setEndDate(e.target.value)}
+                disabled={isSaving}
+                className="flex-1 min-w-0 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500 disabled:bg-gray-50"
+              />
+            </div>
           </div>
 
           {/* 일정 (선택) — 운영 요일 + 제외 기간 */}

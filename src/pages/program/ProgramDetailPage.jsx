@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, lazy, Suspense } from 'react'
+import { useState, useMemo, useRef, useEffect, lazy, Suspense } from 'react'
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -7,7 +7,7 @@ import { ChevronLeft, Plus, ChevronRight, Users, Trophy, Pencil, Calendar, Activ
 import DoorIcon from '../../components/common/DoorIcon'
 import { supabase } from '../../supabaseClient'
 import { CATEGORY } from '../../lib/constants'
-import { formatKoreanDate, formatKoreanDateTime, isUpcomingByStartDate } from '../../lib/formatters'
+import { formatKoreanDate, formatKoreanDateTime, isUpcomingByStartDate, formatRelativeKstDay } from '../../lib/formatters'
 import MissionCard from '../../components/program/MissionCard'
 import GardenPanel from '../../components/program/GardenPanel'
 import ConstellationPanel from '../../components/program/ConstellationPanel'
@@ -21,6 +21,13 @@ import UserAvatar from '../../components/common/UserAvatar'
 import EmptyState from '../../components/common/EmptyState'
 import LoadingState from '../../components/common/LoadingState'
 import ProgramCover from '../../components/common/ProgramCover'
+import OverviewManagePanel from '../../components/program/OverviewManagePanel'
+import MissionManagePanel from '../../components/program/MissionManagePanel'
+import QuizManagePanel from '../../components/program/QuizManagePanel'
+import QuizLibraryModal from '../../components/program/QuizLibraryModal'
+import CommunityManagePanel from '../../components/program/CommunityManagePanel'
+import CommunityPostModal from '../../components/program/CommunityPostModal'
+import CommunityPostList from '../../components/program/CommunityPostList'
 import MarkdownView from '../../components/common/MarkdownView'
 import { calcProgress, progressUrgency } from '../../lib/programVisuals'
 
@@ -57,6 +64,8 @@ import {
   fetchMyRecentScoreSeries,
   fetchTodayCounts,
   fetchParticipantQuizzes,
+  fetchProgramQuizzes,
+  fetchCommunityPosts,
   fetchProgramOverview,
 } from '../../lib/queries'
 
@@ -108,6 +117,7 @@ function ProgramDetailPage() {
   // 전체보기 토글 시 해당 섹션 viewport 상단으로
   const missionSectionRef = useRef(null)
   const quizSectionRef = useRef(null)
+  const opPanelRef = useRef(null)  // 운영자 빠른 액션 박스 — 개요 관리자 열 때 상단으로 스크롤
   const scrollToSection = (ref) => {
     requestAnimationFrame(() => {
       ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -121,11 +131,18 @@ function ProgramDetailPage() {
     enabled: !!session && !!id,
   })
 
-  const { data: missions = [] } = useQuery({
+  const { data: missionsRaw = [] } = useQuery({
     queryKey: queryKeys.programMissions(id),
     queryFn: () => fetchProgramMissions(id),
     enabled: !!session && !!id,
   })
+  // sort_order(092) 우선, 없으면 created_at — 컬럼 미적용 시에도 안전(하위호환)
+  const missions = useMemo(() => {
+    return [...missionsRaw].sort((a, b) =>
+      ((a.sort_order ?? 1e9) - (b.sort_order ?? 1e9)) ||
+      (new Date(a.created_at) - new Date(b.created_at))
+    )
+  }, [missionsRaw])
 
   const { data: scores = { total: 0, today: 0 } } = useQuery({
     queryKey: queryKeys.programScores(id, userId),
@@ -268,6 +285,13 @@ function ProgramDetailPage() {
     enabled: !!session && !!id && !!program && !isOwner,
   })
 
+  // 운영자용 퀴즈 목록 (퀴즈 관리자 작업 페이지)
+  const { data: programQuizzes = [] } = useQuery({
+    queryKey: queryKeys.programQuizzes(id),
+    queryFn: () => fetchProgramQuizzes(id),
+    enabled: !!session && !!id && !!program && isOwner,
+  })
+
   // 본인 참여 상태 (자가 탈퇴 버튼용 + 비공개 접근 가드) — 비운영자만
   const { data: myPart, isLoading: isMyPartLoading } = useQuery({
     queryKey: ['my-part-status', id, userId],
@@ -292,6 +316,173 @@ function ProgramDetailPage() {
   const [isApprovalsOpen, setIsApprovalsOpen] = useState(false)
   const [isInviteOpen, setIsInviteOpen] = useState(false)
   const [isPanelOpen, setIsPanelOpen] = useState(false)
+  const [overviewManageOpen, setOverviewManageOpen] = useState(false)  // 개요 관리자 인라인 패널
+  const [missionManageOpen, setMissionManageOpen] = useState(false)    // 미션 관리자 작업 페이지
+  const [missionPreview, setMissionPreview] = useState(false)
+  const quizManageOpen = searchParams.get('panel') === 'quiz'          // 퀴즈 관리자 — URL 유지(새 퀴즈/편집 후 뒤로가기 복원)
+  const [quizPreview, setQuizPreview] = useState(false)
+  const [communityManageOpen, setCommunityManageOpen] = useState(false) // 커뮤니티 관리자 작업 페이지
+  const communityManageRef = useRef(null)
+  const [communityBoard, setCommunityBoard] = useState('all')           // 참여자 커뮤니티 — 선택 게시판 칩
+  const [isPostModalOpen, setIsPostModalOpen] = useState(false)         // 게시판 글쓰기 모달
+  const [editingPost, setEditingPost] = useState(null)                 // 수정 중인 게시글 (null=새 글)
+
+  // 게시판 글 (인증/전체 외 게시판) — 선택 칩 기준
+  const { data: communityPosts = [] } = useQuery({
+    queryKey: queryKeys.communityPosts(id, communityBoard),
+    queryFn: () => fetchCommunityPosts(id, communityBoard),
+    enabled: !!session && !!id && !!program && activeTab === 'community' && communityBoard !== 'all' && communityBoard !== 'cert',
+  })
+  // 공지 배너 — 공지 게시판 최신글 (공지 사용 ON 일 때)
+  const { data: noticePosts = [] } = useQuery({
+    queryKey: queryKeys.communityPosts(id, 'notice'),
+    queryFn: () => fetchCommunityPosts(id, 'notice'),
+    enabled: !!session && !!id && !!program && activeTab === 'community' && !!program?.feed_enabled
+      && (program?.community_settings?.noticeEnabled !== false),
+  })
+  const [quizLibOpen, setQuizLibOpen] = useState(false)                // 퀴즈 라이브러리 모달
+  // 라이브러리에서 생성폼 진입 시 ?quizlib= 저장 → 폼에서 뒤로가기로 복귀하면 모달 재오픈 (PostsManagePage 패턴)
+  const isQuizLibOpen = quizLibOpen || !!searchParams.get('quizlib')
+  const closeQuizLib = () => {
+    setQuizLibOpen(false)
+    if (searchParams.get('quizlib')) {
+      setSearchParams(prev => { const n = new URLSearchParams(prev); n.delete('quizlib'); return n }, { replace: true })
+    }
+  }
+
+  const [overviewPreview, setOverviewPreview] = useState(false)  // 개요 관리자 — 참여자 화면 미리보기
+  const [panelSaving, setPanelSaving] = useState(false)
+  const [panelError, setPanelError] = useState(null)
+  const [managedCover, setManagedCover] = useState(undefined)  // 개요 편집 중 표지(저장 전에도 프로필 카드/미리보기에 즉시 반영). undefined=변경 없음
+  const managePanelRef = useRef(null)
+
+  // 개요 관리자 열면 운영자 패널 버튼이 헤더 바로 아래로 오도록 스크롤 (프로필 카드 가림 → 편집 공간 확보)
+  useEffect(() => {
+    if (overviewManageOpen) {
+      requestAnimationFrame(() => requestAnimationFrame(() => opPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })))
+    } else {
+      setOverviewPreview(false)
+      setPanelError(null)
+      setManagedCover(undefined)
+    }
+  }, [overviewManageOpen])
+
+  // 미리보기 토글 — 진입 시 스크롤 위치 저장, 복귀 시 그 위치로 복원 (편집 중이던 자리 유지)
+  const previewScrollRef = useRef(0)
+  const toggleOverviewPreview = () => {
+    setOverviewPreview(prev => {
+      if (!prev) {
+        previewScrollRef.current = window.scrollY
+        return true
+      }
+      const y = previewScrollRef.current
+      requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, y)))
+      return false
+    })
+  }
+
+  // 개요 관리자 열기/닫기 — 열기 전 스크롤 저장 → 닫을 때 원래 화면으로 복원
+  const preOpenScrollRef = useRef(0)
+  const openOverviewManage = () => {
+    preOpenScrollRef.current = window.scrollY
+    setOverviewManageOpen(true)
+  }
+  const closeOverviewManage = () => {
+    setOverviewManageOpen(false)
+    const y = preOpenScrollRef.current
+    requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, y)))
+  }
+
+  // 미션 관리자 — 동일 패턴 (열 때 상단 스크롤, 닫을 때 복원, 미리보기 토글)
+  useEffect(() => {
+    if (missionManageOpen) requestAnimationFrame(() => requestAnimationFrame(() => opPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })))
+    else setMissionPreview(false)
+  }, [missionManageOpen])
+  const openMissionManage = () => {
+    preOpenScrollRef.current = window.scrollY
+    setMissionManageOpen(true)
+  }
+  const closeMissionManage = () => {
+    setMissionManageOpen(false)
+    const y = preOpenScrollRef.current
+    requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, y)))
+  }
+  const toggleMissionPreview = () => {
+    setMissionPreview(prev => {
+      if (!prev) { previewScrollRef.current = window.scrollY; return true }
+      const y = previewScrollRef.current
+      requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, y)))
+      return false
+    })
+  }
+
+  // 퀴즈 관리자 — 동일 패턴
+  useEffect(() => {
+    if (quizManageOpen) requestAnimationFrame(() => requestAnimationFrame(() => opPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })))
+    else setQuizPreview(false)
+  }, [quizManageOpen])
+  const openQuizManage = () => {
+    preOpenScrollRef.current = window.scrollY
+    setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('tab', 'quizzes'); n.set('panel', 'quiz'); return n }, { replace: true })
+  }
+  const closeQuizManage = () => {
+    setSearchParams(prev => { const n = new URLSearchParams(prev); n.delete('panel'); return n }, { replace: true })
+    const y = preOpenScrollRef.current
+    requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, y)))
+  }
+  const toggleQuizPreview = () => {
+    setQuizPreview(prev => {
+      if (!prev) { previewScrollRef.current = window.scrollY; return true }
+      const y = previewScrollRef.current
+      requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, y)))
+      return false
+    })
+  }
+  // 퀴즈 삭제 (제출·점수 CASCADE)
+  const deleteQuizMutation = useMutation({
+    mutationFn: async (quizId) => {
+      const { error } = await supabase.from('quizzes').delete().eq('id', quizId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.programQuizzes(id) })
+      queryClient.invalidateQueries({ queryKey: ['scores'] })
+      queryClient.invalidateQueries({ queryKey: ['rankings'] })
+    },
+    onError: (e) => { console.error('퀴즈 삭제 실패:', e); alert(`퀴즈 삭제에 실패했습니다: ${e.message}`) },
+  })
+  const handleQuizDelete = (q) => {
+    if (!window.confirm(`⚠️ "${q.title}" 퀴즈를 삭제하면\n참가자 제출과 부여된 점수가 함께 삭제됩니다.\n되돌릴 수 없어요.`)) return
+    deleteQuizMutation.mutate(q.id)
+  }
+
+  // 커뮤니티 관리자 — 동일 패턴 (열 때 상단 스크롤, 닫을 때 복원)
+  useEffect(() => {
+    if (communityManageOpen) requestAnimationFrame(() => requestAnimationFrame(() => opPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })))
+  }, [communityManageOpen])
+  const openCommunityManage = () => { preOpenScrollRef.current = window.scrollY; setCommunityManageOpen(true) }
+  const closeCommunityManage = () => {
+    setCommunityManageOpen(false)
+    const y = preOpenScrollRef.current
+    requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, y)))
+  }
+  const handleCommunitySave = async () => {
+    setPanelError(null); setPanelSaving(true)
+    const err = await communityManageRef.current?.save()
+    setPanelSaving(false)
+    if (err) { setPanelError(err); return }
+    closeCommunityManage()
+  }
+
+  // 부모 저장 바 → 패널 ref.save() 호출
+  const handleOverviewSave = async (close) => {
+    setPanelError(null)
+    setPanelSaving(true)
+    const err = await managePanelRef.current?.save()
+    setPanelSaving(false)
+    if (err) { setPanelError(err); return }
+    if (close) closeOverviewManage()
+  }
 
   // 승인 대기 신청자 수 — 운영자 패널 「참여자 승인 심사」 배지
   const { data: pendingCount = 0 } = useQuery({
@@ -402,6 +593,51 @@ function ProgramDetailPage() {
     deleteMissionMutation.mutate(mission.id)
   }
 
+  // 미션 복제 — 모든 컬럼 복사(인증/점수는 미포함) + 제목에 (복사)
+  const duplicateMissionMutation = useMutation({
+    mutationFn: async (mission) => {
+      const { id: _id, created_at, updated_at, ...rest } = mission
+      const { error } = await supabase.from('missions').insert({ ...rest, title: `${mission.title} (복사)` })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.programMissions(id) })
+      queryClient.invalidateQueries({ queryKey: ['missions', 'today'] })
+    },
+    onError: (err) => {
+      console.error('미션 복제 실패:', err)
+      alert(`미션 복제에 실패했습니다: ${err.message}`)
+    },
+  })
+  const handleMissionDuplicate = (mission) => duplicateMissionMutation.mutate(mission)
+
+  // 미션 순서 변경 — 새 순서대로 전체 미션에 sort_order 0,1,2... 재할당
+  const reorderMissionMutation = useMutation({
+    mutationFn: async (orderedIds) => {
+      await Promise.all(orderedIds.map((mid, idx) =>
+        supabase.from('missions').update({ sort_order: idx }).eq('id', mid)
+      ))
+    },
+    onMutate: async (orderedIds) => {
+      // 낙관적 업데이트 — 즉시 순서 반영 (깜빡임 방지)
+      await queryClient.cancelQueries({ queryKey: queryKeys.programMissions(id) })
+      const prev = queryClient.getQueryData(queryKeys.programMissions(id))
+      if (prev) {
+        const pos = new Map(orderedIds.map((mid, idx) => [mid, idx]))
+        queryClient.setQueryData(queryKeys.programMissions(id),
+          prev.map(m => ({ ...m, sort_order: pos.has(m.id) ? pos.get(m.id) : m.sort_order })))
+      }
+      return { prev }
+    },
+    onError: (err, _vars, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(queryKeys.programMissions(id), ctx.prev)
+      console.error('미션 순서 변경 실패:', err)
+      alert(`순서 변경에 실패했습니다: ${err.message}`)
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.programMissions(id) }),
+  })
+  const handleMissionReorder = (orderedIds) => reorderMissionMutation.mutate(orderedIds)
+
   if (isProgramLoading) {
     return (
       <LoadingState variant="page" />
@@ -437,6 +673,73 @@ function ProgramDetailPage() {
     )
   }
 
+  // ─── 운영자 패널 — 활성 탭별 라벨 + 관리 액션 분기 ───
+  const PANEL_ROLE = {
+    overview: '개요 관리자',
+    missions: '미션 관리자',
+    quizzes: '퀴즈 관리자',
+    community: '커뮤니티 관리자',
+    ranking: '랭킹 관리자',
+  }
+  const panelRole = PANEL_ROLE[activeTab] || '관리자'
+  const panelActions = (() => {
+    const closeGo = (path) => { setIsPanelOpen(false); navigate(path) }
+    const closeOpen = (setter) => { setIsPanelOpen(false); setter(true) }
+    switch (activeTab) {
+      case 'missions':
+        return [
+          { icon: '➕', label: '미션 추가', desc: '새 미션 만들기 (라이브러리/직접)', onClick: () => { setIsPanelOpen(false); setEditingMission(null); setIsMissionCreateOpen(true) } },
+          { icon: '✅', label: '미션 인증 심사', desc: 'MANUAL 미션 승인/반려', onClick: () => closeGo(`/programs/${id}/reviews`) },
+        ]
+      case 'quizzes':
+        return [
+          { icon: '📋', label: '퀴즈 관리', desc: '퀴즈 생성·수정·결과 확인', onClick: () => closeGo(`/programs/${id}/posts`) },
+        ]
+      case 'community':
+        return [
+          { icon: '📋', label: '게시물 관리', desc: '커뮤니티 게시물·피드 관리', onClick: () => closeGo(`/programs/${id}/posts`) },
+        ]
+      case 'ranking':
+        return [
+          { icon: '📊', label: '참여자 통계', desc: '참여·인증·미션별 현황', onClick: () => closeGo(`/programs/${id}/stats`) },
+          { icon: '👥', label: '참여 유저 관리', desc: '참여자 목록·내보내기', onClick: () => closeGo(`/programs/${id}/stats/users`) },
+          { icon: '🙋', label: '참여자 승인 심사', desc: '신청자 답변 확인 · 승인/거절', onClick: () => closeOpen(setIsApprovalsOpen), badge: pendingCount },
+        ]
+      case 'overview':
+      default:
+        return [
+          { icon: '📝', label: `개요 글 ${program.overview_content?.trim() ? '수정' : '작성'}`, desc: '참여자에게 보이는 안내 글', onClick: () => closeOpen(setIsOverviewEditOpen) },
+          { icon: '✏️', label: '프로그램 수정', desc: '이름 · 기간 · 카테고리', onClick: () => closeOpen(setIsEditOpen) },
+        ]
+    }
+  })()
+
+  // 상태 배지(진행중/예정/임시저장) — 헤더 제목 옆 + (프로필 카드에서 이전됨)
+  const hdrPublished = program.status === 'PUBLISHED'
+  const hdrUpcoming = hdrPublished && isUpcomingByStartDate(program.start_date)
+  const hdrDraft = program.status === 'DRAFT'
+  const hdrStatusLabel = hdrDraft ? '임시저장' : hdrPublished ? (hdrUpcoming ? '예정' : '진행중') : program.status
+  const hdrStatusCls = hdrDraft
+    ? 'bg-gray-500 text-white'
+    : (hdrPublished && !hdrUpcoming) ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'
+
+  // 커뮤니티 게시판 칩 — 운영자 설정(community_settings.boards) 순서대로. 미설정 시 기본 4종.
+  const communityBoards = (program.community_settings?.boards?.length
+    ? program.community_settings.boards
+    : [{ id: 'all', name: '전체' }, { id: 'notice', name: '공지' }, { id: 'cert', name: '인증' }, { id: 'free', name: '자유' }])
+  const BOARD_ICON = { notice: '📢', cert: '📷', free: '💬' }
+  // 전체/인증 = 미션 인증 피드, 그 외 = 게시판 글(community_posts)
+  const boardHasFeed = communityBoard === 'all' || communityBoard === 'cert'
+  // 작성 가능 게시판 — 전체/인증 제외, 참여자는 읽기전용 제외(운영자는 전부)
+  const writableBoards = communityBoards.filter(b => {
+    if (b.id === 'all' || b.id === 'cert') return false
+    if (isOwner) return true
+    return (b.writePerm || 'free') !== 'readonly'
+  })
+  // 공지 배너 — 공지 사용 ON + 최신 노출 공지 존재 + 공지 탭이 아닐 때
+  const noticeEnabled = program.community_settings?.noticeEnabled !== false
+  const latestNotice = noticePosts.find(p => p.status === 'visible') || null
+
   return (
     <div className="px-4 pt-2 pb-6 max-w-4xl mx-auto">
       {/* 상단 헤더 — 뒤로 + 제목 + 알림 + 프로필 (풀폭, 모서리 0) */}
@@ -445,8 +748,12 @@ function ProgramDetailPage() {
           <button type="button" onClick={() => navigate(-1)} className="absolute left-2 p-1.5 text-gray-600 hover:text-gray-900" aria-label="뒤로">
             <ChevronLeft className="w-5 h-5" />
           </button>
-          {/* 제목 — 항상 화면 정중앙 (좌우 버튼 폭과 무관) */}
-          <span className="text-[16px] font-bold text-gray-800 truncate max-w-[58%] px-1">{program.name}</span>
+          {/* 제목 + 상태 배지 — 항상 화면 정중앙 (좌우 버튼 폭과 무관) */}
+          {/* 제목은 항상 정중앙 / 상태 배지는 제목 왼쪽에 오버행(중앙 정렬에 영향 X) */}
+          <div className="relative max-w-[58%]">
+            <span className="block text-[16px] font-bold text-gray-800 truncate px-1 text-center whitespace-nowrap">{program.name}</span>
+            <span className={`absolute right-full top-1/2 -translate-y-1/2 mr-1 px-2 py-0.5 rounded-md text-[11px] font-semibold whitespace-nowrap ${hdrStatusCls}`}>{hdrStatusLabel}</span>
+          </div>
           <div className="absolute right-2 flex items-center gap-0.5">
             <NotificationBell bare />
             <ProfileButton bare />
@@ -498,7 +805,7 @@ function ProgramDetailPage() {
                 (업로드사진 → 카테고리 일러스트 → 이모지). */}
             <div className="absolute inset-y-0 left-0 w-[38%]">
               <ProgramCover
-                imagePath={program.cover_image_path}
+                imagePath={overviewManageOpen && managedCover !== undefined ? managedCover : program.cover_image_path}
                 categories={program.categories}
                 name={program.name}
                 variant="hero"
@@ -508,10 +815,7 @@ function ProgramDetailPage() {
               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-white" />
             </div>
 
-            {/* 상태 배지 — 사진 위 좌상단 */}
-            <span className={`absolute top-3 left-3 z-10 px-2.5 py-1 rounded-md text-xs font-semibold ${statusCls}`}>
-              {statusLabel}
-            </span>
+            {/* 상태 배지는 상단 헤더 제목 옆으로 이전됨 */}
 
             {/* 텍스트 영역 — 우측 (사진 끝과 살짝 겹쳐 페이드 자연스럽게) */}
             <div className="relative z-10 pl-[calc(34%+15px)] pr-4 sm:pr-5 py-2.5 min-h-[108px] flex flex-col justify-center">
@@ -596,7 +900,7 @@ function ProgramDetailPage() {
 
       {/* 운영자 빠른 액션 — 초대(비공개) + 운영자 패널 (모달). 탭 위에 배치 */}
       {isOwner && (
-        <div className="flex gap-2 mb-[6px]">
+        <div ref={opPanelRef} className="flex gap-2 mb-[6px] scroll-mt-[52px]">
           {program.status === 'PUBLISHED' && program.join_type === 'INVITE_CODE' && program.invite_code && (
             <button
               type="button"
@@ -612,14 +916,19 @@ function ProgramDetailPage() {
           )}
           <button
             type="button"
-            onClick={() => setIsPanelOpen(true)}
-            className="relative flex-1 flex items-center gap-2 px-3 py-2.5 bg-white border border-amber-200 rounded-2xl hover:bg-amber-50 transition text-left"
+            onClick={() => {
+              if (activeTab === 'overview') overviewManageOpen ? closeOverviewManage() : openOverviewManage()
+              else if (activeTab === 'missions') missionManageOpen ? closeMissionManage() : openMissionManage()
+              else if (activeTab === 'quizzes') quizManageOpen ? closeQuizManage() : openQuizManage()
+              else if (activeTab === 'community') communityManageOpen ? closeCommunityManage() : openCommunityManage()
+              else setIsPanelOpen(true)
+            }}
+            className={`relative flex-1 flex items-center gap-2 px-3 py-2.5 bg-white border rounded-2xl hover:bg-amber-50 transition text-left ${
+              (activeTab === 'overview' && overviewManageOpen) || (activeTab === 'missions' && missionManageOpen) || (activeTab === 'quizzes' && quizManageOpen) || (activeTab === 'community' && communityManageOpen) ? 'border-amber-500 bg-amber-50' : 'border-amber-200'
+            }`}
           >
             <span className="text-lg flex-shrink-0">⚙️</span>
-            <div className="min-w-0">
-              <div className="text-sm font-semibold text-gray-800">운영자 패널</div>
-              <div className="text-[11px] text-gray-500 break-keep">관리 · 심사 · 통계</div>
-            </div>
+            <span className="text-sm font-semibold text-gray-800 truncate">운영자 패널 ({panelRole})</span>
             {pendingCount > 0 && (
               <span className="absolute top-1.5 right-1.5 min-w-[20px] h-5 px-1.5 bg-red-500 text-white text-[11px] font-bold rounded-full flex items-center justify-center leading-none">
                 {pendingCount > 99 ? '99+' : pendingCount}
@@ -676,8 +985,22 @@ function ProgramDetailPage() {
         )
       })()}
 
-      {/* ─── 개요 탭 ────────────────────────────────────── */}
-      {activeTab === 'overview' && (<>
+      {/* ─── 개요 탭 — 관리자 편집 폼 (미리보기 중엔 숨김, mounted 유지) ─── */}
+      {activeTab === 'overview' && overviewManageOpen && (
+        <div className={overviewPreview ? 'hidden' : ''}>
+          <OverviewManagePanel
+            ref={managePanelRef}
+            program={program}
+            participantCount={ranking.length}
+            progress={calcProgress(program.start_date, program.end_date)}
+            onCoverChange={setManagedCover}
+            onSaved={() => queryClient.invalidateQueries({ queryKey: queryKeys.program(id) })}
+          />
+        </div>
+      )}
+
+      {/* ─── 개요 탭 (일반 콘텐츠) ─────────────────────────── */}
+      {activeTab === 'overview' && (!overviewManageOpen || overviewPreview) && (<>
 
       {/* 운영자 패널·초대 링크 → 탭 위 빠른 액션 박스 + 모달로 이동 (페이지 하단 모달 렌더) */}
 
@@ -712,7 +1035,7 @@ function ProgramDetailPage() {
         const progressUrg = progressUrgency(progressPct)
 
         return (
-          <div className="bg-white border border-gray-200 rounded-2xl p-5 mb-6">
+          <div className="bg-white border border-gray-200 rounded-2xl p-5 mb-[9px]">
             <h3 className="text-sm font-semibold text-emerald-600 mb-3">나의 진행 현황</h3>
             <div className="grid grid-cols-4 gap-2 mb-4">
               <div>
@@ -784,23 +1107,14 @@ function ProgramDetailPage() {
       {(program.overview_content?.trim() || isOwner) && (
         <div className="bg-white border border-gray-200 rounded-2xl p-5 mb-6">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold text-gray-800">📝 안내</h2>
-            {isOwner && (
-              <button
-                type="button"
-                onClick={() => setIsOverviewEditOpen(true)}
-                className="inline-flex items-center gap-0.5 text-xs text-emerald-600 hover:text-emerald-700"
-              >
-                <Pencil className="w-3 h-3" />
-                {program.overview_content?.trim() ? '수정' : '작성'}
-              </button>
-            )}
+            <h2 className="text-lg font-semibold text-gray-800">📝 {program.overview_title?.trim() || '안내'}</h2>
+            {/* 수정은 운영자 패널(개요 관리자) → 안내 섹션에서. 여기 연필 버튼 제거. */}
           </div>
           {program.overview_content?.trim() ? (
             <MarkdownView content={program.overview_content} />
           ) : (
             <p className="text-sm text-gray-400 text-center py-4">
-              ✏️ 우측 「작성」 을 눌러 프로그램 소개·공지를 작성해보세요
+              ✏️ 운영자 패널 → 개요 관리자에서 안내 글을 작성해보세요
             </p>
           )}
         </div>
@@ -823,10 +1137,41 @@ function ProgramDetailPage() {
       )}
 
       </>)}
+
+      {/* 개요 관리자 — 하단 고정 바 (미리보기/임시저장/개요 저장) */}
+      {activeTab === 'overview' && overviewManageOpen && (
+        <div className="sticky bottom-0 -mx-4 px-4 pt-2 pb-3 bg-white border-t border-gray-100 z-20">
+          {panelError && <p className="text-[12px] text-red-600 text-center mb-2">{panelError}</p>}
+          <div className="flex gap-2">
+            <button type="button" onClick={toggleOverviewPreview} className="flex-1 h-11 rounded-xl border border-emerald-200 text-emerald-700 text-sm font-bold hover:bg-emerald-50 transition">
+              {overviewPreview ? '✏️ 편집으로' : '👁 미리보기'}
+            </button>
+            <button type="button" onClick={() => handleOverviewSave(false)} disabled={panelSaving} className="flex-1 h-11 rounded-xl border border-emerald-200 text-emerald-700 text-sm font-bold hover:bg-emerald-50 transition disabled:opacity-50">
+              임시저장
+            </button>
+            <button type="button" onClick={() => handleOverviewSave(true)} disabled={panelSaving} className="flex-[1.4] h-11 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold transition disabled:opacity-50">
+              {panelSaving ? '저장 중...' : '개요 저장'}
+            </button>
+          </div>
+        </div>
+      )}
       {/* ─── /개요 탭 ──────────────────────────────────── */}
 
-      {/* ─── 미션 탭 ────────────────────────────────────── */}
-      {activeTab === 'missions' && (<>
+      {/* ─── 미션 탭 — 관리자 작업 페이지 (미리보기 중엔 숨김) ─── */}
+      {activeTab === 'missions' && missionManageOpen && !missionPreview && (
+        <MissionManagePanel
+          missions={missions}
+          onEdit={(mission) => { setEditingMission(mission); setIsMissionCreateOpen(true) }}
+          onDelete={handleMissionDelete}
+          onDuplicate={handleMissionDuplicate}
+          onReorder={handleMissionReorder}
+          onAdd={() => setIsLibraryOpen(true)}
+          isBusy={deleteMissionMutation.isPending || duplicateMissionMutation.isPending}
+        />
+      )}
+
+      {/* ─── 미션 탭 (일반/깔끔 뷰) — 관리 모드에선 미리보기 때만 노출 ─── */}
+      {activeTab === 'missions' && (!missionManageOpen || missionPreview) && (<>
 
       {/* 미션 목록 — 3개 + 전체보기 토글 + framer 부드러운 전환 */}
       <div ref={missionSectionRef} className="flex items-center justify-between mb-3 scroll-mt-16">
@@ -842,16 +1187,7 @@ function ProgramDetailPage() {
               {!showAllMissions && <ChevronRight className="w-3 h-3" />}
             </button>
           )}
-          {isOwner && (
-            <button
-              type="button"
-              onClick={() => setIsLibraryOpen(true)}
-              className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white text-sm rounded-full transition"
-            >
-              <Plus className="w-4 h-4" />
-              미션 추가
-            </button>
-          )}
+          {/* 미션 추가 버튼 제거 — 추가는 운영자 패널(미션 관리자) 작업 페이지에서 */}
         </div>
       </div>
       {missions.length === 0 ? (
@@ -875,6 +1211,7 @@ function ProgramDetailPage() {
                       mission={m}
                       todayCounts={todayCounts}
                       isOwner={isOwner}
+                      showOwnerActions={false}
                       isDeletePending={deleteMissionMutation.isPending}
                       onDelete={handleMissionDelete}
                       onEdit={(mission) => { setEditingMission(mission); setIsMissionCreateOpen(true) }}
@@ -918,37 +1255,68 @@ function ProgramDetailPage() {
       )}
 
       </>)}
+
+      {/* 미션 관리자 — 하단 고정 바 (미리보기/임시저장/미션 저장). 미션 편집·삭제·복제는 즉시 반영. */}
+      {activeTab === 'missions' && missionManageOpen && (
+        <div className="sticky bottom-0 -mx-4 px-4 pt-2 pb-3 bg-white border-t border-gray-100 z-20">
+          <div className="flex gap-2">
+            <button type="button" onClick={toggleMissionPreview} className="flex-1 h-11 rounded-xl border border-emerald-200 text-emerald-700 text-sm font-bold hover:bg-emerald-50 transition">
+              {missionPreview ? '✏️ 편집으로' : '👁 미리보기'}
+            </button>
+            <button type="button" onClick={closeMissionManage} className="flex-1 h-11 rounded-xl border border-emerald-200 text-emerald-700 text-sm font-bold hover:bg-emerald-50 transition">
+              임시저장
+            </button>
+            <button type="button" onClick={closeMissionManage} className="flex-[1.4] h-11 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold transition">
+              미션 저장
+            </button>
+          </div>
+        </div>
+      )}
       {/* ─── /미션 탭 ──────────────────────────────────── */}
 
-      {/* ─── 퀴즈 탭 ────────────────────────────────────── */}
-      {activeTab === 'quizzes' && (<>
-
-      {isOwner ? (
-        <EmptyState
-          icon="📝"
-          title="퀴즈 관리는 게시물 관리에서"
-          description="운영자 패널의 📋 게시물 관리에서 퀴즈를 생성·관리할 수 있어요"
-          action={{ label: '게시물 관리로', onClick: () => navigate(`/programs/${id}/posts`) }}
+      {/* ─── 퀴즈 탭 — 관리자 작업 페이지 (미리보기 중 숨김) ─── */}
+      {activeTab === 'quizzes' && quizManageOpen && !quizPreview && (
+        <QuizManagePanel
+          quizzes={programQuizzes}
+          participantCount={ranking.length}
+          onEdit={(q) => navigate(`/programs/${id}/posts/quiz/${q.id}`)}
+          onPreview={(q) => navigate(`/programs/${id}/quiz/${q.id}`)}
+          onDelete={handleQuizDelete}
+          onAdd={() => setQuizLibOpen(true)}
+          isBusy={deleteQuizMutation.isPending}
         />
-      ) : participantQuizzes.length === 0 ? (
-        <EmptyState icon="📝" title="아직 풀 수 있는 퀴즈가 없어요" />
-      ) : (
+      )}
+
+      {/* ─── 퀴즈 탭 (일반/참가자 뷰) ─── */}
+      {activeTab === 'quizzes' && (!quizManageOpen || quizPreview) && (<>
+      {(() => {
+        const quizList = isOwner ? programQuizzes : participantQuizzes
+        if (quizList.length === 0) {
+          return (
+            <EmptyState
+              icon="📝"
+              title={isOwner ? '아직 퀴즈가 없어요' : '아직 풀 수 있는 퀴즈가 없어요'}
+              description={isOwner ? '운영자 패널(퀴즈 관리자)에서 새 퀴즈를 추가하세요' : undefined}
+            />
+          )
+        }
+        return (
         <div ref={quizSectionRef} className="scroll-mt-16">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-semibold text-gray-800">📝 퀴즈</h2>
-            {participantQuizzes.length > 3 && (
+            {quizList.length > 3 && (
               <button
                 type="button"
                 onClick={() => { setShowAllQuizzes(!showAllQuizzes); scrollToSection(quizSectionRef) }}
                 className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700"
               >
-                {showAllQuizzes ? '간단히 보기' : `전체보기 (${participantQuizzes.length})`}
+                {showAllQuizzes ? '간단히 보기' : `전체보기 (${quizList.length})`}
                 {!showAllQuizzes && <ChevronRight className="w-3 h-3" />}
               </button>
             )}
           </div>
           <div className="grid grid-cols-1 gap-3">
-            {(showAllQuizzes ? participantQuizzes : participantQuizzes.slice(0, 3)).map(quiz => {
+            {(showAllQuizzes ? quizList : quizList.slice(0, 3)).map(quiz => {
               const sub = quiz.mySubmission
               const now = new Date()
               const isNotStarted = quiz.start_at && new Date(quiz.start_at) > now
@@ -987,19 +1355,92 @@ function ProgramDetailPage() {
             })}
           </div>
         </div>
-      )}
-
+        )
+      })()}
       </>)}
+
+      {/* 퀴즈 관리자 — 하단 고정 바 (미리보기/임시저장/퀴즈 저장) */}
+      {activeTab === 'quizzes' && quizManageOpen && (
+        <div className="sticky bottom-0 -mx-4 px-4 pt-2 pb-3 bg-white border-t border-gray-100 z-20">
+          <div className="flex gap-2">
+            <button type="button" onClick={toggleQuizPreview} className="flex-1 h-11 rounded-xl border border-emerald-200 text-emerald-700 text-sm font-bold hover:bg-emerald-50 transition">
+              {quizPreview ? '✏️ 편집으로' : '👁 미리보기'}
+            </button>
+            <button type="button" onClick={closeQuizManage} className="flex-1 h-11 rounded-xl border border-emerald-200 text-emerald-700 text-sm font-bold hover:bg-emerald-50 transition">
+              임시저장
+            </button>
+            <button type="button" onClick={closeQuizManage} className="flex-[1.4] h-11 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold transition">
+              퀴즈 저장
+            </button>
+          </div>
+        </div>
+      )}
       {/* ─── /퀴즈 탭 ──────────────────────────────────── */}
 
       {/* ─── 커뮤니티 탭 ────────────────────────────────── */}
       {/* 본인 결정 (Day 58): 진입 카드 제거 → 바로 피드 임베드. ProgramFeedPage 와 동일 컴포넌트 공유. */}
-      {activeTab === 'community' && (<>
+      {/* 커뮤니티 관리자 작업 페이지 */}
+      {activeTab === 'community' && communityManageOpen && (
+        <CommunityManagePanel
+          ref={communityManageRef}
+          program={program}
+          onSaved={() => queryClient.invalidateQueries({ queryKey: queryKeys.program(id) })}
+          onGoPosts={() => navigate(`/programs/${id}/posts`)}
+        />
+      )}
+
+      {/* 커뮤니티 일반(피드) 뷰 */}
+      {activeTab === 'community' && !communityManageOpen && (<>
 
       {program.feed_enabled ? (
-        <Suspense fallback={<LoadingState text="피드 불러오는 중..." />}>
-          <FeedContent program={program} readOnly={isViewer} />
-        </Suspense>
+        <>
+          {/* 게시판 칩 — 운영자 설정 순서대로 */}
+          {communityBoards.length > 1 && (
+            <div className="flex gap-2 overflow-x-auto -mx-1 px-1 pb-2 mb-1 scrollbar-hide">
+              {communityBoards.map(b => {
+                const on = communityBoard === b.id
+                return (
+                  <button key={b.id} type="button" onClick={() => setCommunityBoard(b.id)}
+                    className={`flex-shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold border transition ${on ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'}`}>
+                    {BOARD_ICON[b.id] && <span>{BOARD_ICON[b.id]}</span>}{b.name}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+          {/* 공지 배너 — 칩 아래, 게시물 위 */}
+          {noticeEnabled && latestNotice && communityBoard !== 'notice' && (
+            <button type="button" onClick={() => setCommunityBoard('notice')}
+              className="w-full flex items-center gap-2.5 mb-3 p-3 rounded-xl bg-emerald-50 border border-emerald-100 text-left hover:bg-emerald-100/60 transition">
+              <span className="px-2 py-0.5 rounded-md bg-emerald-500 text-white text-[11px] font-bold flex-shrink-0">📢 공지</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-bold text-gray-800 truncate">{latestNotice.title || latestNotice.body}</p>
+                {latestNotice.title && <p className="text-[11px] text-gray-500 truncate">{latestNotice.body}</p>}
+              </div>
+              <span className="text-[11px] text-gray-400 flex-shrink-0">{formatRelativeKstDay(latestNotice.created_at)}</span>
+              <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+            </button>
+          )}
+          {boardHasFeed ? (
+            <Suspense fallback={<LoadingState text="피드 불러오는 중..." />}>
+              <FeedContent program={program} readOnly={isViewer} />
+            </Suspense>
+          ) : (
+            <CommunityPostList programId={id} boardId={communityBoard} posts={communityPosts} myUserId={userId} isOwner={isOwner}
+              onEdit={(p) => { setEditingPost(p); setIsPostModalOpen(true) }} />
+          )}
+
+          {/* 글쓰기 — 작성 가능한 게시판이 있을 때 (열람자 제외) */}
+          {!isViewer && writableBoards.length > 0 && (
+            <div className="sticky bottom-0 -mx-4 px-4 pt-3 pb-3 bg-gradient-to-t from-white via-white/95 to-transparent z-20">
+              <button type="button"
+                onClick={() => { setEditingPost(null); setIsPostModalOpen(true) }}
+                className="w-full h-12 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/20 transition">
+                <Pencil className="w-4 h-4" /> 글쓰기
+              </button>
+            </div>
+          )}
+        </>
       ) : (
         <EmptyState
           icon="🔒"
@@ -1009,6 +1450,19 @@ function ProgramDetailPage() {
       )}
 
       </>)}
+
+      {/* 커뮤니티 관리자 — 하단 고정 바 */}
+      {activeTab === 'community' && communityManageOpen && (
+        <div className="sticky bottom-0 -mx-4 px-4 pt-2 pb-3 bg-white border-t border-gray-100 z-20">
+          {panelError && <p className="text-[12px] text-red-600 text-center mb-2">{panelError}</p>}
+          <div className="flex gap-2">
+            <button type="button" onClick={closeCommunityManage} className="flex-1 h-11 rounded-xl border border-emerald-200 text-emerald-700 text-sm font-bold hover:bg-emerald-50 transition">닫기</button>
+            <button type="button" onClick={handleCommunitySave} disabled={panelSaving} className="flex-[1.6] h-11 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold transition disabled:opacity-50">
+              {panelSaving ? '저장 중...' : '커뮤니티 저장'}
+            </button>
+          </div>
+        </div>
+      )}
       {/* ─── /커뮤니티 탭 ──────────────────────────────── */}
 
       {/* ─── 성장 탭 (랭킹 / 정원 / 별자리 분기) ───────────────────── */}
@@ -1179,6 +1633,22 @@ function ProgramDetailPage() {
             onSuccess={invalidateProgramData}
           />
         )}
+        {/* 퀴즈 라이브러리 — 퀴즈 관리자 「새 퀴즈 추가」 진입점 */}
+        <QuizLibraryModal
+          isOpen={isQuizLibOpen}
+          onClose={closeQuizLib}
+          programId={id}
+          initialSelection={searchParams.get('quizlib')}
+        />
+        {/* 커뮤니티 게시판 글쓰기 */}
+        <CommunityPostModal
+          isOpen={isPostModalOpen}
+          onClose={() => { setIsPostModalOpen(false); setEditingPost(null) }}
+          program={program}
+          boards={writableBoards}
+          defaultBoardId={writableBoards.some(b => b.id === communityBoard) ? communityBoard : writableBoards[0]?.id}
+          editPost={editingPost}
+        />
         {isLibraryOpen && (
           <MissionLibraryModal
             program={program}
@@ -1214,63 +1684,24 @@ function ProgramDetailPage() {
       {isOwner && (
         <Modal isOpen={isPanelOpen} onClose={() => setIsPanelOpen(false)}>
           <div className="p-5">
-            <h2 className="flex items-center gap-2 text-lg font-bold text-gray-800 mb-4">⚙️ 운영자 패널</h2>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => { setIsPanelOpen(false); setIsOverviewEditOpen(true) }}
-                className="col-span-2 px-3 py-2 bg-white border border-amber-300 hover:border-amber-500 hover:bg-amber-100 rounded text-sm text-amber-800 transition text-left"
-              >
-                📝 개요 글 {program.overview_content?.trim() ? '수정' : '작성'}
-                <span className="block text-xs text-amber-700 break-keep">
-                  {program.overview_content?.trim() ? '참여자에게 보이는 안내 글 수정' : '프로그램 소개·공지를 마크다운으로 작성'}
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => { setIsPanelOpen(false); setIsEditOpen(true) }}
-                className="px-3 py-2 bg-white border border-amber-300 hover:border-amber-500 hover:bg-amber-100 rounded text-sm text-amber-800 transition text-left"
-              >
-                ✏️ 프로그램 수정
-                <span className="block text-xs text-amber-700 break-keep">이름·기간·카테고리</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => { setIsPanelOpen(false); navigate(`/programs/${id}/posts`) }}
-                className="px-3 py-2 bg-white border border-amber-300 hover:border-amber-500 hover:bg-amber-100 rounded text-sm text-amber-800 transition text-left"
-              >
-                📋 게시물 관리
-                <span className="block text-xs text-amber-700 break-keep">퀴즈 생성·관리</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => { setIsPanelOpen(false); navigate(`/programs/${id}/reviews`) }}
-                className="px-3 py-2 bg-white border border-amber-300 hover:border-amber-500 hover:bg-amber-100 rounded text-sm text-amber-800 transition text-left"
-              >
-                ✅ 미션 인증 심사
-                <span className="block text-xs text-amber-700 break-keep">MANUAL 미션 승인/반려</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => { setIsPanelOpen(false); setIsApprovalsOpen(true) }}
-                className="relative px-3 py-2 bg-white border border-amber-300 hover:border-amber-500 hover:bg-amber-100 rounded text-sm text-amber-800 transition text-left"
-              >
-                🙋 참여자 승인 심사
-                <span className="block text-xs text-amber-700 break-keep">신청자 답변 확인 · 승인/거절</span>
-                {pendingCount > 0 && (
-                  <span className="absolute top-1.5 right-1.5 min-w-[20px] h-5 px-1.5 bg-red-500 text-white text-[11px] font-bold rounded-full flex items-center justify-center leading-none">
-                    {pendingCount > 99 ? '99+' : pendingCount}
-                  </span>
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => { setIsPanelOpen(false); navigate(`/programs/${id}/stats`) }}
-                className="px-3 py-2 bg-white border border-amber-300 hover:border-amber-500 hover:bg-amber-100 rounded text-sm text-amber-800 transition text-left"
-              >
-                📊 참여자 통계
-                <span className="block text-xs text-amber-700 break-keep">참여 · 인증 · 미션별 현황</span>
-              </button>
+            <h2 className="flex items-center gap-2 text-lg font-bold text-gray-800 mb-4">⚙️ 운영자 패널 ({panelRole})</h2>
+            <div className="grid grid-cols-1 gap-2">
+              {panelActions.map(a => (
+                <button
+                  key={a.label}
+                  type="button"
+                  onClick={a.onClick}
+                  className="relative px-3 py-2.5 bg-white border border-amber-300 hover:border-amber-500 hover:bg-amber-100 rounded-lg text-sm text-amber-800 transition text-left"
+                >
+                  {a.icon} {a.label}
+                  <span className="block text-xs text-amber-700 break-keep mt-0.5">{a.desc}</span>
+                  {a.badge > 0 && (
+                    <span className="absolute top-2 right-2 min-w-[20px] h-5 px-1.5 bg-red-500 text-white text-[11px] font-bold rounded-full flex items-center justify-center leading-none">
+                      {a.badge > 99 ? '99+' : a.badge}
+                    </span>
+                  )}
+                </button>
+              ))}
             </div>
           </div>
         </Modal>

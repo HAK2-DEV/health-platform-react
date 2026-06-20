@@ -62,6 +62,16 @@
   input, textarea, select {
     font-size: 16px !important;
   }
+  /* 개요 관리자 패널 — 입력 글자를 라벨(13px)과 일치 (iOS zoom 16px 규칙을 더 구체적 선택자로 덮음).
+     운영자 편집 화면에 한정 → 포커스 시 약간의 확대는 감수. */
+  .om-panel input, .om-panel textarea, .om-panel select,
+  .mission-fields input, .mission-fields textarea, .mission-fields select {
+    font-size: 13px !important;
+  }
+  /* 게시판 관리 select — 좁은 칸이라 더 작게 (mission-fields 13px 보다 뒤·동일 특이성 → 우선) */
+  select.board-mini {
+    font-size: 10px !important;
+  }
 }
 
 /* 가로 스와이프 뒤로가기 차단 (Android Chrome / 일부 브라우저).

@@ -231,15 +231,15 @@ function QuizCreatePage() {
     <div className="px-4 pt-2 pb-24 max-w-2xl mx-auto">
       <StickyBackBar fallbackPath={`/programs/${id}/posts`} title="게시물 관리로" />
 
-      <h1 className="text-2xl font-medium text-gray-800 mb-1">📝 퀴즈 만들기</h1>
-      <p className="text-sm text-gray-500 mb-6">
-        발행 {includedQuestions.length}개 · 총 {totalPoint}점
-      </p>
+      <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5" style={{ marginBottom: '9px' }}>
+        <h1 className="text-2xl font-medium text-gray-800">📝 퀴즈 만들기</h1>
+        <span className="text-sm text-gray-500">발행 {includedQuestions.length}개 · 총 {totalPoint}점</span>
+      </div>
 
       {/* 기본 정보 */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-5 mb-4 space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">제목 *</label>
+      <div className="bg-white border border-gray-200 rounded-2xl px-5 mb-4 divide-y divide-gray-200">
+        <div style={{ paddingTop: '9px', paddingBottom: '9px' }}>
+          <label className="block text-sm font-medium text-gray-700" style={{ marginBottom: '9px' }}>제목 <span className="text-emerald-600">(필수)</span></label>
           <input
             type="text"
             value={title}
@@ -249,8 +249,8 @@ function QuizCreatePage() {
             className="w-full px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500"
           />
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">설명 (선택)</label>
+        <div style={{ paddingTop: '9px', paddingBottom: '9px' }}>
+          <label className="block text-sm font-medium text-gray-700" style={{ marginBottom: '9px' }}>설명 <span className="font-normal text-gray-400">(선택)</span></label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -259,8 +259,8 @@ function QuizCreatePage() {
             className="w-full px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 resize-none"
           />
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">풀이 기한 (선택)</label>
+        <div style={{ paddingTop: '9px', paddingBottom: '9px' }}>
+          <label className="block text-sm font-medium text-gray-700" style={{ marginBottom: '9px' }}>풀이 기한 <span className="font-normal text-gray-400">(선택)</span></label>
           {/* 모바일은 세로(풀폭), 데스크탑은 가로 — 모바일에서 input 좁아 picker 가독성 나빠지는 것 방지 */}
           <div className="flex flex-col sm:flex-row sm:items-end gap-2">
             <div className="flex-1 min-w-0">
@@ -289,7 +289,7 @@ function QuizCreatePage() {
             시작 비우면 즉시 시작 / 종료 비우면 무기한
           </p>
         </div>
-        <label className="flex items-center gap-2 cursor-pointer">
+        <label className="flex items-center gap-2 cursor-pointer" style={{ paddingTop: '9px', paddingBottom: '9px' }}>
           <input
             type="checkbox"
             checked={revealAnswers}
@@ -355,7 +355,7 @@ function QuizCreatePage() {
 function QuestionEditor({ index, question: q, canRemove, onChange, onRemove, onUpdateOption, onAddOption, onRemoveOption }) {
   const included = q.included !== false
   return (
-    <div className={`bg-white border rounded-2xl p-5 transition ${included ? 'border-gray-200' : 'border-gray-200 opacity-55'}`}>
+    <div className={`rounded-2xl border-2 p-5 transition ${included ? 'border-emerald-400 bg-emerald-50/40' : 'border-gray-200 bg-gray-50 opacity-60'}`}>
       <div className="flex items-center justify-between mb-3">
         <label className="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
           {/* 발행 포함 체크박스 — 해제하면 이 문항은 발행에서 제외 */}
@@ -450,7 +450,9 @@ function QuestionEditor({ index, question: q, canRemove, onChange, onRemove, onU
       )}
 
       {q.type === 'OX' && (
-        <div className="flex gap-2 mb-3">
+        <div className="mb-3">
+          <p className="text-xs text-gray-500 mb-1.5">정답 선택</p>
+          <div className="flex gap-2">
           {['O', 'X'].map(v => (
             <button
               key={v}
@@ -462,6 +464,7 @@ function QuestionEditor({ index, question: q, canRemove, onChange, onRemove, onU
               {v === 'O' ? '⭕ O' : '❌ X'}
             </button>
           ))}
+          </div>
         </div>
       )}
 

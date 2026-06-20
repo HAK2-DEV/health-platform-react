@@ -96,6 +96,19 @@ function MissionVerifyPage() {
   const [numericValue, setNumericValue] = useState('')
   const [noteText, setNoteText] = useState('')
   const [feedVisible, setFeedVisible] = useState(true)  // 디폴트 노출 — feed_enabled 인 프로그램만 의미 있음
+  // 인증 피드 공개 정책 (커뮤니티 관리자 ②) ↔ 제출 토글 연결
+  const feedPolicy = (() => {
+    const boards = program?.community_settings?.boards
+    const cert = Array.isArray(boards) ? boards.find(b => b.id === 'cert') : null
+    return cert?.feedVisibility || 'public'   // 기본: 항상 공개
+  })()
+  const feedForced = feedPolicy === 'public' ? true : feedPolicy === 'private' ? false : null  // 강제값(개인선택이면 null)
+  const effectiveFeedVisible = feedForced !== null ? feedForced : feedVisible
+  // 프로그램 로드 시 정책 기본값으로 초기화 (개인 선택이면 기본 공개/비공개)
+  useEffect(() => {
+    if (program) setFeedVisible(feedPolicy === 'public' || feedPolicy === 'optin_public')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [program?.id])
   const [error, setErrorRaw] = useState(null)
   const [errorTick, setErrorTick] = useState(0)
   // 제출 완료 화면 데이터 (있으면 완료 화면 렌더)
@@ -229,8 +242,8 @@ function MissionVerifyPage() {
       // 선택 입력 미작성 시 저장하지 않음 → 채점 합산에서 제외
       if (needsNumeric && numericValue !== '' && !isNaN(parseFloat(numericValue))) insertData.numeric_value = parseFloat(numericValue)
       if (needsNote && noteText.trim()) insertData.note = noteText.trim()
-      // 피드 노출 여부 — 프로그램이 피드 활성일 때만 의미. 디폴트 true.
-      if (program?.feed_enabled) insertData.feed_visible = feedVisible
+      // 피드 노출 여부 — 정책(강제 공개/비공개)이면 강제값, 개인 선택이면 토글값
+      if (program?.feed_enabled) insertData.feed_visible = effectiveFeedVisible
 
       const { error: insertError } = await supabase
         .from('verifications')
@@ -754,38 +767,42 @@ function MissionVerifyPage() {
           </div>
         )}
 
-        {/* 피드 노출 여부 — feed_enabled 인 프로그램만 표시 */}
-        {program?.feed_enabled && requireCount > 0 && (
+        {/* 피드 노출 여부 — feed_enabled + 개인 선택(정책 미고정)일 때만 표시. 고정이면 숨김(값은 정책대로 저장) */}
+        {program?.feed_enabled && requireCount > 0 && feedForced === null && (
           <button
             type="button"
-            onClick={() => setFeedVisible(!feedVisible)}
-            disabled={isSubmitting}
+            onClick={() => { if (feedForced === null) setFeedVisible(!feedVisible) }}
+            disabled={isSubmitting || feedForced !== null}
             className={`
-              w-full mb-3 p-3 rounded-xl border-2 text-left transition disabled:opacity-50
-              ${feedVisible
+              w-full mb-3 p-3 rounded-xl border-2 text-left transition
+              ${effectiveFeedVisible
                 ? 'border-emerald-300 bg-emerald-50/50'
                 : 'border-gray-200 bg-white'}
+              ${isSubmitting ? 'opacity-50' : ''}
             `}
           >
             <div className="flex items-start gap-2">
-              <span className="text-lg">{feedVisible ? '📷' : '🔒'}</span>
+              <span className="text-lg">{effectiveFeedVisible ? '📷' : '🔒'}</span>
               <div className="flex-1 min-w-0">
-                <p className={`text-sm font-medium ${feedVisible ? 'text-emerald-700' : 'text-gray-700'}`}>
-                  {feedVisible ? '피드에 공개' : '나만 보기'}
+                <p className={`text-sm font-medium ${effectiveFeedVisible ? 'text-emerald-700' : 'text-gray-700'}`}>
+                  {effectiveFeedVisible ? '피드에 공개' : '나만 보기'}
+                  {feedForced !== null && <span className="ml-1 text-[11px] font-normal text-gray-400">· 운영자 고정</span>}
                 </p>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  {feedVisible
-                    ? '다른 참여자들이 피드에서 보고 응원할 수 있어요'
-                    : '점수는 그대로 받지만 피드에는 표시되지 않아요'}
+                  {feedForced !== null
+                    ? (feedForced ? '운영자 설정으로 인증이 항상 피드에 공개돼요' : '운영자 설정으로 인증이 피드에 공개되지 않아요')
+                    : (effectiveFeedVisible
+                        ? '다른 참여자들이 피드에서 보고 응원할 수 있어요'
+                        : '점수는 그대로 받지만 피드에는 표시되지 않아요')}
                 </p>
               </div>
               <div className={`
                 relative w-9 h-5 rounded-full flex-shrink-0 transition mt-0.5
-                ${feedVisible ? 'bg-emerald-500' : 'bg-gray-300'}
+                ${effectiveFeedVisible ? 'bg-emerald-500' : 'bg-gray-300'} ${feedForced !== null ? 'opacity-60' : ''}
               `}>
                 <div className={`
                   absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform
-                  ${feedVisible ? 'translate-x-4' : 'translate-x-0.5'}
+                  ${effectiveFeedVisible ? 'translate-x-4' : 'translate-x-0.5'}
                 `} />
               </div>
             </div>

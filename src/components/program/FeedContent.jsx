@@ -53,6 +53,7 @@ function FeedContent({ program, targetVerificationId = null, targetCommentId = n
     enabled: !!session && !!id && !!program?.feed_enabled,
   })
   const posts = infiniteData?.pages.flat() || []
+  const [focusedId, setFocusedId] = useState(null)  // 그리드/매거진 — 카드 탭 시 단일 게시물 풀뷰
 
   // 타겟 게시물로 스크롤 (알림 ?v=). 댓글(?c=) 스크롤·하이라이트는 CommentsSection 이 자체 처리.
   useEffect(() => {
@@ -186,14 +187,117 @@ function FeedContent({ program, targetVerificationId = null, targetCommentId = n
     return <EmptyState icon="📭" title="아직 인증된 게시물이 없어요" />
   }
 
+  // 커뮤니티 레이아웃 (093) — list(기본) / grid / magazine. 카드 탭 시 focusedId 풀뷰.
+  const layout = program.community_layout || 'feed'
+  const showFull = layout === 'feed' || !!focusedId
+  const visiblePosts = focusedId ? posts.filter(p => p.id === focusedId) : posts
+
+  // 리스트형 — 썸네일(좌) + 텍스트(우), 균일 가로 행
+  const renderListRow = (post) => {
+    const img = imageUrls[post.id]
+    const note = post.note?.trim()
+    return (
+      <button key={post.id} type="button" onClick={() => setFocusedId(post.id)}
+        className="w-full flex items-center gap-3 text-left bg-white border border-gray-200 rounded-2xl p-2.5 hover:shadow-md transition">
+        {post.image_path ? (
+          <div className="w-[64px] h-[64px] rounded-xl bg-gray-100 flex-shrink-0 overflow-hidden">
+            {img ? <img src={img} alt="" loading="lazy" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-gray-300">🖼️</div>}
+          </div>
+        ) : (
+          <div className="w-[64px] h-[64px] rounded-xl bg-emerald-50 flex-shrink-0 flex items-center justify-center text-emerald-300 text-xl">📝</div>
+        )}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[12px] font-bold text-gray-800 truncate">{post.user?.nickname || '익명'}</span>
+            <span className="text-[10px] text-gray-400 ml-auto flex-shrink-0">{formatRelativeKstDay(post.submitted_at)}</span>
+          </div>
+          {note && <p className="text-[12px] text-gray-600 line-clamp-1 mt-0.5">{note}</p>}
+          <div className="flex items-center gap-3 mt-1 text-[11px] text-gray-500">
+            <span className="flex items-center gap-0.5"><Heart className="w-3 h-3" /> {post.likedUserIds.size}</span>
+            <span className="flex items-center gap-0.5"><MessageCircle className="w-3 h-3" /> {post.commentCount}</span>
+          </div>
+        </div>
+      </button>
+    )
+  }
+
+  // 그리드형 컴팩트 카드 — 이미지 위 / 텍스트 아래
+  const renderGridCard = (post) => {
+    const img = imageUrls[post.id]
+    const note = post.note?.trim()
+    return (
+      <button key={post.id} type="button" onClick={() => setFocusedId(post.id)}
+        className="flex flex-col text-left bg-white border border-gray-200 rounded-2xl overflow-hidden hover:shadow-md transition">
+        {post.image_path && (
+          <div className="aspect-square bg-gray-100">
+            {img ? <img src={img} alt="" loading="lazy" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-gray-300 text-2xl">🖼️</div>}
+          </div>
+        )}
+        <div className="p-2.5 flex-1 flex flex-col gap-1">
+          <div className="flex items-center gap-1.5">
+            <UserAvatar avatarPath={post.user?.avatar_path} nickname={post.user?.nickname} size="sm" />
+            <span className="text-[11px] font-medium text-gray-700 truncate">{post.user?.nickname || '익명'}</span>
+          </div>
+          {note && <p className="text-[12px] text-gray-700 line-clamp-2">{note}</p>}
+          <div className="flex items-center gap-3 mt-auto pt-1 text-[11px] text-gray-500">
+            <span className="flex items-center gap-0.5"><Heart className="w-3.5 h-3.5" /> {post.likedUserIds.size}</span>
+            <span className="flex items-center gap-0.5"><MessageCircle className="w-3.5 h-3.5" /> {post.commentCount}</span>
+          </div>
+        </div>
+      </button>
+    )
+  }
+
+  // 매거진형 카드 — 이미지 위 텍스트 오버레이 (hero=대형)
+  const renderMagCard = (post, hero) => {
+    const img = imageUrls[post.id]
+    const note = post.note?.trim()
+    return (
+      <button key={post.id} type="button" onClick={() => setFocusedId(post.id)}
+        className={`relative block text-left w-full rounded-2xl overflow-hidden bg-gray-200 ${hero ? 'aspect-[16/9]' : 'aspect-[4/3]'}`}>
+        {img ? <img src={img} alt="" loading="lazy" className="absolute inset-0 w-full h-full object-cover" /> : <div className="absolute inset-0 bg-gradient-to-br from-emerald-300 to-teal-400" />}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent" />
+        <div className="absolute bottom-0 left-0 right-0 p-3 text-white">
+          {note && <p className={`font-bold drop-shadow line-clamp-2 ${hero ? 'text-[15px]' : 'text-[12px]'}`}>{note}</p>}
+          <div className="flex items-center gap-2 mt-1 text-[11px]">
+            <span className="truncate">{post.user?.nickname || '익명'}</span>
+            <span className="ml-auto flex items-center gap-2 flex-shrink-0">
+              <span className="flex items-center gap-0.5"><Heart className="w-3 h-3" /> {post.likedUserIds.size}</span>
+              <span className="flex items-center gap-0.5"><MessageCircle className="w-3 h-3" /> {post.commentCount}</span>
+            </span>
+          </div>
+        </div>
+      </button>
+    )
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.3 }}
-      className="space-y-5"
     >
-      {posts.map(post => {
+      {focusedId && (
+        <button type="button" onClick={() => setFocusedId(null)} className="mb-3 inline-flex items-center gap-1 text-sm font-medium text-gray-500 hover:text-gray-700">
+          ← 목록으로
+        </button>
+      )}
+      {!showFull && layout === 'list' && (
+        <div className="space-y-2">{posts.map(renderListRow)}</div>
+      )}
+      {!showFull && layout === 'grid' && (
+        <div className="grid grid-cols-2 gap-3">{posts.map(renderGridCard)}</div>
+      )}
+      {!showFull && layout === 'magazine' && (
+        <div className="space-y-3">
+          {posts[0] && renderMagCard(posts[0], true)}
+          {posts.length > 1 && (
+            <div className="grid grid-cols-2 gap-3">{posts.slice(1).map(p => renderMagCard(p, false))}</div>
+          )}
+        </div>
+      )}
+      {showFull && <div className="space-y-5">
+      {visiblePosts.map(post => {
         const likedByMe = post.likedUserIds.has(myUserId)
         const hasImage = !!post.image_path
         const hasNumeric = post.numeric_value !== null && post.numeric_value !== undefined
@@ -383,9 +487,10 @@ function FeedContent({ program, targetVerificationId = null, targetCommentId = n
           </article>
         )
       })}
+      </div>}
 
-      {/* 더보기 — 다음 페이지 있을 때만 */}
-      {hasNextPage && (
+      {/* 더보기 — 다음 페이지 있을 때만 (포커스 풀뷰에선 숨김) */}
+      {hasNextPage && !focusedId && (
         <div className="flex justify-center pt-2 pb-4">
           <button
             type="button"

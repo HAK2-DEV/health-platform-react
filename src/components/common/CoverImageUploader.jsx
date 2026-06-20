@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react'
-import { Camera, X } from 'lucide-react'
+import { useRef, useState, useEffect } from 'react'
+import { Camera, X, Crop } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
 import ProgramCover from './ProgramCover'
 import ImageCropModal from './ImageCropModal'
@@ -26,8 +26,12 @@ function CoverImageUploader({ ownerId, imagePath, onChange, categories, name, di
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState(null)
   // 크롭 모달 — 파일 선택 시 바로 업로드하지 않고 크롭 먼저
-  const [cropImageSrc, setCropImageSrc] = useState(null)
+  const [cropSrc, setCropSrc] = useState(null)        // 크롭 모달의 현재 소스
+  const [originalSrc, setOriginalSrc] = useState(null) // 마지막 선택 원본(재조정용·세션 유지)
   const [isCropOpen, setIsCropOpen] = useState(false)
+
+  // 원본 objectURL 메모리 정리 (값 변경/언마운트 시)
+  useEffect(() => () => { if (originalSrc) URL.revokeObjectURL(originalSrc) }, [originalSrc])
 
   const triggerPick = () => {
     if (disabled || uploading) return
@@ -50,16 +54,26 @@ function CoverImageUploader({ ownerId, imagePath, onChange, categories, name, di
     }
     setError(null)
     const url = URL.createObjectURL(file)
-    setCropImageSrc(url)
+    setOriginalSrc(url)   // 원본 보관 → 이후 '비율 조정' 시 재사용
+    setCropSrc(url)
+    setIsCropOpen(true)
+  }
+
+  // 다시 업로드 없이 크롭만 재조정 — 원본이 있으면 원본, 없으면 저장된 표지로
+  const reAdjust = () => {
+    if (disabled || uploading) return
+    const src = originalSrc || (imagePath
+      ? supabase.storage.from('program-covers').getPublicUrl(imagePath).data?.publicUrl
+      : null)
+    if (!src) { setError('조정할 이미지가 없어요'); return }
+    setError(null)
+    setCropSrc(src)
     setIsCropOpen(true)
   }
 
   const closeCropModal = () => {
     setIsCropOpen(false)
-    setCropImageSrc(prev => {
-      if (prev) URL.revokeObjectURL(prev)
-      return null
-    })
+    setCropSrc(null)  // 원본(originalSrc)은 재조정 위해 유지 — 여기선 revoke 안 함
   }
 
   // 크롭 완료 → 1200x675 JPEG Blob 업로드
@@ -159,15 +173,26 @@ function CoverImageUploader({ ownerId, imagePath, onChange, categories, name, di
           가로형(16:9) 권장 · 최대 10MB
         </p>
         {imagePath && !uploading && (
-          <button
-            type="button"
-            onClick={handleRemove}
-            disabled={disabled}
-            className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-red-600 transition disabled:opacity-50"
-          >
-            <X className="w-3 h-3" />
-            표지 삭제
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={reAdjust}
+              disabled={disabled}
+              className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-emerald-600 transition disabled:opacity-50"
+            >
+              <Crop className="w-3 h-3" />
+              비율 조정
+            </button>
+            <button
+              type="button"
+              onClick={handleRemove}
+              disabled={disabled}
+              className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-red-600 transition disabled:opacity-50"
+            >
+              <X className="w-3 h-3" />
+              표지 삭제
+            </button>
+          </div>
         )}
       </div>
 
@@ -180,7 +205,7 @@ function CoverImageUploader({ ownerId, imagePath, onChange, categories, name, di
       {/* 표지 크롭 모달 — 16:9 사각형, 1200x675 */}
       <ImageCropModal
         isOpen={isCropOpen}
-        imageSrc={cropImageSrc}
+        imageSrc={cropSrc}
         onClose={closeCropModal}
         onComplete={handleCropComplete}
         isUploading={uploading}

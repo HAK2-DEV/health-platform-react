@@ -52,6 +52,7 @@ export const queryKeys = {
   programQuizzes: (programId) => ['quizzes', 'byProgram', programId],
   // 참가자용 퀴즈 목록 (프로그램 상세 퀴즈 섹션) — 본인 제출 상태 포함
   participantQuizzes: (programId, userId) => ['quizzes', 'participant', programId, userId],
+  communityPosts: (programId, boardId) => ['community-posts', programId, boardId || 'all'],
   // 퀴즈 상세 (참가자 풀이/결과) — RPC 기반
   quizDetail: (quizId, userId) => ['quizzes', 'detail', quizId, userId],
   // 운영자 퀴즈 결과 (제출 목록 + 답안 + 사용자) — 수동 채점/통계용
@@ -104,6 +105,7 @@ export const fetchMyPrograms = async (userId) => {
     .from('programs')
     .select('*')
     .eq('owner_id', userId)
+    .order('updated_at', { ascending: false })   // 최근 수정순 (098 트리거)
     .order('created_at', { ascending: false })
   if (error) throw error
   return data || []
@@ -294,7 +296,7 @@ export const fetchProgram = async (programId) => {
 export const fetchMission = async (missionId) => {
   const { data, error } = await supabase
     .from('missions')
-    .select('*, programs!inner(id, name, categories, feed_enabled, owner_id)')
+    .select('*, programs!inner(id, name, categories, feed_enabled, owner_id, community_settings)')
     .eq('id', missionId)
     .maybeSingle()
   if (error) throw error
@@ -592,13 +594,14 @@ export const fetchMyRecentScoreSeries = async (programId, userId, days = 14) => 
 export const fetchProgramQuizzes = async (programId) => {
   const { data, error } = await supabase
     .from('quizzes')
-    .select('*, quiz_questions(count), quiz_submissions(count)')
+    .select('*, quiz_questions(point), quiz_submissions(count)')
     .eq('program_id', programId)
     .order('created_at', { ascending: false })
   if (error) throw error
   return (data || []).map(q => ({
     ...q,
-    questionCount: q.quiz_questions?.[0]?.count || 0,
+    questionCount: q.quiz_questions?.length || 0,
+    totalPoint: (q.quiz_questions || []).reduce((s, r) => s + (r.point || 0), 0),
     submissionCount: q.quiz_submissions?.[0]?.count || 0,
   }))
 }
@@ -616,6 +619,45 @@ export const fetchParticipantQuizzes = async (programId) => {
     ...q,
     mySubmission: q.quiz_submissions?.[0] || null,
   }))
+}
+
+// ─── 커뮤니티 게시판 글 (096) ─────────────────────────────
+// 게시판 글 목록 — boardId 없거나 'all' 이면 전체. 작성자 정보 조인.
+export const fetchCommunityPosts = async (programId, boardId) => {
+  let q = supabase
+    .from('community_posts')
+    .select('*, author:users(id, nickname, avatar_path)')
+    .eq('program_id', programId)
+    .order('created_at', { ascending: false })
+  if (boardId && boardId !== 'all') q = q.eq('board_id', boardId)
+  const { data, error } = await q
+  if (error) throw error
+  return data || []
+}
+
+export const createCommunityPost = async ({ programId, boardId, title, body, imagePath }) => {
+  const { data: { session } } = await supabase.auth.getSession()
+  const uid = session?.user?.id
+  const { data, error } = await supabase
+    .from('community_posts')
+    .insert({ program_id: programId, board_id: boardId, author_id: uid, title: title || null, body, image_path: imagePath || null })
+    .select()
+    .single()
+  if (error) throw error
+  return data  // status 는 트리거가 결정 (approval→pending)
+}
+
+export const updateCommunityPost = async ({ id, boardId, title, body, imagePath }) => {
+  const patch = { title: title || null, body, image_path: imagePath ?? null }
+  if (boardId) patch.board_id = boardId
+  const { data, error } = await supabase.from('community_posts').update(patch).eq('id', id).select().single()
+  if (error) throw error
+  return data
+}
+
+export const deleteCommunityPost = async (id) => {
+  const { error } = await supabase.from('community_posts').delete().eq('id', id)
+  if (error) throw error
 }
 
 // 퀴즈 상세 (정답 제외) + 본인 제출/답안 — RPC

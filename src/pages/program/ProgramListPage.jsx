@@ -1,9 +1,10 @@
 import { useState, useMemo, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../hooks/useAuth'
-import { ChevronRight, ClipboardList, Calendar } from 'lucide-react'
+import { supabase } from '../../supabaseClient'
+import { ChevronRight, ClipboardList, Calendar, Trash2 } from 'lucide-react'
 import { CATEGORY, CATEGORY_LIST } from '../../lib/constants'
 import { calcProgress, CATEGORY_HEX } from '../../lib/programVisuals'
 import ProgramCover from '../../components/common/ProgramCover'
@@ -37,7 +38,7 @@ function daysLeftOf(program) {
 }
 
 // 참여중/운영중 카드
-function ProgramCard({ program, ctaLabel, onClick }) {
+function ProgramCard({ program, ctaLabel, onClick, onDelete }) {
   const catKey = program.categories?.[0] || 'ETC'
   const color = CATEGORY_HEX[catKey] || CATEGORY_HEX.ETC
   const catLabel = CATEGORY[catKey]?.label || '기타'
@@ -106,6 +107,16 @@ function ProgramCard({ program, ctaLabel, onClick }) {
               <div className="h-full rounded-full" style={{ backgroundColor: color, width: `${progress}%` }} />
             </div>
           </div>
+        )}
+        {isDraft && onDelete && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onDelete() }}
+            title="임시저장 삭제"
+            className="w-[29px] h-[29px] rounded-[5px] flex items-center justify-center flex-shrink-0 text-gray-400 hover:text-red-500 hover:bg-red-50 transition"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
         )}
         <button
           type="button"
@@ -296,6 +307,21 @@ function ProgramListPage() {
     enabled: tab === 'browse' && activeIds.length > 0,
   })
 
+  // 임시저장(DRAFT) 프로그램 삭제 — 운영중 목록에서
+  const queryClient = useQueryClient()
+  const deleteDraftMutation = useMutation({
+    mutationFn: async (programId) => {
+      const { error } = await supabase.from('programs').delete().eq('id', programId)
+      if (error) throw error
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.myPrograms(userId) }) },
+    onError: (e) => { console.error('임시저장 삭제 실패:', e); alert(`삭제에 실패했습니다: ${e.message}`) },
+  })
+  const handleDeleteDraft = (program) => {
+    if (!window.confirm(`"${program.name}" 임시저장 프로그램을 삭제할까요?\n되돌릴 수 없어요.`)) return
+    deleteDraftMutation.mutate(program.id)
+  }
+
   // 둘러보기 — 내가 운영(소유)하거나 이미 참여 중인 프로그램은 제외
   //   publicPrograms 는 소유 프로그램(owner_id)은 이미 서버에서 제외됨. 여기선 참여 중 + 안전망으로 소유도 함께 제외.
   const excludeIds = useMemo(
@@ -338,24 +364,26 @@ function ProgramListPage() {
         </div>
       </header>
 
-      <div className="w-full max-w-4xl mx-auto px-3 sm:px-4 pt-[11px] pb-6 space-y-[11px]">
-        {/* 서브탭 — 참여중/운영중/둘러보기 */}
-        <div className="mx-auto w-[362px] max-w-full h-[44px] rounded-[15px] bg-gray-100/90 p-1 flex gap-1">
-          {TABS.map(t => {
-            const on = tab === t.key
-            return (
-              <button
-                key={t.key}
-                type="button"
-                onClick={() => setTab(t.key)}
-                className={`flex-1 rounded-[12px] text-sm font-bold transition flex items-center justify-center ${
-                  on ? 'bg-emerald-500 text-white shadow-sm' : 'text-gray-500'
-                }`}
-              >
-                {t.label}
-              </button>
-            )
-          })}
+      <div className="w-full max-w-4xl mx-auto px-3 sm:px-4 pt-0 pb-6 space-y-[11px]">
+        {/* 서브탭 — 헤더(46px) 아래 고정 (sticky), 풀폭 흰 배경 */}
+        <div className="sticky top-[46px] z-20 -mx-3 sm:-mx-4 px-3 sm:px-4 pt-[11px] pb-0 bg-white">
+          <div className="mx-auto w-[362px] max-w-full h-[44px] rounded-[15px] bg-gray-100/90 p-1 flex gap-1">
+            {TABS.map(t => {
+              const on = tab === t.key
+              return (
+                <button
+                  key={t.key}
+                  type="button"
+                  onClick={() => setTab(t.key)}
+                  className={`flex-1 rounded-[12px] text-sm font-bold transition flex items-center justify-center ${
+                    on ? 'bg-emerald-500 text-white shadow-sm' : 'text-gray-500'
+                  }`}
+                >
+                  {t.label}
+                </button>
+              )
+            })}
+          </div>
         </div>
 
         {/* ─── 참여중 ─── */}
@@ -416,6 +444,7 @@ function ProgramListPage() {
                     program={p}
                     ctaLabel={p.status === 'DRAFT' ? '완성하기' : '관리'}
                     onClick={() => p.status === 'DRAFT' ? navigate(`/programs/new?id=${p.id}`) : navigate(`/programs/${p.id}`)}
+                    onDelete={p.status === 'DRAFT' ? () => handleDeleteDraft(p) : undefined}
                   />
                 ))}
               </div>

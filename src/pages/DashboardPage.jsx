@@ -264,9 +264,11 @@ function DashboardPage() {
               {nickname ? `${nickname}님` : '반가워요'}
             </p>
             <div className="flex items-center gap-1.5">
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[11px] font-bold">
-                {isOperator ? '운영자' : 'Lv.1'}
-              </span>
+              {isOperator && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[11px] font-bold">
+                  운영자
+                </span>
+              )}
               <span className="text-[12px] font-medium text-gray-700">건강한 습관이 쌓이고 있어요!</span>
             </div>
           </div>

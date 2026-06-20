@@ -94,6 +94,8 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
       schedule_mode: 'ALL_DAYS',
       active_days: [],
       excluded_periods: [],
+      startDate: program.start_date,   // 예약 미션 — 미래로 두면 그날부터 활성화
+      endDate: program.end_date,
       showSchedule: false,
       showPreview: false,
       editingInstruction: false,
@@ -176,6 +178,14 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
       setError(`"${drafts[invalidScheduleIdx].title}" 미션의 운영 요일을 최소 1일 선택해주세요`)
       return
     }
+    // 예약 기간 — 종료일이 시작일보다 빠르면 차단
+    const invalidPeriodIdx = drafts.findIndex(m =>
+      m.selected && m.startDate && m.endDate && m.endDate < m.startDate
+    )
+    if (invalidPeriodIdx >= 0) {
+      setError(`"${drafts[invalidPeriodIdx].title}" 미션의 종료일이 시작일보다 빠를 수 없어요`)
+      return
+    }
     // 인증 입력 유형 0개 차단 — 제출 화면이 비어버림
     const noInputIdx = drafts.findIndex(m =>
       m.selected && !m.requires_image && !m.requires_numeric && !m.requires_note
@@ -219,8 +229,8 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
       image_required: m.requires_image ? (m.image_required !== false) : true,
       numeric_required: m.requires_numeric ? (m.numeric_required !== false) : true,
       note_required: m.requires_note ? (m.note_required !== false) : true,
-      active_from: `${program.start_date}T00:00:00+09:00`,
-      active_until: `${program.end_date}T23:59:59+09:00`,
+      active_from: `${m.startDate || program.start_date}T00:00:00+09:00`,
+      active_until: `${m.endDate || program.end_date}T23:59:59+09:00`,
       schedule_mode: m.schedule_mode,
       active_days: m.schedule_mode === 'CUSTOM' ? m.active_days : [],
       excluded_periods: m.excluded_periods.filter(p => p.start_date && p.end_date),
@@ -374,7 +384,7 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
             추가할 미션을 선택하고 점수·한도를 조정해주세요
           </p>
 
-          <div className="space-y-3">
+          <div className="mission-fields space-y-3">
             {drafts.map((m, idx) => {
               return (
                 <div
@@ -446,11 +456,11 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
 
                   {/* 점수 / 한도 / 승인 방식 미세 조정 — 선택된 미션만 활성 */}
                   {m.selected && (
-                    <div className="mt-3 pl-7 space-y-2.5">
-                      {/* 인증 입력 유형 — 복수 선택 (사진+소감 통합 등) */}
-                      <div>
-                        <label className="block text-[11px] text-gray-500 mb-1">
-                          인증 입력 <span className="text-gray-400">(1개 이상 · 여러 개면 한 화면에서 같이 제출)</span>
+                    <div className="divide-y divide-gray-200 [&>div]:py-[9px]">
+                      {/* 인증 입력 유형 — 복수 선택 (사진+소감 통합 등). 첫 섹션만 제목 정렬 위해 들여쓰기 유지 */}
+                      <div className="pl-7">
+                        <label className="block text-[11px] text-gray-500 mb-[9px] font-bold">
+                          인증 입력 <span className="text-gray-400 font-normal">(1개 이상 · 여러 개면 한 화면에서 같이 제출)</span>
                         </label>
                         <div className="flex gap-1.5 flex-wrap">
                           {INPUT_TYPES.map(t => {
@@ -479,7 +489,7 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
 
                       {/* 입력별 점수 · 필수 (084) */}
                       <div>
-                        <label className="block text-[11px] text-gray-500 mb-1">입력별 점수 · 필수</label>
+                        <label className="block text-[11px] text-gray-500 mb-[9px] font-bold">입력별 점수 · 필수</label>
                         <div className="space-y-1.5">
                           {[
                             { f: 'image_point', r: 'image_required', on: m.requires_image, label: '사진', Icon: ImageIcon },
@@ -525,9 +535,9 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
                         <p className="mt-1 text-[11px] text-gray-500">최대 <span className="font-bold text-emerald-600">{draftTotal(m)}P</span></p>
                       </div>
 
-                      {/* 하루 최대 */}
-                      <div>
-                        <label className="block text-[11px] text-gray-500 mb-0.5">하루 최대 (선택)</label>
+                      {/* 하루 최대 — 라벨 옆 인라인 입력 */}
+                      <div className="flex items-center gap-2">
+                        <label className="text-[11px] text-gray-500 flex-shrink-0 font-bold">하루 최대 <span className="font-normal text-gray-400">(선택)</span></label>
                         <input
                           type="number"
                           value={m.daily_limit ?? ''}
@@ -535,13 +545,13 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
                           min={1}
                           placeholder="무제한"
                           disabled={isSaving}
-                          className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 disabled:bg-gray-50"
+                          className="w-24 px-2 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 disabled:bg-gray-50"
                         />
                       </div>
 
                       {/* 승인 방식 — 자동 / 운영자 심사 토글 */}
                       <div>
-                        <label className="block text-[11px] text-gray-500 mb-0.5">
+                        <label className="block text-[11px] text-gray-500 mb-[9px] font-bold">
                           승인 방식
                         </label>
                         <div className="grid grid-cols-2 gap-2">
@@ -574,6 +584,34 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
                         </div>
                       </div>
 
+                      {/* 운영 기간 (예약) — 시작일을 미래로 두면 그날부터 활성화 */}
+                      <div>
+                        <label className="block text-[11px] text-gray-500 mb-[9px] font-bold">
+                          운영 기간 <span className="text-gray-400 font-normal">(시작일을 미래로 두면 예약 미션)</span>
+                        </label>
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="date"
+                            value={m.startDate || ''}
+                            min={program.start_date}
+                            max={program.end_date}
+                            onChange={(e) => updateDraft(idx, 'startDate', e.target.value)}
+                            disabled={isSaving}
+                            className="flex-1 min-w-0 px-2 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 disabled:bg-gray-50"
+                          />
+                          <span className="text-gray-400 text-xs flex-shrink-0">~</span>
+                          <input
+                            type="date"
+                            value={m.endDate || ''}
+                            min={m.startDate || program.start_date}
+                            max={program.end_date}
+                            onChange={(e) => updateDraft(idx, 'endDate', e.target.value)}
+                            disabled={isSaving}
+                            className="flex-1 min-w-0 px-2 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 disabled:bg-gray-50"
+                          />
+                        </div>
+                      </div>
+
                       {/* 운영 일정 (선택) — MissionCreateModal 패턴 */}
                       <div>
                         <button
@@ -583,7 +621,7 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
                           className="flex items-center gap-1 text-[11px] text-gray-600 hover:text-gray-800 disabled:opacity-50"
                         >
                           {m.showSchedule ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                          운영 일정 (선택) — {m.schedule_mode === 'ALL_DAYS' ? '매일' :
+                          <span className="font-bold">운영 일정</span> (선택) — {m.schedule_mode === 'ALL_DAYS' ? '매일' :
                                                 m.schedule_mode === 'WEEKDAYS' ? '평일만' :
                                                 m.schedule_mode === 'WEEKENDS' ? '주말만' : '직접 선택'}
                           {m.excluded_periods.filter(p => p.start_date && p.end_date).length > 0 && (
@@ -692,14 +730,24 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
                       <div className="pt-1">
                         <button
                           type="button"
-                          onClick={() => updateDraft(idx, 'showPreview', !m.showPreview)}
+                          onClick={(e) => {
+                            const willOpen = !m.showPreview
+                            const container = e.currentTarget.parentElement
+                            updateDraft(idx, 'showPreview', willOpen)
+                            if (willOpen) {
+                              // 미리보기 렌더 후 화면 중앙으로 스크롤
+                              requestAnimationFrame(() => requestAnimationFrame(() => {
+                                container?.querySelector('[data-preview]')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                              }))
+                            }
+                          }}
                           disabled={isSaving}
                           className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-lg border border-emerald-200 bg-emerald-50/60 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 transition disabled:opacity-50"
                         >
                           {m.showPreview ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                           참여자 제출 화면 미리보기
                         </button>
-                        {m.showPreview && <SubmitPreview mission={m} />}
+                        {m.showPreview && <div data-preview><SubmitPreview mission={m} /></div>}
                       </div>
                     </div>
                   )}
