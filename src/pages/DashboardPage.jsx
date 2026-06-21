@@ -24,6 +24,7 @@ import {
   fetchMyTodayActivity,
   fetchMyRankChange,
   fetchProgramOverview,
+  fetchProgramOperatorPulse,
 } from '../lib/queries'
 
 // 채워진(solid) 통계 아이콘 — fill=currentColor 라 text-* 로 색 (heroicons solid, MIT)
@@ -179,6 +180,12 @@ function DashboardPage() {
     queryFn: () => fetchProgramOverview(featured.id, userId),
     enabled: !!featured?.id && !!userId,
   })
+  // 운영중 카드 지표 — 오늘 참여(고유 인증자) + 누적 인증. 운영자일 때만.
+  const { data: opPulse } = useQuery({
+    queryKey: queryKeys.programOperatorPulse(featured?.id),
+    queryFn: () => fetchProgramOperatorPulse(featured.id),
+    enabled: isOperator && !!featured?.id,
+  })
 
   // ─── 파생 ─────────
 
@@ -198,14 +205,22 @@ function DashboardPage() {
 
   const featuredParticipants = featured ? (activeCounts[featured.id] ?? null) : null
 
+  // 운영중 카드 지표 파생 — 오늘 참여율(오늘 인증자 ÷ 참여자) / 누적 인증
+  const todayRate = opPulse == null
+    ? null
+    : (featuredParticipants && featuredParticipants > 0)
+      ? Math.round((opPulse.todayActiveUsers / featuredParticipants) * 100)
+      : 0
+  const totalVerifs = opPulse?.totalVerifs ?? null
+
   // 대표 프로그램 4지표 (숫자 12px / 단위 9px / 색상은 지표별)
-  //   운영중: 참여자 / 운영 프로그램 수 / 남은 기간 / 진행률
+  //   운영중: 참여자 / 오늘 참여율 / 남은 기간 / 누적 인증
   //   참여중: 참여자 / 내 순위 / 남은 기간 / 목표 달성률
   const fStats = isOperator ? [
     { icon: UsersSolid, label: '참여자', num: featuredParticipants != null ? `${featuredParticipants}` : '-', unit: featuredParticipants != null ? '명' : '', color: 'text-emerald-600' },
-    { icon: ClipboardSolid, label: '운영 프로그램', num: `${myPrograms.length}`, unit: '개', color: 'text-gray-900' },
+    { icon: FlagSolid, label: '오늘 참여율', num: todayRate != null ? `${todayRate}` : '-', unit: todayRate != null ? '%' : '', color: 'text-emerald-600' },
     { icon: CalendarSolid, label: '남은 기간', num: daysLeft != null ? `${daysLeft}` : '상시', unit: daysLeft != null ? '일' : '', color: 'text-gray-900' },
-    { icon: FlagSolid, label: '진행률', num: `${fProgress}`, unit: '%', color: 'text-emerald-600' },
+    { icon: ClipboardSolid, label: '누적 인증', num: totalVerifs != null ? `${totalVerifs}` : '-', unit: totalVerifs != null ? '건' : '', color: 'text-gray-900' },
   ] : [
     { icon: UsersSolid, label: '참여자', num: featuredParticipants != null ? `${featuredParticipants}` : '-', unit: featuredParticipants != null ? '명' : '', color: 'text-emerald-600' },
     { icon: TrophySolid, label: '내 순위', num: featuredRank?.current_rank ? `${featuredRank.current_rank}` : '-', unit: featuredRank?.current_rank ? '등' : '', color: 'text-gray-900' },

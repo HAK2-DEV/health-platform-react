@@ -90,10 +90,10 @@ function MyActivityPage() {
     <div className="px-4 pt-2 pb-6 max-w-2xl mx-auto">
       <StickyBackBar fallbackPath="/profile" title="프로필로" />
 
-      <h1 className="text-2xl font-medium text-gray-800 mb-4">📊 내 인증 현황</h1>
+      <h1 className="text-2xl font-medium text-gray-800" style={{ marginBottom: '9px' }}>📊 내 인증 현황</h1>
 
       {/* 프로그램 선택 칩 */}
-      <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 mb-4 scrollbar-hide">
+      <div className="flex gap-2 overflow-x-auto -mx-4 px-4 scrollbar-hide" style={{ paddingBottom: '4px', marginBottom: '9px' }}>
         {activePrograms.map(p => {
           const catKey = p.categories?.[0] || 'ETC'
           const cat = CATEGORY[catKey] || CATEGORY.ETC
@@ -126,7 +126,8 @@ function MyActivityPage() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
-            className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6"
+            className="grid grid-cols-2 sm:grid-cols-4"
+            style={{ gap: '9px', marginBottom: '9px' }}
           >
             <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex flex-col items-center text-center">
               <p className="text-[11px] text-gray-500 mb-1">💎 누적 점수</p>
@@ -155,8 +156,8 @@ function MyActivityPage() {
           </motion.div>
 
           {/* 14일 활동 */}
-          <h2 className="text-lg font-semibold text-gray-800 mb-3">📅 최근 14일 활동</h2>
-          <div className="bg-white border border-gray-200 rounded-2xl p-4 mb-6">
+          <h2 className="text-lg font-semibold text-gray-800" style={{ marginBottom: '9px' }}>📅 최근 14일 활동</h2>
+          <div className="bg-white border border-gray-200 rounded-2xl p-4" style={{ marginBottom: '9px' }}>
             <div className="flex items-end gap-1 h-20">
               {recent14Days.map(d => {
                 const h = d.count === 0 ? 4 : Math.round((d.count / maxDayCount) * 76) + 4
@@ -185,7 +186,8 @@ function MyActivityPage() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.1 }}
-            className="grid grid-cols-1 gap-3"
+            className="grid grid-cols-1"
+            style={{ gap: '9px' }}
           >
             <button
               type="button"

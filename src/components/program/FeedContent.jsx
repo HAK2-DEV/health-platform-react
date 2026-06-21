@@ -21,6 +21,8 @@ import ReportModal from '../common/ReportModal'
 //   targetCommentId: 알림 ?c= 자동 스크롤 (위와 동일)
 function FeedContent({ program, targetVerificationId = null, targetCommentId = null, readOnly = false }) {
   const id = program.id
+  // 반응(좋아요·댓글) 허용 — 커뮤니티 ③ 토글(community_settings.reactionAuto). 기본 허용.
+  const reactionsEnabled = program.community_settings?.reactionAuto !== false
   const { session } = useAuth()
   const queryClient = useQueryClient()
   const myUserId = session?.user?.id
@@ -85,42 +87,31 @@ function FeedContent({ program, targetVerificationId = null, targetCommentId = n
       return
     }
     let cancelled = false
-    Promise.all(
-      targets.map(p =>
-        supabase.storage
-          .from('verification-images')
-          .createSignedUrl(p.image_path, 3600)
-          .then(({ data, error }) => {
-            if (error) {
-              console.warn('[feed signed url 실패]', {
-                path: p.image_path,
-                verification_id: p.id,
-                msg: error.message,
-              })
-              return { id: p.id, url: null }
-            }
-            return { id: p.id, url: data?.signedUrl || null }
-          })
-          .catch((err) => {
-            console.warn('[feed signed url 예외]', {
-              path: p.image_path,
-              verification_id: p.id,
-              err: err?.message,
-            })
-            return { id: p.id, url: null }
-          })
-      )
-    ).then(results => {
-      if (cancelled) return
-      const urlMap = {}
-      const failedIds = new Set()
-      for (const r of results) {
-        if (r.url) urlMap[r.id] = r.url
-        else failedIds.add(r.id)
-      }
-      setImageUrls(urlMap)
-      setFailedImageIds(failedIds)
-    })
+    // 배치 서명 — N건을 한 번의 요청으로 묶어 라운드트립 최소화(이미지 노출 지연 완화)
+    const paths = targets.map(p => p.image_path)
+    const pathToId = new Map(targets.map(p => [p.image_path, p.id]))
+    supabase.storage
+      .from('verification-images')
+      .createSignedUrls(paths, 3600)
+      .then(({ data, error }) => {
+        if (cancelled) return
+        if (error) {
+          console.warn('[feed signed urls 실패]', { msg: error.message })
+          setImageUrls({})
+          setFailedImageIds(new Set(targets.map(p => p.id)))
+          return
+        }
+        const urlMap = {}
+        const failedIds = new Set()
+        for (const r of data || []) {
+          const pid = pathToId.get(r.path)
+          if (pid == null) continue
+          if (r.signedUrl && !r.error) urlMap[pid] = r.signedUrl
+          else failedIds.add(pid)
+        }
+        setImageUrls(urlMap)
+        setFailedImageIds(failedIds)
+      })
     return () => { cancelled = true }
   }, [posts.length])
 
@@ -216,10 +207,12 @@ function FeedContent({ program, targetVerificationId = null, targetCommentId = n
             <span className="text-[10px] text-gray-400 ml-auto flex-shrink-0">{formatRelativeKstDay(post.submitted_at)}</span>
           </div>
           {note && <p className="text-[12px] text-gray-600 line-clamp-1 mt-0.5">{note}</p>}
+          {reactionsEnabled && (
           <div className="flex items-center gap-3 mt-1 text-[11px] text-gray-500">
             <span className="flex items-center gap-0.5"><Heart className="w-3 h-3" /> {post.likedUserIds.size}</span>
             <span className="flex items-center gap-0.5"><MessageCircle className="w-3 h-3" /> {post.commentCount}</span>
           </div>
+          )}
         </div>
       </button>
     )
@@ -243,10 +236,12 @@ function FeedContent({ program, targetVerificationId = null, targetCommentId = n
             <span className="text-[11px] font-medium text-gray-700 truncate">{post.user?.nickname || '익명'}</span>
           </div>
           {note && <p className="text-[12px] text-gray-700 line-clamp-2">{note}</p>}
+          {reactionsEnabled && (
           <div className="flex items-center gap-3 mt-auto pt-1 text-[11px] text-gray-500">
             <span className="flex items-center gap-0.5"><Heart className="w-3.5 h-3.5" /> {post.likedUserIds.size}</span>
             <span className="flex items-center gap-0.5"><MessageCircle className="w-3.5 h-3.5" /> {post.commentCount}</span>
           </div>
+          )}
         </div>
       </button>
     )
@@ -265,10 +260,12 @@ function FeedContent({ program, targetVerificationId = null, targetCommentId = n
           {note && <p className={`font-bold drop-shadow line-clamp-2 ${hero ? 'text-[15px]' : 'text-[12px]'}`}>{note}</p>}
           <div className="flex items-center gap-2 mt-1 text-[11px]">
             <span className="truncate">{post.user?.nickname || '익명'}</span>
+            {reactionsEnabled && (
             <span className="ml-auto flex items-center gap-2 flex-shrink-0">
               <span className="flex items-center gap-0.5"><Heart className="w-3 h-3" /> {post.likedUserIds.size}</span>
               <span className="flex items-center gap-0.5"><MessageCircle className="w-3 h-3" /> {post.commentCount}</span>
             </span>
+            )}
           </div>
         </div>
       </button>
@@ -450,8 +447,10 @@ function FeedContent({ program, targetVerificationId = null, targetCommentId = n
               </div>
             )}
 
-            {/* 좋아요 + 댓글 토글 + 운영자 액션 */}
+            {/* 좋아요 + 댓글 토글 + 운영자 액션 — 반응 비활성 + 비운영자면 바 숨김 */}
+            {(reactionsEnabled || isProgramOwner) && (
             <div className="flex items-center gap-3 px-4 pt-3 pb-1">
+              {reactionsEnabled && (<>
               <button
                 type="button"
                 onClick={() => { if (!readOnly) toggleLikeMutation.mutate({ verificationId: post.id, isLiked: likedByMe }) }}
@@ -471,6 +470,7 @@ function FeedContent({ program, targetVerificationId = null, targetCommentId = n
                 <MessageCircle className="w-5 h-5" />
                 <span>{post.commentCount}</span>
               </button>
+              </>)}
 
               {/* 운영자 전용 — 점수 제외 / 피드 가리기 */}
               {isProgramOwner && (
@@ -482,9 +482,10 @@ function FeedContent({ program, targetVerificationId = null, targetCommentId = n
                 />
               )}
             </div>
+            )}
 
             {/* 댓글 — 아이콘 클릭 시 그 게시물 댓글을 lazy 로드 + 입력 */}
-            {openComments.has(post.id) && (
+            {reactionsEnabled && openComments.has(post.id) && (
               <CommentsSection
                 verificationId={post.id}
                 programId={id}

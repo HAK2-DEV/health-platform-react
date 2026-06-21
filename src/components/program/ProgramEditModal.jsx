@@ -21,11 +21,9 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
   const [isPublic, setIsPublic] = useState(false)
   const [previewEnabled, setPreviewEnabled] = useState(false)
   const [inviteRequiresApproval, setInviteRequiresApproval] = useState(false)
-  const [feedEnabled, setFeedEnabled] = useState(false)
-  const [rankingEnabled, setRankingEnabled] = useState(true)
-  const [podiumEnabled, setPodiumEnabled] = useState(false)
-  const [trendEnabled, setTrendEnabled] = useState(false)
-  const [periodFilterEnabled, setPeriodFilterEnabled] = useState(false)
+  const [quizEnabled, setQuizEnabled] = useState(true)        // 메뉴바 퀴즈 사용 (102)
+  const [communityEnabled, setCommunityEnabled] = useState(true)  // 메뉴바 커뮤니티 사용 (102) = 피드 활성
+  const [rankingEnabled, setRankingEnabled] = useState(true)  // 랭킹 메뉴 표시 (세부는 랭킹 설정)
   const [coverImagePath, setCoverImagePath] = useState(null)
   const [inviteCode, setInviteCode] = useState('')
   const [isSaving, setIsSaving] = useState(false)
@@ -42,12 +40,15 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
       setIsPublic(!!program.is_public)
       setPreviewEnabled(!!program.preview_enabled)
       setInviteRequiresApproval(!!program.invite_requires_approval)
-      setFeedEnabled(!!program.feed_enabled)
+      setQuizEnabled(program.quiz_enabled !== false)
+      // 커뮤니티 메뉴 = 피드 활성. 102 미적용(컬럼 없음) 프로그램은 기존 feed_enabled 로 판단
+      setCommunityEnabled(
+        Object.prototype.hasOwnProperty.call(program, 'community_enabled')
+          ? program.community_enabled !== false
+          : !!program.feed_enabled
+      )
       // ranking_enabled DEFAULT true — undefined/null 이면 켜진 상태로 (마법사와 동일 동작)
       setRankingEnabled(program.ranking_enabled !== false)
-      setPodiumEnabled(!!program.podium_enabled)
-      setTrendEnabled(!!program.trend_enabled)
-      setPeriodFilterEnabled(!!program.period_filter_enabled)
       setCoverImagePath(program.cover_image_path || null)
       setInviteCode(program.invite_code || '')
       setError(null)
@@ -100,12 +101,14 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
         is_public: isPublic,
         preview_enabled: previewEnabled,
         ...(program.join_type === 'INVITE_CODE' ? { invite_requires_approval: inviteRequiresApproval } : {}),
-        feed_enabled: feedEnabled,
-        // ranking_enabled OFF 면 podium/trend/period_filter 모두 자동 OFF (마법사 패턴 일관성)
+        // 커뮤니티 메뉴 사용 = 피드 활성 (둘을 하나로 통합)
+        feed_enabled: communityEnabled,
+        // 102 컬럼 — 마이그레이션 적용 후에만 저장(미적용 시 스킵, 하위호환)
+        ...(Object.prototype.hasOwnProperty.call(program, 'quiz_enabled') ? { quiz_enabled: quizEnabled } : {}),
+        ...(Object.prototype.hasOwnProperty.call(program, 'community_enabled') ? { community_enabled: communityEnabled } : {}),
+        // 랭킹 메뉴 표시 — OFF 면 세부(시상대/추세/기간필터)도 자동 OFF. 세부 설정은 「랭킹 설정」.
         ranking_enabled: rankingEnabled,
-        podium_enabled: rankingEnabled ? podiumEnabled : false,
-        trend_enabled: rankingEnabled ? trendEnabled : false,
-        period_filter_enabled: rankingEnabled ? periodFilterEnabled : false,
+        ...(rankingEnabled ? {} : { podium_enabled: false, trend_enabled: false, period_filter_enabled: false }),
         cover_image_path: coverImagePath,
         // INVITE_CODE 모드면 코드 수정 반영 — 빈 칸이면 기존 코드 유지(공백 저장 안 함)
         ...(program.join_type === 'INVITE_CODE' && inviteCode.trim()
@@ -323,36 +326,40 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
             </div>
           )}
 
-          {/* 피드 활성화 — 커뮤니티 모드 */}
+          {/* 퀴즈 사용 — 끄면 참여자 탭바 + 운영자 메뉴바 설정에서 숨김 (102) */}
           <button
             type="button"
-            onClick={() => setFeedEnabled(!feedEnabled)}
+            onClick={() => setQuizEnabled(!quizEnabled)}
             disabled={isSaving}
-            className={`
-              w-full mb-3 p-3 rounded-lg border-2 text-left transition disabled:opacity-50
-              ${feedEnabled
-                ? 'border-emerald-500 bg-emerald-50'
-                : 'border-gray-200 bg-white hover:border-gray-300'}
-            `}
+            className={`w-full mb-3 p-3 rounded-lg border-2 text-left transition disabled:opacity-50 ${quizEnabled ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 bg-white hover:border-gray-300'}`}
           >
             <div className="flex items-start gap-2.5">
-              <span className="text-xl">📷</span>
+              <span className="text-xl">📋</span>
               <div className="flex-1 min-w-0">
-                <p className={`text-sm font-medium ${feedEnabled ? 'text-emerald-700' : 'text-gray-800'}`}>
-                  피드 활성화 (커뮤니티 모드)
-                </p>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  참여자끼리 인증 사진을 피드로 보고 좋아요·댓글로 응원해요
-                </p>
+                <p className={`text-sm font-medium ${quizEnabled ? 'text-indigo-700' : 'text-gray-800'}`}>퀴즈 메뉴 사용</p>
+                <p className="text-xs text-gray-500 mt-0.5">끄면 퀴즈 탭이 참여자에게 안 보이고 메뉴바 설정에서도 숨겨져요.</p>
               </div>
-              <div className={`
-                relative w-9 h-5 rounded-full flex-shrink-0 transition mt-0.5
-                ${feedEnabled ? 'bg-emerald-500' : 'bg-gray-300'}
-              `}>
-                <div className={`
-                  absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform
-                  ${feedEnabled ? 'translate-x-4' : 'translate-x-0.5'}
-                `} />
+              <div className={`relative w-9 h-5 rounded-full flex-shrink-0 transition mt-0.5 ${quizEnabled ? 'bg-indigo-500' : 'bg-gray-300'}`}>
+                <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${quizEnabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+              </div>
+            </div>
+          </button>
+
+          {/* 커뮤니티 사용 (102) */}
+          <button
+            type="button"
+            onClick={() => setCommunityEnabled(!communityEnabled)}
+            disabled={isSaving}
+            className={`w-full mb-3 p-3 rounded-lg border-2 text-left transition disabled:opacity-50 ${communityEnabled ? 'border-rose-500 bg-rose-50' : 'border-gray-200 bg-white hover:border-gray-300'}`}
+          >
+            <div className="flex items-start gap-2.5">
+              <span className="text-xl">💬</span>
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm font-medium ${communityEnabled ? 'text-rose-700' : 'text-gray-800'}`}>커뮤니티 메뉴 사용</p>
+                <p className="text-xs text-gray-500 mt-0.5">인증 피드 포함. 끄면 커뮤니티 탭이 참여자에게 안 보이고 메뉴바 설정에서도 숨겨져요.</p>
+              </div>
+              <div className={`relative w-9 h-5 rounded-full flex-shrink-0 transition mt-0.5 ${communityEnabled ? 'bg-rose-500' : 'bg-gray-300'}`}>
+                <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${communityEnabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
               </div>
             </div>
           </button>
@@ -373,10 +380,10 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
               <span className="text-xl">📈</span>
               <div className="flex-1 min-w-0">
                 <p className={`text-sm font-medium ${rankingEnabled ? 'text-sky-700' : 'text-gray-800'}`}>
-                  랭킹 표시
+                  랭킹 메뉴 표시
                 </p>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  참여자 간 점수 순위. 끄면 경쟁 요소 없는 순수 습관 형성 프로그램이 돼요.
+                  켜면 랭킹 메뉴가 보여요. 세부(시상대·추세·기간필터)는 「랭킹 설정」에서 정해요.
                 </p>
               </div>
               <div className={`
@@ -391,112 +398,7 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
             </div>
           </button>
 
-          {/* 포디움 / 추세 / 기간 필터 — 랭킹 ON 일 때만 노출 (마법사 패턴 일관성) */}
-          {rankingEnabled && (
-            <>
-              {/* 포디움 활성화 — Top 3 시상대 */}
-              <button
-                type="button"
-                onClick={() => setPodiumEnabled(!podiumEnabled)}
-                disabled={isSaving}
-                className={`
-                  w-full mb-3 p-3 rounded-lg border-2 text-left transition disabled:opacity-50
-                  ${podiumEnabled
-                    ? 'border-amber-500 bg-amber-50'
-                    : 'border-gray-200 bg-white hover:border-gray-300'}
-                `}
-              >
-                <div className="flex items-start gap-2.5">
-                  <span className="text-xl">🏆</span>
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-medium ${podiumEnabled ? 'text-amber-700' : 'text-gray-800'}`}>
-                      랭킹 Top 3 (시상대)
-                    </p>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      랭킹 페이지에 1·2·3등 시상대 시각화. 끄면 평면 랭킹.
-                    </p>
-                  </div>
-                  <div className={`
-                    relative w-9 h-5 rounded-full flex-shrink-0 transition mt-0.5
-                    ${podiumEnabled ? 'bg-amber-500' : 'bg-gray-300'}
-                  `}>
-                    <div className={`
-                      absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform
-                      ${podiumEnabled ? 'translate-x-4' : 'translate-x-0.5'}
-                    `} />
-                  </div>
-                </div>
-              </button>
-
-              {/* 본인 14일 점수 추세 표시 */}
-              <button
-                type="button"
-                onClick={() => setTrendEnabled(!trendEnabled)}
-                disabled={isSaving}
-                className={`
-                  w-full mb-3 p-3 rounded-lg border-2 text-left transition disabled:opacity-50
-                  ${trendEnabled
-                    ? 'border-violet-500 bg-violet-50'
-                    : 'border-gray-200 bg-white hover:border-gray-300'}
-                `}
-              >
-                <div className="flex items-start gap-2.5">
-                  <span className="text-xl">📊</span>
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-medium ${trendEnabled ? 'text-violet-700' : 'text-gray-800'}`}>
-                      본인 14일 점수 추세 표시
-                    </p>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      본인 요약 카드에 최근 14일 점수 스파크라인. 꾸준함 시각화.
-                    </p>
-                  </div>
-                  <div className={`
-                    relative w-9 h-5 rounded-full flex-shrink-0 transition mt-0.5
-                    ${trendEnabled ? 'bg-violet-500' : 'bg-gray-300'}
-                  `}>
-                    <div className={`
-                      absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform
-                      ${trendEnabled ? 'translate-x-4' : 'translate-x-0.5'}
-                    `} />
-                  </div>
-                </div>
-              </button>
-
-              {/* 기간 필터 표시 */}
-              <button
-                type="button"
-                onClick={() => setPeriodFilterEnabled(!periodFilterEnabled)}
-                disabled={isSaving}
-                className={`
-                  w-full mb-4 p-3 rounded-lg border-2 text-left transition disabled:opacity-50
-                  ${periodFilterEnabled
-                    ? 'border-cyan-500 bg-cyan-50'
-                    : 'border-gray-200 bg-white hover:border-gray-300'}
-                `}
-              >
-                <div className="flex items-start gap-2.5">
-                  <span className="text-xl">⏱️</span>
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-medium ${periodFilterEnabled ? 'text-cyan-700' : 'text-gray-800'}`}>
-                      기간 필터 표시 (최근 7일 / 30일)
-                    </p>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      참여자가 '전체 / 최근 7일 / 최근 30일' 토글로 단기 분위기 확인 가능.
-                    </p>
-                  </div>
-                  <div className={`
-                    relative w-9 h-5 rounded-full flex-shrink-0 transition mt-0.5
-                    ${periodFilterEnabled ? 'bg-cyan-500' : 'bg-gray-300'}
-                  `}>
-                    <div className={`
-                      absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform
-                      ${periodFilterEnabled ? 'translate-x-4' : 'translate-x-0.5'}
-                    `} />
-                  </div>
-                </div>
-              </button>
-            </>
-          )}
+          {/* 시상대·추세·기간 필터는 「랭킹 설정」에서 (운영자 메뉴 → 메뉴바 설정 → 랭킹 설정) */}
 
           {/* 에러 */}
           {error && (

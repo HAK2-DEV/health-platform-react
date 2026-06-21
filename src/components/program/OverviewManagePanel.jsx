@@ -89,7 +89,7 @@ const OverviewManagePanel = forwardRef(function OverviewManagePanel({ program, p
   )
 
   return (
-    <div className="-mx-4">
+    <div className="-mx-[11px]">
     <div className="om-panel w-[366px] max-w-full mx-auto space-y-[9px] pb-2">
       {/* 1) 기본 정보 */}
       <section className="bg-white border border-gray-100 rounded-2xl shadow-soft p-4">

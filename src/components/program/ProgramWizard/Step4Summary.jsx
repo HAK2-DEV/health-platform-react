@@ -104,11 +104,8 @@ function Step4Summary({ initialData, programId, onPrev }) {
             <dt className="w-24 text-gray-600 flex-shrink-0">옵션</dt>
             <dd className="flex-1 text-gray-800">
               {[
-                initialData?.feed_enabled && '📷 피드',
+                (initialData?.community_enabled ?? initialData?.feed_enabled) && '💬 커뮤니티',
                 (initialData?.ranking_enabled === false) ? '🚫 랭킹 미표시' : '📈 랭킹',
-                initialData?.podium_enabled && '🏆 랭킹 Top 3',
-                initialData?.trend_enabled && '📊 추세',
-                initialData?.period_filter_enabled && '⏱️ 기간 필터',
               ].filter(Boolean).join(' · ') || '기본'}
             </dd>
           </div>

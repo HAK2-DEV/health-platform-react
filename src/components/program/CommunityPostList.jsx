@@ -17,11 +17,19 @@ function CommunityPostList({ programId, boardId, posts = [], myUserId, isOwner, 
     let cancelled = false
     const withImg = posts.filter(p => p.image_path)
     if (withImg.length === 0) { setImageUrls({}); return }
-    Promise.all(withImg.map(p =>
-      supabase.storage.from('community-posts').createSignedUrl(p.image_path, 3600)
-        .then(r => [p.id, r.data?.signedUrl || null])
-        .catch(() => [p.id, null])
-    )).then(pairs => { if (!cancelled) setImageUrls(Object.fromEntries(pairs)) })
+    // 배치 서명 — 한 번의 요청으로 묶어 라운드트립 최소화
+    const paths = withImg.map(p => p.image_path)
+    const pathToId = new Map(withImg.map(p => [p.image_path, p.id]))
+    supabase.storage.from('community-posts').createSignedUrls(paths, 3600)
+      .then(({ data }) => {
+        if (cancelled) return
+        const map = {}
+        for (const r of data || []) {
+          const pid = pathToId.get(r.path)
+          if (pid != null && r.signedUrl && !r.error) map[pid] = r.signedUrl
+        }
+        setImageUrls(map)
+      })
     return () => { cancelled = true }
   }, [posts])
 

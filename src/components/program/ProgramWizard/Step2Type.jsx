@@ -99,9 +99,10 @@ function OptionToggle({ emoji, title, description, enabled, onToggle, accent = '
 //   미션 단위 플래그 (requires_image / requires_numeric / requires_note) 가 실제 분기 담당.
 //   유형 선택보다 옵션 + 만들 수 있는 미션 미리보기가 운영자 입장에 더 직관적.
 function Step2Type({ initialData, onNext, onSave, onPrev }) {
-  // 기본값 ON — DRAFT 재진입 시에만 저장값 사용
-  const [feedEnabled, setFeedEnabled] = useState(
-    initialData?.feed_enabled !== undefined ? !!initialData.feed_enabled : true
+  // 커뮤니티 메뉴 사용 (= 피드 활성). 기본 ON — DRAFT 재진입 시 저장값 사용
+  const [communityEnabled, setCommunityEnabled] = useState(
+    initialData?.community_enabled !== undefined ? !!initialData.community_enabled
+      : initialData?.feed_enabled !== undefined ? !!initialData.feed_enabled : true
   )
   // Day 65: 2단계 선택 구조 — 1차 (랭킹/성장) → 2차 (성장이면 정원/별자리).
   // 기존 ranking_enabled boolean / gamification_type 호환.
@@ -117,9 +118,7 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
   const isGrowth = primaryTrack === 'GROWTH'
   const gamificationType = isRanking ? 'RANKING' : growthConcept  // DB 저장값
 
-  const [podiumEnabled, setPodiumEnabled] = useState(initialData?.podium_enabled || false)
-  const [trendEnabled, setTrendEnabled] = useState(initialData?.trend_enabled || false)
-  const [periodFilterEnabled, setPeriodFilterEnabled] = useState(initialData?.period_filter_enabled || false)
+  // 시상대/추세/기간필터는 발행 후 「랭킹 설정」에서 — 마법사에서는 설정하지 않음
 
   // 성장형 트랙의 연속 보너스 프리셋
   const [streakPreset, setStreakPreset] = useState(initialData?.streak_preset || 'medium')
@@ -145,15 +144,13 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
   }
 
   const collectData = () => ({
-    // program_type 폐기 (Day 58) — 새 프로그램은 NULL 로 저장
-    feed_enabled: feedEnabled,
+    // 커뮤니티 메뉴 사용 = 피드 활성 (둘 통합). community_enabled 컬럼(102) + feed_enabled 동시 저장
+    feed_enabled: communityEnabled,
+    community_enabled: communityEnabled,
     // Day 65 — gamification_type 으로 통합. ranking_enabled 는 호환성 위해 같이 저장.
     gamification_type: gamificationType,
     ranking_enabled: isRanking,
-    // 랭킹 트랙 일 때만 하위 옵션 유효
-    podium_enabled: isRanking ? podiumEnabled : false,
-    trend_enabled: isRanking ? trendEnabled : false,
-    period_filter_enabled: isRanking ? periodFilterEnabled : false,
+    // 시상대/추세/기간필터는 마법사에서 설정 안 함 → DB 기본값(false). 발행 후 「랭킹 설정」에서.
     // 성장형 트랙 일 때만 연속 보너스 프리셋 적용
     streak_preset: isGrowth ? streakPreset : 'medium',
     streak_milestones: isGrowth && streakPreset === 'custom' ? parseCustomMilestones() : null,
@@ -171,13 +168,13 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
         프로그램의 분위기를 정해요. 미션은 발행 후 자유롭게 추가/수정할 수 있어요.
       </p>
 
-      {/* 피드 활성화 토글 */}
+      {/* 커뮤니티 메뉴 토글 (= 피드 활성) */}
       <OptionToggle
-        emoji="📷"
-        title="커뮤니티 피드"
-        description="참여자끼리 서로의 인증을 사진 피드로 보고 좋아요·댓글로 응원할 수 있어요."
-        enabled={feedEnabled}
-        onToggle={() => setFeedEnabled(!feedEnabled)}
+        emoji="💬"
+        title="커뮤니티 메뉴 사용"
+        description="참여자끼리 인증을 사진 피드로 보고 좋아요·댓글로 응원해요. 끄면 커뮤니티 메뉴가 안 보여요."
+        enabled={communityEnabled}
+        onToggle={() => setCommunityEnabled(!communityEnabled)}
         accent="emerald"
       />
 
@@ -311,34 +308,11 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
         </div>
       )}
 
-      {/* 포디움 / 추세 / 기간 필터 — 랭킹 트랙 일 때만 노출 (기존 옵션) */}
+      {/* 시상대·추세·기간 필터는 발행 후 「랭킹 설정」에서 (운영자 메뉴 → 메뉴바 설정 → 랭킹 설정) */}
       {isRanking && (
-        <div className="mb-3">
-          <OptionToggle
-            emoji="🏆"
-            title="랭킹 Top 3 (시상대)"
-            description="랭킹 페이지 상단에 1·2·3등을 올림픽 시상대처럼 강조해서 표시해요. 끄면 평면 랭킹만."
-            enabled={podiumEnabled}
-            onToggle={() => setPodiumEnabled(!podiumEnabled)}
-            accent="amber"
-          />
-          <OptionToggle
-            emoji="📊"
-            title="본인 14일 점수 추세"
-            description="랭킹 페이지 본인 요약 카드에 최근 14일 점수 그래프(스파크라인)를 보여줘요. 꾸준함 시각화."
-            enabled={trendEnabled}
-            onToggle={() => setTrendEnabled(!trendEnabled)}
-            accent="violet"
-          />
-          <OptionToggle
-            emoji="⏱️"
-            title="기간 필터 (7일 / 30일)"
-            description="참여자가 랭킹을 '전체 / 최근 7일 / 최근 30일' 로 전환해서 볼 수 있어요. 단기 분위기 환기에 좋음."
-            enabled={periodFilterEnabled}
-            onToggle={() => setPeriodFilterEnabled(!periodFilterEnabled)}
-            accent="cyan"
-          />
-        </div>
+        <p className="text-[11px] text-gray-400 px-2 mb-3 break-keep">
+          🏆 시상대·점수 추세·기간 필터는 발행 후 운영자 메뉴 「랭킹 설정」에서 켤 수 있어요.
+        </p>
       )}
 
       {/* 추천 미션 미리보기 — Step 1 카테고리 매칭 */}

@@ -2,6 +2,7 @@ import { useState, useEffect, forwardRef, useImperativeHandle } from 'react'
 import { supabase } from '../../supabaseClient'
 import { Check, FileText, Heart, MessageCircle, Plus, X, ChevronUp, ChevronDown, MoreVertical, Trash2 } from 'lucide-react'
 import HiddenPostsSection from './HiddenPostsSection'
+import ConfirmModal from '../common/ConfirmModal'
 
 // 커뮤니티 관리자 — 운영자 패널(커뮤니티) 클릭 시 커뮤니티 탭 자리에 인라인 표시.
 //   ① 레이아웃(community_layout) ② 게시판 ③ 승인·노출 ④ 신고 정책 ⑤ 미리보기.
@@ -87,6 +88,128 @@ function LayoutPreview({ type }) {
   )
 }
 
+// ⑤ 미리보기 — 게시글이 없어도 레이아웃 감을 주도록 예시(더미) 게시글을 실제 참여자 화면 스타일로 렌더
+const SAMPLE_POSTS = [
+  { id: 1, name: '김건강', note: '오늘 아침 5km 러닝 완료! 상쾌하게 하루 시작 🏃', likes: 12, comments: 3, grad: 'from-emerald-200 to-teal-300' },
+  { id: 2, name: '이활력', note: '물 2L 챌린지 인증합니다 💧 꾸준함이 답!', likes: 8, comments: 1, grad: 'from-sky-200 to-indigo-300' },
+  { id: 3, name: '박미소', note: '홈트 30분 끝! 같이 으쌰으쌰 💪', likes: 5, comments: 0, grad: 'from-amber-200 to-orange-300' },
+  { id: 4, name: '최정원', note: '점심은 샐러드로 가볍게 🥗', likes: 9, comments: 2, grad: 'from-rose-200 to-pink-300' },
+]
+const AVA_COLORS = ['bg-emerald-400', 'bg-sky-400', 'bg-violet-400', 'bg-amber-400', 'bg-rose-400']
+function PreviewAvatar({ name, sizeCls = 'w-6 h-6' }) {
+  const c = AVA_COLORS[name.charCodeAt(0) % AVA_COLORS.length]
+  return <div className={`${sizeCls} rounded-full ${c} text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0`}>{name[0]}</div>
+}
+function PreviewReacts({ on, p, light }) {
+  if (!on) return null
+  const cls = light ? 'text-white/90' : 'text-gray-500'
+  return (
+    <div className={`flex items-center gap-2.5 text-[10px] ${cls}`}>
+      <span className="flex items-center gap-0.5"><Heart className="w-3 h-3" /> {p.likes}</span>
+      <span className="flex items-center gap-0.5"><MessageCircle className="w-3 h-3" /> {p.comments}</span>
+    </div>
+  )
+}
+function CommunityPreview({ layout, reactionsEnabled, boards }) {
+  const chips = (boards || []).map(b => b.name)
+  return (
+    <div className="rounded-xl border border-gray-200 bg-gray-50 overflow-hidden">
+      {/* 상단 — 예시 배지 + 게시판 칩 */}
+      <div className="flex items-center justify-between px-2.5 pt-2">
+        <div className="flex gap-1 overflow-hidden">
+          {chips.slice(0, 4).map((c, i) => (
+            <span key={i} className={`px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${i === 0 ? 'bg-emerald-500 text-white' : 'bg-white text-gray-500 border border-gray-200'}`}>{c}</span>
+          ))}
+        </div>
+        <span className="px-1.5 py-0.5 rounded bg-gray-800/80 text-white text-[9px] font-bold flex-shrink-0">예시</span>
+      </div>
+
+      <div className="p-2.5">
+        {layout === 'feed' && (
+          <div className="space-y-2">
+            {SAMPLE_POSTS.slice(0, 2).map(p => (
+              <div key={p.id} className="bg-white rounded-lg border border-gray-100 overflow-hidden">
+                <div className="flex items-center gap-1.5 p-2">
+                  <PreviewAvatar name={p.name} />
+                  <span className="text-[11px] font-bold text-gray-800">{p.name}</span>
+                  <span className="text-[9px] text-gray-400 ml-auto">방금</span>
+                </div>
+                <div className={`h-20 bg-gradient-to-br ${p.grad}`} />
+                <div className="p-2 space-y-1">
+                  <PreviewReacts on={reactionsEnabled} p={p} />
+                  <p className="text-[11px] text-gray-700 leading-snug">{p.note}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {layout === 'list' && (
+          <div className="space-y-1.5">
+            {SAMPLE_POSTS.map(p => (
+              <div key={p.id} className="flex items-center gap-2 bg-white rounded-lg border border-gray-100 p-1.5">
+                <div className={`w-10 h-10 rounded-md bg-gradient-to-br ${p.grad} flex-shrink-0`} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1">
+                    <span className="text-[11px] font-bold text-gray-800">{p.name}</span>
+                    <span className="text-[9px] text-gray-400">방금</span>
+                  </div>
+                  <p className="text-[10px] text-gray-600 truncate">{p.note}</p>
+                  <PreviewReacts on={reactionsEnabled} p={p} />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {layout === 'grid' && (
+          <div className="grid grid-cols-2 gap-1.5">
+            {SAMPLE_POSTS.map(p => (
+              <div key={p.id} className="bg-white rounded-lg border border-gray-100 overflow-hidden">
+                <div className={`h-16 bg-gradient-to-br ${p.grad}`} />
+                <div className="p-1.5 space-y-0.5">
+                  <div className="flex items-center gap-1">
+                    <PreviewAvatar name={p.name} sizeCls="w-4 h-4" />
+                    <span className="text-[10px] font-semibold text-gray-700 truncate">{p.name}</span>
+                  </div>
+                  <p className="text-[10px] text-gray-600 line-clamp-2 leading-snug">{p.note}</p>
+                  <PreviewReacts on={reactionsEnabled} p={p} />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {layout === 'magazine' && (
+          <div className="space-y-1.5">
+            <div className={`relative h-24 rounded-lg overflow-hidden bg-gradient-to-br ${SAMPLE_POSTS[0].grad}`}>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+              <div className="absolute bottom-0 left-0 right-0 p-2 text-white">
+                <p className="text-[11px] font-bold drop-shadow line-clamp-1">{SAMPLE_POSTS[0].note}</p>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="text-[10px]">{SAMPLE_POSTS[0].name}</span>
+                  <span className="ml-auto"><PreviewReacts on={reactionsEnabled} p={SAMPLE_POSTS[0]} light /></span>
+                </div>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-1.5">
+              {SAMPLE_POSTS.slice(1, 3).map(p => (
+                <div key={p.id} className={`relative h-16 rounded-lg overflow-hidden bg-gradient-to-br ${p.grad}`}>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/55 to-transparent" />
+                  <div className="absolute bottom-0 left-0 right-0 p-1.5 text-white">
+                    <p className="text-[10px] font-bold drop-shadow line-clamp-1">{p.note}</p>
+                    <span className="text-[9px]">{p.name}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 const Toggle = ({ on, onClick }) => (
   <button type="button" onClick={onClick} className={`relative w-11 h-6 rounded-full transition flex-shrink-0 ${on ? 'bg-emerald-500' : 'bg-gray-300'}`}>
     <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${on ? 'left-[22px]' : 'left-0.5'}`} />
@@ -116,9 +239,11 @@ const CommunityManagePanel = forwardRef(function CommunityManagePanel({ program,
     setReportPolicy(s.reportPolicy || 'auto')
   }, [program])
 
-  const removeBoard = (bid) => {
-    if (!window.confirm('이 게시판을 삭제하시겠습니까?')) return
-    setBoards(prev => prev.filter(b => b.id !== bid))
+  const [boardToDelete, setBoardToDelete] = useState(null)  // 게시판 삭제 확인 (board id)
+  const removeBoard = (bid) => setBoardToDelete(bid)
+  const confirmRemoveBoard = () => {
+    setBoards(prev => prev.filter(b => b.id !== boardToDelete))
+    setBoardToDelete(null)
   }
   const updateBoard = (bid, patch) => setBoards(prev => prev.map(b => b.id === bid ? { ...b, ...patch } : b))
   const moveBoard = (idx, dir) => {
@@ -161,7 +286,7 @@ const CommunityManagePanel = forwardRef(function CommunityManagePanel({ program,
   const selLayout = LAYOUTS.find(l => l.key === layout) || LAYOUTS[0]
 
   return (
-    <div className="-mx-4">
+    <div className="-mx-[11px]">
     <div className="mission-fields w-[366px] max-w-full mx-auto space-y-[9px] pb-2">
       {/* 1) 레이아웃 */}
       <section className="bg-white border border-gray-100 rounded-2xl shadow-soft p-4">
@@ -342,17 +467,15 @@ const CommunityManagePanel = forwardRef(function CommunityManagePanel({ program,
         )}
       </section>
 
-      {/* 5) 미리보기 */}
+      {/* 5) 미리보기 — 예시 게시글로 실제 참여자 화면 미리보기 */}
       <section className="bg-white border border-gray-100 rounded-2xl shadow-soft p-4">
         <h3 className={headCls}>{numBadge(5)} 미리보기</h3>
-        <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-3">
-          <div className="w-[104px] rounded-md bg-white border border-gray-100 flex-shrink-0"><LayoutPreview type={layout} /></div>
-          <div className="min-w-0">
-            <p className="text-[13px] font-bold text-gray-800">{selLayout.label}</p>
-            <p className="text-[11px] text-gray-500 mt-0.5">{selLayout.desc}</p>
-            <p className="text-[11px] text-gray-400 mt-1">저장하면 참여자 커뮤니티에 적용돼요.</p>
-          </div>
+        <div className="flex items-baseline gap-2 mb-2">
+          <p className="text-[13px] font-bold text-gray-800">{selLayout.label}</p>
+          <p className="text-[11px] text-gray-500">{selLayout.desc}</p>
         </div>
+        <CommunityPreview layout={layout} reactionsEnabled={reactionAuto} boards={boards} />
+        <p className="text-[11px] text-gray-400 mt-2">예시 게시글로 보여드려요. 저장하면 선택한 레이아웃이 참여자 커뮤니티에 적용돼요.</p>
       </section>
 
       {/* 가려진 글 · 신고 관리 — 인라인 (피드 활성 프로그램만) */}
@@ -388,6 +511,17 @@ const CommunityManagePanel = forwardRef(function CommunityManagePanel({ program,
           </div>
         </div>
       )}
+
+      {/* 게시판 삭제 확인 모달 */}
+      <ConfirmModal
+        isOpen={boardToDelete != null}
+        onClose={() => setBoardToDelete(null)}
+        onConfirm={confirmRemoveBoard}
+        title="게시판을 삭제할까요?"
+        message={`"${boards.find(b => b.id === boardToDelete)?.name || ''}" 게시판을 목록에서 제거해요. 저장해야 실제로 반영됩니다.`}
+        confirmLabel="삭제"
+        danger
+      />
     </div>
     </div>
   )

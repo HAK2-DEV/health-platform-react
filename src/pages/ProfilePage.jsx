@@ -386,6 +386,7 @@ function ProfilePage() {
       <ProfileMenuItem
         tone="emerald"
         icon={<BarChart3 className="w-5 h-5" />}
+        imgSrc="/icons/profile/activity.png"
         title="내 기록"
         description="걷기, 운동, 수면 등 내 활동 기록을 확인하세요."
         onClick={() => navigate('/profile/activity')}
@@ -400,6 +401,7 @@ function ProfilePage() {
       <ProfileMenuItem
         tone="violet"
         icon={<Bell className="w-5 h-5" />}
+        imgSrc="/icons/profile/notify.png"
         title="알림 설정"
         description="알림 설정을 관리하고 중요한 소식을 받아보세요."
         onClick={() => navigate('/profile/notifications-settings')}
@@ -414,6 +416,7 @@ function ProfilePage() {
       <ProfileMenuItem
         tone="emerald"
         icon={<MessageCircle className="w-5 h-5" />}
+        imgSrc="/icons/profile/inquiry.png"
         title="문의하기"
         description="궁금한 점이 있으신가요? 문의해보세요."
         onClick={() => { window.location.href = 'mailto:ds5acqsjh@naver.com?subject=' + encodeURIComponent('[도담] 문의하기') }}
@@ -423,7 +426,7 @@ function ProfilePage() {
       <button
         type="button"
         onClick={handleLogout}
-        className="w-full mt-3 flex items-center justify-center gap-2 px-4 py-3.5 bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 font-semibold rounded-card-lg transition shadow-soft"
+        className="w-full mt-3 flex items-center justify-center gap-2 px-4 py-3.5 bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 font-semibold rounded-[10px] transition shadow-soft"
       >
         <LogOut className="w-4 h-4" />
         로그아웃
@@ -484,15 +487,19 @@ function ProfileStat({ tone, icon, imgSrc, imgStyle, imgSize, label, value, unit
   )
 }
 
-function ProfileMenuItem({ tone, icon, title, description, onClick }) {
+function ProfileMenuItem({ tone, icon, imgSrc, title, description, onClick }) {
+  const [imgErr, setImgErr] = useState(false)
   return (
     <button
       type="button"
       onClick={onClick}
-      className="w-full flex items-center gap-3 p-4 bg-white border border-gray-100 rounded-card-lg shadow-soft hover:shadow-elevated hover:border-emerald-200 transition text-left"
+      className="w-full flex items-center gap-3 p-4 bg-white border border-gray-100 rounded-[10px] shadow-soft hover:shadow-elevated hover:border-emerald-200 transition text-left"
     >
-      <IconBox tone={tone} size="lg" shape="square">
-        {icon}
+      {/* 모든 메뉴 아이콘 통일 — 동일 IconBox(둥근 모서리 + 연한 톤 배경) 안에 심볼(투명 PNG 또는 lucide) */}
+      <IconBox tone={tone} size="lg" shape="square" className="!rounded-[18px]">
+        {imgSrc && !imgErr
+          ? <img src={imgSrc} alt="" aria-hidden="true" onError={() => setImgErr(true)} className="w-8 h-8 object-contain" />
+          : icon}
       </IconBox>
       <div className="flex-1 min-w-0">
         <h3 className="font-semibold text-gray-800">{title}</h3>

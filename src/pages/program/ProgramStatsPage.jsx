@@ -1,4 +1,4 @@
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { ChevronLeft, ChevronRight, Target, Users, FileText } from 'lucide-react'
@@ -20,7 +20,13 @@ function ProgramStatsPage() {
   const { id } = useParams()
   const { session } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const userId = session?.user?.id
+  // 운영자 메뉴 「통계」로 진입한 경우 — 뒤로가기 시 프로그램이 아니라 운영자 메뉴를 다시 연다
+  const backToOpMenu = location.state?.backToOpMenu
+  const handleBack = backToOpMenu
+    ? () => navigate(`/programs/${id}?opmenu=${backToOpMenu}`, { replace: true })
+    : undefined
 
   const { data: program, isLoading: isProgramLoading } = useQuery({
     queryKey: queryKeys.program(id),
@@ -81,8 +87,9 @@ function ProgramStatsPage() {
   return (
     <div className="px-4 pt-2 pb-6 max-w-4xl mx-auto">
       <StickyBackBar
+        onClick={handleBack}
         fallbackPath={`/programs/${id}`}
-        title="프로그램으로"
+        title={backToOpMenu ? '운영자 메뉴로' : '프로그램으로'}
         breadcrumb={[program.name, '통계']}
       />
 

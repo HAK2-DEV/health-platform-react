@@ -13,7 +13,7 @@ import StickyBackBar from '../../components/common/StickyBackBar'
 import LoadingState from '../../components/common/LoadingState'
 import EmptyState from '../../components/common/EmptyState'
 import UserAvatar from '../../components/common/UserAvatar'
-import { formatKoreanDate } from '../../lib/formatters'
+import { formatKoreanDateTime } from '../../lib/formatters'
 
 // 운영자 퀴즈 결과 페이지
 // 라우트: /programs/:id/posts/quiz/:quizId
@@ -57,7 +57,7 @@ function QuizResultsPage() {
   if (!isOwner && program) {
     return (
       <div className="px-4 pt-4 pb-6 max-w-2xl mx-auto">
-        <StickyBackBar fallbackPath={`/programs/${id}/posts`} title="게시물 관리로" />
+        <StickyBackBar fallbackPath={`/programs/${id}?tab=quizzes&panel=quiz`} title="퀴즈 관리로" />
         <p className="p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-2xl text-center">
           운영자만 결과를 볼 수 있어요
         </p>
@@ -128,11 +128,13 @@ function QuizResultsPage() {
                       {sub.user?.nickname || '(알 수 없음)'}
                     </p>
                     <p className="text-xs text-gray-500">
-                      {sub.total_score}점 · {formatKoreanDate(sub.submitted_at)}
+                      {sub.total_score}점 · {formatKoreanDateTime(sub.submitted_at)}
                     </p>
                   </div>
                   {sub.status === 'PENDING' ? (
                     <span className="px-2 py-0.5 text-xs bg-amber-100 text-amber-700 rounded flex-shrink-0">채점 대기</span>
+                  ) : sub.answers.some(a => a.is_correct === false) ? (
+                    <span className="px-2 py-0.5 text-xs bg-rose-100 text-rose-700 rounded flex-shrink-0">오답 제출</span>
                   ) : (
                     <span className="px-2 py-0.5 text-xs bg-emerald-100 text-emerald-700 rounded flex-shrink-0">완료</span>
                   )}

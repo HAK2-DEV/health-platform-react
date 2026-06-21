@@ -1,11 +1,12 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Trash2, GripVertical } from 'lucide-react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Plus, Trash2, GripVertical, Lock } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
-import { queryKeys } from '../../lib/queries'
+import { queryKeys, fetchQuizForEdit } from '../../lib/queries'
 import StickyBackBar from '../../components/common/StickyBackBar'
+import LoadingState from '../../components/common/LoadingState'
 
 // 퀴즈 생성 페이지 — 운영자 전용
 // 라우트: /programs/:id/posts/quiz/new
@@ -58,13 +59,51 @@ const mapLibQuestion = (q) => {
   return { ...base, question_text: q.question_text, point: q.point ?? 10, grading_mode: q.grading_mode || 'MANUAL', shortAnswer: q.shortAnswer || '', award_mode: q.award_mode || 'CORRECT_ONLY' }
 }
 
+// ISO → datetime-local 입력값(YYYY-MM-DDTHH:mm, 로컬 기준)
+const toLocalInput = (iso) => {
+  if (!iso) return ''
+  const d = new Date(iso)
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+// DB quiz_questions 행 → QuizCreatePage 내부 문항 형태 (편집 prefill)
+const mapDbQuestion = (q) => {
+  const base = newQuestion(q.type)
+  const common = {
+    ...base,
+    question_text: q.question_text || '',
+    point: q.point ?? 10,
+    award_mode: q.award_mode || 'CORRECT_ONLY',
+    explanation: q.explanation || '',
+    included: true,
+  }
+  if (q.type === 'MULTIPLE') {
+    return { ...common, options: Array.isArray(q.options) && q.options.length ? q.options : ['', ''], correctIndex: Number(q.correct_answer) || 0 }
+  }
+  if (q.type === 'OX') {
+    return { ...common, oxAnswer: q.correct_answer === 'X' ? 'X' : 'O' }
+  }
+  return { ...common, grading_mode: q.grading_mode || 'MANUAL', shortAnswer: q.correct_answer || '' }
+}
+
 function QuizCreatePage() {
-  const { id } = useParams()
+  const { id, quizId } = useParams()
+  const isEdit = !!quizId
   const navigate = useNavigate()
   const location = useLocation()
   const { session } = useAuth()
   const queryClient = useQueryClient()
   const userId = session?.user?.id
+
+  // 편집 모드 — 기존 퀴즈 + 문항(정답 포함) 로드 → prefill. 제출이 있으면 문항 잠금.
+  const { data: editData, isLoading: editLoading } = useQuery({
+    queryKey: queryKeys.quizEdit(quizId),
+    queryFn: () => fetchQuizForEdit(quizId),
+    enabled: isEdit,
+  })
+  const submissionCount = editData?.submissionCount || 0
+  const questionsLocked = isEdit && submissionCount > 0
 
   // 퀴즈 라이브러리에서 「편집해서 만들기」로 넘어온 경우 — 제목·문항 prefill
   const prefillTopic = location.state?.prefillTopic || null
@@ -105,6 +144,20 @@ function QuizCreatePage() {
   )
   const [error, setError] = useState(null)
 
+  // 편집 데이터 도착 시 1회 prefill
+  const prefilledRef = useRef(false)
+  useEffect(() => {
+    if (!editData?.quiz || prefilledRef.current) return
+    prefilledRef.current = true
+    const q = editData.quiz
+    setTitle(q.title || '')
+    setDescription(q.description || '')
+    setStartAt(toLocalInput(q.start_at))
+    setDueAt(toLocalInput(q.due_at))
+    setRevealAnswers(!!q.reveal_answers)
+    setQuestions((editData.questions || []).map(mapDbQuestion))
+  }, [editData])
+
   // ─── 문제 조작 ───────────────────────────────────────
   const updateQuestion = (idx, patch) => {
     setQuestions(qs => qs.map((q, i) => (i === idx ? { ...q, ...patch } : q)))
@@ -140,6 +193,8 @@ function QuizCreatePage() {
     if (startAt && dueAt && new Date(startAt) >= new Date(dueAt)) {
       return '종료일은 시작일 이후여야 해요'
     }
+    // 제출이 있는 퀴즈(문항 잠금)는 메타데이터만 수정 — 문항 검증 생략
+    if (questionsLocked) return null
     // 체크(포함)된 문항만 검증·발행
     const picked = questions.filter(q => q.included)
     if (picked.length === 0) return '발행할 문항을 1개 이상 체크해주세요'
@@ -167,8 +222,50 @@ function QuizCreatePage() {
     return null
   }
 
+  // 내부 문항 → quiz_questions 행
+  const toQuestionRow = (quiz_id) => (q, idx) => ({
+    quiz_id,
+    type: q.type,
+    question_text: q.question_text.trim(),
+    options: q.type === 'MULTIPLE' ? q.options.filter(o => o.trim()) : null,
+    correct_answer: computeCorrectAnswer(q),
+    point: Number(q.point) || 0,
+    award_mode: q.award_mode,
+    grading_mode: q.type === 'SHORT' ? q.grading_mode : 'AUTO',
+    // 해설 — 객관식/OX 만. 정답 공개 ON 시 참가자 결과 화면에 노출
+    explanation: q.type !== 'SHORT' && q.explanation?.trim() ? q.explanation.trim() : null,
+    order_index: idx,
+  })
+
   const createMutation = useMutation({
     mutationFn: async () => {
+      if (isEdit) {
+        // ── 편집 저장 ──
+        // 1) 메타데이터 UPDATE
+        const { error: upErr } = await supabase
+          .from('quizzes')
+          .update({
+            title: title.trim(),
+            description: description.trim() || null,
+            start_at: startAt ? new Date(startAt).toISOString() : null,
+            due_at: dueAt ? new Date(dueAt).toISOString() : null,
+            reveal_answers: revealAnswers,
+          })
+          .eq('id', quizId)
+        if (upErr) throw upErr
+
+        // 2) 문항 — 제출이 없을 때만 통째로 교체(삭제 후 재삽입). 제출 있으면 잠금(건드리지 않음).
+        if (!questionsLocked) {
+          const { error: delErr } = await supabase.from('quiz_questions').delete().eq('quiz_id', quizId)
+          if (delErr) throw delErr
+          const rows = questions.filter(q => q.included).map(toQuestionRow(quizId))
+          const { error: insErr } = await supabase.from('quiz_questions').insert(rows)
+          if (insErr) throw insErr
+        }
+        return { id: quizId }
+      }
+
+      // ── 신규 생성 ──
       // 1) quizzes INSERT
       const { data: quiz, error: qErr } = await supabase
         .from('quizzes')
@@ -186,19 +283,7 @@ function QuizCreatePage() {
       if (qErr) throw qErr
 
       // 2) quiz_questions bulk INSERT
-      const rows = questions.filter(q => q.included).map((q, idx) => ({
-        quiz_id: quiz.id,
-        type: q.type,
-        question_text: q.question_text.trim(),
-        options: q.type === 'MULTIPLE' ? q.options.filter(o => o.trim()) : null,
-        correct_answer: computeCorrectAnswer(q),
-        point: Number(q.point) || 0,
-        award_mode: q.award_mode,
-        grading_mode: q.type === 'SHORT' ? q.grading_mode : 'AUTO',
-        // 해설 — 객관식/OX 만. 정답 공개 ON 시 참가자 결과 화면에 노출
-        explanation: q.type !== 'SHORT' && q.explanation?.trim() ? q.explanation.trim() : null,
-        order_index: idx,
-      }))
+      const rows = questions.filter(q => q.included).map(toQuestionRow(quiz.id))
       const { error: qqErr } = await supabase.from('quiz_questions').insert(rows)
       if (qqErr) {
         // 롤백 — 문제 INSERT 실패 시 quiz 제거 (orphan 방지)
@@ -209,11 +294,15 @@ function QuizCreatePage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.programQuizzes(id) })
+      if (isEdit) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.quizEdit(quizId) })
+        queryClient.invalidateQueries({ queryKey: queryKeys.programQuizStats(id) })
+      }
       navigate(`/programs/${id}?tab=quizzes&panel=quiz`)   // 퀴즈 관리자로 복귀
     },
     onError: (err) => {
-      console.error('퀴즈 생성 실패:', err)
-      setError(err.message || '퀴즈 생성에 실패했어요')
+      console.error('퀴즈 저장 실패:', err)
+      setError(err.message || '퀴즈 저장에 실패했어요')
     },
   })
 
@@ -227,12 +316,15 @@ function QuizCreatePage() {
   const includedQuestions = questions.filter(q => q.included)
   const totalPoint = includedQuestions.reduce((s, q) => s + (Number(q.point) || 0), 0)
 
+  // 편집 데이터 로딩 중
+  if (isEdit && editLoading) return <LoadingState variant="page" />
+
   return (
     <div className="px-4 pt-2 pb-24 max-w-2xl mx-auto">
       <StickyBackBar fallbackPath={`/programs/${id}?tab=quizzes&panel=quiz`} title="퀴즈 관리로" />
 
       <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5" style={{ marginBottom: '9px' }}>
-        <h1 className="text-2xl font-medium text-gray-800">📝 퀴즈 만들기</h1>
+        <h1 className="text-2xl font-medium text-gray-800">{isEdit ? '✏️ 퀴즈 수정' : '📝 퀴즈 만들기'}</h1>
         <span className="text-sm text-gray-500">발행 {includedQuestions.length}개 · 총 {totalPoint}점</span>
       </div>
 
@@ -300,32 +392,42 @@ function QuizCreatePage() {
         </label>
       </div>
 
-      {/* 문제 목록 */}
-      <div className="space-y-4">
-        {questions.map((q, idx) => (
-          <QuestionEditor
-            key={idx}
-            index={idx}
-            question={q}
-            canRemove={questions.length > 1}
-            onChange={(patch) => updateQuestion(idx, patch)}
-            onRemove={() => removeQuestion(idx)}
-            onUpdateOption={(oIdx, val) => updateOption(idx, oIdx, val)}
-            onAddOption={() => addOption(idx)}
-            onRemoveOption={(oIdx) => removeOption(idx, oIdx)}
-          />
-        ))}
-      </div>
+      {/* 제출 있는 퀴즈 — 문항 잠금 안내 (응답 보존) */}
+      {questionsLocked && (
+        <div className="flex items-start gap-2 mb-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-[12px] text-amber-700 leading-relaxed">
+          <Lock className="w-4 h-4 mt-0.5 flex-shrink-0" />
+          <span>이미 {submissionCount}명이 제출해 <b>문항은 수정할 수 없어요</b>(응답·점수 보존). 제목·설명·기한·정답 공개만 변경됩니다. 문항을 바꾸려면 새 퀴즈로 만들어주세요.</span>
+        </div>
+      )}
 
-      {/* 문제 추가 */}
-      <button
-        type="button"
-        onClick={addQuestion}
-        className="w-full mt-4 flex items-center justify-center gap-1.5 py-3 border-2 border-dashed border-gray-300 hover:border-emerald-400 hover:bg-emerald-50/50 text-gray-600 hover:text-emerald-700 rounded-2xl transition"
-      >
-        <Plus className="w-4 h-4" />
-        문제 추가
-      </button>
+      {/* 문제 목록 — 잠금 시 fieldset disabled 로 전체 비활성 */}
+      <fieldset disabled={questionsLocked} className={questionsLocked ? 'opacity-60' : ''}>
+        <div className="space-y-4">
+          {questions.map((q, idx) => (
+            <QuestionEditor
+              key={idx}
+              index={idx}
+              question={q}
+              canRemove={questions.length > 1}
+              onChange={(patch) => updateQuestion(idx, patch)}
+              onRemove={() => removeQuestion(idx)}
+              onUpdateOption={(oIdx, val) => updateOption(idx, oIdx, val)}
+              onAddOption={() => addOption(idx)}
+              onRemoveOption={(oIdx) => removeOption(idx, oIdx)}
+            />
+          ))}
+        </div>
+
+        {/* 문제 추가 */}
+        <button
+          type="button"
+          onClick={addQuestion}
+          className="w-full mt-4 flex items-center justify-center gap-1.5 py-3 border-2 border-dashed border-gray-300 hover:border-emerald-400 hover:bg-emerald-50/50 text-gray-600 hover:text-emerald-700 rounded-2xl transition"
+        >
+          <Plus className="w-4 h-4" />
+          문제 추가
+        </button>
+      </fieldset>
 
       {error && (
         <p className="mt-4 p-2 bg-red-100 text-red-700 rounded-xl text-sm text-center">{error}</p>
@@ -343,7 +445,7 @@ function QuizCreatePage() {
             disabled={createMutation.isPending}
             className="w-full py-3 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-medium rounded-2xl shadow-md shadow-emerald-200/40 transition disabled:bg-gray-400"
           >
-            {createMutation.isPending ? '저장 중...' : '퀴즈 발행하기'}
+            {createMutation.isPending ? '저장 중...' : isEdit ? '수정 저장하기' : '퀴즈 발행하기'}
           </button>
         </div>
       </div>

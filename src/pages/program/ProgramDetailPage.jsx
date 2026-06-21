@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../../hooks/useAuth'
-import { ChevronLeft, Plus, ChevronRight, Users, Trophy, Pencil, Calendar, Activity, Award, Flame, Check } from 'lucide-react'
+import { ChevronLeft, Plus, ChevronRight, Users, Trophy, Pencil, Calendar, Activity, Award, Flame, Check, Settings } from 'lucide-react'
 import DoorIcon from '../../components/common/DoorIcon'
 import { supabase } from '../../supabaseClient'
 import { CATEGORY } from '../../lib/constants'
@@ -30,6 +30,7 @@ import CommunityPostModal from '../../components/program/CommunityPostModal'
 import CommunityPostList from '../../components/program/CommunityPostList'
 import MarkdownView from '../../components/common/MarkdownView'
 import ConfirmModal from '../../components/common/ConfirmModal'
+import RankingSettingsModal from '../../components/program/RankingSettingsModal'
 import { calcProgress, progressUrgency } from '../../lib/programVisuals'
 
 // 홈 화면과 동일한 채워진(solid) 아이콘 — 참여자/내순위용 (heroicons solid, MIT)
@@ -66,6 +67,7 @@ import {
   fetchTodayCounts,
   fetchParticipantQuizzes,
   fetchProgramQuizzes,
+  duplicateQuiz,
   fetchCommunityPosts,
   fetchProgramOverview,
 } from '../../lib/queries'
@@ -82,6 +84,29 @@ const periodToISOStart = (p) => {
   const d = new Date()
   d.setDate(d.getDate() - days)
   return d.toISOString()
+}
+
+// 운영자 메뉴 시트 — 항목 박스 (아이콘 + 제목 + 설명, 우측 화살표/배지)
+function PanelMenuBox({ icon, title, desc, onClick, chevron = false, badge = 0 }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="relative w-full flex items-center gap-3 px-4 py-3.5 bg-white border border-gray-200 rounded-2xl hover:border-amber-400 hover:bg-amber-50/50 transition text-left"
+    >
+      <span className="text-2xl flex-shrink-0">{icon}</span>
+      <div className="flex-1 min-w-0">
+        <p className="text-[15px] font-bold text-gray-800">{title}</p>
+        {desc && <p className="text-[12px] text-gray-500 mt-0.5 break-keep">{desc}</p>}
+      </div>
+      {badge > 0 && (
+        <span className="min-w-[20px] h-5 px-1.5 bg-red-500 text-white text-[11px] font-bold rounded-full flex items-center justify-center leading-none flex-shrink-0">
+          {badge > 99 ? '99+' : badge}
+        </span>
+      )}
+      {chevron && <ChevronRight className="w-5 h-5 text-gray-300 flex-shrink-0" />}
+    </button>
+  )
 }
 
 function ProgramDetailPage() {
@@ -317,6 +342,10 @@ function ProgramDetailPage() {
   const [isApprovalsOpen, setIsApprovalsOpen] = useState(false)
   const [isInviteOpen, setIsInviteOpen] = useState(false)
   const [isPanelOpen, setIsPanelOpen] = useState(false)
+  const [panelView, setPanelView] = useState('root')   // 운영자 메뉴 시트 단계: root | settings | menubar
+  const [isRankingOpen, setIsRankingOpen] = useState(false)  // 랭킹 설정 모달
+  const closePanel = () => { setIsPanelOpen(false); setPanelView('root') }
+  const handleRankingClose = () => { setIsRankingOpen(false); setPanelView('menubar'); setIsPanelOpen(true) }
   const [overviewManageOpen, setOverviewManageOpen] = useState(false)  // 개요 관리자 인라인 패널
   const [missionManageOpen, setMissionManageOpen] = useState(false)    // 미션 관리자 작업 페이지
   const [missionPreview, setMissionPreview] = useState(false)
@@ -384,12 +413,41 @@ function ProgramDetailPage() {
 
   // 개요 관리자 열기/닫기 — 열기 전 스크롤 저장 → 닫을 때 원래 화면으로 복원
   const preOpenScrollRef = useRef(0)
+  // 메뉴에서 관리자 진입 시 직전 탭 기억 → 닫을 때 그 탭으로 복귀
+  const preManagerTabRef = useRef(null)
+  // 메뉴에서 관리자 진입 시 닫으면 돌아갈 메뉴 단계(예: 'menubar') 기억
+  const returnMenuViewRef = useRef(null)
+  // 프로그램 설정 모달(ProgramEditModal) 닫힘 후 돌아갈 메뉴 단계
+  const editReturnViewRef = useRef(null)
+  const handleEditModalClose = () => {
+    setIsEditOpen(false)
+    const v = editReturnViewRef.current
+    editReturnViewRef.current = null
+    if (v) { setPanelView(v); setIsPanelOpen(true) }
+  }
+  const restorePreManagerTab = () => {
+    if (preManagerTabRef.current != null) {
+      setActiveTab(preManagerTabRef.current)
+      preManagerTabRef.current = null
+    }
+  }
+  // 관리자 닫힘 후처리 — 직전 탭 복원 + (메뉴 진입이었다면) 그 메뉴 단계로 재진입
+  const afterManagerClose = () => {
+    restorePreManagerTab()
+    if (returnMenuViewRef.current) {
+      const view = returnMenuViewRef.current
+      returnMenuViewRef.current = null
+      setPanelView(view)
+      setIsPanelOpen(true)
+    }
+  }
   const openOverviewManage = () => {
     preOpenScrollRef.current = window.scrollY
     setOverviewManageOpen(true)
   }
   const closeOverviewManage = () => {
     setOverviewManageOpen(false)
+    afterManagerClose()
     const y = preOpenScrollRef.current
     requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, y)))
   }
@@ -405,6 +463,7 @@ function ProgramDetailPage() {
   }
   const closeMissionManage = () => {
     setMissionManageOpen(false)
+    afterManagerClose()
     const y = preOpenScrollRef.current
     requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, y)))
   }
@@ -428,6 +487,7 @@ function ProgramDetailPage() {
   }
   const closeQuizManage = () => {
     setSearchParams(prev => { const n = new URLSearchParams(prev); n.delete('panel'); return n }, { replace: true })
+    afterManagerClose()
     const y = preOpenScrollRef.current
     requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, y)))
   }
@@ -455,6 +515,35 @@ function ProgramDetailPage() {
   })
   const [quizToDelete, setQuizToDelete] = useState(null)
   const handleQuizDelete = (q) => setQuizToDelete(q)
+  // 예정(미시작) 퀴즈 클릭 — 입장 막고 좌우로 흔들기
+  const [shakeQuizId, setShakeQuizId] = useState(null)
+
+  // 퀴즈 복제 — 원본 + 문항 복사한 새 퀴즈 생성 (일정 비움)
+  const duplicateQuizMutation = useMutation({
+    mutationFn: (q) => duplicateQuiz({ quizId: q.id, programId: id, userId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.programQuizzes(id) })
+    },
+    onError: (e) => { console.error('퀴즈 복제 실패:', e); alert(`퀴즈 복제에 실패했습니다: ${e.message}`) },
+  })
+
+  // 통계 등 별도 페이지에서 돌아오며 ?opmenu= 를 달고 오면 운영자 메뉴 시트를 그 단계로 재오픈
+  useEffect(() => {
+    const om = searchParams.get('opmenu')
+    if (!om) return
+    setPanelView(['root', 'settings', 'menubar'].includes(om) ? om : 'root')
+    setIsPanelOpen(true)
+    setSearchParams(prev => { const n = new URLSearchParams(prev); n.delete('opmenu'); return n }, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
+
+  // 사용 OFF 된 메뉴 탭이 URL(activeTab)로 열려 있으면 개요로 정규화 (콘텐츠가 activeTab 기반)
+  useEffect(() => {
+    if (!program) return
+    if (activeTab === 'quizzes' && program.quiz_enabled === false) setActiveTab('overview')
+    else if (activeTab === 'community' && program.community_enabled === false) setActiveTab('overview')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [program, activeTab])
 
   // 커뮤니티 관리자 — 동일 패턴 (열 때 상단 스크롤, 닫을 때 복원)
   useEffect(() => {
@@ -463,6 +552,7 @@ function ProgramDetailPage() {
   const openCommunityManage = () => { preOpenScrollRef.current = window.scrollY; setCommunityManageOpen(true) }
   const closeCommunityManage = () => {
     setCommunityManageOpen(false)
+    afterManagerClose()
     const y = preOpenScrollRef.current
     requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, y)))
   }
@@ -576,6 +666,7 @@ function ProgramDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['verifications'] })
       queryClient.invalidateQueries({ queryKey: ['rankings'] })
       queryClient.invalidateQueries({ queryKey: ['stats'] })
+      setMissionToDelete(null)
     },
     onError: (err) => {
       console.error('미션 삭제 실패:', err)
@@ -583,15 +674,8 @@ function ProgramDetailPage() {
     },
   })
 
-  const handleMissionDelete = (mission) => {
-    if (!window.confirm(
-      `⚠️ "${mission.title}" 미션을 삭제하면\n` +
-      `참가자의 모든 인증 기록과 부여된 점수가 함께 삭제됩니다.\n` +
-      `되돌릴 수 없어요.`
-    )) return
-    if (!window.confirm('그래도 삭제하시겠습니까?')) return
-    deleteMissionMutation.mutate(mission.id)
-  }
+  const [missionToDelete, setMissionToDelete] = useState(null)
+  const handleMissionDelete = (mission) => setMissionToDelete(mission)
 
   // 미션 복제 — 모든 컬럼 복사(인증/점수는 미포함) + 제목에 (복사)
   const duplicateMissionMutation = useMutation({
@@ -662,7 +746,7 @@ function ProgramDetailPage() {
   }
   if (!isOwner && !isActiveParticipant && !isViewer) {
     return (
-      <div className="px-4 pt-2 pb-6 max-w-4xl mx-auto">
+      <div className="px-[11px] pt-2 pb-6 max-w-4xl mx-auto">
         <StickyBackBar fallbackPath="/programs" title="둘러보기로" />
         <div className="text-center py-16">
           <div className="text-5xl mb-3 leading-none">🔒</div>
@@ -673,46 +757,31 @@ function ProgramDetailPage() {
     )
   }
 
-  // ─── 운영자 패널 — 활성 탭별 라벨 + 관리 액션 분기 ───
-  const PANEL_ROLE = {
-    overview: '개요 관리자',
-    missions: '미션 관리자',
-    quizzes: '퀴즈 관리자',
-    community: '커뮤니티 관리자',
-    ranking: '랭킹 관리자',
+  // 인라인 관리자(개요/미션/퀴즈/커뮤니티)가 열린 상태 — 프로그램 프로필·탭 바 숨김(집중 편집 화면)
+  const inManager = overviewManageOpen || missionManageOpen || quizManageOpen || communityManageOpen
+  // 헤더 뒤로 — 관리자 열려 있으면 그 관리자를 닫고(탭 화면 복귀), 아니면 이전 화면
+  const handleHeaderBack = () => {
+    if (overviewManageOpen) return closeOverviewManage()
+    if (missionManageOpen) return closeMissionManage()
+    if (quizManageOpen) return closeQuizManage()
+    if (communityManageOpen) return closeCommunityManage()
+    navigate(-1)
   }
-  const panelRole = PANEL_ROLE[activeTab] || '관리자'
-  const panelActions = (() => {
-    const closeGo = (path) => { setIsPanelOpen(false); navigate(path) }
-    const closeOpen = (setter) => { setIsPanelOpen(false); setter(true) }
-    switch (activeTab) {
-      case 'missions':
-        return [
-          { icon: '➕', label: '미션 추가', desc: '새 미션 만들기 (라이브러리/직접)', onClick: () => { setIsPanelOpen(false); setEditingMission(null); setIsMissionCreateOpen(true) } },
-          { icon: '✅', label: '미션 인증 심사', desc: 'MANUAL 미션 승인/반려', onClick: () => closeGo(`/programs/${id}/reviews`) },
-        ]
-      case 'quizzes':
-        return [
-          { icon: '📋', label: '퀴즈 관리', desc: '퀴즈 생성·수정·결과 확인', onClick: () => { setIsPanelOpen(false); openQuizManage() } },
-        ]
-      case 'community':
-        return [
-          { icon: '📋', label: '커뮤니티 관리', desc: '게시판·피드·가려진 글·신고', onClick: () => { setIsPanelOpen(false); openCommunityManage() } },
-        ]
-      case 'ranking':
-        return [
-          { icon: '📊', label: '참여자 통계', desc: '참여·인증·미션별 현황', onClick: () => closeGo(`/programs/${id}/stats`) },
-          { icon: '👥', label: '참여 유저 관리', desc: '참여자 목록·내보내기', onClick: () => closeGo(`/programs/${id}/stats/users`) },
-          { icon: '🙋', label: '참여자 승인 심사', desc: '신청자 답변 확인 · 승인/거절', onClick: () => closeOpen(setIsApprovalsOpen), badge: pendingCount },
-        ]
-      case 'overview':
-      default:
-        return [
-          { icon: '📝', label: `개요 글 ${program.overview_content?.trim() ? '수정' : '작성'}`, desc: '참여자에게 보이는 안내 글', onClick: () => closeOpen(setIsOverviewEditOpen) },
-          { icon: '✏️', label: '프로그램 수정', desc: '이름 · 기간 · 카테고리', onClick: () => closeOpen(setIsEditOpen) },
-        ]
-    }
-  })()
+  const canInvite = program.status === 'PUBLISHED' && program.join_type === 'INVITE_CODE' && program.invite_code
+  // 메뉴바 사용 토글(102) — 컬럼 없으면(마이그레이션 전) 사용으로 간주
+  const quizEnabled = program.quiz_enabled !== false
+  const communityEnabled = program.community_enabled !== false
+  // 운영자 메뉴 시트 「내 프로그램 설정」 → 각 설정 클릭 시 탭 전환 + 인라인 관리자 열기
+  const openManagerFromMenu = (key) => {
+    closePanel()
+    if (key === 'ranking') { setIsRankingOpen(true); return }   // 랭킹 전용 설정 모달, 닫으면 메뉴바로
+    preManagerTabRef.current = activeTab                         // 닫을 때 직전 탭으로 복귀
+    returnMenuViewRef.current = 'menubar'                        // 닫으면 「메뉴바 설정」으로 재진입
+    if (key === 'overview') { setActiveTab('overview'); openOverviewManage() }
+    else if (key === 'missions') { setActiveTab('missions'); openMissionManage() }
+    else if (key === 'quizzes') { openQuizManage() }            // openQuizManage 가 tab=quizzes 까지 설정
+    else if (key === 'community') { setActiveTab('community'); openCommunityManage() }
+  }
 
   // 상태 배지(진행중/예정/임시저장) — 헤더 제목 옆 + (프로필 카드에서 이전됨)
   const hdrPublished = program.status === 'PUBLISHED'
@@ -741,28 +810,45 @@ function ProgramDetailPage() {
   const latestNotice = noticePosts.find(p => p.status === 'visible') || null
 
   return (
-    <div className="px-4 pt-2 pb-6 max-w-4xl mx-auto">
+    <div className="px-[11px] pt-2 pb-6 max-w-4xl mx-auto">
       {/* 상단 헤더 — 뒤로 + 제목 + 알림 + 프로필 (풀폭, 모서리 0) */}
-      <header className="sticky top-0 z-30 -mx-4 -mt-2 mb-[6px] bg-white/95 backdrop-blur-sm border-b border-gray-100">
+      <header className="sticky top-0 z-30 -mx-[11px] -mt-2 mb-[6px] bg-white/95 backdrop-blur-sm border-b border-gray-100">
         <div className="max-w-4xl mx-auto h-[44px] px-2 flex items-center justify-center relative">
-          <button type="button" onClick={() => navigate(-1)} className="absolute left-2 p-1.5 text-gray-600 hover:text-gray-900" aria-label="뒤로">
+          <button type="button" onClick={handleHeaderBack} className="absolute left-2 p-1.5 text-gray-600 hover:text-gray-900" aria-label="뒤로">
             <ChevronLeft className="w-5 h-5" />
           </button>
           {/* 제목 + 상태 배지 — 항상 화면 정중앙 (좌우 버튼 폭과 무관) */}
           {/* 제목은 항상 정중앙 / 상태 배지는 제목 왼쪽에 오버행(중앙 정렬에 영향 X) */}
-          <div className="relative max-w-[58%]">
+          <div className={`relative ${isOwner ? 'max-w-[50%]' : 'max-w-[58%]'}`}>
             <span className="block text-[16px] font-bold text-gray-800 truncate px-1 text-center whitespace-nowrap">{program.name}</span>
             <span className={`absolute right-full top-1/2 -translate-y-1/2 mr-1 px-2 py-0.5 rounded-md text-[11px] font-semibold whitespace-nowrap ${hdrStatusCls}`}>{hdrStatusLabel}</span>
           </div>
           <div className="absolute right-2 flex items-center gap-0.5">
-            <NotificationBell bare showBack />
-            <ProfileButton bare showBack />
+            {isOwner && (
+              <button
+                type="button"
+                onClick={() => setIsPanelOpen(true)}
+                className="relative w-8 h-8 flex items-center justify-center flex-shrink-0 text-gray-600 hover:text-amber-600 transition"
+                title="운영자 메뉴"
+                aria-label="운영자 메뉴"
+              >
+                <Settings className="w-[18px] h-[18px]" />
+                {pendingCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none ring-2 ring-white">
+                    {pendingCount > 9 ? '9+' : pendingCount}
+                  </span>
+                )}
+              </button>
+            )}
+            <NotificationBell bare compact showBack />
+            <ProfileButton bare compact showBack />
           </div>
         </div>
       </header>
 
-      {/* 프로그램 헤더 — 모의도 디자인: 배경 사진 풀 블리드 + 우측 페이드 + 진행중 배지 */}
-      {(() => {
+      {/* 프로그램 헤더 — 모의도 디자인: 배경 사진 풀 블리드 + 우측 페이드 + 진행중 배지.
+          인라인 관리자 열림(inManager) 시엔 숨김 → 집중 편집 화면 */}
+      {!inManager && (() => {
         const isPublished = program.status === 'PUBLISHED'
         const isUpcoming = isPublished && isUpcomingByStartDate(program.start_date)
         const isDraft = program.status === 'DRAFT'
@@ -836,7 +922,7 @@ function ProgramDetailPage() {
               )}
               {program.start_date && program.end_date && (
                 <div className="mb-1.5">
-                  <div className="flex items-center gap-2 pr-8">
+                  <div className="flex items-center gap-2 pr-[2px]">
                     <div className="flex-1 h-2 bg-white/70 rounded-full overflow-hidden border border-gray-100">
                       <div
                         className={`h-full rounded-full transition-all ${urgency.barCls || 'bg-emerald-400'}`}
@@ -898,49 +984,13 @@ function ProgramDetailPage() {
         </div>
       )}
 
-      {/* 운영자 빠른 액션 — 초대(비공개) + 운영자 패널 (모달). 탭 위에 배치 */}
-      {isOwner && (
-        <div ref={opPanelRef} className="flex gap-2 mb-[6px] scroll-mt-[52px]">
-          {program.status === 'PUBLISHED' && program.join_type === 'INVITE_CODE' && program.invite_code && (
-            <button
-              type="button"
-              onClick={() => setIsInviteOpen(true)}
-              className="flex-1 flex items-center gap-2 px-3 py-2.5 bg-white border border-emerald-200 rounded-2xl hover:bg-emerald-50 transition text-left"
-            >
-              <span className="text-lg flex-shrink-0">🎟️</span>
-              <div className="min-w-0">
-                <div className="text-sm font-semibold text-gray-800">초대</div>
-                <div className="text-[11px] text-gray-500 break-keep">링크로 참여자 초대</div>
-              </div>
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => {
-              if (activeTab === 'overview') overviewManageOpen ? closeOverviewManage() : openOverviewManage()
-              else if (activeTab === 'missions') missionManageOpen ? closeMissionManage() : openMissionManage()
-              else if (activeTab === 'quizzes') quizManageOpen ? closeQuizManage() : openQuizManage()
-              else if (activeTab === 'community') communityManageOpen ? closeCommunityManage() : openCommunityManage()
-              else setIsPanelOpen(true)
-            }}
-            className={`relative flex-1 flex items-center gap-2 px-3 py-2.5 bg-white border rounded-2xl hover:bg-amber-50 transition text-left ${
-              (activeTab === 'overview' && overviewManageOpen) || (activeTab === 'missions' && missionManageOpen) || (activeTab === 'quizzes' && quizManageOpen) || (activeTab === 'community' && communityManageOpen) ? 'border-amber-500 bg-amber-50' : 'border-amber-200'
-            }`}
-          >
-            <span className="text-lg flex-shrink-0">⚙️</span>
-            <span className="text-sm font-semibold text-gray-800 truncate">운영자 패널 ({panelRole})</span>
-            {pendingCount > 0 && (
-              <span className="absolute top-1.5 right-1.5 min-w-[20px] h-5 px-1.5 bg-red-500 text-white text-[11px] font-bold rounded-full flex items-center justify-center leading-none">
-                {pendingCount > 99 ? '99+' : pendingCount}
-              </span>
-            )}
-          </button>
-        </div>
-      )}
+      {/* 운영자 진입은 헤더 톱니바퀴(⚙️)로 통합 — 인라인 관리자 열 때 스크롤 기준점만 유지 */}
+      {isOwner && <div ref={opPanelRef} className="scroll-mt-[52px]" aria-hidden="true" />}
 
       {/* 탭 바 — 개요/미션/퀴즈/커뮤니티/성장. 마지막 탭 라벨은 gamification_type 에 따라 분기.
-          본인 결정 (Day 65): 정원/별자리도 「성장」 통합 라벨로 일원화. */}
-      {(() => {
+          본인 결정 (Day 65): 정원/별자리도 「성장」 통합 라벨로 일원화.
+          인라인 관리자 열림 시엔 탭 바도 숨김(집중 편집 화면) */}
+      {!inManager && (() => {
         const gType = program.gamification_type || (program.ranking_enabled !== false ? 'RANKING' : null)
         // 열람자에겐 개인 정원/별자리 대신 랭킹 목록 → 라벨도 '랭킹'
         const growthLabel = isViewer
@@ -949,18 +999,19 @@ function ProgramDetailPage() {
         const tabs = [
           { key: 'overview', label: '개요' },
           { key: 'missions', label: '미션' },
-          // 퀴즈는 참여 필요 — 열람자에겐 숨김
-          ...(isViewer ? [] : [{ key: 'quizzes', label: '퀴즈' }]),
-          { key: 'community', label: '커뮤니티' },
+          // 퀴즈는 참여 필요(열람자 숨김) + 사용 토글 OFF 시 숨김
+          ...(!isViewer && quizEnabled ? [{ key: 'quizzes', label: '퀴즈' }] : []),
+          ...(communityEnabled ? [{ key: 'community', label: '커뮤니티' }] : []),
           ...(growthLabel ? [{ key: 'ranking', label: growthLabel }] : []),
         ]
-        // 방어: 성장/랭킹 탭이 사라졌는데 현재 ranking 탭이면 overview 로 fallback
-        const safeActiveTab = (activeTab === 'ranking' && !growthLabel)
-          ? 'overview'
-          : activeTab
+        // 방어: 현재 탭이 사라진 탭이면 overview 로 fallback
+        const tabGone = (activeTab === 'ranking' && !growthLabel)
+          || (activeTab === 'quizzes' && (isViewer || !quizEnabled))
+          || (activeTab === 'community' && !communityEnabled)
+        const safeActiveTab = tabGone ? 'overview' : activeTab
         return (
           // 메뉴 선택 바 — 풀폭 언더라인 탭 (모서리 0)
-          <div className="-mx-4 mb-[6px] border-b border-gray-100">
+          <div className="-mx-[11px] mb-[6px] border-b border-gray-100">
             <div className="max-w-4xl mx-auto flex">
               {tabs.map(tab => {
                 const isActive = safeActiveTab === tab.key
@@ -1140,7 +1191,7 @@ function ProgramDetailPage() {
 
       {/* 개요 관리자 — 하단 고정 바 (미리보기/임시저장/개요 저장) */}
       {activeTab === 'overview' && overviewManageOpen && (
-        <div className="sticky bottom-0 -mx-4 px-4 pt-2 pb-3 bg-white border-t border-gray-100 z-20">
+        <div className="sticky bottom-0 -mx-[11px] px-[11px] pt-2 pb-3 bg-white border-t border-gray-100 z-20">
           {panelError && <p className="text-[12px] text-red-600 text-center mb-2">{panelError}</p>}
           <div className="flex gap-2">
             <button type="button" onClick={toggleOverviewPreview} className="flex-1 h-11 rounded-xl border border-emerald-200 text-emerald-700 text-sm font-bold hover:bg-emerald-50 transition">
@@ -1258,7 +1309,7 @@ function ProgramDetailPage() {
 
       {/* 미션 관리자 — 하단 고정 바 (미리보기/임시저장/미션 저장). 미션 편집·삭제·복제는 즉시 반영. */}
       {activeTab === 'missions' && missionManageOpen && (
-        <div className="sticky bottom-0 -mx-4 px-4 pt-2 pb-3 bg-white border-t border-gray-100 z-20">
+        <div className="sticky bottom-0 -mx-[11px] px-[11px] pt-2 pb-3 bg-white border-t border-gray-100 z-20">
           <div className="flex gap-2">
             <button type="button" onClick={toggleMissionPreview} className="flex-1 h-11 rounded-xl border border-emerald-200 text-emerald-700 text-sm font-bold hover:bg-emerald-50 transition">
               {missionPreview ? '✏️ 편집으로' : '👁 미리보기'}
@@ -1279,11 +1330,13 @@ function ProgramDetailPage() {
         <QuizManagePanel
           quizzes={programQuizzes}
           participantCount={ranking.length}
-          onEdit={(q) => navigate(`/programs/${id}/posts/quiz/${q.id}`)}
-          onPreview={(q) => navigate(`/programs/${id}/quiz/${q.id}`)}
+          onEdit={(q) => navigate(`/programs/${id}/posts/quiz/${q.id}/edit`)}
+          onPreview={(q) => navigate(`/programs/${id}/quiz/${q.id}?preview=1`)}
+          onResults={(q) => navigate(`/programs/${id}/posts/quiz/${q.id}`)}
           onDelete={handleQuizDelete}
+          onDuplicate={(q) => duplicateQuizMutation.mutate(q)}
           onAdd={() => setQuizLibOpen(true)}
-          isBusy={deleteQuizMutation.isPending}
+          isBusy={deleteQuizMutation.isPending || duplicateQuizMutation.isPending}
         />
       )}
 
@@ -1321,21 +1374,35 @@ function ProgramDetailPage() {
               const now = new Date()
               const isNotStarted = quiz.start_at && new Date(quiz.start_at) > now
               const isExpired = quiz.due_at && new Date(quiz.due_at) < now
+              // 예정 퀴즈는 참여자 입장 차단(운영자 미리보기 제외) — 클릭 시 흔들기
+              const lockedNotStarted = isNotStarted && !quizPreview
+              const handleClick = () => {
+                if (lockedNotStarted) {
+                  setShakeQuizId(quiz.id)
+                  setTimeout(() => setShakeQuizId(prev => (prev === quiz.id ? null : prev)), 600)
+                  return
+                }
+                navigate(`/programs/${id}/quiz/${quiz.id}${quizPreview ? '?preview=1' : ''}`)
+              }
               return (
-                <button
+                <motion.button
                   key={quiz.id}
                   type="button"
-                  onClick={() => navigate(`/programs/${id}/quiz/${quiz.id}`)}
-                  className="w-full flex items-center gap-3 p-4 bg-white border border-gray-200 rounded-2xl hover:bg-gray-50 hover:border-emerald-300 transition text-left"
+                  onClick={handleClick}
+                  animate={shakeQuizId === quiz.id ? { x: [0, -8, 8, -7, 7, -4, 4, 0] } : { x: 0 }}
+                  transition={{ duration: 0.5 }}
+                  className={`w-full flex items-center gap-3 p-4 bg-white border rounded-2xl transition text-left ${
+                    lockedNotStarted ? 'border-amber-200 cursor-not-allowed' : 'border-gray-200 hover:bg-gray-50 hover:border-emerald-300'
+                  }`}
                 >
-                  <span className="text-2xl flex-shrink-0">📝</span>
+                  <span className="text-2xl flex-shrink-0">{lockedNotStarted ? '🔒' : '📝'}</span>
                   <div className="flex-1 min-w-0">
                     <h3 className="font-medium text-gray-800 truncate">{quiz.title}</h3>
-                    <p className="text-xs text-gray-500 mt-0.5">
+                    <p className={`text-xs mt-0.5 ${lockedNotStarted ? 'text-amber-600 font-medium' : 'text-gray-500'}`}>
                       {sub
                         ? (sub.status === 'PENDING' ? '채점 중' : `완료 · ${sub.total_score}점`)
                         : isNotStarted
-                          ? `${formatKoreanDateTime(quiz.start_at)} 시작`
+                          ? `예정중 · ${formatKoreanDateTime(quiz.start_at)}부터 열려요`
                           : isExpired
                             ? '마감됨'
                             : quiz.due_at ? `~ ${formatKoreanDateTime(quiz.due_at)}` : '미응시'}
@@ -1350,7 +1417,7 @@ function ProgramDetailPage() {
                   ) : (
                     <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
                   )}
-                </button>
+                </motion.button>
               )
             })}
           </div>
@@ -1361,7 +1428,7 @@ function ProgramDetailPage() {
 
       {/* 퀴즈 관리자 — 하단 고정 바 (미리보기/임시저장/퀴즈 저장) */}
       {activeTab === 'quizzes' && quizManageOpen && (
-        <div className="sticky bottom-0 -mx-4 px-4 pt-2 pb-3 bg-white border-t border-gray-100 z-20">
+        <div className="sticky bottom-0 -mx-[11px] px-[11px] pt-2 pb-3 bg-white border-t border-gray-100 z-20">
           <div className="flex gap-2">
             <button type="button" onClick={toggleQuizPreview} className="flex-1 h-11 rounded-xl border border-emerald-200 text-emerald-700 text-sm font-bold hover:bg-emerald-50 transition">
               {quizPreview ? '✏️ 편집으로' : '👁 미리보기'}
@@ -1431,7 +1498,7 @@ function ProgramDetailPage() {
 
           {/* 글쓰기 — 작성 가능한 게시판이 있을 때 (열람자 제외) */}
           {!isViewer && writableBoards.length > 0 && (
-            <div className="sticky bottom-0 -mx-4 px-4 pt-3 pb-3 bg-gradient-to-t from-white via-white/95 to-transparent z-20">
+            <div className="sticky bottom-0 -mx-[11px] px-[11px] pt-3 pb-3 bg-gradient-to-t from-white via-white/95 to-transparent z-20">
               <button type="button"
                 onClick={() => { setEditingPost(null); setIsPostModalOpen(true) }}
                 className="w-full h-12 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/20 transition">
@@ -1452,7 +1519,7 @@ function ProgramDetailPage() {
 
       {/* 커뮤니티 관리자 — 하단 고정 바 */}
       {activeTab === 'community' && communityManageOpen && (
-        <div className="sticky bottom-0 -mx-4 px-4 pt-2 pb-3 bg-white border-t border-gray-100 z-20">
+        <div className="sticky bottom-0 -mx-[11px] px-[11px] pt-2 pb-3 bg-white border-t border-gray-100 z-20">
           {panelError && <p className="text-[12px] text-red-600 text-center mb-2">{panelError}</p>}
           <div className="flex gap-2">
             <button type="button" onClick={closeCommunityManage} className="flex-1 h-11 rounded-xl border border-emerald-200 text-emerald-700 text-sm font-bold hover:bg-emerald-50 transition">닫기</button>
@@ -1620,7 +1687,15 @@ function ProgramDetailPage() {
           <ProgramEditModal
             program={program}
             isOpen={true}
-            onClose={() => setIsEditOpen(false)}
+            onClose={handleEditModalClose}
+            onSuccess={invalidateProgramData}
+          />
+        )}
+        {isRankingOpen && (
+          <RankingSettingsModal
+            program={program}
+            isOpen={true}
+            onClose={handleRankingClose}
             onSuccess={invalidateProgramData}
           />
         )}
@@ -1679,29 +1754,62 @@ function ProgramDetailPage() {
         )}
       </Suspense>
 
-      {/* 운영자 패널 모달 — 탭 위 「운영자 패널」 박스에서 진입 */}
+      {/* 운영자 메뉴 시트 — 헤더 ⚙️ 진입. 3단계: 루트 → 내 프로그램 설정 → 메뉴바 설정 */}
       {isOwner && (
-        <Modal isOpen={isPanelOpen} onClose={() => setIsPanelOpen(false)}>
+        <Modal isOpen={isPanelOpen} onClose={closePanel}>
           <div className="p-5">
-            <h2 className="flex items-center gap-2 text-lg font-bold text-gray-800 mb-4">⚙️ 운영자 패널 ({panelRole})</h2>
-            <div className="grid grid-cols-1 gap-2">
-              {panelActions.map(a => (
-                <button
-                  key={a.label}
-                  type="button"
-                  onClick={a.onClick}
-                  className="relative px-3 py-2.5 bg-white border border-amber-300 hover:border-amber-500 hover:bg-amber-100 rounded-lg text-sm text-amber-800 transition text-left"
-                >
-                  {a.icon} {a.label}
-                  <span className="block text-xs text-amber-700 break-keep mt-0.5">{a.desc}</span>
-                  {a.badge > 0 && (
-                    <span className="absolute top-2 right-2 min-w-[20px] h-5 px-1.5 bg-red-500 text-white text-[11px] font-bold rounded-full flex items-center justify-center leading-none">
-                      {a.badge > 99 ? '99+' : a.badge}
-                    </span>
+            {panelView === 'root' && (
+              <>
+                <h2 className="text-lg font-bold text-gray-800 mb-4">⚙️ 운영자 메뉴</h2>
+                <div className="grid grid-cols-1 gap-2.5">
+                  <PanelMenuBox icon="🛠️" title="내 프로그램 설정" desc="프로그램 · 메뉴바(개요~랭킹)" chevron onClick={() => setPanelView('settings')} />
+                  <PanelMenuBox icon="📊" title="통계" desc="참여·인증·미션별 현황" onClick={() => { closePanel(); navigate(`/programs/${id}/stats`, { state: { backToOpMenu: 'root' } }) }} />
+                  {canInvite && (
+                    <PanelMenuBox icon="🎟️" title="초대하기" desc="링크로 참여자 초대" onClick={() => { closePanel(); setIsInviteOpen(true) }} />
                   )}
-                </button>
-              ))}
-            </div>
+                  {pendingCount > 0 && (
+                    <PanelMenuBox icon="🙋" title="참여 승인 심사" desc="신청자 답변 확인 · 승인/거절" badge={pendingCount} onClick={() => { closePanel(); setIsApprovalsOpen(true) }} />
+                  )}
+                </div>
+              </>
+            )}
+
+            {panelView === 'settings' && (
+              <>
+                <div className="flex items-center gap-1.5 mb-4">
+                  <button type="button" onClick={() => setPanelView('root')} className="p-1 -ml-1 text-gray-500 hover:text-gray-800" aria-label="뒤로">
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <h2 className="text-lg font-bold text-gray-800">내 프로그램 설정</h2>
+                </div>
+                <div className="grid grid-cols-1 gap-2.5">
+                  <PanelMenuBox icon="📋" title="프로그램 설정" desc="이름·기간·카테고리·공개 + 퀴즈/커뮤니티 사용" onClick={() => { closePanel(); editReturnViewRef.current = 'settings'; setIsEditOpen(true) }} />
+                  <PanelMenuBox icon="🗂️" title="메뉴바 설정" desc="개요·미션·퀴즈·커뮤니티·랭킹" chevron onClick={() => setPanelView('menubar')} />
+                </div>
+              </>
+            )}
+
+            {panelView === 'menubar' && (
+              <>
+                <div className="flex items-center gap-1.5 mb-4">
+                  <button type="button" onClick={() => setPanelView('settings')} className="p-1 -ml-1 text-gray-500 hover:text-gray-800" aria-label="뒤로">
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <h2 className="text-lg font-bold text-gray-800">메뉴바 설정</h2>
+                </div>
+                <div className="grid grid-cols-1 gap-2.5">
+                  <PanelMenuBox icon="📝" title="개요 설정" desc="개요 글·표지" onClick={() => openManagerFromMenu('overview')} />
+                  <PanelMenuBox icon="🎯" title="미션 설정" desc="미션 추가·수정·순서" onClick={() => openManagerFromMenu('missions')} />
+                  {quizEnabled && (
+                    <PanelMenuBox icon="📋" title="퀴즈 설정" desc="퀴즈 생성·수정·결과" onClick={() => openManagerFromMenu('quizzes')} />
+                  )}
+                  {communityEnabled && (
+                    <PanelMenuBox icon="💬" title="커뮤니티 설정" desc="게시판·피드·신고 관리" onClick={() => openManagerFromMenu('community')} />
+                  )}
+                  <PanelMenuBox icon="🏆" title="랭킹 설정" desc="랭킹 표시·시상대·공개 등" onClick={() => openManagerFromMenu('ranking')} />
+                </div>
+              </>
+            )}
           </div>
         </Modal>
       )}
@@ -1716,6 +1824,18 @@ function ProgramDetailPage() {
         confirmLabel="삭제"
         danger
         busy={deleteQuizMutation.isPending}
+      />
+
+      {/* 미션 삭제 확인 모달 */}
+      <ConfirmModal
+        isOpen={missionToDelete != null}
+        onClose={() => setMissionToDelete(null)}
+        onConfirm={() => deleteMissionMutation.mutate(missionToDelete.id)}
+        title="미션을 삭제할까요?"
+        message={missionToDelete ? `"${missionToDelete.title}" 미션을 삭제하면\n참가자의 모든 인증 기록과 부여된 점수가 함께 삭제됩니다.\n되돌릴 수 없어요.` : ''}
+        confirmLabel="삭제"
+        danger
+        busy={deleteMissionMutation.isPending}
       />
     </div>
   )

@@ -159,6 +159,9 @@ function AppShell() {
             <Route path="/programs/:id/posts/quiz/new" element={
               <ProtectedRoute><QuizCreatePage /></ProtectedRoute>
             } />
+            <Route path="/programs/:id/posts/quiz/:quizId/edit" element={
+              <ProtectedRoute><QuizCreatePage /></ProtectedRoute>
+            } />
             <Route path="/programs/:id/posts/quiz/:quizId" element={
               <ProtectedRoute><QuizResultsPage /></ProtectedRoute>
             } />

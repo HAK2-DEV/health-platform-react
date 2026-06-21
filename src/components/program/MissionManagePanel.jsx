@@ -140,7 +140,7 @@ function MissionManagePanel({ missions = [], onEdit, onDelete, onDuplicate, onRe
   const rowProps = { onEdit, onDelete, onDuplicate, onMove: moveMission, reorderEnabled, isBusy }
 
   return (
-    <div className="-mx-4">
+    <div className="-mx-[11px]">
     <div className="w-[366px] max-w-full mx-auto space-y-[9px] pb-2">
       {/* 통계 박스 */}
       <div className="grid grid-cols-3 divide-x divide-gray-200 bg-white border border-gray-100 rounded-2xl shadow-soft p-3">

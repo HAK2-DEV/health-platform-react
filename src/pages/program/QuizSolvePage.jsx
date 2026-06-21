@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { Check, X, Clock, Trophy } from 'lucide-react'
+import { Check, X, Clock, Trophy, Eye } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import {
   queryKeys,
@@ -19,6 +19,8 @@ import { formatKoreanDateTime } from '../../lib/formatters'
 function QuizSolvePage() {
   const { id, quizId } = useParams()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const isPreview = searchParams.get('preview') === '1'  // 운영자 미리보기 — 읽기전용, 제출 차단
   const { session } = useAuth()
   const queryClient = useQueryClient()
   const userId = session?.user?.id
@@ -95,7 +97,15 @@ function QuizSolvePage() {
 
   return (
     <div className="px-4 pt-2 pb-24 max-w-2xl mx-auto">
-      <StickyBackBar fallbackPath={`/programs/${id}`} title="프로그램으로" />
+      <StickyBackBar fallbackPath={isPreview ? `/programs/${id}?tab=quizzes&panel=quiz` : `/programs/${id}`} title={isPreview ? '퀴즈 관리로' : '프로그램으로'} />
+
+      {/* 미리보기 안내 — 상호작용/제출 차단 */}
+      {isPreview && (
+        <div className="flex items-center gap-2 mb-3 p-3 bg-sky-50 border border-sky-200 rounded-xl text-[12px] text-sky-700">
+          <Eye className="w-4 h-4 flex-shrink-0" />
+          <span>미리보기예요. 참가자에게 보이는 화면만 확인하며, <b>답 선택·제출은 되지 않아요.</b></span>
+        </div>
+      )}
 
       {/* 퀴즈 헤더 */}
       <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-4">
@@ -118,8 +128,17 @@ function QuizSolvePage() {
         </div>
       </div>
 
-      {/* 제출 완료 — 결과 요약 */}
-      {isSubmitted && (
+      {/* 예정(미시작) — 참여자는 문항을 볼 수 없음. 시작 시각 안내 (운영자 미리보기 제외) */}
+      {isNotStarted && !isPreview && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-center">
+          <div className="text-4xl mb-2">📅</div>
+          <p className="text-base font-bold text-amber-800 mb-1">아직 시작 전인 퀴즈예요</p>
+          <p className="text-sm text-amber-700">{formatKoreanDateTime(quiz.start_at)}부터 풀 수 있어요.</p>
+        </div>
+      )}
+
+      {/* 제출 완료 — 결과 요약 (미리보기 제외) */}
+      {!isPreview && isSubmitted && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -142,7 +161,8 @@ function QuizSolvePage() {
         </motion.div>
       )}
 
-      {/* 문제 목록 */}
+      {/* 문제 목록 — 예정(미시작) 퀴즈는 참여자에게 가림(미리보기 제외) */}
+      {!(isNotStarted && !isPreview) && (
       <div className="space-y-3">
         {questions.map((q, idx) => {
           const myAns = answerMap[q.id]
@@ -156,23 +176,30 @@ function QuizSolvePage() {
                 <span className="text-xs text-gray-400 flex-shrink-0 whitespace-nowrap">{q.point}점</span>
               </div>
 
+              {/* ─── 미리보기: 일정·제출과 무관하게 입력 폼을 읽기전용으로 노출 ─── */}
+              {isPreview && (
+                <div className="pointer-events-none select-none">
+                  <QuestionInput q={q} value={undefined} onChange={() => {}} />
+                </div>
+              )}
+
               {/* ─── 제출 전: 입력 폼 (시작 후 + 기한 내) ─── */}
-              {!isSubmitted && !isExpired && !isNotStarted && (
+              {!isPreview && !isSubmitted && !isExpired && !isNotStarted && (
                 <QuestionInput q={q} value={answers[q.id]} onChange={(v) => setAnswer(q.id, v)} />
               )}
 
               {/* ─── 시작 전 ─── */}
-              {!isSubmitted && isNotStarted && (
+              {!isPreview && !isSubmitted && isNotStarted && (
                 <p className="text-sm text-amber-600">⏳ 아직 시작 전이에요</p>
               )}
 
               {/* ─── 마감됐는데 미제출 ─── */}
-              {!isSubmitted && isExpired && (
+              {!isPreview && !isSubmitted && isExpired && (
                 <p className="text-sm text-gray-400">마감된 퀴즈예요</p>
               )}
 
               {/* ─── 제출 후: 결과 ─── */}
-              {isSubmitted && (
+              {!isPreview && isSubmitted && (
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-2 text-sm">
                     <span className="text-gray-500 flex-shrink-0">내 답:</span>
@@ -205,13 +232,14 @@ function QuizSolvePage() {
           )
         })}
       </div>
+      )}
 
       {submitError && (
         <p className="mt-4 p-2 bg-red-100 text-red-700 rounded-xl text-sm text-center">{submitError}</p>
       )}
 
-      {/* 제출 버튼 (미제출 + 기한 내 + 시작됨) */}
-      {!isSubmitted && !isExpired && !isNotStarted && (
+      {/* 제출 버튼 (미제출 + 기한 내 + 시작됨, 미리보기 제외) */}
+      {!isPreview && !isSubmitted && !isExpired && !isNotStarted && (
         <div className="fixed bottom-16 left-0 right-0 px-4 pb-3 pt-2 bg-gradient-to-t from-white via-white to-transparent">
           <div className="max-w-2xl mx-auto">
             <button

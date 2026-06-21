@@ -53,6 +53,8 @@ export const queryKeys = {
   // 참가자용 퀴즈 목록 (프로그램 상세 퀴즈 섹션) — 본인 제출 상태 포함
   participantQuizzes: (programId, userId) => ['quizzes', 'participant', programId, userId],
   communityPosts: (programId, boardId) => ['community-posts', programId, boardId || 'all'],
+  // 퀴즈 편집용 단건 (운영자) — 문항 정답 포함
+  quizEdit: (quizId) => ['quizzes', 'edit', quizId],
   // 퀴즈 상세 (참가자 풀이/결과) — RPC 기반
   quizDetail: (quizId, userId) => ['quizzes', 'detail', quizId, userId],
   // 운영자 퀴즈 결과 (제출 목록 + 답안 + 사용자) — 수동 채점/통계용
@@ -74,6 +76,8 @@ export const queryKeys = {
     ['home-stats', 'operator', userId, [...(programIds || [])].sort().join(',')],
   // 홈 「오늘의 활동 요약」 (Day 68)
   myTodayActivity: (userId) => ['home-stats', 'today-activity', userId],
+  // 대시보드 운영중 프로그램 카드 — 오늘 참여율 + 누적 인증
+  programOperatorPulse: (programId) => ['home-stats', 'op-pulse', programId],
 }
 
 // 이번 주 시작(월요일 00:00 KST)의 절대 시점 — 통계 "이번 주" 경계용.
@@ -229,6 +233,27 @@ export const fetchMyOperatorStats = async (userId, programIds) => {
     : 0
 
   return { totalParticipants, weekVerifyRate }
+}
+
+// 대시보드 운영중 프로그램 카드 지표 — 한 프로그램의 오늘 참여(고유 인증자) + 누적 인증 수.
+//   todayActiveUsers: 오늘(KST) 인증한 고유 참여자 수 → 컴포넌트에서 참여자수로 나눠 '오늘 참여율'
+//   totalVerifs: APPROVED + PENDING_REVIEW 누적 인증 건수
+//   (참여자 수백↑ 되면 서버측 집계로 전환 — 현재는 단일 쿼리 클라 집계)
+export const fetchProgramOperatorPulse = async (programId) => {
+  if (!programId) return { todayActiveUsers: 0, totalVerifs: 0 }
+  const { data, error } = await supabase
+    .from('verifications')
+    .select('user_id, submitted_at, missions!inner(program_id)')
+    .eq('missions.program_id', programId)
+    .in('status', ['APPROVED', 'PENDING_REVIEW'])
+  if (error) throw error
+  const rows = data || []
+  const todayKst = formatKstDate(new Date())
+  const todayUsers = new Set()
+  for (const r of rows) {
+    if (formatKstDate(new Date(r.submitted_at)) === todayKst) todayUsers.add(r.user_id)
+  }
+  return { todayActiveUsers: todayUsers.size, totalVerifs: rows.length }
 }
 
 // 홈 「오늘의 활동 요약」 (Day 68) — 오늘(KST) 기준
@@ -604,6 +629,71 @@ export const fetchProgramQuizzes = async (programId) => {
     totalPoint: (q.quiz_questions || []).reduce((s, r) => s + (r.point || 0), 0),
     submissionCount: q.quiz_submissions?.[0]?.count || 0,
   }))
+}
+
+// 편집용 퀴즈 단건 — 운영자 RLS 로 문항(정답 포함) + 제출 수까지 조회.
+//   QuizCreatePage 편집 모드에서 prefill. submissionCount>0 이면 문항 잠금(응답 보존).
+export const fetchQuizForEdit = async (quizId) => {
+  const { data: quiz, error: qErr } = await supabase
+    .from('quizzes')
+    .select('*, quiz_submissions(count)')
+    .eq('id', quizId)
+    .maybeSingle()
+  if (qErr) throw qErr
+  if (!quiz) return null
+  const { data: questions, error: qqErr } = await supabase
+    .from('quiz_questions')
+    .select('*')
+    .eq('quiz_id', quizId)
+    .order('order_index')
+  if (qqErr) throw qqErr
+  return {
+    quiz,
+    questions: questions || [],
+    submissionCount: quiz.quiz_submissions?.[0]?.count || 0,
+  }
+}
+
+// 퀴즈 복제 — 원본 퀴즈 + 문항을 그대로 복사한 새 퀴즈 생성.
+//   일정(start_at/due_at)은 비워 새로 잡도록 함. 제목 뒤 "(복사)".
+export const duplicateQuiz = async ({ quizId, programId, userId }) => {
+  const src = await fetchQuizForEdit(quizId)
+  if (!src) throw new Error('원본 퀴즈를 찾을 수 없어요')
+  const { quiz, questions } = src
+  const { data: newQuiz, error } = await supabase
+    .from('quizzes')
+    .insert({
+      program_id: programId,
+      title: `${quiz.title} (복사)`.slice(0, 60),
+      description: quiz.description,
+      start_at: null,
+      due_at: null,
+      reveal_answers: quiz.reveal_answers,
+      created_by: userId,
+    })
+    .select()
+    .single()
+  if (error) throw error
+  if (questions.length) {
+    const rows = questions.map((q, idx) => ({
+      quiz_id: newQuiz.id,
+      type: q.type,
+      question_text: q.question_text,
+      options: q.options,
+      correct_answer: q.correct_answer,
+      point: q.point,
+      award_mode: q.award_mode,
+      grading_mode: q.grading_mode,
+      explanation: q.explanation,
+      order_index: idx,
+    }))
+    const { error: qqErr } = await supabase.from('quiz_questions').insert(rows)
+    if (qqErr) {
+      await supabase.from('quizzes').delete().eq('id', newQuiz.id)  // 롤백
+      throw qqErr
+    }
+  }
+  return newQuiz
 }
 
 // 참가자용 퀴즈 목록 — quizzes(RLS: 참여자 SELECT 허용) + 본인 제출 상태
