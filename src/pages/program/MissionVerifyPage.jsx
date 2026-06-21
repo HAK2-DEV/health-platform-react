@@ -8,13 +8,14 @@ import { supabase } from '../../supabaseClient'
 import { CATEGORY } from '../../lib/constants'
 import { checkMissionToday } from '../../lib/formatters'
 import { resolveMissionIcon } from '../../lib/missionIcons'
-import { queryKeys, fetchMission, fetchProgramOverview, fetchProgram } from '../../lib/queries'
+import { queryKeys, fetchMission, fetchProgramOverview, fetchProgram, fetchActivePrograms, fetchTodayMissions, fetchTodayCounts } from '../../lib/queries'
 import { detectMilestonesReached, resolveStreakMilestones, computeStage } from '../../lib/gamification'
 import { useToast } from '../../contexts/ToastContext'
 import { compressImage } from '../../lib/imageCompression'
 import LoadingState from '../../components/common/LoadingState'
 import ImageCropModal from '../../components/common/ImageCropModal'
 import NotificationBell from '../../components/common/NotificationBell'
+import Confetti from '../../components/common/Confetti'
 
 // 카테고리 → 히어로 그라데이션
 const CATEGORY_HERO = {
@@ -38,12 +39,20 @@ function MissionVerifyPage() {
   const queryClient = useQueryClient()
   const toast = useToast()
   const fileInputRef = useRef(null)
+  const photoPreviewRef = useRef(null)  // 사진 첨부 후 화면 중앙으로 스크롤
   const errorRef = useRef(null) // 에러 메시지 — 화면 중앙 스크롤 + 진동
   const beforeOverviewRef = useRef(null) // 인증 직전 overview snapshot — 마일스톤 비교용
 
   // 인증 페이지 진입 시 location.state.returnPath 가 있으면 제출/뒤로 후 그 페이지로 복귀
   // (예: BundleDetailPage 에서 진입 → 같은 BundleDetailPage 로 복귀)
-  const returnPath = location.state?.returnPath || null
+  //   state 는 새로고침 시 사라짐 → 기록하기 출처는 URL ?from=record 로도 복원
+  //   (programId 가 URL 에 있으므로 기록하기 2단계 경로를 재구성 가능).
+  const fromRecordParam = new URLSearchParams(location.search).get('from') === 'record'
+  const returnPath =
+    location.state?.returnPath ||
+    (fromRecordParam ? `/record?program=${programId}` : null)
+  // 기록하기 흐름으로 진입했는지 — 완료 화면 헤더 제목 분기 (기록하기 vs 미션 인증)
+  const fromRecord = !!returnPath && returnPath.startsWith('/record')
 
   // 뒤로가기 — 스마트 백
   //   history 가 있으면 navigate(-1) 로 자연스럽게 pop (Verify 가 history 에서 사라짐)
@@ -112,7 +121,44 @@ function MissionVerifyPage() {
   const [error, setErrorRaw] = useState(null)
   const [errorTick, setErrorTick] = useState(0)
   // 제출 완료 화면 데이터 (있으면 완료 화면 렌더)
-  const [submitted, setSubmitted] = useState(null)
+  //   제출 후 「프로그램으로 이동」(push) → 뒤로가기 시 이 페이지가 remount 되며 state 가
+  //   사라져 폼이 다시 떴음. 제출 성공 시 현재 history 엔트리 state 에 완료정보를 박제 →
+  //   뒤로가기 복귀 시 location.state.completed 로 완료 화면을 복원한다 (해당 엔트리에만 묶임).
+  const [submitted, setSubmitted] = useState(() => location.state?.completed || null)
+
+  // 오늘 더 인증 가능한 미션이 남았는지 — 「나머지 미션」 버튼 + 제출 후 전체완료 분기용.
+  //   제출 직후(onSuccess)에 즉시 판단해야 하므로 submitted 와 무관하게 항상 조회.
+  const userId = session?.user?.id
+  const { data: recActivePrograms = [] } = useQuery({
+    queryKey: queryKeys.activePrograms(userId),
+    queryFn: () => fetchActivePrograms(userId),
+    enabled: !!userId,
+  })
+  const recProgramIds = recActivePrograms.map(p => p.id)
+  const { data: recTodayMissions = [] } = useQuery({
+    queryKey: queryKeys.todayMissions(userId),
+    queryFn: () => fetchTodayMissions(recProgramIds),
+    enabled: !!userId && recProgramIds.length > 0,
+  })
+  // 폼 단계에서도 사용 (일일 한도 가드) → submitted 와 무관하게 항상 조회
+  const { data: recTodayCounts = {} } = useQuery({
+    queryKey: queryKeys.todayCounts(userId),
+    queryFn: () => fetchTodayCounts(userId),
+    enabled: !!userId,
+  })
+  const isRecordableMission = (m, counts = recTodayCounts) => {
+    if (!(m.requires_image || m.requires_numeric || m.requires_note)) return false
+    const now = new Date()
+    if (m.active_from && now < new Date(m.active_from)) return false
+    if (m.active_until && now > new Date(m.active_until)) return false
+    if (!checkMissionToday(m).active) return false
+    const cnt = counts[m.id]?.total || 0
+    if (m.daily_limit != null && cnt >= m.daily_limit) return false
+    return true
+  }
+  // 이 프로그램의 남은(인증 가능) 미션 — 「나머지 미션」 버튼 = 기록하기 2단계(이 프로그램 미션 선택)
+  const remainingMissionCount = recTodayMissions.filter(m => m.program_id === programId && isRecordableMission(m)).length
+
   // setError wrapper — 같은 메시지 재발생 시에도 스크롤/진동 트리거되도록 tick 증가
   const setError = (msg) => {
     setErrorRaw(msg)
@@ -181,6 +227,10 @@ function MissionVerifyPage() {
     setSelectedFile(file)
     setPreviewUrl(URL.createObjectURL(file))
     closeCrop()
+    // 사진 첨부 후 미리보기를 화면 정중앙으로 스크롤 (렌더 후 2-rAF)
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      photoPreviewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }))
   }
   const closeCrop = () => {
     setIsCropOpen(false)
@@ -256,6 +306,11 @@ function MissionVerifyPage() {
         if (insertError.code === '23505') {
           throw new Error('이미 인증에 사용한 사진이에요. 다른 사진을 올려주세요.')
         }
+        // 서버 daily_limit 트리거(103) — 오늘 한도 도달
+        if (insertError.message?.includes('DAILY_LIMIT_REACHED')) {
+          queryClient.invalidateQueries({ queryKey: queryKeys.todayCounts(session.user.id) })
+          throw new Error('오늘은 이미 인증을 완료했어요. 내일 다시 인증할 수 있어요.')
+        }
         throw new Error(`인증 제출 실패: ${insertError.message}`)
       }
     },
@@ -305,15 +360,34 @@ function MissionVerifyPage() {
       }
 
       // 완료 화면 표시 (자동 이동 X — 사용자가 「내 기록 보기 / 프로그램으로 이동」 선택)
+      // 기록하기 흐름 + 오늘 더 인증할 미션이 없으면 → 미션별 완료 대신 전체 완료 화면으로.
+      //   (낙관적 카운트: 방금 제출한 미션 +1 반영. recTodayMissions 미로딩 시엔 기존 완료화면 유지)
+      const optimisticCounts = {
+        ...recTodayCounts,
+        [mission.id]: { total: (recTodayCounts[mission.id]?.total || 0) + 1 },
+      }
+      const anyRemaining = recTodayMissions.some(m => isRecordableMission(m, optimisticCounts))
+      if (fromRecord && recTodayMissions.length > 0 && !anyRemaining) {
+        navigate('/record', { replace: true })
+        return
+      }
+
       const t = new Date()
       const timeStr = `${t.getHours() < 12 ? '오전' : '오후'} ${t.getHours() % 12 || 12}:${String(t.getMinutes()).padStart(2, '0')}`
-      setSubmitted({
+      const donePayload = {
         points: earnedPoint,
         streak,
         timeStr,
         note: (needsNote && noteText.trim()) ? noteText.trim() : null,
         numeric: (needsNumeric && numericValue !== '') ? numericValue : null,
         photoUrl: (needsImage && selectedFile) ? previewUrl : null,
+      }
+      setSubmitted(donePayload)
+      // 뒤로가기(프로그램→복귀) 시 완료 화면 복원용 — 현재 엔트리 state 에 박제.
+      //   blob photoUrl 은 remount 시 무효라 제외 (썸네일만 빠지고 완료 화면은 유지).
+      navigate(`${location.pathname}${location.search}`, {
+        replace: true,
+        state: { ...(location.state || {}), completed: { ...donePayload, photoUrl: null } },
       })
       window.scrollTo({ top: 0 })
     },
@@ -325,6 +399,10 @@ function MissionVerifyPage() {
 
   const handleSubmit = () => {
     if (!session || !mission) return
+    if (dailyLimitReached) {
+      setError('오늘은 이미 인증을 완료했어요. 내일 다시 인증할 수 있어요.')
+      return
+    }
 
     // Day 65 — 마일스톤 비교용 직전 snapshot 캡처 (현재 cache 데이터).
     beforeOverviewRef.current = queryClient.getQueryData(
@@ -361,10 +439,17 @@ function MissionVerifyPage() {
   // schedule_mode + 제외 기간 검사 (URL 직접 입력 우회 차단 — 점수 트리거 033 의 안전망)
   const todayCheck = checkMissionToday(mission)
 
+  // 일일 한도 가드 — 오늘 이미 한도만큼 인증했으면 재제출 차단
+  //   (뒤로가기/재진입/다른 경로 중복 제출 방지. 서버 트리거 103 의 클라 미러)
+  const todayDoneCount = (mission && recTodayCounts[mission.id]?.total) || 0
+  const dailyLimitReached =
+    !!mission && mission.daily_limit != null && todayDoneCount >= mission.daily_limit
+
   const canSubmit = (() => {
     if (isSubmitting) return false
     if (!mission) return false
     if (!todayCheck.active) return false
+    if (dailyLimitReached) return false
     if (reqImage && !selectedFile) return false
     if (reqNumeric && !numericValue) return false
     if (reqNote && !noteText.trim()) return false
@@ -426,16 +511,17 @@ function MissionVerifyPage() {
 
   // ─── 제출 완료 화면 ──────────────────────────────────────
   if (submitted) {
-    const STEPS_DONE = ['프로그램 선택', '미션 확인', '미션 인증']
+    // 기록하기 흐름이면 단계 라벨도 기록하기 기준(미션 선택·기록/인증)으로
+    const STEPS_DONE = fromRecord ? ['프로그램 선택', '미션 선택', '기록·인증'] : ['프로그램 선택', '미션 확인', '미션 인증']
     return (
       <div className="min-h-screen bg-gray-50 -mx-4 -mt-2">
-        {/* 헤더 — 뒤로 + 미션 인증 + 알림 */}
+        {/* 헤더 — 뒤로 + 제목(진입 경로별) + 알림 */}
         <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-gray-100">
           <div className="max-w-md mx-auto h-[46px] px-4 flex items-center justify-center relative">
             <button type="button" onClick={handleClose} className="absolute left-3 p-1.5 -ml-1.5 text-gray-500 hover:text-gray-800" aria-label="뒤로">
               <ChevronLeft className="w-5 h-5" />
             </button>
-            <span className="text-[17px] font-bold text-gray-800">미션 인증</span>
+            <span className="text-[17px] font-bold text-gray-800">{fromRecord ? '기록하기' : '미션 인증'}</span>
             <div className="absolute right-3"><NotificationBell /></div>
           </div>
         </header>
@@ -460,10 +546,18 @@ function MissionVerifyPage() {
             </div>
           </div>
 
-          {/* 완료 카드 — 🎉 + 텍스트 + 통계(2/3) 포함 */}
-          <div className="bg-white border border-gray-100 rounded-2xl shadow-soft p-5 space-y-4">
-            <div className="flex items-center gap-4">
-              <div className="text-5xl flex-shrink-0 select-none leading-none">🎉</div>
+          {/* 완료 카드 — 🎉(빵빠레) + 텍스트 + 통계(2/3) 포함 */}
+          <div className="relative overflow-hidden bg-white border border-gray-100 rounded-2xl shadow-soft p-5 space-y-4">
+            <Confetti count={16} fall={300} />
+            <div className="relative flex items-center gap-4">
+              <motion.div
+                className="text-5xl flex-shrink-0 select-none leading-none"
+                initial={{ scale: 0, rotate: -25 }}
+                animate={{ scale: [0, 1.35, 0.92, 1.08, 1], rotate: [-25, 12, -6, 0] }}
+                transition={{ duration: 0.9, times: [0, 0.4, 0.65, 0.85, 1], ease: 'easeOut' }}
+              >
+                🎉
+              </motion.div>
               <div className="min-w-0">
                 <h2 className="text-[21px] font-extrabold text-gray-900 leading-tight">기록이 완료되었어요!</h2>
                 <p className="text-[12px] text-gray-500 mt-1">오늘의 미션 인증이 정상적으로 제출되었어요.</p>
@@ -471,7 +565,7 @@ function MissionVerifyPage() {
             </div>
 
             {/* 인증한 미션 (미션탭 박스 — 포인트 제외) + 요약 통계 4박스 */}
-            <div className="space-y-2">
+            <div className="relative space-y-2">
               <div className="flex items-center gap-3 bg-gray-50 border border-gray-100 rounded-xl p-3">
                 {mission.icon_path && (
                   <img
@@ -527,15 +621,17 @@ function MissionVerifyPage() {
             </div>
           )}
 
-          {/* 버튼 — 내 기록 보기 / 프로그램으로 이동 (184×36, r10, 13px) */}
+          {/* 버튼 — (남은 미션 있으면)나머지 미션 제출하기 + 프로그램으로 이동 */}
           <div className="flex gap-2 justify-center pt-1">
-            <button
-              type="button"
-              onClick={() => navigate(`/profile/activity/${programId}/verifications`)}
-              className="w-[184px] max-w-[48%] h-[36px] rounded-[10px] bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-[13px] transition"
-            >
-              내 기록 보기
-            </button>
+            {remainingMissionCount > 0 && (
+              <button
+                type="button"
+                onClick={() => navigate(`/record?program=${programId}`)}
+                className="w-[184px] max-w-[48%] h-[36px] rounded-[10px] bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-[13px] transition flex items-center justify-center gap-1 whitespace-nowrap"
+              >
+                📋 나머지 미션 ({remainingMissionCount}개)
+              </button>
+            )}
             <button
               type="button"
               onClick={() => navigate(`/programs/${programId}`)}
@@ -567,7 +663,7 @@ function MissionVerifyPage() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.3 }}
-        className={`relative bg-gradient-to-b ${hero.from} ${hero.via} ${hero.to} pt-2 pb-8 px-5 overflow-hidden`}
+        className="relative bg-white pt-2 pb-8 px-5 overflow-hidden"
       >
 
         {/* 라이브러리 미션 일러스트 — 히어로 풀블리드 (Day 65, 본인 모의도 흐름).
@@ -590,27 +686,21 @@ function MissionVerifyPage() {
               onError={(e) => { e.currentTarget.style.display = 'none' }}
             />
           ) : (
-            // 프리셋 일러스트(투명) — 그라데이션 마스크로 배경에 자연스럽게 녹아듦
+            // 프리셋 아이콘(투명) — 흰 배경 위에 카드 없이 그대로 (본인 요청: 박스 흰색 + 아이콘만 떠 있게)
             <motion.img
-              initial={{ opacity: 0, scale: 0.96, y: -4 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
+              initial={{ opacity: 0, scale: 0.96, y: 1 }}
+              animate={{ opacity: 1, scale: 1, y: 20 }}
               transition={{ duration: 0.45, delay: 0.05 }}
               src={resolveMissionIcon(mission.icon_path)}
               alt=""
-              className="block mx-auto w-[60%] max-w-[240px] aspect-square object-contain pointer-events-none select-none -mt-1 -mb-4"
-              style={{
-                WebkitMaskImage:
-                  'radial-gradient(ellipse 70% 70% at 50% 45%, black 50%, rgba(0,0,0,0.6) 75%, transparent 100%)',
-                maskImage:
-                  'radial-gradient(ellipse 70% 70% at 50% 45%, black 50%, rgba(0,0,0,0.6) 75%, transparent 100%)',
-              }}
+              className="block mx-auto w-32 h-32 object-contain pointer-events-none select-none mb-1"
               aria-hidden="true"
               onError={(e) => { e.currentTarget.style.display = 'none' }}
             />
           )
         )}
 
-        <div>
+        <div className="relative z-10">
         <p className="text-xs text-gray-600 mb-1 flex items-center gap-1">
           <span className="text-base leading-none">{catMeta.emoji}</span>
           <span className="font-medium">{catMeta.label}</span>
@@ -638,6 +728,19 @@ function MissionVerifyPage() {
             </p>
             <p className="text-xs text-amber-700">
               {todayCheck.reason}
+            </p>
+          </div>
+        )}
+
+        {todayCheck.active && dailyLimitReached && (
+          <div className="mb-5 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-center">
+            <p className="text-sm font-medium text-emerald-800 mb-0.5">
+              ✅ 오늘 인증을 완료했어요
+            </p>
+            <p className="text-xs text-emerald-700">
+              {mission.daily_limit === 1
+                ? '이 미션은 하루 1회만 인증할 수 있어요. 내일 다시 만나요!'
+                : `이 미션은 하루 ${mission.daily_limit}회까지 인증할 수 있어요. (오늘 ${todayDoneCount}회 완료)`}
             </p>
           </div>
         )}
@@ -675,7 +778,7 @@ function MissionVerifyPage() {
               {optImage && <span className="ml-1 text-xs font-normal text-amber-600">(선택)</span>}
             </label>
             {previewUrl ? (
-              <div className="relative">
+              <div className="relative scroll-mt-20" ref={photoPreviewRef}>
                 <img
                   src={previewUrl}
                   alt="미리보기"
@@ -845,9 +948,13 @@ function MissionVerifyPage() {
             type="button"
             onClick={handleSubmit}
             disabled={!canSubmit}
-            className="flex-[2] px-4 py-3 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-medium rounded-xl transition disabled:bg-gray-300 shadow-sm"
+            className={`flex-[2] px-4 py-3 font-medium rounded-xl transition shadow-sm ${
+              dailyLimitReached
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : 'bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white disabled:bg-gray-300 disabled:bg-none disabled:text-gray-500'
+            }`}
           >
-            {isSubmitting ? '제출 중...' : '인증 제출'}
+            {dailyLimitReached ? '🔒 오늘 인증 완료' : isSubmitting ? '제출 중...' : '인증 제출'}
           </button>
         </div>
       </div>

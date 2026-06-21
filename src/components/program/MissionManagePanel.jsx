@@ -42,7 +42,7 @@ function MissionRow({ m, index, group, onEdit, onDelete, onDuplicate, onMove, re
   return (
     <div className="flex items-center gap-2 bg-white border border-gray-100 rounded-2xl shadow-soft p-2.5">
       {m.icon_path ? (
-        <img src={resolveMissionIcon(m.icon_path)} alt="" className="w-11 h-11 flex-shrink-0 rounded-xl object-contain bg-gray-50" loading="lazy" onError={(e) => { e.currentTarget.style.display = 'none' }} />
+        <img src={resolveMissionIcon(m.icon_path)} alt="" className="w-11 h-11 flex-shrink-0 rounded-xl object-contain bg-white" loading="lazy" onError={(e) => { e.currentTarget.style.display = 'none' }} />
       ) : (
         <div className="w-11 h-11 flex-shrink-0 rounded-xl bg-gray-50 flex items-center justify-center text-gray-300 text-lg">🎯</div>
       )}

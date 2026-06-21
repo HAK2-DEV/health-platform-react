@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronRight } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
@@ -18,6 +18,9 @@ import EmptyState from '../components/common/EmptyState'
 function MyActivityVerificationsPage() {
   const { programId } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
+  // 기록하기 흐름에서 「내 기록 보기」로 진입 시 — 뒤로가기는 기록하기 화면으로
+  const backTo = location.state?.backTo
   const { session } = useAuth()
   const userId = session?.user?.id
 
@@ -57,7 +60,11 @@ function MyActivityVerificationsPage() {
 
   return (
     <div className="px-4 pt-2 pb-6 max-w-2xl mx-auto">
-      <StickyBackBar fallbackPath="/profile/activity" title="활동으로" />
+      <StickyBackBar
+        onClick={backTo ? () => navigate(backTo, { replace: true }) : undefined}
+        fallbackPath="/profile/activity"
+        title={backTo?.startsWith('/record') ? '기록하기로' : backTo ? '돌아가기' : '활동으로'}
+      />
 
       <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-4">
         <p className="text-xs text-gray-500 mb-1">{program?.name}</p>

@@ -24,7 +24,7 @@ export const MISSION_LIBRARY = [
       {
         title: '아침 식단 사진',
         instruction: '오늘 아침에 먹은 음식을 사진으로 인증해요',
-        icon: 'diet/diet_breakfast_photo.png',
+        icon: 'diet.png',
         requires_image: true,
         requires_numeric: false,
         requires_note: false,
@@ -35,7 +35,7 @@ export const MISSION_LIBRARY = [
       {
         title: '점심 식단 사진',
         instruction: '오늘 점심에 먹은 음식을 사진으로 인증해요',
-        icon: 'diet/diet_lunch_photo.png',
+        icon: 'diet.png',
         requires_image: true,
         requires_numeric: false,
         requires_note: false,
@@ -46,7 +46,7 @@ export const MISSION_LIBRARY = [
       {
         title: '저녁 식단 사진',
         instruction: '오늘 저녁에 먹은 음식을 사진으로 인증해요',
-        icon: 'diet/diet_dinner_photo.png',
+        icon: 'diet.png',
         requires_image: true,
         requires_numeric: false,
         requires_note: false,
@@ -67,7 +67,7 @@ export const MISSION_LIBRARY = [
       {
         title: '취침 시간 기록',
         instruction: '오늘 잠든 시간을 시·분 단위 숫자로 기록해요 (예: 23.5 = 23시 30분)',
-        icon: 'sleep/sleep_bedtime_log.png',
+        icon: 'sleep.png',
         requires_image: false,
         requires_numeric: true,
         requires_note: false,
@@ -78,7 +78,7 @@ export const MISSION_LIBRARY = [
       {
         title: '아침 기상 기록',
         instruction: '오늘 일어난 시간을 시·분 단위 숫자로 기록해요',
-        icon: 'sleep/sleep_morning_log.png',
+        icon: 'sleep.png',
         requires_image: false,
         requires_numeric: true,
         requires_note: false,
@@ -89,7 +89,7 @@ export const MISSION_LIBRARY = [
       {
         title: '수면 한 줄 소감',
         instruction: '오늘 수면 어땠나요? 한 줄로 남겨주세요',
-        icon: 'sleep/sleep_note.png',
+        icon: 'sleep.png',
         requires_image: false,
         requires_numeric: false,
         requires_note: true,
@@ -110,7 +110,7 @@ export const MISSION_LIBRARY = [
       {
         title: '물 마신 횟수 기록',
         instruction: '오늘 마신 컵 수를 기록해요',
-        icon: 'diet/diet_water_count.png',
+        icon: 'water.png',
         requires_image: false,
         requires_numeric: true,
         requires_note: false,
@@ -121,7 +121,7 @@ export const MISSION_LIBRARY = [
       {
         title: '수분 섭취 한 줄 소감',
         instruction: '컨디션이 어땠나요? 한 줄로 남겨주세요',
-        icon: 'diet/diet_water_note.png',
+        icon: 'water.png',
         requires_image: false,
         requires_numeric: false,
         requires_note: true,
@@ -142,7 +142,7 @@ export const MISSION_LIBRARY = [
       {
         title: '명상 인증 사진',
         instruction: '오늘 명상한 순간을 사진으로 인증해요',
-        icon: 'mind/mind_meditation_photo.png',
+        icon: 'meditation.png',
         requires_image: true,
         requires_numeric: false,
         requires_note: false,
@@ -153,7 +153,7 @@ export const MISSION_LIBRARY = [
       {
         title: '명상 시간 기록',
         instruction: '오늘 명상한 시간(분)을 기록해요',
-        icon: 'mind/mind_meditation_time.png',
+        icon: 'meditation.png',
         requires_image: false,
         requires_numeric: true,
         requires_note: false,
@@ -164,7 +164,7 @@ export const MISSION_LIBRARY = [
       {
         title: '마음 한 줄 소감',
         instruction: '오늘 마음 상태를 한 줄로 남겨주세요',
-        icon: 'mind/mind_meditation_note.png',
+        icon: 'meditation.png',
         requires_image: false,
         requires_numeric: false,
         requires_note: true,
@@ -185,7 +185,7 @@ export const MISSION_LIBRARY = [
       {
         title: '오늘 안 피웠어요',
         instruction: '오늘 흡연하지 않았다면 인증해주세요',
-        icon: 'nosmoke/nosmoke_clean_day.png',
+        icon: 'nosmoke.png',
         requires_image: false,
         requires_numeric: false,
         requires_note: true,
@@ -196,7 +196,7 @@ export const MISSION_LIBRARY = [
       {
         title: '금연 의지 한 줄',
         instruction: '오늘 다짐을 한 줄로 남겨주세요',
-        icon: 'nosmoke/nosmoke_resolve_note.png',
+        icon: 'nosmoke.png',
         requires_image: false,
         requires_numeric: false,
         requires_note: true,
@@ -217,7 +217,7 @@ export const MISSION_LIBRARY = [
       {
         title: '운동 사진',
         instruction: '오늘 운동한 순간을 사진으로 인증해요',
-        icon: 'walk/walk_workout_photo.png',
+        icon: 'exercise.png',
         requires_image: true,
         requires_numeric: false,
         requires_note: false,
@@ -228,7 +228,7 @@ export const MISSION_LIBRARY = [
       {
         title: '운동 후 한 줄 소감',
         instruction: '오늘 운동 어땠나요? 한 줄로 남겨주세요',
-        icon: 'walk/walk_workout_note.png',
+        icon: 'exercise.png',
         requires_image: false,
         requires_numeric: false,
         requires_note: true,
@@ -249,7 +249,7 @@ export const MISSION_LIBRARY = [
       {
         title: '걸음 수 기록',
         instruction: '오늘 걸은 걸음 수를 기록해요',
-        icon: 'walk/walk_steps_log.png',
+        icon: 'exercise.png',
         requires_image: false,
         requires_numeric: true,
         requires_note: false,
@@ -260,7 +260,7 @@ export const MISSION_LIBRARY = [
       {
         title: '산책 사진',
         instruction: '오늘 산책한 풍경을 사진으로 인증해요',
-        icon: 'walk/walk_walking_photo.png',
+        icon: 'exercise.png',
         requires_image: true,
         requires_numeric: false,
         requires_note: false,
@@ -271,7 +271,7 @@ export const MISSION_LIBRARY = [
       {
         title: '걷기 후 컨디션',
         instruction: '걷기 후 느낌을 한 줄로 남겨주세요',
-        icon: 'walk/walk_walking_mood.png',
+        icon: 'exercise.png',
         requires_image: false,
         requires_numeric: false,
         requires_note: true,
@@ -292,7 +292,7 @@ export const MISSION_LIBRARY = [
       {
         title: '오늘의 감사 한 줄',
         instruction: '오늘 감사했던 일을 한 줄로 남겨주세요',
-        icon: 'empathy/empathy_gratitude_note.png',
+        icon: 'diary.png',
         requires_image: false,
         requires_numeric: false,
         requires_note: true,
@@ -303,7 +303,7 @@ export const MISSION_LIBRARY = [
       {
         title: '친절 인증 사진',
         instruction: '오늘 베푼 또는 받은 친절을 사진으로 남겨요',
-        icon: 'empathy/empathy_kindness_photo.png',
+        icon: 'photo.png',
         requires_image: true,
         requires_numeric: false,
         requires_note: false,
@@ -327,7 +327,7 @@ export const MISSION_LIBRARY = [
       {
         title: '러닝 거리 기록',
         instruction: '오늘 달린 거리를 km 단위로 기록해요 (예: 3.5)',
-        icon: 'walk/walk_running_distance.png',
+        icon: 'exercise.png',
         requires_image: false,
         requires_numeric: true,
         requires_note: false,
@@ -338,7 +338,7 @@ export const MISSION_LIBRARY = [
       {
         title: '러닝 인증 사진',
         instruction: '러닝 후 풍경이나 워치 화면을 사진으로 인증해요',
-        icon: 'walk/walk_running_photo.png',
+        icon: 'exercise.png',
         requires_image: true,
         requires_numeric: false,
         requires_note: false,
@@ -349,7 +349,7 @@ export const MISSION_LIBRARY = [
       {
         title: '러닝 한 줄 소감',
         instruction: '오늘 러닝 어땠나요? 한 줄로 남겨주세요',
-        icon: 'walk/walk_running_note.png',
+        icon: 'exercise.png',
         requires_image: false,
         requires_numeric: false,
         requires_note: true,
@@ -370,7 +370,7 @@ export const MISSION_LIBRARY = [
       {
         title: '스트레칭 시간 기록',
         instruction: '오늘 스트레칭한 시간(분)을 기록해요',
-        icon: 'walk/walk_stretching_time.png',
+        icon: 'stretching.png',
         requires_image: false,
         requires_numeric: true,
         requires_note: false,
@@ -381,7 +381,7 @@ export const MISSION_LIBRARY = [
       {
         title: '스트레칭 인증',
         instruction: '스트레칭 후 컨디션을 한 줄로 남겨요',
-        icon: 'walk/walk_stretching_photo.png',
+        icon: 'stretching.png',
         requires_image: false,
         requires_numeric: false,
         requires_note: true,
@@ -403,7 +403,7 @@ export const MISSION_LIBRARY = [
       {
         title: '단백질 식사 사진',
         instruction: '오늘 먹은 단백질 식품을 사진으로 인증해요 (계란/닭가슴살/두부 등)',
-        icon: 'diet/diet_protein_photo.png',
+        icon: 'diet.png',
         requires_image: true,
         requires_numeric: false,
         requires_note: false,
@@ -414,7 +414,7 @@ export const MISSION_LIBRARY = [
       {
         title: '단백질 섭취량 기록',
         instruction: '오늘 섭취한 단백질량(g)을 기록해요',
-        icon: 'diet/diet_protein_log.png',
+        icon: 'diet.png',
         requires_image: false,
         requires_numeric: true,
         requires_note: false,
@@ -435,7 +435,7 @@ export const MISSION_LIBRARY = [
       {
         title: '채소 식단 사진',
         instruction: '오늘 채소가 들어간 식사를 사진으로 인증해요',
-        icon: 'diet/diet_veggie_photo.png',
+        icon: 'diet.png',
         requires_image: true,
         requires_numeric: false,
         requires_note: false,
@@ -446,7 +446,7 @@ export const MISSION_LIBRARY = [
       {
         title: '채소 한 줄 소감',
         instruction: '오늘 어떤 채소를 먹었나요?',
-        icon: 'diet/diet_veggie_note.png',
+        icon: 'diet.png',
         requires_image: false,
         requires_numeric: false,
         requires_note: true,
@@ -468,7 +468,7 @@ export const MISSION_LIBRARY = [
       {
         title: '취침 전 스트레칭/명상',
         instruction: '오늘 잠자기 전 5분 이상 스트레칭 또는 명상을 했다면 인증',
-        icon: 'sleep/sleep_bedtime_routine.png',
+        icon: 'sleep.png',
         requires_image: false,
         requires_numeric: false,
         requires_note: true,
@@ -479,7 +479,7 @@ export const MISSION_LIBRARY = [
       {
         title: '취침 시각 기록',
         instruction: '오늘 잠든 시각을 기록해요 (예: 23.5 = 23시 30분)',
-        icon: 'sleep/sleep_bedtime_clock.png',
+        icon: 'sleep.png',
         requires_image: false,
         requires_numeric: true,
         requires_note: false,
@@ -501,7 +501,7 @@ export const MISSION_LIBRARY = [
       {
         title: '오늘 감사한 일 3가지',
         instruction: '오늘 감사했던 일 3가지를 한 줄로 정리해서 남겨주세요',
-        icon: 'mind/mind_gratitude_diary.png',
+        icon: 'diary.png',
         requires_image: false,
         requires_numeric: false,
         requires_note: true,
@@ -522,7 +522,7 @@ export const MISSION_LIBRARY = [
       {
         title: '스트레스 해소 활동',
         instruction: '오늘 한 스트레스 해소 활동을 한 줄로 남겨주세요 (음악/산책/취미 등)',
-        icon: 'mind/mind_stress_relief.png',
+        icon: 'meditation.png',
         requires_image: false,
         requires_numeric: false,
         requires_note: true,
@@ -533,7 +533,7 @@ export const MISSION_LIBRARY = [
       {
         title: '심호흡 시간',
         instruction: '오늘 심호흡한 시간(분)을 기록해요',
-        icon: 'mind/mind_breathing_time.png',
+        icon: 'meditation.png',
         requires_image: false,
         requires_numeric: true,
         requires_note: false,
@@ -555,7 +555,7 @@ export const MISSION_LIBRARY = [
       {
         title: '가족 안부 한 줄',
         instruction: '오늘 가족에게 보낸 메시지나 안부를 한 줄로 남겨주세요',
-        icon: 'empathy/empathy_family_note.png',
+        icon: 'diary.png',
         requires_image: false,
         requires_numeric: false,
         requires_note: true,
@@ -576,7 +576,7 @@ export const MISSION_LIBRARY = [
       {
         title: '오늘의 친절 한 줄',
         instruction: '오늘 베푼 또는 받은 친절 한 가지를 한 줄로 남겨주세요',
-        icon: 'empathy/empathy_kindness_note.png',
+        icon: 'diary.png',
         requires_image: false,
         requires_numeric: false,
         requires_note: true,
@@ -598,7 +598,7 @@ export const MISSION_LIBRARY = [
       {
         title: '아침 기상 시각',
         instruction: '오늘 일어난 시각을 기록해요 (예: 6.5 = 6시 30분)',
-        icon: 'etc/etc_morning_wake_time.png',
+        icon: 'diary.png',
         requires_image: false,
         requires_numeric: true,
         requires_note: false,
@@ -609,7 +609,7 @@ export const MISSION_LIBRARY = [
       {
         title: '아침 활동 한 줄',
         instruction: '오늘 아침에 한 첫 활동을 한 줄로 남겨주세요',
-        icon: 'etc/etc_morning_note.png',
+        icon: 'diary.png',
         requires_image: false,
         requires_numeric: false,
         requires_note: true,
@@ -630,7 +630,7 @@ export const MISSION_LIBRARY = [
       {
         title: '독서 시간 기록',
         instruction: '오늘 책 읽은 시간(분)을 기록해요',
-        icon: 'etc/etc_reading_time.png',
+        icon: 'reading.png',
         requires_image: false,
         requires_numeric: true,
         requires_note: false,
@@ -641,7 +641,7 @@ export const MISSION_LIBRARY = [
       {
         title: '독서 한 줄 소감',
         instruction: '오늘 읽은 책에서 인상 깊은 한 문장을 남겨주세요',
-        icon: 'etc/etc_reading_note.png',
+        icon: 'reading.png',
         requires_image: false,
         requires_numeric: false,
         requires_note: true,
@@ -652,7 +652,7 @@ export const MISSION_LIBRARY = [
       {
         title: '독서 인증 사진',
         instruction: '오늘 읽은 책 페이지를 사진으로 인증해요',
-        icon: 'etc/etc_reading_photo.png',
+        icon: 'reading.png',
         requires_image: true,
         requires_numeric: false,
         requires_note: false,
@@ -673,7 +673,7 @@ export const MISSION_LIBRARY = [
       {
         title: '취미 활동 사진',
         instruction: '오늘 즐긴 취미를 사진으로 남겨요',
-        icon: 'etc/etc_hobby_photo.png',
+        icon: 'photo.png',
         requires_image: true,
         requires_numeric: false,
         requires_note: false,
@@ -684,7 +684,7 @@ export const MISSION_LIBRARY = [
       {
         title: '취미 시간',
         instruction: '오늘 취미에 쓴 시간(분)을 기록해요',
-        icon: 'etc/etc_hobby_time.png',
+        icon: 'diary.png',
         requires_image: false,
         requires_numeric: true,
         requires_note: false,

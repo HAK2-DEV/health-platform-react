@@ -13,6 +13,8 @@ import LoadingState from '../../components/common/LoadingState'
 import EmptyState from '../../components/common/EmptyState'
 import ProgramDetailModal from '../../components/program/ProgramDetailModal'
 import ProgramBrowseModal from '../../components/program/ProgramBrowseModal'
+import ParticipationTipsSheet from '../../components/program/ParticipationTipsSheet'
+import ConfirmModal from '../../components/common/ConfirmModal'
 import {
   queryKeys,
   fetchActivePrograms,
@@ -215,12 +217,13 @@ function CreateProgramCTA({ icon, title, subtitle, onClick }) {
 
 // 둘러보기 하단 CTA — 두 슬라이드 3초마다 옆으로 슬라이딩 교대
 function BottomCtaCarousel({ onCreate }) {
+  const [tipsOpen, setTipsOpen] = useState(false)
   const slides = [
     {
       icon: '/icons/cta/tip.png',
       title: '프로그램 참여 팁',
       subtitle: '꾸준한 실천이 중요해요! 나에게 맞는 프로그램을 선택하고, 작은 목표부터 시작해보세요.',
-      onClick: undefined,
+      onClick: () => setTipsOpen(true),
     },
     {
       icon: '/icons/cta/create.png',
@@ -248,6 +251,7 @@ function BottomCtaCarousel({ onCreate }) {
           <CreateProgramCTA icon={s.icon} title={s.title} subtitle={s.subtitle} onClick={s.onClick} />
         </motion.div>
       </AnimatePresence>
+      <ParticipationTipsSheet isOpen={tipsOpen} onClose={() => setTipsOpen(false)} />
     </div>
   )
 }
@@ -314,13 +318,11 @@ function ProgramListPage() {
       const { error } = await supabase.from('programs').delete().eq('id', programId)
       if (error) throw error
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.myPrograms(userId) }) },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.myPrograms(userId) }); setDraftToDelete(null) },
     onError: (e) => { console.error('임시저장 삭제 실패:', e); alert(`삭제에 실패했습니다: ${e.message}`) },
   })
-  const handleDeleteDraft = (program) => {
-    if (!window.confirm(`"${program.name}" 임시저장 프로그램을 삭제할까요?\n되돌릴 수 없어요.`)) return
-    deleteDraftMutation.mutate(program.id)
-  }
+  const [draftToDelete, setDraftToDelete] = useState(null)  // 임시저장 삭제 확인 모달
+  const handleDeleteDraft = (program) => setDraftToDelete(program)
 
   // 둘러보기 — 내가 운영(소유)하거나 이미 참여 중인 프로그램은 제외
   //   publicPrograms 는 소유 프로그램(owner_id)은 이미 서버에서 제외됨. 여기선 참여 중 + 안전망으로 소유도 함께 제외.
@@ -583,6 +585,18 @@ function ProgramListPage() {
           />
         )
       })()}
+
+      {/* 임시저장 삭제 확인 모달 */}
+      <ConfirmModal
+        isOpen={draftToDelete != null}
+        onClose={() => setDraftToDelete(null)}
+        onConfirm={() => deleteDraftMutation.mutate(draftToDelete.id)}
+        title="임시저장 프로그램을 삭제할까요?"
+        message={draftToDelete ? `"${draftToDelete.name}" 임시저장을 삭제해요. 되돌릴 수 없어요.` : ''}
+        confirmLabel="삭제"
+        danger
+        busy={deleteDraftMutation.isPending}
+      />
     </div>
   )
 }

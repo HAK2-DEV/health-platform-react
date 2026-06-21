@@ -6,6 +6,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { queryKeys, fetchMyLiveProgramCount } from '../../lib/queries'
 import { MAX_PROGRAMS_BETA } from '../../lib/constants'
 import WizardLayout from '../../components/program/ProgramWizard/WizardLayout'
+import WizardIntro from '../../components/program/ProgramWizard/WizardIntro'
 import Step1Basic from '../../components/program/ProgramWizard/Step1Basic'
 import Step2Type from '../../components/program/ProgramWizard/Step2Type'
 import Step3JoinConditions from '../../components/program/ProgramWizard/Step3JoinConditions'
@@ -26,6 +27,9 @@ function ProgramNewPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [isLoadingDraft, setIsLoadingDraft] = useState(!!draftId)
   const [error, setError] = useState(null)
+  const [showIntro, setShowIntro] = useState(!draftId)  // 새 생성 진입 인트로 (~1.5초)
+  const [step1AtEnd, setStep1AtEnd] = useState(false)   // 2단계에서 이전 → 1단계 마지막 서브스텝부터
+  const [step3AtEnd, setStep3AtEnd] = useState(false)   // 4단계에서 이전 → 3단계 마지막 서브스텝부터
 
   // 베타 한도 검사 — 새 생성(draftId 없음)일 때만. DRAFT 재진입은 검사 안 함
   //   (이미 만든 임시저장 이어가기 + 게시 시점 트리거가 최종 방어).
@@ -152,6 +156,9 @@ function ProgramNewPage() {
   }
 
   const handlePrev = () => {
+    // 다음 단계 → 이전 단계로 돌아갈 땐 그 단계의 마지막 서브스텝부터 보이게
+    if (currentStep === 2) setStep1AtEnd(true)
+    if (currentStep === 4) setStep3AtEnd(true)
     setCurrentStep(currentStep - 1)
   }
 
@@ -187,16 +194,21 @@ function ProgramNewPage() {
     )
   }
 
+  // 새 생성 진입 인트로 — 한도 검사 통과 후 ~1.5초, 그다음 1단계
+  if (isNewCreation && showIntro) {
+    return <WizardIntro onDone={() => setShowIntro(false)} />
+  }
+
   return (
     <WizardLayout currentStep={currentStep}>
       {error && (
-        <p className="p-2 mb-4 bg-red-100 text-red-700 rounded text-sm text-center">
+        <p className="p-2 bg-red-100 text-red-700 rounded-[10px] text-sm text-center" style={{ marginBottom: '9px' }}>
           {error}
         </p>
       )}
 
       {isSaving && (
-        <p className="p-2 mb-4 bg-blue-100 text-blue-700 rounded text-sm text-center">
+        <p className="p-2 bg-blue-100 text-blue-700 rounded-[10px] text-sm text-center" style={{ marginBottom: '9px' }}>
           저장 중...
         </p>
       )}
@@ -206,6 +218,7 @@ function ProgramNewPage() {
           initialData={programData}
           onNext={handleNext}
           onSave={handleSave}
+          enterAtEnd={step1AtEnd}
         />
       )}
 
@@ -224,6 +237,7 @@ function ProgramNewPage() {
           onNext={handleNext}
           onSave={handleSave}
           onPrev={handlePrev}
+          enterAtEnd={step3AtEnd}
         />
       )}
 

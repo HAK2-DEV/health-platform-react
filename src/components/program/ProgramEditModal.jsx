@@ -383,7 +383,7 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
                   랭킹 메뉴 표시
                 </p>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  켜면 랭킹 메뉴가 보여요. 세부(시상대·추세·기간필터)는 「랭킹 설정」에서 정해요.
+                  켜면 랭킹 메뉴가 보여요. 세부(시상대·기간필터)는 「랭킹 설정」에서 정해요.
                 </p>
               </div>
               <div className={`

@@ -151,7 +151,7 @@ function ProgramStatsUserDetailPage() {
       <StickyBackBar fallbackPath={`/programs/${id}/stats/users`} title="목록으로" />
 
       {/* 유저 헤더 */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
+      <div className="bg-white border border-gray-200 rounded-[10px] p-6" style={{ marginBottom: '9px' }}>
         <p className="text-xs text-gray-500 mb-2">{program.name}</p>
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -174,7 +174,7 @@ function ProgramStatsUserDetailPage() {
 
         {/* 입장 질문 답변 — 승인제 + 입장질문 프로그램만 */}
         {showEntryAnswer && (
-          <div className="mt-4 p-3 bg-emerald-50/60 border border-emerald-100 rounded-xl">
+          <div className="p-3 bg-emerald-50/60 border border-emerald-100 rounded-[10px]" style={{ marginTop: '9px' }}>
             <p className="text-[11px] font-semibold text-emerald-700 mb-1">입장 질문</p>
             <p className="text-xs text-gray-500 mb-1.5 whitespace-pre-wrap break-all">{program.entry_question}</p>
             <p className="text-sm text-gray-800 whitespace-pre-wrap break-all">💬 {participant.entry_answer}</p>
@@ -187,27 +187,28 @@ function ProgramStatsUserDetailPage() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6"
+        className="grid grid-cols-2 sm:grid-cols-4"
+        style={{ gap: '9px', marginBottom: '9px' }}
       >
-        <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex flex-col items-center text-center">
+        <div className="bg-white border border-gray-100 rounded-[10px] p-4 shadow-sm flex flex-col items-center text-center">
           <p className="text-[11px] text-gray-500 mb-1">💎 누적 점수</p>
           <p className="text-2xl font-bold text-emerald-700 leading-tight">
             {userInfo.totalScore}<span className="text-sm text-emerald-600 font-medium"> P</span>
           </p>
         </div>
-        <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex flex-col items-center text-center">
+        <div className="bg-white border border-gray-100 rounded-[10px] p-4 shadow-sm flex flex-col items-center text-center">
           <p className="text-[11px] text-gray-500 mb-1">✅ 누적 인증</p>
           <p className="text-2xl font-bold text-gray-800 leading-tight">
             {userInfo.totalCount}<span className="text-sm text-gray-500 font-medium">건</span>
           </p>
         </div>
-        <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex flex-col items-center text-center">
+        <div className="bg-white border border-gray-100 rounded-[10px] p-4 shadow-sm flex flex-col items-center text-center">
           <p className="text-[11px] text-gray-500 mb-1">🔥 활동 일수</p>
           <p className="text-2xl font-bold text-gray-800 leading-tight">
             {userInfo.activeDays}<span className="text-sm text-gray-500 font-medium">일</span>
           </p>
         </div>
-        <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex flex-col items-center text-center">
+        <div className="bg-white border border-gray-100 rounded-[10px] p-4 shadow-sm flex flex-col items-center text-center">
           <p className="text-[11px] text-gray-500 mb-1">🕒 마지막 활동</p>
           <p className="text-sm font-medium text-gray-800 leading-tight pt-2">
             {formatRelativeKstDay(userInfo.lastActiveAt)}
@@ -216,8 +217,8 @@ function ProgramStatsUserDetailPage() {
       </motion.div>
 
       {/* 최근 14일 활동 */}
-      <h2 className="text-lg font-semibold text-gray-800 mb-3">📅 최근 14일 활동</h2>
-      <div className="bg-white border border-gray-200 rounded-2xl p-4 mb-6">
+      <h2 className="text-lg font-semibold text-gray-800" style={{ marginBottom: '9px' }}>📅 최근 14일 활동</h2>
+      <div className="bg-white border border-gray-200 rounded-[10px] p-4" style={{ marginBottom: '9px' }}>
         <div className="flex items-end gap-1 h-20">
           {recent14Days.map(d => {
             const h = d.count === 0 ? 4 : Math.round((d.count / maxDayCount) * 76) + 4
@@ -246,12 +247,13 @@ function ProgramStatsUserDetailPage() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.1 }}
-        className="grid grid-cols-1 gap-3"
+        className="grid grid-cols-1"
+        style={{ gap: '9px' }}
       >
         <button
           type="button"
           onClick={() => navigate(`/programs/${id}/stats/users/${targetUserId}/missions`)}
-          className="w-full flex items-center gap-4 p-5 bg-white border border-gray-200 rounded-2xl hover:bg-gray-50 hover:border-emerald-300 transition text-left"
+          className="w-full flex items-center gap-4 p-5 bg-white border border-gray-200 rounded-[10px] hover:bg-gray-50 hover:border-emerald-300 transition text-left"
         >
           <div className="w-12 h-12 flex-shrink-0 bg-emerald-100 rounded-xl flex items-center justify-center">
             <Target className="w-6 h-6 text-emerald-600" />
@@ -270,7 +272,7 @@ function ProgramStatsUserDetailPage() {
         <button
           type="button"
           onClick={() => navigate(`/programs/${id}/stats/users/${targetUserId}/verifications`)}
-          className="w-full flex items-center gap-4 p-5 bg-white border border-gray-200 rounded-2xl hover:bg-gray-50 hover:border-sky-300 transition text-left"
+          className="w-full flex items-center gap-4 p-5 bg-white border border-gray-200 rounded-[10px] hover:bg-gray-50 hover:border-sky-300 transition text-left"
         >
           <div className="w-12 h-12 flex-shrink-0 bg-sky-100 rounded-xl flex items-center justify-center">
             <FileText className="w-6 h-6 text-sky-600" />

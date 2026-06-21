@@ -3,6 +3,7 @@ import { Camera, X, Crop } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
 import ProgramCover from './ProgramCover'
 import ImageCropModal from './ImageCropModal'
+import ConfirmModal from './ConfirmModal'
 
 // 프로그램 표지 사진 업로더 — 마법사 Step 1 + ProgramEditModal 재사용
 // props:
@@ -29,6 +30,7 @@ function CoverImageUploader({ ownerId, imagePath, onChange, categories, name, di
   const [cropSrc, setCropSrc] = useState(null)        // 크롭 모달의 현재 소스
   const [originalSrc, setOriginalSrc] = useState(null) // 마지막 선택 원본(재조정용·세션 유지)
   const [isCropOpen, setIsCropOpen] = useState(false)
+  const [confirmRemove, setConfirmRemove] = useState(false)  // 표지 삭제 확인 모달
 
   // 원본 objectURL 메모리 정리 (값 변경/언마운트 시)
   useEffect(() => () => { if (originalSrc) URL.revokeObjectURL(originalSrc) }, [originalSrc])
@@ -105,10 +107,11 @@ function CoverImageUploader({ ownerId, imagePath, onChange, categories, name, di
     }
   }
 
-  const handleRemove = async () => {
+  const handleRemove = () => {
     if (disabled || uploading) return
-    if (!window.confirm('표지 사진을 삭제할까요? (카테고리 이모지로 대체돼요)')) return
-
+    setConfirmRemove(true)
+  }
+  const doRemove = async () => {
     setUploading(true)
     setError(null)
     try {
@@ -121,6 +124,7 @@ function CoverImageUploader({ ownerId, imagePath, onChange, categories, name, di
       setError(err.message || '삭제에 실패했습니다')
     } finally {
       setUploading(false)
+      setConfirmRemove(false)
     }
   }
 
@@ -215,6 +219,18 @@ function CoverImageUploader({ ownerId, imagePath, onChange, categories, name, di
         outputHeight={675}
         title="대표 사진 편집"
         description="드래그하고 확대·축소해 표지 영역을 맞춰주세요"
+      />
+
+      {/* 표지 삭제 확인 모달 */}
+      <ConfirmModal
+        isOpen={confirmRemove}
+        onClose={() => setConfirmRemove(false)}
+        onConfirm={doRemove}
+        title="표지 사진을 삭제할까요?"
+        message="삭제하면 카테고리 이모지로 대체돼요."
+        confirmLabel="삭제"
+        danger
+        busy={uploading}
       />
     </div>
   )

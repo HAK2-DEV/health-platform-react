@@ -205,8 +205,8 @@ function RankingsPage() {
     )
   }
 
-  // 프로그램 선택 칩
-  const programChips = (
+  // 프로그램 선택 칩 — 참여 프로그램이 1개뿐이면 전환할 대상이 없어 숨김
+  const programChips = activePrograms.length <= 1 ? null : (
     <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-hide">
       {activePrograms.map(program => {
         const catKey = program.categories?.[0] || 'ETC'
@@ -229,6 +229,9 @@ function RankingsPage() {
     </div>
   )
 
+  // 시상대(Podium)가 있으면 프로그램 칩을 그 아래에, 없으면(성장/로딩/빈/팀·전체) 상단에 둔다.
+  const hasPodiumView = isRankingTrack && scope === 'individual' && !isLoadingRanking && hasPodium
+
   return (
     <div className="min-h-screen bg-gray-50">
       <RankingHeader />
@@ -245,8 +248,8 @@ function RankingsPage() {
           )}
         </div>
 
-        {/* 프로그램 선택 칩 */}
-        {programChips}
+        {/* 프로그램 선택 칩 — 시상대가 없을 때만 상단에 (있으면 시상대 아래로 이동) */}
+        {!hasPodiumView && programChips}
 
         {/* ── 성장 트랙(정원/별자리) ── */}
         {selectedProgram && gType === 'GARDEN' && (
@@ -283,6 +286,9 @@ function RankingsPage() {
           ) : (
             <>
               {hasPodium && <Podium top3={podiumTop3} userId={userId} />}
+
+              {/* 프로그램 선택 칩 — 시상대 아래 */}
+              {programChips}
 
               {restRanking.length > 0 && (
                 <motion.div
@@ -415,17 +421,19 @@ function ComingSoon({ label }) {
 }
 
 // ─── Top 3 시상대 (2-1-3 배치, 1등 강조) ──────────────────
+const MEDAL_IMG = {
+  1: '/icons/ranking/medal-1.png',
+  2: '/icons/ranking/medal-2.png',
+  3: '/icons/ranking/medal-3.png',
+}
+const PODIUM_RING = { 1: 'ring-amber-300', 2: 'ring-gray-300', 3: 'ring-orange-300' }
+
 function Podium({ top3, userId }) {
   const [second, first, third] = [top3[1], top3[0], top3[2]]
 
   const slot = (row, place) => {
     if (!row) return <div />
     const isMe = row.user_id === userId
-    const medal = {
-      1: { ring: 'ring-amber-300', badge: 'bg-gradient-to-br from-yellow-300 to-amber-500 text-amber-900', emoji: '🥇' },
-      2: { ring: 'ring-gray-300', badge: 'bg-gradient-to-br from-gray-200 to-gray-400 text-gray-700', emoji: '🥈' },
-      3: { ring: 'ring-orange-300', badge: 'bg-gradient-to-br from-orange-300 to-amber-600 text-orange-900', emoji: '🥉' },
-    }[place]
     const isFirst = place === 1
 
     return (
@@ -433,32 +441,55 @@ function Podium({ top3, userId }) {
         initial={{ opacity: 0, y: 24, scale: 0.9 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.4, delay: isFirst ? 0.15 : place === 2 ? 0.05 : 0.1, ease: [0.34, 1.4, 0.64, 1] }}
-        className={`relative flex flex-col items-center rounded-2xl border bg-white shadow-soft px-2 pb-3 ${
-          isFirst ? 'pt-8 -mt-3 border-emerald-200 ring-2 ring-emerald-100' : 'pt-7 border-gray-100'
+        className={`relative flex flex-col items-center rounded-2xl border bg-white shadow-soft px-2 ${
+          isFirst ? 'pt-8 pb-3.5 -mt-4 border-amber-200' : 'pt-6 pb-3 border-gray-100'
         } ${isMe ? 'ring-2 ring-emerald-400' : ''}`}
       >
-        {/* 메달 뱃지 */}
-        <div className={`absolute -top-3 left-1/2 -translate-x-1/2 z-10 rounded-full ring-2 ring-white shadow-md flex items-center justify-center font-bold ${
-          isFirst ? 'w-9 h-9 text-base' : 'w-7 h-7 text-sm'
-        } ${medal.badge}`}>
-          {place}
-        </div>
-        <div className={`rounded-full ring-2 ${medal.ring} ${isFirst ? 'p-0.5' : ''}`}>
+        {/* 1등 양옆 이파리 장식 (좌·우 한 장 PNG → 아바타 뒤로 살짝 삐져나옴) */}
+        {isFirst && (
+          <img
+            src="/icons/ranking/leaves.png"
+            alt="" aria-hidden="true"
+            onError={(e) => { e.currentTarget.style.display = 'none' }}
+            className="absolute top-0 left-1/2 -translate-x-1/2 w-[135%] max-w-none z-0 pointer-events-none select-none"
+          />
+        )}
+
+        {/* 메달 아이콘 (1·2·3 PNG) — 카드 상단에 겹쳐 표시 */}
+        <img
+          src={MEDAL_IMG[place]}
+          alt={`${place}등`}
+          onError={(e) => { e.currentTarget.style.display = 'none' }}
+          className={`absolute left-1/2 -translate-x-1/2 z-20 drop-shadow-sm pointer-events-none select-none ${
+            isFirst ? '-top-7 w-14 h-14' : '-top-5 w-[50px] h-[50px]'
+          }`}
+        />
+
+        {/* 아바타 */}
+        <div className={`relative z-10 rounded-full ring-2 ${PODIUM_RING[place]} p-0.5 bg-white`}>
           <UserAvatar avatarPath={row.avatar_path} nickname={row.nickname} size={isFirst ? 'lg' : 'md'} />
         </div>
-        <p className={`mt-1.5 text-[13px] font-bold truncate w-full text-center ${isMe ? 'text-emerald-800' : 'text-gray-800'}`}>
+
+        <p className={`relative z-10 mt-1.5 text-[13px] font-bold truncate w-full text-center ${isMe ? 'text-emerald-800' : 'text-gray-800'}`}>
           {row.nickname}
+          {isMe && <span className="ml-1 text-[10px] text-emerald-600">(나)</span>}
         </p>
-        <p className={`mt-0.5 font-extrabold text-emerald-600 ${isFirst ? 'text-lg' : 'text-base'}`}>
-          {row.total_score?.toLocaleString()}<span className="text-[11px] font-bold text-emerald-500 ml-0.5">P</span>
+        <p className={`relative z-10 mt-0.5 font-extrabold text-emerald-600 ${isFirst ? 'text-lg' : 'text-base'}`}>
+          {row.total_score?.toLocaleString()}<span className="text-[11px] font-bold text-emerald-500 ml-1">P</span>
         </p>
-        {isMe && <span className="mt-1 px-2 py-0.5 bg-emerald-500 text-white text-[10px] font-bold rounded-full">나</span>}
+
+        {/* 연속 인증 배지 — 랭킹 RPC 가 streak 를 반환하면 표시 (현재는 미반환 → 숨김) */}
+        {row.streak != null && (
+          <span className="relative z-10 mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 text-amber-700 text-[11px] font-bold rounded-full whitespace-nowrap">
+            🔥 연속 {row.streak}일
+          </span>
+        )}
       </motion.div>
     )
   }
 
   return (
-    <div className="grid grid-cols-3 items-end gap-2.5">
+    <div className="grid grid-cols-3 items-end gap-2.5 pt-[33px]">
       {slot(second, 2)}
       {slot(first, 1)}
       {slot(third, 3)}

@@ -13,9 +13,9 @@ const STEPS = [
 function WizardLayout({ currentStep, children }) {
   const navigate = useNavigate()
   return (
-    <div className="max-w-2xl mx-auto p-4">
+    <div className="max-w-2xl mx-auto py-4 px-[11px]">
       {/* 헤더 */}
-      <div className="flex items-center gap-2 mb-6">
+      <div className="flex items-center gap-2" style={{ marginBottom: '9px' }}>
         <button
           type="button"
           onClick={() => navigate(-1)}
@@ -30,7 +30,7 @@ function WizardLayout({ currentStep, children }) {
       </div>
       
       {/* 진행률 — 단계 인디케이터 (원 + 라벨 + 완료 ✓) */}
-      <div className="bg-white border border-gray-100 rounded-2xl shadow-soft px-4 py-3 mb-6">
+      <div className="bg-white border border-gray-100 rounded-[10px] shadow-soft px-4 py-3" style={{ marginBottom: '9px' }}>
         <div className="flex items-start">
           {STEPS.map((step, index) => {
             const done = currentStep > step.number
@@ -57,7 +57,7 @@ function WizardLayout({ currentStep, children }) {
       </div>
       
       {/* 단계별 콘텐츠 */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-6">
+      <div className="bg-white border border-gray-200 rounded-[10px] p-6">
         {children}
       </div>
     </div>

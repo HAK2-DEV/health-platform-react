@@ -233,7 +233,7 @@ function DashboardPage() {
     { label: '미션 완료', value: today?.missionCount ?? 0, cap: 8, img: '/icons/activity/mission.png', bar: 'bg-emerald-500' },
     { label: '기록 작성', value: today?.recordCount ?? 0, cap: 5, img: '/icons/activity/record.png', bar: 'bg-blue-500', scale: 1.7 },
     { label: '댓글 활동', value: today?.commentCount ?? 0, cap: 10, img: '/icons/activity/comment.png', bar: 'bg-amber-500' },
-    { label: '획득 점수', value: today?.points ?? 0, cap: 300, img: '/icons/activity/points.png', bar: 'bg-purple-500' },
+    { label: '획득 점수', value: today?.points ?? 0, cap: 300, img: '/icons/activity/point.png', bar: 'bg-purple-500', circleBg: 'bg-amber-100' },
   ]
 
   return (
@@ -394,14 +394,14 @@ function DashboardPage() {
                 <div key={m.label} className={`flex-1 flex flex-col items-center text-center px-2 ${i > 0 ? 'border-l border-gray-200' : ''}`}>
                   {/* PNG마다 연한 색 원 크기가 달라(미션·기록은 작음) 클립 안쪽에 회색 링이 남음.
                       확대 비율을 키워 색 원이 원형 클립을 꽉 채우도록 통일 */}
-                  <div className="w-9 h-9 mb-1.5 rounded-full overflow-hidden">
+                  <div className={`w-9 h-9 mb-1.5 rounded-full overflow-hidden flex items-center justify-center ${m.circleBg || ''}`}>
                     <img
                       src={m.img}
                       alt=""
                       aria-hidden="true"
                       onError={(e) => { e.currentTarget.style.visibility = 'hidden' }}
-                      style={{ transform: `scale(${m.scale ?? 1.4})` }}
-                      className="w-full h-full object-cover"
+                      style={m.circleBg ? undefined : { transform: `scale(${m.scale ?? 1.4})` }}
+                      className={m.circleBg ? 'w-[83%] h-[83%] object-contain' : 'w-full h-full object-cover'}
                     />
                   </div>
                   <p className="text-lg font-extrabold text-gray-900 leading-tight">{m.value}</p>

@@ -76,9 +76,7 @@ function RankingSettingsModal({ program, isOpen, onClose, onSuccess }) {
         <ToggleRow icon="🏆" title="랭킹 Top 3 (시상대)" color="amber"
           desc="랭킹 페이지에 1·2·3등 시상대 시각화. 끄면 평면 랭킹."
           on={podiumEnabled} disabled={mutation.isPending} onClick={() => setPodiumEnabled(v => !v)} />
-        <ToggleRow icon="📊" title="본인 14일 점수 추세" color="violet"
-          desc="본인 요약 카드에 최근 14일 점수 스파크라인. 꾸준함 시각화."
-          on={trendEnabled} disabled={mutation.isPending} onClick={() => setTrendEnabled(v => !v)} />
+        {/* 「본인 14일 점수 추세」토글 비활성화 (2026-06-21, 랭킹 UI 정리). 재도입 시 복구. */}
         <ToggleRow icon="⏱️" title="기간 필터 (최근 7일 / 30일)" color="cyan"
           desc="참여자가 '전체 / 최근 7일 / 최근 30일' 토글로 단기 분위기 확인 가능."
           on={periodFilterEnabled} disabled={mutation.isPending} onClick={() => setPeriodFilterEnabled(v => !v)} />

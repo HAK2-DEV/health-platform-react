@@ -185,8 +185,9 @@ function ProgramDetailPage() {
     enabled: !!session && !!id,
   })
 
-  // 추세 sparkline — 운영자가 trend_enabled 켰을 때만 fetch (불필요 RPC 절약)
-  const trendVisible = !!program?.trend_enabled
+  // 추세 sparkline — 「본인 14일 점수 추세」기능 비활성화 (2026-06-21, 랭킹 UI 정리).
+  //   표시·fetch 모두 중단. (재도입 시 !!program?.trend_enabled 로 복구)
+  const trendVisible = false
   const { data: myScoreSeries = [] } = useQuery({
     queryKey: queryKeys.myRecentScores(id, userId, 14),
     queryFn: () => fetchMyRecentScoreSeries(id, userId, 14),
@@ -515,8 +516,6 @@ function ProgramDetailPage() {
   })
   const [quizToDelete, setQuizToDelete] = useState(null)
   const handleQuizDelete = (q) => setQuizToDelete(q)
-  // 예정(미시작) 퀴즈 클릭 — 입장 막고 좌우로 흔들기
-  const [shakeQuizId, setShakeQuizId] = useState(null)
 
   // 퀴즈 복제 — 원본 + 문항 복사한 새 퀴즈 생성 (일정 비움)
   const duplicateQuizMutation = useMutation({
@@ -1164,8 +1163,8 @@ function ProgramDetailPage() {
           {program.overview_content?.trim() ? (
             <MarkdownView content={program.overview_content} />
           ) : (
-            <p className="text-sm text-gray-400 text-center py-4">
-              ✏️ 운영자 패널 → 개요 관리자에서 안내 글을 작성해보세요
+            <p className="text-sm text-gray-400 text-center py-4 break-keep whitespace-nowrap">
+              ✏️ 운영자 메뉴에서 안내 글을 작성해보세요
             </p>
           )}
         </div>
@@ -1238,11 +1237,22 @@ function ProgramDetailPage() {
               {!showAllMissions && <ChevronRight className="w-3 h-3" />}
             </button>
           )}
-          {/* 미션 추가 버튼 제거 — 추가는 운영자 패널(미션 관리자) 작업 페이지에서 */}
+          {/* 미션 추가 — 운영자 전용 빠른 추가(미리보기 중 숨김). 라이브러리 모달 진입 */}
+          {isOwner && !missionPreview && (
+            <button
+              type="button"
+              onClick={() => setIsLibraryOpen(true)}
+              title="미션 추가"
+              aria-label="미션 추가"
+              className="flex items-center justify-center w-7 h-7 rounded-lg text-emerald-600 hover:bg-emerald-50 transition"
+            >
+              <Plus className="w-5 h-5" strokeWidth={2.5} />
+            </button>
+          )}
         </div>
       </div>
       {missions.length === 0 ? (
-        <EmptyState icon="🎯" title="미션이 아직 없어요" />
+        <EmptyState icon="🎯" title="미션이 아직 없어요" description={isOwner && !missionPreview ? '오른쪽 + 버튼으로 새 미션을 추가하세요' : undefined} />
       ) : (
         <motion.div layout className="grid grid-cols-1 gap-3">
           <AnimatePresence initial={false}>
@@ -1344,83 +1354,48 @@ function ProgramDetailPage() {
       {activeTab === 'quizzes' && (!quizManageOpen || quizPreview) && (<>
       {(() => {
         const quizList = isOwner ? programQuizzes : participantQuizzes
-        if (quizList.length === 0) {
-          return (
-            <EmptyState
-              icon="📝"
-              title={isOwner ? '아직 퀴즈가 없어요' : '아직 풀 수 있는 퀴즈가 없어요'}
-              description={isOwner ? '운영자 패널(퀴즈 관리자)에서 새 퀴즈를 추가하세요' : undefined}
-            />
-          )
+        // 참가자(비운영자)는 풀 퀴즈가 없으면 빈 상태만. 운영자는 헤더+추가 버튼 유지.
+        if (!isOwner && quizList.length === 0) {
+          return <EmptyState icon="📝" title="아직 풀 수 있는 퀴즈가 없어요" />
         }
         return (
         <div ref={quizSectionRef} className="scroll-mt-16">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-semibold text-gray-800">📝 퀴즈</h2>
-            {quizList.length > 3 && (
-              <button
-                type="button"
-                onClick={() => { setShowAllQuizzes(!showAllQuizzes); scrollToSection(quizSectionRef) }}
-                className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700"
-              >
-                {showAllQuizzes ? '간단히 보기' : `전체보기 (${quizList.length})`}
-                {!showAllQuizzes && <ChevronRight className="w-3 h-3" />}
-              </button>
-            )}
-          </div>
-          <div className="grid grid-cols-1 gap-3">
-            {(showAllQuizzes ? quizList : quizList.slice(0, 3)).map(quiz => {
-              const sub = quiz.mySubmission
-              const now = new Date()
-              const isNotStarted = quiz.start_at && new Date(quiz.start_at) > now
-              const isExpired = quiz.due_at && new Date(quiz.due_at) < now
-              // 예정 퀴즈는 참여자 입장 차단(운영자 미리보기 제외) — 클릭 시 흔들기
-              const lockedNotStarted = isNotStarted && !quizPreview
-              const handleClick = () => {
-                if (lockedNotStarted) {
-                  setShakeQuizId(quiz.id)
-                  setTimeout(() => setShakeQuizId(prev => (prev === quiz.id ? null : prev)), 600)
-                  return
-                }
-                navigate(`/programs/${id}/quiz/${quiz.id}${quizPreview ? '?preview=1' : ''}`)
-              }
-              return (
-                <motion.button
-                  key={quiz.id}
+            <div className="flex items-center gap-2">
+              {quizList.length > 3 && (
+                <button
                   type="button"
-                  onClick={handleClick}
-                  animate={shakeQuizId === quiz.id ? { x: [0, -8, 8, -7, 7, -4, 4, 0] } : { x: 0 }}
-                  transition={{ duration: 0.5 }}
-                  className={`w-full flex items-center gap-3 p-4 bg-white border rounded-2xl transition text-left ${
-                    lockedNotStarted ? 'border-amber-200 cursor-not-allowed' : 'border-gray-200 hover:bg-gray-50 hover:border-emerald-300'
-                  }`}
+                  onClick={() => { setShowAllQuizzes(!showAllQuizzes); scrollToSection(quizSectionRef) }}
+                  className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700"
                 >
-                  <span className="text-2xl flex-shrink-0">{lockedNotStarted ? '🔒' : '📝'}</span>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-medium text-gray-800 truncate">{quiz.title}</h3>
-                    <p className={`text-xs mt-0.5 ${lockedNotStarted ? 'text-amber-600 font-medium' : 'text-gray-500'}`}>
-                      {sub
-                        ? (sub.status === 'PENDING' ? '채점 중' : `완료 · ${sub.total_score}점`)
-                        : isNotStarted
-                          ? `예정중 · ${formatKoreanDateTime(quiz.start_at)}부터 열려요`
-                          : isExpired
-                            ? '마감됨'
-                            : quiz.due_at ? `~ ${formatKoreanDateTime(quiz.due_at)}` : '미응시'}
-                    </p>
-                  </div>
-                  {sub ? (
-                    <span className="px-2 py-0.5 rounded text-xs bg-emerald-100 text-emerald-700 flex-shrink-0">완료</span>
-                  ) : isNotStarted ? (
-                    <span className="px-2 py-0.5 rounded text-xs bg-amber-100 text-amber-700 flex-shrink-0">예정</span>
-                  ) : isExpired ? (
-                    <span className="px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-500 flex-shrink-0">마감</span>
-                  ) : (
-                    <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                  )}
-                </motion.button>
-              )
-            })}
+                  {showAllQuizzes ? '간단히 보기' : `전체보기 (${quizList.length})`}
+                  {!showAllQuizzes && <ChevronRight className="w-3 h-3" />}
+                </button>
+              )}
+              {/* 퀴즈 추가 — 운영자 전용 빠른 추가(미리보기 중 숨김). 퀴즈 라이브러리 진입 */}
+              {isOwner && !quizPreview && (
+                <button
+                  type="button"
+                  onClick={() => setQuizLibOpen(true)}
+                  title="퀴즈 추가"
+                  aria-label="퀴즈 추가"
+                  className="flex items-center justify-center w-7 h-7 rounded-lg text-emerald-600 hover:bg-emerald-50 transition"
+                >
+                  <Plus className="w-5 h-5" strokeWidth={2.5} />
+                </button>
+              )}
+            </div>
           </div>
+          {quizList.length === 0 ? (
+            <EmptyState icon="📝" title="아직 퀴즈가 없어요" description="오른쪽 + 버튼으로 새 퀴즈를 추가하세요" />
+          ) : (
+            <div className="grid grid-cols-1 gap-3">
+              {(showAllQuizzes ? quizList : quizList.slice(0, 3)).map(quiz => (
+                <QuizListItem key={quiz.id} quiz={quiz} programId={id} quizPreview={quizPreview} />
+              ))}
+            </div>
+          )}
         </div>
         )
       })()}
@@ -1838,6 +1813,61 @@ function ProgramDetailPage() {
         busy={deleteMissionMutation.isPending}
       />
     </div>
+  )
+}
+
+// 퀴즈 목록 1행 — 예정(미시작) 퀴즈는 입장 차단 + 클릭 시 좌우 흔들기.
+//   shake 를 카드 로컬 state 로 둬서 부모(ProgramDetailPage) 리렌더에 끊기지 않고
+//   끝까지 재생되도록 함 → 예정 미션 카드(MissionCard)와 동일한 흔들림 세기.
+function QuizListItem({ quiz, programId, quizPreview }) {
+  const navigate = useNavigate()
+  const [shake, setShake] = useState(false)
+  const sub = quiz.mySubmission
+  const now = new Date()
+  const isNotStarted = quiz.start_at && new Date(quiz.start_at) > now
+  const isExpired = quiz.due_at && new Date(quiz.due_at) < now
+  const lockedNotStarted = isNotStarted && !quizPreview
+  const handleClick = () => {
+    if (lockedNotStarted) {
+      setShake(true)
+      setTimeout(() => setShake(false), 600)
+      return
+    }
+    navigate(`/programs/${programId}/quiz/${quiz.id}${quizPreview ? '?preview=1' : ''}`)
+  }
+  return (
+    <motion.button
+      type="button"
+      onClick={handleClick}
+      animate={shake ? { x: [0, -8, 8, -7, 7, -4, 4, 0] } : { x: 0 }}
+      transition={{ duration: 0.5 }}
+      className={`w-full flex items-center gap-3 p-4 bg-white border rounded-2xl transition text-left ${
+        lockedNotStarted ? 'border-amber-200 cursor-not-allowed' : 'border-gray-200 hover:bg-gray-50 hover:border-emerald-300'
+      }`}
+    >
+      <span className="text-2xl flex-shrink-0">{lockedNotStarted ? '🔒' : '📝'}</span>
+      <div className="flex-1 min-w-0">
+        <h3 className="font-medium text-gray-800 truncate">{quiz.title}</h3>
+        <p className={`text-xs mt-0.5 ${lockedNotStarted ? 'text-amber-600 font-medium' : 'text-gray-500'}`}>
+          {sub
+            ? (sub.status === 'PENDING' ? '채점 중' : `완료 · ${sub.total_score}점`)
+            : isNotStarted
+              ? `예정중 · ${formatKoreanDateTime(quiz.start_at)}부터 열려요`
+              : isExpired
+                ? '마감됨'
+                : quiz.due_at ? `~ ${formatKoreanDateTime(quiz.due_at)}` : '미응시'}
+        </p>
+      </div>
+      {sub ? (
+        <span className="px-2 py-0.5 rounded text-xs bg-emerald-100 text-emerald-700 flex-shrink-0">완료</span>
+      ) : isNotStarted ? (
+        <span className="px-2 py-0.5 rounded text-xs bg-amber-100 text-amber-700 flex-shrink-0">예정</span>
+      ) : isExpired ? (
+        <span className="px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-500 flex-shrink-0">마감</span>
+      ) : (
+        <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
+      )}
+    </motion.button>
   )
 }
 

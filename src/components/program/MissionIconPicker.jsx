@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { Upload, X, Check } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
 import ImageCropModal from '../common/ImageCropModal'
-import { MISSION_ICONS, resolveMissionIcon } from '../../lib/missionIcons'
+import { MISSION_ICONS, resolveMissionIcon, normalizeMissionIcon } from '../../lib/missionIcons'
 
 // 미션 아이콘 선택기 — 기본 아이콘 갤러리 + 직접 업로드 + 없음.
 // props:
@@ -22,6 +22,8 @@ function MissionIconPicker({ ownerId, value, onChange, disabled }) {
   const [isCropOpen, setIsCropOpen] = useState(false)
 
   const isCustom = !!value && /^https?:\/\//.test(value)
+  // 옛 경로를 가진 기존 미션도 새 아이콘이 선택 상태로 보이도록 정규화 비교
+  const normValue = isCustom ? value : normalizeMissionIcon(value)
 
   const handleFile = (e) => {
     const file = e.target.files?.[0]
@@ -92,7 +94,7 @@ function MissionIconPicker({ ownerId, value, onChange, disabled }) {
           </div>
         )}
         {MISSION_ICONS.map(ic => {
-          const selected = value === ic
+          const selected = normValue === ic
           return (
             <button
               key={ic}

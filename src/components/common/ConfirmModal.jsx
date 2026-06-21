@@ -6,7 +6,7 @@ function ConfirmModal({ isOpen, onClose, onConfirm, title, message, confirmLabel
     <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-5" onClick={onClose}>
       <div className="w-full max-w-xs bg-white rounded-2xl p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <h4 className="text-[15px] font-bold text-gray-800 mb-1.5">{title}</h4>
-        {message && <p className="text-[13px] text-gray-600 leading-relaxed mb-3 whitespace-pre-line">{message}</p>}
+        {message && <p className="text-[13px] text-gray-600 leading-relaxed whitespace-pre-line break-keep" style={{ marginBottom: '9px' }}>{message}</p>}
         <div className="flex gap-2">
           <button type="button" onClick={onClose} className="flex-1 h-11 rounded-xl border border-gray-200 text-gray-600 text-sm font-bold hover:bg-gray-50 transition">취소</button>
           <button type="button" onClick={onConfirm} disabled={busy}

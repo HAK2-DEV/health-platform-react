@@ -1,6 +1,7 @@
 import { useState, useMemo, Fragment } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { motion } from 'framer-motion'
 import { ChevronRight, ArrowLeft, Check, ClipboardList, X } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { checkMissionToday, formatKoreanDate } from '../lib/formatters'
@@ -12,6 +13,7 @@ import ProgramCover from '../components/common/ProgramCover'
 import NotificationBell from '../components/common/NotificationBell'
 import LoadingState from '../components/common/LoadingState'
 import EmptyState from '../components/common/EmptyState'
+import Confetti from '../components/common/Confetti'
 
 // 인증 가능 여부 — 지원 형식 있음 + 활성 + 일일 한도 미달
 function isRecordable(m, todayCounts) {
@@ -451,6 +453,7 @@ function MissionSelectStep({ group, todayCounts, onBack }) {
             isOwner={false}
             programId={m.program_id}
             navigateState={{ returnPath: `/record?program=${group.program.id}` }}
+            navigateSearch="?from=record"
           />
         ))}
       </div>
@@ -461,19 +464,27 @@ function MissionSelectStep({ group, todayCounts, onBack }) {
 // ─── 완료 축하 화면 (오늘 요약 통계 포함) ──────────────────
 function CompletionView({ count, points, streak, onHome, onRanking }) {
   return (
-    <div className="bg-white border border-gray-100 rounded-2xl shadow-soft py-10 px-6 flex flex-col items-center text-center">
-      <div className="text-5xl mb-3 select-none">🎉</div>
-      <h2 className="text-xl font-extrabold text-gray-900">오늘의 기록을 모두 마쳤어요!</h2>
-      <p className="text-sm text-gray-500 mt-2 leading-relaxed">꾸준함이 건강을 만듭니다 💚</p>
+    <div className="relative overflow-hidden bg-white border border-gray-100 rounded-2xl shadow-soft py-10 px-6 flex flex-col items-center text-center">
+      <Confetti />
+      <motion.div
+        className="text-6xl mb-3 select-none relative"
+        initial={{ scale: 0, rotate: -25 }}
+        animate={{ scale: [0, 1.35, 0.92, 1.08, 1], rotate: [-25, 12, -6, 0] }}
+        transition={{ duration: 0.9, times: [0, 0.4, 0.65, 0.85, 1], ease: 'easeOut' }}
+      >
+        🎉
+      </motion.div>
+      <h2 className="text-xl font-extrabold text-gray-900 relative">오늘의 기록을 모두 마쳤어요!</h2>
+      <p className="text-sm text-gray-500 mt-2 leading-relaxed relative">꾸준함이 건강을 만듭니다 💚</p>
 
       {/* 오늘 요약 */}
-      <div className="grid grid-cols-3 gap-2 w-full mt-6">
-        <SummaryTile tone="emerald" value={`${count}개`} label="완료 미션" />
-        <SummaryTile tone="amber" value={`${points}P`} label="획득 점수" />
-        <SummaryTile tone="rose" value={`${streak}일`} label="연속 인증" />
+      <div className="relative grid grid-cols-3 gap-2 w-full mt-6">
+        <SummaryTile tone="emerald" icon="/icons/activity/complete.png" value={`${count}개`} label="완료 미션" />
+        <SummaryTile tone="amber" icon="/icons/activity/point.png" value={`${points}P`} label="획득 점수" iconScale={1.08} />
+        <SummaryTile tone="violet" icon="/icons/activity/streak.png" value={`${streak}일`} label="연속 인증" />
       </div>
 
-      <div className="flex gap-2 mt-6 w-full">
+      <div className="relative flex gap-2 mt-6 w-full">
         <button type="button" onClick={onHome} className="flex-1 h-11 rounded-xl bg-gray-100 text-gray-700 font-bold hover:bg-gray-200 transition">
           홈으로
         </button>
@@ -488,11 +499,13 @@ function CompletionView({ count, points, streak, onHome, onRanking }) {
 const SUMMARY_TONE = {
   emerald: 'bg-emerald-50 text-emerald-600',
   amber: 'bg-amber-50 text-amber-600',
+  violet: 'bg-violet-50 text-violet-600',
   rose: 'bg-rose-50 text-rose-500',
 }
-function SummaryTile({ tone, value, label }) {
+function SummaryTile({ tone, value, label, icon, iconScale = 1 }) {
   return (
     <div className={`rounded-xl py-3 ${SUMMARY_TONE[tone]}`}>
+      {icon && <img src={icon} alt="" style={iconScale !== 1 ? { transform: `scale(${iconScale})` } : undefined} className="w-7 h-7 mx-auto mb-1 object-contain" />}
       <p className="text-lg font-extrabold leading-none">{value}</p>
       <p className="text-[11px] text-gray-500 mt-1">{label}</p>
     </div>

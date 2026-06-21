@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import { Trash2, Pencil } from 'lucide-react'
-import { formatKoreanDate, toKSTDateString, checkMissionToday } from '../../lib/formatters'
+import { formatKoreanDate, formatKoreanDateTime, toKSTDateString, checkMissionToday } from '../../lib/formatters'
 import { resolveMissionIcon } from '../../lib/missionIcons'
 
 // 미션 카드 1장 — ProgramDetailPage / BundleDetailPage 등 여러 곳에서 재사용
@@ -23,6 +25,7 @@ function MissionCard({
   onEdit,
   programId,
   navigateState,
+  navigateSearch,    // 인증 URL 에 붙일 쿼리 (예: '?from=record') — 새로고침에도 출처 생존
   viewerMode,        // 공개 프로그램 비참여자 열람 — 인증 버튼 대신 '참여 필요'
   onViewerAction,    // 열람자가 인증 시도 시 (참여 모달 열기)
 }) {
@@ -50,6 +53,14 @@ function MissionCard({
   const todayCheck = checkMissionToday(mission)
   const isInactive = isBeforeStart || isAfterEnd || !todayCheck.active
 
+  // 예정(미시작) 미션 — 참여자/열람자 입장 차단, 클릭 시 좌우로 흔들기 (예정 퀴즈와 동일 UX)
+  const lockedUpcoming = isBeforeStart && !isOwner
+  const [shake, setShake] = useState(false)
+  const triggerShake = () => {
+    setShake(true)
+    setTimeout(() => setShake(false), 600)
+  }
+
   const inactiveLabel = isBeforeStart
     ? `${formatKoreanDate(toKSTDateString(activeFrom))} 시작`
     : isAfterEnd
@@ -59,7 +70,12 @@ function MissionCard({
     : null
 
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl p-4">
+    <motion.div
+      animate={shake ? { x: [0, -8, 8, -7, 7, -4, 4, 0] } : { x: 0 }}
+      transition={{ duration: 0.5 }}
+      onClick={lockedUpcoming ? triggerShake : undefined}
+      className={`bg-white border rounded-2xl p-4 ${lockedUpcoming ? 'border-amber-200 cursor-not-allowed' : 'border-gray-200'}`}
+    >
       {/* 1행 — 참여자/운영자 공통: [썸네일] 제목 + 5P + 인증 액션 */}
       <div className="flex items-center justify-between gap-3">
       {/* 좌측 썸네일 — 라이브러리 사전 제작 아이콘. 없으면 미표시 (절약된 공간만큼 제목 확장) */}
@@ -74,10 +90,18 @@ function MissionCard({
       )}
       <div className="flex-1 min-w-0">
         <h3 className="font-medium text-gray-800 mb-1">{mission.title}</h3>
-        <p className="text-xs text-gray-500">
-          {mission.verification_type === 'AUTO' ? '자동 승인' : '운영자 심사'}
-          {mission.daily_limit ? ` · 하루 ${mission.daily_limit}회` : ' · 무제한'}
-        </p>
+       <p className={`text-xs ${isBeforeStart ? 'text-amber-600 font-medium' : 'text-gray-500'}`}>
+  {isBeforeStart ? (
+    <>
+      예정중<br />
+      {formatKoreanDateTime(mission.active_from)}부터 열려요
+    </>
+  ) : (
+    `${mission.verification_type === 'AUTO' ? '자동 승인' : '운영자 심사'}${
+      mission.daily_limit ? ` · 하루 ${mission.daily_limit}회` : ' · 무제한'
+    }`
+  )}
+</p>
       </div>
 
       {/* 5P + 인증 액션 column — 본인 결정 (Day 65): 좁은 화면에서 글자 세로 배열 방지 위해 stack */}
@@ -89,6 +113,10 @@ function MissionCard({
       {!isSupported ? (
         <span className="text-xs text-gray-400 whitespace-nowrap">
           준비 중
+        </span>
+      ) : isBeforeStart ? (
+        <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-amber-100 text-amber-700 text-xs rounded font-medium whitespace-nowrap">
+          🔒 예정
         </span>
       ) : isInactive ? (
         <span
@@ -127,7 +155,7 @@ function MissionCard({
         <div className="text-right">
           <button
             type="button"
-            onClick={() => navigate(`/programs/${programId}/missions/${mission.id}`, {
+            onClick={() => navigate(`/programs/${programId}/missions/${mission.id}${navigateSearch || ''}`, {
               state: navigateState ?? null,
             })}
             className="px-3 py-1.5 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white text-sm rounded transition whitespace-nowrap"
@@ -172,7 +200,7 @@ function MissionCard({
           </button>
         </div>
       )}
-    </div>
+    </motion.div>
   )
 }
 
