@@ -139,7 +139,7 @@ function NotificationsPage() {
       {/* 헤더 + 우상단 설정 + 풍경 이미지 */}
       <div className="relative h-44 overflow-hidden bg-gradient-to-b from-emerald-100 via-emerald-50/80 to-teal-50/40">
         <img
-          src="/header-rankings.png"
+          src="/header-rankings.jpg"
           alt=""
           aria-hidden="true"
           onError={(e) => { e.currentTarget.style.display = 'none' }}

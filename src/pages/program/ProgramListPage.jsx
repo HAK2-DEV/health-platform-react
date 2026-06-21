@@ -471,7 +471,7 @@ function ProgramListPage() {
             <div className="relative overflow-hidden rounded-2xl bg-[#eaf6ee] w-[359px] max-w-full h-[124px] mx-auto">
               {/* 배경 일러스트 */}
               <img
-                src="/illustrations/browse-banner.png"
+                src="/illustrations/browse-banner.jpg"
                 alt=""
                 aria-hidden="true"
                 onError={(e) => { e.currentTarget.style.display = 'none' }}

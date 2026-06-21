@@ -260,7 +260,7 @@ function ProfilePage() {
       {/* 프로필 카드 — 366×200, r10 (우측 잎 일러스트) */}
       <div className="relative w-[366px] max-w-full mx-auto h-[200px] overflow-hidden rounded-[10px] bg-[#eef7f1] border border-emerald-100/60">
         <img
-          src="/illustrations/mypage-banner.png"
+          src="/illustrations/mypage-banner.jpg"
           alt="" aria-hidden="true"
           onError={(e) => { e.currentTarget.style.display = 'none' }}
           className="absolute right-0 top-0 bottom-0 h-full w-auto max-w-none"

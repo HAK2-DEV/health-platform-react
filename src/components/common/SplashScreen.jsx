@@ -41,7 +41,7 @@ function SplashScreen() {
         >
           {/* 배경 풍경 (없으면 위 그라데이션이 그대로 보임) */}
           <img
-            src="/splash-bg.png"
+            src="/splash-bg.jpg"
             alt=""
             aria-hidden="true"
             onError={(e) => { e.currentTarget.style.display = 'none' }}

@@ -255,7 +255,7 @@ function ProgramSelectStep({ recentGroup, onSelect, onOpenPicker }) {
       {/* 도입 배너 — 일러스트 + 부제 + 프로그램 선택하기 버튼 */}
       <div className="relative overflow-hidden rounded-2xl bg-[#eaf6ee] px-5 pt-5 pb-[30px]">
         <img
-          src="/illustrations/record-banner.png"
+          src="/illustrations/record-banner.jpg"
           alt="" aria-hidden="true"
           onError={(e) => { e.currentTarget.style.display = 'none' }}
           className="absolute inset-0 w-full h-full object-contain"

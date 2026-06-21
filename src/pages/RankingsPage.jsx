@@ -366,7 +366,7 @@ function RankingBanner({ badge }) {
   return (
     <div className="relative overflow-hidden rounded-2xl bg-[#eef7f1] h-[124px]">
       <img
-        src="/illustrations/ranking-banner.png"
+        src="/illustrations/ranking-banner.jpg"
         alt="" aria-hidden="true"
         onError={(e) => { e.currentTarget.style.display = 'none' }}
         className="absolute inset-0 w-full h-full object-cover"

@@ -39,13 +39,13 @@ const VARIANT_EMOJI = {
 
 // 카테고리 KEY → 자체 표지 경로 매핑 (public/illustrations/program-covers/)
 const COVER_BY_CATEGORY = {
-  WALKING: '/illustrations/program-covers/walking.png',
-  DIET: '/illustrations/program-covers/diet.png',
-  EMPATHY: '/illustrations/program-covers/empathy.png',
-  MINDCARE: '/illustrations/program-covers/mindcare.png',
-  SLEEP: '/illustrations/program-covers/sleep.png',
-  NO_SMOKING: '/illustrations/program-covers/no_smoking.png',
-  ETC: '/illustrations/program-covers/etc.png',
+  WALKING: '/illustrations/program-covers/walking.jpg',
+  DIET: '/illustrations/program-covers/diet.jpg',
+  EMPATHY: '/illustrations/program-covers/empathy.jpg',
+  MINDCARE: '/illustrations/program-covers/mindcare.jpg',
+  SLEEP: '/illustrations/program-covers/sleep.jpg',
+  NO_SMOKING: '/illustrations/program-covers/no_smoking.jpg',
+  ETC: '/illustrations/program-covers/etc.jpg',
 }
 
 function ProgramCover({ imagePath, categories, name, variant = 'hero', className = '' }) {

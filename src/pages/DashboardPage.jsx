@@ -273,7 +273,7 @@ function DashboardPage() {
         >
           {/* 일러스트 — object-cover + 상단 기준(머리 안 잘리게) → 인물 크게 (사진2처럼) */}
           <img
-            src="/home-header.png"
+            src="/home-header.jpg"
             alt=""
             aria-hidden="true"
             onError={(e) => { e.currentTarget.style.display = 'none' }}
