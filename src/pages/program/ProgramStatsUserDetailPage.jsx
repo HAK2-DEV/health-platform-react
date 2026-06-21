@@ -1,6 +1,6 @@
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { ChevronRight, Target, FileText, MessageCircle } from 'lucide-react'
 import DoorIcon from '../../components/common/DoorIcon'
@@ -12,6 +12,7 @@ import StickyBackBar from '../../components/common/StickyBackBar'
 import LoadingState from '../../components/common/LoadingState'
 import EmptyState from '../../components/common/EmptyState'
 import UserAvatar from '../../components/common/UserAvatar'
+import ConfirmModal from '../../components/common/ConfirmModal'
 
 // 한 유저의 활동 메인 — 핵심 지표 + 14일 차트 + 2개 진입 카드 (미션별 분포 / 인증 기록)
 // 라우트: /programs/:id/stats/users/:userId
@@ -141,11 +142,9 @@ function ProgramStatsUserDetailPage() {
       alert(err.message || '내보내기에 실패했어요')
     },
   })
-  const handleRemove = () => {
-    if (!userInfo) return
-    if (!window.confirm(`${userInfo.nickname} 님을 이 프로그램에서 내보낼까요?\n랭킹·집계에서 제외되고 더 이상 인증할 수 없어요. (기록은 보존)`)) return
-    removeMutation.mutate()
-  }
+  // 내보내기 — 중앙 카드 2단계 확인 (정말로 내보내겠습니까? × 2)
+  const [removeStep, setRemoveStep] = useState(0)   // 0=닫힘 1=1차 2=2차
+  const handleRemove = () => { if (userInfo) setRemoveStep(1) }
 
   // 최근 14일 활동 — Intl Asia/Seoul 로 정확
   const recent14Days = useMemo(() => {
@@ -390,6 +389,20 @@ function ProgramStatsUserDetailPage() {
           <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
         </button>
       </div>
+
+      {/* 내보내기 — 중앙 카드 2단계 확인 */}
+      <ConfirmModal
+        isOpen={removeStep > 0}
+        onClose={() => { if (!removeMutation.isPending) setRemoveStep(0) }}
+        onConfirm={() => { if (removeStep === 1) setRemoveStep(2); else removeMutation.mutate() }}
+        title="정말로 내보내겠습니까?"
+        message={removeStep === 1
+          ? `${userInfo?.nickname} 님을 이 프로그램에서 내보내요.\n랭킹·집계에서 제외되고 더 이상 인증할 수 없어요. (기록은 보존)`
+          : `마지막 확인이에요. ${userInfo?.nickname} 님을 정말로 내보낼까요?\n되돌리려면 다시 초대해야 해요.`}
+        confirmLabel={removeStep === 1 ? '내보내기' : '정말 내보내기'}
+        danger
+        busy={removeMutation.isPending}
+      />
     </div>
   )
 }
