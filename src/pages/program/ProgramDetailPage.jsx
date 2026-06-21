@@ -363,10 +363,11 @@ function ProgramDetailPage() {
   const [editingPost, setEditingPost] = useState(null)                 // 수정 중인 게시글 (null=새 글)
 
   // 게시판 글 (인증/전체 외 게시판) — 선택 칩 기준
-  const { data: communityPosts = [] } = useQuery({
+  const { data: communityPosts = [], isLoading: isCommunityLoading } = useQuery({
     queryKey: queryKeys.communityPosts(id, communityBoard),
     queryFn: () => fetchCommunityPosts(id, communityBoard),
     enabled: !!session && !!id && !!program && activeTab === 'community' && communityBoard !== 'all' && communityBoard !== 'cert',
+    staleTime: 60_000,          // 칩 전환 후 재진입 시 캐시 즉시 표시 (1분간 재요청 X → 깜빡임 없음)
   })
   // 공지 배너 — 공지 게시판 최신글 (공지 사용 ON 일 때)
   const { data: noticePosts = [] } = useQuery({
@@ -1496,6 +1497,8 @@ function ProgramDetailPage() {
             <Suspense fallback={<LoadingState text="피드 불러오는 중..." />}>
               <FeedContent program={program} layout={activeBoardLayout} readOnly={isViewer} />
             </Suspense>
+          ) : isCommunityLoading ? (
+            <LoadingState text="게시글 불러오는 중..." />
           ) : (
             <CommunityPostList programId={id} boardId={communityBoard} posts={communityPosts} myUserId={userId} isOwner={isOwner}
               layout={activeBoardLayout} canReact={canReact} canComment={canComment}

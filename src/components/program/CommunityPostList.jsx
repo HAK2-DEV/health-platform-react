@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Trash2, Pencil, Flag, Pin, PinOff } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
@@ -20,22 +20,30 @@ function CommunityPostList({ programId, boardId, posts = [], myUserId, isOwner, 
   const [reportId, setReportId] = useState(null)
   const [detailPost, setDetailPost] = useState(null)   // 상세(글 펼치기) 모달
   const [postToDelete, setPostToDelete] = useState(null)  // 삭제 확인 모달
+  // image_path → signedUrl 캐시 (세션 내). 칩 전환 시 이미 본 이미지는 재요청 X → 누락분만 fetch.
+  const urlCacheRef = useRef({})
 
   useEffect(() => {
     let cancelled = false
     const withImg = posts.filter(p => p.image_path)
     if (withImg.length === 0) { setImageUrls({}); return }
-    const paths = withImg.map(p => p.image_path)
-    const pathToId = new Map(withImg.map(p => [p.image_path, p.id]))
-    supabase.storage.from('community-posts').createSignedUrls(paths, 3600)
+    const cache = urlCacheRef.current
+    const buildMap = () => {
+      const map = {}
+      for (const p of withImg) { const u = cache[p.image_path]; if (u) map[p.id] = u }
+      return map
+    }
+    // 캐시된 건 즉시 반영(이미지 빈칸 방지) → 누락 경로만 네트워크로
+    setImageUrls(buildMap())
+    const missing = [...new Set(withImg.map(p => p.image_path).filter(path => !cache[path]))]
+    if (missing.length === 0) return
+    supabase.storage.from('community-posts').createSignedUrls(missing, 3600)
       .then(({ data }) => {
         if (cancelled) return
-        const map = {}
         for (const r of data || []) {
-          const pid = pathToId.get(r.path)
-          if (pid != null && r.signedUrl && !r.error) map[pid] = r.signedUrl
+          if (r.path && r.signedUrl && !r.error) cache[r.path] = r.signedUrl
         }
-        setImageUrls(map)
+        setImageUrls(buildMap())
       })
     return () => { cancelled = true }
   }, [posts])
@@ -244,8 +252,8 @@ function CommunityPostList({ programId, boardId, posts = [], myUserId, isOwner, 
 
       {/* 상세(글 펼치기) — 화면 중앙 카드 (삭제 확인과 동일 스타일) */}
       {detailPost && (
-        <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-5" onClick={() => setDetailPost(null)}>
-          <div className="w-full max-w-md max-h-[85vh] overflow-y-auto bg-white rounded-2xl p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-5" style={{ touchAction: 'pan-y' }} onClick={() => setDetailPost(null)}>
+          <div className="w-full max-w-md max-h-[85vh] overflow-y-auto overflow-x-hidden overscroll-contain bg-white rounded-2xl p-5 shadow-xl" style={{ touchAction: 'pan-y' }} onClick={(e) => e.stopPropagation()}>
             {detailPost.pinned_at && <div className="mb-2"><PinPill /></div>}
             <div className="flex items-center gap-2.5 mb-3">
               <UserAvatar avatarPath={detailPost.author?.avatar_path} nickname={detailPost.author?.nickname} size="md" />
@@ -259,7 +267,7 @@ function CommunityPostList({ programId, boardId, posts = [], myUserId, isOwner, 
               <Actions p={detailPost} />
             </div>
             {detailPost.title && <h3 className="font-bold text-lg text-gray-800 mb-1.5">{detailPost.title}</h3>}
-            {detailPost.body && <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{detailPost.body}</p>}
+            {detailPost.body && <p className="text-sm text-gray-700 whitespace-pre-wrap break-words leading-relaxed">{detailPost.body}</p>}
             {detailPost.image_path && imageUrls[detailPost.id] && (
               <img src={imageUrls[detailPost.id]} alt="" className="mt-3 w-full max-h-[60vh] object-contain rounded-lg bg-gray-50" />
             )}

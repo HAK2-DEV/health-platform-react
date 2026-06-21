@@ -299,8 +299,10 @@ function FeedContent({ program, layout: layoutProp = null, targetVerificationId 
       })()}
       {showFull && (
         <div className={focusedId && layout !== 'feed' ? 'fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-5' : ''}
+          style={focusedId && layout !== 'feed' ? { touchAction: 'pan-y' } : undefined}
           onClick={focusedId && layout !== 'feed' ? () => setFocusedId(null) : undefined}>
-        <div className={focusedId && layout !== 'feed' ? 'w-full max-w-md max-h-[85vh] overflow-y-auto space-y-5' : 'space-y-5'}
+        <div className={focusedId && layout !== 'feed' ? 'w-full max-w-md max-h-[85vh] overflow-y-auto overflow-x-hidden overscroll-contain space-y-5' : 'space-y-5'}
+          style={focusedId && layout !== 'feed' ? { touchAction: 'pan-y' } : undefined}
           onClick={focusedId && layout !== 'feed' ? (e) => e.stopPropagation() : undefined}>
       {visiblePosts.map(post => {
         const likedByMe = post.likedUserIds.has(myUserId)
@@ -443,7 +445,7 @@ function FeedContent({ program, layout: layoutProp = null, targetVerificationId 
                   </div>
                 ) : (
                   hasNote && (
-                    <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                    <p className="text-sm text-gray-700 whitespace-pre-wrap break-words">
                       {post.note}
                     </p>
                   )
