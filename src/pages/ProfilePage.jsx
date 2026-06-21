@@ -391,13 +391,15 @@ function ProfilePage() {
         description="걷기, 운동, 수면 등 내 활동 기록을 확인하세요."
         onClick={() => navigate('/profile/activity')}
       />
-      <ProfileMenuItem
+      {/* 운영자 가이드 — UI 대폭 변경으로 내용 갱신 필요, 임시 숨김 (2026-06-22).
+          개편 후 복구 예정. 라우트(/operator-guide)와 OperatorGuidePage 는 유지. */}
+      {/* <ProfileMenuItem
         tone="amber"
         icon={<BookOpen className="w-5 h-5" />}
         title="운영자 가이드"
         description="프로그램·미션·퀴즈… 운영자가 할 수 있는 모든 것"
         onClick={() => navigate('/operator-guide')}
-      />
+      /> */}
       <ProfileMenuItem
         tone="violet"
         icon={<Bell className="w-5 h-5" />}

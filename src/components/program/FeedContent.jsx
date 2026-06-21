@@ -19,7 +19,7 @@ import ReportModal from '../common/ReportModal'
 //   program: 프로그램 객체 (feed_enabled 체크 + program.id 사용)
 //   targetVerificationId: 알림 ?v= 자동 스크롤 (ProgramFeedPage 단독 진입용)
 //   targetCommentId: 알림 ?c= 자동 스크롤 (위와 동일)
-function FeedContent({ program, targetVerificationId = null, targetCommentId = null, readOnly = false }) {
+function FeedContent({ program, layout: layoutProp = null, targetVerificationId = null, targetCommentId = null, readOnly = false }) {
   const id = program.id
   // 반응(좋아요·댓글) 허용 — 커뮤니티 ③ 토글(community_settings.reactionAuto). 기본 허용.
   const reactionsEnabled = program.community_settings?.reactionAuto !== false
@@ -183,7 +183,8 @@ function FeedContent({ program, targetVerificationId = null, targetCommentId = n
   }
 
   // 커뮤니티 레이아웃 (093) — list(기본) / grid / magazine. 카드 탭 시 focusedId 풀뷰.
-  const layout = program.community_layout || 'feed'
+  //   게시판별 override(104+) 가 있으면 우선, 없으면 프로그램 전체 레이아웃.
+  const layout = layoutProp || program.community_layout || 'feed'
   const showFull = layout === 'feed' || !!focusedId
   const visiblePosts = focusedId ? posts.filter(p => p.id === focusedId) : posts
 
@@ -289,14 +290,18 @@ function FeedContent({ program, targetVerificationId = null, targetCommentId = n
       {!showFull && layout === 'grid' && (
         <div className="grid grid-cols-2 gap-3">{posts.map(renderGridCard)}</div>
       )}
-      {!showFull && layout === 'magazine' && (
-        <div className="space-y-3">
-          {posts[0] && renderMagCard(posts[0], true)}
-          {posts.length > 1 && (
-            <div className="grid grid-cols-2 gap-3">{posts.slice(1).map(p => renderMagCard(p, false))}</div>
-          )}
-        </div>
-      )}
+      {!showFull && layout === 'magazine' && (() => {
+        // 대1(hero 오버레이) + 소2(그리드) + 중1(가로) 반복
+        const blocks = []
+        let i = 0
+        while (i < posts.length) {
+          blocks.push(<div key={`big-${i}`}>{renderMagCard(posts[i], true)}</div>); i += 1
+          const smalls = posts.slice(i, i + 2)
+          if (smalls.length) { blocks.push(<div key={`sm-${i}`} className="grid grid-cols-2 gap-3">{smalls.map(p => renderMagCard(p, false))}</div>); i += smalls.length }
+          if (i < posts.length) { blocks.push(<div key={`md-${i}`}>{renderListRow(posts[i])}</div>); i += 1 }
+        }
+        return <div className="space-y-3">{blocks}</div>
+      })()}
       {showFull && <div className="space-y-5">
       {visiblePosts.map(post => {
         const likedByMe = post.likedUserIds.has(myUserId)

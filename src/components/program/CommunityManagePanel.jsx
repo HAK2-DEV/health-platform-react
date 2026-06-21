@@ -1,6 +1,6 @@
 import { useState, useEffect, forwardRef, useImperativeHandle } from 'react'
 import { supabase } from '../../supabaseClient'
-import { Check, FileText, Heart, MessageCircle, Plus, X, ChevronUp, ChevronDown, MoreVertical, Trash2 } from 'lucide-react'
+import { Check, FileText, Heart, MessageCircle, Plus, X, ChevronUp, ChevronDown, MoreVertical, Trash2, LayoutGrid } from 'lucide-react'
 import HiddenPostsSection from './HiddenPostsSection'
 import ConfirmModal from '../common/ConfirmModal'
 
@@ -203,6 +203,14 @@ function CommunityPreview({ layout, reactionsEnabled, boards }) {
                 </div>
               ))}
             </div>
+            {/* 중 1 — 가로 행 */}
+            <div className="flex items-center gap-2 bg-white rounded-lg border border-gray-100 p-1.5">
+              <div className={`w-10 h-10 rounded-md bg-gradient-to-br ${SAMPLE_POSTS[3].grad} flex-shrink-0`} />
+              <div className="flex-1 min-w-0">
+                <span className="text-[10px] font-bold text-gray-800">{SAMPLE_POSTS[3].name}</span>
+                <p className="text-[9px] text-gray-600 truncate">{SAMPLE_POSTS[3].note}</p>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -256,6 +264,7 @@ const CommunityManagePanel = forwardRef(function CommunityManagePanel({ program,
     })
   }
   const [menuOpenId, setMenuOpenId] = useState(null)  // ⋮ 메뉴
+  const [layoutModal, setLayoutModal] = useState(null)  // 게시판별 레이아웃 선택 { boardId }
   const [nameModal, setNameModal] = useState(null)    // 게시판 이름 입력 모달 { mode:'add'|'rename', boardId, value }
   const confirmName = () => {
     const v = (nameModal?.value || '').trim().slice(0, 8)
@@ -359,7 +368,13 @@ const CommunityManagePanel = forwardRef(function CommunityManagePanel({ program,
                   <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm flex-shrink-0 ${meta.bg}`}>{meta.emoji}</span>
                   <div className="min-w-0">
                     <p className="text-[12px] font-bold text-gray-800 truncate">{b.name}</p>
-                    {b.desc && <p className="text-[9px] text-gray-400 leading-tight">{b.desc}</p>}
+                    {b.layout ? (
+                      <span className="inline-flex items-center gap-0.5 mt-0.5 px-1.5 py-0.5 rounded bg-violet-50 text-violet-600 text-[9px] font-semibold leading-none">
+                        <LayoutGrid className="w-2.5 h-2.5" /> {LAYOUTS.find(l => l.key === b.layout)?.label || b.layout}
+                      </span>
+                    ) : (
+                      b.desc && <p className="text-[9px] text-gray-400 leading-tight">{b.desc}</p>
+                    )}
                   </div>
                 </div>
                 {/* 참여자 글 */}
@@ -374,7 +389,10 @@ const CommunityManagePanel = forwardRef(function CommunityManagePanel({ program,
                   {menuOpenId === b.id && (
                     <>
                       <div className="fixed inset-0 z-10" onClick={() => setMenuOpenId(null)} />
-                      <div className="absolute right-0 top-6 z-20 w-32 bg-white border border-gray-200 rounded-lg shadow-lg py-1">
+                      <div className="absolute right-0 top-6 z-20 w-36 bg-white border border-gray-200 rounded-lg shadow-lg py-1">
+                        <button type="button" onClick={() => { setLayoutModal({ boardId: b.id }); setMenuOpenId(null) }} className="w-full flex items-center gap-1.5 px-3 py-1.5 text-left text-[12px] text-gray-700 hover:bg-gray-50">
+                          <LayoutGrid className="w-3.5 h-3.5" /> 레이아웃 선택
+                        </button>
                         <button type="button" onClick={() => { removeBoard(b.id); setMenuOpenId(null) }} className="w-full flex items-center gap-1.5 px-3 py-1.5 text-left text-[12px] text-red-600 hover:bg-red-50">
                           <Trash2 className="w-3.5 h-3.5" /> 게시판 삭제
                         </button>
@@ -487,6 +505,43 @@ const CommunityManagePanel = forwardRef(function CommunityManagePanel({ program,
           ? <HiddenPostsSection programId={program.id} feedEnabled={!!program.feed_enabled} />
           : <p className="text-[12px] text-gray-400 py-2">피드를 사용하는 프로그램에서 신고·가려진 글을 관리할 수 있어요.</p>}
       </section>
+
+      {/* 게시판별 레이아웃 선택 모달 — 기본값(전체 설정 따름) + 4종 */}
+      {layoutModal && (() => {
+        const b = boards.find(x => x.id === layoutModal.boardId)
+        if (!b) return null
+        const cur = b.layout || ''   // '' = 전체 설정 따름
+        const choose = (key) => { updateBoard(b.id, { layout: key || undefined }); setLayoutModal(null) }
+        return (
+          <div className="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center p-5" onClick={() => setLayoutModal(null)}>
+            <div className="w-full max-w-xs bg-white rounded-2xl p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+              <h4 className="text-[15px] font-bold text-gray-800 mb-0.5">“{b.name}” 레이아웃</h4>
+              <p className="text-[11px] text-gray-400 mb-3">이 게시판만 다른 레이아웃으로. 기본은 전체 설정({LAYOUTS.find(l => l.key === layout)?.label})을 따라요.</p>
+              <div className="grid grid-cols-2 gap-2">
+                {/* 전체 설정 따름 */}
+                <button type="button" onClick={() => choose('')}
+                  className={`relative flex flex-col items-center text-center rounded-xl border-2 p-2 transition ${cur === '' ? 'border-emerald-400 bg-emerald-50/50' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
+                  {cur === '' && <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center"><Check className="w-2.5 h-2.5 text-white" /></span>}
+                  <div className="w-full h-[44px] rounded-md bg-gray-50 border border-gray-100 mb-1.5 flex items-center justify-center text-[10px] text-gray-400 font-semibold">전체 설정</div>
+                  <span className={`text-[12px] font-bold ${cur === '' ? 'text-emerald-700' : 'text-gray-700'}`}>기본값 따름</span>
+                </button>
+                {LAYOUTS.map(l => {
+                  const on = cur === l.key
+                  return (
+                    <button key={l.key} type="button" onClick={() => choose(l.key)}
+                      className={`relative flex flex-col items-center text-center rounded-xl border-2 p-2 transition ${on ? 'border-emerald-400 bg-emerald-50/50' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
+                      {on && <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center"><Check className="w-2.5 h-2.5 text-white" /></span>}
+                      <div className="w-full rounded-md bg-gray-50 border border-gray-100 mb-1.5"><LayoutPreview type={l.key} /></div>
+                      <span className={`text-[12px] font-bold ${on ? 'text-emerald-700' : 'text-gray-700'}`}>{l.label}</span>
+                    </button>
+                  )
+                })}
+              </div>
+              <button type="button" onClick={() => setLayoutModal(null)} className="mt-3 w-full h-11 rounded-xl border border-gray-200 text-gray-600 text-sm font-bold hover:bg-gray-50 transition">닫기</button>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* 게시판 이름 입력 모달 (한줄 설명 모달과 동일 스타일) */}
       {nameModal && (

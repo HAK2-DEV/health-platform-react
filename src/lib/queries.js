@@ -53,6 +53,8 @@ export const queryKeys = {
   // 참가자용 퀴즈 목록 (프로그램 상세 퀴즈 섹션) — 본인 제출 상태 포함
   participantQuizzes: (programId, userId) => ['quizzes', 'participant', programId, userId],
   communityPosts: (programId, boardId) => ['community-posts', programId, boardId || 'all'],
+  // 커뮤니티 글 1개의 좋아요/댓글 (상세 펼치기) — 105
+  communityPostSocial: (postId) => ['community-post-social', postId],
   // 퀴즈 편집용 단건 (운영자) — 문항 정답 포함
   quizEdit: (quizId) => ['quizzes', 'edit', quizId],
   // 퀴즈 상세 (참가자 풀이/결과) — RPC 기반
@@ -752,15 +754,81 @@ export const deleteCommunityPost = async (id) => {
 }
 
 // 글 상단 고정/해제 (104) — 운영자만 (DB 트리거가 owner 외 변경을 무효화).
-export const setCommunityPostPin = async ({ id, pinned }) => {
-  const { data, error } = await supabase
-    .from('community_posts')
-    .update({ pinned_at: pinned ? new Date().toISOString() : null })
-    .eq('id', id)
-    .select()
-    .single()
+//   같은 게시판 단일 고정: 새로 고정하면 기존 고정 글은 자동 해제.
+export const setCommunityPostPin = async ({ id, pinned, programId, boardId }) => {
+  if (pinned) {
+    // 같은 게시판의 다른 고정 글 먼저 해제 (한 게시판에 1개만 고정)
+    if (programId && boardId) {
+      const { error: clearErr } = await supabase
+        .from('community_posts')
+        .update({ pinned_at: null })
+        .eq('program_id', programId)
+        .eq('board_id', boardId)
+        .neq('id', id)
+        .not('pinned_at', 'is', null)
+      if (clearErr) throw clearErr
+    }
+    const { error } = await supabase
+      .from('community_posts')
+      .update({ pinned_at: new Date().toISOString() })
+      .eq('id', id)
+    if (error) throw error
+  } else {
+    const { error } = await supabase
+      .from('community_posts')
+      .update({ pinned_at: null })
+      .eq('id', id)
+    if (error) throw error
+  }
+}
+
+// ─── 커뮤니티 글 좋아요/댓글 (105) ───────────────────────
+// 글 1개의 좋아요 수 + 내 좋아요 여부 + 댓글(작성자 포함) — 상세 펼치기 시 조회.
+export const fetchCommunityPostSocial = async (postId, myUserId) => {
+  const [likesRes, commentsRes] = await Promise.all([
+    supabase.from('community_post_likes').select('user_id').eq('post_id', postId),
+    supabase.from('community_post_comments').select('id, post_id, user_id, content, created_at').eq('post_id', postId).order('created_at', { ascending: true }),
+  ])
+  if (likesRes.error) throw likesRes.error
+  if (commentsRes.error) throw commentsRes.error
+  const likes = likesRes.data || []
+  const comments = commentsRes.data || []
+  const userIds = Array.from(new Set(comments.map(c => c.user_id)))
+  let userMap = new Map()
+  if (userIds.length) {
+    const { data: uData } = await supabase.from('users').select('id, nickname, avatar_path').in('id', userIds)
+    userMap = new Map((uData || []).map(u => [u.id, u]))
+  }
+  return {
+    likeCount: likes.length,
+    likedByMe: likes.some(l => l.user_id === myUserId),
+    comments: comments.map(c => ({ ...c, user: userMap.get(c.user_id) || null })),
+  }
+}
+
+export const toggleCommunityPostLike = async ({ postId, liked, userId }) => {
+  if (liked) {
+    const { error } = await supabase.from('community_post_likes').insert({ post_id: postId, user_id: userId })
+    if (error && error.code !== '23505') throw error   // 23505=중복 좋아요는 무시
+  } else {
+    const { error } = await supabase.from('community_post_likes').delete().eq('post_id', postId).eq('user_id', userId)
+    if (error) throw error
+  }
+}
+
+export const addCommunityPostComment = async ({ postId, content }) => {
+  const { data: { session } } = await supabase.auth.getSession()
+  const uid = session?.user?.id
+  const { data, error } = await supabase.from('community_post_comments')
+    .insert({ post_id: postId, user_id: uid, content })
+    .select().single()
   if (error) throw error
   return data
+}
+
+export const deleteCommunityPostComment = async (id) => {
+  const { error } = await supabase.from('community_post_comments').delete().eq('id', id)
+  if (error) throw error
 }
 
 // 신고 (100) — targetType: 'post' | 'verification'. 누적 시 트리거가 자동 숨김.

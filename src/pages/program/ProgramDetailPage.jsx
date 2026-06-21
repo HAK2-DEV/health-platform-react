@@ -818,6 +818,13 @@ function ProgramDetailPage() {
   const BOARD_ICON = { notice: '📢', cert: '📷', free: '💬' }
   // 전체/인증 = 미션 인증 피드, 그 외 = 게시판 글(community_posts)
   const boardHasFeed = communityBoard === 'all' || communityBoard === 'cert'
+  // 현재 게시판의 실효 레이아웃 — 게시판별 override(boards[].layout) 우선, 없으면 프로그램 전체
+  const activeBoardObj = communityBoards.find(b => b.id === communityBoard)
+  const activeBoardLayout = activeBoardObj?.layout || program.community_layout || 'feed'
+  // 좋아요/댓글 가능 여부 — 「반응 허용」 + 참여자/운영자(둘러보기 제외). 댓글은 commentPerm 도 따름.
+  const reactionsEnabled = program.community_settings?.reactionAuto !== false
+  const canReact = reactionsEnabled && (isOwner || isActiveParticipant)
+  const canComment = canReact && (activeBoardObj?.commentPerm || 'free') !== 'readonly'
   // 작성 가능 게시판 — 전체/인증 제외, 참여자는 읽기전용 제외(운영자는 전부)
   const writableBoards = communityBoards.filter(b => {
     if (b.id === 'all' || b.id === 'cert') return false
@@ -1487,10 +1494,11 @@ function ProgramDetailPage() {
           )}
           {boardHasFeed ? (
             <Suspense fallback={<LoadingState text="피드 불러오는 중..." />}>
-              <FeedContent program={program} readOnly={isViewer} />
+              <FeedContent program={program} layout={activeBoardLayout} readOnly={isViewer} />
             </Suspense>
           ) : (
             <CommunityPostList programId={id} boardId={communityBoard} posts={communityPosts} myUserId={userId} isOwner={isOwner}
+              layout={activeBoardLayout} canReact={canReact} canComment={canComment}
               onEdit={(p) => { setEditingPost(p); setIsPostModalOpen(true) }} />
           )}
 
