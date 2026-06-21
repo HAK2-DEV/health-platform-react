@@ -11,6 +11,7 @@ import UserAvatar from '../components/common/UserAvatar'
 import BackButton from '../components/common/BackButton'
 import NotificationBell from '../components/common/NotificationBell'
 import IconBox from '../components/common/IconBox'
+import CountUp from '../components/common/CountUp'
 import ImageCropModal from '../components/common/ImageCropModal'
 
 // 프로필 페이지 — Bottom Tab Bar 👤 진입점
@@ -375,9 +376,9 @@ function ProfilePage() {
             className="absolute left-1/2 -translate-x-1/2 bottom-[6px] w-[342px] max-w-full h-[73px] grid items-center bg-white/95 rounded-[11px] border border-gray-100 shadow-soft"
             style={{ gridTemplateColumns: 'calc(33.333% + 3px) calc(33.333% - 3px) 33.333%' }}
           >
-            <ProfileStat imgSrc="/icons/profile/programs.png" imgSize="w-[42px] h-[42px]" label="참여 중" value={activePrograms.length} unit="개" />
-            <ProfileStat imgSrc="/icons/profile/point.png" label="누적 포인트" value={(pStats?.totalPoints ?? 0).toLocaleString()} unit="P" valueClass="text-emerald-600" divider />
-            <ProfileStat imgSrc="/icons/profile/streak.png" imgSize="w-[42px] h-[42px]" label="연속 인증" value={pStats?.streak ?? 0} unit="일" valueClass="text-violet-600" divider />
+            <ProfileStat imgSrc="/icons/profile/programs.png" imgSize="w-[42px] h-[42px]" label="참여 중" value={<CountUp value={activePrograms.length} />} unit="개" />
+            <ProfileStat imgSrc="/icons/profile/point.png" label="누적 포인트" value={<CountUp value={pStats?.totalPoints ?? 0} duration={1100} />} unit="P" valueClass="text-emerald-600" divider />
+            <ProfileStat imgSrc="/icons/profile/streak.png" imgSize="w-[42px] h-[42px]" label="연속 인증" value={<CountUp value={pStats?.streak ?? 0} />} unit="일" valueClass="text-violet-600" divider />
           </div>
         )}
       </div>

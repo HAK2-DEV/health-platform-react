@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { motion, useInView } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../hooks/useAuth'
 import { Bell, ChevronRight, Calendar } from 'lucide-react'
@@ -9,6 +9,7 @@ import ProgramDetailModal from '../components/program/ProgramDetailModal'
 import ProgramBrowseModal from '../components/program/ProgramBrowseModal'
 import WelcomeOperatorModal from '../components/program/WelcomeOperatorModal'
 import ProgramCover from '../components/common/ProgramCover'
+import CountUp from '../components/common/CountUp'
 import LoadingState from '../components/common/LoadingState'
 import EmptyState from '../components/common/EmptyState'
 import { calcProgress, progressUrgency } from '../lib/programVisuals'
@@ -60,7 +61,8 @@ function SectionCard({ title, action, children, className = '', delay = 0 }) {
   return (
     <motion.section
       initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: '0px 0px -12% 0px' }}
       transition={{ duration: 0.4, delay, ease: 'easeOut' }}
       className={`bg-white border border-gray-100 rounded-[10px] shadow-soft p-4 ${className}`}
     >
@@ -75,40 +77,41 @@ function SectionCard({ title, action, children, className = '', delay = 0 }) {
   )
 }
 
-// 숫자 카운트업 — 0 → target (easeOutCubic). 데이터 도착(target 변경) 시 재생.
-function useCountUp(target, duration = 900) {
-  const [val, setVal] = useState(0)
-  useEffect(() => {
-    const end = Number(target) || 0
-    if (end === 0) { setVal(0); return }
-    let raf, start = null
-    const tick = (t) => {
-      if (start == null) start = t
-      const p = Math.min(1, (t - start) / duration)
-      const eased = 1 - Math.pow(1 - p, 3)
-      setVal(Math.round(end * eased))
-      if (p < 1) raf = requestAnimationFrame(tick)
-    }
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
-  }, [target, duration])
-  return val
+// 운영중/참여중 콘텐츠를 좌우로만 밀어내는 캐러셀 — 카드 프레임은 그대로, 안쪽만 슬라이드.
+//   하단 CTA처럼 "새 내용이 옆에서 미끄러져 들어와 멈춤". 이전 내용은 슬라이드로 나가지 않고 바로 교체.
+//   AnimatePresence 없이 key 만 바꿔 새 motion.div 가 initial→animate 로 들어옴.
+//   dir===0(첫 로드, 토글 전)일 땐 슬라이드 없이 그대로(섹션 등장 모션만).
+function ModeSlide({ mode, dir, children }) {
+  return (
+    <div className="overflow-hidden">
+      <motion.div
+        key={mode}
+        initial={{ x: dir === 0 ? 0 : (dir > 0 ? '55%' : '-55%') }}
+        animate={{ x: 0 }}
+        transition={{ duration: 0.28, ease: 'easeOut' }}
+      >
+        {children}
+      </motion.div>
+    </div>
+  )
 }
 
 // 내 랭킹 도넛 링 — 진입 시 원이 그려짐
 function RankRing({ rank, total }) {
+  const ref = useRef(null)
+  const inView = useInView(ref, { once: true, margin: '0px 0px -12% 0px' })
   const R = 30
   const C = 2 * Math.PI * R
   const pct = (rank && total) ? Math.max(0.04, Math.min(1, (total - rank + 1) / total)) : 0
   return (
-    <div className="relative w-[84px] h-[84px]">
+    <div ref={ref} className="relative w-[84px] h-[84px]">
       <svg viewBox="0 0 80 80" className="w-full h-full -rotate-90">
         <circle cx="40" cy="40" r={R} fill="none" stroke="#e5e7eb" strokeWidth="7" />
         <motion.circle cx="40" cy="40" r={R} fill="none" stroke="#10b981" strokeWidth="7" strokeLinecap="round"
           strokeDasharray={C}
           initial={{ strokeDashoffset: C }}
-          animate={{ strokeDashoffset: C * (1 - pct) }}
-          transition={{ duration: 1.1, ease: 'easeOut', delay: 0.25 }}
+          animate={{ strokeDashoffset: inView ? C * (1 - pct) : C }}
+          transition={{ duration: 1.1, ease: 'easeOut', delay: 0.2 }}
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -128,6 +131,11 @@ function DashboardPage() {
   const [selectedPublicId, setSelectedPublicId] = useState(null)
   const [browseOpen, setBrowseOpen] = useState(false)
   const [showWelcome, setShowWelcome] = useState(false)
+  // 대표 카드 모드 토글 (운영중 ⇄ 참여중) — 둘 다 있을 때 스와이프로 전환
+  const [viewMode, setViewMode] = useState('operator')
+  const [modeDir, setModeDir] = useState(0)
+  const modeTouch = useRef({ x: 0, y: 0 })
+  const swipedRef = useRef(false)
 
   useEffect(() => {
     if (session === null) navigate('/login')
@@ -196,9 +204,30 @@ function DashboardPage() {
     enabled: !!userId,
   })
 
-  // 운영자(소유 프로그램 보유)면 대표 카드에 운영중 프로그램을, 아니면 참여중 프로그램을 노출
+  // 운영자(소유 프로그램 보유)면 대표 카드에 운영중 프로그램을, 아니면 참여중 프로그램을 노출.
+  //   운영중·참여중 둘 다 있으면 스와이프/토글로 전환(effectiveMode).
   const isOperator = myPrograms.length > 0
-  const featured = isOperator ? (myPrograms[0] || null) : (activePrograms[0] || null)
+  const canToggleMode = myPrograms.length > 0 && activePrograms.length > 0
+  const effectiveMode = canToggleMode ? viewMode : (isOperator ? 'operator' : 'participant')
+  const showOperator = effectiveMode === 'operator'
+  const featured = showOperator ? (myPrograms[0] || null) : (activePrograms[0] || null)
+  // 모드 전환 (방향 기록 → 슬라이드 페이드)
+  const switchMode = (m) => {
+    if (!canToggleMode || m === effectiveMode) return
+    setModeDir(m === 'participant' ? 1 : -1)
+    setViewMode(m)
+  }
+  const onModeTouchStart = (e) => { swipedRef.current = false; const t = e.touches[0]; modeTouch.current = { x: t.clientX, y: t.clientY } }
+  const onModeTouchEnd = (e) => {
+    if (!canToggleMode) return
+    const t = e.changedTouches[0]
+    const dx = t.clientX - modeTouch.current.x
+    const dy = t.clientY - modeTouch.current.y
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      swipedRef.current = true   // 카드 탭(네비게이션) 억제
+      switchMode(dx < 0 ? 'participant' : 'operator')
+    }
+  }
   const { data: featuredRank } = useQuery({
     queryKey: queryKeys.myRankChange(featured?.id, userId),
     queryFn: () => fetchMyRankChange(featured.id),
@@ -213,7 +242,7 @@ function DashboardPage() {
   const { data: opPulse } = useQuery({
     queryKey: queryKeys.programOperatorPulse(featured?.id),
     queryFn: () => fetchProgramOperatorPulse(featured.id),
-    enabled: isOperator && !!featured?.id,
+    enabled: showOperator && !!featured?.id,
   })
 
   // ─── 파생 ─────────
@@ -245,7 +274,7 @@ function DashboardPage() {
   // 대표 프로그램 4지표 (숫자 12px / 단위 9px / 색상은 지표별)
   //   운영중: 참여자 / 오늘 참여율 / 남은 기간 / 누적 인증
   //   참여중: 참여자 / 내 순위 / 남은 기간 / 목표 달성률
-  const fStats = isOperator ? [
+  const fStats = showOperator ? [
     { icon: UsersSolid, label: '참여자', num: featuredParticipants != null ? `${featuredParticipants}` : '-', unit: featuredParticipants != null ? '명' : '', color: 'text-emerald-600' },
     { icon: FlagSolid, label: '오늘 참여율', num: todayRate != null ? `${todayRate}` : '-', unit: todayRate != null ? '%' : '', color: 'text-emerald-600' },
     { icon: CalendarSolid, label: '남은 기간', num: daysLeft != null ? `${daysLeft}` : '상시', unit: daysLeft != null ? '일' : '', color: 'text-gray-900' },
@@ -264,9 +293,6 @@ function DashboardPage() {
     { label: '댓글 활동', value: today?.commentCount ?? 0, cap: 10, img: '/icons/activity/comment.png', bar: 'bg-amber-500' },
     { label: '획득 점수', value: today?.points ?? 0, cap: 300, img: '/icons/activity/point.png', bar: 'bg-purple-500', circleBg: 'bg-amber-100' },
   ]
-
-  // 총 점수 카운트업 (0 → 실제 점수)
-  const animatedScore = useCountUp(pStats?.totalPoints ?? 0)
 
   return (
     <div className="min-h-screen bg-white">
@@ -336,16 +362,24 @@ function DashboardPage() {
           </div>
         </motion.div>
 
+        {/* ─── 운영중/참여중 전환 3개 섹션 — 프레임 고정, 안쪽만 좌우 슬라이드 ─── */}
+        <div className="space-y-[9px]" onTouchStart={onModeTouchStart} onTouchEnd={onModeTouchEnd}>
         {/* ─── 대표 프로그램 (운영자=운영중 / 그 외=참여중) ─── */}
         <SectionCard
           delay={0.08}
-          title={isOperator ? '운영 중인 프로그램' : '참여 중인 프로그램'}
-          action={(isOperator ? myPrograms.length : activePrograms.length) > 0 && (
+          title={canToggleMode ? (
+            <span className="inline-flex items-center gap-0.5 bg-gray-100 rounded-full p-0.5">
+              <button type="button" onClick={() => switchMode('operator')} className={`px-2.5 py-1 rounded-full text-[12px] font-bold transition ${showOperator ? 'bg-white text-emerald-600 shadow-sm' : 'text-gray-500'}`}>운영중</button>
+              <button type="button" onClick={() => switchMode('participant')} className={`px-2.5 py-1 rounded-full text-[12px] font-bold transition ${!showOperator ? 'bg-white text-emerald-600 shadow-sm' : 'text-gray-500'}`}>참여중</button>
+            </span>
+          ) : (showOperator ? '운영 중인 프로그램' : '참여 중인 프로그램')}
+          action={(showOperator ? myPrograms.length : activePrograms.length) > 0 && (
             <button type="button" onClick={() => navigate('/programs')} className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700">
-              전체 보기 {(isOperator ? myPrograms.length : activePrograms.length) > 1 && `(${isOperator ? myPrograms.length : activePrograms.length})`}<ChevronRight className="w-3 h-3" />
+              전체 보기 {(showOperator ? myPrograms.length : activePrograms.length) > 1 && `(${showOperator ? myPrograms.length : activePrograms.length})`}<ChevronRight className="w-3 h-3" />
             </button>
           )}
         >
+          <ModeSlide mode={effectiveMode} dir={modeDir}>
           {isActiveLoading ? (
             <LoadingState size="sm" />
           ) : !featured ? (
@@ -358,7 +392,7 @@ function DashboardPage() {
               size="lg"
             />
           ) : (
-            <button type="button" onClick={() => navigate(`/programs/${featured.id}`)} className="w-full text-left text-[14px]">
+            <button type="button" onClick={() => { if (swipedRef.current) { swipedRef.current = false; return } navigate(`/programs/${featured.id}`) }} className="w-full text-left text-[14px]">
               <div className="flex gap-3">
                 <ProgramCover
                   imagePath={featured.cover_image_path}
@@ -383,7 +417,8 @@ function DashboardPage() {
                     <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                       <motion.div className={`h-full rounded-full ${fUrgency?.barCls || 'bg-emerald-400'}`}
                         initial={{ width: 0 }}
-                        animate={{ width: `${fProgress}%` }}
+                        whileInView={{ width: `${fProgress}%` }}
+                        viewport={{ once: true, margin: '0px 0px -12% 0px' }}
                         transition={{ duration: 0.9, ease: 'easeOut', delay: 0.3 }}
                       />
                     </div>
@@ -413,6 +448,7 @@ function DashboardPage() {
               </div>
             </button>
           )}
+          </ModeSlide>
         </SectionCard>
 
         {/* ─── 오늘의 활동 요약 — 세로 구분선 + 상태바 ─── */}
@@ -425,6 +461,7 @@ function DashboardPage() {
             </button>
           }
         >
+          <ModeSlide mode={effectiveMode} dir={modeDir}>
           <div className="flex">
             {todayMetrics.map((m, i) => {
               const fill = Math.min(100, Math.round((m.value / m.cap) * 100))
@@ -442,19 +479,21 @@ function DashboardPage() {
                       className={m.circleBg ? 'w-[83%] h-[83%] object-contain' : 'w-full h-full object-cover'}
                     />
                   </div>
-                  <p className="text-lg font-extrabold text-gray-900 leading-tight">{m.value}</p>
+                  <p className="text-lg font-extrabold text-gray-900 leading-tight"><CountUp value={m.value} duration={1100} /></p>
                   <p className="text-[11px] text-gray-500 mt-0.5 mb-1.5 break-keep">{m.label}</p>
                   <div className="w-full h-1 bg-gray-100 rounded-full overflow-hidden">
                     <motion.div className={`h-full rounded-full ${m.bar}`}
                       initial={{ width: 0 }}
-                      animate={{ width: `${fill}%` }}
-                      transition={{ duration: 0.8, ease: 'easeOut', delay: 0.2 + i * 0.08 }}
+                      whileInView={{ width: `${fill}%` }}
+                      viewport={{ once: true, margin: '0px 0px -12% 0px' }}
+                      transition={{ duration: 1.0, ease: 'easeOut', delay: 0.25 + i * 0.18 }}
                     />
                   </div>
                 </div>
               )
             })}
           </div>
+          </ModeSlide>
         </SectionCard>
 
         {/* ─── 내 점수 및 랭킹 ─── */}
@@ -467,11 +506,12 @@ function DashboardPage() {
             </button>
           }
         >
+          <ModeSlide mode={effectiveMode} dir={modeDir}>
           <div className="flex items-center justify-around gap-3">
             <div className="text-center">
               <p className="text-[11px] text-emerald-600 font-semibold mb-0.5">총 점수</p>
               <p className="text-xl font-extrabold text-gray-900 leading-tight">
-                {animatedScore.toLocaleString()}<span className="text-sm text-gray-500 font-bold"> P</span>
+<CountUp value={pStats?.totalPoints ?? 0} duration={1100} /><span className="text-sm text-gray-500 font-bold"> P</span>
               </p>
               {pStats?.weekPoints > 0 && (
                 <p className="text-[11px] font-semibold text-emerald-600 mt-0.5">이번주 ↑{pStats.weekPoints}P</p>
@@ -479,7 +519,9 @@ function DashboardPage() {
             </div>
             <RankRing rank={featuredRank?.current_rank} total={featuredParticipants} />
           </div>
+          </ModeSlide>
         </SectionCard>
+        </div>
 
         {/* 모달 — 둘러보기 + 공개 프로그램 상세 */}
         <ProgramBrowseModal
