@@ -279,18 +279,13 @@ function FeedContent({ program, layout: layoutProp = null, targetVerificationId 
       animate={{ opacity: 1 }}
       transition={{ duration: 0.3 }}
     >
-      {focusedId && (
-        <button type="button" onClick={() => setFocusedId(null)} className="mb-3 inline-flex items-center gap-1 text-sm font-medium text-gray-500 hover:text-gray-700">
-          ← 목록으로
-        </button>
-      )}
-      {!showFull && layout === 'list' && (
+      {layout === 'list' && (
         <div className="space-y-2">{posts.map(renderListRow)}</div>
       )}
-      {!showFull && layout === 'grid' && (
+      {layout === 'grid' && (
         <div className="grid grid-cols-2 gap-3">{posts.map(renderGridCard)}</div>
       )}
-      {!showFull && layout === 'magazine' && (() => {
+      {layout === 'magazine' && (() => {
         // 대1(hero 오버레이) + 소2(그리드) + 중1(가로) 반복
         const blocks = []
         let i = 0
@@ -302,7 +297,11 @@ function FeedContent({ program, layout: layoutProp = null, targetVerificationId 
         }
         return <div className="space-y-3">{blocks}</div>
       })()}
-      {showFull && <div className="space-y-5">
+      {showFull && (
+        <div className={focusedId && layout !== 'feed' ? 'fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-5' : ''}
+          onClick={focusedId && layout !== 'feed' ? () => setFocusedId(null) : undefined}>
+        <div className={focusedId && layout !== 'feed' ? 'w-full max-w-md max-h-[85vh] overflow-y-auto space-y-5' : 'space-y-5'}
+          onClick={focusedId && layout !== 'feed' ? (e) => e.stopPropagation() : undefined}>
       {visiblePosts.map(post => {
         const likedByMe = post.likedUserIds.has(myUserId)
         const hasImage = !!post.image_path
@@ -508,7 +507,9 @@ function FeedContent({ program, layout: layoutProp = null, targetVerificationId 
           </article>
         )
       })}
-      </div>}
+        </div>
+        </div>
+      )}
 
       {/* 더보기 — 다음 페이지 있을 때만 (포커스 풀뷰에선 숨김) */}
       {hasNextPage && !focusedId && (

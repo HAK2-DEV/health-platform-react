@@ -149,7 +149,7 @@ function Step4Summary({ initialData, programId, onPrev }) {
 
       {/* 에러 */}
       {error && (
-        <p className="p-2 mb-4 bg-red-100 text-red-700 rounded-xl text-sm text-center">
+        <p style={{ marginBottom: '9px' }} className="p-2 bg-red-100 text-red-700 rounded-xl text-sm text-center">
           {error}
         </p>
       )}

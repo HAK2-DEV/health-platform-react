@@ -402,7 +402,7 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
 
           {/* 에러 */}
           {error && (
-            <p className="mb-3 p-2 bg-red-100 text-red-700 rounded text-sm text-center">
+            <p style={{ marginBottom: '9px' }} className="p-2 bg-red-100 text-red-700 rounded text-sm text-center">
               {error}
             </p>
           )}

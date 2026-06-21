@@ -81,7 +81,7 @@ function RankingSettingsModal({ program, isOpen, onClose, onSuccess }) {
           desc="참여자가 '전체 / 최근 7일 / 최근 30일' 토글로 단기 분위기 확인 가능."
           on={periodFilterEnabled} disabled={mutation.isPending} onClick={() => setPeriodFilterEnabled(v => !v)} />
 
-        {error && <p className="mb-3 p-2 bg-red-100 text-red-700 rounded text-sm text-center">{error}</p>}
+        {error && <p style={{ marginBottom: '9px' }} className="p-2 bg-red-100 text-red-700 rounded text-sm text-center">{error}</p>}
 
         <div className="flex gap-2">
           <button type="button" onClick={onClose} disabled={mutation.isPending}

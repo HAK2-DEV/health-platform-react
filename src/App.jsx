@@ -28,6 +28,8 @@ const ProgramStatsUsersPage = lazy(() => import('./pages/program/ProgramStatsUse
 const ProgramStatsUserDetailPage = lazy(() => import('./pages/program/ProgramStatsUserDetailPage'))
 const ProgramStatsUserMissionsPage = lazy(() => import('./pages/program/ProgramStatsUserMissionsPage'))
 const ProgramStatsUserVerificationsPage = lazy(() => import('./pages/program/ProgramStatsUserVerificationsPage'))
+const ProgramStatsUserPostsPage = lazy(() => import('./pages/program/ProgramStatsUserPostsPage'))
+const ProgramStatsUserCommentsPage = lazy(() => import('./pages/program/ProgramStatsUserCommentsPage'))
 const ProgramStatsUserVerificationsBundlePage = lazy(() => import('./pages/program/ProgramStatsUserVerificationsBundlePage'))
 const ProgramStatsUserVerificationsMissionPage = lazy(() => import('./pages/program/ProgramStatsUserVerificationsMissionPage'))
 const ProgramStatsQuizzesPage = lazy(() => import('./pages/program/ProgramStatsQuizzesPage'))
@@ -131,6 +133,12 @@ function AppShell() {
             } />
             <Route path="/programs/:id/stats/users/:userId/verifications" element={
               <ProtectedRoute><ProgramStatsUserVerificationsPage /></ProtectedRoute>
+            } />
+            <Route path="/programs/:id/stats/users/:userId/posts" element={
+              <ProtectedRoute><ProgramStatsUserPostsPage /></ProtectedRoute>
+            } />
+            <Route path="/programs/:id/stats/users/:userId/comments" element={
+              <ProtectedRoute><ProgramStatsUserCommentsPage /></ProtectedRoute>
             } />
             <Route path="/programs/:id/stats/users/:userId/verifications/:bundleParam" element={
               <ProtectedRoute><ProgramStatsUserVerificationsBundlePage /></ProtectedRoute>

@@ -2,7 +2,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { motion } from 'framer-motion'
-import { ChevronRight, Target, FileText } from 'lucide-react'
+import { ChevronRight, Target, FileText, MessageCircle } from 'lucide-react'
 import DoorIcon from '../../components/common/DoorIcon'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
@@ -47,6 +47,54 @@ function ProgramStatsUserDetailPage() {
         .eq('missions.program_id', id)
         .eq('user_id', targetUserId)
         .order('submitted_at', { ascending: false })
+      if (error) throw error
+      return data || []
+    },
+    enabled: !!session && !!id && !!targetUserId && isOwner,
+  })
+
+  // 이 유저가 작성한 커뮤니티 게시글 (운영자 SELECT 가능)
+  const { data: userPosts = [] } = useQuery({
+    queryKey: ['stats', 'userPosts', id, targetUserId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('community_posts')
+        .select('id, board_id, title, body, image_path, status, created_at')
+        .eq('program_id', id)
+        .eq('author_id', targetUserId)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return data || []
+    },
+    enabled: !!session && !!id && !!targetUserId && isOwner,
+  })
+
+  // 이 유저가 작성한 커뮤니티 댓글 (105) — 부모 글 정보 join, 이 프로그램만
+  const { data: userComments = [] } = useQuery({
+    queryKey: ['stats', 'userComments', id, targetUserId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('community_post_comments')
+        .select('id, content, created_at, community_posts!inner(id, board_id, title, program_id)')
+        .eq('community_posts.program_id', id)
+        .eq('user_id', targetUserId)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return data || []
+    },
+    enabled: !!session && !!id && !!targetUserId && isOwner,
+  })
+
+  // 이 유저가 인증 피드(verifications)에 단 댓글 (036/085) — 운영자 SELECT 허용
+  const { data: userVerifComments = [] } = useQuery({
+    queryKey: ['stats', 'userVerifComments', id, targetUserId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('post_comments')
+        .select('id, content, created_at, verifications!inner(id, missions!inner(program_id, title))')
+        .eq('verifications.missions.program_id', id)
+        .eq('user_id', targetUserId)
+        .order('created_at', { ascending: false })
       if (error) throw error
       return data || []
     },
@@ -118,6 +166,27 @@ function ProgramStatsUserDetailPage() {
   }, [userVerifications])
 
   const maxDayCount = recent14Days.reduce((m, d) => Math.max(m, d.count), 0) || 1
+
+  // 게시판 id → 이름 (운영자 설정). 미설정/삭제 게시판이면 id 표시.
+  const boardName = (bid) => {
+    const boards = program?.community_settings?.boards
+    const b = Array.isArray(boards) ? boards.find(x => x.id === bid) : null
+    return b?.name || bid
+  }
+
+  // 작성한 댓글 통합 — 커뮤니티 글 댓글(105) + 인증 피드 댓글(036). 최신순.
+  const allComments = useMemo(() => {
+    const a = userComments.map(c => ({
+      id: c.id, content: c.content, created_at: c.created_at,
+      tag: boardName(c.community_posts?.board_id), parent: c.community_posts?.title || '게시글',
+    }))
+    const b = userVerifComments.map(c => ({
+      id: c.id, content: c.content, created_at: c.created_at,
+      tag: '인증', parent: c.verifications?.missions?.title || '인증 미션',
+    }))
+    return [...a, ...b].sort((x, y) => new Date(y.created_at) - new Date(x.created_at))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userComments, userVerifComments, program])
 
   if (!program) {
     return <LoadingState variant="page" />
@@ -288,6 +357,39 @@ function ProgramStatsUserDetailPage() {
           <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
         </button>
       </motion.div>
+
+      {/* 커뮤니티 활동 — 작성한 게시글 / 댓글 (클릭 시 새 페이지) */}
+      <div className="grid grid-cols-1" style={{ gap: '9px', marginTop: '9px' }}>
+        <button
+          type="button"
+          onClick={() => navigate(`/programs/${id}/stats/users/${targetUserId}/posts`)}
+          className="w-full flex items-center gap-4 p-5 bg-white border border-gray-200 rounded-[10px] hover:bg-gray-50 hover:border-violet-300 transition text-left"
+        >
+          <div className="w-12 h-12 flex-shrink-0 bg-violet-100 rounded-xl flex items-center justify-center">
+            <FileText className="w-6 h-6 text-violet-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-medium text-gray-800 mb-0.5">📝 작성한 게시글 ({userPosts.length})</h3>
+            <p className="text-xs text-gray-500">이 유저가 게시판에 쓴 글을 확인</p>
+          </div>
+          <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
+        </button>
+
+        <button
+          type="button"
+          onClick={() => navigate(`/programs/${id}/stats/users/${targetUserId}/comments`)}
+          className="w-full flex items-center gap-4 p-5 bg-white border border-gray-200 rounded-[10px] hover:bg-gray-50 hover:border-amber-300 transition text-left"
+        >
+          <div className="w-12 h-12 flex-shrink-0 bg-amber-100 rounded-xl flex items-center justify-center">
+            <MessageCircle className="w-6 h-6 text-amber-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-medium text-gray-800 mb-0.5">💬 작성한 댓글 ({allComments.length})</h3>
+            <p className="text-xs text-gray-500">게시판 글 · 인증 피드에 단 댓글</p>
+          </div>
+          <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
+        </button>
+      </div>
     </div>
   )
 }

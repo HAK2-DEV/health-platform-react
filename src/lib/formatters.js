@@ -75,6 +75,25 @@ export function formatKoreanDateTime(timestamp) {
   return `${get('year')}.${get('month')}.${get('day')} ${get('hour')}:${get('minute')}`
 }
 
+// ISO timestamp → 2줄 스탬프 "'26.6.22.\n17:30" (YY.M.D. 줄바꿈 HH:mm, 24시·KST).
+// 연도 앞 ' 로 2자리 연도 혼동 방지. 목록의 우측 날짜 표시용 — whitespace-pre-line 으로 렌더.
+const _KST_STAMP_FORMATTER = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Seoul',
+  year: '2-digit', month: 'numeric', day: 'numeric',
+  hour: '2-digit', minute: '2-digit',
+  hour12: false,
+})
+export function formatKstStamp(timestamp) {
+  if (!timestamp) return ''
+  const d = new Date(timestamp)
+  if (isNaN(d.getTime())) return ''
+  const parts = _KST_STAMP_FORMATTER.formatToParts(d)
+  const get = (t) => parts.find(p => p.type === t)?.value || ''
+  let hh = get('hour')
+  if (hh === '24') hh = '00'   // 자정 24 → 00 보정
+  return `'${get('year')}.${get('month')}.${get('day')}.\n${hh}:${get('minute')}`
+}
+
 // 프로그램 시작일이 오늘(KST) 이후면 true — "예정" 상태 판정용
 export function isUpcomingByStartDate(startDate) {
   if (!startDate) return false

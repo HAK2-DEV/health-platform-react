@@ -1,7 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
-import Modal from '../common/Modal'
+import { useState, useEffect, useRef, Fragment } from 'react'
 import { supabase } from '../../supabaseClient'
-import { Image as ImageIcon, BarChart3, MessageSquare, ChevronDown, ChevronUp, ChevronLeft, Plus, X } from 'lucide-react'
+import { Image as ImageIcon, BarChart3, MessageSquare, ChevronDown, ChevronUp, ChevronLeft, Plus, X, Check } from 'lucide-react'
 import MissionIconPicker from './MissionIconPicker'
 import { SCHEDULE_MODES, WEEKDAY_OPTIONS } from '../../lib/constants'
 import { toKSTDateString } from '../../lib/formatters'
@@ -43,6 +42,9 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
   const [endDate, setEndDate] = useState('')
 
   const [isSaving, setIsSaving] = useState(false)
+  const [step, setStep] = useState(1)   // 3단계 마법사 (1.기본 2.인증·점수 3.운영)
+  const TOTAL_STEPS = 4
+  const STEP_LABELS = ['제목 설정', '아이콘 설정', '인증·점수', '운영']
   const [error, setErrorRaw] = useState(null)
   const [errorTick, setErrorTick] = useState(0)
   const errorRef = useRef(null)
@@ -77,10 +79,12 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
       setEndDate(program?.end_date || '')
       setError(null)
       setIsSaving(false)
+      setStep(1)
       return
     }
     // 열림 + 수정 모드 → 기존 값으로 prefill
     if (editMission) {
+      setStep(1)
       setTitle(editMission.title || '')
       setInstruction(editMission.instruction || '')
       setDailyLimit(editMission.daily_limit ?? '')
@@ -145,29 +149,40 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
     { key: 'note', on: requiresNote, label: '소감', Icon: MessageSquare, point: notePoint, setPoint: setNotePoint, required: noteRequired, setRequired: setNoteRequired },
   ]
 
-  const validate = () => {
+  // 단계별 검증
+  const validateStep1 = () => {
     if (!title.trim()) return '미션 제목을 입력해주세요'
-    if (!requiresImage && !requiresNumeric && !requiresNote) {
-      return '인증 유형을 최소 1개 선택해주세요'
-    }
+    return null
+  }
+  const validateStep2 = () => {
+    if (!requiresImage && !requiresNumeric && !requiresNote) return '인증 유형을 최소 1개 선택해주세요'
     if (totalPoint < 1) return '점수 합계는 1 이상이어야 합니다'
     const anyRequired =
-      (requiresImage && imageRequired) ||
-      (requiresNumeric && numericRequired) ||
-      (requiresNote && noteRequired)
+      (requiresImage && imageRequired) || (requiresNumeric && numericRequired) || (requiresNote && noteRequired)
     if (!anyRequired) return '필수 입력을 최소 1개 지정해주세요 (전부 선택일 수 없어요)'
-    if (scheduleMode === 'CUSTOM' && activeDays.length === 0) {
-      return '운영 요일을 최소 1일 선택해주세요'
-    }
-    if (startDate && endDate && endDate < startDate) {
-      return '종료일이 시작일보다 빠를 수 없어요'
-    }
+    return null
+  }
+  const validateStep3 = () => {
+    if (scheduleMode === 'CUSTOM' && activeDays.length === 0) return '운영 요일을 최소 1일 선택해주세요'
+    if (startDate && endDate && endDate < startDate) return '종료일이 시작일보다 빠를 수 없어요'
     return null
   }
 
+  // 다음/이전 — 현재 단계 검증 통과 시에만 진행
+  const goNext = () => {
+    // 1=기본(제목) · 2=아이콘(검증 없음) · 3=인증·점수 · 4=운영
+    const v = step === 1 ? validateStep1() : step === 3 ? validateStep2() : null
+    if (v) { setError(v); return }
+    setError(null)
+    setStep(s => Math.min(TOTAL_STEPS, s + 1))
+  }
+  const goPrev = () => { setError(null); setStep(s => Math.max(1, s - 1)) }
+
   const handleSave = async () => {
-    const err = validate()
-    if (err) { setError(err); return }
+    // 전 단계 방어 검증 — 오류 시 해당 단계로 이동
+    const e1 = validateStep1(); if (e1) { setStep(1); setError(e1); return }
+    const e2 = validateStep2(); if (e2) { setStep(3); setError(e2); return }
+    const e3 = validateStep3(); if (e3) { setStep(4); setError(e3); return }
 
     setIsSaving(true)
     setError(null)
@@ -249,11 +264,11 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
     </button>
   )
 
+  if (!isOpen || !program) return null
   return (
-    <Modal isOpen={isOpen} onClose={onClose}>
-      {program && (
-        <div className="p-6">
-          {onBack && !isEditMode && (
+    <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-5" onClick={onClose}>
+      <div className="w-full max-w-md max-h-[88vh] overflow-y-auto bg-white rounded-2xl p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+          {onBack && !isEditMode && step === 1 && (
             <button
               type="button"
               onClick={onBack}
@@ -269,6 +284,32 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
             <span className="text-sm font-normal text-gray-400 truncate min-w-0">{program.name}</span>
           </h2>
 
+          {/* 스텝 인디케이터 */}
+          <div className="flex items-center mb-5">
+            {STEP_LABELS.map((label, i) => {
+              const n = i + 1
+              const active = step === n
+              const done = step > n
+              return (
+                <Fragment key={n}>
+                  {i > 0 && <div className={`flex-1 h-0.5 mt-[14px] mx-1 rounded-full ${step >= n ? 'bg-emerald-500' : 'bg-gray-200'}`} />}
+                  <div className="flex flex-col items-center flex-shrink-0">
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[13px] font-bold ${done || active ? 'bg-emerald-500 text-white' : 'bg-gray-100 text-gray-400'}`}>
+                      {done ? <Check className="w-4 h-4" /> : n}
+                    </div>
+                    <span className={`mt-1 text-[10px] font-medium text-center leading-tight w-12 ${active ? 'text-emerald-600' : 'text-gray-400'}`}>{label}</span>
+                  </div>
+                </Fragment>
+              )
+            })}
+          </div>
+
+          {/* ── 1단계: 기본 ── */}
+          {step === 1 && (<>
+          <p className="text-[12px] text-gray-500 leading-relaxed mb-4 bg-gray-50 rounded-lg p-2.5 break-keep">
+            참여자에게 보여줄 미션의 <b className="text-gray-700">이름</b>과 <b className="text-gray-700">안내</b>를 적어요.
+            <br />예) “20분 이상 걷기”처럼 행동이 분명한 이름이 좋아요.
+          </p>
           {/* 제목 */}
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -300,7 +341,14 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
               className="w-full px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 disabled:bg-gray-50 resize-none"
             />
           </div>
+          </>)}
 
+          {/* ── 2단계: 아이콘 ── */}
+          {step === 2 && (<>
+          <p className="text-[12px] text-gray-500 leading-relaxed mb-4 bg-gray-50 rounded-lg p-2.5 break-keep">
+            미션을 대표할 <b className="text-gray-700">아이콘</b>을 골라요. 목록·인증 화면에서 한눈에 구분돼요.
+            <br />직접 업로드하거나 기본 아이콘 중에 고르면 되고, 없어도 괜찮아요.
+          </p>
           {/* 미션 아이콘 (선택) */}
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -313,12 +361,23 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
               disabled={isSaving}
             />
           </div>
+          </>)}
 
+          {/* ── 3단계: 인증·점수 ── */}
+          {step === 3 && (<>
+          <p className="text-[12px] text-gray-500 leading-relaxed mb-4 bg-gray-50 rounded-lg p-2.5 break-keep">
+            참여자가 <b className="text-gray-700">어떻게 인증</b>할지와 <b className="text-gray-700">점수</b>를 정해요.
+            복수 선택 가능해요.<br /> <b className="text-gray-700">필수</b>는 꼭 제출해야 점수를 받고,
+            <b className="text-gray-700">선택</b>은 안 해도 되지만 하면 추가 점수예요.
+          </p>
           {/* 인증 유형 — 다중 선택 */}
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               인증 유형 (최소 1개) *
             </label>
+            <p className="text-xs text-gray-400 mb-2 break-keep">
+              📷 사진 = 인증샷 <br /> 📊 기록 = 숫자 입력(걸음수·시간 등) <br /> 💬 소감 = 한 줄 글
+            </p>
             <div className="grid grid-cols-3 gap-2">
               <TypeCard
                 active={requiresImage}
@@ -396,7 +455,13 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
               </p>
             </div>
           )}
+          </>)}
 
+          {/* ── 4단계: 운영 ── */}
+          {step === 4 && (<>
+          <p className="text-[12px] text-gray-500 leading-relaxed mb-4 bg-gray-50 rounded-lg p-2.5 break-keep">
+            미션을 <b className="text-gray-700">언제·어떻게 운영</b>할지 정해요. <br /> 나중에 언제든 수정할 수 있어요.
+          </p>
           {/* 하루 최대 */}
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -624,36 +689,58 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
               </div>
             )}
           </div>
+          </>)}
 
           {/* 에러 */}
           {error && (
-            <p ref={errorRef} className="mb-3 p-2 bg-red-100 text-red-700 rounded text-sm text-center">
+            <p ref={errorRef} style={{ marginTop: '-7px', marginBottom: '9px' }} className="p-2 bg-red-100 text-red-700 rounded text-sm text-center">
               {error}
             </p>
           )}
 
-          {/* 버튼 */}
+          {/* 버튼 — 이전 / 다음 / 저장 */}
           <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isSaving}
-              className="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-md transition disabled:opacity-50"
-            >
-              취소
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={isSaving}
-              className="flex-[2] px-4 py-3 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-medium rounded-md transition disabled:bg-gray-400"
-            >
-              {isSaving ? '저장 중...' : (isEditMode ? '미션 수정 저장' : '미션 추가')}
-            </button>
+            {step === 1 ? (
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={isSaving}
+                className="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-md transition disabled:opacity-50"
+              >
+                취소
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={goPrev}
+                disabled={isSaving}
+                className="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-md transition disabled:opacity-50"
+              >
+                이전
+              </button>
+            )}
+            {step < TOTAL_STEPS ? (
+              <button
+                type="button"
+                onClick={goNext}
+                disabled={isSaving}
+                className="flex-[2] px-4 py-3 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-medium rounded-md transition"
+              >
+                다음
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={isSaving}
+                className="flex-[2] px-4 py-3 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-medium rounded-md transition disabled:bg-gray-400"
+              >
+                {isSaving ? '저장 중...' : (isEditMode ? '미션 수정 저장' : '미션 추가')}
+              </button>
+            )}
           </div>
-        </div>
-      )}
-    </Modal>
+      </div>
+    </div>
   )
 }
 

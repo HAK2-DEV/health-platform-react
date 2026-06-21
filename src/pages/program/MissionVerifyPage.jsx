@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, Fragment } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ChevronLeft, Upload, X, Check, Flag, Clock, Star, Camera, MessageSquare } from 'lucide-react'
+import { ChevronLeft, Upload, X, Check, Flag, Clock, Star, Camera, MessageSquare, Pencil, Move } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
@@ -27,6 +27,10 @@ const CATEGORY_HERO = {
   NO_SMOKING: { from: 'from-yellow-100',  via: 'via-yellow-50/80',  to: 'to-amber-50/40',   chip: 'bg-yellow-500' },
   ETC:        { from: 'from-gray-100',    via: 'via-gray-50/80',    to: 'to-slate-50/40',   chip: 'bg-gray-500' },
 }
+
+// 인증 화면 히어로(썸네일) 비율 — 여기 한 줄만 바꾸면 됨.
+//   예) 'aspect-[16/9]'(가로 넓게) · 'aspect-[4/3]'(더 높게) · 'aspect-square'(정사각)
+const HERO_ASPECT = 'aspect-[16/9]'
 
 // 참여자 미션 인증 페이지 (React Query 패턴)
 // — 미션 로드는 useQuery (캐시 자동) — 같은 미션 재진입 시 즉시 표시
@@ -81,6 +85,71 @@ function MissionVerifyPage() {
 
   // 인증 권한 — ACTIVE 참여자 또는 운영자만. 공개 프로그램 '둘러보기'(비참여자)는 차단.
   const isOwner = program?.owner_id === session?.user?.id
+
+  // 운영자 — 히어로 전용 이미지(아이콘과 별개) 편집: 16:9 로 위치·줌 조절해 크롭 (106)
+  const [heroEditOpen, setHeroEditOpen] = useState(false)
+  const [heroCropSrc, setHeroCropSrc] = useState(null)
+  const [heroCropOpen, setHeroCropOpen] = useState(false)
+  const [heroUploading, setHeroUploading] = useState(false)
+  const heroFileRef = useRef(null)
+  const updateHeroMutation = useMutation({
+    mutationFn: async (url) => {   // url: 전체 public URL | null(아이콘으로 폴백)
+      const { error } = await supabase.from('missions').update({ hero_image_path: url }).eq('id', missionId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.mission(missionId) })
+      setHeroEditOpen(false)
+    },
+    onError: (e) => alert(`미션 썸네일 저장 실패: ${e.message}`),
+  })
+  const heroBusy = heroUploading || updateHeroMutation.isPending
+  const onHeroFile = (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    if (!file.type.startsWith('image/')) { alert('이미지 파일만 올릴 수 있어요'); return }
+    setHeroCropSrc(URL.createObjectURL(file))
+    setHeroCropOpen(true)
+  }
+  const closeHeroCrop = () => {
+    setHeroCropOpen(false)
+    setHeroCropSrc(prev => { if (prev) URL.revokeObjectURL(prev); return null })
+  }
+  // 위치·크기 조절 — 새 업로드 없이 기존(히어로 or 아이콘) 이미지를 다시 크롭.
+  //   public URL 을 fetch→blob→objectURL 로 (캔버스 cross-origin 타이닝 방지).
+  const editExistingHero = async () => {
+    const url = resolveMissionIcon(mission?.hero_image_path || mission?.icon_path)
+    if (!url) return
+    setHeroUploading(true)
+    try {
+      const res = await fetch(url)
+      if (!res.ok) throw new Error('이미지를 불러오지 못했어요')
+      const blob = await res.blob()
+      setHeroCropSrc(URL.createObjectURL(blob))
+      setHeroCropOpen(true)
+    } catch (e) {
+      alert(`이미지를 불러오지 못했어요: ${e.message}`)
+    } finally {
+      setHeroUploading(false)
+    }
+  }
+  const onHeroCropComplete = async (blob) => {
+    if (!program?.owner_id) return
+    setHeroUploading(true)
+    try {
+      const path = `${program.owner_id}/mission-hero-${Date.now()}.jpg`
+      const { error: upErr } = await supabase.storage.from('program-covers').upload(path, blob, { upsert: false, contentType: 'image/jpeg' })
+      if (upErr) throw upErr
+      const { data } = supabase.storage.from('program-covers').getPublicUrl(path)
+      closeHeroCrop()
+      updateHeroMutation.mutate(data.publicUrl)
+    } catch (e) {
+      alert(`업로드에 실패했어요: ${e.message}`)
+    } finally {
+      setHeroUploading(false)
+    }
+  }
   const { data: myPart, isLoading: isPartLoading } = useQuery({
     queryKey: ['my-part-status', programId, session?.user?.id],
     queryFn: async () => {
@@ -658,59 +727,111 @@ function MissionVerifyPage() {
         <ChevronLeft className="w-5 h-5 text-gray-700" />
       </button>
 
-      {/* 히어로 영역 */}
+      {/* 운영자 — 우상단 연필: 히어로 이미지 위치·크기 조절 */}
+      {isOwner && (
+        <button
+          type="button"
+          onClick={() => setHeroEditOpen(true)}
+          className="fixed top-3 right-3 z-40 flex items-center justify-center w-9 h-9 bg-white/85 hover:bg-white rounded-full shadow-md backdrop-blur-sm transition"
+          title="미션 썸네일 편집"
+        >
+          <Pencil className="w-4 h-4 text-gray-700" />
+        </button>
+      )}
+
+      {/* 미션 썸네일 편집 모달 — 운영자 전용 (중앙 카드). 크롭 중엔 숨김 */}
+      {heroEditOpen && isOwner && !heroCropOpen && (
+        <div className="fixed inset-0 z-[80] bg-black/40 flex items-center justify-center p-5" onClick={() => !heroBusy && setHeroEditOpen(false)}>
+          <div className="w-full max-w-sm bg-white rounded-2xl p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h4 className="text-[15px] font-bold text-gray-800 mb-1">미션 썸네일 편집</h4>
+            <p className="text-[12px] text-gray-400 mb-3 break-keep">가로(16:9) 화면에 맞게 사진의 <b className="text-gray-600">위치·크기</b>를 조절해 원하는 부분이 보이게 해요. 미션 아이콘과는 별개로 저장돼요.</p>
+
+            {(mission.hero_image_path || mission.icon_path) && (
+              <div className="aspect-[16/9] rounded-xl overflow-hidden bg-gray-100 mb-3 ring-1 ring-black/5">
+                <img src={resolveMissionIcon(mission.hero_image_path || mission.icon_path)} alt="" className="w-full h-full object-cover" />
+              </div>
+            )}
+
+            {/* 사진 바꾸기 — 새 사진 업로드 */}
+            <button type="button" onClick={() => heroFileRef.current?.click()} disabled={heroBusy}
+              className="w-full h-11 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold transition disabled:opacity-50 flex items-center justify-center gap-1.5">
+              <Camera className="w-4 h-4" /> 사진 바꾸기
+            </button>
+            {/* 위치·크기 조절 — 새 업로드 없이 기존 이미지 재편집 */}
+            {(mission.hero_image_path || mission.icon_path) && (
+              <button type="button" onClick={editExistingHero} disabled={heroBusy}
+                className="w-full h-11 mt-2 rounded-xl border-2 border-emerald-400 text-emerald-700 text-sm font-bold transition hover:bg-emerald-50 disabled:opacity-50 flex items-center justify-center gap-1.5">
+                <Move className="w-4 h-4" /> 위치·크기 조절
+              </button>
+            )}
+            {mission.hero_image_path && (
+              <button type="button" onClick={() => updateHeroMutation.mutate(null)} disabled={heroBusy}
+                className="w-full h-10 mt-2 rounded-xl border border-gray-200 text-gray-500 text-xs font-medium hover:bg-gray-50 transition disabled:opacity-50">
+                기본(아이콘)으로 되돌리기
+              </button>
+            )}
+            <button type="button" onClick={() => setHeroEditOpen(false)} disabled={heroBusy}
+              className="w-full h-10 mt-2 rounded-xl text-gray-500 text-sm font-medium hover:bg-gray-50 transition disabled:opacity-50">
+              닫기
+            </button>
+            <input ref={heroFileRef} type="file" accept="image/*" onChange={onHeroFile} className="hidden" />
+          </div>
+        </div>
+      )}
+
+      {/* 16:9 크롭(위치·줌 조절) */}
+      <ImageCropModal
+        isOpen={heroCropOpen}
+        imageSrc={heroCropSrc}
+        onClose={closeHeroCrop}
+        onComplete={onHeroCropComplete}
+        isUploading={heroUploading}
+        aspect={16 / 9}
+        cropShape="rect"
+        outputWidth={1280}
+        outputHeight={720}
+        title="미션 썸네일 편집"
+        description="원하는 부분이 보이도록 위치·크기를 맞춰주세요 (16:9)"
+      />
+
+      {/* 히어로 — 썸네일을 영역 전체에 풀블리드(object-cover) + 하단 그라데이션 위에
+          프로그램·미션 제목 오버레이. 뒤로가기 버튼은 위(fixed z-40)에 떠 있음. */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.3 }}
-        className="relative bg-white pt-2 pb-8 px-5 overflow-hidden"
+        className={`relative ${HERO_ASPECT} overflow-hidden`}
       >
-
-        {/* 라이브러리 미션 일러스트 — 히어로 풀블리드 (Day 65, 본인 모의도 흐름).
-            본인 피드백: 일러스트가 헤더 배경과 「사각형 영역」 으로 명확히 구분되어 보임.
-            해결:
-              (1) 크기 키우기 — 모바일 폭의 80% (max 360px) 까지
-              (2) 사방 페이드 — radial gradient mask 로 좌·우·하단 모두 transparent
-                  → 일러스트 가장자리가 배경 그라데이션에 자연스럽게 녹아듦 (vignette). */}
-        {mission.icon_path && (
-          /^https?:\/\//.test(mission.icon_path) ? (
-            // 커스텀 업로드(불투명 사진) — 마스크 없이 깔끔한 라운드 카드 (흰색/초록 갈림 방지)
-            <motion.img
-              initial={{ opacity: 0, scale: 0.96, y: -4 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              transition={{ duration: 0.45, delay: 0.05 }}
-              src={resolveMissionIcon(mission.icon_path)}
-              alt=""
-              className="block mx-auto w-24 h-24 rounded-2xl object-cover shadow-sm ring-1 ring-black/5 pointer-events-none select-none mb-1"
-              aria-hidden="true"
-              onError={(e) => { e.currentTarget.style.display = 'none' }}
-            />
-          ) : (
-            // 프리셋 아이콘(투명) — 흰 배경 위에 카드 없이 그대로 (본인 요청: 박스 흰색 + 아이콘만 떠 있게)
-            <motion.img
-              initial={{ opacity: 0, scale: 0.96, y: 1 }}
-              animate={{ opacity: 1, scale: 1, y: 20 }}
-              transition={{ duration: 0.45, delay: 0.05 }}
-              src={resolveMissionIcon(mission.icon_path)}
-              alt=""
-              className="block mx-auto w-32 h-32 object-contain pointer-events-none select-none mb-1"
-              aria-hidden="true"
-              onError={(e) => { e.currentTarget.style.display = 'none' }}
-            />
-          )
+        {/* 배경 썸네일 — 히어로 전용 이미지(hero_image_path) 우선, 없으면 아이콘 */}
+        {(mission.hero_image_path || mission.icon_path) ? (
+          <motion.img
+            initial={{ scale: 1.05 }}
+            animate={{ scale: 1 }}
+            transition={{ duration: 0.5 }}
+            src={resolveMissionIcon(mission.hero_image_path || mission.icon_path)}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover"
+            aria-hidden="true"
+            onError={(e) => { e.currentTarget.style.display = 'none' }}
+          />
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-100 to-teal-200" />
         )}
 
-        <div className="relative z-10">
-        <p className="text-xs text-gray-600 mb-1 flex items-center gap-1">
-          <span className="text-base leading-none">{catMeta.emoji}</span>
-          <span className="font-medium">{catMeta.label}</span>
-          <span className="text-gray-400">·</span>
-          <span className="truncate">{program?.name}</span>
-        </p>
+        {/* 가독성 오버레이 — 하단으로 갈수록 어둡게 (약하게) */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/15 to-transparent" />
 
-        <h1 className="text-2xl font-medium text-gray-800 leading-tight">
-          {mission.title}
-        </h1>
+        {/* 텍스트 — 좌하단 흰색 (카드와 겹치지 않게 여유) */}
+        <div className="absolute bottom-0 left-0 right-0 px-5 pb-9 pt-12 text-white">
+          <p className="text-xs mb-1 flex items-center gap-1 drop-shadow-sm">
+            <span className="text-base leading-none">{catMeta.emoji}</span>
+            <span className="font-medium">{catMeta.label}</span>
+            <span className="opacity-70">·</span>
+            <span className="truncate">{program?.name}</span>
+          </p>
+          <h1 className="text-2xl font-bold leading-tight drop-shadow">
+            {mission.title}
+          </h1>
         </div>
       </motion.div>
 
