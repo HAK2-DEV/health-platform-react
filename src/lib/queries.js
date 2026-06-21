@@ -718,6 +718,7 @@ export const fetchCommunityPosts = async (programId, boardId) => {
     .from('community_posts')
     .select('*, author:users(id, nickname, avatar_path)')
     .eq('program_id', programId)
+    .order('pinned_at', { ascending: false, nullsFirst: false })  // 고정 글 먼저 (104)
     .order('created_at', { ascending: false })
   if (boardId && boardId !== 'all') q = q.eq('board_id', boardId)
   const { data, error } = await q
@@ -748,6 +749,18 @@ export const updateCommunityPost = async ({ id, boardId, title, body, imagePath 
 export const deleteCommunityPost = async (id) => {
   const { error } = await supabase.from('community_posts').delete().eq('id', id)
   if (error) throw error
+}
+
+// 글 상단 고정/해제 (104) — 운영자만 (DB 트리거가 owner 외 변경을 무효화).
+export const setCommunityPostPin = async ({ id, pinned }) => {
+  const { data, error } = await supabase
+    .from('community_posts')
+    .update({ pinned_at: pinned ? new Date().toISOString() : null })
+    .eq('id', id)
+    .select()
+    .single()
+  if (error) throw error
+  return data
 }
 
 // 신고 (100) — targetType: 'post' | 'verification'. 누적 시 트리거가 자동 숨김.

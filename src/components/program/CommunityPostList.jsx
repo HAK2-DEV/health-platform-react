@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Trash2, Pencil, Flag } from 'lucide-react'
+import { Trash2, Pencil, Flag, Pin, PinOff } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
-import { deleteCommunityPost, queryKeys } from '../../lib/queries'
+import { deleteCommunityPost, setCommunityPostPin, queryKeys } from '../../lib/queries'
 import { formatRelativeKstDay } from '../../lib/formatters'
 import UserAvatar from '../common/UserAvatar'
 import EmptyState from '../common/EmptyState'
@@ -43,6 +43,17 @@ function CommunityPostList({ programId, boardId, posts = [], myUserId, isOwner, 
   })
   const onDelete = (p) => { if (window.confirm('이 글을 삭제할까요?')) delMutation.mutate(p.id) }
 
+  // 상단 고정/해제 — 운영자 전용 (공지 게시판). DB 트리거가 owner 외 변경을 차단.
+  const pinMutation = useMutation({
+    mutationFn: ({ id, pinned }) => setCommunityPostPin({ id, pinned }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.communityPosts(programId, boardId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.communityPosts(programId, 'all') })
+    },
+    onError: (e) => alert(`고정 변경 실패: ${e.message}`),
+  })
+  const canPin = isOwner && boardId === 'notice'
+
   const [reportId, setReportId] = useState(null)
 
   if (posts.length === 0) {
@@ -53,8 +64,14 @@ function CommunityPostList({ programId, boardId, posts = [], myUserId, isOwner, 
     <div className="space-y-3">
       {posts.map(p => {
         const canDelete = p.author_id === myUserId || isOwner
+        const isPinned = !!p.pinned_at
         return (
-          <article key={p.id} className="bg-white border border-gray-200 rounded-2xl p-4">
+          <article key={p.id} className={`bg-white border rounded-2xl p-4 ${isPinned ? 'border-emerald-300 ring-1 ring-emerald-100' : 'border-gray-200'}`}>
+            {isPinned && (
+              <div className="flex items-center gap-1 mb-2 text-[11px] font-bold text-emerald-600">
+                <Pin className="w-3.5 h-3.5 fill-current" /> 상단 고정
+              </div>
+            )}
             <div className="flex items-center gap-2.5 mb-2">
               <UserAvatar avatarPath={p.author?.avatar_path} nickname={p.author?.nickname} size="md" />
               <div className="flex-1 min-w-0">
@@ -65,6 +82,13 @@ function CommunityPostList({ programId, boardId, posts = [], myUserId, isOwner, 
                 </p>
               </div>
               <div className="flex items-center gap-0.5 flex-shrink-0">
+                {canPin && (
+                  <button type="button" onClick={() => pinMutation.mutate({ id: p.id, pinned: !isPinned })} disabled={pinMutation.isPending}
+                    className={`p-1 transition disabled:opacity-50 ${isPinned ? 'text-emerald-600 hover:text-gray-400' : 'text-gray-400 hover:text-emerald-600'}`}
+                    title={isPinned ? '고정 해제' : '상단 고정'}>
+                    {isPinned ? <PinOff className="w-4 h-4" /> : <Pin className="w-4 h-4" />}
+                  </button>
+                )}
                 {p.author_id !== myUserId && boardId !== 'notice' && (
                   <button type="button" onClick={() => setReportId(p.id)}
                     className="p-1 text-gray-400 hover:text-amber-600 transition" title="신고"><Flag className="w-4 h-4" /></button>

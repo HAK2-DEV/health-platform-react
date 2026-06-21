@@ -15,6 +15,7 @@ import PodiumTop3 from '../../components/program/PodiumTop3'
 import ScoreSparkline from '../../components/program/ScoreSparkline'
 import StickyBackBar from '../../components/common/StickyBackBar'
 import Modal from '../../components/common/Modal'
+import DeleteProgramModal from '../../components/program/DeleteProgramModal'
 import ProfileButton from '../../components/common/ProfileButton'
 import NotificationBell from '../../components/common/NotificationBell'
 import UserAvatar from '../../components/common/UserAvatar'
@@ -87,16 +88,18 @@ const periodToISOStart = (p) => {
 }
 
 // 운영자 메뉴 시트 — 항목 박스 (아이콘 + 제목 + 설명, 우측 화살표/배지)
-function PanelMenuBox({ icon, title, desc, onClick, chevron = false, badge = 0 }) {
+function PanelMenuBox({ icon, title, desc, onClick, chevron = false, badge = 0, danger = false }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="relative w-full flex items-center gap-3 px-4 py-3.5 bg-white border border-gray-200 rounded-2xl hover:border-amber-400 hover:bg-amber-50/50 transition text-left"
+      className={`relative w-full flex items-center gap-3 px-4 py-3.5 bg-white border rounded-2xl transition text-left ${
+        danger ? 'border-red-200 hover:border-red-400 hover:bg-red-50/50' : 'border-gray-200 hover:border-amber-400 hover:bg-amber-50/50'
+      }`}
     >
       <span className="text-2xl flex-shrink-0">{icon}</span>
       <div className="flex-1 min-w-0">
-        <p className="text-[15px] font-bold text-gray-800">{title}</p>
+        <p className={`text-[15px] font-bold ${danger ? 'text-red-600' : 'text-gray-800'}`}>{title}</p>
         {desc && <p className="text-[12px] text-gray-500 mt-0.5 break-keep">{desc}</p>}
       </div>
       {badge > 0 && (
@@ -117,6 +120,7 @@ function ProgramDetailPage() {
   const userId = session?.user?.id
 
   const [isEditOpen, setIsEditOpen] = useState(false)
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false)   // 프로그램 삭제 2단계 확인 모달
   const [isOverviewEditOpen, setIsOverviewEditOpen] = useState(false)
   const [isLibraryOpen, setIsLibraryOpen] = useState(false)
   const [isMissionCreateOpen, setIsMissionCreateOpen] = useState(false)
@@ -517,6 +521,21 @@ function ProgramDetailPage() {
   const [quizToDelete, setQuizToDelete] = useState(null)
   const handleQuizDelete = (q) => setQuizToDelete(q)
 
+  // 프로그램 삭제 — owner 만(RLS), CASCADE 로 미션·퀴즈·참여자·인증·점수·게시물 연쇄 삭제.
+  const deleteProgramMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from('programs').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['programs'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.activePrograms(userId) })
+      setIsDeleteOpen(false)
+      navigate('/', { replace: true })
+    },
+    onError: (e) => { console.error('프로그램 삭제 실패:', e); alert(`프로그램 삭제에 실패했습니다: ${e.message}`) },
+  })
+
   // 퀴즈 복제 — 원본 + 문항 복사한 새 퀴즈 생성 (일정 비움)
   const duplicateQuizMutation = useMutation({
     mutationFn: (q) => duplicateQuiz({ quizId: q.id, programId: id, userId }),
@@ -541,6 +560,7 @@ function ProgramDetailPage() {
     if (!program) return
     if (activeTab === 'quizzes' && program.quiz_enabled === false) setActiveTab('overview')
     else if (activeTab === 'community' && program.community_enabled === false) setActiveTab('overview')
+    else if (activeTab === 'ranking' && program.ranking_enabled === false) setActiveTab('overview')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [program, activeTab])
 
@@ -990,7 +1010,10 @@ function ProgramDetailPage() {
           본인 결정 (Day 65): 정원/별자리도 「성장」 통합 라벨로 일원화.
           인라인 관리자 열림 시엔 탭 바도 숨김(집중 편집 화면) */}
       {!inManager && (() => {
-        const gType = program.gamification_type || (program.ranking_enabled !== false ? 'RANKING' : null)
+        // 「랭킹 메뉴 표시」(ranking_enabled) OFF 면 성장/랭킹 탭 자체를 숨김 — gamification_type 보다 우선.
+        const gType = program.ranking_enabled === false
+          ? null
+          : (program.gamification_type || 'RANKING')
         // 열람자에겐 개인 정원/별자리 대신 랭킹 목록 → 라벨도 '랭킹'
         const growthLabel = isViewer
           ? (gType ? '랭킹' : null)
@@ -1746,6 +1769,10 @@ function ProgramDetailPage() {
                     <PanelMenuBox icon="🙋" title="참여 승인 심사" desc="신청자 답변 확인 · 승인/거절" badge={pendingCount} onClick={() => { closePanel(); setIsApprovalsOpen(true) }} />
                   )}
                 </div>
+                {/* 위험 구역 — 프로그램 삭제 (운영자만, 2단계 확인) */}
+                <div className="mt-3 pt-3 border-t border-gray-100">
+                  <PanelMenuBox danger icon="🗑️" title="이 프로그램 삭제하기" desc="프로그램과 모든 데이터 영구 삭제 · 되돌릴 수 없음" onClick={() => { closePanel(); setIsDeleteOpen(true) }} />
+                </div>
               </>
             )}
 
@@ -1812,6 +1839,17 @@ function ProgramDetailPage() {
         danger
         busy={deleteMissionMutation.isPending}
       />
+
+      {/* 프로그램 삭제 — 운영자 전용 2단계 확인 (제목 입력 + 최종 확인) */}
+      {isOwner && (
+        <DeleteProgramModal
+          isOpen={isDeleteOpen}
+          programTitle={program?.name || ''}
+          onClose={() => setIsDeleteOpen(false)}
+          onConfirm={() => deleteProgramMutation.mutate()}
+          busy={deleteProgramMutation.isPending}
+        />
+      )}
     </div>
   )
 }
