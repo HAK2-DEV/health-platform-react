@@ -9,9 +9,10 @@ import CoverImageUploader from '../../common/CoverImageUploader'
 //   이름 → 카테고리 → 기간 → 소개·사진. 한 화면에 하나씩, 스크롤 없이 넘김.
 const SUB = [
   { q: '프로그램 이름을 정해볼까요?', sub: '참여자에게 보이는 이름이에요.' },
+  { q: '한 줄 설명을 적어볼까요?', sub: '프로그램을 한 문장으로 소개해요. (선택 — 비워도 돼요)' },
   { q: '어떤 카테고리인가요?', sub: '여러 개 골라도 좋아요.' },
   { q: '언제부터 언제까지 진행하나요?', sub: '시작 후엔 시작일을 바꿀 수 없어요.\n(종료일만 나중에 수정 가능)' },
-  { q: '소개와 대표 사진을 더해요', sub: '선택이에요 — 비워도 괜찮아요.' },
+  { q: '대표 사진을 더해요', sub: '선택이에요 — 비워도 괜찮아요.' },
 ]
 const TOTAL = SUB.length
 
@@ -57,14 +58,14 @@ function Step1Basic({ initialData, onNext, onSave, enterAtEnd = false }) {
       if (!name.trim()) return '프로그램 이름을 입력해주세요'
       if (name.length > PROGRAM.NAME_MAX_LENGTH) return `이름은 최대 ${PROGRAM.NAME_MAX_LENGTH}자예요`
     }
-    if (s === 1 && categories.length === 0) return '카테고리를 최소 1개 선택해주세요'
-    if (s === 2) {
+    if (s === 1 && description.length > PROGRAM.DESCRIPTION_MAX_LENGTH) {
+      return `한 줄 설명은 최대 ${PROGRAM.DESCRIPTION_MAX_LENGTH}자예요`
+    }
+    if (s === 2 && categories.length === 0) return '카테고리를 최소 1개 선택해주세요'
+    if (s === 3) {
       if (!startDate) return '시작일을 선택해주세요'
       if (!endDate) return '종료일을 선택해주세요'
       if (startDate > endDate) return '종료일은 시작일 이후여야 해요'
-    }
-    if (s === 3 && description.length > PROGRAM.DESCRIPTION_MAX_LENGTH) {
-      return `목표 설명은 최대 ${PROGRAM.DESCRIPTION_MAX_LENGTH}자예요`
     }
     return null
   }
@@ -125,8 +126,24 @@ function Step1Basic({ initialData, onNext, onSave, enterAtEnd = false }) {
               </div>
             )}
 
-            {/* 1: 카테고리 */}
+            {/* 1: 한 줄 설명 */}
             {subStep === 1 && (
+              <div className="relative">
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  maxLength={PROGRAM.DESCRIPTION_MAX_LENGTH}
+                  autoFocus
+                  placeholder="예: 매일 7천보 걷고 건강 습관 만들기!"
+                  rows={3}
+                  className="w-full px-3.5 py-3 border-2 border-gray-200 rounded-[10px] focus:outline-none focus:border-emerald-500 resize-none text-sm"
+                />
+                <span className="absolute right-3 bottom-2.5 text-xs text-gray-400">{description.length}/{PROGRAM.DESCRIPTION_MAX_LENGTH}</span>
+              </div>
+            )}
+
+            {/* 2: 카테고리 */}
+            {subStep === 2 && (
               <div className="grid grid-cols-3" style={{ gap: '9px' }}>
                 {CATEGORY_LIST.map(category => {
                   const on = categories.includes(category.key)
@@ -146,8 +163,8 @@ function Step1Basic({ initialData, onNext, onSave, enterAtEnd = false }) {
               </div>
             )}
 
-            {/* 2: 기간 */}
-            {subStep === 2 && (
+            {/* 3: 기간 */}
+            {subStep === 3 && (
               <div className="flex flex-col sm:flex-row sm:items-end" style={{ gap: '9px' }}>
                 <div className="w-full sm:flex-1 min-w-0">
                   <p className="text-[11px] text-gray-500 mb-1">📅 시작</p>
@@ -177,8 +194,8 @@ function Step1Basic({ initialData, onNext, onSave, enterAtEnd = false }) {
               </div>
             )}
 
-            {/* 3: 소개 + 대표 사진 */}
-            {subStep === 3 && (
+            {/* 4: 대표 사진 */}
+            {subStep === 4 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '9px' }}>
                 <CoverImageUploader
                   ownerId={ownerId}
@@ -187,17 +204,6 @@ function Step1Basic({ initialData, onNext, onSave, enterAtEnd = false }) {
                   categories={categories}
                   name={name}
                 />
-                <div className="relative">
-                  <textarea
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    maxLength={PROGRAM.DESCRIPTION_MAX_LENGTH}
-                    placeholder="목표 한 줄 — 예: 매일 7천보 걷고 건강 습관 만들기!"
-                    rows={3}
-                    className="w-full px-3.5 py-3 border-2 border-gray-200 rounded-[10px] focus:outline-none focus:border-emerald-500 resize-none text-sm"
-                  />
-                  <span className="absolute right-3 bottom-2.5 text-xs text-gray-400">{description.length}/{PROGRAM.DESCRIPTION_MAX_LENGTH}</span>
-                </div>
               </div>
             )}
           </motion.div>

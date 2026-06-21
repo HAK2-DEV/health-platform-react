@@ -148,6 +148,12 @@ function QuizCreatePage() {
   const [qIndex, setQIndex] = useState(0)
   const STEP_LABELS = ['기본', '문제', '발행']
   const backPath = `/programs/${id}?tab=quizzes&panel=quiz`
+  // 나가기 — 히스토리 있으면 뒤로(중복 엔트리 안 쌓임), 딥링크 진입이면 매니저로 replace.
+  //   (push 로 매니저 URL 을 또 쌓으면 뒤로가기가 만들기로 돌아오는 무한 루프 발생)
+  const exitToManager = () => {
+    if (location.key !== 'default') navigate(-1)
+    else navigate(backPath, { replace: true })
+  }
 
   // 단계/문제 전환 시 콘텐츠를 맨 위로 (문제 추가하면 새 문제가 위에서 보이게)
   useEffect(() => {
@@ -308,7 +314,7 @@ function QuizCreatePage() {
         queryClient.invalidateQueries({ queryKey: queryKeys.quizEdit(quizId) })
         queryClient.invalidateQueries({ queryKey: queryKeys.programQuizStats(id) })
       }
-      navigate(`/programs/${id}?tab=quizzes&panel=quiz`)   // 퀴즈 관리자로 복귀
+      exitToManager()   // 퀴즈 관리자로 복귀 (히스토리 정리 → 뒤로가기 루프 방지)
     },
     onError: (err) => {
       console.error('퀴즈 저장 실패:', err)
@@ -360,7 +366,7 @@ function QuizCreatePage() {
     setError(null)
     if (step === 3) { setStep(2); setQIndex(Math.max(0, questions.length - 1)); return }
     if (step === 2) { if (qIndex > 0) { setQIndex(i => i - 1) } else { setStep(1) }; return }
-    navigate(backPath)   // step 1 취소
+    exitToManager()   // step 1 취소
   }
   const addQuestionAndGo = () => { setQuestions(qs => [...qs, newQuestion()]); setQIndex(questions.length); setError(null) }
   const removeQuestionAt = (idx) => {
@@ -390,7 +396,7 @@ function QuizCreatePage() {
             <h1 className="text-lg font-bold text-gray-800 flex-shrink-0">{isEdit ? '✏️ 퀴즈 수정' : '📝 퀴즈 만들기'}</h1>
             <span className="text-xs text-gray-400 truncate">발행 {includedQuestions.length}개 · {totalPoint}점</span>
           </div>
-          <button type="button" onClick={() => navigate(backPath)} className="p-1.5 -mr-1.5 text-gray-400 hover:text-gray-700" title="닫기"><X className="w-5 h-5" /></button>
+          <button type="button" onClick={exitToManager} className="p-1.5 -mr-1.5 text-gray-400 hover:text-gray-700" title="닫기"><X className="w-5 h-5" /></button>
         </div>
 
         {/* 스텝 인디케이터 */}

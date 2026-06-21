@@ -12,6 +12,7 @@ import { queryKeys, fetchMission, fetchProgramOverview, fetchProgram, fetchActiv
 import { detectMilestonesReached, resolveStreakMilestones, computeStage } from '../../lib/gamification'
 import { useToast } from '../../contexts/ToastContext'
 import { compressImage } from '../../lib/imageCompression'
+import { primeAudio, playSuccessChime } from '../../lib/sound'
 import LoadingState from '../../components/common/LoadingState'
 import ImageCropModal from '../../components/common/ImageCropModal'
 import NotificationBell from '../../components/common/NotificationBell'
@@ -384,6 +385,7 @@ function MissionVerifyPage() {
       }
     },
     onSuccess: async () => {
+      playSuccessChime()   // 인증 완료 효과음 (띠링↗)
       // 인증 성공 → 점수/카운트/랭킹 모두 무효화 → 다른 화면 진입 시 fresh
       // prefix 무효화로 한 번에 처리 (새 키 추가 시 빠질 위험 줄임)
       queryClient.invalidateQueries({ queryKey: ['scores'] })
@@ -468,6 +470,7 @@ function MissionVerifyPage() {
 
   const handleSubmit = () => {
     if (!session || !mission) return
+    primeAudio()   // 사용자 제스처에서 오디오 잠금 해제 (모바일) → onSuccess 효과음 재생 보장
     if (dailyLimitReached) {
       setError('오늘은 이미 인증을 완료했어요. 내일 다시 인증할 수 있어요.')
       return

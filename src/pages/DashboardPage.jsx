@@ -55,10 +55,15 @@ const ClipboardSolid = ({ className }) => (
   </svg>
 )
 
-// 섹션 카드 — 모서리 10px, 제목 + 우측 액션
-function SectionCard({ title, action, children, className = '' }) {
+// 섹션 카드 — 모서리 10px, 제목 + 우측 액션. 진입 시 아래에서 살짝 떠오름(stagger).
+function SectionCard({ title, action, children, className = '', delay = 0 }) {
   return (
-    <section className={`bg-white border border-gray-100 rounded-[10px] shadow-soft p-4 ${className}`}>
+    <motion.section
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, delay, ease: 'easeOut' }}
+      className={`bg-white border border-gray-100 rounded-[10px] shadow-soft p-4 ${className}`}
+    >
       {(title || action) && (
         <div className="flex items-center justify-between gap-2 mb-3">
           {title && <h2 className="flex items-center gap-1.5 text-base font-bold text-gray-800">{title}</h2>}
@@ -66,11 +71,31 @@ function SectionCard({ title, action, children, className = '' }) {
         </div>
       )}
       {children}
-    </section>
+    </motion.section>
   )
 }
 
-// 내 랭킹 도넛 링
+// 숫자 카운트업 — 0 → target (easeOutCubic). 데이터 도착(target 변경) 시 재생.
+function useCountUp(target, duration = 900) {
+  const [val, setVal] = useState(0)
+  useEffect(() => {
+    const end = Number(target) || 0
+    if (end === 0) { setVal(0); return }
+    let raf, start = null
+    const tick = (t) => {
+      if (start == null) start = t
+      const p = Math.min(1, (t - start) / duration)
+      const eased = 1 - Math.pow(1 - p, 3)
+      setVal(Math.round(end * eased))
+      if (p < 1) raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [target, duration])
+  return val
+}
+
+// 내 랭킹 도넛 링 — 진입 시 원이 그려짐
 function RankRing({ rank, total }) {
   const R = 30
   const C = 2 * Math.PI * R
@@ -79,8 +104,12 @@ function RankRing({ rank, total }) {
     <div className="relative w-[84px] h-[84px]">
       <svg viewBox="0 0 80 80" className="w-full h-full -rotate-90">
         <circle cx="40" cy="40" r={R} fill="none" stroke="#e5e7eb" strokeWidth="7" />
-        <circle cx="40" cy="40" r={R} fill="none" stroke="#10b981" strokeWidth="7" strokeLinecap="round"
-          strokeDasharray={C} strokeDashoffset={C * (1 - pct)} />
+        <motion.circle cx="40" cy="40" r={R} fill="none" stroke="#10b981" strokeWidth="7" strokeLinecap="round"
+          strokeDasharray={C}
+          initial={{ strokeDashoffset: C }}
+          animate={{ strokeDashoffset: C * (1 - pct) }}
+          transition={{ duration: 1.1, ease: 'easeOut', delay: 0.25 }}
+        />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-[10px] text-emerald-600 font-semibold leading-none">내 랭킹</span>
@@ -236,6 +265,9 @@ function DashboardPage() {
     { label: '획득 점수', value: today?.points ?? 0, cap: 300, img: '/icons/activity/point.png', bar: 'bg-purple-500', circleBg: 'bg-amber-100' },
   ]
 
+  // 총 점수 카운트업 (0 → 실제 점수)
+  const animatedScore = useCountUp(pStats?.totalPoints ?? 0)
+
   return (
     <div className="min-h-screen bg-white">
       {/* ─── 상단 헤더 (도담 + 알림) — 모서리 0, 최상단 고정 톤 ─── */}
@@ -306,6 +338,7 @@ function DashboardPage() {
 
         {/* ─── 대표 프로그램 (운영자=운영중 / 그 외=참여중) ─── */}
         <SectionCard
+          delay={0.08}
           title={isOperator ? '운영 중인 프로그램' : '참여 중인 프로그램'}
           action={(isOperator ? myPrograms.length : activePrograms.length) > 0 && (
             <button type="button" onClick={() => navigate('/programs')} className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700">
@@ -348,7 +381,11 @@ function DashboardPage() {
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-gray-500 flex-shrink-0">진행률</span>
                     <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                      <div className={`h-full rounded-full ${fUrgency?.barCls || 'bg-emerald-400'}`} style={{ width: `${fProgress}%` }} />
+                      <motion.div className={`h-full rounded-full ${fUrgency?.barCls || 'bg-emerald-400'}`}
+                        initial={{ width: 0 }}
+                        animate={{ width: `${fProgress}%` }}
+                        transition={{ duration: 0.9, ease: 'easeOut', delay: 0.3 }}
+                      />
                     </div>
                     <span className={`text-sm font-bold flex-shrink-0 ${fUrgency?.textCls || 'text-emerald-600'}`}>{fProgress}%</span>
                   </div>
@@ -380,6 +417,7 @@ function DashboardPage() {
 
         {/* ─── 오늘의 활동 요약 — 세로 구분선 + 상태바 ─── */}
         <SectionCard
+          delay={0.16}
           title="오늘의 활동 요약"
           action={
             <button type="button" onClick={() => navigate('/profile/activity')} className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700">
@@ -407,7 +445,11 @@ function DashboardPage() {
                   <p className="text-lg font-extrabold text-gray-900 leading-tight">{m.value}</p>
                   <p className="text-[11px] text-gray-500 mt-0.5 mb-1.5 break-keep">{m.label}</p>
                   <div className="w-full h-1 bg-gray-100 rounded-full overflow-hidden">
-                    <div className={`h-full rounded-full ${m.bar}`} style={{ width: `${fill}%` }} />
+                    <motion.div className={`h-full rounded-full ${m.bar}`}
+                      initial={{ width: 0 }}
+                      animate={{ width: `${fill}%` }}
+                      transition={{ duration: 0.8, ease: 'easeOut', delay: 0.2 + i * 0.08 }}
+                    />
                   </div>
                 </div>
               )
@@ -417,6 +459,7 @@ function DashboardPage() {
 
         {/* ─── 내 점수 및 랭킹 ─── */}
         <SectionCard
+          delay={0.24}
           title="내 점수 및 랭킹"
           action={
             <button type="button" onClick={() => navigate('/rankings')} className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700">
@@ -428,7 +471,7 @@ function DashboardPage() {
             <div className="text-center">
               <p className="text-[11px] text-emerald-600 font-semibold mb-0.5">총 점수</p>
               <p className="text-xl font-extrabold text-gray-900 leading-tight">
-                {(pStats?.totalPoints ?? 0).toLocaleString()}<span className="text-sm text-gray-500 font-bold"> P</span>
+                {animatedScore.toLocaleString()}<span className="text-sm text-gray-500 font-bold"> P</span>
               </p>
               {pStats?.weekPoints > 0 && (
                 <p className="text-[11px] font-semibold text-emerald-600 mt-0.5">이번주 ↑{pStats.weekPoints}P</p>

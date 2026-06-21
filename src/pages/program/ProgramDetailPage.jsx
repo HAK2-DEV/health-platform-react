@@ -956,7 +956,7 @@ function ProgramDetailPage() {
                       />
                     </div>
                     <span className={`text-sm font-semibold flex-shrink-0 ${urgency.textCls || 'text-emerald-600'}`}>
-                      {urgency.label && `${urgency.urgency === 'ended' ? '🏁' : urgency.urgency === 'imminent' ? '🔥' : '⏳'} `}{progress}%
+                      {progress}%{urgency.label && ` ${urgency.urgency === 'ended' ? '🏁' : urgency.urgency === 'imminent' ? '🔥' : '⏳'}`}
                     </span>
                   </div>
                 </div>
