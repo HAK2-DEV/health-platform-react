@@ -30,6 +30,7 @@ import CommunityManagePanel from '../../components/program/CommunityManagePanel'
 import CommunityPostModal from '../../components/program/CommunityPostModal'
 import CommunityPostList from '../../components/program/CommunityPostList'
 import CommunityReviewModal from '../../components/program/CommunityReviewModal'
+import VerificationReviewModal from '../../components/program/VerificationReviewModal'
 import MarkdownView from '../../components/common/MarkdownView'
 import ConfirmModal from '../../components/common/ConfirmModal'
 import RankingSettingsModal from '../../components/program/RankingSettingsModal'
@@ -72,6 +73,7 @@ import {
   duplicateQuiz,
   fetchCommunityPosts,
   fetchCommunityPendingPosts,
+  fetchPendingReviews,
   fetchProgramOverview,
 } from '../../lib/queries'
 
@@ -407,13 +409,30 @@ function ProgramDetailPage() {
     for (const p of pendingPosts) m[p.board_id] = (m[p.board_id] || 0) + 1
     return m
   }, [pendingPosts])
-  const [reviewOpen, setReviewOpen] = useState(false)   // 통합 검토함 모달
+  const [reviewOpen, setReviewOpen] = useState(false)   // 커뮤니티 통합 검토함 모달
   // 검토 대기 알림(?review=1) 으로 진입하면 통합 검토함 자동 오픈 (최초 1회)
   useEffect(() => {
     if (searchParams.get('review') === '1') {
       setReviewOpen(true)
       const next = new URLSearchParams(searchParams)
       next.delete('review')
+      setSearchParams(next, { replace: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // 운영자 — 검토 필요(PENDING_REVIEW) 인증 큐 + 「새 인증」 알림(?vreview=1) 진입 시 자동 오픈
+  const { data: pendingReviews = [] } = useQuery({
+    queryKey: queryKeys.pendingReviews(id),
+    queryFn: () => fetchPendingReviews(id),
+    enabled: !!session && !!id && !!program && isOwner,
+  })
+  const [vreviewOpen, setVreviewOpen] = useState(false)
+  useEffect(() => {
+    if (searchParams.get('vreview') === '1') {
+      setVreviewOpen(true)
+      const next = new URLSearchParams(searchParams)
+      next.delete('vreview')
       setSearchParams(next, { replace: true })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1106,6 +1125,19 @@ function ProgramDetailPage() {
         )
       })()}
 
+      {/* 인증 심사 대기 배너 — 운영자 + 검토 필요 인증 (개요·미션 탭). 탭하면 인증 검토 큐 */}
+      {isOwner && pendingReviews.length > 0 && (activeTab === 'overview' || activeTab === 'missions') && (
+        <button type="button" onClick={() => setVreviewOpen(true)}
+          className="w-full flex items-center gap-2.5 mb-3 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-left hover:bg-emerald-100/70 transition">
+          <span className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center flex-shrink-0 text-[15px]">📝</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-[13px] font-bold text-gray-800">인증 심사 대기 {pendingReviews.length}건</p>
+            <p className="text-[11px] text-emerald-700/80">탭해서 한 번에 검토 (승인/거절)</p>
+          </div>
+          <ChevronRight className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+        </button>
+      )}
+
       {/* ─── 개요 탭 — 관리자 편집 폼 (미리보기 중엔 숨김, mounted 유지) ─── */}
       {activeTab === 'overview' && overviewManageOpen && (
         <div className={overviewPreview ? 'hidden' : ''}>
@@ -1797,6 +1829,14 @@ function ProgramDetailPage() {
           programId={id}
           posts={pendingPosts}
           boards={communityBoards}
+        />
+        {/* 운영자 인증 검토 큐 — 검토 필요 인증 한 건씩 승인/거절 */}
+        <VerificationReviewModal
+          isOpen={vreviewOpen}
+          onClose={() => setVreviewOpen(false)}
+          programId={id}
+          reviews={pendingReviews}
+          reviewerId={userId}
         />
         {isLibraryOpen && (
           <MissionLibraryModal

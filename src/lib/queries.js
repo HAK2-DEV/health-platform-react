@@ -1179,6 +1179,20 @@ export const fetchPendingReviews = async (programId) => {
   return data || []
 }
 
+// 인증 심사 — 승인/거절 (운영자). 직접 UPDATE → grant_score(승인)/notify_on_verification_review 트리거 발화.
+export const approveVerification = async ({ id, reviewerId }) => {
+  const { error } = await supabase.from('verifications')
+    .update({ status: 'APPROVED', reviewed_at: new Date().toISOString(), reviewer_id: reviewerId })
+    .eq('id', id)
+  if (error) throw error
+}
+export const rejectVerification = async ({ id, reason, reviewerId }) => {
+  const { error } = await supabase.from('verifications')
+    .update({ status: 'REJECTED', reviewed_at: new Date().toISOString(), reviewer_id: reviewerId, rejection_reason: reason })
+    .eq('id', id)
+  if (error) throw error
+}
+
 // 운영자 심사 디테일 — RPC 결과에 bundle_title 추가 (묶음 그루핑용)
 // RPC 가 m_id 까지 반환 → missions 에서 bundle_title 별도 fetch + 매핑
 export const fetchPendingReviewsEnriched = async (programId) => {
