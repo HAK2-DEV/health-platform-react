@@ -1,25 +1,55 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Trash2, Pencil, Flag, Pin, PinOff } from 'lucide-react'
+import { Trash2, Pencil, Flag, Pin, PinOff, Clock, Check } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
-import { deleteCommunityPost, setCommunityPostPin, queryKeys } from '../../lib/queries'
+import { deleteCommunityPost, setCommunityPostPin, setCommunityPostStatus, rejectCommunityPost, queryKeys } from '../../lib/queries'
 import { formatRelativeKstDay } from '../../lib/formatters'
 import UserAvatar from '../common/UserAvatar'
 import EmptyState from '../common/EmptyState'
 import ReportModal from '../common/ReportModal'
 import ConfirmModal from '../common/ConfirmModal'
 import CommunityPostSocial from './CommunityPostSocial'
+import RejectReasonModal from './RejectReasonModal'
 
 // 게시판 글 목록 — 작성자/내용/이미지(signed URL) + 본인·운영자 삭제·고정.
 //   layout: feed(기본 카드) / list(가로 행) / grid(2열) / magazine(대1+소2+중1 반복).
 //   - 이미지 없는 글은 이미지 자리 대신 프로필+텍스트 카드. 매거진에선 중(가로) 우선 배치.
 //   - 카드 탭 시 상세 모달(글 펼치기).
-function CommunityPostList({ programId, boardId, posts = [], myUserId, isOwner, onEdit, layout = 'feed', canReact = false, canComment = false }) {
+function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId, isOwner, onEdit, layout = 'feed', canReact = false, canComment = false, focusPostId = null, onFocusHandled }) {
   const queryClient = useQueryClient()
+  // 검토 대기(pending) 글은 작성자·운영자에게만 노출 (RLS 보강 — 캐시·엣지로 새어와도 클라에서 차단).
+  //   useMemo 필수 — 매 렌더 새 배열이면 아래 imageUrls effect([posts])가 무한 반복돼 signed URL 폭주.
+  const posts = useMemo(
+    () => rawPosts.filter(p => p.status !== 'pending' || isOwner || p.author_id === myUserId),
+    [rawPosts, isOwner, myUserId],
+  )
   const [imageUrls, setImageUrls] = useState({})
   const [reportId, setReportId] = useState(null)
   const [detailPost, setDetailPost] = useState(null)   // 상세(글 펼치기) 모달
   const [postToDelete, setPostToDelete] = useState(null)  // 삭제 확인 모달
+  // 댓글 알림 딥링크 — focusPostId 게시글이 목록에 있으면 상세(댓글 포함) 모달 자동 오픈 (1회)
+  //   + 댓글 섹션으로 자동 스크롤 (펼쳐진 상태로 바로 보이게). 일반 탭 오픈 시엔 스크롤 X.
+  const focusedRef = useRef(null)
+  const commentsAnchorRef = useRef(null)
+  const [scrollComments, setScrollComments] = useState(false)
+  useEffect(() => {
+    if (!focusPostId || focusedRef.current === focusPostId) return
+    const target = posts.find(p => String(p.id) === String(focusPostId))
+    if (!target) return
+    focusedRef.current = focusPostId
+    setDetailPost(target)
+    setScrollComments(true)
+    onFocusHandled?.()
+  }, [focusPostId, posts, onFocusHandled])
+  // 모달 열린 뒤 댓글 영역으로 스크롤 (댓글 비동기 로드 고려해 약간 지연)
+  useEffect(() => {
+    if (!detailPost || !scrollComments) return
+    const t = setTimeout(() => {
+      commentsAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      setScrollComments(false)
+    }, 300)
+    return () => clearTimeout(t)
+  }, [detailPost, scrollComments])
   // image_path → signedUrl 캐시 (세션 내). 칩 전환 시 이미 본 이미지는 재요청 X → 누락분만 fetch.
   const urlCacheRef = useRef({})
 
@@ -48,17 +78,49 @@ function CommunityPostList({ programId, boardId, posts = [], myUserId, isOwner, 
     return () => { cancelled = true }
   }, [posts])
 
+  const invalidatePosts = () => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.communityPosts(programId, boardId) })
+    queryClient.invalidateQueries({ queryKey: queryKeys.communityPosts(programId, 'all') })
+    queryClient.invalidateQueries({ queryKey: queryKeys.communityPending(programId) })
+  }
   const delMutation = useMutation({
     mutationFn: (id) => deleteCommunityPost(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.communityPosts(programId, boardId) })
-      queryClient.invalidateQueries({ queryKey: queryKeys.communityPosts(programId, 'all') })
+      invalidatePosts()
       setDetailPost(null)
       setPostToDelete(null)
     },
     onError: (e) => alert(`삭제 실패: ${e.message}`),
   })
   const onDelete = (p) => setPostToDelete(p)
+
+  // 운영자 — 검토 대기(pending) 글 승인(노출)/거절(사유 알림 후 삭제). 승인 필요 게시판용.
+  const [rejectTarget, setRejectTarget] = useState(null)   // 거절 사유 입력 대상 글
+  const approveMutation = useMutation({
+    mutationFn: (id) => setCommunityPostStatus({ id, status: 'visible' }),
+    onSuccess: () => { invalidatePosts(); setDetailPost(null) },
+    onError: (e) => alert(`승인 실패: ${e.message}`),
+  })
+  const rejectMutation = useMutation({
+    mutationFn: ({ id, reason }) => rejectCommunityPost({ id, reason }),
+    onSuccess: () => { invalidatePosts(); setDetailPost(null); setRejectTarget(null) },
+    onError: (e) => alert(`거절 실패: ${e.message}`),
+  })
+  // 승인/거절 액션 — 운영자 + pending 글에만. 거절은 삭제 확인 모달 재사용.
+  const PendingActions = ({ p }) => {
+    if (!isOwner || p.status !== 'pending') return null
+    return (
+      <div onClick={(e) => e.stopPropagation()} className="flex items-center gap-2 mt-3 pt-2.5 border-t border-amber-100">
+        <span className="text-[11px] font-bold text-amber-600 flex items-center gap-1 mr-auto"><Clock className="w-3.5 h-3.5" /> 검토 대기</span>
+        <button type="button" onClick={() => approveMutation.mutate(p.id)} disabled={approveMutation.isPending}
+          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white text-[12px] font-bold transition disabled:opacity-50">
+          <Check className="w-3.5 h-3.5" strokeWidth={3} /> 승인
+        </button>
+        <button type="button" onClick={() => setRejectTarget(p)} disabled={rejectMutation.isPending}
+          className="px-3 py-1.5 rounded-full border border-gray-200 text-gray-500 text-[12px] font-bold hover:bg-gray-50 transition disabled:opacity-50">거절</button>
+      </div>
+    )
+  }
 
   // 상단 고정/해제 — 운영자 전용 (공지 게시판). DB 트리거가 owner 외 변경을 차단.
   const pinMutation = useMutation({
@@ -130,6 +192,7 @@ function CommunityPostList({ programId, boardId, posts = [], myUserId, isOwner, 
       {p.image_path && imageUrls[p.id] && (
         <img src={imageUrls[p.id]} alt="" loading="lazy" className="mt-2 w-full max-h-[400px] object-contain rounded-lg bg-gray-50" />
       )}
+      <PendingActions p={p} />
     </article>
   )
 
@@ -271,16 +334,19 @@ function CommunityPostList({ programId, boardId, posts = [], myUserId, isOwner, 
             {detailPost.image_path && imageUrls[detailPost.id] && (
               <img src={imageUrls[detailPost.id]} alt="" className="mt-3 w-full max-h-[60vh] object-contain rounded-lg bg-gray-50" />
             )}
-            {/* 좋아요 · 댓글 — 반응 허용 + 참여자/운영자일 때 */}
+            <PendingActions p={detailPost} />
+            {/* 좋아요 · 댓글 — 반응 허용 + 참여자/운영자일 때. 알림 진입 시 이 영역으로 스크롤 */}
             {canReact && detailPost.status !== 'pending' && (
-              <CommunityPostSocial
-                postId={detailPost.id}
-                programId={programId}
-                myUserId={myUserId}
-                isOwner={isOwner}
-                canReact={canReact}
-                canComment={canComment}
-              />
+              <div ref={commentsAnchorRef} style={{ scrollMarginTop: '8px' }}>
+                <CommunityPostSocial
+                  postId={detailPost.id}
+                  programId={programId}
+                  myUserId={myUserId}
+                  isOwner={isOwner}
+                  canReact={canReact}
+                  canComment={canComment}
+                />
+              </div>
             )}
           </div>
         </div>
@@ -304,6 +370,15 @@ function CommunityPostList({ programId, boardId, posts = [], myUserId, isOwner, 
         confirmLabel="삭제"
         danger
         busy={delMutation.isPending}
+      />
+
+      {/* 검토 대기 글 거절 — 사유 입력 후 작성자에게 알림 + 삭제 */}
+      <RejectReasonModal
+        isOpen={rejectTarget != null}
+        onClose={() => setRejectTarget(null)}
+        onSubmit={(reason) => rejectTarget && rejectMutation.mutate({ id: rejectTarget.id, reason })}
+        busy={rejectMutation.isPending}
+        postLabel={rejectTarget?.title || rejectTarget?.body?.slice(0, 20)}
       />
     </>
   )

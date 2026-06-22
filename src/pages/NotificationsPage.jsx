@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Trash2, Check, Heart, Sprout, Hand, MessageCircle, Settings, Bell } from 'lucide-react'
+import { Trash2, Check, Heart, Sprout, Hand, MessageCircle, Settings, Bell, FileText, Ban } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../supabaseClient'
 import { formatRelativeKstDay, getTodayKST, toKSTDateString } from '../lib/formatters'
@@ -27,6 +27,9 @@ const TYPE_META = {
   REVIEW_REJECTED:        { cat: 'verify',  tone: 'emerald', icon: Sprout,        iconCls: '' },
   VERIFICATION_SUBMITTED: { cat: 'verify',  tone: 'emerald', icon: Sprout,        iconCls: '' },
   PARTICIPANT_JOINED:     { cat: 'request', tone: 'amber',   icon: Hand,          iconCls: '' },
+  POST_PENDING:           { cat: 'request', tone: 'amber',   icon: FileText,      iconCls: '' },
+  POST_APPROVED:          { cat: 'verify',  tone: 'emerald', icon: Check,         iconCls: '' },
+  POST_REJECTED:          { cat: 'verify',  tone: 'red',     icon: Ban,           iconCls: '' },
 }
 const DEFAULT_META = { cat: 'verify', tone: 'slate', icon: Bell, iconCls: '' }
 
@@ -62,6 +65,7 @@ function NotificationsPage() {
   const userId = session?.user?.id
 
   const [filter, setFilter] = useState('all')
+  const [detailNotif, setDetailNotif] = useState(null)   // 이동 경로 없는 알림(거절 등) 상세 펼침
 
   const { data: notifications = [], isLoading } = useQuery({
     queryKey: queryKeys.notifications(userId),
@@ -121,9 +125,12 @@ function NotificationsPage() {
     },
   })
 
+  // 사유성 알림(점수 제외·게시글 거절)은 이동 대신 사유 전체를 상세로 펼침. 그 외는 link_path 이동.
+  const REASON_TYPES = new Set(['REVIEW_REJECTED', 'POST_REJECTED'])
   const handleClick = (n) => {
     if (!n.is_read) markReadMutation.mutate(n.id)
-    if (n.link_path) navigate(n.link_path)
+    if (REASON_TYPES.has(n.type) || !n.link_path) setDetailNotif(n)
+    else navigate(n.link_path)
   }
 
   const handleDelete = (e, n) => {
@@ -211,6 +218,28 @@ function NotificationsPage() {
           </motion.div>
         )}
       </div>
+
+      {/* 상세 펼침 — 이동 경로 없는 알림(거절 사유 등) 전체 보기 */}
+      {detailNotif && (() => {
+        const meta = TYPE_META[detailNotif.type] || DEFAULT_META
+        const Icon = meta.icon
+        return (
+          <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-5" onClick={() => setDetailNotif(null)}>
+            <div className="w-full max-w-xs bg-white rounded-2xl p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center gap-2.5 mb-3">
+                <IconBox tone={meta.tone} size="lg" shape="circle"><Icon className={`w-5 h-5 ${meta.iconCls}`} /></IconBox>
+                <h3 className="flex-1 text-[15px] font-bold text-gray-800 break-keep">{detailNotif.title}</h3>
+              </div>
+              {detailNotif.body && (
+                <p className="text-[13px] text-gray-600 leading-relaxed whitespace-pre-line break-words">{detailNotif.body}</p>
+              )}
+              <p className="text-[11px] text-gray-400 mt-3">{formatRelativeKstDay(detailNotif.created_at)}</p>
+              <button type="button" onClick={() => setDetailNotif(null)}
+                className="mt-4 w-full h-11 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold transition">닫기</button>
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }

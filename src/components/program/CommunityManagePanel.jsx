@@ -111,21 +111,44 @@ function PreviewReacts({ on, p, light }) {
   )
 }
 function CommunityPreview({ layout, reactionsEnabled, boards }) {
-  const chips = (boards || []).map(b => b.name)
+  const list = boards && boards.length ? boards : [{ id: '_', name: '게시판' }]
+  const [sel, setSel] = useState(0)
+  const selIdx = Math.min(sel, list.length - 1)
+  const selBoard = list[selIdx]
+  // 각 칩(게시판)의 적용 레이아웃 — 게시판별 설정(b.layout)이 있으면 그걸, 없으면 전체 설정(layout) 따름
+  const effLayout = selBoard?.layout || layout
+  const effLabel = LAYOUTS.find(l => l.key === effLayout)?.label || effLayout
+  const custom = !!selBoard?.layout
   return (
     <div className="rounded-xl border border-gray-200 bg-gray-50 overflow-hidden">
-      {/* 상단 — 예시 배지 + 게시판 칩 */}
-      <div className="flex items-center justify-between px-2.5 pt-2">
-        <div className="flex gap-1 overflow-hidden">
-          {chips.slice(0, 4).map((c, i) => (
-            <span key={i} className={`px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${i === 0 ? 'bg-emerald-500 text-white' : 'bg-white text-gray-500 border border-gray-200'}`}>{c}</span>
+      {/* 상단 — 게시판 칩(탭하면 그 게시판 레이아웃으로 전환) + 예시 배지 */}
+      <div className="flex items-center justify-between gap-2 px-2.5 pt-2">
+        <div className="flex gap-1 overflow-x-auto scrollbar-hide">
+          {list.map((b, i) => (
+            <button
+              key={b.id ?? i}
+              type="button"
+              onClick={() => setSel(i)}
+              className={`px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap transition flex-shrink-0 ${i === selIdx ? 'bg-emerald-500 text-white' : 'bg-white text-gray-500 border border-gray-200'}`}
+            >
+              {b.name}
+            </button>
           ))}
         </div>
         <span className="px-1.5 py-0.5 rounded bg-gray-800/80 text-white text-[9px] font-bold flex-shrink-0">예시</span>
       </div>
 
+      {/* 선택한 게시판의 적용 레이아웃 표시 */}
+      <div className="px-2.5 pt-1.5">
+        <span className="inline-flex items-center gap-1 text-[10px] text-gray-500">
+          <LayoutGrid className="w-2.5 h-2.5 flex-shrink-0" />
+          <b className="text-gray-700">{selBoard?.name}</b> · {effLabel}
+          {!custom && <span className="text-gray-400">(전체 설정)</span>}
+        </span>
+      </div>
+
       <div className="p-2.5">
-        {layout === 'feed' && (
+        {effLayout === 'feed' && (
           <div className="space-y-2">
             {SAMPLE_POSTS.slice(0, 2).map(p => (
               <div key={p.id} className="bg-white rounded-lg border border-gray-100 overflow-hidden">
@@ -144,7 +167,7 @@ function CommunityPreview({ layout, reactionsEnabled, boards }) {
           </div>
         )}
 
-        {layout === 'list' && (
+        {effLayout === 'list' && (
           <div className="space-y-1.5">
             {SAMPLE_POSTS.map(p => (
               <div key={p.id} className="flex items-center gap-2 bg-white rounded-lg border border-gray-100 p-1.5">
@@ -162,7 +185,7 @@ function CommunityPreview({ layout, reactionsEnabled, boards }) {
           </div>
         )}
 
-        {layout === 'grid' && (
+        {effLayout === 'grid' && (
           <div className="grid grid-cols-2 gap-1.5">
             {SAMPLE_POSTS.map(p => (
               <div key={p.id} className="bg-white rounded-lg border border-gray-100 overflow-hidden">
@@ -180,7 +203,7 @@ function CommunityPreview({ layout, reactionsEnabled, boards }) {
           </div>
         )}
 
-        {layout === 'magazine' && (
+        {effLayout === 'magazine' && (
           <div className="space-y-1.5">
             <div className={`relative h-24 rounded-lg overflow-hidden bg-gradient-to-br ${SAMPLE_POSTS[0].grad}`}>
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />

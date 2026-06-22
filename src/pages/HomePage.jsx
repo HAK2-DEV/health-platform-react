@@ -1,4 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
+import { motion } from 'framer-motion'
+import { Hourglass } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
@@ -50,7 +52,23 @@ function HomePage() {
   }, [session, isLoading, navigate])
 
   if (isLoading || isChecking) {
-    return <p>⏳ 로딩 중...</p>
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3, ease: 'easeOut' }}
+        className="fixed inset-0 flex flex-col items-center justify-center gap-3 text-gray-500"
+      >
+        {/* 모래시계 — 멈췄다 뒤집히기를 반복(실제 모래시계 플립 느낌) */}
+        <motion.div
+          animate={{ rotate: [0, 0, 180, 180, 360] }}
+          transition={{ duration: 1.6, times: [0, 0.35, 0.5, 0.85, 1], repeat: Infinity, ease: 'easeInOut' }}
+        >
+          <Hourglass className="w-11 h-11 text-emerald-500" strokeWidth={1.7} />
+        </motion.div>
+        <p className="text-[15px] font-medium">로딩 중...</p>
+      </motion.div>
+    )
   }
 
   return null

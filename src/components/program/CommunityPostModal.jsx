@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Image as ImageIcon, X, Crop } from 'lucide-react'
+import { Image as ImageIcon, X, Crop, Clock } from 'lucide-react'
 import Modal from '../common/Modal'
 import ImageCropModal from '../common/ImageCropModal'
 import { supabase } from '../../supabaseClient'
@@ -21,10 +21,11 @@ function CommunityPostModal({ isOpen, onClose, program, boards = [], defaultBoar
   const [error, setError] = useState(null)
   const [cropSrc, setCropSrc] = useState(null)   // 편집 중인 원본 objectURL
   const [isCropOpen, setIsCropOpen] = useState(false)
+  const [pendingDone, setPendingDone] = useState(false)  // 승인 필요 게시판 제출 완료 안내 카드
 
   useEffect(() => {
     if (!isOpen) return
-    setError(null); setFile(null); setImageRemoved(false); setIsCropOpen(false)
+    setError(null); setFile(null); setImageRemoved(false); setIsCropOpen(false); setPendingDone(false)
     setPreview(prev => { if (prev) URL.revokeObjectURL(prev); return null })
     setCropSrc(prev => { if (prev) URL.revokeObjectURL(prev); return null })
     if (isEdit) {
@@ -68,9 +69,8 @@ function CommunityPostModal({ isOpen, onClose, program, boards = [], defaultBoar
       queryClient.invalidateQueries({ queryKey: queryKeys.communityPosts(program.id, 'all') })
       if (isEdit && editPost.board_id !== boardId) queryClient.invalidateQueries({ queryKey: queryKeys.communityPosts(program.id, editPost.board_id) })
       onClose()
-      if (!isEdit && post?.status === 'pending') {
-        setTimeout(() => alert('이 게시판은 운영자 검토 후 게시돼요. 승인되면 노출됩니다.'), 50)
-      }
+      // 승인 필요 게시판 → 폼 닫고 「검토 요청 완료」 중앙 카드 안내
+      if (!isEdit && post?.status === 'pending') setPendingDone(true)
     },
     onError: (e) => setError(e.message || '저장에 실패했어요'),
   })
@@ -173,6 +173,22 @@ function CommunityPostModal({ isOpen, onClose, program, boards = [], defaultBoar
       title="사진 편집"
       description="비율을 고르고, 드래그·확대축소로 맞춰주세요"
     />
+    {/* 승인 필요 게시판 — 검토 요청 완료 안내 (네이티브 alert 대체) */}
+    {pendingDone && (
+      <div className="fixed inset-0 z-[80] bg-black/40 flex items-center justify-center p-5" onClick={() => setPendingDone(false)}>
+        <div className="w-full max-w-xs bg-white rounded-2xl p-6 text-center shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div className="w-14 h-14 mx-auto rounded-full bg-amber-50 flex items-center justify-center mb-3">
+            <Clock className="w-7 h-7 text-amber-500" />
+          </div>
+          <h2 className="text-[16px] font-bold text-gray-800 mb-1.5">검토 요청이 접수됐어요</h2>
+          <p className="text-[13px] text-gray-600 leading-relaxed break-keep">
+            이 게시판은 운영자 검토 후 게시돼요.<br />승인되면 다른 참여자에게 노출됩니다.
+          </p>
+          <button type="button" onClick={() => setPendingDone(false)}
+            className="mt-5 w-full h-12 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold transition">확인</button>
+        </div>
+      </div>
+    )}
     </>
   )
 }

@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { lazy, Suspense, useEffect } from 'react'
 import './index.css'
 import './App.css'
@@ -59,6 +59,12 @@ const TermsOfServicePage = lazy(() => import('./pages/TermsOfServicePage'))
 const InstallGuidePage = lazy(() => import('./pages/InstallGuidePage'))
 const OperatorGuidePage = lazy(() => import('./pages/OperatorGuidePage'))
 const SupportPage = lazy(() => import('./pages/SupportPage'))
+
+// 가입 승인 알림(/programs/:id/participants) → 프로그램 상세 + 승인 심사 모달 자동 오픈
+function ApprovalsRedirect() {
+  const { id } = useParams()
+  return <Navigate to={`/programs/${id}?approvals=1`} replace />
+}
 
 function AppShell() {
   const location = useLocation()
@@ -126,6 +132,9 @@ function AppShell() {
             <Route path="/programs/:id/stats/users" element={
               <ProtectedRoute><ProgramStatsUsersPage /></ProtectedRoute>
             } />
+            {/* 가입 승인 알림(PARTICIPANT_JOINED) link_path 가 /participants 로 생성됨(마이그 072) →
+                해당 라우트가 없어 흰 화면. 프로그램 상세로 보내며 「참여 승인 심사」 모달 자동 오픈. */}
+            <Route path="/programs/:id/participants" element={<ApprovalsRedirect />} />
             <Route path="/programs/:id/stats/users/:userId" element={
               <ProtectedRoute><ProgramStatsUserDetailPage /></ProtectedRoute>
             } />

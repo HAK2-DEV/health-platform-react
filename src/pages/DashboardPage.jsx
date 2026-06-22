@@ -365,7 +365,7 @@ function DashboardPage() {
             </span>
           ) : (showOperator ? '운영 중인 프로그램' : '참여 중인 프로그램')}
           action={(showOperator ? myPrograms.length : activePrograms.length) > 0 && (
-            <button type="button" onClick={() => navigate('/programs')} className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700">
+            <button type="button" onClick={() => navigate(showOperator ? '/programs?tab=mine' : '/programs')} className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700">
               전체 보기 {(showOperator ? myPrograms.length : activePrograms.length) > 1 && `(${showOperator ? myPrograms.length : activePrograms.length})`}<ChevronRight className="w-3 h-3" />
             </button>
           )}

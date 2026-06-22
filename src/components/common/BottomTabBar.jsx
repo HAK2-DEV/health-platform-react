@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -29,45 +29,52 @@ const UserSolid = ({ className }) => (
 )
 
 // 부채꼴(쿼터원) 한 조각 — 직각 꼭짓점이 + 버튼(돔 중앙 하단)에 오고 호가 바깥쪽으로 펼쳐짐.
-//   레퍼런스 톤: 반투명 프로스티드 글래스 + 얇은 흰 테두리 + 흰 라인 아이콘.
-//   side: 'left'(좌) | 'right'(우). R: 조각 크기(px).
+//   라이트 그레이 조각 + 중앙 그린 버튼 둘레를 마스크로 도려내(컷아웃) 도넛형 돔.
+//   side: 'left'(좌) | 'right'(우). R: 조각 크기(px). CUT: 중앙 컷아웃 반경(px).
 const R = 132
-function FanButton({ side, label, Icon, onClick, delay }) {
+const CUT = 47
+function FanButton({ side, label, Icon, delay, active = false }) {
   const isLeft = side === 'left'
+  // 중앙(그린 버튼) 쪽 꼭짓점에서 원형으로 도려냄 → 라디얼 그라데이션 마스크
+  const maskAt = isLeft ? '100% 100%' : '0% 100%'
+  const mask = `radial-gradient(circle at ${maskAt}, transparent ${CUT}px, #000 ${CUT + 0.5}px)`
+  // 입력은 컨테이너가 캡처(좌우 판별) → 조각은 pointer-events-none. active 면 살짝 커짐.
   return (
-    <motion.button
-      type="button"
-      onClick={onClick}
-      initial={{ scale: 0.55, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      exit={{ scale: 0.55, opacity: 0 }}
-      transition={{ type: 'spring', stiffness: 380, damping: 26, delay }}
-      className={`absolute bottom-0 flex items-end text-white overflow-hidden backdrop-blur-md
-        bg-gradient-to-t from-white/[0.10] to-white/25 ring-1 ring-white/35
-        shadow-[0_12px_40px_-10px_rgba(0,0,0,0.5)] active:bg-white/30 transition-colors
-        ${isLeft ? 'right-1/2 mr-[5px] justify-start' : 'left-1/2 ml-[5px] justify-end'}`}
+    <motion.div
+      initial={{ scale: 0.6, opacity: 0 }}
+      animate={{ scale: active ? 1.1 : 1, opacity: 1 }}
+      exit={{ scale: 0.6, opacity: 0 }}
+      transition={{ type: 'spring', stiffness: 420, damping: 24, delay }}
+      className={`absolute bottom-0 flex items-end text-gray-600 pointer-events-none
+        ${isLeft ? 'right-1/2 mr-[6px] justify-start' : 'left-1/2 ml-[6px] justify-end'}`}
       style={{
         height: R, width: R,
+        background: active ? '#cdd1d7' : '#d7dadf',
         [isLeft ? 'borderTopLeftRadius' : 'borderTopRightRadius']: '100%',
+        WebkitMaskImage: mask,
+        maskImage: mask,
+        filter: active ? 'drop-shadow(0 12px 22px rgba(0,0,0,0.24))' : 'drop-shadow(0 8px 16px rgba(0,0,0,0.18))',
         transformOrigin: isLeft ? 'bottom right' : 'bottom left',
       }}
     >
-      {/* 라벨 — 쿼터원 무게중심 부근(직각 꼭짓점=+ 반대쪽)에 배치 */}
+      {/* 라벨 — 부채꼴 방향으로 회전 배치(호를 따라 비스듬히) → 곡선 안에 들어가 잘림 방지 */}
       <span
-        className="absolute flex flex-col items-center gap-1.5 leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]"
-        style={isLeft ? { left: R * 0.40, top: R * 0.44 } : { right: R * 0.40, top: R * 0.44 }}
+        className="absolute flex flex-col items-center gap-1 leading-tight text-center"
+        style={isLeft
+          ? { left: R * 0.60, top: R * 0.56, transform: 'translate(-50%, -50%) rotate(-35deg)' }
+          : { left: R * 0.40, top: R * 0.56, transform: 'translate(-50%, -50%) rotate(35deg)' }}
       >
-        <Icon className="w-[22px] h-[22px]" strokeWidth={1.8} />
-        <span className="text-[12px] font-semibold whitespace-nowrap">{label}</span>
+        <Icon className="w-[21px] h-[21px]" strokeWidth={1.9} />
+        <span className="text-[11px] font-bold whitespace-nowrap">{label}</span>
       </span>
-    </motion.button>
+    </motion.div>
   )
 }
 
 // 5탭 하단 네비 — 대시보드 / 프로그램 / 기록하기(+) / 랭킹 / 마이페이지
 //   비활성: 꽉 찬 회색 아이콘 / 활성: 초록 아이콘 + 초록 글씨. (기록하기 + 버튼은 제외)
-//   기록하기 +: 탭하면 뒤 블러 + 부채꼴 메뉴(인증하기 / 프로그램 생성하기) 펼침.
-//     · 인증하기 → /record (참여 프로그램 없으면 RecordPage 가 둘러보기 안내, 있으면 1단계)
+//   기록하기 +: 탭하면 뒤 블러 + 부채꼴 메뉴(기록하기 / 프로그램 생성하기) 펼침.
+//     · 기록하기 → /record (참여 프로그램 없으면 RecordPage 가 둘러보기 안내, 있으면 1단계)
 //     · 프로그램 생성하기 → /programs/new (프로그램 마법사)
 function BottomTabBar() {
   const location = useLocation()
@@ -76,8 +83,10 @@ function BottomTabBar() {
   const userId = session?.user?.id
   const [menuOpen, setMenuOpen] = useState(false)
   const [menuView, setMenuView] = useState('fan')   // 'fan' | 'noprogram'(참여 프로그램 없음 안내)
+  const [pressedSide, setPressedSide] = useState(null)  // 'left' | 'right' | null — 꾹 눌러 선택 중인 조각
+  const pressingRef = useRef(false)
 
-  // 인증하기 분기용 — 참여 중 프로그램 (대시보드/기록 쿼리와 캐시 공유)
+  // 기록하기 분기용 — 참여 중 프로그램 (대시보드/기록 쿼리와 캐시 공유)
   const { data: activePrograms = [], isLoading: isActiveLoading } = useQuery({
     queryKey: queryKeys.activePrograms(userId),
     queryFn: () => fetchActivePrograms(userId),
@@ -87,7 +96,7 @@ function BottomTabBar() {
   // 라우트가 바뀌면 메뉴 닫기 (네비는 화면 전환에도 마운트 유지되므로 수동으로)
   useEffect(() => { setMenuOpen(false) }, [location.pathname])
 
-  // 인증하기 — 참여 프로그램 없으면 부채꼴 대신 중앙 안내, 있으면 기록하기 1단계로
+  // 기록하기— 참여 프로그램 없으면 부채꼴 대신 중앙 안내, 있으면 기록하기 1단계로
   const handleVerify = () => {
     if (isActiveLoading) { go('/record'); return }   // 로딩 중이면 RecordPage 가 알아서 분기
     if (activePrograms.length === 0) setMenuView('noprogram')
@@ -103,6 +112,31 @@ function BottomTabBar() {
   }
 
   const go = (path) => { setMenuOpen(false); navigate(path) }
+
+  // 부채꼴 꾹 누르기 + 좌우 슬라이드 선택 — 컨테이너가 포인터 캡처해 x 위치로 좌/우 판별.
+  //   누른 조각이 살짝 커지고(active), 손가락을 옮기면 그쪽으로 active 가 따라옴. 떼면 해당 액션.
+  const dispatchSide = (side) => { if (side === 'left') handleVerify(); else go('/programs/new') }
+  const sideAtX = (el, clientX) => {
+    const r = el.getBoundingClientRect()
+    return clientX < r.left + r.width / 2 ? 'left' : 'right'
+  }
+  const onFanDown = (e) => {
+    pressingRef.current = true
+    try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* 미지원 무시 */ }
+    setPressedSide(sideAtX(e.currentTarget, e.clientX))
+  }
+  const onFanMove = (e) => {
+    if (!pressingRef.current) return
+    setPressedSide(sideAtX(e.currentTarget, e.clientX))
+  }
+  const onFanUp = (e) => {
+    if (!pressingRef.current) return
+    pressingRef.current = false
+    const side = sideAtX(e.currentTarget, e.clientX)
+    setPressedSide(null)
+    dispatchSide(side)
+  }
+  const onFanCancel = () => { pressingRef.current = false; setPressedSide(null) }
 
   const tabs = [
     { path: '/dashboard', label: '대시보드', Icon: HomeSolid },
@@ -134,11 +168,11 @@ function BottomTabBar() {
           <motion.div
             key="rec-menu"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            transition={{ duration: 0.18 }}
+            transition={{ duration: 0.32, ease: 'easeOut' }}
             className="fixed inset-0 z-40"
           >
-            {/* 블러 백드롭 — 탭하면 닫힘 */}
-            <div className="absolute inset-0 bg-black/25 backdrop-blur-sm" onClick={() => setMenuOpen(false)} />
+            {/* 블러 백드롭 — 탭하면 닫힘. 바깥 컨테이너 opacity(0.32s)로 블러가 서서히 드러남 */}
+            <div className="absolute inset-0 bg-black/25 backdrop-blur-md" onClick={() => setMenuOpen(false)} />
 
             <AnimatePresence mode="wait">
               {menuView === 'fan' ? (
@@ -148,15 +182,14 @@ function BottomTabBar() {
                   exit={{ y: 90, opacity: 0 }}
                   transition={{ duration: 0.22, ease: 'easeIn' }}
                   className="absolute left-1/2 -translate-x-1/2"
-                  style={{ bottom: 'calc(env(safe-area-inset-bottom) + 38px)', width: R * 2, height: R }}
+                  style={{ bottom: 'calc(env(safe-area-inset-bottom) + 68px)', width: R * 2, height: R, touchAction: 'none' }}
+                  onPointerDown={onFanDown}
+                  onPointerMove={onFanMove}
+                  onPointerUp={onFanUp}
+                  onPointerCancel={onFanCancel}
                 >
-                  {/* + 둘레 부드러운 후광 링 (레퍼런스 중앙 halo) — 부채꼴 뒤, + 위치 부근 */}
-                  <span
-                    className="pointer-events-none absolute left-1/2 -translate-x-1/2 w-[74px] h-[74px] rounded-full bg-white/10 ring-1 ring-white/25 backdrop-blur-sm"
-                    style={{ bottom: -24 }}
-                  />
-                  <FanButton side="left" label="인증하기" Icon={ClipboardCheck} delay={0} onClick={handleVerify} />
-                  <FanButton side="right" label="프로그램 생성" Icon={Sparkles} delay={0.04} onClick={() => go('/programs/new')} />
+                  <FanButton side="left" label="기록하기" Icon={ClipboardCheck} delay={0} active={pressedSide === 'left'} />
+                  <FanButton side="right" label="프로그램 생성" Icon={Sparkles} delay={0.04} active={pressedSide === 'right'} />
                 </motion.div>
               ) : (
                 // 참여 프로그램 없음 — 화면 정중앙 안내 카드
@@ -207,10 +240,10 @@ function BottomTabBar() {
             aria-label="기록하기 메뉴"
             aria-expanded={menuOpen}
           >
-            {/* 정적 래퍼가 위로 띄움(transform) → 내부 motion.span 은 회전만 담당 (transform 충돌 방지) */}
+            {/* 정적 래퍼가 위로 띄움(transform) → 내부 motion.span 이 회전+확대+상승 담당 */}
             <span className="-translate-y-[18px]">
               <motion.span
-                animate={{ rotate: menuOpen ? 45 : 0 }}
+                animate={{ rotate: menuOpen ? 45 : 0, scale: menuOpen ? 1.28 : 1, y: menuOpen ? -22 : 0 }}
                 transition={{ type: 'spring', stiffness: 400, damping: 24 }}
                 className="flex w-12 h-12 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-white items-center justify-center shadow-lg shadow-emerald-500/40 active:scale-95"
               >

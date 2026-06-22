@@ -53,6 +53,8 @@ export const queryKeys = {
   // 참가자용 퀴즈 목록 (프로그램 상세 퀴즈 섹션) — 본인 제출 상태 포함
   participantQuizzes: (programId, userId) => ['quizzes', 'participant', programId, userId],
   communityPosts: (programId, boardId) => ['community-posts', programId, boardId || 'all'],
+  // 게시판별 검토 대기(pending) 글 수 — 운영자 승인 배지
+  communityPending: (programId) => ['community-pending', programId],
   // 커뮤니티 글 1개의 좋아요/댓글 (상세 펼치기) — 105
   communityPostSocial: (postId) => ['community-post-social', postId],
   // 퀴즈 편집용 단건 (운영자) — 문항 정답 포함
@@ -829,6 +831,31 @@ export const addCommunityPostComment = async ({ postId, content }) => {
 export const deleteCommunityPostComment = async (id) => {
   const { error } = await supabase.from('community_post_comments').delete().eq('id', id)
   if (error) throw error
+}
+
+// 운영자 — 승인 필요(approval) 게시판의 검토 대기 글 승인/거절.
+//   승인: status='visible' (노출). 거절: 글 삭제. (RLS: 운영자 UPDATE/DELETE 허용 — 096)
+export const setCommunityPostStatus = async ({ id, status }) => {
+  const { error } = await supabase.from('community_posts').update({ status }).eq('id', id)
+  if (error) throw error
+}
+
+// 거절 — 사유와 함께 작성자에게 알림 후 글 삭제 (110 RPC, 운영자만)
+export const rejectCommunityPost = async ({ id, reason }) => {
+  const { error } = await supabase.rpc('reject_community_post', { p_post_id: id, p_reason: reason || '' })
+  if (error) throw error
+}
+
+// 검토 대기(pending) 글 전체 — 운영자 통합 검토함용. 오래된 순(대기열). (운영자만 RLS)
+export const fetchCommunityPendingPosts = async (programId) => {
+  const { data, error } = await supabase
+    .from('community_posts')
+    .select('*, author:users(id, nickname, avatar_path)')
+    .eq('program_id', programId)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: true })
+  if (error) throw error
+  return data || []
 }
 
 // 신고 (100) — targetType: 'post' | 'verification'. 누적 시 트리거가 자동 숨김.

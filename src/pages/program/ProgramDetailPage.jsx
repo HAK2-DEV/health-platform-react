@@ -29,6 +29,7 @@ import QuizLibraryModal from '../../components/program/QuizLibraryModal'
 import CommunityManagePanel from '../../components/program/CommunityManagePanel'
 import CommunityPostModal from '../../components/program/CommunityPostModal'
 import CommunityPostList from '../../components/program/CommunityPostList'
+import CommunityReviewModal from '../../components/program/CommunityReviewModal'
 import MarkdownView from '../../components/common/MarkdownView'
 import ConfirmModal from '../../components/common/ConfirmModal'
 import RankingSettingsModal from '../../components/program/RankingSettingsModal'
@@ -70,6 +71,7 @@ import {
   fetchProgramQuizzes,
   duplicateQuiz,
   fetchCommunityPosts,
+  fetchCommunityPendingPosts,
   fetchProgramOverview,
 } from '../../lib/queries'
 
@@ -345,6 +347,16 @@ function ProgramDetailPage() {
   const isViewer = !!program && !isOwner && !isActiveParticipant && program.preview_enabled && program.status === 'PUBLISHED'
   const [joinOpen, setJoinOpen] = useState(false)
   const [isApprovalsOpen, setIsApprovalsOpen] = useState(false)
+  // 가입 승인 요청 알림(?approvals=1)으로 진입하면 「참여 승인 심사」 모달 자동 오픈 (최초 1회)
+  useEffect(() => {
+    if (searchParams.get('approvals') === '1') {
+      setIsApprovalsOpen(true)
+      const next = new URLSearchParams(searchParams)
+      next.delete('approvals')
+      setSearchParams(next, { replace: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [isInviteOpen, setIsInviteOpen] = useState(false)
   const [isPanelOpen, setIsPanelOpen] = useState(false)
   const [panelView, setPanelView] = useState('root')   // 운영자 메뉴 시트 단계: root | settings | menubar
@@ -358,7 +370,15 @@ function ProgramDetailPage() {
   const [quizPreview, setQuizPreview] = useState(false)
   const [communityManageOpen, setCommunityManageOpen] = useState(false) // 커뮤니티 관리자 작업 페이지
   const communityManageRef = useRef(null)
-  const [communityBoard, setCommunityBoard] = useState('all')           // 참여자 커뮤니티 — 선택 게시판 칩
+  // 참여자 커뮤니티 — 선택 게시판 칩. 알림 딥링크(?board=)면 그 게시판으로 시작.
+  const [communityBoard, setCommunityBoard] = useState(() => searchParams.get('board') || 'all')
+  // 댓글 알림 딥링크 — ?post= 가 있으면 CommunityPostList 가 그 글 상세를 자동 오픈
+  const focusPostId = searchParams.get('post')
+  const clearFocusPost = () => {
+    const next = new URLSearchParams(searchParams)
+    next.delete('post')
+    setSearchParams(next, { replace: true })
+  }
   const [isPostModalOpen, setIsPostModalOpen] = useState(false)         // 게시판 글쓰기 모달
   const [editingPost, setEditingPost] = useState(null)                 // 수정 중인 게시글 (null=새 글)
 
@@ -376,6 +396,28 @@ function ProgramDetailPage() {
     enabled: !!session && !!id && !!program && activeTab === 'community' && !!program?.feed_enabled
       && (program?.community_settings?.noticeEnabled !== false),
   })
+  // 운영자 — 검토 대기 글 전체(통합 검토함 + 칩 배지). 게시판별 수는 여기서 파생.
+  const { data: pendingPosts = [] } = useQuery({
+    queryKey: queryKeys.communityPending(id),
+    queryFn: () => fetchCommunityPendingPosts(id),
+    enabled: !!session && !!id && !!program && isOwner && activeTab === 'community',
+  })
+  const communityPendingCounts = useMemo(() => {
+    const m = {}
+    for (const p of pendingPosts) m[p.board_id] = (m[p.board_id] || 0) + 1
+    return m
+  }, [pendingPosts])
+  const [reviewOpen, setReviewOpen] = useState(false)   // 통합 검토함 모달
+  // 검토 대기 알림(?review=1) 으로 진입하면 통합 검토함 자동 오픈 (최초 1회)
+  useEffect(() => {
+    if (searchParams.get('review') === '1') {
+      setReviewOpen(true)
+      const next = new URLSearchParams(searchParams)
+      next.delete('review')
+      setSearchParams(next, { replace: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [quizLibOpen, setQuizLibOpen] = useState(false)                // 퀴즈 라이브러리 모달
   // 라이브러리에서 생성폼 진입 시 ?quizlib= 저장 → 폼에서 뒤로가기로 복귀하면 모달 재오픈 (PostsManagePage 패턴)
   const isQuizLibOpen = quizLibOpen || !!searchParams.get('quizlib')
@@ -1464,15 +1506,31 @@ function ProgramDetailPage() {
 
       {program.feed_enabled ? (
         <>
+          {/* 검토 대기 통합 배너 — 운영자 + 대기 1건↑ (모든 게시판 가로지름, 칩 위 최상단) */}
+          {isOwner && pendingPosts.length > 0 && (
+            <button type="button" onClick={() => setReviewOpen(true)}
+              className="w-full flex items-center gap-2.5 mb-2.5 p-3 rounded-xl bg-amber-50 border border-amber-200 text-left hover:bg-amber-100/70 transition">
+              <span className="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center flex-shrink-0 text-[15px]">🕐</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-bold text-gray-800">검토 대기 글 {pendingPosts.length}건</p>
+                <p className="text-[11px] text-amber-700/80">승인해야 다른 참여자에게 노출돼요 · 탭해서 한 번에 검토</p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-amber-500 flex-shrink-0" />
+            </button>
+          )}
           {/* 게시판 칩 — 운영자 설정 순서대로 */}
           {communityBoards.length > 1 && (
             <div className="flex gap-2 overflow-x-auto -mx-1 px-1 pb-2 mb-1 scrollbar-hide">
               {communityBoards.map(b => {
                 const on = communityBoard === b.id
+                const pending = isOwner ? (communityPendingCounts[b.id] || 0) : 0   // 운영자만 검토 대기 배지
                 return (
                   <button key={b.id} type="button" onClick={() => setCommunityBoard(b.id)}
                     className={`flex-shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold border transition ${on ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'}`}>
                     {BOARD_ICON[b.id] && <span>{BOARD_ICON[b.id]}</span>}{b.name}
+                    {pending > 0 && (
+                      <span className={`ml-0.5 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-[10px] font-bold ${on ? 'bg-white text-emerald-600' : 'bg-amber-500 text-white'}`}>{pending > 9 ? '9+' : pending}</span>
+                    )}
                   </button>
                 )
               })}
@@ -1500,11 +1558,13 @@ function ProgramDetailPage() {
           ) : (
             <CommunityPostList programId={id} boardId={communityBoard} posts={communityPosts} myUserId={userId} isOwner={isOwner}
               layout={activeBoardLayout} canReact={canReact} canComment={canComment}
+              focusPostId={focusPostId} onFocusHandled={clearFocusPost}
               onEdit={(p) => { setEditingPost(p); setIsPostModalOpen(true) }} />
           )}
 
-          {/* 글쓰기 — 작성 가능한 게시판이 있을 때 (열람자 제외) */}
-          {!isViewer && writableBoards.length > 0 && (
+          {/* 글쓰기 — 지금 보고 있는 게시판이 '내가 쓸 수 있는' 보드일 때만 (열람자 제외).
+              예: 참여자가 공지(readonly) 칩에선 글쓰기 바가 안 뜸 → 혼란 방지 */}
+          {!isViewer && writableBoards.some(b => b.id === communityBoard) && (
             <div className="sticky bottom-0 -mx-[11px] px-[11px] pt-3 pb-3 bg-gradient-to-t from-white via-white/95 to-transparent z-20">
               <button type="button"
                 onClick={() => { setEditingPost(null); setIsPostModalOpen(true) }}
@@ -1729,6 +1789,14 @@ function ProgramDetailPage() {
           boards={writableBoards}
           defaultBoardId={writableBoards.some(b => b.id === communityBoard) ? communityBoard : writableBoards[0]?.id}
           editPost={editingPost}
+        />
+        {/* 운영자 통합 검토함 — 모든 게시판 검토 대기 글 승인/거절 */}
+        <CommunityReviewModal
+          isOpen={reviewOpen}
+          onClose={() => setReviewOpen(false)}
+          programId={id}
+          posts={pendingPosts}
+          boards={communityBoards}
         />
         {isLibraryOpen && (
           <MissionLibraryModal

@@ -133,6 +133,12 @@ function ProgramStatsUserDetailPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.programStats(id) })
+      // LEFT 참여자 목록 — 활성 목록은 이걸로 걸러내므로 반드시 갱신해야 즉시 빠짐
+      queryClient.invalidateQueries({ queryKey: ['program-left', id] })
+      // 승인 대기였던 참여자를 내보낸 경우(APPROVAL)도 즉시 반영
+      queryClient.invalidateQueries({ queryKey: ['program-pending', id] })
+      queryClient.invalidateQueries({ queryKey: ['program-pending-count', id] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.program(id) })   // 참여자 수 배지 등
       queryClient.invalidateQueries({ queryKey: ['rankings'] })
       queryClient.invalidateQueries({ queryKey: ['stats'] })
       navigate(`/programs/${id}/stats/users`)

@@ -25,7 +25,8 @@ function PwaUpdatePrompt() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 24 }}
           transition={{ duration: 0.25, ease: 'easeOut' }}
-          className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] w-[calc(100%-2rem)] max-w-md"
+          className="fixed left-1/2 -translate-x-1/2 z-[70] w-[calc(100%-2rem)] max-w-md"
+          style={{ bottom: 'calc(env(safe-area-inset-bottom) + 108px)' }}
         >
           <div className="flex items-center gap-3 bg-gray-900/95 text-white rounded-2xl shadow-xl px-4 py-3 backdrop-blur-sm">
             <span className="text-xl flex-shrink-0">✨</span>

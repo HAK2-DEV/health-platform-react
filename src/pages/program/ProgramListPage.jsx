@@ -202,7 +202,7 @@ function CreateProgramCTA({ icon, title, subtitle, onClick }) {
       {iconEl}
       <div className="flex-1 min-w-0">
         <p className="font-bold text-gray-800 text-[14px]">{title}</p>
-        <p className="text-xs text-gray-500 mt-0.5 leading-snug">{subtitle}</p>
+        <p className="text-xs text-gray-500 mt-0.5 leading-snug whitespace-pre-line">{subtitle}</p>
       </div>
       <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
     </>
@@ -222,7 +222,7 @@ function BottomCtaCarousel({ onCreate }) {
     {
       icon: '/icons/cta/tip.png',
       title: '프로그램 참여 팁',
-      subtitle: '꾸준한 실천이 중요해요! 나에게 맞는 프로그램을 선택하고, 작은 목표부터 시작해보세요.',
+      subtitle: '꾸준한 실천이 중요해요! \n나에게 맞는 프로그램을 선택하고, 작은 목표부터 시작해보세요.',
       onClick: () => setTipsOpen(true),
     },
     {
