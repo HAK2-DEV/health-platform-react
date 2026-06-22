@@ -58,6 +58,7 @@ const PrivacyPolicyPage = lazy(() => import('./pages/PrivacyPolicyPage'))
 const TermsOfServicePage = lazy(() => import('./pages/TermsOfServicePage'))
 const InstallGuidePage = lazy(() => import('./pages/InstallGuidePage'))
 const OperatorGuidePage = lazy(() => import('./pages/OperatorGuidePage'))
+const SupportPage = lazy(() => import('./pages/SupportPage'))
 
 function AppShell() {
   const location = useLocation()
@@ -202,6 +203,9 @@ function AppShell() {
             } />
             <Route path="/operator-guide" element={
               <ProtectedRoute><OperatorGuidePage /></ProtectedRoute>
+            } />
+            <Route path="/support" element={
+              <ProtectedRoute><SupportPage /></ProtectedRoute>
             } />
             <Route path="/profile/activity" element={
               <ProtectedRoute><MyActivityPage /></ProtectedRoute>

@@ -5,7 +5,6 @@ import { MapPin, ChevronRight } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../supabaseClient'
-import { CATEGORY } from '../lib/constants'
 import {
   queryKeys,
   fetchActivePrograms,
@@ -209,19 +208,16 @@ function RankingsPage() {
   const programChips = activePrograms.length <= 1 ? null : (
     <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-hide">
       {activePrograms.map(program => {
-        const catKey = program.categories?.[0] || 'ETC'
-        const cat = CATEGORY[catKey] || CATEGORY.ETC
         const isActive = program.id === selectedProgramId
         return (
           <button
             key={program.id}
             type="button"
             onClick={() => setSelectedProgramId(program.id)}
-            className={`flex-shrink-0 inline-flex items-center gap-1.5 h-[34px] px-3.5 rounded-full text-[13px] font-bold transition ${
+            className={`flex-shrink-0 inline-flex items-center h-[34px] px-3.5 rounded-full text-[13px] font-bold transition ${
               isActive ? 'bg-emerald-500 text-white shadow-sm' : 'bg-white border border-gray-200 text-gray-600'
             }`}
           >
-            <span>{cat.emoji}</span>
             <span className="max-w-[120px] truncate">{program.name}</span>
           </button>
         )

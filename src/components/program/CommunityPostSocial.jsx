@@ -97,7 +97,7 @@ function CommunityPostSocial({ postId, programId, myUserId, isOwner, canReact, c
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit() } }}
             maxLength={500}
             placeholder="댓글 달기..."
-            className="flex-1 h-10 px-3.5 rounded-full border border-gray-200 text-sm outline-none focus:border-emerald-400"
+            className="flex-1 min-w-0 h-10 px-3.5 rounded-full border border-gray-200 text-sm outline-none focus:border-emerald-400"
           />
           <button type="button" onClick={submit} disabled={!text.trim() || addMut.isPending}
             className="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center hover:bg-emerald-600 transition disabled:opacity-40 flex-shrink-0" title="등록">

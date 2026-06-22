@@ -544,7 +544,7 @@ function ProgramListPage() {
             {isPublicLoading ? (
               <LoadingState size="sm" />
             ) : filteredPublic.length === 0 ? (
-              <EmptyState icon="🔍" title={catFilter === 'ALL' ? '아직 둘러볼 공개 프로그램이 없어요' : '이 카테고리엔 아직 프로그램이 없어요'} variant="mint" size="lg" />
+              <EmptyState icon="🔍" title={catFilter === 'ALL' ? '아직 둘러볼 공개 프로그램이 없어요' : <span className="text-[18px] whitespace-nowrap">이 카테고리엔 아직 프로그램이 없어요</span>} variant="mint" size="lg" />
             ) : (
               <div className="grid grid-cols-2 gap-3">
                 {filteredPublic.map(p => (

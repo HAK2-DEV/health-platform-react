@@ -12,6 +12,7 @@ import BackButton from '../components/common/BackButton'
 import NotificationBell from '../components/common/NotificationBell'
 import IconBox from '../components/common/IconBox'
 import CountUp from '../components/common/CountUp'
+import FitText from '../components/common/FitText'
 import ImageCropModal from '../components/common/ImageCropModal'
 
 // 프로필 페이지 — Bottom Tab Bar 👤 진입점
@@ -421,8 +422,8 @@ function ProfilePage() {
         icon={<MessageCircle className="w-5 h-5" />}
         imgSrc="/icons/profile/inquiry.png"
         title="문의하기"
-        description="궁금한 점이 있으신가요? 문의해보세요."
-        onClick={() => { window.location.href = 'mailto:ds5acqsjh@naver.com?subject=' + encodeURIComponent('[도담] 문의하기') }}
+        description="자주 묻는 질문과 1:1 문의를 확인하세요."
+        onClick={() => navigate('/support')}
       />
 
       {/* 로그아웃 — 소프트 레드 (참고 사진) */}
@@ -480,8 +481,8 @@ function ProfileStat({ tone, icon, imgSrc, imgStyle, imgSize, label, value, unit
       ) : (
         <IconBox tone={tone} size="sm" shape="circle">{icon}</IconBox>
       )}
-      <div className="min-w-0">
-        <p className="text-[12px] text-gray-400 leading-tight truncate">{label}</p>
+      <div className="flex-1 min-w-0">
+        <FitText className="text-gray-400 leading-tight" max={12} min={8} title={typeof label === 'string' ? label : undefined}>{label}</FitText>
         <p className={`text-[15px] font-extrabold leading-tight ${valueClass || 'text-gray-900'}`}>
           {value}{unit && <span className="text-[12px]">{unit}</span>}
         </p>

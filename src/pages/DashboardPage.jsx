@@ -57,13 +57,10 @@ const ClipboardSolid = ({ className }) => (
 )
 
 // 섹션 카드 — 모서리 10px, 제목 + 우측 액션. 진입 시 아래에서 살짝 떠오름(stagger).
-function SectionCard({ title, action, children, className = '', delay = 0 }) {
+// 카드는 항상 보임(페이드인 없음) — 깜빡임 방지. 모션은 내부 숫자·바·링만 (마이페이지와 동일).
+function SectionCard({ title, action, children, className = '' }) {
   return (
-    <motion.section
-      initial={{ opacity: 0, y: 16 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: '0px 0px -12% 0px' }}
-      transition={{ duration: 0.4, delay, ease: 'easeOut' }}
+    <section
       className={`bg-white border border-gray-100 rounded-[10px] shadow-soft p-4 ${className}`}
     >
       {(title || action) && (
@@ -73,7 +70,7 @@ function SectionCard({ title, action, children, className = '', delay = 0 }) {
         </div>
       )}
       {children}
-    </motion.section>
+    </section>
   )
 }
 
@@ -96,7 +93,7 @@ function ModeSlide({ mode, dir, children }) {
   )
 }
 
-// 내 랭킹 도넛 링 — 진입 시 원이 그려짐
+// 내 랭킹 도넛 링 — 화면에 들어오면 원이 그려짐 (마이페이지 카운트업처럼 매번 재생)
 function RankRing({ rank, total }) {
   const ref = useRef(null)
   const inView = useInView(ref, { once: true, margin: '0px 0px -12% 0px' })
@@ -322,13 +319,8 @@ function DashboardPage() {
       {/* 콘텐츠 — 간격 9px */}
       <div className="w-full max-w-4xl mx-auto px-3 sm:px-4 pt-[9px] pb-6 space-y-[9px]">
 
-        {/* ─── 인사말 헤더 (이미지 카드, 모서리 10) ─── */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.4 }}
-          className="relative overflow-hidden rounded-[10px] bg-[#eef7f1] h-[120px]"
-        >
+        {/* ─── 인사말 헤더 (이미지 카드, 모서리 10) — 페이드 없이 항상 보임 ─── */}
+        <div className="relative overflow-hidden rounded-[10px] bg-[#eef7f1] h-[120px]">
           {/* 일러스트 — object-cover + 상단 기준(머리 안 잘리게) → 인물 크게 (사진2처럼) */}
           <img
             src="/home-header.jpg"
@@ -360,13 +352,12 @@ function DashboardPage() {
               <span className="text-[12px] font-medium text-gray-700">건강한 습관이 쌓이고 있어요!</span>
             </div>
           </div>
-        </motion.div>
+        </div>
 
         {/* ─── 운영중/참여중 전환 3개 섹션 — 프레임 고정, 안쪽만 좌우 슬라이드 ─── */}
         <div className="space-y-[9px]" onTouchStart={onModeTouchStart} onTouchEnd={onModeTouchEnd}>
         {/* ─── 대표 프로그램 (운영자=운영중 / 그 외=참여중) ─── */}
         <SectionCard
-          delay={0.08}
           title={canToggleMode ? (
             <span className="inline-flex items-center gap-0.5 bg-gray-100 rounded-full p-0.5">
               <button type="button" onClick={() => switchMode('operator')} className={`px-2.5 py-1 rounded-full text-[12px] font-bold transition ${showOperator ? 'bg-white text-emerald-600 shadow-sm' : 'text-gray-500'}`}>운영중</button>
@@ -453,7 +444,6 @@ function DashboardPage() {
 
         {/* ─── 오늘의 활동 요약 — 세로 구분선 + 상태바 ─── */}
         <SectionCard
-          delay={0.16}
           title="오늘의 활동 요약"
           action={
             <button type="button" onClick={() => navigate('/profile/activity')} className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700">
@@ -498,7 +488,6 @@ function DashboardPage() {
 
         {/* ─── 내 점수 및 랭킹 ─── */}
         <SectionCard
-          delay={0.24}
           title="내 점수 및 랭킹"
           action={
             <button type="button" onClick={() => navigate('/rankings')} className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700">

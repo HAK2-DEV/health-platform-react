@@ -630,10 +630,8 @@ function ProgramDetailPage() {
       alert(`탈퇴에 실패했어요: ${err.message}`)
     },
   })
-  const handleLeave = () => {
-    if (!window.confirm(`"${program.name}" 프로그램에서 나갈까요?\n랭킹·집계에서 빠지고, 다시 참여해야 활동할 수 있어요. (기록은 보존)`)) return
-    leaveMutation.mutate()
-  }
+  const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false)
+  const handleLeave = () => setLeaveConfirmOpen(true)
 
   // 미션 그루핑 — bundle_title 별. null = 직접 만들기 (단독 카드), string = 라이브러리 묶음 (그룹 카드)
   const missionGroups = useMemo(() => {
@@ -1849,6 +1847,18 @@ function ProgramDetailPage() {
         confirmLabel="삭제"
         danger
         busy={deleteMissionMutation.isPending}
+      />
+
+      {/* 프로그램 나가기 확인 모달 — 참여자 자가 탈퇴 */}
+      <ConfirmModal
+        isOpen={leaveConfirmOpen}
+        onClose={() => setLeaveConfirmOpen(false)}
+        onConfirm={() => leaveMutation.mutate()}
+        title="이 프로그램에서 나갈까요?"
+        message={`"${program?.name}" 에서 나가면 랭킹·집계에서 빠지고,\n다시 참여해야 활동할 수 있어요.\n (지금까지의 기록은 보존돼요)`}
+        confirmLabel="나가기"
+        danger
+        busy={leaveMutation.isPending}
       />
 
       {/* 프로그램 삭제 — 운영자 전용 2단계 확인 (제목 입력 + 최종 확인) */}
