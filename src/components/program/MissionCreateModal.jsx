@@ -30,6 +30,10 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
   const [imageRequired, setImageRequired] = useState(true)
   const [numericRequired, setNumericRequired] = useState(true)
   const [noteRequired, setNoteRequired] = useState(true)
+  // 누적 지표 (121) — 숫자 입력값을 단위와 함께 누적·합산해서 보여줄지 + 1회 상한(부정 대비)
+  const [metricUnit, setMetricUnit] = useState('')
+  const [metricAggregate, setMetricAggregate] = useState(false)
+  const [maxPerEntry, setMaxPerEntry] = useState('')
 
   // 일정 옵션 (032 마이그레이션 — 미션 단위 schedule_mode/active_days/excluded_periods)
   //   대부분 미션은 매일+제외없음이라 디폴트 접힘 (UI 단순화)
@@ -71,6 +75,9 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
       setImageRequired(true)
       setNumericRequired(true)
       setNoteRequired(true)
+      setMetricUnit('')
+      setMetricAggregate(false)
+      setMaxPerEntry('')
       setShowSchedule(false)
       setScheduleMode('ALL_DAYS')
       setActiveDays([])
@@ -103,6 +110,9 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
       setImageRequired(editMission.image_required ?? true)
       setNumericRequired(editMission.numeric_required ?? true)
       setNoteRequired(editMission.note_required ?? true)
+      setMetricUnit(editMission.metric_unit ?? '')
+      setMetricAggregate(!!editMission.metric_aggregate)
+      setMaxPerEntry(editMission.max_per_entry ?? '')
       const hasSchedule =
         (editMission.schedule_mode && editMission.schedule_mode !== 'ALL_DAYS') ||
         (editMission.excluded_periods && editMission.excluded_periods.length > 0)
@@ -204,6 +214,10 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
       image_required: requiresImage ? imageRequired : true,
       numeric_required: requiresNumeric ? numericRequired : true,
       note_required: requiresNote ? noteRequired : true,
+      // 누적 지표 (121) — 숫자 입력 미션만 의미. 아니면 비활성 값으로 저장.
+      metric_unit: requiresNumeric ? (metricUnit.trim() || null) : null,
+      metric_aggregate: requiresNumeric ? metricAggregate : false,
+      max_per_entry: requiresNumeric && maxPerEntry !== '' ? (parseFloat(maxPerEntry) || null) : null,
       // 일정 옵션 — 033 점수 트리거가 KST 기준으로 검사
       schedule_mode: scheduleMode,
       active_days: scheduleMode === 'CUSTOM' ? activeDays : [],
@@ -453,6 +467,41 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
                   <> · 필수만 제출 시 <span className="font-semibold text-gray-700">{requiredPoint}P</span></>
                 )}
               </p>
+            </div>
+          )}
+
+          {/* 누적 기록 (121) — 숫자 입력 미션만 */}
+          {requiresNumeric && (
+            <div className="mb-4 rounded-xl border border-gray-200 p-3 bg-gray-50/60">
+              <label className="block text-sm font-medium text-gray-700 mb-0.5">📊 누적 기록 <span className="text-xs text-gray-400 font-normal">(선택)</span></label>
+              <p className="text-xs text-gray-400 mb-2">입력값을 단위와 함께 모아 「함께 OO · 내 누적 OO」로 보여줄 수 있어요.</p>
+              <input
+                value={metricUnit}
+                onChange={(e) => setMetricUnit(e.target.value)}
+                disabled={isSaving}
+                maxLength={6}
+                placeholder="단위 (예: km, 회, 분)"
+                className="w-full px-2.5 py-1.5 mb-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 disabled:bg-gray-50"
+              />
+              <label className="flex items-center gap-2 mb-2 cursor-pointer select-none">
+                <input type="checkbox" checked={metricAggregate} onChange={(e) => setMetricAggregate(e.target.checked)} disabled={isSaving} className="w-4 h-4 accent-emerald-600" />
+                <span className="text-sm text-gray-700">개요에 누적 합계 표시</span>
+              </label>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600 flex-shrink-0">1회 최대</span>
+                <div className="relative flex-1 min-w-0">
+                  <input
+                    type="number" min={0} step="any"
+                    value={maxPerEntry}
+                    onChange={(e) => setMaxPerEntry(e.target.value)}
+                    disabled={isSaving}
+                    placeholder="제한 없음"
+                    className="w-full pl-2.5 pr-10 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 disabled:bg-gray-50"
+                  />
+                  {metricUnit.trim() && <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">{metricUnit.trim()}</span>}
+                </div>
+              </div>
+              <p className="mt-1.5 text-[11px] text-gray-400">1회 상한은 부정 입력 대비예요. 초과하면 인증이 거부돼요.</p>
             </div>
           )}
           </>)}

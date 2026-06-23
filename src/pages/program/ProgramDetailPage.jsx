@@ -78,6 +78,7 @@ import {
   fetchPendingReviews,
   fetchProgramOverview,
   fetchUnresolvedReportCount,
+  fetchMetricTotals,
 } from '../../lib/queries'
 
 // 기간 필터 옵션 (period_filter_enabled 옵션 시) — period → ISO 시작점
@@ -378,10 +379,13 @@ function ProgramDetailPage() {
   // 참여자 커뮤니티 — 선택 게시판 칩. 알림 딥링크(?board=)면 그 게시판으로 시작.
   const [communityBoard, setCommunityBoard] = useState(() => searchParams.get('board') || 'all')
   // 댓글 알림 딥링크 — ?post= 가 있으면 CommunityPostList 가 그 글 상세를 자동 오픈
+  //   ?c= 가 있으면 그 댓글로 스크롤·하이라이트
   const focusPostId = searchParams.get('post')
+  const focusCommentId = searchParams.get('c')
   const clearFocusPost = () => {
     const next = new URLSearchParams(searchParams)
     next.delete('post')
+    next.delete('c')
     setSearchParams(next, { replace: true })
   }
   // 글 보러가기(?post=&board=) 딥링크 — 운영자 관리자 패널이 열린 상태에서 진입해도
@@ -443,6 +447,12 @@ function ProgramDetailPage() {
     queryKey: ['reportsUnresolvedCount', id],
     queryFn: () => fetchUnresolvedReportCount(id),
     enabled: !!session && !!id && !!program && isOwner && program?.community_enabled !== false,
+  })
+  // 누적 지표 (121) — 단위별 함께/내 누적 (개요 카드)
+  const { data: metricTotals = [] } = useQuery({
+    queryKey: ['metricTotals', id],
+    queryFn: () => fetchMetricTotals(id),
+    enabled: !!session && !!id && !!program,
   })
   const [vreviewOpen, setVreviewOpen] = useState(false)
   useEffect(() => {
@@ -1172,6 +1182,31 @@ function ProgramDetailPage() {
       {/* ─── 개요 탭 (일반 콘텐츠) ─────────────────────────── */}
       {activeTab === 'overview' && (!overviewManageOpen || overviewPreview) && (<>
 
+      {/* 누적 지표 카드 (121) — 단위별 함께/내 누적. 승인된 기록 합산 */}
+      {metricTotals.length > 0 && (() => {
+        const fmt = (n) => Number(n || 0).toLocaleString('ko-KR', { maximumFractionDigits: 2 })
+        return (
+          <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 rounded-2xl p-4 mb-[9px]">
+            <h3 className="text-sm font-semibold text-emerald-700 mb-2.5">📊 함께 쌓은 기록</h3>
+            <div className="space-y-3">
+              {metricTotals.map(m => (
+                <div key={m.unit} className="flex items-center gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] text-emerald-600/80 mb-0.5">함께</p>
+                    <p className="text-xl font-bold text-emerald-700 leading-none truncate">{fmt(m.total)}<span className="text-sm font-medium ml-0.5">{m.unit}</span></p>
+                  </div>
+                  <div className="w-px h-8 bg-emerald-200 flex-shrink-0" />
+                  <div className="flex-1 min-w-0 text-right">
+                    <p className="text-[11px] text-gray-500 mb-0.5">내 누적</p>
+                    <p className="text-xl font-bold text-gray-800 leading-none truncate">{fmt(m.mine)}<span className="text-sm font-medium ml-0.5 text-gray-500">{m.unit}</span></p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      })()}
+
       {/* 운영자 패널·초대 링크 → 탭 위 빠른 액션 박스 + 모달로 이동 (페이지 하단 모달 렌더) */}
 
       {/* ─── 모의도 콘텐츠 (Day 65 본인 결정, 상태 카드 제거 — 연속을 진행 현황으로 통합) ───
@@ -1607,7 +1642,7 @@ function ProgramDetailPage() {
           ) : (
             <CommunityPostList programId={id} boardId={communityBoard} posts={communityPosts} myUserId={userId} isOwner={isOwner}
               layout={activeBoardLayout} canReact={canReact} canComment={canComment}
-              focusPostId={focusPostId} onFocusHandled={clearFocusPost}
+              focusPostId={focusPostId} focusCommentId={focusCommentId} onFocusHandled={clearFocusPost}
               onEdit={(p) => { setEditingPost(p); setIsPostModalOpen(true) }} />
           )}
 

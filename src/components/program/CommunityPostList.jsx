@@ -15,7 +15,7 @@ import RejectReasonModal from './RejectReasonModal'
 //   layout: feed(기본 카드) / list(가로 행) / grid(2열) / magazine(대1+소2+중1 반복).
 //   - 이미지 없는 글은 이미지 자리 대신 프로필+텍스트 카드. 매거진에선 중(가로) 우선 배치.
 //   - 카드 탭 시 상세 모달(글 펼치기).
-function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId, isOwner, onEdit, layout = 'feed', canReact = false, canComment = false, focusPostId = null, onFocusHandled }) {
+function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId, isOwner, onEdit, layout = 'feed', canReact = false, canComment = false, focusPostId = null, focusCommentId = null, onFocusHandled }) {
   const queryClient = useQueryClient()
   // 검토 대기(pending) 글은 작성자·운영자에게만 노출 (RLS 보강 — 캐시·엣지로 새어와도 클라에서 차단).
   //   useMemo 필수 — 매 렌더 새 배열이면 아래 imageUrls effect([posts])가 무한 반복돼 signed URL 폭주.
@@ -33,15 +33,17 @@ function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId,
   const focusedRef = useRef(null)
   const commentsAnchorRef = useRef(null)
   const [scrollComments, setScrollComments] = useState(false)
+  const [commentTarget, setCommentTarget] = useState(null)  // 알림 ?c= 댓글 스크롤 타겟
   useEffect(() => {
     if (!focusPostId || focusedRef.current === focusPostId) return
     const target = posts.find(p => String(p.id) === String(focusPostId))
     if (!target) return
     focusedRef.current = focusPostId
     setDetailPost(target)
-    setScrollComments(true)
+    setCommentTarget(focusCommentId || null)
+    setScrollComments(!focusCommentId)   // 댓글 타겟이면 섹션 대신 그 댓글로 스크롤
     onFocusHandled?.()
-  }, [focusPostId, posts, onFocusHandled])
+  }, [focusPostId, focusCommentId, posts, onFocusHandled])
   // 모달 열린 뒤 댓글 영역으로 스크롤 (댓글 비동기 로드 고려해 약간 지연)
   useEffect(() => {
     if (!detailPost || !scrollComments) return
@@ -418,6 +420,7 @@ function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId,
                   isOwner={isOwner}
                   canReact={canReact}
                   canComment={canComment}
+                  targetCommentId={commentTarget}
                 />
               </div>
             )}

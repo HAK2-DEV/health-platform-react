@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Heart, MessageCircle, Trash2, Send, CornerDownRight } from 'lucide-react'
 import {
@@ -10,12 +10,14 @@ import UserAvatar from '../common/UserAvatar'
 
 // 커뮤니티 글 좋아요/댓글 (105) + 1단계 답글(118) — 상세(글 펼치기) 하단에 표시.
 //   canReact: 좋아요 가능. canComment: 댓글/답글 입력 가능.
-function CommunityPostSocial({ postId, programId, myUserId, isOwner, canReact, canComment }) {
+function CommunityPostSocial({ postId, programId, myUserId, isOwner, canReact, canComment, targetCommentId = null }) {
   const qc = useQueryClient()
   const [text, setText] = useState('')
   const [replyTo, setReplyTo] = useState(null)        // { id(최상위 댓글), nickname }
   const [expanded, setExpanded] = useState(() => new Set())  // 답글 펼친 댓글 id
+  const [highlight, setHighlight] = useState(null)    // 알림 ?c= 하이라이트 댓글 id
   const inputRef = useRef(null)
+  const rowRefs = useRef({})
 
   const { data, isLoading } = useQuery({
     queryKey: queryKeys.communityPostSocial(postId),
@@ -32,6 +34,25 @@ function CommunityPostSocial({ postId, programId, myUserId, isOwner, canReact, c
     for (const c of comments) if (c.parent_id) (m[c.parent_id] ||= []).push(c)
     return m
   }, [comments])
+
+  // 알림 ?c= 딥링크 — 해당 댓글로 스크롤 + 하이라이트 (답글이면 스레드 먼저 펼침)
+  useEffect(() => {
+    if (!targetCommentId || comments.length === 0) return
+    const target = comments.find(c => c.id === targetCommentId)
+    if (!target) return
+    if (target.parent_id && !expanded.has(target.parent_id)) {
+      setExpanded(prev => new Set(prev).add(target.parent_id))
+      return  // 펼친 뒤 expanded 변경으로 재실행 → 그때 스크롤
+    }
+    const el = rowRefs.current[targetCommentId]
+    if (!el) return
+    const t = setTimeout(() => {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      setHighlight(targetCommentId)
+      setTimeout(() => setHighlight(null), 2500)
+    }, 300)
+    return () => clearTimeout(t)
+  }, [comments, targetCommentId, expanded])
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: queryKeys.communityPostSocial(postId) })
@@ -76,8 +97,10 @@ function CommunityPostSocial({ postId, programId, myUserId, isOwner, canReact, c
   //   (컴포넌트가 아닌 렌더 함수 — 입력 타이핑 리렌더 때 댓글 행 리마운트 방지)
   const renderComment = (c, isReply, topId) => {
     const canDel = c.user_id === myUserId || isOwner
+    const isHi = highlight === c.id
     return (
-      <div key={c.id} className="flex items-start gap-2">
+      <div key={c.id} ref={(el) => { rowRefs.current[c.id] = el }}
+        className={`flex items-start gap-2 rounded-lg transition-all duration-500 ${isHi ? 'bg-amber-100 ring-2 ring-amber-300 p-1.5 -m-1.5' : ''}`}>
         <UserAvatar avatarPath={c.user?.avatar_path} nickname={c.user?.nickname} size="sm" />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">

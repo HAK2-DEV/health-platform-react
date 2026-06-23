@@ -1455,6 +1455,16 @@ export const fetchPostComments = async (verificationId) => {
 //   todayActiveParticipants: KST 오늘 인증한 unique 참여자 수
 //   bundleStats: [{ bundleTitle, totalCount, missions: [{ mission_id, title, count }] }]
 //                bundleTitle=null = 단독 미션 그룹. totalCount 내림차순.
+// 누적 지표 합산 (121) — 단위별 '함께(전체) + 내 누적'. 승인된 numeric 만. RPC(SECURITY DEFINER).
+//   반환: [{ unit, total, mine }] (합계 0 인 단위는 제외)
+export const fetchMetricTotals = async (programId) => {
+  const { data, error } = await supabase.rpc('get_metric_totals', { p_program_id: programId })
+  if (error) throw error
+  return (data || [])
+    .map(r => ({ unit: r.unit || '', total: Number(r.total) || 0, mine: Number(r.mine) || 0 }))
+    .filter(r => r.total > 0)
+}
+
 // 한 유저의 누적 점수 요인 — score_ledgers 를 미션별/퀴즈별로 집계. (운영자 RLS 로 본인 프로그램 조회)
 //   { missions: [{id, title, point, count}], quiz: {point,count}, other: {point,count}, total }
 export const fetchUserScoreBreakdown = async (programId, userId) => {

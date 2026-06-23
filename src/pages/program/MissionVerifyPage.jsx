@@ -506,6 +506,14 @@ function MissionVerifyPage() {
         return
       }
     }
+    // 1회 상한 (121) — 서버 트리거가 백스톱이지만 미리 친절히 안내
+    if (needsNumeric && numericValue && mission?.max_per_entry != null) {
+      const num = parseFloat(numericValue)
+      if (!isNaN(num) && num > Number(mission.max_per_entry)) {
+        setError(`1회 최대 ${mission.max_per_entry}${mission.metric_unit || ''} 까지 입력할 수 있어요`)
+        return
+      }
+    }
     if (reqNote && !noteText.trim()) {
       setError('소감을 입력해주세요')
       return
@@ -972,18 +980,24 @@ function MissionVerifyPage() {
               {perInput && <span className="ml-1 text-xs font-normal text-emerald-600">· {numPts}P</span>}
               {optNumeric && <span className="ml-1 text-xs font-normal text-amber-600">(선택)</span>}
             </label>
-            <input
-              type="number"
-              value={numericValue}
-              onChange={(e) => setNumericValue(e.target.value)}
-              placeholder="예: 8000 (걸음) 또는 5.2 (km)"
-              step="0.01"
-              min="0"
-              disabled={isSubmitting}
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-400 disabled:bg-gray-50 text-base"
-            />
+            <div className="relative">
+              <input
+                type="number"
+                value={numericValue}
+                onChange={(e) => setNumericValue(e.target.value)}
+                placeholder={mission?.metric_unit ? `예: 5.2` : '예: 8000 (걸음) 또는 5.2 (km)'}
+                step="0.01"
+                min="0"
+                disabled={isSubmitting}
+                className={`w-full px-4 py-3 ${mission?.metric_unit ? 'pr-12' : ''} border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-400 disabled:bg-gray-50 text-base`}
+              />
+              {mission?.metric_unit && (
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-400">{mission.metric_unit}</span>
+              )}
+            </div>
             <p className="text-xs text-gray-500 mt-1">
               숫자로 본인의 활동 결과를 입력해요
+              {mission?.max_per_entry != null && <span className="text-gray-400"> · 1회 최대 {mission.max_per_entry}{mission.metric_unit || ''}</span>}
             </p>
           </div>
         )}
