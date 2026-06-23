@@ -5,6 +5,8 @@ import Modal from '../common/Modal'
 import ImageCropModal from '../common/ImageCropModal'
 import { supabase } from '../../supabaseClient'
 import { createCommunityPost, updateCommunityPost, queryKeys } from '../../lib/queries'
+import { compressImage, compressThumbnail } from '../../lib/imageCompression'
+import { thumbPathOf } from '../../lib/signedUrls'
 
 // 커뮤니티 게시판 글쓰기/수정 모달.
 //   props: isOpen, onClose, program, boards(작성 가능 게시판), defaultBoardId, editPost(있으면 수정 모드)
@@ -50,11 +52,17 @@ function CommunityPostModal({ isOpen, onClose, program, boards = [], defaultBoar
       if (file) {
         const { data: { session } } = await supabase.auth.getSession()
         const uid = session?.user?.id
-        const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg'
-        const path = `${uid}/${Date.now()}.${ext}`
-        const { error: upErr } = await supabase.storage.from('community-posts').upload(path, file, { contentType: file.type || 'image/jpeg' })
+        // 원본 압축(1280px·0.6MB) + 목록용 썸네일(400px) 동반 저장 — 항상 jpeg
+        const compressed = await compressImage(file, { maxWidthOrHeight: 1280, maxSizeMB: 0.6 })
+        const path = `${uid}/${Date.now()}.jpg`
+        const { error: upErr } = await supabase.storage.from('community-posts').upload(path, compressed, { contentType: 'image/jpeg' })
         if (upErr) throw upErr
         imagePath = path
+        try {
+          const thumb = await compressThumbnail(file)
+          if (thumb) await supabase.storage.from('community-posts')
+            .upload(thumbPathOf(path), thumb, { contentType: 'image/jpeg' })
+        } catch (e) { console.warn('[썸네일 업로드 생략]', e?.message) }
       } else if (isEdit) {
         imagePath = imageRemoved ? null : (editPost.image_path || null)
       } else {

@@ -11,7 +11,8 @@ import { resolveMissionIcon } from '../../lib/missionIcons'
 import { queryKeys, fetchMission, fetchProgramOverview, fetchProgram, fetchActivePrograms, fetchTodayMissions, fetchTodayCounts } from '../../lib/queries'
 import { detectMilestonesReached, resolveStreakMilestones, computeStage } from '../../lib/gamification'
 import { useToast } from '../../contexts/ToastContext'
-import { compressImage } from '../../lib/imageCompression'
+import { compressImage, compressThumbnail } from '../../lib/imageCompression'
+import { thumbPathOf } from '../../lib/signedUrls'
 import { primeAudio, playSuccessChime } from '../../lib/sound'
 import LoadingState from '../../components/common/LoadingState'
 import ImageCropModal from '../../components/common/ImageCropModal'
@@ -357,6 +358,13 @@ function MissionVerifyPage() {
         if (uploadError) throw new Error(`업로드 실패: ${uploadError.message}`)
         imagePath = path
         insertData.image_path = path
+
+        // 3-1) 목록용 썸네일(400px) 동반 업로드 — 실패해도 인증 제출은 진행(목록은 원본 폴백)
+        try {
+          const thumb = await compressThumbnail(selectedFile)
+          if (thumb) await supabase.storage.from('verification-images')
+            .upload(thumbPathOf(path), thumb, { contentType: 'image/jpeg' })
+        } catch (e) { console.warn('[썸네일 업로드 생략]', e?.message) }
       }
 
       // 선택 입력 미작성 시 저장하지 않음 → 채점 합산에서 제외

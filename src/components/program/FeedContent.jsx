@@ -6,6 +6,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
 import { formatRelativeKstDay } from '../../lib/formatters'
 import { queryKeys, fetchFeedPosts, fetchPostComments, FEED_PAGE_SIZE, formatKstDate, updateVerificationNote } from '../../lib/queries'
+import { getCachedSignedUrls, getSignedUrls, thumbPathOf } from '../../lib/signedUrls'
 import OperatorVerificationActions from './OperatorVerificationActions'
 import UserAvatar from '../../components/common/UserAvatar'
 import EmptyState from '../../components/common/EmptyState'
@@ -76,44 +77,40 @@ function FeedContent({ program, layout: layoutProp = null, targetVerificationId 
     }
   }, [targetVerificationId, posts.length])
 
-  // 이미지 signed URL — feed posts 의 image_path
+  // 이미지 signed URL — 원본 + 목록용 썸네일을 공유 캐시로 한 번에 서명(칩 전환·재방문 시 재요청 X)
   const [imageUrls, setImageUrls] = useState({})
+  const [thumbUrls, setThumbUrls] = useState({})   // 컴팩트 카드용 (없으면 원본 폴백)
   const [failedImageIds, setFailedImageIds] = useState(() => new Set())
   useEffect(() => {
     const targets = posts.filter(p => p.image_path)
     if (targets.length === 0) {
       setImageUrls({})
+      setThumbUrls({})
       setFailedImageIds(new Set())
       return
     }
     let cancelled = false
-    // 배치 서명 — N건을 한 번의 요청으로 묶어 라운드트립 최소화(이미지 노출 지연 완화)
-    const paths = targets.map(p => p.image_path)
-    const pathToId = new Map(targets.map(p => [p.image_path, p.id]))
-    supabase.storage
-      .from('verification-images')
-      .createSignedUrls(paths, 3600)
-      .then(({ data, error }) => {
-        if (cancelled) return
-        if (error) {
-          console.warn('[feed signed urls 실패]', { msg: error.message })
-          setImageUrls({})
-          setFailedImageIds(new Set(targets.map(p => p.id)))
-          return
-        }
-        const urlMap = {}
-        const failedIds = new Set()
-        for (const r of data || []) {
-          const pid = pathToId.get(r.path)
-          if (pid == null) continue
-          if (r.signedUrl && !r.error) urlMap[pid] = r.signedUrl
-          else failedIds.add(pid)
-        }
-        setImageUrls(urlMap)
-        setFailedImageIds(failedIds)
-      })
+    const thumbByOrig = new Map(targets.map(p => [p.image_path, thumbPathOf(p.image_path)]))
+    const allPaths = [...targets.map(p => p.image_path), ...thumbByOrig.values()]
+    const toFull = (byPath) => { const m = {}; for (const p of targets) if (byPath[p.image_path]) m[p.id] = byPath[p.image_path]; return m }
+    const toThumb = (byPath) => { const m = {}; for (const p of targets) { const tp = thumbByOrig.get(p.image_path); if (byPath[tp]) m[p.id] = byPath[tp] } return m }
+    // 1) 캐시된 건 즉시 반영(빈칸 방지) → 2) 누락분만 배치 서명
+    const cached = getCachedSignedUrls('verification-images', allPaths)
+    setImageUrls(toFull(cached)); setThumbUrls(toThumb(cached))
+    getSignedUrls('verification-images', allPaths).then(byPath => {
+      if (cancelled) return
+      setImageUrls(toFull(byPath)); setThumbUrls(toThumb(byPath))
+      const failed = new Set(targets.filter(p => !byPath[p.image_path]).map(p => p.id))
+      setFailedImageIds(failed)
+    })
     return () => { cancelled = true }
   }, [posts.length])
+  // 썸네일 우선 src + 404(구 이미지) 시 원본 폴백
+  const thumbSrc = (post) => thumbUrls[post.id] || imageUrls[post.id]
+  const onThumbError = (post) => (e) => {
+    const full = imageUrls[post.id]
+    if (full && e.currentTarget.src !== full) e.currentTarget.src = full
+  }
 
   // 좋아요 토글
   const toggleLikeMutation = useMutation({
@@ -190,14 +187,14 @@ function FeedContent({ program, layout: layoutProp = null, targetVerificationId 
 
   // 리스트형 — 썸네일(좌) + 텍스트(우), 균일 가로 행
   const renderListRow = (post) => {
-    const img = imageUrls[post.id]
+    const img = thumbSrc(post)
     const note = post.note?.trim()
     return (
       <button key={post.id} type="button" onClick={() => setFocusedId(post.id)}
         className="w-full flex items-center gap-3 text-left bg-white border border-gray-200 rounded-2xl p-2.5 hover:shadow-md transition">
         {post.image_path ? (
           <div className="w-[64px] h-[64px] rounded-xl bg-gray-100 flex-shrink-0 overflow-hidden">
-            {img ? <img src={img} alt="" loading="lazy" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-gray-300">🖼️</div>}
+            {img ? <img src={img} onError={onThumbError(post)} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-gray-300">🖼️</div>}
           </div>
         ) : (
           <div className="w-[64px] h-[64px] rounded-xl bg-emerald-50 flex-shrink-0 flex items-center justify-center text-emerald-300 text-xl">📝</div>
@@ -221,14 +218,14 @@ function FeedContent({ program, layout: layoutProp = null, targetVerificationId 
 
   // 그리드형 컴팩트 카드 — 이미지 위 / 텍스트 아래
   const renderGridCard = (post) => {
-    const img = imageUrls[post.id]
+    const img = thumbSrc(post)
     const note = post.note?.trim()
     return (
       <button key={post.id} type="button" onClick={() => setFocusedId(post.id)}
         className="flex flex-col text-left bg-white border border-gray-200 rounded-2xl overflow-hidden hover:shadow-md transition">
         {post.image_path && (
           <div className="aspect-square bg-gray-100">
-            {img ? <img src={img} alt="" loading="lazy" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-gray-300 text-2xl">🖼️</div>}
+            {img ? <img src={img} onError={onThumbError(post)} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-gray-300 text-2xl">🖼️</div>}
           </div>
         )}
         <div className="p-2.5 flex-1 flex flex-col gap-1">
@@ -250,12 +247,12 @@ function FeedContent({ program, layout: layoutProp = null, targetVerificationId 
 
   // 매거진형 카드 — 이미지 위 텍스트 오버레이 (hero=대형)
   const renderMagCard = (post, hero) => {
-    const img = imageUrls[post.id]
+    const img = hero ? imageUrls[post.id] : thumbSrc(post)
     const note = post.note?.trim()
     return (
       <button key={post.id} type="button" onClick={() => setFocusedId(post.id)}
         className={`relative block text-left w-full rounded-2xl overflow-hidden bg-gray-200 ${hero ? 'aspect-[16/9]' : 'aspect-[4/3]'}`}>
-        {img ? <img src={img} alt="" loading="lazy" className="absolute inset-0 w-full h-full object-cover" /> : <div className="absolute inset-0 bg-gradient-to-br from-emerald-300 to-teal-400" />}
+        {img ? <img src={img} onError={hero ? undefined : onThumbError(post)} alt="" loading="lazy" decoding="async" className="absolute inset-0 w-full h-full object-cover" /> : <div className="absolute inset-0 bg-gradient-to-br from-emerald-300 to-teal-400" />}
         <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent" />
         <div className="absolute bottom-0 left-0 right-0 p-3 text-white">
           {note && <p className={`font-bold drop-shadow line-clamp-2 ${hero ? 'text-[15px]' : 'text-[12px]'}`}>{note}</p>}

@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trash2, Pencil, Flag, Pin, PinOff, Clock, Check, EyeOff } from 'lucide-react'
-import { supabase } from '../../supabaseClient'
 import { deleteCommunityPost, setCommunityPostPin, setCommunityPostStatus, rejectCommunityPost, queryKeys } from '../../lib/queries'
+import { getCachedSignedUrls, getSignedUrls, thumbPathOf } from '../../lib/signedUrls'
 import { formatRelativeKstDay } from '../../lib/formatters'
 import UserAvatar from '../common/UserAvatar'
 import EmptyState from '../common/EmptyState'
@@ -24,6 +24,7 @@ function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId,
     [rawPosts, isOwner, myUserId],
   )
   const [imageUrls, setImageUrls] = useState({})
+  const [thumbUrls, setThumbUrls] = useState({})   // 목록용 썸네일 (없으면 원본 폴백)
   const [reportId, setReportId] = useState(null)
   const [detailPost, setDetailPost] = useState(null)   // 상세(글 펼치기) 모달
   const [postToDelete, setPostToDelete] = useState(null)  // 삭제 확인 모달
@@ -50,31 +51,23 @@ function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId,
     }, 300)
     return () => clearTimeout(t)
   }, [detailPost, scrollComments])
-  // image_path → signedUrl 캐시 (세션 내). 칩 전환 시 이미 본 이미지는 재요청 X → 누락분만 fetch.
-  const urlCacheRef = useRef({})
-
+  // image_path → signedUrl (공유 캐시). 원본 + 목록용 썸네일을 한 번에 서명.
+  //   칩 전환·재방문 시 재요청 X. 작은 카드는 썸네일, 큰 카드/상세는 원본 사용.
   useEffect(() => {
     let cancelled = false
     const withImg = posts.filter(p => p.image_path)
-    if (withImg.length === 0) { setImageUrls({}); return }
-    const cache = urlCacheRef.current
-    const buildMap = () => {
-      const map = {}
-      for (const p of withImg) { const u = cache[p.image_path]; if (u) map[p.id] = u }
-      return map
-    }
-    // 캐시된 건 즉시 반영(이미지 빈칸 방지) → 누락 경로만 네트워크로
-    setImageUrls(buildMap())
-    const missing = [...new Set(withImg.map(p => p.image_path).filter(path => !cache[path]))]
-    if (missing.length === 0) return
-    supabase.storage.from('community-posts').createSignedUrls(missing, 3600)
-      .then(({ data }) => {
-        if (cancelled) return
-        for (const r of data || []) {
-          if (r.path && r.signedUrl && !r.error) cache[r.path] = r.signedUrl
-        }
-        setImageUrls(buildMap())
-      })
+    if (withImg.length === 0) { setImageUrls({}); setThumbUrls({}); return }
+    const thumbByOrig = new Map(withImg.map(p => [p.image_path, thumbPathOf(p.image_path)]))
+    const allPaths = [...withImg.map(p => p.image_path), ...thumbByOrig.values()]
+    const buildFull = (byPath) => { const m = {}; for (const p of withImg) if (byPath[p.image_path]) m[p.id] = byPath[p.image_path]; return m }
+    const buildThumb = (byPath) => { const m = {}; for (const p of withImg) { const tp = thumbByOrig.get(p.image_path); if (byPath[tp]) m[p.id] = byPath[tp] } return m }
+    // 캐시된 건 즉시 반영(빈칸 방지) → 누락 경로만 네트워크로
+    const cached = getCachedSignedUrls('community-posts', allPaths)
+    setImageUrls(buildFull(cached)); setThumbUrls(buildThumb(cached))
+    getSignedUrls('community-posts', allPaths).then(byPath => {
+      if (cancelled) return
+      setImageUrls(buildFull(byPath)); setThumbUrls(buildThumb(byPath))
+    })
     return () => { cancelled = true }
   }, [posts])
 
@@ -133,6 +126,12 @@ function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId,
   })
   const canPin = isOwner && boardId === 'notice'
   const hasImg = (p) => !!p.image_path
+  // 썸네일 우선 src + 404(구 이미지 등) 시 원본으로 폴백
+  const thumbSrc = (p) => thumbUrls[p.id] || imageUrls[p.id]
+  const onThumbError = (p) => (e) => {
+    const full = imageUrls[p.id]
+    if (full && e.currentTarget.src !== full) e.currentTarget.src = full
+  }
 
   // 가려진(hidden) 글 — 신고 사유(reports). 운영자만 조회(RLS 허용). 신고 누적 자동 숨김.
   const hiddenIds = useMemo(() => posts.filter(p => p.status === 'hidden').map(p => p.id), [posts])
@@ -309,7 +308,7 @@ function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId,
   const renderImgGrid = (p) => (
     <article key={p.id} onClick={() => setDetailPost(p)} className={`relative rounded-2xl overflow-hidden cursor-pointer bg-white border border-gray-200 ${pinnedRing(p)}`}>
       {p.pinned_at && <PinPill floating />}
-      <img src={imageUrls[p.id]} alt="" loading="lazy" className="w-full h-28 object-cover bg-gray-100" />
+      <img src={thumbSrc(p)} onError={onThumbError(p)} alt="" loading="lazy" decoding="async" className="w-full h-28 object-cover bg-gray-100" />
       <div className="p-2.5">
         {p.title && <p className="text-[13px] font-bold text-gray-800 truncate">{p.title}</p>}
         {p.body && <p className="text-[11px] text-gray-600 line-clamp-2 leading-snug mt-0.5">{p.body}</p>}
@@ -329,7 +328,7 @@ function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId,
   const renderMid = (p) => (
     <article key={p.id} onClick={() => setDetailPost(p)} className={`flex gap-3 items-start p-3 rounded-2xl cursor-pointer ${p.pinned_at ? 'border-2 border-emerald-400 ring-2 ring-emerald-100 bg-emerald-50/40' : 'bg-white border border-gray-200'}`}>
       {hasImg(p) ? (
-        <img src={imageUrls[p.id]} alt="" loading="lazy" className="w-16 h-16 rounded-xl object-cover bg-gray-100 flex-shrink-0" />
+        <img src={thumbSrc(p)} onError={onThumbError(p)} alt="" loading="lazy" decoding="async" className="w-16 h-16 rounded-xl object-cover bg-gray-100 flex-shrink-0" />
       ) : (
         <UserAvatar avatarPath={p.author?.avatar_path} nickname={p.author?.nickname} size="lg" />
       )}

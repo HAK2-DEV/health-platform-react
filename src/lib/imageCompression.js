@@ -32,3 +32,20 @@ export async function compressImage(file, options = {}) {
     return file
   }
 }
+
+// 목록·그리드용 썸네일 — 400px / ~0.08MB. 원본과 별도 경로에 저장해 목록 로딩을 가볍게.
+//   실패 시 null 반환(썸네일 업로드는 선택적 — 없으면 목록이 원본으로 폴백).
+export async function compressThumbnail(file) {
+  try {
+    return await imageCompression(file, {
+      maxSizeMB: 0.08,
+      maxWidthOrHeight: 400,
+      useWebWorker: true,
+      fileType: 'image/jpeg',
+      initialQuality: 0.7,
+    })
+  } catch (err) {
+    console.warn('[compressThumbnail] 실패 — 썸네일 생략', err)
+    return null
+  }
+}

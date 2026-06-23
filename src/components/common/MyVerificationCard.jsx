@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { Check, Clock, X, Pencil } from 'lucide-react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { supabase } from '../../supabaseClient'
 import { formatKoreanDateTime } from '../../lib/formatters'
 import { updateVerificationNote } from '../../lib/queries'
+import { getCachedSignedUrls, getSignedUrls } from '../../lib/signedUrls'
 
 // 본인 인증 카드 — 이미지(verification-images signed URL) + 기록값 + 소감 + 상태 배지
 // MyActivityVerificationsPage / MyActivityVerificationsBundlePage 공유
@@ -12,7 +12,10 @@ import { updateVerificationNote } from '../../lib/queries'
 //   소감 미션(requires_note)인 경우 ✏️ 버튼으로 인라인 편집.
 //   update_verification_note RPC 가 note 만 변경 — status/point 불변이라 랭킹 영향 없음.
 function MyVerificationCard({ v }) {
-  const [imgUrl, setImgUrl] = useState(null)
+  // 공유 캐시에 이미 있으면 즉시 표시(빈칸·재요청 방지)
+  const [imgUrl, setImgUrl] = useState(() =>
+    v.image_path ? (getCachedSignedUrls('verification-images', [v.image_path])[v.image_path] || null) : null
+  )
   const queryClient = useQueryClient()
 
   // 인라인 소감 편집 상태
@@ -23,15 +26,11 @@ function MyVerificationCard({ v }) {
   const canEditNote = !!v.missions?.requires_note
 
   useEffect(() => {
+    if (!v.image_path) return
     let cancelled = false
-    const load = async () => {
-      if (!v.image_path) return
-      const { data, error } = await supabase.storage
-        .from('verification-images')
-        .createSignedUrl(v.image_path, 60 * 60)
-      if (!cancelled && !error && data?.signedUrl) setImgUrl(data.signedUrl)
-    }
-    load()
+    getSignedUrls('verification-images', [v.image_path]).then(byPath => {
+      if (!cancelled && byPath[v.image_path]) setImgUrl(byPath[v.image_path])
+    })
     return () => { cancelled = true }
   }, [v.image_path])
 
