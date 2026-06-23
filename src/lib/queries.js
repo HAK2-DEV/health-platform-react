@@ -872,6 +872,95 @@ export const createReport = async ({ programId, targetType, targetId, reason }) 
   if (error) throw error
 }
 
+// 운영자 신고 관리 — 프로그램의 모든 신고를 대상별로 묶어, 신고자(닉네임)·사유·횟수 +
+//   대상 콘텐츠 현재 상태까지 한 번에. 신고자 신원은 운영자에게만(RLS: owner SELECT).
+//   반환: [{ targetType, targetId, target, deleted, hidden, reporters:[{id,nickname,avatar_path,reason,created_at}], latestAt }]
+export const fetchProgramReports = async (programId) => {
+  const { data: reports, error } = await supabase
+    .from('reports')
+    .select('id, target_type, target_id, reason, created_at, resolved, reporter:users!reporter_id(id, nickname, avatar_path)')
+    .eq('program_id', programId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  if (!reports?.length) return []
+
+  const postIds = [...new Set(reports.filter(r => r.target_type === 'post').map(r => r.target_id))]
+  const verIds = [...new Set(reports.filter(r => r.target_type === 'verification').map(r => r.target_id))]
+
+  const postMap = {}, verMap = {}
+  if (postIds.length) {
+    const { data } = await supabase
+      .from('community_posts')
+      .select('id, title, body, status, board_id, image_path, author:users(nickname)')
+      .in('id', postIds)
+    for (const p of (data || [])) postMap[p.id] = p
+  }
+  if (verIds.length) {
+    const { data } = await supabase
+      .from('verifications')
+      .select('id, note, image_path, feed_visible, mission_id, missions(title), user:users(nickname)')
+      .in('id', verIds)
+    for (const v of (data || [])) verMap[v.id] = v
+  }
+
+  const groups = new Map()
+  for (const r of reports) {
+    const key = `${r.target_type}:${r.target_id}`
+    if (!groups.has(key)) {
+      const isPost = r.target_type === 'post'
+      const t = isPost ? postMap[r.target_id] : verMap[r.target_id]
+      const hidden = isPost ? (t?.status === 'hidden') : (t ? t.feed_visible === false : false)
+      groups.set(key, {
+        targetType: r.target_type,
+        targetId: r.target_id,
+        target: t || null,
+        deleted: !t,
+        hidden,
+        reporters: [],
+        unresolved: 0,        // 미처리 신고 수
+        latestAt: r.created_at,
+      })
+    }
+    const g = groups.get(key)
+    if (!r.resolved) g.unresolved += 1
+    g.reporters.push({
+      id: r.id,
+      nickname: r.reporter?.nickname || '(알 수 없음)',
+      avatar_path: r.reporter?.avatar_path || null,
+      reason: r.reason || null,
+      created_at: r.created_at,
+      resolved: !!r.resolved,
+    })
+  }
+  // 미처리(처리 대기) 먼저, 그 안에서 최근 신고 순
+  return Array.from(groups.values()).sort((a, b) => {
+    const ar = a.unresolved > 0 ? 0 : 1
+    const br = b.unresolved > 0 ? 0 : 1
+    if (ar !== br) return ar - br
+    return a.latestAt < b.latestAt ? 1 : -1
+  })
+}
+
+// 운영자 — 콘텐츠의 미처리 신고를 일괄 처리(resolved=true). RPC(116, owner 검증).
+export const resolveReports = async (programId, targetType, targetId) => {
+  const { error } = await supabase.rpc('resolve_reports', {
+    p_program_id: programId, p_target_type: targetType, p_target_id: targetId,
+  })
+  if (error) throw error
+}
+
+// 운영자 메뉴 배지 — 미처리 신고가 있는 '콘텐츠 수'. (행 수가 아니라 대상 기준)
+export const fetchUnresolvedReportCount = async (programId) => {
+  const { data, error } = await supabase
+    .from('reports')
+    .select('target_type, target_id')
+    .eq('program_id', programId)
+    .eq('resolved', false)
+  if (error) throw error
+  const set = new Set((data || []).map(r => `${r.target_type}:${r.target_id}`))
+  return set.size
+}
+
 // 퀴즈 상세 (정답 제외) + 본인 제출/답안 — RPC
 export const fetchQuizForParticipant = async (quizId) => {
   const { data, error } = await supabase.rpc('get_quiz_for_participant', { p_quiz_id: quizId })

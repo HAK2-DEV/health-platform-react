@@ -30,6 +30,8 @@ import CommunityManagePanel from '../../components/program/CommunityManagePanel'
 import CommunityPostModal from '../../components/program/CommunityPostModal'
 import CommunityPostList from '../../components/program/CommunityPostList'
 import CommunityReviewModal from '../../components/program/CommunityReviewModal'
+import ReportsManageSection from '../../components/program/ReportsManageSection'
+import HiddenPostsSection from '../../components/program/HiddenPostsSection'
 import VerificationReviewModal from '../../components/program/VerificationReviewModal'
 import MarkdownView from '../../components/common/MarkdownView'
 import ConfirmModal from '../../components/common/ConfirmModal'
@@ -75,6 +77,7 @@ import {
   fetchCommunityPendingPosts,
   fetchPendingReviews,
   fetchProgramOverview,
+  fetchUnresolvedReportCount,
 } from '../../lib/queries'
 
 // 기간 필터 옵션 (period_filter_enabled 옵션 시) — period → ISO 시작점
@@ -381,6 +384,14 @@ function ProgramDetailPage() {
     next.delete('post')
     setSearchParams(next, { replace: true })
   }
+  // 글 보러가기(?post=&board=) 딥링크 — 운영자 관리자 패널이 열린 상태에서 진입해도
+  //   패널을 닫고 해당 게시판으로 전환해야 글 목록/상세(CommunityPostList)가 보인다.
+  useEffect(() => {
+    if (!focusPostId) return
+    setCommunityManageOpen(false)
+    const b = searchParams.get('board')
+    if (b) setCommunityBoard(b)
+  }, [focusPostId]) // eslint-disable-line react-hooks/exhaustive-deps
   const [isPostModalOpen, setIsPostModalOpen] = useState(false)         // 게시판 글쓰기 모달
   const [editingPost, setEditingPost] = useState(null)                 // 수정 중인 게시글 (null=새 글)
 
@@ -426,6 +437,12 @@ function ProgramDetailPage() {
     queryKey: queryKeys.pendingReviews(id),
     queryFn: () => fetchPendingReviews(id),
     enabled: !!session && !!id && !!program && isOwner,
+  })
+  // 운영자 메뉴 「신고 관리」 배지 — 미처리 신고가 있는 콘텐츠 수
+  const { data: unresolvedReportCount = 0 } = useQuery({
+    queryKey: ['reportsUnresolvedCount', id],
+    queryFn: () => fetchUnresolvedReportCount(id),
+    enabled: !!session && !!id && !!program && isOwner && program?.community_enabled !== false,
   })
   const [vreviewOpen, setVreviewOpen] = useState(false)
   useEffect(() => {
@@ -1879,6 +1896,9 @@ function ProgramDetailPage() {
                 <div className="grid grid-cols-1 gap-2.5">
                   <PanelMenuBox icon="🛠️" title="내 프로그램 설정" desc="프로그램 · 메뉴바(개요~랭킹)" chevron onClick={() => setPanelView('settings')} />
                   <PanelMenuBox icon="📊" title="통계" desc="참여·인증·미션별 현황" onClick={() => { closePanel(); navigate(`/programs/${id}/stats`, { state: { backToOpMenu: 'root' } }) }} />
+                  {communityEnabled && (
+                    <PanelMenuBox icon="🚩" title="신고 · 숨김 관리" desc="신고된 글·인증 · 가려진 인증 관리" chevron badge={unresolvedReportCount || undefined} onClick={() => setPanelView('reports')} />
+                  )}
                   {canInvite && (
                     <PanelMenuBox icon="🎟️" title="초대하기" desc="링크로 참여자 초대" onClick={() => { closePanel(); setIsInviteOpen(true) }} />
                   )}
@@ -1927,6 +1947,23 @@ function ProgramDetailPage() {
                   )}
                   <PanelMenuBox icon="🏆" title="랭킹 설정" desc="랭킹 표시·시상대·공개 등" onClick={() => openManagerFromMenu('ranking')} />
                 </div>
+              </>
+            )}
+
+            {panelView === 'reports' && (
+              <>
+                <div className="flex items-center gap-1.5 mb-4">
+                  <button type="button" onClick={() => setPanelView('root')} className="p-1 -ml-1 text-gray-500 hover:text-gray-800" aria-label="뒤로">
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <h2 className="text-lg font-bold text-gray-800">🚩 신고 · 숨김 관리</h2>
+                </div>
+                <ReportsManageSection programId={id} onNavigate={closePanel} />
+                {program.feed_enabled && (
+                  <div className="mt-6 pt-5 border-t border-gray-100">
+                    <HiddenPostsSection programId={id} feedEnabled={!!program.feed_enabled} />
+                  </div>
+                )}
               </>
             )}
           </div>

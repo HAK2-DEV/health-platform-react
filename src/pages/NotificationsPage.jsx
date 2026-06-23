@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Trash2, Check, Heart, Sprout, Hand, MessageCircle, Settings, Bell, FileText, Ban } from 'lucide-react'
+import { Trash2, Check, Heart, Sprout, Hand, MessageCircle, Settings, Bell, FileText, Ban, Flag } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../supabaseClient'
 import { formatRelativeKstDay, getTodayKST, toKSTDateString } from '../lib/formatters'
@@ -28,6 +28,7 @@ const TYPE_META = {
   VERIFICATION_SUBMITTED: { cat: 'verify',  tone: 'emerald', icon: Sprout,        iconCls: '' },
   PARTICIPANT_JOINED:     { cat: 'request', tone: 'amber',   icon: Hand,          iconCls: '' },
   POST_PENDING:           { cat: 'request', tone: 'amber',   icon: FileText,      iconCls: '' },
+  REPORT_RECEIVED:        { cat: 'request', tone: 'red',     icon: Flag,          iconCls: '' },
   POST_APPROVED:          { cat: 'verify',  tone: 'emerald', icon: Check,         iconCls: '' },
   POST_REJECTED:          { cat: 'verify',  tone: 'red',     icon: Ban,           iconCls: '' },
 }

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Trash2, Pencil, Flag, Pin, PinOff, Clock, Check } from 'lucide-react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Trash2, Pencil, Flag, Pin, PinOff, Clock, Check, EyeOff } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
 import { deleteCommunityPost, setCommunityPostPin, setCommunityPostStatus, rejectCommunityPost, queryKeys } from '../../lib/queries'
 import { formatRelativeKstDay } from '../../lib/formatters'
@@ -134,6 +134,74 @@ function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId,
   const canPin = isOwner && boardId === 'notice'
   const hasImg = (p) => !!p.image_path
 
+  // 가려진(hidden) 글 — 신고 사유(reports). 운영자만 조회(RLS 허용). 신고 누적 자동 숨김.
+  const hiddenIds = useMemo(() => posts.filter(p => p.status === 'hidden').map(p => p.id), [posts])
+  const { data: hiddenReasons = {} } = useQuery({
+    queryKey: ['communityHideReasons', programId, hiddenIds.join(',')],
+    queryFn: async () => {
+      if (!hiddenIds.length) return {}
+      const { data, error } = await supabase
+        .from('reports')
+        .select('target_id, reason, created_at')
+        .eq('target_type', 'post')
+        .in('target_id', hiddenIds)
+        .order('created_at', { ascending: true })
+      if (error) throw error
+      const map = {}
+      for (const r of (data || [])) {
+        const t = r.target_id
+        if (!map[t]) map[t] = []
+        if (r.reason && r.reason.trim()) map[t].push(r.reason.trim())
+      }
+      return map
+    },
+    enabled: isOwner && hiddenIds.length > 0,
+  })
+
+  // 가려진 글 다시 노출 (hidden → visible) — 운영자.
+  const restoreMutation = useMutation({
+    mutationFn: (id) => setCommunityPostStatus({ id, status: 'visible' }),
+    onSuccess: () => { invalidatePosts(); setDetailPost(null) },
+    onError: (e) => alert(`복구 실패: ${e.message}`),
+  })
+
+  // 가려진 글 배너 — 상태/사유/복구 (운영자에게만 의미. 참여자는 RLS로 hidden 글 자체를 못 봄)
+  const HiddenBanner = ({ p }) => {
+    if (p.status !== 'hidden') return null
+    const reasons = hiddenReasons[p.id] || []
+    return (
+      <div onClick={(e) => e.stopPropagation()} className="mt-3 px-3 py-2.5 bg-red-50 border border-red-100 rounded-xl">
+        <div className="flex items-center gap-1.5 mb-1">
+          <EyeOff className="w-4 h-4 text-red-500" />
+          <p className="text-[13px] font-bold text-red-600">신고로 가려진 글</p>
+          {isOwner && (
+            <button type="button" onClick={() => restoreMutation.mutate(p.id)} disabled={restoreMutation.isPending}
+              className="ml-auto px-2.5 py-1 rounded-full bg-white border border-red-200 text-red-500 text-[11px] font-bold hover:bg-red-100 transition disabled:opacity-50">다시 노출</button>
+          )}
+        </div>
+        <p className="text-[11px] text-gray-500 mb-1">참여자에겐 보이지 않아요 · 운영자만 볼 수 있어요</p>
+        {isOwner && (
+          <>
+            <p className="text-[11px] font-bold text-red-500 mt-1.5 mb-0.5">신고 사유</p>
+            {reasons.length > 0 ? (
+              <ul className="space-y-0.5">
+                {reasons.map((r, i) => (
+                  <li key={i} className="text-[12px] text-gray-700 whitespace-pre-wrap break-words">• {r}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-[12px] text-gray-500">입력된 신고 사유 없음</p>
+            )}
+          </>
+        )}
+      </div>
+    )
+  }
+  // 인라인 가려짐 표시 (카드 메타 줄)
+  const HiddenTag = ({ light }) => (
+    <span className={`text-[10px] font-bold flex-shrink-0 ${light ? 'text-red-300' : 'text-red-500'}`}>· 🚫 가려짐</span>
+  )
+
   // 공통 액션 (핀/신고/수정/삭제). light=오버레이(흰 아이콘). 카드 클릭(상세)과 분리 위해 stopPropagation.
   const Actions = ({ p, light = false }) => {
     const isPinned = !!p.pinned_at
@@ -174,7 +242,7 @@ function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId,
 
   // ── feed (기본형) — 풀 카드 (본문 전체) ───────────────────
   const renderFeed = (p) => (
-    <article key={p.id} className={`rounded-2xl p-4 transition ${p.pinned_at ? 'border-2 border-emerald-400 ring-2 ring-emerald-100 bg-emerald-50/40 shadow-sm' : 'bg-white border border-gray-200'}`}>
+    <article key={p.id} className={`rounded-2xl p-4 transition ${p.status === 'hidden' ? 'opacity-60 ' : ''}${p.pinned_at ? 'border-2 border-emerald-400 ring-2 ring-emerald-100 bg-emerald-50/40 shadow-sm' : 'bg-white border border-gray-200'}`}>
       {p.pinned_at && <div className="mb-2"><PinPill /></div>}
       <div className="flex items-center gap-2.5 mb-2">
         <UserAvatar avatarPath={p.author?.avatar_path} nickname={p.author?.nickname} size="md" />
@@ -183,6 +251,7 @@ function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId,
           <p className="text-[11px] text-gray-400">
             {formatRelativeKstDay(p.created_at)}
             {p.status === 'pending' && <span className="ml-1 text-amber-600 font-medium">· 검토 대기</span>}
+            {p.status === 'hidden' && <span className="ml-1"><HiddenTag /></span>}
           </p>
         </div>
         <Actions p={p} />
@@ -192,6 +261,7 @@ function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId,
       {p.image_path && imageUrls[p.id] && (
         <img src={imageUrls[p.id]} alt="" loading="lazy" className="mt-2 w-full max-h-[400px] object-contain rounded-lg bg-gray-50" />
       )}
+      <HiddenBanner p={p} />
       <PendingActions p={p} />
     </article>
   )
@@ -202,6 +272,7 @@ function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId,
       <UserAvatar avatarPath={p.author?.avatar_path} nickname={p.author?.nickname} size="sm" />
       <span className="text-[11px] font-semibold truncate">{p.author?.nickname || '익명'}</span>
       {p.status === 'pending' && <span className={`text-[10px] font-medium flex-shrink-0 ${light ? 'text-amber-300' : 'text-amber-600'}`}>· 검토 대기</span>}
+      {p.status === 'hidden' && <HiddenTag light={light} />}
     </div>
   )
 
@@ -268,6 +339,7 @@ function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId,
             <span className="text-[12px] font-bold text-gray-800 truncate">{p.author?.nickname || '익명'}</span>
             <span className="text-[10px] text-gray-400 flex-shrink-0">{formatRelativeKstDay(p.created_at)}</span>
             {p.status === 'pending' && <span className="text-[10px] text-amber-600 font-medium flex-shrink-0">· 검토 대기</span>}
+            {p.status === 'hidden' && <HiddenTag />}
           </div>
           <Actions p={p} />
         </div>
@@ -325,6 +397,7 @@ function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId,
                 <p className="text-[11px] text-gray-400">
                   {formatRelativeKstDay(detailPost.created_at)}
                   {detailPost.status === 'pending' && <span className="ml-1 text-amber-600 font-medium">· 검토 대기</span>}
+                  {detailPost.status === 'hidden' && <span className="ml-1"><HiddenTag /></span>}
                 </p>
               </div>
               <Actions p={detailPost} />
@@ -334,6 +407,7 @@ function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId,
             {detailPost.image_path && imageUrls[detailPost.id] && (
               <img src={imageUrls[detailPost.id]} alt="" className="mt-3 w-full max-h-[60vh] object-contain rounded-lg bg-gray-50" />
             )}
+            <HiddenBanner p={detailPost} />
             <PendingActions p={detailPost} />
             {/* 좋아요 · 댓글 — 반응 허용 + 참여자/운영자일 때. 알림 진입 시 이 영역으로 스크롤 */}
             {canReact && detailPost.status !== 'pending' && (

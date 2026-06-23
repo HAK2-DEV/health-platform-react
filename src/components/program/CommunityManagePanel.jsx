@@ -1,7 +1,6 @@
 import { useState, useEffect, forwardRef, useImperativeHandle } from 'react'
 import { supabase } from '../../supabaseClient'
-import { Check, FileText, Heart, MessageCircle, Plus, X, ChevronUp, ChevronDown, MoreVertical, Trash2, LayoutGrid } from 'lucide-react'
-import HiddenPostsSection from './HiddenPostsSection'
+import { Check, Heart, MessageCircle, Plus, X, ChevronUp, ChevronDown, MoreVertical, Trash2, LayoutGrid } from 'lucide-react'
 import ConfirmModal from '../common/ConfirmModal'
 
 // 커뮤니티 관리자 — 운영자 패널(커뮤니티) 클릭 시 커뮤니티 탭 자리에 인라인 표시.
@@ -52,7 +51,7 @@ const CHIP_COLORS = [
   'bg-rose-50 text-rose-700',
 ]
 const REPORT_OPTIONS = [
-  { key: 'auto', label: '자동 숨김', desc: '신고 즉시 검토 대기' },
+  { key: 'auto', label: '즉시 숨김', desc: '신고 1회로 바로 숨김' },
   { key: '3', label: '신고 3회', desc: '3회 누적 시 숨김' },
   { key: '5', label: '신고 5회', desc: '5회 누적 시 숨김' },
 ]
@@ -519,15 +518,7 @@ const CommunityManagePanel = forwardRef(function CommunityManagePanel({ program,
         <p className="text-[11px] text-gray-400 mt-2">예시 게시글로 보여드려요. 저장하면 선택한 레이아웃이 참여자 커뮤니티에 적용돼요.</p>
       </section>
 
-      {/* 가려진 글 · 신고 관리 — 인라인 (피드 활성 프로그램만) */}
-      <section className="bg-white border border-gray-100 rounded-2xl shadow-soft p-3.5">
-        <h3 className="flex items-center gap-1.5 text-[13px] font-bold text-gray-800 mb-2.5">
-          <FileText className="w-4 h-4 text-gray-500" /> 가려진 글 · 신고 관리
-        </h3>
-        {program?.feed_enabled
-          ? <HiddenPostsSection programId={program.id} feedEnabled={!!program.feed_enabled} />
-          : <p className="text-[12px] text-gray-400 py-2">피드를 사용하는 프로그램에서 신고·가려진 글을 관리할 수 있어요.</p>}
-      </section>
+      {/* 신고·숨김 관리(신고 관리 + 가려진 인증)는 운영자 메뉴로 이동됨 */}
 
       {/* 게시판별 레이아웃 선택 모달 — 기본값(전체 설정 따름) + 4종 */}
       {layoutModal && (() => {
