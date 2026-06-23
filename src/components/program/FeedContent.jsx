@@ -62,19 +62,15 @@ function FeedContent({ program, layout: layoutProp = null, targetVerificationId 
   const posts = infiniteData?.pages.flat() || []
   const [focusedId, setFocusedId] = useState(null)  // 그리드/매거진 — 카드 탭 시 단일 게시물 풀뷰
 
-  // 타겟 게시물로 스크롤 (알림 ?v=). 댓글(?c=) 스크롤·하이라이트는 CommentsSection 이 자체 처리.
+  // 알림 ?v= 진입 — 해당 인증을 단일 풀뷰로 바로 열기(피드는 그 글만, 그리드/매거진은 모달).
+  //   딥드릴 없이 운영자/작성자가 곧장 그 게시물을 봄.
+  const focusedRef = useRef(null)
   useEffect(() => {
-    if (posts.length === 0) return
-    if (targetVerificationId) {
-      const el = postRefs.current[targetVerificationId]
-      if (!el) return
-      const t = setTimeout(() => {
-        el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-        setHighlightedPostId(targetVerificationId)
-        setTimeout(() => setHighlightedPostId(null), 2500)
-      }, 250)
-      return () => clearTimeout(t)
-    }
+    if (posts.length === 0 || !targetVerificationId) return
+    if (focusedRef.current === targetVerificationId) return
+    if (!posts.some(p => p.id === targetVerificationId)) return
+    focusedRef.current = targetVerificationId
+    setFocusedId(targetVerificationId)
   }, [targetVerificationId, posts.length])
 
   // 이미지 signed URL — 원본 + 목록용 썸네일을 공유 캐시로 한 번에 서명(칩 전환·재방문 시 재요청 X)

@@ -36,8 +36,8 @@ function Step3JoinConditions({ initialData, onNext, onSave, onPrev, enterAtEnd =
   const [subStep, setSubStep] = useState(enterAtEnd ? TOTAL - 1 : 0)
   const [dir, setDir] = useState(enterAtEnd ? -1 : 1)
 
-  // 공개+승인일 때만 입장질문 사용 (비공개는 코드로 들어와 운영자 승인 — 질문 없음)
-  const showEntryQuestion = isPublic && approvalMode === 'approval'
+  // 운영자 승인이면 입장질문 사용 (공개·비공개 모두 — 링크 유출 대비해 비공개+승인도 질문 받음)
+  const showEntryQuestion = approvalMode === 'approval'
 
   const collectData = () => {
     // 최대 인원 100명 제한 — 비우면 100, 입력하면 1~100으로 클램프
@@ -62,7 +62,8 @@ function Step3JoinConditions({ initialData, onNext, onSave, onPrev, enterAtEnd =
       join_type: 'INVITE_CODE',
       invite_code: inviteCode.trim() || generateInviteCode(),
       invite_requires_approval: approvalMode === 'approval',
-      entry_question: null,
+      // 비공개+승인도 입장 질문 받음 (링크 유출 대비)
+      entry_question: (approvalMode === 'approval' && hasEntryQuestion) ? entryQuestion.trim() : null,
     }
   }
 

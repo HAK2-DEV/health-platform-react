@@ -64,6 +64,7 @@ function Step1Basic({ initialData, onNext, onSave, enterAtEnd = false }) {
     if (s === 2 && categories.length === 0) return '카테고리를 최소 1개 선택해주세요'
     if (s === 3) {
       if (!startDate) return '시작일을 선택해주세요'
+      if (startDate < getTodayKST()) return '시작일은 오늘 이후로 선택해주세요'
       if (!endDate) return '종료일을 선택해주세요'
       if (startDate > endDate) return '종료일은 시작일 이후여야 해요'
     }
@@ -172,8 +173,11 @@ function Step1Basic({ initialData, onNext, onSave, enterAtEnd = false }) {
                     type="date"
                     value={startDate}
                     onChange={(e) => {
-                      setStartDate(e.target.value)
-                      if (e.target.value) setTimeout(() => { endDateRef.current?.focus(); try { endDateRef.current?.showPicker?.() } catch { /* 미지원 */ } }, 100)
+                      // 일부 모바일 브라우저는 min 을 피커에서 강제 안 함 → 과거 선택 시 오늘로 클램프
+                      const today = getTodayKST()
+                      const val = e.target.value && e.target.value < today ? today : e.target.value
+                      setStartDate(val)
+                      if (val) setTimeout(() => { endDateRef.current?.focus(); try { endDateRef.current?.showPicker?.() } catch { /* 미지원 */ } }, 100)
                     }}
                     min={getTodayKST()}
                     className="block w-full max-w-full min-w-0 box-border appearance-none px-3 py-3 border-2 border-gray-200 rounded-[10px] focus:outline-none focus:border-emerald-500 bg-white text-sm"

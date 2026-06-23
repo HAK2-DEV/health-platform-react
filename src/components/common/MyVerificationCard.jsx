@@ -92,6 +92,25 @@ function MyVerificationCard({ v }) {
         </p>
       )}
 
+      {/* 다중 기록 지표 (거리/시간/칼로리 등) */}
+      {v.metric_values && (() => {
+        const defs = Array.isArray(v.missions?.metrics) ? v.missions.metrics : []
+        const fmt = (def, val) => {
+          const n = Number(val)
+          if (def?.inputFormat === 'hms') {  // 저장값(분) → 시:분:초
+            const sec = Math.round(n * 60)
+            return `${Math.floor(sec / 3600)}시간 ${Math.floor((sec % 3600) / 60)}분 ${sec % 60}초`
+          }
+          return `${n}${def?.unit ? ' ' + def.unit : ''}`
+        }
+        const rows = defs.filter(d => v.metric_values[d.key] != null)
+        return rows.map(d => (
+          <p key={d.key} className="text-sm text-gray-700 mb-1">
+            {d.icon && <span className="mr-1">{d.icon}</span>}{d.label}: <span className="font-medium">{fmt(d, v.metric_values[d.key])}</span>
+          </p>
+        ))
+      })()}
+
       {/* ─── 소감 ─── */}
       {editing ? (
         <div className="mt-1">

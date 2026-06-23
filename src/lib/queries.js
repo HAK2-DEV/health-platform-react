@@ -1033,8 +1033,8 @@ export const lookupInviteProgram = async (code) => {
 }
 
 // 초대 코드 — 가입 (code 단독)
-export const joinByInviteCode = async (code) => {
-  const { data, error } = await supabase.rpc('join_by_invite_code', { p_code: code })
+export const joinByInviteCode = async (code, entryAnswer = null) => {
+  const { data, error } = await supabase.rpc('join_by_invite_code', { p_code: code, p_entry_answer: entryAnswer || null })
   if (error) throw error
   return data
 }
@@ -1108,7 +1108,7 @@ export const fetchMyVerificationsByBundle = async (programId, userId, bundlePara
 
   let query = supabase
     .from('verifications')
-    .select('id, mission_id, status, submitted_at, image_path, numeric_value, note, missions!inner(title, bundle_title, program_id, requires_note)')
+    .select('id, mission_id, status, submitted_at, image_path, numeric_value, metric_values, note, missions!inner(title, bundle_title, program_id, requires_note, metrics)')
     .eq('user_id', userId)
     .eq('missions.program_id', programId)
     .order('submitted_at', { ascending: false })

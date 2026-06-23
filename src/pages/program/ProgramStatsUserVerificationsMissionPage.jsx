@@ -54,7 +54,7 @@ function ProgramStatsUserVerificationsMissionPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('verifications')
-        .select('id, mission_id, submitted_at, image_path, numeric_value, note, feed_visible, status, rejection_reason, missions!inner(program_id, title, bundle_title)')
+        .select('id, mission_id, submitted_at, image_path, numeric_value, metric_values, note, feed_visible, status, rejection_reason, missions!inner(program_id, title, bundle_title, metrics)')
         .eq('missions.program_id', id)
         .eq('user_id', targetUserId)
         .in('status', ['APPROVED', 'REJECTED', 'PENDING_REVIEW'])
@@ -169,6 +169,14 @@ function ProgramStatsUserVerificationsMissionPage() {
                   const hasImage = !!v.image_path
                   const hasNumeric = v.numeric_value !== null && v.numeric_value !== undefined
                   const hasNote = !!v.note && v.note.trim().length > 0
+                  // 다중 지표 (거리/시간/칼로리)
+                  const mDefs = Array.isArray(v.missions?.metrics) ? v.missions.metrics : []
+                  const mRows = v.metric_values ? mDefs.filter(d => v.metric_values[d.key] != null) : []
+                  const fmtMetric = (def, val) => {
+                    const n = Number(val)
+                    if (def?.inputFormat === 'hms') { const s = Math.round(n * 60); return `${Math.floor(s / 3600)}시간 ${Math.floor((s % 3600) / 60)}분 ${s % 60}초` }
+                    return `${n}${def?.unit ? ' ' + def.unit : ''}`
+                  }
                   const badge = STATUS_BADGE[v.status] || STATUS_BADGE.APPROVED
                   return (
                     <div key={v.id} className="bg-white border border-gray-200 rounded-2xl p-4">
@@ -222,6 +230,20 @@ function ProgramStatsUserVerificationsMissionPage() {
                         </div>
                       )}
 
+                      {mRows.length > 0 && (
+                        <div className="mb-2">
+                          <div className="flex items-center gap-1 text-xs text-gray-500 mb-1">
+                            <BarChart3 className="w-3.5 h-3.5" />
+                            <span>기록</span>
+                          </div>
+                          <div className="px-3 py-2 bg-gray-50 rounded-lg text-sm text-gray-800 space-y-0.5">
+                            {mRows.map(d => (
+                              <p key={d.key}>{d.icon && <span className="mr-1">{d.icon}</span>}{d.label}: <span className="font-medium">{fmtMetric(d, v.metric_values[d.key])}</span></p>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       {hasNote && (
                         <div className="mb-1">
                           <div className="flex items-center gap-1 text-xs text-gray-500 mb-1">
@@ -234,7 +256,7 @@ function ProgramStatsUserVerificationsMissionPage() {
                         </div>
                       )}
 
-                      {!hasImage && !hasNumeric && !hasNote && (
+                      {!hasImage && !hasNumeric && !hasNote && mRows.length === 0 && (
                         <p className="text-xs text-gray-400 italic">(인증 내용 없음)</p>
                       )}
 

@@ -63,11 +63,11 @@ function JoinByCodePage() {
     }
   }
 
-  const callJoin = async () => {
+  const callJoin = async (entryAnswer = null) => {
     setStatus('joining')
     setErrorReason(null)
     try {
-      const data = await joinByInviteCode(code.trim())
+      const data = await joinByInviteCode(code.trim(), entryAnswer)
       if (data?.ok) {
         queryClient.invalidateQueries({ queryKey: queryKeys.activePrograms(session?.user?.id) })
         queryClient.invalidateQueries({ queryKey: ['missions', 'today'] })
@@ -246,6 +246,11 @@ function PreviewCard({ program, isJoining, onCancel, onJoin, onPreview }) {
     enabled: !!program?.id,
   })
 
+  // 비공개+승인 + 입장 질문이 있으면 답변 입력 (링크 유출 대비 신청자 선별)
+  const [entryAnswer, setEntryAnswer] = useState('')
+  const needsAnswer = !!(program.invite_requires_approval && program.entry_question)
+  const answerMissing = needsAnswer && !entryAnswer.trim()
+
   const categoryLabels = (program.categories || [])
     .map(key => Object.values(CATEGORY).find(c => c.key === key))
     .filter(Boolean)
@@ -366,6 +371,23 @@ function PreviewCard({ program, isJoining, onCancel, onJoin, onPreview }) {
           )
         })()}
 
+        {/* 입장 질문 — 비공개+승인 + 질문 있을 때 */}
+        {needsAnswer && (
+          <div className="bg-white border border-gray-200 rounded-2xl p-4 mb-4">
+            <p className="text-sm font-semibold text-gray-800 mb-2">📝 {program.entry_question}</p>
+            <textarea
+              value={entryAnswer}
+              onChange={(e) => setEntryAnswer(e.target.value)}
+              maxLength={300}
+              rows={3}
+              placeholder="답변을 작성해주세요 (운영자가 보고 승인/거절해요)"
+              disabled={isJoining}
+              className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl text-sm focus:outline-none focus:border-emerald-400 disabled:bg-gray-50 resize-none"
+            />
+            <p className="text-[11px] text-gray-400 mt-0.5 text-right">{entryAnswer.length}/300</p>
+          </div>
+        )}
+
         {/* 안내 */}
         <p className="text-xs text-emerald-700 mb-3 p-2 bg-emerald-50 rounded-xl text-center break-keep">
           {program.invite_requires_approval
@@ -394,8 +416,8 @@ function PreviewCard({ program, isJoining, onCancel, onJoin, onPreview }) {
         )}
         <button
           type="button"
-          onClick={onJoin}
-          disabled={isJoining}
+          onClick={() => onJoin(entryAnswer)}
+          disabled={isJoining || answerMissing}
           className={`${program.preview_enabled ? 'flex-[2]' : 'flex-1'} inline-flex items-center justify-center gap-1.5 px-4 py-3 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-medium rounded-xl shadow-md disabled:from-gray-300 disabled:to-gray-300 transition`}
         >
           {isJoining && <Loader2 className="w-4 h-4 animate-spin" />}
