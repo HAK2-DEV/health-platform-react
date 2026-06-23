@@ -342,7 +342,8 @@ export const MISSION_LIBRARY = [
         // 다중 지표 (거리/시간/칼로리) + 개요 통계 표시
         metrics: [
           { key: 'distance', label: '거리', unit: 'km', max: 100, icon: '👟' },
-          { key: 'time', label: '운동 시간', unit: '시간', max: 24, icon: '🕐' },
+          // HHMMSS(시분초 6자리)로 입력받아 분으로 저장, 통계는 H:MM 으로 표시
+          { key: 'time', label: '운동 시간', unit: '분', max: 1440, icon: '🕐', inputFormat: 'hms', sumFormat: 'hm' },
           { key: 'calories', label: '칼로리', unit: 'kcal', max: 5000, icon: '🔥' },
         ],
         metric_aggregate: true,

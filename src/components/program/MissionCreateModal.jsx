@@ -35,7 +35,8 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
   const [metricAggregate, setMetricAggregate] = useState(false)
   const [metricsEditOpen, setMetricsEditOpen] = useState(false)  // 별도 전체화면 지표 편집기
   const newKey = () => 'k' + Math.random().toString(36).slice(2, 8)
-  const addMetric = () => setMetrics(m => [...m, { key: newKey(), label: '', unit: '', max: '', icon: '' }])
+  const MAX_METRICS = 4
+  const addMetric = () => setMetrics(m => m.length >= MAX_METRICS ? m : [...m, { key: newKey(), label: '', unit: '', max: '', icon: '' }])
   const updateMetric = (i, field, val) => setMetrics(m => m.map((x, idx) => idx === i ? { ...x, [field]: val } : x))
   const removeMetric = (i) => setMetrics(m => m.filter((_, idx) => idx !== i))
 
@@ -118,7 +119,7 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
       const _src = Array.isArray(editMission.metrics) && editMission.metrics.length
         ? editMission.metrics
         : (editMission.metric_unit ? [{ key: 'value', label: '기록', unit: editMission.metric_unit, max: editMission.max_per_entry, icon: '' }] : [])
-      setMetrics(_src.map(m => ({ key: m.key || newKey(), label: m.label || '', unit: m.unit || '', max: m.max ?? '', icon: m.icon || '' })))
+      setMetrics(_src.map(m => ({ ...m, key: m.key || newKey(), label: m.label || '', unit: m.unit || '', max: m.max ?? '', icon: m.icon || '' })))
       setMetricAggregate(!!editMission.metric_aggregate)
       const hasSchedule =
         (editMission.schedule_mode && editMission.schedule_mode !== 'ALL_DAYS') ||
@@ -226,6 +227,7 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
         ? metrics
             .filter(m => (m.label || '').trim() || (m.unit || '').trim())
             .map(m => ({
+              ...m,  // sumUnit/sumDivide 등 프리셋 추가 필드 보존
               key: m.key || newKey(),
               label: (m.label || '').trim(),
               unit: (m.unit || '').trim(),
@@ -811,7 +813,7 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
                   </div>
                   <div className="flex-1 min-w-0">
                     <label className="block text-[11px] text-gray-400 mb-1">항목명</label>
-                    <input value={m.label} onChange={(e) => updateMetric(i, 'label', e.target.value)} maxLength={12} placeholder="예: 거리"
+                    <input value={m.label} onChange={(e) => updateMetric(i, 'label', e.target.value)} maxLength={5} placeholder="예: 거리"
                       className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500" />
                   </div>
                 </div>
@@ -829,10 +831,14 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
                 </div>
               </div>
             ))}
-            <button type="button" onClick={addMetric}
-              className="w-full flex items-center justify-center gap-1 py-2.5 rounded-xl border-2 border-dashed border-gray-200 text-emerald-600 font-semibold text-sm hover:border-emerald-300 transition">
-              <Plus className="w-4 h-4" strokeWidth={2.5} /> 지표 추가
-            </button>
+            {metrics.length < MAX_METRICS ? (
+              <button type="button" onClick={addMetric}
+                className="w-full flex items-center justify-center gap-1 py-2.5 rounded-xl border-2 border-dashed border-gray-200 text-emerald-600 font-semibold text-sm hover:border-emerald-300 transition">
+                <Plus className="w-4 h-4" strokeWidth={2.5} /> 지표 추가
+              </button>
+            ) : (
+              <p className="text-center text-[11px] text-gray-400 py-1">지표는 최대 {MAX_METRICS}개까지예요</p>
+            )}
             <label className="flex items-center gap-2 pt-1 cursor-pointer select-none">
               <input type="checkbox" checked={metricAggregate} onChange={(e) => setMetricAggregate(e.target.checked)} className="w-4 h-4 accent-emerald-600" />
               <span className="text-sm text-gray-700">개요에 통계 표시</span>

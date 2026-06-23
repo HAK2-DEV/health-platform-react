@@ -1472,11 +1472,20 @@ export const fetchMyMetricSummary = async (programId, userId) => {
   const rows = data || []
   const weekAgo = Date.now() - 7 * 86400000
 
-  // 지표 정의(라벨/단위/아이콘) — 미션들의 metrics 에서 key 기준으로 수집
+  // 지표 정의(라벨/단위/아이콘 + 통계 표시 옵션). 표시는 카드에서 처리.
+  //   sumDivide: 변환계수(예: 분→시간 60), sumUnit: 변환 단위, sumFormat: 'hm'(H:MM)
   const defs = {}
   for (const r of rows) {
     for (const d of (r.missions?.metrics || [])) {
-      if (d?.key && !defs[d.key]) defs[d.key] = { key: d.key, label: d.label || d.key, unit: d.unit || '', icon: d.icon || '' }
+      if (d?.key && !defs[d.key]) defs[d.key] = {
+        key: d.key,
+        label: d.label || d.key,
+        icon: d.icon || '',
+        unit: d.unit || '',
+        sumUnit: d.sumUnit || '',
+        divide: Number(d.sumDivide) > 0 ? Number(d.sumDivide) : 1,
+        format: d.sumFormat || null,
+      }
     }
   }
   const totals = {}, recents = {}
@@ -1495,7 +1504,7 @@ export const fetchMyMetricSummary = async (programId, userId) => {
   const orderedKeys = Object.keys(defs)
   const metrics = orderedKeys
     .filter(k => (totals[k] || 0) > 0)
-    .map(k => ({ ...defs[k], total: totals[k] || 0, recent: recents[k] || 0 }))
+    .map(k => ({ ...defs[k], total: totals[k] || 0, recent: recents[k] || 0 }))  // total/recent = 저장 단위 원값
   return { metrics, count, recentCount }
 }
 

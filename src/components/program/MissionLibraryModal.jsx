@@ -131,7 +131,8 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
   // 기록 지표 편집 (별도 전체화면) — draft 의 metrics 배열 조작
   const [metricsEditIdx, setMetricsEditIdx] = useState(null)
   const setDraftMetrics = (idx, fn) => setDrafts(prev => prev.map((d, i) => i === idx ? { ...d, metrics: fn(Array.isArray(d.metrics) ? d.metrics : []) } : d))
-  const addDraftMetric = (idx) => setDraftMetrics(idx, ms => [...ms, { key: 'k' + Math.random().toString(36).slice(2, 8), label: '', unit: '', max: '', icon: '' }])
+  const MAX_METRICS = 4
+  const addDraftMetric = (idx) => setDraftMetrics(idx, ms => ms.length >= MAX_METRICS ? ms : [...ms, { key: 'k' + Math.random().toString(36).slice(2, 8), label: '', unit: '', max: '', icon: '' }])
   const updateDraftMetric = (idx, mi, field, val) => setDraftMetrics(idx, ms => ms.map((x, j) => j === mi ? { ...x, [field]: val } : x))
   const removeDraftMetric = (idx, mi) => setDraftMetrics(idx, ms => ms.filter((_, j) => j !== mi))
   const editDraft = metricsEditIdx != null ? drafts[metricsEditIdx] : null
@@ -245,6 +246,7 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
         ? m.metrics
             .filter(x => (x.label || '').trim() || (x.unit || '').trim())
             .map(x => ({
+              ...x,  // sumUnit/sumDivide 등 프리셋 추가 필드 보존
               key: x.key || ('k' + Math.random().toString(36).slice(2, 8)),
               label: (x.label || '').trim(),
               unit: (x.unit || '').trim(),
@@ -855,7 +857,7 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
                 </div>
                 <div className="flex-1 min-w-0">
                   <label className="block text-[11px] text-gray-400 mb-1">항목명</label>
-                  <input value={m.label} onChange={(e) => updateDraftMetric(metricsEditIdx, i, 'label', e.target.value)} maxLength={12} placeholder="예: 거리"
+                  <input value={m.label} onChange={(e) => updateDraftMetric(metricsEditIdx, i, 'label', e.target.value)} maxLength={5} placeholder="예: 거리"
                     className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500" />
                 </div>
               </div>
@@ -873,10 +875,14 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
               </div>
             </div>
           ))}
-          <button type="button" onClick={() => addDraftMetric(metricsEditIdx)}
-            className="w-full flex items-center justify-center gap-1 py-2.5 rounded-xl border-2 border-dashed border-gray-200 text-emerald-600 font-semibold text-sm hover:border-emerald-300 transition">
-            <Plus className="w-4 h-4" strokeWidth={2.5} /> 지표 추가
-          </button>
+          {editMetrics.length < MAX_METRICS ? (
+            <button type="button" onClick={() => addDraftMetric(metricsEditIdx)}
+              className="w-full flex items-center justify-center gap-1 py-2.5 rounded-xl border-2 border-dashed border-gray-200 text-emerald-600 font-semibold text-sm hover:border-emerald-300 transition">
+              <Plus className="w-4 h-4" strokeWidth={2.5} /> 지표 추가
+            </button>
+          ) : (
+            <p className="text-center text-[11px] text-gray-400 py-1">지표는 최대 {MAX_METRICS}개까지예요</p>
+          )}
           <label className="flex items-center gap-2 pt-1 cursor-pointer select-none">
             <input type="checkbox" checked={!!editDraft.metric_aggregate} onChange={(e) => updateDraft(metricsEditIdx, 'metric_aggregate', e.target.checked)} className="w-4 h-4 accent-emerald-600" />
             <span className="text-sm text-gray-700">개요에 통계 표시</span>

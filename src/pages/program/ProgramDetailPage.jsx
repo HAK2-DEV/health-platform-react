@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect, lazy, Suspense } from 'react'
-import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom'
+import { useParams, useNavigate, Link, useSearchParams, useLocation } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../../hooks/useAuth'
@@ -124,6 +124,7 @@ function ProgramDetailPage() {
   const { id } = useParams()
   const { session } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const queryClient = useQueryClient()
   const userId = session?.user?.id
 
@@ -754,6 +755,8 @@ function ProgramDetailPage() {
     queryClient.invalidateQueries({ queryKey: ['programs'] })
     // ['missions'] 전체 무효화 — 목록(byProgram) + 인증 화면(detail) + 오늘의 미션 모두 갱신
     queryClient.invalidateQueries({ queryKey: ['missions'] })
+    // 지표/통계표시 변경 시 개요 통계 카드도 갱신
+    queryClient.invalidateQueries({ queryKey: ['metricSummary'] })
   }
 
   // 미션 삭제 — CASCADE 로 verifications + score_ledgers 함께 사라짐
@@ -772,6 +775,7 @@ function ProgramDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['verifications'] })
       queryClient.invalidateQueries({ queryKey: ['rankings'] })
       queryClient.invalidateQueries({ queryKey: ['stats'] })
+      queryClient.invalidateQueries({ queryKey: ['metricSummary'] })
       setMissionToDelete(null)
     },
     onError: (err) => {
@@ -871,6 +875,8 @@ function ProgramDetailPage() {
     if (missionManageOpen) return closeMissionManage()
     if (quizManageOpen) return closeQuizManage()
     if (communityManageOpen) return closeCommunityManage()
+    // 미션 완료 → 「프로그램으로 이동」으로 들어온 경우: 뒤로가기는 묶음/완료 화면이 아니라 대시보드로
+    if (location.state?.fromCompletion) return navigate('/dashboard')
     navigate(-1)
   }
   const canInvite = program.status === 'PUBLISHED' && program.join_type === 'INVITE_CODE' && program.invite_code
@@ -1185,21 +1191,32 @@ function ProgramDetailPage() {
       {/* 주요 기록 요약 카드 (Phase2) — 다중 지표 + 달성 횟수, 최근 7일 증감 */}
       {metricSummary && (metricSummary.metrics.length > 0 || metricSummary.count > 0) && (() => {
         const fmt = (n) => Number(n || 0).toLocaleString('ko-KR', { maximumFractionDigits: 1 })
+        // 시:분 (H:MM) — 저장값(분) → "8:36"
+        const hm = (mins) => { const h = Math.floor(mins / 60); const mm = Math.round(mins % 60); return `${h}:${String(mm).padStart(2, '0')}` }
+        // 지표 1개를 표시값/단위로 (포맷 우선 → 변환계수 → 그대로)
+        const disp = (m, raw) => {
+          if (m.format === 'hm') return { value: hm(raw), unit: '' }
+          if (m.divide > 1) return { value: fmt(raw / m.divide), unit: m.sumUnit || m.unit }
+          return { value: fmt(raw), unit: m.sumUnit || m.unit }
+        }
         const cells = [
-          ...metricSummary.metrics.map(m => ({ icon: m.icon || '📊', label: `총 ${m.label}`, value: fmt(m.total), unit: m.unit, recent: m.recent, runit: m.unit })),
-          { icon: '🏃', label: '총 달성 횟수', value: fmt(metricSummary.count), unit: '회', recent: metricSummary.recentCount, runit: '회' },
+          ...metricSummary.metrics.map(m => {
+            const d = disp(m, m.total), r = disp(m, m.recent)
+            return { icon: m.icon || '📊', label: `총 ${m.label}`, value: d.value, unit: d.unit, recent: m.recent, rvalue: r.value, runit: r.unit }
+          }),
+          { icon: '🏃', label: '총 달성 횟수', value: fmt(metricSummary.count), unit: '회', recent: metricSummary.recentCount, rvalue: fmt(metricSummary.recentCount), runit: '회' },
         ]
         return (
           <div className="bg-white border border-gray-200 rounded-2xl p-4 mb-[9px]">
             <h3 className="text-sm font-bold text-gray-800 mb-3">주요 기록 요약</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-y-3">
+            <div className="flex overflow-x-auto scrollbar-hide -mx-1 px-1">
               {cells.map((c, i) => (
-                <div key={i} className={`flex flex-col items-center text-center px-1 ${i % (cells.length >= 4 ? 4 : 2) !== 0 ? 'sm:border-l border-gray-100' : ''}`}>
-                  <span className="text-2xl mb-1">{c.icon}</span>
-                  <span className="text-[11px] text-gray-500 mb-0.5">{c.label}</span>
-                  <span className="text-lg font-bold text-gray-800 leading-tight">{c.value}<span className="text-[11px] font-medium text-gray-400 ml-0.5">{c.unit}</span></span>
+                <div key={i} className={`flex-1 min-w-[72px] flex flex-col items-center text-center px-2 ${i !== 0 ? 'border-l border-gray-100' : ''}`}>
+                  <span className="text-xl mb-1 leading-none">{c.icon}</span>
+                  <span className="text-[10px] text-gray-500 mb-0.5 leading-tight truncate max-w-full">{c.label}</span>
+                  <span className="text-[15px] font-bold text-gray-800 leading-tight truncate max-w-full">{c.value}<span className="text-[10px] font-medium text-gray-400 ml-0.5">{c.unit}</span></span>
                   {c.recent > 0 && (
-                    <span className="mt-0.5 text-[11px] font-semibold text-emerald-500">↑ {fmt(c.recent)}{c.runit}</span>
+                    <span className="mt-0.5 text-[10px] font-semibold text-emerald-500 truncate max-w-full">↑{c.rvalue}{c.runit}</span>
                   )}
                 </div>
               ))}
@@ -1428,7 +1445,7 @@ function ProgramDetailPage() {
                       mission={m}
                       todayCounts={todayCounts}
                       isOwner={isOwner}
-                      showOwnerActions={false}
+                      showOwnerActions={isOwner}
                       isDeletePending={deleteMissionMutation.isPending}
                       onDelete={handleMissionDelete}
                       onEdit={(mission) => { setEditingMission(mission); setIsMissionCreateOpen(true) }}

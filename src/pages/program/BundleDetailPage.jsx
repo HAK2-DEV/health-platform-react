@@ -20,6 +20,7 @@ import MissionCreateModal from '../../components/program/MissionCreateModal'
 import StickyBackBar from '../../components/common/StickyBackBar'
 import EmptyState from '../../components/common/EmptyState'
 import LoadingState from '../../components/common/LoadingState'
+import ConfirmModal from '../../components/common/ConfirmModal'
 import {
   queryKeys,
   fetchProgram,
@@ -61,6 +62,9 @@ function BundleDetailPage() {
   const bundleMissions = missions.filter(m => m.bundle_title === bundleTitle)
   const isOwner = program?.owner_id === userId
 
+  const [missionToDelete, setMissionToDelete] = useState(null)
+  const handleMissionDelete = (mission) => setMissionToDelete(mission)
+
   // 미션 삭제 — ProgramDetailPage 와 동일 패턴 (캐시 키 공유)
   const deleteMissionMutation = useMutation({
     mutationFn: async (missionId) => {
@@ -74,22 +78,14 @@ function BundleDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['verifications'] })
       queryClient.invalidateQueries({ queryKey: ['rankings'] })
       queryClient.invalidateQueries({ queryKey: ['stats'] })
+      queryClient.invalidateQueries({ queryKey: ['metricSummary'] })
+      setMissionToDelete(null)
     },
     onError: (err) => {
       console.error('미션 삭제 실패:', err)
       alert(`미션 삭제에 실패했습니다: ${err.message}`)
     },
   })
-
-  const handleMissionDelete = (mission) => {
-    if (!window.confirm(
-      `⚠️ "${mission.title}" 미션을 삭제하면\n` +
-      `참가자의 모든 인증 기록과 부여된 점수가 함께 삭제됩니다.\n` +
-      `되돌릴 수 없어요.`
-    )) return
-    if (!window.confirm('그래도 삭제하시겠습니까?')) return
-    deleteMissionMutation.mutate(mission.id)
-  }
 
   // 미션 수정 — MissionCreateModal 을 edit 모드로 재사용
   const [editingMission, setEditingMission] = useState(null)
@@ -282,6 +278,18 @@ function BundleDetailPage() {
         editMission={editingMission}
         onClose={closeEditModal}
         onSuccess={onEditSuccess}
+      />
+
+      {/* 미션 삭제 확인 — 네이티브 confirm 대신 카드 모달 */}
+      <ConfirmModal
+        isOpen={missionToDelete != null}
+        onClose={() => setMissionToDelete(null)}
+        onConfirm={() => deleteMissionMutation.mutate(missionToDelete.id)}
+        title="이 미션을 삭제할까요?"
+        message={missionToDelete ? `"${missionToDelete.title}" 미션을 삭제하면\n참가자의 모든 인증 기록과 부여된 점수가 함께 삭제됩니다.\n되돌릴 수 없어요.` : ''}
+        confirmLabel="삭제"
+        danger
+        busy={deleteMissionMutation.isPending}
       />
     </div>
   )

@@ -71,6 +71,15 @@ function MissionVerifyPage() {
       navigate(-1)
     }
   }
+  // 완료 화면 「프로그램으로 이동」 — 완료(verify) 엔트리를 히스토리서 pop 해 원래 프로그램으로.
+  //   그러면 프로그램에서 뒤로가기 = 대시보드/프로그램 탭 등 그 이전 화면으로 나감(완료화면 재진입 X).
+  //   딥링크 첫 진입(아래 히스토리 없음)은 프로그램으로 replace.
+  // 완료 화면 「프로그램으로 이동」 — 묶음/완료 화면을 거치지 않고 항상 프로그램 개요로.
+  //   완료 화면 엔트리를 replace 로 덮고, fromCompletion 플래그를 넘겨 프로그램 뒤로가기 시
+  //   대시보드로 나가게 함(묶음/완료 화면 재진입 방지).
+  const goToProgram = () => {
+    navigate(`/programs/${programId}`, { replace: true, state: { fromCompletion: true } })
+  }
 
   // 미션 로드 — RQ
   const {
@@ -250,7 +259,20 @@ function MissionVerifyPage() {
   // 다중 지표 (122) — 정의돼 있으면 지표별 입력, 없으면 레거시 단일 numeric
   const metricList = Array.isArray(mission?.metrics) ? mission.metrics : []
   const hasMetrics = metricList.length > 0
-  const filledMetric = (m) => { const r = metricValues[m.key]; return r !== '' && r != null && !isNaN(parseFloat(r)) }
+  // HHMMSS(시분초) → {h,m,s}. 입력 raw 의 끝 6자리 사용(앞 0 패딩)
+  const parseHMS = (raw) => {
+    const d = String(raw ?? '').replace(/\D/g, '').slice(-6).padStart(6, '0')
+    return { h: +d.slice(0, 2), m: +d.slice(2, 4), s: +d.slice(4, 6) }
+  }
+  const hmsToMinutes = (raw) => { const { h, m, s } = parseHMS(raw); return h * 60 + m + s / 60 }
+  const hmsLabel = (raw) => { const { h, m, s } = parseHMS(raw); return `${h}시간 ${m}분 ${s}초` }
+  // 지표 입력의 숫자값(저장용). hms 면 분으로 환산, 아니면 그대로 숫자.
+  const metricNumValue = (m) => {
+    const r = metricValues[m.key]
+    if (r == null || String(r).trim() === '') return null
+    return m.inputFormat === 'hms' ? hmsToMinutes(r) : parseFloat(r)
+  }
+  const filledMetric = (m) => { const r = metricValues[m.key]; return r != null && String(r).trim() !== '' }
   const anyMetricFilled = hasMetrics && metricList.some(filledMetric)
   // "기록" 입력 여부 — 다중이면 지표 1개+, 아니면 단일 numeric
   const numericFilled = hasMetrics ? anyMetricFilled : !!numericValue
@@ -380,7 +402,8 @@ function MissionVerifyPage() {
         const mv = {}
         for (const m of metricList) {
           if (!filledMetric(m)) continue
-          mv[m.key] = parseFloat(metricValues[m.key])
+          const num = metricNumValue(m)
+          if (num != null && !isNaN(num)) mv[m.key] = num
         }
         if (Object.keys(mv).length > 0) insertData.metric_values = mv
       } else if (needsNumeric && numericValue !== '' && !isNaN(parseFloat(numericValue))) {
@@ -478,7 +501,9 @@ function MissionVerifyPage() {
         note: (needsNote && noteText.trim()) ? noteText.trim() : null,
         numeric: (needsNumeric && !hasMetrics && numericValue !== '') ? numericValue : null,
         metrics: (needsNumeric && hasMetrics)
-          ? metricList.filter(filledMetric).map(m => ({ label: m.label || '기록', value: parseFloat(metricValues[m.key]), unit: m.unit || '', icon: m.icon || '' }))
+          ? metricList.filter(filledMetric).map(m => m.inputFormat === 'hms'
+              ? { label: m.label || '기록', text: hmsLabel(metricValues[m.key]), icon: m.icon || '' }
+              : { label: m.label || '기록', value: metricNumValue(m), unit: m.unit || '', icon: m.icon || '' })
           : null,
         photoUrl: (needsImage && selectedFile) ? previewUrl : null,
       }
@@ -522,13 +547,14 @@ function MissionVerifyPage() {
       }
       for (const m of metricList) {
         if (!filledMetric(m)) continue
-        const num = parseFloat(metricValues[m.key])
-        if (isNaN(num) || num <= 0) {
-          setError(`${m.label || '기록'}은(는) 0보다 큰 숫자여야 해요`)
+        const num = metricNumValue(m)
+        if (num == null || isNaN(num) || num <= 0) {
+          setError(`${m.label || '기록'}을(를) 올바르게 입력해주세요`)
           return
         }
         if (m.max != null && num > Number(m.max)) {
-          setError(`${m.label || '기록'}은(는) 1회 최대 ${m.max}${m.unit || ''} 까지예요`)
+          const lim = m.inputFormat === 'hms' ? `${Math.floor(m.max / 60)}시간` : `${m.max}${m.unit || ''}`
+          setError(`${m.label || '기록'}은(는) 1회 최대 ${lim} 까지예요`)
           return
         }
       }
@@ -749,7 +775,7 @@ function MissionVerifyPage() {
               )}
               {submitted.metrics && submitted.metrics.map((m, i) => (
                 <div key={i} className="flex items-center gap-1.5 text-sm text-gray-600">
-                  <Flag className="w-4 h-4 text-emerald-500" /> {m.icon && <span>{m.icon}</span>}{m.label} {m.value}{m.unit}
+                  <Flag className="w-4 h-4 text-emerald-500" /> {m.icon && <span>{m.icon}</span>}{m.label} {m.text != null ? m.text : `${m.value}${m.unit}`}
                 </div>
               ))}
               {submitted.note && (
@@ -766,7 +792,7 @@ function MissionVerifyPage() {
             {remainingMissionCount > 0 && (
               <button
                 type="button"
-                onClick={() => navigate(`/record?program=${programId}`)}
+                onClick={() => navigate(`/record?program=${programId}`, { replace: true })}
                 className="w-[184px] max-w-[48%] h-[36px] rounded-[10px] bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-[13px] transition flex items-center justify-center gap-1 whitespace-nowrap"
               >
                 📋 나머지 미션 ({remainingMissionCount}개)
@@ -774,7 +800,7 @@ function MissionVerifyPage() {
             )}
             <button
               type="button"
-              onClick={() => navigate(`/programs/${programId}`)}
+              onClick={goToProgram}
               className="w-[184px] max-w-[48%] h-[36px] rounded-[10px] bg-white border border-emerald-300 text-emerald-600 font-bold text-[13px] hover:bg-emerald-50 transition"
             >
               프로그램으로 이동
@@ -1019,25 +1045,49 @@ function MissionVerifyPage() {
             {hasMetrics ? (
               <>
                 <div className="space-y-2.5">
-                  {metricList.map(m => (
+                  {metricList.map(m => {
+                    const isHms = m.inputFormat === 'hms'
+                    const raw = metricValues[m.key] ?? ''
+                    return (
                     <div key={m.key}>
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-sm text-gray-700">{m.icon && <span className="mr-1">{m.icon}</span>}{m.label || '기록'}</span>
-                        {m.max != null && <span className="text-[11px] text-gray-400">최대 {m.max}{m.unit || ''}</span>}
+                        {m.max != null && <span className="text-[11px] text-gray-400">최대 {isHms ? `${Math.floor(Number(m.max) / 60)}시간` : `${m.max}${m.unit || ''}`}</span>}
                       </div>
-                      <div className="relative">
-                        <input
-                          type="number" step="0.01" min="0"
-                          value={metricValues[m.key] ?? ''}
-                          onChange={(e) => setMetricValues(v => ({ ...v, [m.key]: e.target.value }))}
-                          placeholder="예: 5.2"
-                          disabled={isSubmitting}
-                          className={`w-full px-4 py-3 ${m.unit ? 'pr-12' : ''} border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-400 disabled:bg-gray-50 text-base`}
-                        />
-                        {m.unit && <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-400">{m.unit}</span>}
-                      </div>
+                      {isHms ? (
+                        <>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text" inputMode="numeric" maxLength={6}
+                              value={raw}
+                              onChange={(e) => setMetricValues(v => ({ ...v, [m.key]: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
+                              placeholder="예: 012345"
+                              disabled={isSubmitting}
+                              className="w-[42%] px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-400 disabled:bg-gray-50 text-base tracking-[0.2em] text-center"
+                            />
+                            <span className="text-gray-300 flex-shrink-0">→</span>
+                            <div className="flex-1 min-w-0 px-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-100 text-base truncate">
+                              {String(raw).trim() !== '' ? <span className="text-gray-800 font-medium">{hmsLabel(raw)}</span> : <span className="text-gray-300">0시간 0분 0초</span>}
+                            </div>
+                          </div>
+                          <p className="text-[11px] text-gray-400 mt-1">시·분·초 6자리로 입력해요 (예: 1시간 23분 45초 → 012345)</p>
+                        </>
+                      ) : (
+                        <div className="relative">
+                          <input
+                            type="number" step="0.01" min="0"
+                            value={raw}
+                            onChange={(e) => setMetricValues(v => ({ ...v, [m.key]: e.target.value }))}
+                            placeholder="예: 5.2"
+                            disabled={isSubmitting}
+                            className={`w-full px-4 py-3 ${m.unit ? 'pr-12' : ''} border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-400 disabled:bg-gray-50 text-base`}
+                          />
+                          {m.unit && <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-400">{m.unit}</span>}
+                        </div>
+                      )}
                     </div>
-                  ))}
+                    )
+                  })}
                 </div>
                 <p className="text-xs text-gray-500 mt-1.5">가진 항목만 입력해도 돼요</p>
               </>
