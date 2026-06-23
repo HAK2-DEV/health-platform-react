@@ -97,9 +97,10 @@ function MyVerificationCard({ v }) {
         const defs = Array.isArray(v.missions?.metrics) ? v.missions.metrics : []
         const fmt = (def, val) => {
           const n = Number(val)
-          if (def?.inputFormat === 'hms') {  // 저장값(분) → 시:분:초
+          if (def?.inputFormat === 'hms') {  // 저장값(분) → 시:분:초 (0시간이면 생략)
             const sec = Math.round(n * 60)
-            return `${Math.floor(sec / 3600)}시간 ${Math.floor((sec % 3600) / 60)}분 ${sec % 60}초`
+            const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60
+            return h > 0 ? `${h}시간 ${m}분 ${s}초` : `${m}분 ${s}초`
           }
           return `${n}${def?.unit ? ' ' + def.unit : ''}`
         }

@@ -174,6 +174,14 @@ function ProgramReviewsMissionPage() {
             const hasImage = !!r.v_image_path
             const hasNumeric = r.v_numeric_value !== null && r.v_numeric_value !== undefined
             const hasNote = !!r.v_note && r.v_note.trim().length > 0
+            const mDefs = Array.isArray(r.m_metrics) ? r.m_metrics : []
+            const mv = r.v_metric_values || {}
+            const mRows = mDefs.filter(d => mv[d.key] != null)
+            const fmtMetric = (def, val) => {
+              const n = Number(val)
+              if (def?.inputFormat === 'hms') { const sec = Math.round(n * 60), h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60; return h > 0 ? `${h}시간 ${m}분 ${s}초` : `${m}분 ${s}초` }
+              return `${n}${def?.unit ? ' ' + def.unit : ''}`
+            }
             return (
               <div key={r.v_id} className="bg-white border border-gray-200 rounded-2xl p-4">
                 {/* 헤더 — 참여자 + 일시 */}
@@ -221,6 +229,24 @@ function ProgramReviewsMissionPage() {
                   </div>
                 )}
 
+                {mRows.length > 0 && (
+                  <div className="mb-2">
+                    <div className="flex items-center gap-1 text-xs text-gray-500 mb-1">
+                      <BarChart3 className="w-3.5 h-3.5" />
+                      <span>기록 지표</span>
+                    </div>
+                    <div className="px-3 py-2 bg-gray-50 rounded-lg space-y-1">
+                      {mRows.map(d => (
+                        <div key={d.key} className="flex items-center gap-1.5 text-sm">
+                          <span className="flex-shrink-0">{d.icon || '📊'}</span>
+                          <span className="text-gray-500 truncate">{d.label || d.key}</span>
+                          <span className="ml-auto font-semibold text-gray-800 flex-shrink-0">{fmtMetric(d, mv[d.key])}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {hasNote && (
                   <div className="mb-2">
                     <div className="flex items-center gap-1 text-xs text-gray-500 mb-1">
@@ -233,7 +259,7 @@ function ProgramReviewsMissionPage() {
                   </div>
                 )}
 
-                {!hasImage && !hasNumeric && !hasNote && (
+                {!hasImage && !hasNumeric && !hasNote && mRows.length === 0 && (
                   <p className="text-xs text-gray-400 italic mb-2">(인증 내용 없음)</p>
                 )}
 

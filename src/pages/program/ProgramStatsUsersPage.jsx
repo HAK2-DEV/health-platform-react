@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
@@ -40,6 +41,9 @@ function ProgramStatsUsersPage() {
   const userId = session?.user?.id
   const [searchParams, setSearchParams] = useSearchParams()
   const filterKey = searchParams.get('filter')  // 'active' | 'normal' | 'dormant' | null
+  const focusPendingId = searchParams.get('pending')  // 가입 알림 딥링크 — 그 신청자로 스크롤
+  const pendingRefs = useRef({})
+  const [highlightPending, setHighlightPending] = useState(null)
 
   const { data: program, isLoading: isProgramLoading } = useQuery({
     queryKey: queryKeys.program(id),
@@ -77,6 +81,20 @@ function ProgramStatsUsersPage() {
     },
     enabled: !!session && !!id && isOwner,
   })
+
+  // 가입 알림(?pending=) 진입 — 그 신청자 행으로 스크롤 + 하이라이트 (여러 명일 때 화면 중앙)
+  useEffect(() => {
+    if (!focusPendingId || pendingApplicants.length === 0) return
+    if (!pendingApplicants.some(p => p.id === focusPendingId)) return
+    const el = pendingRefs.current[focusPendingId]
+    if (!el) return
+    const t = setTimeout(() => {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      setHighlightPending(focusPendingId)
+      setTimeout(() => setHighlightPending(null), 2500)
+    }, 250)
+    return () => clearTimeout(t)
+  }, [focusPendingId, pendingApplicants])
 
   // 승인/거절 mutation
   const reviewParticipationMutation = useMutation({
@@ -211,7 +229,11 @@ function ProgramStatsUsersPage() {
           </h2>
           <div className="grid grid-cols-1 gap-2">
             {pendingApplicants.map(p => (
-              <div key={p.id} className="bg-amber-50/60 border border-amber-200 rounded-2xl p-4 min-w-0">
+              <div
+                key={p.id}
+                ref={(el) => { pendingRefs.current[p.id] = el }}
+                className={`bg-amber-50/60 border rounded-2xl p-4 min-w-0 transition-all duration-500 ${highlightPending === p.id ? 'border-amber-400 ring-2 ring-amber-300 scroll-mt-20' : 'border-amber-200'}`}
+              >
                 <div className="flex items-center gap-3 mb-2">
                   <UserAvatar avatarPath={p.user?.avatar_path} nickname={p.user?.nickname} size="md" />
                   <div className="flex-1 min-w-0">

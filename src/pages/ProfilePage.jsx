@@ -242,17 +242,14 @@ function ProfilePage() {
   const isAvatarBusy = avatarMutation.isPending || removeAvatarMutation.isPending
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* 상단 헤더 — 앱아이콘 + 마이페이지 + 알림 (다른 탭과 통일) */}
-      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-gray-100">
+    <div className="min-h-screen bg-white">
+      {/* 상단 헤더 — 마이페이지 + 알림 (대표 아이콘은 대시보드에만) */}
+      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm">
         <div className="max-w-md mx-auto h-[46px] px-4 flex items-center justify-center relative">
           {showBack && (
             <div className="absolute left-2"><BackButton /></div>
           )}
-          <div className="flex items-center gap-1.5">
-            <img src="/app-icon.png" onError={(e) => { e.currentTarget.style.display = 'none' }} alt="" className="w-5 h-5 rounded-md" />
-            <span className="text-[17px] font-bold text-gray-800">마이페이지</span>
-          </div>
+          <span className="text-[17px] font-bold text-gray-800">마이페이지</span>
           <div className="absolute right-3"><NotificationBell bare /></div>
         </div>
       </header>
@@ -497,7 +494,7 @@ function ProfileMenuItem({ tone, icon, imgSrc, title, description, onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className="w-full flex items-center gap-3 p-4 bg-white border border-gray-100 rounded-[10px] shadow-soft hover:shadow-elevated hover:border-emerald-200 transition text-left"
+      className="w-full flex items-center gap-3 p-4 bg-white rounded-[10px] shadow-soft hover:shadow-elevated transition text-left"
     >
       {/* 모든 메뉴 아이콘 통일 — 동일 IconBox(둥근 모서리 + 연한 톤 배경) 안에 심볼(투명 PNG 또는 lucide) */}
       <IconBox tone={tone} size="lg" shape="square" className="!rounded-[18px]">

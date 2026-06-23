@@ -243,7 +243,7 @@ function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId,
 
   // ── feed (기본형) — 풀 카드 (본문 전체) ───────────────────
   const renderFeed = (p) => (
-    <article key={p.id} className={`rounded-2xl p-4 transition ${p.status === 'hidden' ? 'opacity-60 ' : ''}${p.pinned_at ? 'border-2 border-emerald-400 ring-2 ring-emerald-100 bg-emerald-50/40 shadow-sm' : 'bg-white border border-gray-200'}`}>
+    <article key={p.id} className={`rounded-2xl p-4 transition ${p.status === 'hidden' ? 'opacity-60 ' : ''}${p.pinned_at ? 'border-2 border-emerald-400 ring-2 ring-emerald-100 bg-emerald-50/40 shadow-sm' : 'bg-white shadow-elevated'}`}>
       {p.pinned_at && <div className="mb-2"><PinPill /></div>}
       <div className="flex items-center gap-2.5 mb-2">
         <UserAvatar avatarPath={p.author?.avatar_path} nickname={p.author?.nickname} size="md" />
@@ -279,7 +279,7 @@ function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId,
 
   // ── 이미지 글 — 대형 hero (오버레이) ──────────────────────
   const renderImgBig = (p) => (
-    <article key={p.id} onClick={() => setDetailPost(p)} className={`relative rounded-2xl overflow-hidden aspect-[16/9] cursor-pointer ${pinnedRing(p)}`}>
+    <article key={p.id} onClick={() => setDetailPost(p)} className={`relative rounded-2xl overflow-hidden aspect-[16/9] cursor-pointer shadow-elevated ${pinnedRing(p)}`}>
       <img src={imageUrls[p.id]} alt="" loading="lazy" className="absolute inset-0 w-full h-full object-cover bg-gray-200" />
       <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent" />
       {p.pinned_at && <PinPill floating />}
@@ -295,7 +295,7 @@ function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId,
   // ── 이미지 없는 글 — 흰 배경 + 제목/내용 카드. big=대형 비율 ──
   const renderTextCard = (p, big) => (
     <article key={p.id} onClick={() => setDetailPost(p)}
-      className={`rounded-2xl overflow-hidden cursor-pointer p-3 flex flex-col ${big ? 'aspect-[16/9]' : 'h-44'} ${p.pinned_at ? 'border-2 border-emerald-400 ring-2 ring-emerald-100 bg-emerald-50/40' : 'bg-white border border-gray-200'}`}>
+      className={`rounded-2xl overflow-hidden cursor-pointer p-3 flex flex-col ${big ? 'aspect-[16/9]' : 'h-44'} ${p.pinned_at ? 'border-2 border-emerald-400 ring-2 ring-emerald-100 bg-emerald-50/40' : 'bg-white shadow-elevated'}`}>
       {p.pinned_at && <div className="mb-1"><PinPill /></div>}
       <div className="flex items-start gap-2">
         <p className={`flex-1 font-bold text-gray-800 line-clamp-1 ${big ? 'text-[15px]' : 'text-[13px]'}`}>{p.title || p.author?.nickname || '익명'}</p>
@@ -308,7 +308,7 @@ function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId,
 
   // ── 이미지 글 — 소형 그리드 카드 (이미지 위 / 텍스트 아래) ──
   const renderImgGrid = (p) => (
-    <article key={p.id} onClick={() => setDetailPost(p)} className={`relative rounded-2xl overflow-hidden cursor-pointer bg-white border border-gray-200 ${pinnedRing(p)}`}>
+    <article key={p.id} onClick={() => setDetailPost(p)} className={`relative rounded-2xl overflow-hidden cursor-pointer bg-white shadow-elevated ${pinnedRing(p)}`}>
       {p.pinned_at && <PinPill floating />}
       <img src={thumbSrc(p)} onError={onThumbError(p)} alt="" loading="lazy" decoding="async" className="w-full h-28 object-cover bg-gray-100" />
       <div className="p-2.5">
@@ -328,7 +328,7 @@ function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId,
 
   // ── 중(가로 행) — 좌측 썸네일(이미지) 또는 프로필 + 텍스트 ──
   const renderMid = (p) => (
-    <article key={p.id} onClick={() => setDetailPost(p)} className={`flex gap-3 items-start p-3 rounded-2xl cursor-pointer ${p.pinned_at ? 'border-2 border-emerald-400 ring-2 ring-emerald-100 bg-emerald-50/40' : 'bg-white border border-gray-200'}`}>
+    <article key={p.id} onClick={() => setDetailPost(p)} className={`flex gap-3 items-start p-3 rounded-2xl cursor-pointer ${p.pinned_at ? 'border-2 border-emerald-400 ring-2 ring-emerald-100 bg-emerald-50/40' : 'bg-white shadow-elevated'}`}>
       {hasImg(p) ? (
         <img src={thumbSrc(p)} onError={onThumbError(p)} alt="" loading="lazy" decoding="async" className="w-16 h-16 rounded-xl object-cover bg-gray-100 flex-shrink-0" />
       ) : (

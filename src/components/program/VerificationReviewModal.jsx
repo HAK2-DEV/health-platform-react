@@ -40,6 +40,7 @@ function VerificationReviewModal({ isOpen, onClose, programId, reviews = [], rev
     qc.invalidateQueries({ queryKey: ['scores'] })
     qc.invalidateQueries({ queryKey: ['rankings'] })
     qc.invalidateQueries({ queryKey: ['stats'] })
+    qc.invalidateQueries({ queryKey: ['metricSummary'] })  // 승인 후 주요 기록 요약 반영
   }
   const approveMut = useMutation({
     mutationFn: (id) => approveVerification({ id, reviewerId }),
@@ -86,11 +87,35 @@ function VerificationReviewModal({ isOpen, onClose, programId, reviews = [], rev
                   ? <img src={imageUrl} alt="" className="w-full max-h-[46vh] object-contain rounded-lg bg-gray-50" />
                   : <div className="h-40 rounded-lg bg-gray-100 animate-pulse" />
               )}
+              {/* 기록 지표 (거리/시간/칼로리 등) — 참여자가 입력한 값 */}
+              {(() => {
+                const defs = Array.isArray(current.m_metrics) ? current.m_metrics : []
+                const mv = current.v_metric_values || {}
+                const rows = defs.filter(d => mv[d.key] != null)
+                if (rows.length === 0) return null
+                const fmt = (def, val) => {
+                  const n = Number(val)
+                  if (def?.inputFormat === 'hms') { const sec = Math.round(n * 60), h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60; return h > 0 ? `${h}시간 ${m}분 ${s}초` : `${m}분 ${s}초` }
+                  return `${n}${def?.unit ? ' ' + def.unit : ''}`
+                }
+                return (
+                  <div className="mt-3 rounded-lg bg-gray-50 border border-gray-100 p-3 space-y-1.5">
+                    {rows.map(d => (
+                      <div key={d.key} className="flex items-center gap-1.5 text-sm">
+                        <span className="flex-shrink-0">{d.icon || '📊'}</span>
+                        <span className="text-gray-500 truncate">{d.label || d.key}</span>
+                        <span className="ml-auto font-semibold text-gray-800 flex-shrink-0">{fmt(d, mv[d.key])}</span>
+                      </div>
+                    ))}
+                  </div>
+                )
+              })()}
               {current.v_numeric_value != null && (
                 <p className="mt-3 text-sm text-gray-700 flex items-center gap-1.5"><Flag className="w-4 h-4 text-emerald-500" /> 기록 {current.v_numeric_value}</p>
               )}
               {current.v_note && <p className="mt-2 text-sm text-gray-700 whitespace-pre-wrap break-words leading-relaxed">{current.v_note}</p>}
-              {!current.v_image_path && !current.v_note && current.v_numeric_value == null && (
+              {!current.v_image_path && !current.v_note && current.v_numeric_value == null
+                && !(current.v_metric_values && Object.keys(current.v_metric_values).length > 0) && (
                 <p className="text-sm text-gray-400 py-6 text-center">제출 내용이 없어요</p>
               )}
             </div>

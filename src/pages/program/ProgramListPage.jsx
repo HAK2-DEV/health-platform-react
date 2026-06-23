@@ -8,13 +8,13 @@ import { ChevronRight, ClipboardList, Calendar, Trash2 } from 'lucide-react'
 import { CATEGORY, CATEGORY_LIST } from '../../lib/constants'
 import { calcProgress, CATEGORY_HEX } from '../../lib/programVisuals'
 import ProgramCover from '../../components/common/ProgramCover'
-import NotificationBell from '../../components/common/NotificationBell'
 import LoadingState from '../../components/common/LoadingState'
 import EmptyState from '../../components/common/EmptyState'
 import ProgramDetailModal from '../../components/program/ProgramDetailModal'
 import ProgramBrowseModal from '../../components/program/ProgramBrowseModal'
 import ParticipationTipsSheet from '../../components/program/ParticipationTipsSheet'
 import ConfirmModal from '../../components/common/ConfirmModal'
+import NotificationBell from '../../components/common/NotificationBell'
 import {
   queryKeys,
   fetchActivePrograms,
@@ -52,7 +52,7 @@ function ProgramCard({ program, ctaLabel, onClick, onDelete }) {
   return (
     <div
       onClick={onClick}
-      className="relative bg-white border border-gray-100 rounded-[10px] shadow-soft p-4 flex flex-col cursor-pointer hover:shadow-elevated transition"
+      className="relative bg-white rounded-[10px] shadow-elevated p-4 flex flex-col cursor-pointer transition"
     >
       {/* 상단 — 텍스트(상단 정렬: 제목 위치 고정) + 썸네일 */}
       <div className="flex gap-3">
@@ -145,7 +145,7 @@ function BrowseCard({ program, count, onClick }) {
   return (
     <div
       onClick={onClick}
-      className="bg-white border border-gray-100 rounded-2xl shadow-soft overflow-hidden flex flex-col cursor-pointer hover:shadow-elevated transition"
+      className="bg-white rounded-2xl shadow-elevated overflow-hidden flex flex-col cursor-pointer transition"
     >
       <div className="relative">
         <ProgramCover
@@ -353,16 +353,11 @@ function ProgramListPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* 상단 헤더 — 도담 아이콘 + 프로그램 + 알림 */}
-      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-gray-100">
+      {/* 상단 헤더 — 프로그램 + 알림 (대표 아이콘은 대시보드에만) */}
+      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm">
         <div className="max-w-4xl mx-auto h-[46px] px-4 flex items-center justify-center relative">
-          <div className="flex items-center gap-1.5">
-            <img src="/app-icon.png" onError={(e) => { e.currentTarget.style.display = 'none' }} alt="" className="w-5 h-5 rounded-md" />
-            <span className="text-[17px] font-bold text-gray-800">프로그램</span>
-          </div>
-          <div className="absolute right-3">
-            <NotificationBell bare />
-          </div>
+          <span className="text-[17px] font-bold text-gray-800">프로그램</span>
+          <div className="absolute right-3"><NotificationBell bare /></div>
         </div>
       </header>
 

@@ -10,9 +10,9 @@ import { CATEGORY_HEX, calcProgress } from '../lib/programVisuals'
 import { queryKeys, fetchActivePrograms, fetchTodayMissions, fetchTodayCounts, fetchMyTodayActivity, fetchMyParticipantStats, fetchProgramLastActivity } from '../lib/queries'
 import MissionCard from '../components/program/MissionCard'
 import ProgramCover from '../components/common/ProgramCover'
-import NotificationBell from '../components/common/NotificationBell'
 import LoadingState from '../components/common/LoadingState'
 import EmptyState from '../components/common/EmptyState'
+import NotificationBell from '../components/common/NotificationBell'
 import Confetti from '../components/common/Confetti'
 
 // 인증 가능 여부 — 지원 형식 있음 + 활성 + 일일 한도 미달

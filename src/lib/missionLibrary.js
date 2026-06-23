@@ -347,7 +347,7 @@ export const MISSION_LIBRARY = [
           { key: 'calories', label: '칼로리', unit: 'kcal', max: 5000, icon: '🔥' },
         ],
         metric_aggregate: true,
-        verification_type: 'AUTO',
+        verification_type: 'MANUAL',  // 기록 지표(거리/시간/칼로리)는 운영자 심사 후 요약에 반영
         point: 15,
         daily_limit: 1,
       },

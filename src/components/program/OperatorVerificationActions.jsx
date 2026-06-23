@@ -36,6 +36,7 @@ function OperatorVerificationActions({ verification, programId, feedEnabled = tr
     queryClient.invalidateQueries({ queryKey: ['my-activity'] })
     queryClient.invalidateQueries({ queryKey: ['program-overview'] })
     queryClient.invalidateQueries({ queryKey: ['stats'] })
+    queryClient.invalidateQueries({ queryKey: ['metricSummary'] })  // 승인 후 주요 기록 요약 반영
   }
 
   const excludeMutation = useMutation({

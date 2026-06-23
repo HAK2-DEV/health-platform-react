@@ -60,7 +60,7 @@ function PodiumTop3({ top3, userId }) {
   }
 
   return (
-    <div className="relative bg-white border border-gray-100 rounded-card-lg shadow-soft p-4 overflow-hidden">
+    <div className="relative bg-white rounded-card-lg shadow-elevated p-4 overflow-hidden">
       <ConfettiBurst />
       <div className="relative grid grid-cols-3 items-end gap-2 pt-3">
         {slot(second, 2)}

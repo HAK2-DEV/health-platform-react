@@ -61,7 +61,7 @@ const ClipboardSolid = ({ className }) => (
 function SectionCard({ title, action, children, className = '' }) {
   return (
     <section
-      className={`bg-white border border-gray-100 rounded-[10px] shadow-soft p-4 ${className}`}
+      className={`bg-white rounded-[10px] shadow-elevated p-4 ${className}`}
     >
       {(title || action) && (
         <div className="flex items-center justify-between gap-2 mb-3">
@@ -294,7 +294,7 @@ function DashboardPage() {
   return (
     <div className="min-h-screen bg-white">
       {/* ─── 상단 헤더 (도담 + 알림) — 모서리 0, 최상단 고정 톤 ─── */}
-      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-gray-100">
+      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm">
         <div className="max-w-4xl mx-auto h-[46px] px-4 flex items-center justify-center relative">
           <div className="flex items-center gap-1.5">
             <img src="/app-icon.png" onError={(e) => { e.currentTarget.style.display = 'none' }} alt="" className="w-5 h-5 rounded-md" />

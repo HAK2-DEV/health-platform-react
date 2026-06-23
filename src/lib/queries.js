@@ -1363,7 +1363,7 @@ export const fetchFeedPosts = async (programId, page = 0, pageSize = FEED_PAGE_S
   // 1) APPROVED + feed_visible 인증만 — range 로 페이지네이션
   const { data: vData, error: vErr } = await supabase
     .from('verifications')
-    .select('id, mission_id, user_id, submitted_at, image_path, numeric_value, note, missions!inner(program_id, title, bundle_title, requires_note)')
+    .select('id, mission_id, user_id, submitted_at, image_path, numeric_value, metric_values, note, missions!inner(program_id, title, bundle_title, requires_note, metrics)')
     .eq('missions.program_id', programId)
     .eq('status', 'APPROVED')
     .eq('feed_visible', true)
@@ -1470,7 +1470,6 @@ export const fetchMyMetricSummary = async (programId, userId) => {
     .not('metric_values', 'is', null)
   if (error) throw error
   const rows = data || []
-  const weekAgo = Date.now() - 7 * 86400000
 
   // 지표 정의(라벨/단위/아이콘 + 통계 표시 옵션). 표시는 카드에서 처리.
   //   sumDivide: 변환계수(예: 분→시간 60), sumUnit: 변환 단위, sumFormat: 'hm'(H:MM)
@@ -1488,23 +1487,32 @@ export const fetchMyMetricSummary = async (programId, userId) => {
       }
     }
   }
-  const totals = {}, recents = {}
-  let count = 0, recentCount = 0
+  // 전체 누적 합
+  const totals = {}
+  let count = 0
   for (const r of rows) {
-    const isRecent = new Date(r.submitted_at).getTime() >= weekAgo
     count += 1
-    if (isRecent) recentCount += 1
     for (const [k, v] of Object.entries(r.metric_values || {})) {
-      const n = Number(v) || 0
-      totals[k] = (totals[k] || 0) + n
-      if (isRecent) recents[k] = (recents[k] || 0) + n
+      totals[k] = (totals[k] || 0) + (Number(v) || 0)
     }
   }
+  // recent = '이전 기록 대비 증가분' = 가장 최근 1건의 값 (지표별 가장 최근 기록값)
+  const recents = {}
+  const sorted = [...rows].sort(
+    (a, b) => new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime()
+  )
+  for (const r of sorted) {
+    for (const [k, v] of Object.entries(r.metric_values || {})) {
+      if (recents[k] === undefined) recents[k] = Number(v) || 0  // 첫(=최근) 값만 채택
+    }
+  }
+  const recentCount = count > 0 ? 1 : 0  // 최근 1건이 더한 횟수
+
   // 정의 순서 유지하기 어려워 — 미션 metrics 첫 등장 순서대로
   const orderedKeys = Object.keys(defs)
   const metrics = orderedKeys
     .filter(k => (totals[k] || 0) > 0)
-    .map(k => ({ ...defs[k], total: totals[k] || 0, recent: recents[k] || 0 }))  // total/recent = 저장 단위 원값
+    .map(k => ({ ...defs[k], total: totals[k] || 0, recent: recents[k] || 0 }))  // total=누적 / recent=최근 1건(증가분)
   return { metrics, count, recentCount }
 }
 

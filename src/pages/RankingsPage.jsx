@@ -180,7 +180,7 @@ function RankingsPage() {
   // ─── 로딩 / 빈 상태 ──────────────────────────────────────
   if (isLoadingPrograms) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-white">
         <RankingHeader />
         <LoadingState variant="page" />
       </div>
@@ -189,7 +189,7 @@ function RankingsPage() {
 
   if (activePrograms.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-white">
         <RankingHeader />
         <div className="w-full max-w-md mx-auto px-4 pt-5">
           <EmptyState
@@ -229,7 +229,7 @@ function RankingsPage() {
   const hasPodiumView = isRankingTrack && scope === 'individual' && !isLoadingRanking && hasPodium
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-white">
       <RankingHeader />
 
       <div className="w-full max-w-md mx-auto px-4 pt-3 pb-6 space-y-4">
@@ -289,7 +289,7 @@ function RankingsPage() {
               {restRanking.length > 0 && (
                 <motion.div
                   initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}
-                  className="bg-white border border-gray-100 rounded-2xl shadow-soft divide-y divide-gray-100 overflow-hidden"
+                  className="bg-white rounded-2xl shadow-elevated divide-y divide-gray-100 overflow-hidden"
                 >
                   {restRanking.map(row => {
                     const isMe = row.user_id === userId
@@ -342,15 +342,12 @@ function RankingsPage() {
   )
 }
 
-// ─── 상단 헤더 (앱 아이콘 + 랭킹 + 알림) ──────────────────────
+// ─── 상단 헤더 (랭킹 + 알림) — 대표 아이콘은 대시보드에만 ──────────
 function RankingHeader() {
   return (
-    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-gray-100">
+    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm">
       <div className="max-w-md mx-auto h-[46px] px-4 flex items-center justify-center relative">
-        <div className="flex items-center gap-1.5">
-          <img src="/app-icon.png" onError={(e) => { e.currentTarget.style.display = 'none' }} alt="" className="w-5 h-5 rounded-md" />
-          <span className="text-[17px] font-bold text-gray-800">랭킹</span>
-        </div>
+        <span className="text-[17px] font-bold text-gray-800">랭킹</span>
         <div className="absolute right-3"><NotificationBell bare /></div>
       </div>
     </header>
@@ -408,7 +405,7 @@ function Segmented({ options, value, onChange }) {
 // ─── 준비중 (팀 / 전체) ───────────────────────────────────
 function ComingSoon({ label }) {
   return (
-    <div className="bg-white border border-gray-100 rounded-2xl shadow-soft py-12 px-6 flex flex-col items-center text-center">
+    <div className="bg-white rounded-2xl shadow-elevated py-12 px-6 flex flex-col items-center text-center">
       <div className="w-14 h-14 rounded-full bg-emerald-50 flex items-center justify-center text-2xl mb-3">🛠️</div>
       <p className="font-bold text-gray-800">{label}은 곧 제공돼요</p>
       <p className="text-sm text-gray-500 mt-1">조금만 기다려 주세요. 더 즐거운 경쟁을 준비 중이에요!</p>
@@ -437,8 +434,8 @@ function Podium({ top3, userId }) {
         initial={{ opacity: 0, y: 24, scale: 0.9 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.4, delay: isFirst ? 0.15 : place === 2 ? 0.05 : 0.1, ease: [0.34, 1.4, 0.64, 1] }}
-        className={`relative flex flex-col items-center rounded-2xl border bg-white shadow-soft px-2 ${
-          isFirst ? 'pt-8 pb-3.5 -mt-4 border-amber-200' : 'pt-6 pb-3 border-gray-100'
+        className={`relative flex flex-col items-center rounded-2xl bg-white shadow-elevated px-2 ${
+          isFirst ? 'pt-8 pb-3.5 -mt-4 border border-amber-200' : 'pt-6 pb-3'
         } ${isMe ? 'ring-2 ring-emerald-400' : ''}`}
       >
         {/* 1등 양옆 이파리 장식 (좌·우 한 장 PNG → 아바타 뒤로 살짝 삐져나옴) */}

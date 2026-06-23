@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link, useSearchParams, useLocation } from 'reac
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../../hooks/useAuth'
-import { ChevronLeft, Plus, ChevronRight, Users, Trophy, Pencil, Calendar, Activity, Award, Flame, Check, Settings } from 'lucide-react'
+import { ChevronLeft, Plus, ChevronRight, Users, Trophy, Pencil, Calendar, Activity, Award, Flame, Check, Settings, X } from 'lucide-react'
 import DoorIcon from '../../components/common/DoorIcon'
 import { supabase } from '../../supabaseClient'
 import { CATEGORY } from '../../lib/constants'
@@ -16,9 +16,9 @@ import ScoreSparkline from '../../components/program/ScoreSparkline'
 import StickyBackBar from '../../components/common/StickyBackBar'
 import Modal from '../../components/common/Modal'
 import DeleteProgramModal from '../../components/program/DeleteProgramModal'
+import UserAvatar from '../../components/common/UserAvatar'
 import ProfileButton from '../../components/common/ProfileButton'
 import NotificationBell from '../../components/common/NotificationBell'
-import UserAvatar from '../../components/common/UserAvatar'
 import EmptyState from '../../components/common/EmptyState'
 import LoadingState from '../../components/common/LoadingState'
 import ProgramCover from '../../components/common/ProgramCover'
@@ -368,6 +368,7 @@ function ProgramDetailPage() {
   const [isPanelOpen, setIsPanelOpen] = useState(false)
   const [panelView, setPanelView] = useState('root')   // 운영자 메뉴 시트 단계: root | settings | menubar
   const [isRankingOpen, setIsRankingOpen] = useState(false)  // 랭킹 설정 모달
+  const [noticeModalOpen, setNoticeModalOpen] = useState(false)  // 공지사항(개요 글) 중앙 모달
   const closePanel = () => { setIsPanelOpen(false); setPanelView('root') }
   const handleRankingClose = () => { setIsRankingOpen(false); setPanelView('menubar'); setIsPanelOpen(true) }
   const [overviewManageOpen, setOverviewManageOpen] = useState(false)  // 개요 관리자 인라인 패널
@@ -931,7 +932,7 @@ function ProgramDetailPage() {
   return (
     <div className="px-[11px] pt-2 pb-6 max-w-4xl mx-auto">
       {/* 상단 헤더 — 뒤로 + 제목 + 알림 + 프로필 (풀폭, 모서리 0) */}
-      <header className="sticky top-0 z-30 -mx-[11px] -mt-2 mb-[6px] bg-white/95 backdrop-blur-sm border-b border-gray-100">
+      <header className="sticky top-0 z-30 -mx-[11px] -mt-2 mb-[6px] bg-white/95 backdrop-blur-sm">
         <div className="max-w-4xl mx-auto h-[44px] px-2 flex items-center justify-center relative">
           <button type="button" onClick={handleHeaderBack} className="absolute left-2 p-1.5 text-gray-600 hover:text-gray-900" aria-label="뒤로">
             <ChevronLeft className="w-5 h-5" />
@@ -959,8 +960,9 @@ function ProgramDetailPage() {
                 )}
               </button>
             )}
-            <NotificationBell bare compact showBack />
-            <ProfileButton bare compact showBack />
+            {/* 운영자 화면에선 알림·프로필 숨김 (운영자 메뉴로 충분). 참여자는 유지 */}
+            {!isOwner && <NotificationBell bare compact showBack />}
+            {!isOwner && <ProfileButton bare compact showBack />}
           </div>
         </div>
       </header>
@@ -1005,7 +1007,7 @@ function ProgramDetailPage() {
           'text-xs sm:text-sm'
 
         return (
-          <div className="relative bg-white border border-gray-200 rounded-[10px] overflow-hidden mb-[6px] min-h-[108px]">
+          <div className="relative bg-white rounded-[10px] shadow-elevated overflow-hidden mb-[6px] min-h-[108px]">
             {/* 배경 사진 — 좌측 일부 영역에만. ProgramCover 로 목록 카드와 동일 폴백
                 (업로드사진 → 카테고리 일러스트 → 이모지). */}
             <div className="absolute inset-y-0 left-0 w-[38%]">
@@ -1188,6 +1190,38 @@ function ProgramDetailPage() {
       {/* ─── 개요 탭 (일반 콘텐츠) ─────────────────────────── */}
       {activeTab === 'overview' && (!overviewManageOpen || overviewPreview) && (<>
 
+      {/* 📢 공지사항 (개요 글) — 맨 위. 주요기록요약과 같은 크기의 컴팩트 카드. 본문은 요약, 클릭 시 중앙 모달 */}
+      {(program.overview_content?.trim() || isOwner) && (() => {
+        const raw = program.overview_content?.trim() || ''
+        // 마크다운 기호 제거한 한 줄 미리보기
+        const preview = raw
+          .replace(/!\[.*?\]\(.*?\)/g, '')
+          .replace(/\[(.*?)\]\(.*?\)/g, '$1')
+          .replace(/[#>*_`~]/g, '')
+          .replace(/\s+/g, ' ')
+          .trim()
+        const hasContent = !!raw
+        const title = program.overview_title?.trim() || '공지사항'
+        return (
+          <button
+            type="button"
+            disabled={!hasContent}
+            onClick={() => setNoticeModalOpen(true)}
+            className="w-full text-left bg-white rounded-2xl shadow-elevated p-4 mb-[9px] transition active:scale-[0.99] disabled:cursor-default"
+          >
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <h3 className="text-sm font-bold text-gray-800 truncate">📢 {title}</h3>
+              {hasContent && <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />}
+            </div>
+            {hasContent ? (
+              <p className="text-[13px] text-gray-500 leading-relaxed line-clamp-2 break-words">{preview}</p>
+            ) : (
+              <p className="text-[13px] text-gray-400">✏️ 운영자 메뉴에서 공지를 작성해보세요</p>
+            )}
+          </button>
+        )
+      })()}
+
       {/* 주요 기록 요약 카드 (Phase2) — 다중 지표 + 달성 횟수, 최근 7일 증감 */}
       {metricSummary && (metricSummary.metrics.length > 0 || metricSummary.count > 0) && (() => {
         const fmt = (n) => Number(n || 0).toLocaleString('ko-KR', { maximumFractionDigits: 1 })
@@ -1207,7 +1241,7 @@ function ProgramDetailPage() {
           { icon: '🏃', label: '총 달성 횟수', value: fmt(metricSummary.count), unit: '회', recent: metricSummary.recentCount, rvalue: fmt(metricSummary.recentCount), runit: '회' },
         ]
         return (
-          <div className="bg-white border border-gray-200 rounded-2xl p-4 mb-[9px]">
+          <div className="bg-white rounded-2xl shadow-elevated p-4 mb-[9px]">
             <h3 className="text-sm font-bold text-gray-800 mb-3">주요 기록 요약</h3>
             <div className="flex overflow-x-auto scrollbar-hide -mx-1 px-1">
               {cells.map((c, i) => (
@@ -1258,7 +1292,7 @@ function ProgramDetailPage() {
         const progressUrg = progressUrgency(progressPct)
 
         return (
-          <div className="bg-white border border-gray-200 rounded-2xl p-5 mb-[9px]">
+          <div className="bg-white rounded-2xl shadow-elevated p-5 mb-[9px]">
             <h3 className="text-sm font-semibold text-emerald-600 mb-3">나의 진행 현황</h3>
             <div className="grid grid-cols-4 gap-2 mb-4">
               <div>
@@ -1322,26 +1356,7 @@ function ProgramDetailPage() {
         )
       })()}
 
-      {/* 📝 안내 (개요 글) — 진행 현황 바로 아래로 이동 (Day 65 본인 결정).
-          프로그램 설명이 위쪽에 와야 사용자가 바로 봄.
-          - 글 있으면: 모두에게 표시
-          - 글 없는데 운영자: 작성 안내
-          - 글 없고 참가자: 숨김 */}
-      {(program.overview_content?.trim() || isOwner) && (
-        <div className="bg-white border border-gray-200 rounded-2xl p-5 mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold text-gray-800">📝 {program.overview_title?.trim() || '안내'}</h2>
-            {/* 수정은 운영자 패널(개요 관리자) → 안내 섹션에서. 여기 연필 버튼 제거. */}
-          </div>
-          {program.overview_content?.trim() ? (
-            <MarkdownView content={program.overview_content} />
-          ) : (
-            <p className="text-sm text-gray-400 text-center py-4 break-keep whitespace-nowrap">
-              ✏️ 운영자 메뉴에서 안내 글을 작성해보세요
-            </p>
-          )}
-        </div>
-      )}
+      {/* 📝 안내(개요 글)은 상단 📢 공지사항 컴팩트 카드로 이동 (클릭 시 중앙 모달) */}
 
       {/* 참여자 자가 탈퇴 — 자동 승인(FREE) 프로그램 + ACTIVE 참여자 (비운영자).
           공개/비공개 무관 — 자유 참여한 프로그램은 자유롭게 나갈 수 있게. */}
@@ -1472,7 +1487,7 @@ function ProgramDetailPage() {
                   exit={{ opacity: 0, scale: 0.96 }}
                   transition={{ duration: 0.25, ease: 'easeOut' }}
                   onClick={() => navigate(`/programs/${id}/bundles/${bundleParam}`)}
-                  className="w-full flex items-center gap-3 p-4 bg-white border border-gray-200 rounded-2xl hover:bg-gray-50 hover:border-emerald-300 transition text-left"
+                  className="w-full flex items-center gap-3 p-4 bg-white rounded-2xl shadow-elevated hover:bg-gray-50 transition text-left"
                 >
                   <div className="flex-1 min-w-0">
                     <h3 className="font-medium text-gray-800 truncate">{group.bundleTitle}</h3>
@@ -1749,7 +1764,7 @@ function ProgramDetailPage() {
 
       {/* 추세 — trend_enabled 옵션 시 본인 14일 sparkline (라벨 카드로 맥락 부여) */}
       {trendVisible && myScoreSeries.length > 0 && (
-        <div className="flex items-center justify-between gap-3 bg-white border border-gray-100 rounded-card shadow-soft px-4 py-3 mb-4">
+        <div className="flex items-center justify-between gap-3 bg-white rounded-card shadow-elevated px-4 py-3 mb-4">
           <span className="text-sm font-semibold text-gray-700">📈 내 14일 점수 추세</span>
           <ScoreSparkline series={myScoreSeries} />
         </div>
@@ -1786,8 +1801,8 @@ function ProgramDetailPage() {
                     <div
                       key={row.user_id}
                       className={`
-                        flex items-center justify-between p-3 rounded-2xl border
-                        ${isMe ? 'bg-emerald-50 border-emerald-300' : 'bg-white border-gray-200'}
+                        flex items-center justify-between p-3 rounded-2xl shadow-elevated
+                        ${isMe ? 'bg-emerald-50 border border-emerald-300' : 'bg-white'}
                       `}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
@@ -2069,6 +2084,29 @@ function ProgramDetailPage() {
           busy={deleteProgramMutation.isPending}
         />
       )}
+
+      {/* 📢 공지사항 중앙 모달 — 컴팩트 카드 클릭 시 전체 내용 */}
+      {noticeModalOpen && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/40"
+          onClick={() => setNoticeModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-md max-h-[80vh] flex flex-col bg-white rounded-2xl shadow-xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-2 px-5 py-3.5 border-b border-gray-100 flex-shrink-0">
+              <h2 className="text-[16px] font-bold text-gray-800 truncate">📢 {program.overview_title?.trim() || '공지사항'}</h2>
+              <button type="button" onClick={() => setNoticeModalOpen(false)} className="p-1 text-gray-400 hover:text-gray-700" aria-label="닫기">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-5">
+              <MarkdownView content={program.overview_content} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -2098,8 +2136,8 @@ function QuizListItem({ quiz, programId, quizPreview }) {
       onClick={handleClick}
       animate={shake ? { x: [0, -8, 8, -7, 7, -4, 4, 0] } : { x: 0 }}
       transition={{ duration: 0.5 }}
-      className={`w-full flex items-center gap-3 p-4 bg-white border rounded-2xl transition text-left ${
-        lockedNotStarted ? 'border-amber-200 cursor-not-allowed' : 'border-gray-200 hover:bg-gray-50 hover:border-emerald-300'
+      className={`w-full flex items-center gap-3 p-4 bg-white rounded-2xl shadow-elevated transition text-left ${
+        lockedNotStarted ? 'border border-amber-200 cursor-not-allowed' : 'hover:bg-gray-50'
       }`}
     >
       <span className="text-2xl flex-shrink-0">{lockedNotStarted ? '🔒' : '📝'}</span>

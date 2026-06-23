@@ -74,7 +74,7 @@ function MissionCard({
       animate={shake ? { x: [0, -8, 8, -7, 7, -4, 4, 0] } : { x: 0 }}
       transition={{ duration: 0.5 }}
       onClick={lockedUpcoming ? triggerShake : undefined}
-      className={`bg-white border rounded-2xl p-4 ${lockedUpcoming ? 'border-amber-200 cursor-not-allowed' : 'border-gray-200'}`}
+      className={`bg-white rounded-2xl shadow-elevated p-4 ${lockedUpcoming ? 'border border-amber-200 cursor-not-allowed' : ''}`}
     >
       {/* 1행 — 참여자/운영자 공통: [썸네일] 제목 + 5P + 인증 액션 */}
       <div className="flex items-center justify-between gap-3">

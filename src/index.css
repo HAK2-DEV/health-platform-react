@@ -47,7 +47,7 @@
 
   /* --- 그림자 (참고 사진 — 카드 fluffy 한 부드러운 그림자) --- */
   --shadow-soft: 0 1px 2px 0 rgb(16 185 129 / 0.04), 0 4px 12px -2px rgb(16 185 129 / 0.06);
-  --shadow-elevated: 0 4px 8px -2px rgb(16 185 129 / 0.08), 0 12px 24px -4px rgb(16 185 129 / 0.10);
+  --shadow-elevated: 0 3px 8px -2px rgb(16 185 129 / 0.10), 0 9px 18px -6px rgb(16 185 129 / 0.12);
   --shadow-fab: 0 6px 16px -2px rgb(16 185 129 / 0.35), 0 2px 4px -1px rgb(16 185 129 / 0.2);
 
   /* --- 라운드 (참고 사진 — 카드 24-28px, pill 99999px) --- */

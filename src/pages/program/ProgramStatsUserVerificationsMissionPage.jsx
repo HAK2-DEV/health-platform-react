@@ -174,7 +174,7 @@ function ProgramStatsUserVerificationsMissionPage() {
                   const mRows = v.metric_values ? mDefs.filter(d => v.metric_values[d.key] != null) : []
                   const fmtMetric = (def, val) => {
                     const n = Number(val)
-                    if (def?.inputFormat === 'hms') { const s = Math.round(n * 60); return `${Math.floor(s / 3600)}시간 ${Math.floor((s % 3600) / 60)}분 ${s % 60}초` }
+                    if (def?.inputFormat === 'hms') { const sec = Math.round(n * 60), h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60; return h > 0 ? `${h}시간 ${m}분 ${s}초` : `${m}분 ${s}초` }
                     return `${n}${def?.unit ? ' ' + def.unit : ''}`
                   }
                   const badge = STATUS_BADGE[v.status] || STATUS_BADGE.APPROVED

@@ -187,7 +187,7 @@ function FeedContent({ program, layout: layoutProp = null, targetVerificationId 
     const note = post.note?.trim()
     return (
       <button key={post.id} type="button" onClick={() => setFocusedId(post.id)}
-        className="w-full flex items-center gap-3 text-left bg-white border border-gray-200 rounded-2xl p-2.5 hover:shadow-md transition">
+        className="w-full flex items-center gap-3 text-left bg-white shadow-elevated rounded-2xl p-2.5 transition">
         {post.image_path ? (
           <div className="w-[64px] h-[64px] rounded-xl bg-gray-100 flex-shrink-0 overflow-hidden">
             {img ? <img src={img} onError={onThumbError(post)} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-gray-300">🖼️</div>}
@@ -218,7 +218,7 @@ function FeedContent({ program, layout: layoutProp = null, targetVerificationId 
     const note = post.note?.trim()
     return (
       <button key={post.id} type="button" onClick={() => setFocusedId(post.id)}
-        className="flex flex-col text-left bg-white border border-gray-200 rounded-2xl overflow-hidden hover:shadow-md transition">
+        className="flex flex-col text-left bg-white shadow-elevated rounded-2xl overflow-hidden transition">
         {post.image_path && (
           <div className="aspect-square bg-gray-100">
             {img ? <img src={img} onError={onThumbError(post)} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-gray-300 text-2xl">🖼️</div>}
@@ -307,6 +307,14 @@ function FeedContent({ program, layout: layoutProp = null, targetVerificationId 
         const hasImage = !!post.image_path
         const hasNumeric = post.numeric_value !== null && post.numeric_value !== undefined
         const hasNote = !!post.note && post.note.trim().length > 0
+        // 다중 기록 지표 (거리/시간/칼로리)
+        const mDefs = Array.isArray(post.missions?.metrics) ? post.missions.metrics : []
+        const mRows = post.metric_values ? mDefs.filter(d => post.metric_values[d.key] != null) : []
+        const fmtMetric = (def, val) => {
+          const n = Number(val)
+          if (def?.inputFormat === 'hms') { const sec = Math.round(n * 60), h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60; return h > 0 ? `${h}시간 ${m}분 ${s}초` : `${m}분 ${s}초` }
+          return `${n}${def?.unit ? ' ' + def.unit : ''}`
+        }
         const isMyPost = post.user_id === myUserId
         const canEditNote = isMyPost && !!post.missions?.requires_note
         const isEditingNote = editingNoteId === post.id
@@ -315,10 +323,10 @@ function FeedContent({ program, layout: layoutProp = null, targetVerificationId 
           <article
             key={post.id}
             ref={(el) => { postRefs.current[post.id] = el }}
-            className={`bg-white border rounded-2xl overflow-hidden transition-all duration-500 ${
+            className={`bg-white rounded-2xl overflow-hidden transition-all duration-500 ${
               isPostHighlighted
-                ? 'border-emerald-400 ring-2 ring-emerald-200 shadow-md'
-                : 'border-gray-200'
+                ? 'border border-emerald-400 ring-2 ring-emerald-200 shadow-md'
+                : 'shadow-elevated'
             }`}
           >
             {/* 헤더 — 닉네임 + 미션 + 시각 */}
@@ -394,8 +402,8 @@ function FeedContent({ program, layout: layoutProp = null, targetVerificationId 
               </div>
             )}
 
-            {/* 숫자/소감 (있으면). 수정 버튼은 헤더(날짜 아래)로 이동 */}
-            {(hasNumeric || hasNote || isEditingNote) && (
+            {/* 숫자/지표/소감 (있으면). 수정 버튼은 헤더(날짜 아래)로 이동 */}
+            {(hasNumeric || mRows.length > 0 || hasNote || isEditingNote) && (
               <div className="px-4 pt-2 space-y-1">
                 {hasNumeric && (
                   <p className="text-sm text-gray-700 flex items-center gap-1">
@@ -403,6 +411,13 @@ function FeedContent({ program, layout: layoutProp = null, targetVerificationId 
                     기록: <span className="font-medium">{post.numeric_value}</span>
                   </p>
                 )}
+
+                {mRows.map(d => (
+                  <p key={d.key} className="text-sm text-gray-700 flex items-center gap-1">
+                    <BarChart3 className="w-3.5 h-3.5 text-gray-400" />
+                    {d.icon && <span>{d.icon}</span>}{d.label}: <span className="font-medium">{fmtMetric(d, post.metric_values[d.key])}</span>
+                  </p>
+                ))}
 
                 {isEditingNote ? (
                   <div>

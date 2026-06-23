@@ -261,11 +261,13 @@ function MissionVerifyPage() {
   const hasMetrics = metricList.length > 0
   // HHMMSS(시분초) → {h,m,s}. 입력 raw 의 끝 6자리 사용(앞 0 패딩)
   const parseHMS = (raw) => {
+    // 6자리(HHMMSS)로 읽되 자릿수 초과분은 자동 환산. 예: 2579(=25분79초) → 26분 19초
     const d = String(raw ?? '').replace(/\D/g, '').slice(-6).padStart(6, '0')
-    return { h: +d.slice(0, 2), m: +d.slice(2, 4), s: +d.slice(4, 6) }
+    const total = (+d.slice(0, 2)) * 3600 + (+d.slice(2, 4)) * 60 + (+d.slice(4, 6))
+    return { h: Math.floor(total / 3600), m: Math.floor((total % 3600) / 60), s: total % 60, total }
   }
-  const hmsToMinutes = (raw) => { const { h, m, s } = parseHMS(raw); return h * 60 + m + s / 60 }
-  const hmsLabel = (raw) => { const { h, m, s } = parseHMS(raw); return `${h}시간 ${m}분 ${s}초` }
+  const hmsToMinutes = (raw) => parseHMS(raw).total / 60
+  const hmsLabel = (raw) => { const { h, m, s } = parseHMS(raw); return h > 0 ? `${h}시간 ${m}분 ${s}초` : `${m}분 ${s}초` }
   // 지표 입력의 숫자값(저장용). hms 면 분으로 환산, 아니면 그대로 숫자.
   const metricNumValue = (m) => {
     const r = metricValues[m.key]
@@ -1067,7 +1069,7 @@ function MissionVerifyPage() {
                             />
                             <span className="text-gray-300 flex-shrink-0">→</span>
                             <div className="flex-1 min-w-0 px-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-100 text-base truncate">
-                              {String(raw).trim() !== '' ? <span className="text-gray-800 font-medium">{hmsLabel(raw)}</span> : <span className="text-gray-300">0시간 0분 0초</span>}
+                              {String(raw).trim() !== '' ? <span className="text-gray-800 font-medium">{hmsLabel(raw)}</span> : <span className="text-gray-300">0분 0초</span>}
                             </div>
                           </div>
                           <p className="text-[11px] text-gray-400 mt-1">시·분·초 6자리로 입력해요 (예: 1시간 23분 45초 → 012345)</p>
