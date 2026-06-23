@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useMutation, useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { Heart, MessageCircle, BarChart3, Send, Trash2, Pencil, Flag } from 'lucide-react'
+import { Heart, MessageCircle, BarChart3, Send, Trash2, Pencil, Flag, CornerDownRight } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
 import { formatRelativeKstDay } from '../../lib/formatters'
@@ -552,8 +552,17 @@ function CommentsSection({ verificationId, programId, myUserId, isProgramOwner, 
   const [highlight, setHighlight] = useState(null)
   const [editingId, setEditingId] = useState(null)   // 수정 중인 댓글 id
   const [editText, setEditText] = useState('')
+  const [replyTo, setReplyTo] = useState(null)        // { id(최상위 댓글), nickname }
+  const [repliesOpen, setRepliesOpen] = useState(() => new Set())  // 답글 펼친 댓글 id
   const refs = useRef({})
+  const inputRef = useRef(null)
   const toggleExpanded = (cid) => setExpanded(prev => {
+    const next = new Set(prev)
+    if (next.has(cid)) next.delete(cid)
+    else next.add(cid)
+    return next
+  })
+  const toggleReplies = (cid) => setRepliesOpen(prev => {
     const next = new Set(prev)
     if (next.has(cid)) next.delete(cid)
     else next.add(cid)
@@ -564,18 +573,27 @@ function CommentsSection({ verificationId, programId, myUserId, isProgramOwner, 
     queryKey: queryKeys.postComments(verificationId),
     queryFn: () => fetchPostComments(verificationId),
   })
+  const topLevel = useMemo(() => comments.filter(c => !c.parent_id), [comments])
+  const repliesByParent = useMemo(() => {
+    const m = {}
+    for (const c of comments) if (c.parent_id) (m[c.parent_id] ||= []).push(c)
+    return m
+  }, [comments])
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.postComments(verificationId) })
     queryClient.invalidateQueries({ queryKey: queryKeys.feedPosts(programId) })  // 댓글 수 갱신
   }
   const addMutation = useMutation({
-    mutationFn: async (content) => {
+    mutationFn: async ({ content, parentId }) => {
       const { error } = await supabase.from('post_comments')
-        .insert({ verification_id: verificationId, user_id: myUserId, content: content.trim() })
+        .insert({ verification_id: verificationId, user_id: myUserId, content: content.trim(), parent_id: parentId || null })
       if (error) throw error
     },
-    onSuccess: () => { setInput(''); invalidate() },
+    onSuccess: () => {
+      if (replyTo?.id) setRepliesOpen(prev => new Set(prev).add(replyTo.id))
+      setInput(''); setReplyTo(null); invalidate()
+    },
     onError: (err) => alert(`댓글 작성에 실패했습니다: ${err.message}`),
   })
   const deleteMutation = useMutation({
@@ -596,16 +614,28 @@ function CommentsSection({ verificationId, programId, myUserId, isProgramOwner, 
     onSuccess: () => { setEditingId(null); setEditText(''); invalidate() },
     onError: (err) => alert(`댓글 수정에 실패했습니다: ${err.message}`),
   })
-  const submit = () => { const c = input.trim(); if (c) addMutation.mutate(c) }
+  const submit = () => { const c = input.trim(); if (c) addMutation.mutate({ content: c, parentId: replyTo?.id || null }) }
   const handleDelete = (cid) => { if (window.confirm('이 댓글을 삭제할까요?')) deleteMutation.mutate(cid) }
   const startEdit = (c) => { setEditingId(c.id); setEditText(c.content) }
   const cancelEdit = () => { setEditingId(null); setEditText('') }
   const saveEdit = (cid) => { const c = editText.trim(); if (c) updateMutation.mutate({ commentId: cid, content: c }) }
+  // topId: 답글이 귀속될 최상위 댓글 id. mention: 답글에 답글 시 @닉네임 prefill
+  const startReply = (topId, nickname, mention) => {
+    setReplyTo({ id: topId, nickname })
+    if (mention) setInput(prev => (prev.startsWith(`@${mention} `) ? prev : `@${mention} `))
+    setTimeout(() => inputRef.current?.focus(), 0)
+  }
+  const cancelReply = () => { setReplyTo(null); if (input.startsWith('@')) setInput('') }
 
-  // 알림 ?c= 딥링크 — 해당 댓글로 스크롤 + 하이라이트
+  // 알림 ?c= 딥링크 — 해당 댓글로 스크롤 + 하이라이트 (답글이면 스레드 먼저 펼침)
   useEffect(() => {
     if (!targetCommentId || comments.length === 0) return
-    if (!comments.some(c => c.id === targetCommentId)) return
+    const target = comments.find(c => c.id === targetCommentId)
+    if (!target) return
+    if (target.parent_id && !repliesOpen.has(target.parent_id)) {
+      setRepliesOpen(prev => new Set(prev).add(target.parent_id))
+      return  // 펼침 후 repliesOpen 변경으로 effect 재실행 → 그때 스크롤
+    }
     const el = refs.current[targetCommentId]
     if (!el) return
     const t = setTimeout(() => {
@@ -614,81 +644,110 @@ function CommentsSection({ verificationId, programId, myUserId, isProgramOwner, 
       setTimeout(() => setHighlight(null), 2500)
     }, 250)
     return () => clearTimeout(t)
-  }, [comments, targetCommentId])
+  }, [comments, targetCommentId, repliesOpen])
+
+  // 댓글/답글 한 줄 렌더 (컴포넌트 아닌 함수 — 입력 리렌더 시 행 리마운트 방지)
+  //   topId: 답글이 귀속될 최상위 댓글 id. isReply: 답글 행 여부.
+  const renderComment = (c, isReply, topId) => {
+    const isMine = c.user_id === myUserId
+    const canDelete = isMine || isProgramOwner
+    const isLong = isLongComment(c.content)
+    const clamped = isLong && !expanded.has(c.id)
+    const isHi = highlight === c.id
+    const isEditing = editingId === c.id
+    const isEdited = c.updated_at && c.created_at && new Date(c.updated_at) - new Date(c.created_at) > 1000
+    return (
+      <div
+        key={c.id}
+        ref={(el) => { refs.current[c.id] = el }}
+        className={`flex items-start gap-2 text-sm rounded-lg p-1.5 -mx-1.5 transition-all duration-500 ${isHi ? 'bg-amber-100 ring-2 ring-amber-300' : ''}`}
+      >
+        <UserAvatar avatarPath={c.user?.avatar_path} nickname={c.user?.nickname} size="sm" className="mt-0.5" />
+        <div className="flex-1 min-w-0">
+          {isEditing ? (
+            <div className="flex items-center gap-1.5">
+              <input
+                type="text"
+                value={editText}
+                onChange={(e) => setEditText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveEdit(c.id) }
+                  if (e.key === 'Escape') cancelEdit()
+                }}
+                maxLength={200}
+                autoFocus
+                disabled={updateMutation.isPending}
+                className="flex-1 min-w-0 px-2.5 py-1 text-sm bg-white rounded-full border border-emerald-300 focus:outline-none focus:ring-1 focus:ring-emerald-400 disabled:opacity-50"
+              />
+              <button type="button" onClick={() => saveEdit(c.id)} disabled={updateMutation.isPending || !editText.trim()}
+                className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 flex-shrink-0 disabled:opacity-40">저장</button>
+              <button type="button" onClick={cancelEdit}
+                className="text-xs text-gray-400 hover:text-gray-600 flex-shrink-0">취소</button>
+            </div>
+          ) : (
+            <>
+              <p className={`break-words ${clamped ? 'line-clamp-2' : ''}`}>
+                <span className="font-medium text-gray-800">{c.user?.nickname || '(?)'}</span>{' '}
+                <span className="text-gray-700 whitespace-pre-wrap">{c.content}</span>
+                {isEdited && <span className="text-[11px] text-gray-400 ml-1">(수정됨)</span>}
+              </p>
+              <div className="flex items-center gap-2 mt-0.5">
+                {isLong && (
+                  <button type="button" onClick={() => toggleExpanded(c.id)} className="text-xs text-gray-400 hover:text-gray-600">
+                    {expanded.has(c.id) ? '접기' : '... 더 보기'}
+                  </button>
+                )}
+                {!readOnly && (
+                  <button type="button" onClick={() => startReply(topId, c.user?.nickname, isReply ? c.user?.nickname : null)}
+                    className="text-[11px] font-semibold text-gray-400 hover:text-emerald-600 transition">답글</button>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+        {!isEditing && (
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {isMine && (
+              <button type="button" onClick={() => startEdit(c)}
+                className="p-1.5 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-full transition" title="댓글 수정">
+                <Pencil className="w-4 h-4" />
+              </button>
+            )}
+            {canDelete && (
+              <button type="button" onClick={() => handleDelete(c.id)} disabled={deleteMutation.isPending}
+                className="p-1.5 text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-full transition disabled:opacity-40" title="댓글 삭제">
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className="border-t border-gray-100">
       {isLoading ? (
         <p className="px-4 py-3 text-xs text-gray-400">댓글 불러오는 중...</p>
-      ) : comments.length === 0 ? (
+      ) : topLevel.length === 0 ? (
         <p className="px-4 py-3 text-xs text-gray-400">아직 댓글이 없어요. 첫 댓글을 남겨보세요!</p>
       ) : (
         <div className="px-4 pt-3 space-y-1.5">
-          {comments.map(c => {
-            const isMine = c.user_id === myUserId
-            const canDelete = isMine || isProgramOwner
-            const isLong = isLongComment(c.content)
-            const clamped = isLong && !expanded.has(c.id)
-            const isHi = highlight === c.id
-            const isEditing = editingId === c.id
-            const isEdited = c.updated_at && c.created_at && new Date(c.updated_at) - new Date(c.created_at) > 1000
+          {topLevel.map(c => {
+            const replies = repliesByParent[c.id] || []
+            const open = repliesOpen.has(c.id)
             return (
-              <div
-                key={c.id}
-                ref={(el) => { refs.current[c.id] = el }}
-                className={`flex items-start gap-2 text-sm rounded-lg p-1.5 -mx-1.5 transition-all duration-500 ${isHi ? 'bg-amber-100 ring-2 ring-amber-300' : ''}`}
-              >
-                <UserAvatar avatarPath={c.user?.avatar_path} nickname={c.user?.nickname} size="sm" className="mt-0.5" />
-                <div className="flex-1 min-w-0">
-                  {isEditing ? (
-                    <div className="flex items-center gap-1.5">
-                      <input
-                        type="text"
-                        value={editText}
-                        onChange={(e) => setEditText(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveEdit(c.id) }
-                          if (e.key === 'Escape') cancelEdit()
-                        }}
-                        maxLength={200}
-                        autoFocus
-                        disabled={updateMutation.isPending}
-                        className="flex-1 min-w-0 px-2.5 py-1 text-sm bg-white rounded-full border border-emerald-300 focus:outline-none focus:ring-1 focus:ring-emerald-400 disabled:opacity-50"
-                      />
-                      <button type="button" onClick={() => saveEdit(c.id)} disabled={updateMutation.isPending || !editText.trim()}
-                        className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 flex-shrink-0 disabled:opacity-40">저장</button>
-                      <button type="button" onClick={cancelEdit}
-                        className="text-xs text-gray-400 hover:text-gray-600 flex-shrink-0">취소</button>
-                    </div>
-                  ) : (
-                    <>
-                      <p className={`break-words ${clamped ? 'line-clamp-2' : ''}`}>
-                        <span className="font-medium text-gray-800">{c.user?.nickname || '(?)'}</span>{' '}
-                        <span className="text-gray-700 whitespace-pre-wrap">{c.content}</span>
-                        {isEdited && <span className="text-[11px] text-gray-400 ml-1">(수정됨)</span>}
-                      </p>
-                      {isLong && (
-                        <button type="button" onClick={() => toggleExpanded(c.id)} className="text-xs text-gray-400 hover:text-gray-600 mt-0.5">
-                          {expanded.has(c.id) ? '접기' : '... 더 보기'}
-                        </button>
-                      )}
-                    </>
-                  )}
-                </div>
-                {!isEditing && (
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    {isMine && (
-                      <button type="button" onClick={() => startEdit(c)}
-                        className="p-1.5 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-full transition" title="댓글 수정">
-                        <Pencil className="w-4 h-4" />
-                      </button>
-                    )}
-                    {canDelete && (
-                      <button type="button" onClick={() => handleDelete(c.id)} disabled={deleteMutation.isPending}
-                        className="p-1.5 text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-full transition disabled:opacity-40" title="댓글 삭제">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
+              <div key={c.id}>
+                {renderComment(c, false, c.id)}
+                {replies.length > 0 && (
+                  <button type="button" onClick={() => toggleReplies(c.id)}
+                    className="ml-9 mt-0.5 flex items-center gap-1 text-[11px] font-semibold text-gray-500 hover:text-gray-700 transition">
+                    <CornerDownRight className="w-3 h-3" /> 답글 {replies.length}개 {open ? '숨기기' : '보기'}
+                  </button>
+                )}
+                {open && replies.length > 0 && (
+                  <div className="ml-9 mt-1 space-y-1.5 border-l-2 border-gray-100 pl-2">
+                    {replies.map(r => renderComment(r, true, c.id))}
                   </div>
                 )}
               </div>
@@ -701,13 +760,21 @@ function CommentsSection({ verificationId, programId, myUserId, isProgramOwner, 
       {readOnly ? (
         <p className="px-4 py-3 text-xs text-gray-400 text-center">참여하면 댓글을 남길 수 있어요</p>
       ) : (
-      <div className="flex items-center gap-2 px-4 py-3">
+      <div className="px-4 py-3">
+        {replyTo && (
+          <div className="flex items-center gap-1.5 mb-1.5 px-1 text-[11px] text-emerald-600">
+            <CornerDownRight className="w-3 h-3" /> <b className="font-semibold">{replyTo.nickname}</b>님에게 답글
+            <button type="button" onClick={cancelReply} className="ml-1 text-gray-400 hover:text-gray-600">취소</button>
+          </div>
+        )}
+        <div className="flex items-center gap-2">
         <input
+          ref={inputRef}
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit() } }}
-          placeholder="댓글 달기..."
+          placeholder={replyTo ? '답글 달기...' : '댓글 달기...'}
           maxLength={200}
           disabled={addMutation.isPending}
           className="flex-1 px-3 py-1.5 text-sm bg-gray-50 rounded-full focus:outline-none focus:bg-white focus:ring-1 focus:ring-emerald-400 disabled:opacity-50"
@@ -716,6 +783,7 @@ function CommentsSection({ verificationId, programId, myUserId, isProgramOwner, 
           className="p-2 text-emerald-500 hover:bg-emerald-50 rounded-full transition disabled:opacity-40" title="댓글 작성">
           <Send className="w-4 h-4" />
         </button>
+        </div>
       </div>
       )}
     </div>

@@ -1433,7 +1433,7 @@ export const fetchFeedPosts = async (programId, page = 0, pageSize = FEED_PAGE_S
 export const fetchPostComments = async (verificationId) => {
   const { data, error } = await supabase
     .from('post_comments')
-    .select('id, verification_id, user_id, content, created_at, updated_at')
+    .select('id, verification_id, user_id, content, created_at, updated_at, parent_id')
     .eq('verification_id', verificationId)
     .order('created_at', { ascending: true })
   if (error) throw error
