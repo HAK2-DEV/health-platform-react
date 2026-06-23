@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import Modal from '../common/Modal'
 import { supabase } from '../../supabaseClient'
-import { ChevronLeft, ChevronDown, ChevronUp, Plus, X, Image as ImageIcon, BarChart3, MessageSquare, Pencil, Check } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Plus, X, Image as ImageIcon, BarChart3, MessageSquare, Pencil, Check } from 'lucide-react'
 import { CATEGORY_LIST, SCHEDULE_MODES, WEEKDAY_OPTIONS } from '../../lib/constants'
 import { MISSION_LIBRARY } from '../../lib/missionLibrary'
 
@@ -99,15 +99,16 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
       showSchedule: false,
       showPreview: false,
       editingInstruction: false,
-      // 084 — 입력별 점수/필수 (라이브러리 미션은 단일타입이라 해당 타입에 point 배치)
-      image_point: m.requires_image ? (m.point ?? 10) : 10,
-      numeric_point: m.requires_numeric ? (m.point ?? 10) : 10,
-      note_point: m.requires_note ? (m.point ?? 5) : 5,
-      image_required: true,
-      numeric_required: true,
-      note_required: true,
+      // 084 — 입력별 점수/필수. 라이브러리에 per-input 값 있으면 우선(통합 미션), 없으면 단일 point 배치
+      image_point: m.image_point ?? (m.requires_image ? (m.point ?? 10) : 10),
+      numeric_point: m.numeric_point ?? (m.requires_numeric ? (m.point ?? 10) : 10),
+      note_point: m.note_point ?? (m.requires_note ? (m.point ?? 5) : 5),
+      image_required: m.image_required ?? true,
+      numeric_required: m.numeric_required ?? true,
+      note_required: m.note_required ?? true,
     })))
     setError(null)
+    setMetricsEditIdx(null)
     setStep(2)
   }
 
@@ -115,6 +116,7 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
     setStep(1)
     setBundle(null)
     setDrafts([])
+    setMetricsEditIdx(null)
     setError(null)
   }
 
@@ -125,6 +127,15 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
   const updateDraft = (idx, field, value) => {
     setDrafts(prev => prev.map((m, i) => i === idx ? { ...m, [field]: value } : m))
   }
+
+  // 기록 지표 편집 (별도 전체화면) — draft 의 metrics 배열 조작
+  const [metricsEditIdx, setMetricsEditIdx] = useState(null)
+  const setDraftMetrics = (idx, fn) => setDrafts(prev => prev.map((d, i) => i === idx ? { ...d, metrics: fn(Array.isArray(d.metrics) ? d.metrics : []) } : d))
+  const addDraftMetric = (idx) => setDraftMetrics(idx, ms => [...ms, { key: 'k' + Math.random().toString(36).slice(2, 8), label: '', unit: '', max: '', icon: '' }])
+  const updateDraftMetric = (idx, mi, field, val) => setDraftMetrics(idx, ms => ms.map((x, j) => j === mi ? { ...x, [field]: val } : x))
+  const removeDraftMetric = (idx, mi) => setDraftMetrics(idx, ms => ms.filter((_, j) => j !== mi))
+  const editDraft = metricsEditIdx != null ? drafts[metricsEditIdx] : null
+  const editMetrics = Array.isArray(editDraft?.metrics) ? editDraft.metrics : []
 
   // 입력별 점수 합계 (대표 점수 = 최대치)
   const draftTotal = (m) =>
@@ -229,6 +240,19 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
       image_required: m.requires_image ? (m.image_required !== false) : true,
       numeric_required: m.requires_numeric ? (m.numeric_required !== false) : true,
       note_required: m.requires_note ? (m.note_required !== false) : true,
+      // 122 — 다중 지표 + 개요 통계 표시. 라벨/단위 있는 것만, max 는 숫자로 정규화.
+      metrics: m.requires_numeric && Array.isArray(m.metrics)
+        ? m.metrics
+            .filter(x => (x.label || '').trim() || (x.unit || '').trim())
+            .map(x => ({
+              key: x.key || ('k' + Math.random().toString(36).slice(2, 8)),
+              label: (x.label || '').trim(),
+              unit: (x.unit || '').trim(),
+              max: x.max !== '' && x.max != null ? Number(x.max) : null,
+              icon: (x.icon || '').trim() || null,
+            }))
+        : [],
+      metric_aggregate: m.requires_numeric ? !!m.metric_aggregate : false,
       active_from: `${m.startDate || program.start_date}T00:00:00+09:00`,
       active_until: `${m.endDate || program.end_date}T23:59:59+09:00`,
       schedule_mode: m.schedule_mode,
@@ -363,6 +387,7 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
 
   // ─── 2단계: 미션 조정 ─────────────────────────────────────
   return (
+    <>
     <Modal isOpen={isOpen} onClose={onClose}>
       {program && bundle && (
         <div className="p-6">
@@ -534,6 +559,21 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
                         </div>
                         <p className="mt-1 text-[11px] text-gray-500">최대 <span className="font-bold text-emerald-600">{draftTotal(m)}P</span></p>
                       </div>
+
+                      {/* 기록 지표 — 별도 편집기. 라이브러리에 지표가 정의된 묶음(러닝 등)만 노출 */}
+                      {m.requires_numeric && Array.isArray(m.metrics) && m.metrics.length > 0 && (
+                        <button type="button" onClick={() => setMetricsEditIdx(idx)} disabled={isSaving}
+                          className="w-full flex items-center gap-2 p-2.5 rounded-lg border border-gray-200 bg-white hover:border-emerald-300 transition text-left disabled:opacity-50">
+                          <span className="text-base flex-shrink-0">📊</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[12px] font-medium text-gray-800">기록 지표 {(m.metrics?.length || 0)}개</p>
+                            <p className="text-[10px] text-gray-400 truncate">
+                              {(m.metrics || []).map(x => x.label || '(이름 없음)').join(' · ') || '항목을 추가해보세요'}{m.metric_aggregate ? ' · 통계 표시' : ''}
+                            </p>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
+                        </button>
+                      )}
 
                       {/* 하루 최대 — 라벨 옆 인라인 입력 */}
                       <div className="flex items-center gap-2">
@@ -790,6 +830,66 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
         </div>
       )}
     </Modal>
+
+    {/* 기록 지표 — 별도 전체화면 편집기 */}
+    {metricsEditIdx != null && editDraft && (
+      <div className="fixed inset-0 z-[80] bg-white flex flex-col">
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 flex-shrink-0">
+          <button type="button" onClick={() => setMetricsEditIdx(null)} className="p-1 -ml-1 text-gray-500 hover:text-gray-800" aria-label="뒤로"><ChevronLeft className="w-5 h-5" /></button>
+          <h2 className="text-lg font-bold text-gray-800">📊 기록 지표</h2>
+          <span className="text-sm text-gray-400 truncate">· {editDraft.title}</span>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          <p className="text-xs text-gray-400">입력받을 숫자 항목이에요. 거리·시간·칼로리처럼 여러 개 추가할 수 있어요.</p>
+          {editMetrics.map((m, i) => (
+            <div key={m.key} className="rounded-xl border border-gray-200 p-3 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-gray-400">지표 {i + 1}</span>
+                <button type="button" onClick={() => removeDraftMetric(metricsEditIdx, i)} className="text-gray-300 hover:text-red-500 transition" aria-label="삭제"><X className="w-4 h-4" /></button>
+              </div>
+              <div className="flex gap-2">
+                <div className="w-16 flex-shrink-0">
+                  <label className="block text-[11px] text-gray-400 mb-1">아이콘</label>
+                  <input value={m.icon} onChange={(e) => updateDraftMetric(metricsEditIdx, i, 'icon', e.target.value)} maxLength={2} placeholder="🏃"
+                    className="w-full px-2 py-2 text-center text-base border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <label className="block text-[11px] text-gray-400 mb-1">항목명</label>
+                  <input value={m.label} onChange={(e) => updateDraftMetric(metricsEditIdx, i, 'label', e.target.value)} maxLength={12} placeholder="예: 거리"
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500" />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <div className="flex-1 min-w-0">
+                  <label className="block text-[11px] text-gray-400 mb-1">단위</label>
+                  <input value={m.unit} onChange={(e) => updateDraftMetric(metricsEditIdx, i, 'unit', e.target.value)} maxLength={6} placeholder="km"
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <label className="block text-[11px] text-gray-400 mb-1">1회 한도</label>
+                  <input type="number" min={0} step="any" value={m.max ?? ''} onChange={(e) => updateDraftMetric(metricsEditIdx, i, 'max', e.target.value)} placeholder="제한 없음"
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500" />
+                </div>
+              </div>
+            </div>
+          ))}
+          <button type="button" onClick={() => addDraftMetric(metricsEditIdx)}
+            className="w-full flex items-center justify-center gap-1 py-2.5 rounded-xl border-2 border-dashed border-gray-200 text-emerald-600 font-semibold text-sm hover:border-emerald-300 transition">
+            <Plus className="w-4 h-4" strokeWidth={2.5} /> 지표 추가
+          </button>
+          <label className="flex items-center gap-2 pt-1 cursor-pointer select-none">
+            <input type="checkbox" checked={!!editDraft.metric_aggregate} onChange={(e) => updateDraft(metricsEditIdx, 'metric_aggregate', e.target.checked)} className="w-4 h-4 accent-emerald-600" />
+            <span className="text-sm text-gray-700">개요에 통계 표시</span>
+          </label>
+          <p className="text-[11px] text-gray-400">1회 한도는 부정 입력 대비예요. 초과하면 인증이 거부돼요.</p>
+        </div>
+        <div className="px-4 py-3 border-t border-gray-100 flex-shrink-0">
+          <button type="button" onClick={() => setMetricsEditIdx(null)}
+            className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold transition">완료</button>
+        </div>
+      </div>
+    )}
+    </>
   )
 }
 

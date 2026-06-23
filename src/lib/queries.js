@@ -1455,6 +1455,50 @@ export const fetchPostComments = async (verificationId) => {
 //   todayActiveParticipants: KST 오늘 인증한 unique 참여자 수
 //   bundleStats: [{ bundleTitle, totalCount, missions: [{ mission_id, title, count }] }]
 //                bundleTitle=null = 단독 미션 그룹. totalCount 내림차순.
+// 내 주요 기록 요약 (122/Phase2) — 다중 지표(metric_values) 를 지표별로 합산 + 최근 7일 증감 + 달성 횟수.
+//   승인된 본인 인증만(RLS 로 본인 것 조회 가능). metric_aggregate=true 미션만.
+//   반환: { metrics: [{ key, label, unit, icon, total, recent }], count, recentCount }
+export const fetchMyMetricSummary = async (programId, userId) => {
+  if (!userId) return { metrics: [], count: 0, recentCount: 0 }
+  const { data, error } = await supabase
+    .from('verifications')
+    .select('metric_values, submitted_at, missions!inner(program_id, metric_aggregate, metrics)')
+    .eq('missions.program_id', programId)
+    .eq('missions.metric_aggregate', true)
+    .eq('user_id', userId)
+    .eq('status', 'APPROVED')
+    .not('metric_values', 'is', null)
+  if (error) throw error
+  const rows = data || []
+  const weekAgo = Date.now() - 7 * 86400000
+
+  // 지표 정의(라벨/단위/아이콘) — 미션들의 metrics 에서 key 기준으로 수집
+  const defs = {}
+  for (const r of rows) {
+    for (const d of (r.missions?.metrics || [])) {
+      if (d?.key && !defs[d.key]) defs[d.key] = { key: d.key, label: d.label || d.key, unit: d.unit || '', icon: d.icon || '' }
+    }
+  }
+  const totals = {}, recents = {}
+  let count = 0, recentCount = 0
+  for (const r of rows) {
+    const isRecent = new Date(r.submitted_at).getTime() >= weekAgo
+    count += 1
+    if (isRecent) recentCount += 1
+    for (const [k, v] of Object.entries(r.metric_values || {})) {
+      const n = Number(v) || 0
+      totals[k] = (totals[k] || 0) + n
+      if (isRecent) recents[k] = (recents[k] || 0) + n
+    }
+  }
+  // 정의 순서 유지하기 어려워 — 미션 metrics 첫 등장 순서대로
+  const orderedKeys = Object.keys(defs)
+  const metrics = orderedKeys
+    .filter(k => (totals[k] || 0) > 0)
+    .map(k => ({ ...defs[k], total: totals[k] || 0, recent: recents[k] || 0 }))
+  return { metrics, count, recentCount }
+}
+
 // 누적 지표 합산 (121) — 단위별 '함께(전체) + 내 누적'. 승인된 numeric 만. RPC(SECURITY DEFINER).
 //   반환: [{ unit, total, mine }] (합계 0 인 단위는 제외)
 export const fetchMetricTotals = async (programId) => {

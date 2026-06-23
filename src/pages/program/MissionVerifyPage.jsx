@@ -174,6 +174,7 @@ function MissionVerifyPage() {
   const [cropImageSrc, setCropImageSrc] = useState(null)  // 크롭 모달용 원본 objectURL
   const [isCropOpen, setIsCropOpen] = useState(false)
   const [numericValue, setNumericValue] = useState('')
+  const [metricValues, setMetricValues] = useState({})  // 다중 지표 입력값 {key: value}
   const [noteText, setNoteText] = useState('')
   const [feedVisible, setFeedVisible] = useState(true)  // 디폴트 노출 — feed_enabled 인 프로그램만 의미 있음
   // 인증 피드 공개 정책 (커뮤니티 관리자 ②) ↔ 제출 토글 연결
@@ -246,6 +247,13 @@ function MissionVerifyPage() {
   const needsImage = !!mission?.requires_image
   const needsNumeric = !!mission?.requires_numeric
   const needsNote = !!mission?.requires_note
+  // 다중 지표 (122) — 정의돼 있으면 지표별 입력, 없으면 레거시 단일 numeric
+  const metricList = Array.isArray(mission?.metrics) ? mission.metrics : []
+  const hasMetrics = metricList.length > 0
+  const filledMetric = (m) => { const r = metricValues[m.key]; return r !== '' && r != null && !isNaN(parseFloat(r)) }
+  const anyMetricFilled = hasMetrics && metricList.some(filledMetric)
+  // "기록" 입력 여부 — 다중이면 지표 1개+, 아니면 단일 numeric
+  const numericFilled = hasMetrics ? anyMetricFilled : !!numericValue
   const requireCount = [needsImage, needsNumeric, needsNote].filter(Boolean).length
   const isMulti = requireCount >= 2
 
@@ -263,7 +271,7 @@ function MissionVerifyPage() {
   const notePts = mission?.note_point ?? 0
   // 현재 입력 기준 획득 예정 점수 (선택 입력 작성 시 증가)
   const earnedPoint = perInput
-    ? ((selectedFile ? imgPts : 0) + (numericValue ? numPts : 0) + (noteText.trim() ? notePts : 0))
+    ? ((selectedFile ? imgPts : 0) + (numericFilled ? numPts : 0) + (noteText.trim() ? notePts : 0))
     : (mission?.point ?? 0)
 
   // 카테고리 → 히어로 색
@@ -368,7 +376,16 @@ function MissionVerifyPage() {
       }
 
       // 선택 입력 미작성 시 저장하지 않음 → 채점 합산에서 제외
-      if (needsNumeric && numericValue !== '' && !isNaN(parseFloat(numericValue))) insertData.numeric_value = parseFloat(numericValue)
+      if (needsNumeric && hasMetrics) {
+        const mv = {}
+        for (const m of metricList) {
+          if (!filledMetric(m)) continue
+          mv[m.key] = parseFloat(metricValues[m.key])
+        }
+        if (Object.keys(mv).length > 0) insertData.metric_values = mv
+      } else if (needsNumeric && numericValue !== '' && !isNaN(parseFloat(numericValue))) {
+        insertData.numeric_value = parseFloat(numericValue)
+      }
       if (needsNote && noteText.trim()) insertData.note = noteText.trim()
       // 피드 노출 여부 — 정책(강제 공개/비공개)이면 강제값, 개인 선택이면 토글값
       if (program?.feed_enabled) insertData.feed_visible = effectiveFeedVisible
@@ -402,6 +419,7 @@ function MissionVerifyPage() {
       queryClient.invalidateQueries({ queryKey: ['missions', 'today'] })
       queryClient.invalidateQueries({ queryKey: ['stats'] })
       queryClient.invalidateQueries({ queryKey: ['feed'] })
+      queryClient.invalidateQueries({ queryKey: ['metricSummary'] })
 
       // Day 65 — 마일스톤 토스트 + 연속 인증일 캡처 (완료 화면 표시용).
       let streak = 0
@@ -458,7 +476,10 @@ function MissionVerifyPage() {
         streak,
         timeStr,
         note: (needsNote && noteText.trim()) ? noteText.trim() : null,
-        numeric: (needsNumeric && numericValue !== '') ? numericValue : null,
+        numeric: (needsNumeric && !hasMetrics && numericValue !== '') ? numericValue : null,
+        metrics: (needsNumeric && hasMetrics)
+          ? metricList.filter(filledMetric).map(m => ({ label: m.label || '기록', value: parseFloat(metricValues[m.key]), unit: m.unit || '', icon: m.icon || '' }))
+          : null,
         photoUrl: (needsImage && selectedFile) ? previewUrl : null,
       }
       setSubmitted(donePayload)
@@ -493,7 +514,25 @@ function MissionVerifyPage() {
       setError('사진을 선택해주세요')
       return
     }
-    if (reqNumeric) {
+    if (needsNumeric && hasMetrics) {
+      // 다중 지표 — 입력한 항목은 0 초과 + 1회 한도 이내, 필수면 1개 이상
+      if (reqNumeric && !anyMetricFilled) {
+        setError('기록 항목을 1개 이상 입력해주세요')
+        return
+      }
+      for (const m of metricList) {
+        if (!filledMetric(m)) continue
+        const num = parseFloat(metricValues[m.key])
+        if (isNaN(num) || num <= 0) {
+          setError(`${m.label || '기록'}은(는) 0보다 큰 숫자여야 해요`)
+          return
+        }
+        if (m.max != null && num > Number(m.max)) {
+          setError(`${m.label || '기록'}은(는) 1회 최대 ${m.max}${m.unit || ''} 까지예요`)
+          return
+        }
+      }
+    } else if (reqNumeric) {
       const num = parseFloat(numericValue)
       if (!numericValue || isNaN(num) || num <= 0) {
         setError('0보다 큰 숫자를 입력해주세요')
@@ -503,14 +542,6 @@ function MissionVerifyPage() {
       const num = parseFloat(numericValue)
       if (isNaN(num) || num <= 0) {
         setError('기록은 0보다 큰 숫자여야 해요')
-        return
-      }
-    }
-    // 1회 상한 (121) — 서버 트리거가 백스톱이지만 미리 친절히 안내
-    if (needsNumeric && numericValue && mission?.max_per_entry != null) {
-      const num = parseFloat(numericValue)
-      if (!isNaN(num) && num > Number(mission.max_per_entry)) {
-        setError(`1회 최대 ${mission.max_per_entry}${mission.metric_unit || ''} 까지 입력할 수 있어요`)
         return
       }
     }
@@ -539,7 +570,7 @@ function MissionVerifyPage() {
     if (!todayCheck.active) return false
     if (dailyLimitReached) return false
     if (reqImage && !selectedFile) return false
-    if (reqNumeric && !numericValue) return false
+    if (reqNumeric && !numericFilled) return false
     if (reqNote && !noteText.trim()) return false
     if (requireCount === 0) return false
     return true
@@ -700,7 +731,7 @@ function MissionVerifyPage() {
           </div>
 
           {/* 제출한 기록 요약 */}
-          {(submitted.photoUrl || submitted.note || submitted.numeric) && (
+          {(submitted.photoUrl || submitted.note || submitted.numeric || (submitted.metrics && submitted.metrics.length)) && (
             <div className="bg-white border border-gray-100 rounded-2xl shadow-soft p-4 space-y-3">
               <h3 className="text-[14px] font-bold text-gray-800">제출한 기록 요약</h3>
               {submitted.photoUrl && (
@@ -713,9 +744,14 @@ function MissionVerifyPage() {
               )}
               {submitted.numeric && (
                 <div className="flex items-center gap-1.5 text-sm text-gray-600">
-                  <Flag className="w-4 h-4 text-emerald-500" /> 기록 {submitted.numeric}{mission.numeric_unit ? ` ${mission.numeric_unit}` : ''}
+                  <Flag className="w-4 h-4 text-emerald-500" /> 기록 {submitted.numeric}
                 </div>
               )}
+              {submitted.metrics && submitted.metrics.map((m, i) => (
+                <div key={i} className="flex items-center gap-1.5 text-sm text-gray-600">
+                  <Flag className="w-4 h-4 text-emerald-500" /> {m.icon && <span>{m.icon}</span>}{m.label} {m.value}{m.unit}
+                </div>
+              ))}
               {submitted.note && (
                 <div className="flex items-start gap-2 text-sm text-gray-600">
                   <MessageSquare className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
@@ -980,25 +1016,46 @@ function MissionVerifyPage() {
               {perInput && <span className="ml-1 text-xs font-normal text-emerald-600">· {numPts}P</span>}
               {optNumeric && <span className="ml-1 text-xs font-normal text-amber-600">(선택)</span>}
             </label>
-            <div className="relative">
-              <input
-                type="number"
-                value={numericValue}
-                onChange={(e) => setNumericValue(e.target.value)}
-                placeholder={mission?.metric_unit ? `예: 5.2` : '예: 8000 (걸음) 또는 5.2 (km)'}
-                step="0.01"
-                min="0"
-                disabled={isSubmitting}
-                className={`w-full px-4 py-3 ${mission?.metric_unit ? 'pr-12' : ''} border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-400 disabled:bg-gray-50 text-base`}
-              />
-              {mission?.metric_unit && (
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-400">{mission.metric_unit}</span>
-              )}
-            </div>
-            <p className="text-xs text-gray-500 mt-1">
-              숫자로 본인의 활동 결과를 입력해요
-              {mission?.max_per_entry != null && <span className="text-gray-400"> · 1회 최대 {mission.max_per_entry}{mission.metric_unit || ''}</span>}
-            </p>
+            {hasMetrics ? (
+              <>
+                <div className="space-y-2.5">
+                  {metricList.map(m => (
+                    <div key={m.key}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm text-gray-700">{m.icon && <span className="mr-1">{m.icon}</span>}{m.label || '기록'}</span>
+                        {m.max != null && <span className="text-[11px] text-gray-400">최대 {m.max}{m.unit || ''}</span>}
+                      </div>
+                      <div className="relative">
+                        <input
+                          type="number" step="0.01" min="0"
+                          value={metricValues[m.key] ?? ''}
+                          onChange={(e) => setMetricValues(v => ({ ...v, [m.key]: e.target.value }))}
+                          placeholder="예: 5.2"
+                          disabled={isSubmitting}
+                          className={`w-full px-4 py-3 ${m.unit ? 'pr-12' : ''} border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-400 disabled:bg-gray-50 text-base`}
+                        />
+                        {m.unit && <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-400">{m.unit}</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-500 mt-1.5">가진 항목만 입력해도 돼요</p>
+              </>
+            ) : (
+              <>
+                <input
+                  type="number"
+                  value={numericValue}
+                  onChange={(e) => setNumericValue(e.target.value)}
+                  placeholder="예: 8000 (걸음) 또는 5.2 (km)"
+                  step="0.01"
+                  min="0"
+                  disabled={isSubmitting}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-400 disabled:bg-gray-50 text-base"
+                />
+                <p className="text-xs text-gray-500 mt-1">숫자로 본인의 활동 결과를 입력해요</p>
+              </>
+            )}
           </div>
         )}
 

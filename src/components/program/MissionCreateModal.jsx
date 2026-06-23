@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, Fragment } from 'react'
 import { supabase } from '../../supabaseClient'
-import { Image as ImageIcon, BarChart3, MessageSquare, ChevronDown, ChevronUp, ChevronLeft, Plus, X, Check } from 'lucide-react'
+import { Image as ImageIcon, BarChart3, MessageSquare, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Plus, X, Check } from 'lucide-react'
 import MissionIconPicker from './MissionIconPicker'
 import { SCHEDULE_MODES, WEEKDAY_OPTIONS } from '../../lib/constants'
 import { toKSTDateString } from '../../lib/formatters'
@@ -30,10 +30,14 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
   const [imageRequired, setImageRequired] = useState(true)
   const [numericRequired, setNumericRequired] = useState(true)
   const [noteRequired, setNoteRequired] = useState(true)
-  // 누적 지표 (121) — 숫자 입력값을 단위와 함께 누적·합산해서 보여줄지 + 1회 상한(부정 대비)
-  const [metricUnit, setMetricUnit] = useState('')
+  // 다중 지표 (122) — 거리·시간·칼로리처럼 여러 숫자 항목. metricAggregate = 개요 통계 표시.
+  const [metrics, setMetrics] = useState([])  // [{ key, label, unit, max, icon }]
   const [metricAggregate, setMetricAggregate] = useState(false)
-  const [maxPerEntry, setMaxPerEntry] = useState('')
+  const [metricsEditOpen, setMetricsEditOpen] = useState(false)  // 별도 전체화면 지표 편집기
+  const newKey = () => 'k' + Math.random().toString(36).slice(2, 8)
+  const addMetric = () => setMetrics(m => [...m, { key: newKey(), label: '', unit: '', max: '', icon: '' }])
+  const updateMetric = (i, field, val) => setMetrics(m => m.map((x, idx) => idx === i ? { ...x, [field]: val } : x))
+  const removeMetric = (i) => setMetrics(m => m.filter((_, idx) => idx !== i))
 
   // 일정 옵션 (032 마이그레이션 — 미션 단위 schedule_mode/active_days/excluded_periods)
   //   대부분 미션은 매일+제외없음이라 디폴트 접힘 (UI 단순화)
@@ -75,9 +79,9 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
       setImageRequired(true)
       setNumericRequired(true)
       setNoteRequired(true)
-      setMetricUnit('')
+      setMetrics([])
       setMetricAggregate(false)
-      setMaxPerEntry('')
+      setMetricsEditOpen(false)
       setShowSchedule(false)
       setScheduleMode('ALL_DAYS')
       setActiveDays([])
@@ -110,9 +114,12 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
       setImageRequired(editMission.image_required ?? true)
       setNumericRequired(editMission.numeric_required ?? true)
       setNoteRequired(editMission.note_required ?? true)
-      setMetricUnit(editMission.metric_unit ?? '')
+      // 다중 지표 — metrics 있으면 그대로, 없으면 레거시 단일(metric_unit) 변환
+      const _src = Array.isArray(editMission.metrics) && editMission.metrics.length
+        ? editMission.metrics
+        : (editMission.metric_unit ? [{ key: 'value', label: '기록', unit: editMission.metric_unit, max: editMission.max_per_entry, icon: '' }] : [])
+      setMetrics(_src.map(m => ({ key: m.key || newKey(), label: m.label || '', unit: m.unit || '', max: m.max ?? '', icon: m.icon || '' })))
       setMetricAggregate(!!editMission.metric_aggregate)
-      setMaxPerEntry(editMission.max_per_entry ?? '')
       const hasSchedule =
         (editMission.schedule_mode && editMission.schedule_mode !== 'ALL_DAYS') ||
         (editMission.excluded_periods && editMission.excluded_periods.length > 0)
@@ -214,10 +221,21 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
       image_required: requiresImage ? imageRequired : true,
       numeric_required: requiresNumeric ? numericRequired : true,
       note_required: requiresNote ? noteRequired : true,
-      // 누적 지표 (121) — 숫자 입력 미션만 의미. 아니면 비활성 값으로 저장.
-      metric_unit: requiresNumeric ? (metricUnit.trim() || null) : null,
+      // 다중 지표 (122) — 숫자 입력 미션만. 라벨·단위 있는 것만 저장.
+      metrics: requiresNumeric
+        ? metrics
+            .filter(m => (m.label || '').trim() || (m.unit || '').trim())
+            .map(m => ({
+              key: m.key || newKey(),
+              label: (m.label || '').trim(),
+              unit: (m.unit || '').trim(),
+              max: m.max !== '' && m.max != null ? Number(m.max) : null,
+              icon: (m.icon || '').trim() || null,
+            }))
+        : [],
       metric_aggregate: requiresNumeric ? metricAggregate : false,
-      max_per_entry: requiresNumeric && maxPerEntry !== '' ? (parseFloat(maxPerEntry) || null) : null,
+      metric_unit: null,   // 레거시 — 다중 지표로 대체
+      max_per_entry: null, // 레거시 — 지표별 max 로 대체
       // 일정 옵션 — 033 점수 트리거가 KST 기준으로 검사
       schedule_mode: scheduleMode,
       active_days: scheduleMode === 'CUSTOM' ? activeDays : [],
@@ -470,39 +488,19 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
             </div>
           )}
 
-          {/* 누적 기록 (121) — 숫자 입력 미션만 */}
-          {requiresNumeric && (
-            <div className="mb-4 rounded-xl border border-gray-200 p-3 bg-gray-50/60">
-              <label className="block text-sm font-medium text-gray-700 mb-0.5">📊 누적 기록 <span className="text-xs text-gray-400 font-normal">(선택)</span></label>
-              <p className="text-xs text-gray-400 mb-2">입력값을 단위와 함께 모아 「함께 OO · 내 누적 OO」로 보여줄 수 있어요.</p>
-              <input
-                value={metricUnit}
-                onChange={(e) => setMetricUnit(e.target.value)}
-                disabled={isSaving}
-                maxLength={6}
-                placeholder="단위 (예: km, 회, 분)"
-                className="w-full px-2.5 py-1.5 mb-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 disabled:bg-gray-50"
-              />
-              <label className="flex items-center gap-2 mb-2 cursor-pointer select-none">
-                <input type="checkbox" checked={metricAggregate} onChange={(e) => setMetricAggregate(e.target.checked)} disabled={isSaving} className="w-4 h-4 accent-emerald-600" />
-                <span className="text-sm text-gray-700">개요에 누적 합계 표시</span>
-              </label>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-600 flex-shrink-0">1회 최대</span>
-                <div className="relative flex-1 min-w-0">
-                  <input
-                    type="number" min={0} step="any"
-                    value={maxPerEntry}
-                    onChange={(e) => setMaxPerEntry(e.target.value)}
-                    disabled={isSaving}
-                    placeholder="제한 없음"
-                    className="w-full pl-2.5 pr-10 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 disabled:bg-gray-50"
-                  />
-                  {metricUnit.trim() && <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">{metricUnit.trim()}</span>}
-                </div>
+          {/* 기록 지표 (122) — 라이브러리(러닝 등)에서 온 미션만 편집 가능. 직접 만들기에선 추가 불가. */}
+          {requiresNumeric && metrics.length > 0 && (
+            <button type="button" onClick={() => setMetricsEditOpen(true)} disabled={isSaving}
+              className="w-full flex items-center gap-2.5 mb-4 p-3 rounded-xl border border-gray-200 bg-gray-50/60 hover:border-emerald-300 transition text-left disabled:opacity-50">
+              <span className="text-lg flex-shrink-0">📊</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-800">기록 지표 {metrics.length}개</p>
+                <p className="text-[11px] text-gray-400 truncate">
+                  {metrics.map(m => m.label || '(이름 없음)').join(' · ')}{metricAggregate ? ' · 개요 통계 표시' : ''}
+                </p>
               </div>
-              <p className="mt-1.5 text-[11px] text-gray-400">1회 상한은 부정 입력 대비예요. 초과하면 인증이 거부돼요.</p>
-            </div>
+              <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
+            </button>
           )}
           </>)}
 
@@ -789,6 +787,64 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
             )}
           </div>
       </div>
+
+      {/* 기록 지표 — 별도 전체화면 편집기 (모달 위 오버레이) */}
+      {metricsEditOpen && (
+        <div className="fixed inset-0 z-[80] bg-white flex flex-col" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 flex-shrink-0">
+            <button type="button" onClick={() => setMetricsEditOpen(false)} className="p-1 -ml-1 text-gray-500 hover:text-gray-800" aria-label="뒤로"><ChevronLeft className="w-5 h-5" /></button>
+            <h2 className="text-lg font-bold text-gray-800">📊 기록 지표</h2>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            <p className="text-xs text-gray-400">입력받을 숫자 항목이에요. 거리·시간·칼로리처럼 여러 개 추가할 수 있어요.</p>
+            {metrics.map((m, i) => (
+              <div key={m.key} className="rounded-xl border border-gray-200 p-3 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-gray-400">지표 {i + 1}</span>
+                  <button type="button" onClick={() => removeMetric(i)} className="text-gray-300 hover:text-red-500 transition" aria-label="삭제"><X className="w-4 h-4" /></button>
+                </div>
+                <div className="flex gap-2">
+                  <div className="w-16 flex-shrink-0">
+                    <label className="block text-[11px] text-gray-400 mb-1">아이콘</label>
+                    <input value={m.icon} onChange={(e) => updateMetric(i, 'icon', e.target.value)} maxLength={2} placeholder="🏃"
+                      className="w-full px-2 py-2 text-center text-base border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <label className="block text-[11px] text-gray-400 mb-1">항목명</label>
+                    <input value={m.label} onChange={(e) => updateMetric(i, 'label', e.target.value)} maxLength={12} placeholder="예: 거리"
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500" />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <div className="flex-1 min-w-0">
+                    <label className="block text-[11px] text-gray-400 mb-1">단위</label>
+                    <input value={m.unit} onChange={(e) => updateMetric(i, 'unit', e.target.value)} maxLength={6} placeholder="km"
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <label className="block text-[11px] text-gray-400 mb-1">1회 한도</label>
+                    <input type="number" min={0} step="any" value={m.max} onChange={(e) => updateMetric(i, 'max', e.target.value)} placeholder="제한 없음"
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500" />
+                  </div>
+                </div>
+              </div>
+            ))}
+            <button type="button" onClick={addMetric}
+              className="w-full flex items-center justify-center gap-1 py-2.5 rounded-xl border-2 border-dashed border-gray-200 text-emerald-600 font-semibold text-sm hover:border-emerald-300 transition">
+              <Plus className="w-4 h-4" strokeWidth={2.5} /> 지표 추가
+            </button>
+            <label className="flex items-center gap-2 pt-1 cursor-pointer select-none">
+              <input type="checkbox" checked={metricAggregate} onChange={(e) => setMetricAggregate(e.target.checked)} className="w-4 h-4 accent-emerald-600" />
+              <span className="text-sm text-gray-700">개요에 통계 표시</span>
+            </label>
+            <p className="text-[11px] text-gray-400">1회 한도는 부정 입력 대비예요. 초과하면 인증이 거부돼요.</p>
+          </div>
+          <div className="px-4 py-3 border-t border-gray-100 flex-shrink-0">
+            <button type="button" onClick={() => setMetricsEditOpen(false)}
+              className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold transition">완료</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

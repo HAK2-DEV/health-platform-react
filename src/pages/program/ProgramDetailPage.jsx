@@ -78,7 +78,7 @@ import {
   fetchPendingReviews,
   fetchProgramOverview,
   fetchUnresolvedReportCount,
-  fetchMetricTotals,
+  fetchMyMetricSummary,
 } from '../../lib/queries'
 
 // 기간 필터 옵션 (period_filter_enabled 옵션 시) — period → ISO 시작점
@@ -448,11 +448,11 @@ function ProgramDetailPage() {
     queryFn: () => fetchUnresolvedReportCount(id),
     enabled: !!session && !!id && !!program && isOwner && program?.community_enabled !== false,
   })
-  // 누적 지표 (121) — 단위별 함께/내 누적 (개요 카드)
-  const { data: metricTotals = [] } = useQuery({
-    queryKey: ['metricTotals', id],
-    queryFn: () => fetchMetricTotals(id),
-    enabled: !!session && !!id && !!program,
+  // 내 주요 기록 요약 (Phase2) — 다중 지표 합산 + 최근 7일 증감 + 달성 횟수 (개요 카드)
+  const { data: metricSummary } = useQuery({
+    queryKey: ['metricSummary', id, userId],
+    queryFn: () => fetchMyMetricSummary(id, userId),
+    enabled: !!session && !!id && !!program && !!userId,
   })
   const [vreviewOpen, setVreviewOpen] = useState(false)
   useEffect(() => {
@@ -1182,24 +1182,25 @@ function ProgramDetailPage() {
       {/* ─── 개요 탭 (일반 콘텐츠) ─────────────────────────── */}
       {activeTab === 'overview' && (!overviewManageOpen || overviewPreview) && (<>
 
-      {/* 누적 지표 카드 (121) — 단위별 함께/내 누적. 승인된 기록 합산 */}
-      {metricTotals.length > 0 && (() => {
-        const fmt = (n) => Number(n || 0).toLocaleString('ko-KR', { maximumFractionDigits: 2 })
+      {/* 주요 기록 요약 카드 (Phase2) — 다중 지표 + 달성 횟수, 최근 7일 증감 */}
+      {metricSummary && (metricSummary.metrics.length > 0 || metricSummary.count > 0) && (() => {
+        const fmt = (n) => Number(n || 0).toLocaleString('ko-KR', { maximumFractionDigits: 1 })
+        const cells = [
+          ...metricSummary.metrics.map(m => ({ icon: m.icon || '📊', label: `총 ${m.label}`, value: fmt(m.total), unit: m.unit, recent: m.recent, runit: m.unit })),
+          { icon: '🏃', label: '총 달성 횟수', value: fmt(metricSummary.count), unit: '회', recent: metricSummary.recentCount, runit: '회' },
+        ]
         return (
-          <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 rounded-2xl p-4 mb-[9px]">
-            <h3 className="text-sm font-semibold text-emerald-700 mb-2.5">📊 함께 쌓은 기록</h3>
-            <div className="space-y-3">
-              {metricTotals.map(m => (
-                <div key={m.unit} className="flex items-center gap-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[11px] text-emerald-600/80 mb-0.5">함께</p>
-                    <p className="text-xl font-bold text-emerald-700 leading-none truncate">{fmt(m.total)}<span className="text-sm font-medium ml-0.5">{m.unit}</span></p>
-                  </div>
-                  <div className="w-px h-8 bg-emerald-200 flex-shrink-0" />
-                  <div className="flex-1 min-w-0 text-right">
-                    <p className="text-[11px] text-gray-500 mb-0.5">내 누적</p>
-                    <p className="text-xl font-bold text-gray-800 leading-none truncate">{fmt(m.mine)}<span className="text-sm font-medium ml-0.5 text-gray-500">{m.unit}</span></p>
-                  </div>
+          <div className="bg-white border border-gray-200 rounded-2xl p-4 mb-[9px]">
+            <h3 className="text-sm font-bold text-gray-800 mb-3">주요 기록 요약</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-y-3">
+              {cells.map((c, i) => (
+                <div key={i} className={`flex flex-col items-center text-center px-1 ${i % (cells.length >= 4 ? 4 : 2) !== 0 ? 'sm:border-l border-gray-100' : ''}`}>
+                  <span className="text-2xl mb-1">{c.icon}</span>
+                  <span className="text-[11px] text-gray-500 mb-0.5">{c.label}</span>
+                  <span className="text-lg font-bold text-gray-800 leading-tight">{c.value}<span className="text-[11px] font-medium text-gray-400 ml-0.5">{c.unit}</span></span>
+                  {c.recent > 0 && (
+                    <span className="mt-0.5 text-[11px] font-semibold text-emerald-500">↑ {fmt(c.recent)}{c.runit}</span>
+                  )}
                 </div>
               ))}
             </div>
