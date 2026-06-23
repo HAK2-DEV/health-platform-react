@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Heart, MessageCircle, Trash2, Send } from 'lucide-react'
+import { Heart, MessageCircle, Trash2, Send, CornerDownRight } from 'lucide-react'
 import {
   fetchCommunityPostSocial, toggleCommunityPostLike,
   addCommunityPostComment, deleteCommunityPostComment, queryKeys,
@@ -8,11 +8,14 @@ import {
 import { formatRelativeKstDay } from '../../lib/formatters'
 import UserAvatar from '../common/UserAvatar'
 
-// 커뮤니티 글 좋아요/댓글 (105) — 상세(글 펼치기) 하단에 표시.
-//   canReact: 좋아요 가능(반응 허용 + 참여자/운영자). canComment: 댓글 입력 가능(+ commentPerm).
+// 커뮤니티 글 좋아요/댓글 (105) + 1단계 답글(118) — 상세(글 펼치기) 하단에 표시.
+//   canReact: 좋아요 가능. canComment: 댓글/답글 입력 가능.
 function CommunityPostSocial({ postId, programId, myUserId, isOwner, canReact, canComment }) {
   const qc = useQueryClient()
   const [text, setText] = useState('')
+  const [replyTo, setReplyTo] = useState(null)        // { id(최상위 댓글), nickname }
+  const [expanded, setExpanded] = useState(() => new Set())  // 답글 펼친 댓글 id
+  const inputRef = useRef(null)
 
   const { data, isLoading } = useQuery({
     queryKey: queryKeys.communityPostSocial(postId),
@@ -22,6 +25,13 @@ function CommunityPostSocial({ postId, programId, myUserId, isOwner, canReact, c
   const likeCount = data?.likeCount || 0
   const likedByMe = data?.likedByMe || false
   const comments = data?.comments || []
+
+  const topLevel = useMemo(() => comments.filter(c => !c.parent_id), [comments])
+  const repliesByParent = useMemo(() => {
+    const m = {}
+    for (const c of comments) if (c.parent_id) (m[c.parent_id] ||= []).push(c)
+    return m
+  }, [comments])
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: queryKeys.communityPostSocial(postId) })
@@ -33,8 +43,11 @@ function CommunityPostSocial({ postId, programId, myUserId, isOwner, canReact, c
     onError: (e) => alert(`좋아요 처리 실패: ${e.message}`),
   })
   const addMut = useMutation({
-    mutationFn: () => addCommunityPostComment({ postId, content: text.trim() }),
-    onSuccess: () => { setText(''); invalidate() },
+    mutationFn: () => addCommunityPostComment({ postId, content: text.trim(), parentId: replyTo?.id || null }),
+    onSuccess: () => {
+      if (replyTo?.id) setExpanded(prev => new Set(prev).add(replyTo.id))
+      setText(''); setReplyTo(null); invalidate()
+    },
     onError: (e) => alert(`댓글 등록 실패: ${e.message}`),
   })
   const delMut = useMutation({
@@ -44,6 +57,47 @@ function CommunityPostSocial({ postId, programId, myUserId, isOwner, canReact, c
   })
 
   const submit = () => { if (text.trim() && !addMut.isPending) addMut.mutate() }
+
+  // topId: 답글이 귀속될 최상위 댓글 id. mention: 답글 입력에 미리 채울 @닉네임(답글에 답글 시)
+  const startReply = (topId, nickname, mention) => {
+    setReplyTo({ id: topId, nickname })
+    if (mention) setText(prev => (prev.startsWith(`@${mention} `) ? prev : `@${mention} `))
+    setTimeout(() => inputRef.current?.focus(), 0)
+  }
+  const cancelReply = () => {
+    setReplyTo(null)
+    if (text.startsWith('@')) setText('')
+  }
+  const toggleExpand = (id) => setExpanded(prev => {
+    const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n
+  })
+
+  // 댓글/답글 한 줄 — topId 는 답글이 귀속될 최상위 댓글 id
+  //   (컴포넌트가 아닌 렌더 함수 — 입력 타이핑 리렌더 때 댓글 행 리마운트 방지)
+  const renderComment = (c, isReply, topId) => {
+    const canDel = c.user_id === myUserId || isOwner
+    return (
+      <div key={c.id} className="flex items-start gap-2">
+        <UserAvatar avatarPath={c.user?.avatar_path} nickname={c.user?.nickname} size="sm" />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[12px] font-bold text-gray-800 truncate">{c.user?.nickname || '익명'}</span>
+            <span className="text-[10px] text-gray-400 flex-shrink-0">{formatRelativeKstDay(c.created_at)}</span>
+            {canDel && (
+              <button type="button" onClick={() => delMut.mutate(c.id)} disabled={delMut.isPending}
+                className="ml-auto p-0.5 text-gray-300 hover:text-red-500 transition disabled:opacity-50" title="삭제"><Trash2 className="w-3.5 h-3.5" /></button>
+            )}
+          </div>
+          <p className="text-[13px] text-gray-700 whitespace-pre-wrap break-words leading-snug">{c.content}</p>
+          {canComment && (
+            <button type="button"
+              onClick={() => startReply(topId, c.user?.nickname, isReply ? c.user?.nickname : null)}
+              className="mt-0.5 text-[11px] font-semibold text-gray-400 hover:text-emerald-600 transition">답글</button>
+          )}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="mt-4 pt-3 border-t border-gray-100">
@@ -59,50 +113,60 @@ function CommunityPostSocial({ postId, programId, myUserId, isOwner, canReact, c
         </span>
       </div>
 
-      {/* 댓글 목록 */}
+      {/* 댓글 목록 (최상위 + 답글) */}
       {isLoading ? (
         <p className="text-xs text-gray-400 py-2">불러오는 중...</p>
-      ) : comments.length === 0 ? (
+      ) : topLevel.length === 0 ? (
         <p className="text-xs text-gray-400 py-2">아직 댓글이 없어요{canComment ? ' · 첫 댓글을 남겨보세요' : ''}</p>
       ) : (
         <div className="space-y-3">
-          {comments.map(c => {
-            const canDel = c.user_id === myUserId || isOwner
+          {topLevel.map(c => {
+            const replies = repliesByParent[c.id] || []
+            const isOpen = expanded.has(c.id)
             return (
-              <div key={c.id} className="flex items-start gap-2">
-                <UserAvatar avatarPath={c.user?.avatar_path} nickname={c.user?.nickname} size="sm" />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[12px] font-bold text-gray-800 truncate">{c.user?.nickname || '익명'}</span>
-                    <span className="text-[10px] text-gray-400 flex-shrink-0">{formatRelativeKstDay(c.created_at)}</span>
-                    {canDel && (
-                      <button type="button" onClick={() => delMut.mutate(c.id)} disabled={delMut.isPending}
-                        className="ml-auto p-0.5 text-gray-300 hover:text-red-500 transition disabled:opacity-50" title="댓글 삭제"><Trash2 className="w-3.5 h-3.5" /></button>
-                    )}
+              <div key={c.id}>
+                {renderComment(c, false, c.id)}
+                {replies.length > 0 && (
+                  <button type="button" onClick={() => toggleExpand(c.id)}
+                    className="ml-9 mt-1 flex items-center gap-1 text-[11px] font-semibold text-gray-500 hover:text-gray-700 transition">
+                    <CornerDownRight className="w-3 h-3" /> 답글 {replies.length}개 {isOpen ? '숨기기' : '보기'}
+                  </button>
+                )}
+                {isOpen && replies.length > 0 && (
+                  <div className="ml-9 mt-2 space-y-2.5 border-l-2 border-gray-100 pl-3">
+                    {replies.map(r => renderComment(r, true, c.id))}
                   </div>
-                  <p className="text-[13px] text-gray-700 whitespace-pre-wrap break-words leading-snug">{c.content}</p>
-                </div>
+                )}
               </div>
             )
           })}
         </div>
       )}
 
-      {/* 댓글 입력 */}
+      {/* 댓글/답글 입력 */}
       {canComment && (
-        <div className="flex items-center gap-2 mt-3">
-          <input
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit() } }}
-            maxLength={500}
-            placeholder="댓글 달기..."
-            className="flex-1 min-w-0 h-10 px-3.5 rounded-full border border-gray-200 text-sm outline-none focus:border-emerald-400"
-          />
-          <button type="button" onClick={submit} disabled={!text.trim() || addMut.isPending}
-            className="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center hover:bg-emerald-600 transition disabled:opacity-40 flex-shrink-0" title="등록">
-            <Send className="w-4 h-4" />
-          </button>
+        <div className="mt-3">
+          {replyTo && (
+            <div className="flex items-center gap-1.5 mb-1.5 px-1 text-[11px] text-emerald-600">
+              <CornerDownRight className="w-3 h-3" /> <b className="font-semibold">{replyTo.nickname}</b>님에게 답글
+              <button type="button" onClick={cancelReply} className="ml-1 text-gray-400 hover:text-gray-600">취소</button>
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <input
+              ref={inputRef}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit() } }}
+              maxLength={500}
+              placeholder={replyTo ? '답글 달기...' : '댓글 달기...'}
+              className="flex-1 min-w-0 h-10 px-3.5 rounded-full border border-gray-200 text-sm outline-none focus:border-emerald-400"
+            />
+            <button type="button" onClick={submit} disabled={!text.trim() || addMut.isPending}
+              className="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center hover:bg-emerald-600 transition disabled:opacity-40 flex-shrink-0" title="등록">
+              <Send className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       )}
     </div>

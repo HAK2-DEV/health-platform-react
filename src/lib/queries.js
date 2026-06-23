@@ -793,7 +793,7 @@ export const setCommunityPostPin = async ({ id, pinned, programId, boardId }) =>
 export const fetchCommunityPostSocial = async (postId, myUserId) => {
   const [likesRes, commentsRes] = await Promise.all([
     supabase.from('community_post_likes').select('user_id').eq('post_id', postId),
-    supabase.from('community_post_comments').select('id, post_id, user_id, content, created_at').eq('post_id', postId).order('created_at', { ascending: true }),
+    supabase.from('community_post_comments').select('id, post_id, user_id, content, created_at, parent_id').eq('post_id', postId).order('created_at', { ascending: true }),
   ])
   if (likesRes.error) throw likesRes.error
   if (commentsRes.error) throw commentsRes.error
@@ -822,11 +822,11 @@ export const toggleCommunityPostLike = async ({ postId, liked, userId }) => {
   }
 }
 
-export const addCommunityPostComment = async ({ postId, content }) => {
+export const addCommunityPostComment = async ({ postId, content, parentId = null }) => {
   const { data: { session } } = await supabase.auth.getSession()
   const uid = session?.user?.id
   const { data, error } = await supabase.from('community_post_comments')
-    .insert({ post_id: postId, user_id: uid, content })
+    .insert({ post_id: postId, user_id: uid, content, parent_id: parentId })
     .select().single()
   if (error) throw error
   return data
