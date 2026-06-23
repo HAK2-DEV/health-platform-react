@@ -117,6 +117,7 @@ function OperatorVerificationActions({ verification, programId, feedEnabled = tr
               onChange={(e) => setReason(e.target.value)}
               rows={3}
               autoFocus
+              maxLength={100}
               placeholder="예: 미션과 무관한 사진이에요."
               className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-[10px] focus:outline-none focus:border-red-400 resize-none text-sm break-words"
               style={{ marginBottom: '14px' }}

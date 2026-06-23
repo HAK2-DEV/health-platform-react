@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useState, useEffect, useMemo } from 'react'
 import { Image as ImageIcon, BarChart3, MessageSquare } from 'lucide-react'
@@ -11,10 +11,24 @@ import LoadingState from '../../components/common/LoadingState'
 import EmptyState from '../../components/common/EmptyState'
 import OperatorVerificationActions from '../../components/program/OperatorVerificationActions'
 
+// 인증 상태 배지
+const STATUS_BADGE = {
+  APPROVED:       { label: '승인됨',    cls: 'bg-emerald-50 text-emerald-600' },
+  REJECTED:       { label: '거절됨',    cls: 'bg-red-50 text-red-500' },
+  PENDING_REVIEW: { label: '심사 대기', cls: 'bg-amber-50 text-amber-600' },
+}
+
 // 개별 미션의 날짜별 인증 카드들
 // 라우트: /programs/:id/stats/users/:userId/verifications/:bundleParam/:missionId
 function ProgramStatsUserVerificationsMissionPage() {
   const { id, userId: targetUserId, bundleParam, missionId } = useParams()
+  const [searchParams] = useSearchParams()
+  const scoredOnly = searchParams.get('scored') === '1' // 점수 요인에서 진입 — 승인된 인증만 표시
+  // 진입 경로에 맞는 뒤로가기 대상 (점수 요인 → 점수 요인, 그 외 → 미션 목록)
+  const backPath = scoredOnly
+    ? `/programs/${id}/stats/users/${targetUserId}/points`
+    : `/programs/${id}/stats/users/${targetUserId}/verifications/${bundleParam}`
+  const backTitle = scoredOnly ? '점수 요인' : '미션 목록'
   const { session } = useAuth()
   const navigate = useNavigate()
   const myUserId = session?.user?.id
@@ -33,15 +47,17 @@ function ProgramStatsUserVerificationsMissionPage() {
     enabled: !!session && !!id && isOwner,
   })
 
+  // ⚠️ 고유 키 사용 — 다른 통계 페이지들은 같은 prefix 로 'APPROVED'만(status 필드 없이) 캐시한다.
+  // 키를 공유하면 그 캐시가 재사용돼 거절/대기건이 전부 '승인됨'으로 보이는 버그가 난다.
   const { data: userVerifications = [] } = useQuery({
-    queryKey: ['stats', 'userVerifications', id, targetUserId],
+    queryKey: ['stats', 'userVerificationsFull', id, targetUserId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('verifications')
-        .select('id, mission_id, submitted_at, image_path, numeric_value, note, feed_visible, missions!inner(program_id, title, bundle_title)')
+        .select('id, mission_id, submitted_at, image_path, numeric_value, note, feed_visible, status, rejection_reason, missions!inner(program_id, title, bundle_title)')
         .eq('missions.program_id', id)
         .eq('user_id', targetUserId)
-        .eq('status', 'APPROVED')
+        .in('status', ['APPROVED', 'REJECTED', 'PENDING_REVIEW'])
         .order('submitted_at', { ascending: false })
       if (error) throw error
       return data || []
@@ -53,8 +69,10 @@ function ProgramStatsUserVerificationsMissionPage() {
 
   // 이 미션의 인증만 + 날짜별 그루핑 (KST)
   const missionVerifications = useMemo(
-    () => userVerifications.filter(v => v.mission_id === missionId),
-    [userVerifications, missionId]
+    () => userVerifications.filter(v =>
+      v.mission_id === missionId && (!scoredOnly || v.status === 'APPROVED')
+    ),
+    [userVerifications, missionId, scoredOnly]
   )
 
   const missionTitle = missionVerifications[0]?.missions?.title || '(삭제된 미션)'
@@ -104,7 +122,7 @@ function ProgramStatsUserVerificationsMissionPage() {
   if (!isOwner) {
     return (
       <div className="px-4 pt-4 pb-6 max-w-4xl mx-auto">
-        <StickyBackBar fallbackPath={`/programs/${id}/stats/users/${targetUserId}/verifications/${bundleParam}`} title="미션 목록" />
+        <StickyBackBar fallbackPath={backPath} title={backTitle} />
         <p className="p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded text-center">
           운영자만 통계를 볼 수 있어요
         </p>
@@ -114,7 +132,7 @@ function ProgramStatsUserVerificationsMissionPage() {
 
   return (
     <div className="px-4 pt-2 pb-6 max-w-4xl mx-auto">
-      <StickyBackBar fallbackPath={`/programs/${id}/stats/users/${targetUserId}/verifications/${bundleParam}`} title="미션 목록" />
+      <StickyBackBar fallbackPath={backPath} title={backTitle} />
 
       <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
         <p className="text-xs text-gray-500 mb-1">{program.name} · {userInfo?.nickname || '(유저)'}</p>
@@ -151,15 +169,24 @@ function ProgramStatsUserVerificationsMissionPage() {
                   const hasImage = !!v.image_path
                   const hasNumeric = v.numeric_value !== null && v.numeric_value !== undefined
                   const hasNote = !!v.note && v.note.trim().length > 0
+                  const badge = STATUS_BADGE[v.status] || STATUS_BADGE.APPROVED
                   return (
                     <div key={v.id} className="bg-white border border-gray-200 rounded-2xl p-4">
-                      <p className="text-[11px] text-gray-500 mb-2">
-                        {new Date(v.submitted_at).toLocaleTimeString('ko-KR', {
-                          timeZone: 'Asia/Seoul',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </p>
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <p className="text-[11px] text-gray-500">
+                          {new Date(v.submitted_at).toLocaleTimeString('ko-KR', {
+                            timeZone: 'Asia/Seoul',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </p>
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          {v.feed_visible === false && (
+                            <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-gray-100 text-gray-500">피드 숨김</span>
+                          )}
+                          <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${badge.cls}`}>{badge.label}</span>
+                        </div>
+                      </div>
 
                       {hasImage && (
                         <div className="mb-2">
@@ -211,9 +238,17 @@ function ProgramStatsUserVerificationsMissionPage() {
                         <p className="text-xs text-gray-400 italic">(인증 내용 없음)</p>
                       )}
 
-                      {/* 운영자 액션 — 점수 제외 / 피드 가리기·표시 */}
+                      {/* 거절 사유 — 거절(점수 제외)된 인증만 */}
+                      {v.status === 'REJECTED' && v.rejection_reason && (
+                        <div className="mt-2 px-3 py-2 bg-red-50 border border-red-100 rounded-lg">
+                          <p className="text-[11px] font-bold text-red-500 mb-0.5">거절 사유</p>
+                          <p className="text-[13px] text-gray-700 whitespace-pre-wrap break-words">{v.rejection_reason}</p>
+                        </div>
+                      )}
+
+                      {/* 운영자 액션 — 점수 제외 / 피드 가리기·표시 (상태별 분기) */}
                       <OperatorVerificationActions
-                        verification={{ id: v.id, status: 'APPROVED', feed_visible: v.feed_visible, nickname: userInfo?.nickname }}
+                        verification={{ id: v.id, status: v.status, feed_visible: v.feed_visible, nickname: userInfo?.nickname }}
                         programId={id}
                         feedEnabled={!!program.feed_enabled}
                         layout="block"

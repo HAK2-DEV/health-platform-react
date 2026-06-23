@@ -388,8 +388,8 @@ function QuizCreatePage() {
   ) : null
 
   return (
-    <div className="min-h-screen flex items-start justify-center p-4 bg-gray-50">
-      <div className="w-full max-w-lg my-4 bg-white rounded-2xl shadow-xl p-6 flex flex-col" style={{ maxHeight: '92vh' }}>
+    <div className="min-h-screen flex items-start justify-center px-2 py-4 sm:p-4 bg-gray-50">
+      <div className="w-full max-w-2xl my-2 sm:my-4 bg-white rounded-2xl shadow-xl p-4 sm:p-6 flex flex-col" style={{ maxHeight: '94vh' }}>
         {/* 헤더 */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-baseline gap-2 min-w-0">
@@ -473,7 +473,7 @@ function QuizCreatePage() {
                     className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent" title="다음 문제"><ChevronRight className="w-4 h-4" /></button>
                 </div>
               </div>
-              <fieldset disabled={questionsLocked} className={questionsLocked ? 'opacity-60' : ''}>
+              <fieldset disabled={questionsLocked} className={`min-w-0 ${questionsLocked ? 'opacity-60' : ''}`}>
                 <QuestionEditor
                   key={qIndex}
                   index={qIndex}

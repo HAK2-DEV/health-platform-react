@@ -144,18 +144,22 @@ export const fetchActivePrograms = async (userId) => {
 
 // 본인의 프로그램별 마지막 인증 시각 맵 { program_id: ISO } — "최근 인증순" 정렬용.
 //   verifications 에 program_id 가 없어 missions 조인으로 program_id 획득.
+// 프로그램별 마지막 활동 시각 — 인증 + 게시물 작성 + 댓글 작성 중 가장 최근.
+//   { program_id: ISO timestamp }. (각 소스 RLS 로 본인 것만 조회됨)
 export const fetchProgramLastActivity = async (userId) => {
-  const { data, error } = await supabase
-    .from('verifications')
-    .select('submitted_at, missions!inner(program_id)')
-    .eq('user_id', userId)
-    .order('submitted_at', { ascending: false })
-  if (error) throw error
+  const [vRes, pRes, cRes] = await Promise.all([
+    supabase.from('verifications').select('submitted_at, missions!inner(program_id)').eq('user_id', userId),
+    supabase.from('community_posts').select('created_at, program_id').eq('author_id', userId),
+    supabase.from('community_post_comments').select('created_at, community_posts!inner(program_id)').eq('user_id', userId),
+  ])
   const map = {}
-  for (const row of (data || [])) {
-    const pid = row.missions?.program_id
-    if (pid && !map[pid]) map[pid] = row.submitted_at  // 내림차순 정렬이라 첫 등장이 최신
+  const put = (pid, ts) => {
+    if (!pid || !ts) return
+    if (!map[pid] || new Date(ts).getTime() > new Date(map[pid]).getTime()) map[pid] = ts
   }
+  for (const r of (vRes.data || [])) put(r.missions?.program_id, r.submitted_at)
+  for (const r of (pRes.data || [])) put(r.program_id, r.created_at)
+  for (const r of (cRes.data || [])) put(r.community_posts?.program_id, r.created_at)
   return map
 }
 
@@ -1362,6 +1366,36 @@ export const fetchPostComments = async (verificationId) => {
 //   todayActiveParticipants: KST 오늘 인증한 unique 참여자 수
 //   bundleStats: [{ bundleTitle, totalCount, missions: [{ mission_id, title, count }] }]
 //                bundleTitle=null = 단독 미션 그룹. totalCount 내림차순.
+// 한 유저의 누적 점수 요인 — score_ledgers 를 미션별/퀴즈별로 집계. (운영자 RLS 로 본인 프로그램 조회)
+//   { missions: [{id, title, point, count}], quiz: {point,count}, other: {point,count}, total }
+export const fetchUserScoreBreakdown = async (programId, userId) => {
+  const { data, error } = await supabase
+    .from('score_ledgers')
+    .select('point, reason, verification_id, quiz_submission_id, verifications(mission_id, missions(id, title, bundle_title)), quiz_submissions(quiz_id, quizzes(id, title))')
+    .eq('program_id', programId)
+    .eq('user_id', userId)
+  if (error) throw error
+  const missionMap = {}
+  let quizPoint = 0, quizCount = 0, otherPoint = 0, otherCount = 0, total = 0
+  for (const r of (data || [])) {
+    const p = r.point || 0
+    total += p
+    const mission = r.verifications?.missions
+    if (mission) {
+      const mid = mission.id
+      if (!missionMap[mid]) missionMap[mid] = { id: mid, title: mission.title, bundleTitle: mission.bundle_title || null, point: 0, count: 0 }
+      missionMap[mid].point += p
+      missionMap[mid].count += 1
+    } else if (r.quiz_submission_id) {
+      quizPoint += p; quizCount += 1
+    } else {
+      otherPoint += p; otherCount += 1
+    }
+  }
+  const missions = Object.values(missionMap).sort((a, b) => b.point - a.point)
+  return { missions, quiz: { point: quizPoint, count: quizCount }, other: { point: otherPoint, count: otherCount }, total }
+}
+
 export const fetchProgramStats = async (programId) => {
   // 1) ACTIVE 참여자 — head:false 로 user_id 전체 fetch (인증 0건도 목록에 포함시키기 위해).
   // Day 65: 위젯 「휴면」 카운트와 실제 목록 일치 위해 변경 (이전엔 count 만 가져옴).

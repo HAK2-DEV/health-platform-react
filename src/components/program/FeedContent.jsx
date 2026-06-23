@@ -286,15 +286,20 @@ function FeedContent({ program, layout: layoutProp = null, targetVerificationId 
         <div className="grid grid-cols-2 gap-3">{posts.map(renderGridCard)}</div>
       )}
       {layout === 'magazine' && (() => {
-        // 대1(hero 오버레이) + 소2(그리드) + 중1(가로) 반복
+        // 사진 있는 인증: 대1(hero) + 소2(그리드). 글만 있는 인증(사진 X)은 중(가로)로.
+        const imgQ = posts.filter(p => p.image_path)
+        const txtQ = posts.filter(p => !p.image_path)
         const blocks = []
-        let i = 0
-        while (i < posts.length) {
-          blocks.push(<div key={`big-${i}`}>{renderMagCard(posts[i], true)}</div>); i += 1
-          const smalls = posts.slice(i, i + 2)
-          if (smalls.length) { blocks.push(<div key={`sm-${i}`} className="grid grid-cols-2 gap-3">{smalls.map(p => renderMagCard(p, false))}</div>); i += smalls.length }
-          if (i < posts.length) { blocks.push(<div key={`md-${i}`}>{renderListRow(posts[i])}</div>); i += 1 }
+        let k = 0
+        while (imgQ.length) {
+          blocks.push(<div key={`big-${k}`}>{renderMagCard(imgQ.shift(), true)}</div>)
+          const smalls = [imgQ.shift(), imgQ.shift()].filter(Boolean)
+          if (smalls.length) blocks.push(<div key={`sm-${k}`} className="grid grid-cols-2 gap-3">{smalls.map(p => renderMagCard(p, false))}</div>)
+          if (txtQ.length) blocks.push(<div key={`md-${k}`}>{renderListRow(txtQ.shift())}</div>)
+          k++
         }
+        // 남은 글만 있는 인증은 모두 중(가로)
+        if (txtQ.length) blocks.push(<div key="rest" className="space-y-3">{txtQ.map(p => renderListRow(p))}</div>)
         return <div className="space-y-3">{blocks}</div>
       })()}
       {showFull && (

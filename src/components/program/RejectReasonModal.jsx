@@ -24,13 +24,16 @@ function RejectReasonModal({
         <p className="text-[13px] text-gray-600 leading-relaxed break-keep" style={{ marginBottom: '12px' }}>
           {description || defaultDesc}
         </p>
-        <label className="block text-[12px] font-semibold text-gray-500 mb-1">거절 사유 <span className="text-gray-400 font-normal">(작성자에게 전달)</span></label>
+        <div className="flex items-center justify-between mb-1">
+          <label className="text-[12px] font-semibold text-gray-500">거절 사유 <span className="text-gray-400 font-normal">(작성자에게 전달)</span></label>
+          <span className="text-[11px] text-gray-400">{reason.length}/100</span>
+        </div>
         <textarea
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           rows={3}
           autoFocus
-          maxLength={300}
+          maxLength={100}
           placeholder={placeholder}
           className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-[10px] focus:outline-none focus:border-red-400 resize-none text-sm break-words"
           style={{ marginBottom: '14px' }}

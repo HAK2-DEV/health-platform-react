@@ -264,12 +264,18 @@ function ProgramStatsUserDetailPage() {
         className="grid grid-cols-2 sm:grid-cols-4"
         style={{ gap: '9px', marginBottom: '9px' }}
       >
-        <div className="bg-white border border-gray-100 rounded-[10px] p-4 shadow-sm flex flex-col items-center text-center">
+        <button
+          type="button"
+          onClick={() => navigate(`/programs/${id}/stats/users/${targetUserId}/points`)}
+          className="relative bg-white border border-gray-100 rounded-[10px] p-4 shadow-sm flex flex-col items-center text-center transition active:scale-[0.98] hover:border-emerald-200"
+        >
+          <ChevronRight className="absolute top-2.5 right-2 w-3.5 h-3.5 text-gray-300" />
           <p className="text-[11px] text-gray-500 mb-1">💎 누적 점수</p>
           <p className="text-2xl font-bold text-emerald-700 leading-tight">
             {userInfo.totalScore}<span className="text-sm text-emerald-600 font-medium"> P</span>
           </p>
-        </div>
+          <span className="text-[10px] text-emerald-600/70 mt-0.5">점수 요인 보기</span>
+        </button>
         <div className="bg-white border border-gray-100 rounded-[10px] p-4 shadow-sm flex flex-col items-center text-center">
           <p className="text-[11px] text-gray-500 mb-1">✅ 누적 인증</p>
           <p className="text-2xl font-bold text-gray-800 leading-tight">

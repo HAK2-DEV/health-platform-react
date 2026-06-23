@@ -245,7 +245,7 @@ function ProgramReviewsMissionPage() {
                       onChange={(e) => setRejectReason(e.target.value)}
                       placeholder="반려 사유를 입력해주세요"
                       rows={2}
-                      maxLength={200}
+                      maxLength={100}
                       disabled={isProcessing}
                       className="w-full px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-red-500 disabled:bg-gray-50 resize-none text-sm"
                     />

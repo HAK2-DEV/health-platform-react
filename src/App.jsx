@@ -29,6 +29,7 @@ const ProgramStatsUserDetailPage = lazy(() => import('./pages/program/ProgramSta
 const ProgramStatsUserMissionsPage = lazy(() => import('./pages/program/ProgramStatsUserMissionsPage'))
 const ProgramStatsUserVerificationsPage = lazy(() => import('./pages/program/ProgramStatsUserVerificationsPage'))
 const ProgramStatsUserPostsPage = lazy(() => import('./pages/program/ProgramStatsUserPostsPage'))
+const ProgramStatsUserPointsPage = lazy(() => import('./pages/program/ProgramStatsUserPointsPage'))
 const ProgramStatsUserCommentsPage = lazy(() => import('./pages/program/ProgramStatsUserCommentsPage'))
 const ProgramStatsUserVerificationsBundlePage = lazy(() => import('./pages/program/ProgramStatsUserVerificationsBundlePage'))
 const ProgramStatsUserVerificationsMissionPage = lazy(() => import('./pages/program/ProgramStatsUserVerificationsMissionPage'))
@@ -146,6 +147,9 @@ function AppShell() {
             } />
             <Route path="/programs/:id/stats/users/:userId/posts" element={
               <ProtectedRoute><ProgramStatsUserPostsPage /></ProtectedRoute>
+            } />
+            <Route path="/programs/:id/stats/users/:userId/points" element={
+              <ProtectedRoute><ProgramStatsUserPointsPage /></ProtectedRoute>
             } />
             <Route path="/programs/:id/stats/users/:userId/comments" element={
               <ProtectedRoute><ProgramStatsUserCommentsPage /></ProtectedRoute>

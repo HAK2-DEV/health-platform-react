@@ -1,3 +1,4 @@
+import { useState, useEffect, useMemo } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../../hooks/useAuth'
@@ -44,6 +45,47 @@ function ProgramStatsUserPostsPage() {
     enabled: !!session && !!id && !!targetUserId && isOwner,
   })
 
+  // 가려진(hidden) 글의 신고 사유 — reports 테이블 (운영자 RLS 허용). 신고 누적 자동 숨김.
+  const hiddenIds = useMemo(() => userPosts.filter(p => p.status === 'hidden').map(p => p.id), [userPosts])
+  const { data: hideReasons = {} } = useQuery({
+    queryKey: ['stats', 'userPostHideReasons', id, hiddenIds.join(',')],
+    queryFn: async () => {
+      if (hiddenIds.length === 0) return {}
+      const { data, error } = await supabase
+        .from('reports')
+        .select('target_id, reason, created_at')
+        .eq('target_type', 'post')
+        .in('target_id', hiddenIds)
+        .order('created_at', { ascending: true })
+      if (error) throw error
+      const map = {}
+      for (const r of (data || [])) {
+        const t = r.target_id
+        if (!map[t]) map[t] = []
+        if (r.reason && r.reason.trim()) map[t].push(r.reason.trim())
+      }
+      return map
+    },
+    enabled: !!session && !!id && isOwner && hiddenIds.length > 0,
+  })
+
+  // 게시글 이미지 signed URL (community-posts 버킷, 배치)
+  const [imageUrls, setImageUrls] = useState({})
+  useEffect(() => {
+    let cancelled = false
+    const withImg = userPosts.filter(p => p.image_path)
+    if (withImg.length === 0) { setImageUrls({}); return }
+    const paths = withImg.map(p => p.image_path)
+    const pathToId = new Map(withImg.map(p => [p.image_path, p.id]))
+    supabase.storage.from('community-posts').createSignedUrls(paths, 3600).then(({ data }) => {
+      if (cancelled) return
+      const map = {}
+      for (const r of (data || [])) { const pid = pathToId.get(r.path); if (pid && r.signedUrl && !r.error) map[pid] = r.signedUrl }
+      setImageUrls(map)
+    })
+    return () => { cancelled = true }
+  }, [userPosts])
+
   const boardName = (bid) => {
     const boards = program?.community_settings?.boards
     const b = Array.isArray(boards) ? boards.find(x => x.id === bid) : null
@@ -77,13 +119,32 @@ function ProgramStatsUserPostsPage() {
             <div key={p.id} className="p-4">
               <div className="flex items-center gap-1.5 mb-1">
                 <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 text-[10px] font-semibold flex-shrink-0">{boardName(p.board_id)}</span>
-                {p.status === 'pending' && <span className="text-[10px] text-amber-600 font-medium flex-shrink-0">검토 대기</span>}
-                {p.status === 'hidden' && <span className="text-[10px] text-red-500 font-medium flex-shrink-0">숨김</span>}
+                {p.status === 'pending' && <span className="px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600 text-[10px] font-bold flex-shrink-0">검토 대기</span>}
+                {p.status === 'hidden' && <span className="px-1.5 py-0.5 rounded-full bg-red-50 text-red-500 text-[10px] font-bold flex-shrink-0">🚫 가려짐</span>}
                 <span className="text-[10px] text-gray-400 ml-auto flex-shrink-0 text-right leading-tight whitespace-pre-line">{formatKstStamp(p.created_at)}</span>
               </div>
-              {p.title && <p className="text-sm font-bold text-gray-800 mb-0.5">{p.title}</p>}
-              {p.body && <p className="text-[13px] text-gray-600 whitespace-pre-wrap break-words leading-snug">{p.body}</p>}
-              {p.image_path && <p className="text-[12px] text-gray-400 mt-1">📷 이미지 첨부</p>}
+              {p.title && <p className={`text-sm font-bold mb-0.5 ${p.status === 'hidden' ? 'text-gray-400' : 'text-gray-800'}`}>{p.title}</p>}
+              {p.body && <p className={`text-[13px] whitespace-pre-wrap break-words leading-snug ${p.status === 'hidden' ? 'text-gray-400' : 'text-gray-600'}`}>{p.body}</p>}
+              {p.image_path && (
+                imageUrls[p.id]
+                  ? <img src={imageUrls[p.id]} alt="" loading="lazy" className={`mt-2 w-full max-h-[400px] object-contain rounded-lg bg-gray-50 ${p.status === 'hidden' ? 'opacity-50' : ''}`} />
+                  : <p className="text-[12px] text-gray-400 mt-1">📷 이미지 불러오는 중...</p>
+              )}
+              {/* 가려진 글 — 신고/숨김 사유 */}
+              {p.status === 'hidden' && (
+                <div className="mt-2 px-3 py-2 bg-red-50 border border-red-100 rounded-lg">
+                  <p className="text-[11px] font-bold text-red-500 mb-0.5">숨김 사유</p>
+                  {(hideReasons[p.id] && hideReasons[p.id].length > 0) ? (
+                    <ul className="space-y-0.5">
+                      {hideReasons[p.id].map((r, i) => (
+                        <li key={i} className="text-[13px] text-gray-700 whitespace-pre-wrap break-words">• {r}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-[13px] text-gray-500">신고가 누적되어 자동으로 가려졌어요 (입력된 사유 없음)</p>
+                  )}
+                </div>
+              )}
             </div>
           ))}
         </div>

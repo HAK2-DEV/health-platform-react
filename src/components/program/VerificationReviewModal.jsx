@@ -71,11 +71,15 @@ function VerificationReviewModal({ isOpen, onClose, programId, reviews = [], rev
         {current ? (
           <>
             <div className="flex-1 overflow-y-auto p-5" style={{ touchAction: 'pan-y' }}>
-              <div className="flex items-center gap-2 mb-3">
-                <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-600 text-[11px] font-bold flex-shrink-0 max-w-[150px] truncate">{current.m_title}</span>
-                <UserAvatar avatarPath={current.u_avatar_path} nickname={current.u_nickname} size="sm" />
-                <span className="text-[13px] font-semibold text-gray-700 truncate">{current.u_nickname || '익명'}</span>
-                <span className="text-[11px] text-gray-400 ml-auto flex-shrink-0">{formatRelativeKstDay(current.v_submitted_at)}</span>
+              <div className="mb-3">
+                {/* 미션 제목 — 한 줄(전체) */}
+                <h3 className="text-[15px] font-bold text-gray-800 break-words leading-snug mb-2">{current.m_title}</h3>
+                {/* 프로필 사진 + 닉네임 + 시각 */}
+                <div className="flex items-center gap-2">
+                  <UserAvatar avatarPath={current.u_avatar_path} nickname={current.u_nickname} size="sm" />
+                  <span className="text-[13px] font-semibold text-gray-700 truncate">{current.u_nickname || '익명'}</span>
+                  <span className="text-[11px] text-gray-400 ml-auto flex-shrink-0">{formatRelativeKstDay(current.v_submitted_at)}</span>
+                </div>
               </div>
               {current.v_image_path && (
                 imageUrl

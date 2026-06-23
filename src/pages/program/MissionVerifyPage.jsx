@@ -585,6 +585,8 @@ function MissionVerifyPage() {
   if (submitted) {
     // 기록하기 흐름이면 단계 라벨도 기록하기 기준(미션 선택·기록/인증)으로
     const STEPS_DONE = fromRecord ? ['프로그램 선택', '미션 선택', '기록·인증'] : ['프로그램 선택', '미션 확인', '미션 인증']
+    // 운영자 심사(MANUAL) 미션 — 승인 전이라 점수 미반영 + '승인 대기' 표기
+    const isReview = mission?.verification_type !== 'AUTO'
     return (
       <div className="min-h-screen bg-gray-50 -mx-4 -mt-2">
         {/* 헤더 — 뒤로 + 제목(진입 경로별) + 알림 */}
@@ -631,8 +633,8 @@ function MissionVerifyPage() {
                 🎉
               </motion.div>
               <div className="min-w-0">
-                <h2 className="text-[21px] font-extrabold text-gray-900 leading-tight">기록이 완료되었어요!</h2>
-                <p className="text-[12px] text-gray-500 mt-1">오늘의 미션 인증이 정상적으로 제출되었어요.</p>
+                <h2 className="text-[21px] font-extrabold text-gray-900 leading-tight">{isReview ? '인증을 제출했어요!' : '기록이 완료되었어요!'}</h2>
+                <p className="text-[12px] text-gray-500 mt-1">{isReview ? '운영자 승인 후 점수가 반영돼요.' : '오늘의 미션 인증이 정상적으로 제출되었어요.'}</p>
               </div>
             </div>
 
@@ -654,14 +656,28 @@ function MissionVerifyPage() {
                     {mission.daily_limit ? ` · 하루 ${mission.daily_limit}회` : ' · 무제한'}
                   </p>
                 </div>
-                <span className="flex items-center gap-1 text-[13px] font-bold text-emerald-600 flex-shrink-0">
-                  <Check className="w-3.5 h-3.5" /> 오늘 인증 완료
-                </span>
+                {isReview ? (
+                  <span className="flex items-center gap-1 text-[13px] font-bold text-amber-600 flex-shrink-0">
+                    <Clock className="w-3.5 h-3.5" /> 승인 대기
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 text-[13px] font-bold text-emerald-600 flex-shrink-0">
+                    <Check className="w-3.5 h-3.5" /> 오늘 인증 완료
+                  </span>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <StatTile icon={<Clock className="w-4 h-4" />} iconBg="bg-purple-100 text-purple-600" label="완료 시각" value={`오늘 ${submitted.timeStr}`} />
-                <StatTile icon={<Check className="w-4 h-4" />} iconBg="bg-sky-100 text-sky-600" label="인증 상태" value="제출 완료" valueClass="text-emerald-600" />
-                <StatTile icon={<Star className="w-4 h-4 fill-current" />} iconBg="bg-amber-100 text-yellow-400" label="획득 포인트" value={`+${submitted.points}P`} valueClass="text-emerald-600" />
+                {isReview ? (
+                  <StatTile icon={<Clock className="w-4 h-4" />} iconBg="bg-amber-100 text-amber-600" label="인증 상태" value="승인 대기" valueClass="text-amber-600" />
+                ) : (
+                  <StatTile icon={<Check className="w-4 h-4" />} iconBg="bg-sky-100 text-sky-600" label="인증 상태" value="제출 완료" valueClass="text-emerald-600" />
+                )}
+                {isReview ? (
+                  <StatTile icon={<Star className="w-4 h-4 fill-current" />} iconBg="bg-amber-100 text-amber-500" label="획득 예정" value={`+${submitted.points}P`} valueClass="text-amber-600" />
+                ) : (
+                  <StatTile icon={<Star className="w-4 h-4 fill-current" />} iconBg="bg-amber-100 text-yellow-400" label="획득 포인트" value={`+${submitted.points}P`} valueClass="text-emerald-600" />
+                )}
                 <StatTile imgSrc="/icons/activity/points.png" imgStyle={{ filter: 'hue-rotate(100deg) saturate(1.3)' }} label="연속 참여" value={`${submitted.streak}일 연속`} />
               </div>
             </div>

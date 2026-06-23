@@ -230,9 +230,22 @@ function NotificationsPage() {
                 <IconBox tone={meta.tone} size="lg" shape="circle"><Icon className={`w-5 h-5 ${meta.iconCls}`} /></IconBox>
                 <h3 className="flex-1 text-[15px] font-bold text-gray-800 break-keep">{detailNotif.title}</h3>
               </div>
-              {detailNotif.body && (
-                <p className="text-[13px] text-gray-600 leading-relaxed whitespace-pre-line break-words">{detailNotif.body}</p>
-              )}
+              {detailNotif.body && (() => {
+                // "...\n사유: ..." 형식이면 사유 부분을 볼드 처리 (여러 줄 사유 포함)
+                const body = detailNotif.body
+                const at = body.indexOf('사유:')
+                if (at < 0) {
+                  return <p className="text-[13px] text-gray-600 leading-relaxed whitespace-pre-line break-words">{body}</p>
+                }
+                const head = body.slice(0, at).replace(/\s+$/, '')
+                const reason = body.slice(at).replace(/^사유:\s*/, '')
+                return (
+                  <div className="text-[13px] text-gray-600 leading-relaxed break-words">
+                    {head && <p className="whitespace-pre-line">{head}</p>}
+                    <p className={head ? 'mt-2' : ''}>사유: <span className="font-bold text-gray-800 whitespace-pre-line">{reason}</span></p>
+                  </div>
+                )
+              })()}
               <p className="text-[11px] text-gray-400 mt-3">{formatRelativeKstDay(detailNotif.created_at)}</p>
               <button type="button" onClick={() => setDetailNotif(null)}
                 className="mt-4 w-full h-11 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold transition">닫기</button>

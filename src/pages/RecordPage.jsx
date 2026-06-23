@@ -121,15 +121,11 @@ function RecordPage() {
     : []
   const showStep2 = !!selectedGroup && selectedRecordable.length > 0
 
-  // 최근 참여(가입) 프로그램 1개 — 인증할 미션이 남은 것 중 가입일 최신
+  // 최근 활동 프로그램 1개 — 인증할 미션이 남은 것 중 마지막 활동(인증·게시물·댓글) 최신
   const recentGroup = useMemo(() => {
     const recordable = groups.filter(g => g.recordableCount > 0)
     if (recordable.length === 0) return null
-    return [...recordable].sort((a, b) => {
-      const ja = a.program._joinedAt ? new Date(a.program._joinedAt).getTime() : 0
-      const jb = b.program._joinedAt ? new Date(b.program._joinedAt).getTime() : 0
-      return jb - ja
-    })[0]
+    return [...recordable].sort((a, b) => b.lastTime - a.lastTime)[0]
   }, [groups])
 
   const [pickerOpen, setPickerOpen] = useState(false)
