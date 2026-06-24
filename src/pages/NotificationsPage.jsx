@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Trash2, Check, Heart, Sprout, Hand, MessageCircle, Settings, Bell, FileText, Ban, Flag } from 'lucide-react'
+import { Trash2, Check, Heart, Sprout, Hand, MessageCircle, Settings, Bell, FileText, Ban, Flag, Users } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../supabaseClient'
 import { formatRelativeKstDay, getTodayKST, toKSTDateString } from '../lib/formatters'
@@ -31,6 +31,12 @@ const TYPE_META = {
   REPORT_RECEIVED:        { cat: 'request', tone: 'red',     icon: Flag,          iconCls: '' },
   POST_APPROVED:          { cat: 'verify',  tone: 'emerald', icon: Check,         iconCls: '' },
   POST_REJECTED:          { cat: 'verify',  tone: 'red',     icon: Ban,           iconCls: '' },
+  TEAM_INVITE:            { cat: 'request', tone: 'violet',  icon: Users,         iconCls: '' },
+  TEAM_JOINED:            { cat: 'request', tone: 'violet',  icon: Users,         iconCls: '' },
+  TEAM_REMOVED:           { cat: 'request', tone: 'slate',   icon: Users,         iconCls: '' },
+  TEAM_LEADER_CHANGED:    { cat: 'request', tone: 'violet',  icon: Users,         iconCls: '' },
+  INQUIRY_RECEIVED:       { cat: 'request', tone: 'sky',     icon: MessageCircle, iconCls: '' },
+  INQUIRY_ANSWERED:       { cat: 'comment', tone: 'sky',     icon: MessageCircle, iconCls: '' },
 }
 const DEFAULT_META = { cat: 'verify', tone: 'slate', icon: Bell, iconCls: '' }
 

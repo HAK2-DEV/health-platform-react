@@ -24,6 +24,13 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
   const [quizEnabled, setQuizEnabled] = useState(true)        // 메뉴바 퀴즈 사용 (102)
   const [communityEnabled, setCommunityEnabled] = useState(true)  // 메뉴바 커뮤니티 사용 (102) = 피드 활성
   const [rankingEnabled, setRankingEnabled] = useState(true)  // 랭킹 메뉴 표시 (세부는 랭킹 설정)
+  // 팀 기능 (126) — 랭킹이 켜져 있어야 동작
+  const [teamEnabled, setTeamEnabled] = useState(false)
+  const [teamScoreMode, setTeamScoreMode] = useState('sum')
+  const [teamSizeType, setTeamSizeType] = useState('range')
+  const [teamSizeMin, setTeamSizeMin] = useState(2)
+  const [teamSizeMax, setTeamSizeMax] = useState(4)
+  const [teamSizeFixed, setTeamSizeFixed] = useState(4)
   const [coverImagePath, setCoverImagePath] = useState(null)
   const [inviteCode, setInviteCode] = useState('')
   const [isSaving, setIsSaving] = useState(false)
@@ -49,6 +56,13 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
       )
       // ranking_enabled DEFAULT true — undefined/null 이면 켜진 상태로 (마법사와 동일 동작)
       setRankingEnabled(program.ranking_enabled !== false)
+      // 팀 기능 (126)
+      setTeamEnabled(!!program.team_enabled)
+      setTeamScoreMode(program.team_score_mode || 'sum')
+      setTeamSizeType(program.team_size_type || 'range')
+      setTeamSizeMin(program.team_size_min || 2)
+      setTeamSizeMax(program.team_size_max || 4)
+      setTeamSizeFixed(program.team_size_fixed || 4)
       setCoverImagePath(program.cover_image_path || null)
       setInviteCode(program.invite_code || '')
       setError(null)
@@ -109,6 +123,13 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
         // 랭킹 메뉴 표시 — OFF 면 세부(시상대/추세/기간필터)도 자동 OFF. 세부 설정은 「랭킹 설정」.
         ranking_enabled: rankingEnabled,
         ...(rankingEnabled ? {} : { podium_enabled: false, trend_enabled: false, period_filter_enabled: false }),
+        // 팀 기능 (126) — 토글 그대로 저장 (랭킹 OFF 시엔 화면에서 안 보일 뿐)
+        team_enabled: teamEnabled,
+        team_score_mode: teamEnabled ? teamScoreMode : null,
+        team_size_type: teamEnabled ? teamSizeType : null,
+        team_size_min: (teamEnabled && teamSizeType === 'range') ? teamSizeMin : null,
+        team_size_max: (teamEnabled && teamSizeType === 'range') ? teamSizeMax : null,
+        team_size_fixed: (teamEnabled && teamSizeType === 'fixed') ? teamSizeFixed : null,
         cover_image_path: coverImagePath,
         // INVITE_CODE 모드면 코드 수정 반영 — 빈 칸이면 기존 코드 유지(공백 저장 안 함)
         ...(program.join_type === 'INVITE_CODE' && inviteCode.trim()
@@ -399,6 +420,95 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
           </button>
 
           {/* 시상대·추세·기간 필터는 「랭킹 설정」에서 (운영자 메뉴 → 메뉴바 설정 → 랭킹 설정) */}
+
+          {/* 팀 기능 (126) — 랭킹이 켜져 있어야 동작 */}
+          <button
+            type="button"
+            onClick={() => setTeamEnabled(!teamEnabled)}
+            disabled={isSaving}
+            className={`w-full mb-3 p-3 rounded-lg border-2 text-left transition disabled:opacity-50 ${teamEnabled ? 'border-violet-500 bg-violet-50' : 'border-gray-200 bg-white hover:border-gray-300'}`}
+          >
+            <div className="flex items-start gap-2.5">
+              <span className="text-xl">👥</span>
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm font-medium ${teamEnabled ? 'text-violet-700' : 'text-gray-800'}`}>팀 기능 사용</p>
+                <p className="text-xs text-gray-500 mt-0.5">참여자끼리 팀을 만들어 함께 도전해요. 랭킹 탭에 팀 랭킹이 함께 보여요.</p>
+              </div>
+              <div className={`relative w-9 h-5 rounded-full flex-shrink-0 transition mt-0.5 ${teamEnabled ? 'bg-violet-500' : 'bg-gray-300'}`}>
+                <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${teamEnabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+              </div>
+            </div>
+          </button>
+
+          {teamEnabled && !rankingEnabled && (
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3 break-keep">
+              ⚠️ 팀 랭킹은 랭킹 메뉴 안에 표시돼요. <span className="font-medium">랭킹 메뉴를 켜야</span> 팀 기능이 동작해요.
+            </p>
+          )}
+          {teamEnabled && rankingEnabled && (
+            <div className="rounded-lg border-2 border-violet-200 bg-violet-50/40 p-3 mb-3 space-y-4">
+              {/* 점수 방식 */}
+              <div>
+                <p className="text-sm font-medium text-gray-800 mb-1.5">팀 점수 방식</p>
+                <div className="flex gap-2">
+                  {[{ v: 'sum', l: '합계 + 평균' }, { v: 'average', l: '평균만' }].map(o => (
+                    <button key={o.v} type="button" disabled={isSaving} onClick={() => setTeamScoreMode(o.v)}
+                      className={`flex-1 px-3 py-2 rounded-lg border-2 text-sm text-center transition disabled:opacity-50 ${teamScoreMode === o.v ? 'border-violet-500 bg-violet-50 text-violet-700 font-medium' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}>
+                      {o.l}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-600 leading-relaxed break-keep mt-2">
+                  {teamScoreMode === 'sum'
+                    ? '팀원 점수 합계로 순위를 매겨요. 인당 평균도 함께 보여 작은 팀도 인정받아요.'
+                    : '팀원 점수의 평균으로 순위를 매겨요. 인원수가 많아도 유리하지 않아요.'}
+                </p>
+              </div>
+              {/* 정원 정책 */}
+              <div>
+                <p className="text-sm font-medium text-gray-800 mb-1.5">팀 정원 정책</p>
+                <div className="flex gap-2">
+                  {[{ v: 'range', l: '범위형' }, { v: 'fixed', l: '고정형' }].map(o => (
+                    <button key={o.v} type="button" disabled={isSaving} onClick={() => setTeamSizeType(o.v)}
+                      className={`flex-1 px-3 py-2 rounded-lg border-2 text-sm text-center transition disabled:opacity-50 ${teamSizeType === o.v ? 'border-violet-500 bg-violet-50 text-violet-700 font-medium' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}>
+                      {o.l}
+                    </button>
+                  ))}
+                </div>
+                {teamSizeType === 'range' ? (
+                  <div className="mt-3">
+                    <div className="flex items-center gap-2">
+                      <select value={teamSizeMin} disabled={isSaving}
+                        onChange={e => { const v = Number(e.target.value); setTeamSizeMin(v); if (v > teamSizeMax) setTeamSizeMax(v) }}
+                        className="px-3 py-2 rounded-lg border-2 border-gray-200 bg-white text-sm text-gray-700 focus:border-violet-400 focus:outline-none disabled:opacity-50">
+                        {[2,3,4,5,6,7,8].map(n => <option key={n} value={n}>{n}명</option>)}
+                      </select>
+                      <span className="text-gray-400 text-sm">~</span>
+                      <select value={teamSizeMax} disabled={isSaving}
+                        onChange={e => setTeamSizeMax(Number(e.target.value))}
+                        className="px-3 py-2 rounded-lg border-2 border-gray-200 bg-white text-sm text-gray-700 focus:border-violet-400 focus:outline-none disabled:opacity-50">
+                        {[2,3,4,5,6,7,8].filter(n => n >= teamSizeMin).map(n => <option key={n} value={n}>{n}명</option>)}
+                      </select>
+                    </div>
+                    <p className="text-xs text-gray-600 leading-relaxed break-keep mt-2">
+                      팀장이 이 범위 안에서 팀 정원을 직접 골라요. 2명부터 랭킹에 반영돼요.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="mt-3">
+                    <select value={teamSizeFixed} disabled={isSaving}
+                      onChange={e => setTeamSizeFixed(Number(e.target.value))}
+                      className="px-3 py-2 rounded-lg border-2 border-gray-200 bg-white text-sm text-gray-700 focus:border-violet-400 focus:outline-none disabled:opacity-50">
+                      {[2,3,4,5,6,7,8].map(n => <option key={n} value={n}>{n}명</option>)}
+                    </select>
+                    <p className="text-xs text-gray-600 leading-relaxed break-keep mt-2">
+                      모든 팀의 정원이 {teamSizeFixed}명으로 고정돼요. {teamSizeFixed}명이 다 모여야 팀이 활성화돼요.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* 에러 */}
           {error && (

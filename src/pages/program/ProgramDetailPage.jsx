@@ -12,6 +12,7 @@ import MissionCard from '../../components/program/MissionCard'
 import GardenPanel from '../../components/program/GardenPanel'
 import ConstellationPanel from '../../components/program/ConstellationPanel'
 import PodiumTop3 from '../../components/program/PodiumTop3'
+import TeamRankingPanel from '../../components/program/TeamRankingPanel'
 import ScoreSparkline from '../../components/program/ScoreSparkline'
 import StickyBackBar from '../../components/common/StickyBackBar'
 import Modal from '../../components/common/Modal'
@@ -68,6 +69,7 @@ import {
   fetchProgramMissions,
   fetchProgramScores,
   fetchProgramRanking,
+  fetchProgramTeamRanking,
   fetchMyRecentScoreSeries,
   fetchTodayCounts,
   fetchParticipantQuizzes,
@@ -84,8 +86,8 @@ import {
 // 기간 필터 옵션 (period_filter_enabled 옵션 시) — period → ISO 시작점
 const PERIOD_OPTIONS = [
   { value: 'all', label: '전체' },
-  { value: '7d', label: '최근 7일' },
-  { value: '30d', label: '최근 30일' },
+  { value: '7d', label: '주간' },
+  { value: '30d', label: '월간' },
 ]
 const periodToISOStart = (p) => {
   if (p === 'all') return null
@@ -197,6 +199,23 @@ function ProgramDetailPage() {
     queryFn: () => fetchProgramRanking(id, periodStart),
     enabled: !!session && !!id,
   })
+
+  // 팀 기능 — 켜진 프로그램만 개인/팀 토글 노출. 비활성이면 강제 개인 뷰.
+  //   알림 딥링크(?team=1)로 들어오면 팀 탭으로 시작.
+  const teamEnabled = !!program?.team_enabled
+  const [rankScope, setRankScope] = useState(searchParams.get('team') ? 'team' : 'individual')
+  const effRankScope = teamEnabled ? rankScope : 'individual'
+
+  // 개요 "내 팀" 요약 카드용 — 전체 기간 팀 랭킹에서 내 팀 찾기
+  const { data: teamRankingAll = [] } = useQuery({
+    queryKey: queryKeys.programTeamRanking(id, 'all'),
+    queryFn: () => fetchProgramTeamRanking(id, null),
+    enabled: !!id && teamEnabled,
+  })
+  const myTeamCard = useMemo(
+    () => teamRankingAll.find(t => (t.members || []).some(m => m.user_id === userId)) || null,
+    [teamRankingAll, userId],
+  )
 
   // 추세 sparkline — 「본인 14일 점수 추세」기능 비활성화 (2026-06-21, 랭킹 UI 정리).
   //   표시·fetch 모두 중단. (재도입 시 !!program?.trend_enabled 로 복구)
@@ -1222,6 +1241,43 @@ function ProgramDetailPage() {
         )
       })()}
 
+      {/* 내 팀 요약 카드 — 팀 기능 + 내가 팀에 속해 있을 때만 */}
+      {teamEnabled && myTeamCard && (() => {
+        const t = myTeamCard
+        const scoreMode = program?.team_score_mode || 'sum'
+        const total = (t.total_score || 0).toLocaleString()
+        const avg = Number(t.avg_score || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })
+        return (
+          <button
+            type="button"
+            onClick={() => { setRankScope('team'); setActiveTab('ranking') }}
+            className="w-full text-left bg-white rounded-2xl shadow-elevated p-4 mb-[9px] transition active:scale-[0.99] border border-violet-100"
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-2xl flex-shrink-0">{t.emoji || '👥'}</span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-bold text-violet-800 truncate">{t.team_name}</p>
+                  <span className="flex-shrink-0 text-xs font-bold text-violet-600">
+                    {t.is_active ? `팀 랭킹 ${t.rank}위` : '모집중'}
+                  </span>
+                </div>
+                <p className="text-[13px] text-gray-600 mt-0.5">
+                  {scoreMode === 'average'
+                    ? <>인당 <span className="font-bold">{avg}</span> · 합계 {total}</>
+                    : <>합계 <span className="font-bold">{total}</span> · 인당 {avg}</>}
+                </p>
+                <p className="text-[11px] text-gray-400 mt-0.5 truncate">
+                  👤 {t.member_count}/{t.capacity}명
+                  {(t.members || []).length > 0 && ` · ${(t.members).slice(0, 3).map(m => m.nickname).join(', ')}`}
+                </p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-violet-300 flex-shrink-0" />
+            </div>
+          </button>
+        )
+      })()}
+
       {/* 주요 기록 요약 카드 (Phase2) — 다중 지표 + 달성 횟수, 최근 7일 증감 */}
       {metricSummary && (metricSummary.metrics.length > 0 || metricSummary.count > 0) && (() => {
         const fmt = (n) => Number(n || 0).toLocaleString('ko-KR', { maximumFractionDigits: 1 })
@@ -1743,24 +1799,53 @@ function ProgramDetailPage() {
         && (<>
       <h2 className="text-lg font-semibold text-gray-800 mb-3">🏆 랭킹</h2>
 
-      {/* 기간 필터 — period_filter_enabled 옵션 시 (전체/7일/30일) */}
-      {periodFilterVisible && (
-        <div className="flex gap-1 p-1 bg-gray-100 rounded-pill mb-3">
-          {PERIOD_OPTIONS.map(opt => {
-            const isActive = opt.value === period
-            return (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => setPeriod(opt.value)}
-                className={`flex-1 py-2 text-sm font-medium rounded-pill transition ${isActive ? 'bg-white text-brand-deep shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-              >
-                {opt.label}
-              </button>
-            )
-          })}
+      {/* 토글 — 기간(전체/주간/월간) + 개인/팀, 한 줄 (하단 네비 랭킹과 동일 스타일) */}
+      {(periodFilterVisible || teamEnabled) && (
+        <div className="flex items-center justify-between gap-2 mb-3">
+          {periodFilterVisible ? (
+            <div className="flex gap-1 p-1 bg-gray-100 rounded-pill">
+              {PERIOD_OPTIONS.map(opt => {
+                const on = opt.value === period
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setPeriod(opt.value)}
+                    className={`px-3 h-[30px] rounded-pill text-[13px] font-bold transition ${on ? 'bg-emerald-500 text-white shadow-sm' : 'text-gray-500'}`}
+                  >
+                    {opt.label}
+                  </button>
+                )
+              })}
+            </div>
+          ) : <span />}
+          {teamEnabled && (
+            <div className="flex gap-1 p-1 bg-gray-100 rounded-pill">
+              {[{ value: 'individual', label: '개인' }, { value: 'team', label: '팀' }].map(opt => {
+                const on = opt.value === rankScope
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setRankScope(opt.value)}
+                    className={`px-3.5 h-[30px] rounded-pill text-[13px] font-bold transition ${on ? 'bg-emerald-500 text-white shadow-sm' : 'text-gray-500'}`}
+                  >
+                    {opt.label}
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
       )}
+
+      {/* 팀 랭킹 패널 */}
+      {teamEnabled && effRankScope === 'team' && (
+        <TeamRankingPanel program={program} userId={userId} periodStart={periodStart} periodKey={period} />
+      )}
+
+      {/* ── 개인 랭킹 (effRankScope='individual') ── */}
+      {effRankScope === 'individual' && (<>
 
       {/* 추세 — trend_enabled 옵션 시 본인 14일 sparkline (라벨 카드로 맥락 부여) */}
       {trendVisible && myScoreSeries.length > 0 && (
@@ -1845,6 +1930,8 @@ function ProgramDetailPage() {
           </>
         )
       })()}
+      </>)}
+
       </>)}
 
       {/* 모달들 — lazy + 조건부 렌더. isOpen=true 되는 순간만 chunk 다운로드 */}

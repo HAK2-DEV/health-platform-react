@@ -9,6 +9,42 @@ const ACCENT_MAP = {
   rose:    { border: 'border-rose-500 bg-rose-50',       title: 'text-rose-700',    bg: 'bg-rose-500' },
   sky:     { border: 'border-sky-500 bg-sky-50',         title: 'text-sky-700',     bg: 'bg-sky-500' },
   emerald: { border: 'border-emerald-500 bg-emerald-50', title: 'text-emerald-700', bg: 'bg-emerald-500' },
+  violet:  { border: 'border-violet-500 bg-violet-50',   title: 'text-violet-700',  bg: 'bg-violet-500' },
+}
+
+// 2지선다 선택 버튼 (점수 방식·정원 정책)
+function Seg({ options, value, onChange }) {
+  return (
+    <div className="flex gap-2">
+      {options.map(o => (
+        <button
+          key={o.value} type="button" onClick={() => onChange(o.value)}
+          className={`flex-1 px-3 py-2 rounded-[10px] border-2 text-sm text-center transition ${
+            value === o.value
+              ? 'border-violet-500 bg-violet-50 text-violet-700 font-medium'
+              : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// 정원 숫자 선택 (min~max 범위)
+function NumSelect({ value, onChange, min, max }) {
+  const opts = []
+  for (let i = min; i <= max; i++) opts.push(i)
+  return (
+    <select
+      value={value}
+      onChange={e => onChange(Number(e.target.value))}
+      className="px-3 py-2 rounded-[10px] border-2 border-gray-200 bg-white text-sm text-gray-700 focus:border-violet-400 focus:outline-none"
+    >
+      {opts.map(n => <option key={n} value={n}>{n}명</option>)}
+    </select>
+  )
 }
 function OptionToggle({ emoji, title, description, enabled, onToggle, accent = 'emerald' }) {
   const a = ACCENT_MAP[accent] || ACCENT_MAP.emerald
@@ -45,7 +81,23 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
   const [quizEnabled, setQuizEnabled] = useState(initialData?.quiz_enabled !== false)
   const [rankingEnabled, setRankingEnabled] = useState(initialData?.ranking_enabled !== false)
 
+  // 팀 기능 — 랭킹 메뉴가 켜져 있어야 동작(팀 랭킹이 랭킹 탭에 노출되므로)
+  const [teamEnabled, setTeamEnabled] = useState(!!initialData?.team_enabled)
+  const [teamScoreMode, setTeamScoreMode] = useState(initialData?.team_score_mode || 'sum')
+  const [teamSizeType, setTeamSizeType] = useState(initialData?.team_size_type || 'range')
+  const [teamSizeMin, setTeamSizeMin] = useState(initialData?.team_size_min || 2)
+  const [teamSizeMax, setTeamSizeMax] = useState(initialData?.team_size_max || 4)
+  const [teamSizeFixed, setTeamSizeFixed] = useState(initialData?.team_size_fixed || 4)
+
   const [previewOpen, setPreviewOpen] = useState(false)
+
+  // 범위형 최소 변경 시 최대가 더 작아지지 않게 보정
+  const handleMinChange = (v) => {
+    setTeamSizeMin(v)
+    if (v > teamSizeMax) setTeamSizeMax(v)
+  }
+  // 팀 기능은 랭킹이 켜져 있을 때만 실제 활성
+  const teamOn = teamEnabled && rankingEnabled
 
   // Step 1 에서 선택한 카테고리들에 매칭되는 추천 미션 묶음
   const selectedCategories = initialData?.categories || []
@@ -64,6 +116,13 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
     // 성장 트랙(연속 보너스)은 베타 비활성 — 기본값 유지
     streak_preset: 'medium',
     streak_milestones: null,
+    // 팀 기능 — 토글 그대로 저장 (랭킹 OFF 시엔 화면에서 안 보일 뿐, 강제 false 안 함)
+    team_enabled: teamEnabled,
+    team_score_mode: teamEnabled ? teamScoreMode : null,
+    team_size_type: teamEnabled ? teamSizeType : null,
+    team_size_min: teamEnabled && teamSizeType === 'range' ? teamSizeMin : null,
+    team_size_max: teamEnabled && teamSizeType === 'range' ? teamSizeMax : null,
+    team_size_fixed: teamEnabled && teamSizeType === 'fixed' ? teamSizeFixed : null,
   })
 
   const handleNext = () => onNext(collectData())
@@ -91,6 +150,72 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
         description="켜면 랭킹 메뉴가 보여요. 세부(시상대·기간 필터)는 발행 후 「랭킹 설정」에서 정해요."
         enabled={rankingEnabled} onToggle={() => setRankingEnabled(v => !v)}
       />
+
+      <OptionToggle
+        emoji="👥" title="팀 기능 사용" accent="violet"
+        description="참여자끼리 팀을 만들어 함께 도전해요. 랭킹 탭에 팀 랭킹이 함께 보여요."
+        enabled={teamEnabled} onToggle={() => setTeamEnabled(v => !v)}
+      />
+
+      {/* 팀 기능 세부 설정 — 켜졌을 때만 */}
+      {teamEnabled && !rankingEnabled && (
+        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-[10px] px-3 py-2 break-keep" style={{ marginBottom: '9px' }}>
+          ⚠️ 팀 랭킹은 랭킹 메뉴 안에 표시돼요. <span className="font-medium">랭킹 메뉴를 켜야</span> 팀 기능이 동작해요.
+        </p>
+      )}
+      {teamOn && (
+        <div className="rounded-[10px] border-2 border-violet-200 bg-violet-50/40 p-4 space-y-4" style={{ marginBottom: '9px' }}>
+          {/* 점수 방식 */}
+          <div>
+            <p className="text-sm font-medium text-gray-800" style={{ marginBottom: '6px' }}>팀 점수 방식</p>
+            <Seg
+              value={teamScoreMode}
+              onChange={setTeamScoreMode}
+              options={[
+                { value: 'sum', label: '합계 + 평균' },
+                { value: 'average', label: '평균만' },
+              ]}
+            />
+            <p className="text-xs text-gray-600 leading-relaxed break-keep mt-2">
+              {teamScoreMode === 'sum'
+                ? '팀원 점수 합계로 순위를 매겨요. 인당 평균도 함께 보여 작은 팀도 인정받아요.'
+                : '팀원 점수의 평균으로 순위를 매겨요. 인원수가 많아도 유리하지 않아요.'}
+            </p>
+          </div>
+
+          {/* 정원 정책 */}
+          <div>
+            <p className="text-sm font-medium text-gray-800" style={{ marginBottom: '6px' }}>팀 정원 정책</p>
+            <Seg
+              value={teamSizeType}
+              onChange={setTeamSizeType}
+              options={[
+                { value: 'range', label: '범위형' },
+                { value: 'fixed', label: '고정형' },
+              ]}
+            />
+            {teamSizeType === 'range' ? (
+              <div className="mt-3">
+                <div className="flex items-center gap-2">
+                  <NumSelect value={teamSizeMin} onChange={handleMinChange} min={2} max={8} />
+                  <span className="text-gray-400 text-sm">~</span>
+                  <NumSelect value={teamSizeMax} onChange={setTeamSizeMax} min={teamSizeMin} max={8} />
+                </div>
+                <p className="text-xs text-gray-600 leading-relaxed break-keep mt-2">
+                  팀장이 이 범위 안에서 팀 정원을 직접 골라요. 2명부터 랭킹에 반영돼요.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-3">
+                <NumSelect value={teamSizeFixed} onChange={setTeamSizeFixed} min={2} max={8} />
+                <p className="text-xs text-gray-600 leading-relaxed break-keep mt-2">
+                  모든 팀의 정원이 {teamSizeFixed}명으로 고정돼요. {teamSizeFixed}명이 다 모여야 팀이 활성화돼요.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 추천 미션 미리보기 — Step 1 카테고리 매칭 */}
       <div className="bg-gray-50/60 rounded-[10px] border border-gray-200 overflow-hidden" style={{ marginTop: '9px', marginBottom: '18px' }}>

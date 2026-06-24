@@ -32,6 +32,8 @@ export const queryKeys = {
   todayCounts: (userId) => ['verifications', 'todayCounts', userId],
   // 특정 프로그램의 랭킹 — period: 'all' | '7d' | '30d'
   programRanking: (programId, period = 'all') => ['rankings', 'byProgram', programId, period],
+  // 특정 프로그램의 팀 랭킹 (127)
+  programTeamRanking: (programId, period = 'all') => ['rankings', 'teamByProgram', programId, period],
   // 본인의 프로그램별 최근 N일 일별 점수 시계열 (스파크라인용)
   myRecentScores: (programId, userId, days = 14) => ['scores', 'recentSeries', programId, userId, days],
   // 어제 vs 현재 등수 비교 (rank_snapshots — 071)
@@ -518,6 +520,157 @@ export const fetchProgramRanking = async (programId, periodStart = null) => {
       p_program_id: programId,
       p_period_start: periodStart,
     })
+  if (error) throw error
+  return data || []
+}
+
+// 팀 랭킹 (127) — 팀원 개인 점수 라이브 집계. 합계·인당 평균·인원·멤버목록 + 활성/순위.
+// 비활성(모집중) 팀은 rank=null 로 함께 반환(목록 하단에 별도 표시).
+export const fetchProgramTeamRanking = async (programId, periodStart = null) => {
+  const { data, error } = await supabase
+    .rpc('get_team_ranking', {
+      p_program_id: programId,
+      p_period_start: periodStart,
+    })
+  if (error) throw error
+  return data || []
+}
+
+// 팀 생성 (128) — 원자적 RPC. 팀장 자동 합류. 반환: 새 team_id.
+// 규칙 위반(이미 팀 소속, 정원 범위 등)은 RPC가 한글 메시지로 throw.
+export const createTeam = async (programId, name, emoji, capacity) => {
+  const { data, error } = await supabase
+    .rpc('create_team', {
+      p_program_id: programId,
+      p_name: name,
+      p_emoji: emoji,
+      p_capacity: capacity,
+    })
+  if (error) throw error
+  return data // team_id
+}
+
+// 팀 초대 발송 (129) — 팀장이 참여자 초대. 반환: invite_id.
+export const inviteToTeam = async (teamId, inviteeId) => {
+  const { data, error } = await supabase
+    .rpc('invite_to_team', { p_team_id: teamId, p_invitee_id: inviteeId })
+  if (error) throw error
+  return data
+}
+
+// 팀 초대 응답 (129) — 받은 사람이 수락(true)/거절(false).
+export const respondTeamInvite = async (inviteId, accept) => {
+  const { error } = await supabase
+    .rpc('respond_team_invite', { p_invite_id: inviteId, p_accept: accept })
+  if (error) throw error
+}
+
+// 초대 후보 목록 (129) — 팀장 전용. 미소속 ACTIVE 참여자 + invited 플래그.
+export const fetchTeamInviteCandidates = async (teamId) => {
+  const { data, error } = await supabase
+    .rpc('get_team_invite_candidates', { p_team_id: teamId })
+  if (error) throw error
+  return data || []
+}
+
+// ─── 전역 문의 게시판 (134) ──────────────────────────────────
+// 문의 작성 — 비번은 RPC가 서버측 해싱. 반환: inquiry id.
+export const createInquiry = async (title, body, isPrivate, password) => {
+  const { data, error } = await supabase.rpc('create_inquiry', {
+    p_title: title, p_body: body, p_is_private: isPrivate, p_password: password,
+  })
+  if (error) throw error
+  return data
+}
+
+// 문의 목록 — RLS 가 가시성 처리(공개=모두 / 비공개=작성자·관리자).
+export const fetchInquiries = async () => {
+  const { data, error } = await supabase
+    .from('inquiries')
+    .select('id, title, is_private, status, created_at, author_id, users(nickname)')
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+
+// 문의 단건
+export const fetchInquiry = async (id) => {
+  const { data, error } = await supabase
+    .from('inquiries')
+    .select('id, title, body, is_private, status, created_at, author_id, users(nickname)')
+    .eq('id', id)
+    .single()
+  if (error) throw error
+  return data
+}
+
+// 문의 댓글 스레드
+export const fetchInquiryComments = async (inquiryId) => {
+  const { data, error } = await supabase
+    .from('inquiry_comments')
+    .select('id, body, is_admin, created_at, user_id, users(nickname, avatar_path)')
+    .eq('inquiry_id', inquiryId)
+    .order('created_at', { ascending: true })
+  if (error) throw error
+  return data || []
+}
+
+// 댓글 작성 — is_admin/상태/알림은 트리거가 처리.
+export const addInquiryComment = async (inquiryId, userId, body) => {
+  const { error } = await supabase
+    .from('inquiry_comments')
+    .insert({ inquiry_id: inquiryId, user_id: userId, body })
+  if (error) throw error
+}
+
+// 비공개 문의 비번 확인 (관리자는 통과).
+export const checkInquiryPassword = async (id, password) => {
+  const { data, error } = await supabase.rpc('check_inquiry_password', { p_id: id, p_password: password })
+  if (error) throw error
+  return data === true
+}
+
+// 문의 삭제 (작성자/관리자)
+export const deleteInquiry = async (id) => {
+  const { error } = await supabase.from('inquiries').delete().eq('id', id)
+  if (error) throw error
+}
+
+// 현재 사용자 role (ADMIN 여부 판별)
+export const fetchMyRole = async (userId) => {
+  const { data, error } = await supabase.from('users').select('role').eq('id', userId).maybeSingle()
+  if (error) throw error
+  return data?.role || 'USER'
+}
+
+// 팀원 내보내기 (130) — 팀장만.
+export const removeTeamMember = async (teamId, userId) => {
+  const { error } = await supabase
+    .rpc('remove_team_member', { p_team_id: teamId, p_user_id: userId })
+  if (error) throw error
+}
+
+// 팀 나가기 (130) — 본인 탈퇴. 팀장이면 자동 승계 또는 해체.
+export const leaveTeam = async (teamId) => {
+  const { error } = await supabase.rpc('leave_team', { p_team_id: teamId })
+  if (error) throw error
+}
+
+// 팀장 위임 (130) — 현재 팀원에게.
+export const transferTeamLeader = async (teamId, newLeaderId) => {
+  const { error } = await supabase
+    .rpc('transfer_team_leader', { p_team_id: teamId, p_new_leader_id: newLeaderId })
+  if (error) throw error
+}
+
+// 내가 받은 pending 팀 초대 (특정 프로그램). teams inner join 으로 프로그램 필터.
+export const fetchMyTeamInvites = async (programId, userId) => {
+  const { data, error } = await supabase
+    .from('team_invites')
+    .select('id, team_id, created_at, teams!inner(name, emoji, program_id)')
+    .eq('invitee_id', userId)
+    .eq('status', 'pending')
+    .eq('teams.program_id', programId)
   if (error) throw error
   return data || []
 }

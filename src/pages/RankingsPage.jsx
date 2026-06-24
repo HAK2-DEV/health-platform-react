@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { MapPin, ChevronRight } from 'lucide-react'
+import { MapPin, ChevronRight, ChevronDown } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../supabaseClient'
@@ -17,6 +17,7 @@ import EmptyState from '../components/common/EmptyState'
 import LoadingState from '../components/common/LoadingState'
 import GardenPanel from '../components/program/GardenPanel'
 import ConstellationPanel from '../components/program/ConstellationPanel'
+import TeamRankingPanel from '../components/program/TeamRankingPanel'
 
 // 기간(롤링) — 주간=최근 7일 / 월간=최근 30일 (본인 결정 2026-06-19)
 const PERIOD_OPTIONS = [
@@ -30,11 +31,10 @@ const periodToISOStart = (period) => {
   return d.toISOString()
 }
 
-// 범위 — 개인(동작) / 팀·전체(준비중, 추후 프로그램별 팀 생기면 연결)
+// 범위 — 개인 / 팀 (팀 기능 켜진 프로그램만 노출)
 const SCOPE_TABS = [
   { value: 'individual', label: '개인' },
   { value: 'team', label: '팀' },
-  { value: 'all', label: '전체' },
 ]
 
 function RankingsPage() {
@@ -51,7 +51,9 @@ function RankingsPage() {
     setSearchParams(next, { replace: true })
   }
   const [period, setPeriod] = useState('7d')
-  const [scope, setScope] = useState('individual')
+  // 알림 딥링크(teamtab=1)로 들어오면 팀 탭으로 시작
+  const [scope, setScope] = useState(searchParams.get('teamtab') ? 'team' : 'individual')
+  const [programPickerOpen, setProgramPickerOpen] = useState(false)
   const periodStart = useMemo(() => periodToISOStart(period), [period])
   const periodMeta = PERIOD_OPTIONS.find(o => o.value === period)
 
@@ -80,8 +82,9 @@ function RankingsPage() {
   const gType = selectedProgram?.gamification_type
   const isGrowthTrack = gType === 'GARDEN' || gType === 'CONSTELLATION'
   const isRankingTrack = gType === 'RANKING' || (!gType && selectedProgram?.ranking_enabled !== false)
-  // 팀 기능 플래그 — 추후 등장 예정. 켜진 프로그램만 개인/팀/전체 토글 노출.
+  // 팀 기능 플래그 — 켜진 프로그램만 개인/팀 토글 노출. 비활성이면 강제 개인 뷰.
   const teamEnabled = !!selectedProgram?.team_enabled
+  const effScope = teamEnabled ? scope : 'individual'
 
   // ─── 성장 트랙(정원/별자리) 데이터 + 핸들러 ──────────────────
   const { data: myParticipation } = useQuery({
@@ -155,7 +158,7 @@ function RankingsPage() {
   const { data: ranking = [], isLoading: isLoadingRanking } = useQuery({
     queryKey: queryKeys.programRanking(selectedProgramId, period),
     queryFn: () => fetchProgramRanking(selectedProgramId, periodStart),
-    enabled: !!selectedProgramId && isRankingTrack && scope === 'individual',
+    enabled: !!selectedProgramId && isRankingTrack && effScope === 'individual',
   })
 
   const myRow = ranking.find(r => r.user_id === userId)
@@ -204,29 +207,46 @@ function RankingsPage() {
     )
   }
 
-  // 프로그램 선택 칩 — 참여 프로그램이 1개뿐이면 전환할 대상이 없어 숨김
+  // 프로그램 선택 — 참여 프로그램이 1개뿐이면 전환 대상이 없어 숨김.
+  //   기본은 현재 프로그램만 칩으로 표시, 누르면 드롭다운으로 목록 펼침.
   const programChips = activePrograms.length <= 1 ? null : (
-    <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-hide">
-      {activePrograms.map(program => {
-        const isActive = program.id === selectedProgramId
-        return (
-          <button
-            key={program.id}
-            type="button"
-            onClick={() => setSelectedProgramId(program.id)}
-            className={`flex-shrink-0 inline-flex items-center h-[34px] px-3.5 rounded-full text-[13px] font-bold transition ${
-              isActive ? 'bg-emerald-500 text-white shadow-sm' : 'bg-white border border-gray-200 text-gray-600'
-            }`}
-          >
-            <span className="max-w-[120px] truncate">{program.name}</span>
-          </button>
-        )
-      })}
+    <div className="relative z-20">
+      <button
+        type="button"
+        onClick={() => setProgramPickerOpen(o => !o)}
+        className="inline-flex items-center gap-1.5 h-[34px] px-3.5 rounded-full bg-emerald-500 text-white text-[13px] font-bold shadow-sm"
+      >
+        <span className="max-w-[200px] truncate">{selectedProgram?.name || '프로그램 선택'}</span>
+        <ChevronDown className={`w-3.5 h-3.5 flex-shrink-0 transition-transform ${programPickerOpen ? 'rotate-180' : ''}`} />
+      </button>
+      {programPickerOpen && (
+        <>
+          {/* 바깥 클릭 닫기 */}
+          <div className="fixed inset-0 z-10" onClick={() => setProgramPickerOpen(false)} />
+          <div className="absolute left-0 mt-2 z-20 min-w-[220px] max-w-[80vw] max-h-[50vh] overflow-y-auto bg-white rounded-2xl shadow-elevated border border-gray-100 p-1.5">
+            {activePrograms.map(program => {
+              const isActive = program.id === selectedProgramId
+              return (
+                <button
+                  key={program.id}
+                  type="button"
+                  onClick={() => { setSelectedProgramId(program.id); setProgramPickerOpen(false) }}
+                  className={`w-full text-left px-3 py-2 rounded-xl text-[13px] font-bold truncate transition ${
+                    isActive ? 'bg-emerald-50 text-emerald-700' : 'text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  {program.name}
+                </button>
+              )
+            })}
+          </div>
+        </>
+      )}
     </div>
   )
 
   // 시상대(Podium)가 있으면 프로그램 칩을 그 아래에, 없으면(성장/로딩/빈/팀·전체) 상단에 둔다.
-  const hasPodiumView = isRankingTrack && scope === 'individual' && !isLoadingRanking && hasPodium
+  const hasPodiumView = isRankingTrack && effScope === 'individual' && !isLoadingRanking && hasPodium
 
   return (
     <div className="min-h-screen bg-white">
@@ -269,12 +289,18 @@ function RankingsPage() {
           />
         )}
 
-        {/* ── 랭킹 트랙 ── */}
-        {isRankingTrack && scope !== 'individual' && (
-          <ComingSoon label={scope === 'team' ? '팀 랭킹' : '전체 통합 랭킹'} />
+        {/* ── 팀 랭킹 (공용 패널) ── */}
+        {isRankingTrack && effScope === 'team' && (
+          <TeamRankingPanel
+            program={selectedProgram}
+            userId={userId}
+            periodStart={periodStart}
+            periodKey={period}
+          />
         )}
 
-        {isRankingTrack && scope === 'individual' && (
+        {/* ── 개인 랭킹 트랙 ── */}
+        {isRankingTrack && effScope === 'individual' && (
           isLoadingRanking ? (
             <LoadingState />
           ) : ranking.length === 0 ? (
@@ -323,7 +349,7 @@ function RankingsPage() {
 
       {/* "내 위치로" floating 버튼 */}
       <AnimatePresence>
-        {isRankingTrack && scope === 'individual' && myRow && myRow.rank > 3 && !isMyRowVisible && (
+        {isRankingTrack && effScope === 'individual' && myRow && myRow.rank > 3 && !isMyRowVisible && (
           <motion.button
             type="button"
             initial={{ opacity: 0, y: 20, scale: 0.9 }}
@@ -398,17 +424,6 @@ function Segmented({ options, value, onChange }) {
           </button>
         )
       })}
-    </div>
-  )
-}
-
-// ─── 준비중 (팀 / 전체) ───────────────────────────────────
-function ComingSoon({ label }) {
-  return (
-    <div className="bg-white rounded-2xl shadow-elevated py-12 px-6 flex flex-col items-center text-center">
-      <div className="w-14 h-14 rounded-full bg-emerald-50 flex items-center justify-center text-2xl mb-3">🛠️</div>
-      <p className="font-bold text-gray-800">{label}은 곧 제공돼요</p>
-      <p className="text-sm text-gray-500 mt-1">조금만 기다려 주세요. 더 즐거운 경쟁을 준비 중이에요!</p>
     </div>
   )
 }

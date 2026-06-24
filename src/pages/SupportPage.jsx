@@ -1,7 +1,11 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, ChevronDown, HelpCircle, Mail, MessageCircle } from 'lucide-react'
 import NotificationBell from '../components/common/NotificationBell'
+import InquiryBoard from '../components/support/InquiryBoard'
+import { useAuth } from '../hooks/useAuth'
+import { fetchMyRole } from '../lib/queries'
 
 const CONTACT_EMAIL = 'f23-10599@naver.com'
 
@@ -63,17 +67,42 @@ function FaqItem({ item, open, onToggle }) {
   )
 }
 
-// 고객센터 — 자주 묻는 질문(FAQ) + 1:1 문의(이메일).
+// 고객센터 — FAQ 탭 + 1:1 문의 게시판 탭.
 function SupportPage() {
   const navigate = useNavigate()
-  const [openIdx, setOpenIdx] = useState(0)
+  const { session } = useAuth()
+  const userId = session?.user?.id
+  const [openIdx, setOpenIdx] = useState(-1)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tab = searchParams.get('tab') === 'inquiry' ? 'inquiry' : 'faq'
+  const deepLinkInquiryId = searchParams.get('inquiry')
+
+  const setTab = (t) => setSearchParams(prev => {
+    const next = new URLSearchParams(prev)
+    if (t === 'faq') next.delete('tab'); else next.set('tab', t)
+    return next
+  }, { replace: true })
+
+  const { data: role, isLoading: roleLoading } = useQuery({
+    queryKey: ['my-role', userId],
+    queryFn: () => fetchMyRole(userId),
+    enabled: !!userId,
+  })
+  const isAdmin = role === 'ADMIN'
+  const roleReady = !!userId && !roleLoading   // role 확정 전엔 딥링크 자동열람 보류
+
+  const consumeDeepLink = () => setSearchParams(prev => {
+    const next = new URLSearchParams(prev)
+    next.delete('inquiry')
+    return next
+  }, { replace: true })
 
   const mailto = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('[도담] 문의하기')}`
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* 헤더 */}
-      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-gray-100">
+      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm">
         <div className="max-w-md mx-auto h-[46px] px-4 flex items-center justify-center relative">
           <button type="button" onClick={() => navigate(-1)} className="absolute left-3 p-1.5 -ml-1.5 text-gray-500 hover:text-gray-800" aria-label="뒤로">
             <ArrowLeft className="w-5 h-5" />
@@ -83,45 +112,74 @@ function SupportPage() {
         </div>
       </header>
 
-      <div className="w-full max-w-md mx-auto px-4 pt-3 pb-10 space-y-3">
-        {/* 인트로 */}
-        <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 rounded-2xl p-5">
-          <div className="flex items-center gap-2.5">
-            <span className="w-10 h-10 rounded-full bg-white flex items-center justify-center flex-shrink-0 shadow-sm">
-              <HelpCircle className="w-5 h-5 text-emerald-500" />
-            </span>
-            <div>
-              <h2 className="text-[16px] font-extrabold text-gray-900 leading-tight">무엇을 도와드릴까요?</h2>
-              <p className="text-[12px] text-gray-500 mt-0.5">자주 묻는 질문을 먼저 확인해보세요.</p>
-            </div>
+      {/* 탭 — 밑줄 스타일 (흰색 배경, 헤더와 이어지는 블록) */}
+      <div className="bg-white">
+        <div className="max-w-md mx-auto px-4">
+          <div className="flex border-b border-gray-200">
+            {[{ v: 'faq', l: 'FAQ' }, { v: 'inquiry', l: '1:1 문의' }].map(o => (
+              <button
+                key={o.v} type="button" onClick={() => setTab(o.v)}
+                className={`relative flex-1 py-3 text-[15px] font-bold transition ${tab === o.v ? 'text-emerald-600' : 'text-gray-400 hover:text-gray-600'}`}
+              >
+                {o.l}
+                {tab === o.v && <span className="absolute left-0 right-0 -bottom-px h-0.5 bg-emerald-500 rounded-full" />}
+              </button>
+            ))}
           </div>
         </div>
+      </div>
 
-        {/* 자주 묻는 질문 */}
-        <section className="bg-white border border-gray-100 rounded-2xl shadow-soft px-4 py-1">
-          <h3 className="text-[13px] font-bold text-gray-400 pt-3 pb-1">자주 묻는 질문</h3>
-          {FAQS.map((item, i) => (
-            <FaqItem key={i} item={item} open={openIdx === i} onToggle={() => setOpenIdx(openIdx === i ? -1 : i)} />
-          ))}
-        </section>
+      <div className="w-full max-w-md mx-auto px-4 pt-3 pb-10 space-y-3">
+        {tab === 'faq' ? (
+          <>
+            {/* 인트로 */}
+            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 rounded-2xl p-5">
+              <div className="flex items-center gap-2.5">
+                <span className="w-10 h-10 rounded-full bg-white flex items-center justify-center flex-shrink-0 shadow-sm">
+                  <HelpCircle className="w-5 h-5 text-emerald-500" />
+                </span>
+                <div>
+                  <h2 className="text-[16px] font-extrabold text-gray-900 leading-tight">무엇을 도와드릴까요?</h2>
+                  <p className="text-[12px] text-gray-500 mt-0.5">자주 묻는 질문을 먼저 확인해보세요.</p>
+                </div>
+              </div>
+            </div>
 
-        {/* 1:1 문의 */}
-        <section className="bg-white border border-gray-100 rounded-2xl shadow-soft p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <MessageCircle className="w-4 h-4 text-emerald-500" />
-            <h3 className="text-[15px] font-bold text-gray-800">원하는 답을 못 찾으셨나요?</h3>
-          </div>
-          <p className="text-[13px] text-gray-500 leading-relaxed mb-3 break-keep">
-            궁금한 점이나 불편한 점이 있으면 이메일로 문의해주세요. 보통 1~2일 안에 답변드려요.
-          </p>
-          <a
-            href={mailto}
-            className="w-full h-12 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-bold flex items-center justify-center gap-2 transition"
-          >
-            <Mail className="w-4 h-4" /> 이메일로 문의하기
-          </a>
-          <p className="text-[11px] text-gray-400 text-center mt-2 select-all">{CONTACT_EMAIL}</p>
-        </section>
+            {/* 자주 묻는 질문 */}
+            <section className="bg-white border border-gray-100 rounded-2xl shadow-soft px-4 py-1">
+              <h3 className="text-[13px] font-bold text-gray-400 pt-3 pb-1">자주 묻는 질문</h3>
+              {FAQS.map((item, i) => (
+                <FaqItem key={i} item={item} open={openIdx === i} onToggle={() => setOpenIdx(openIdx === i ? -1 : i)} />
+              ))}
+            </section>
+
+            {/* 이메일 문의 (보조) */}
+            <section className="bg-white border border-gray-100 rounded-2xl shadow-soft p-4">
+              <div className="flex items-center gap-2 mb-1">
+                <MessageCircle className="w-4 h-4 text-emerald-500" />
+                <h3 className="text-[15px] font-bold text-gray-800">원하는 답을 못 찾으셨나요?</h3>
+              </div>
+              <p className="text-[13px] text-gray-500 leading-relaxed mb-3 break-keep">
+                <span className="font-semibold text-emerald-700">「1:1 문의」 탭</span>에서 바로 문의를 남기거나, 이메일로 보내주세요.
+              </p>
+              <a
+                href={mailto}
+                className="w-full h-12 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-bold flex items-center justify-center gap-2 transition"
+              >
+                <Mail className="w-4 h-4" /> 이메일로 문의하기
+              </a>
+              <p className="text-[11px] text-gray-400 text-center mt-2 select-all">{CONTACT_EMAIL}</p>
+            </section>
+          </>
+        ) : (
+          <InquiryBoard
+            userId={userId}
+            isAdmin={isAdmin}
+            roleReady={roleReady}
+            deepLinkInquiryId={deepLinkInquiryId}
+            onConsumeDeepLink={consumeDeepLink}
+          />
+        )}
       </div>
     </div>
   )
