@@ -95,7 +95,11 @@ function MyVerificationCard({ v }) {
       {/* 다중 기록 지표 (거리/시간/칼로리 등) */}
       {v.metric_values && (() => {
         const defs = Array.isArray(v.missions?.metrics) ? v.missions.metrics : []
+        const minToClock = (min) => { const h = Math.floor(min / 60), m = min % 60; return `${h}시 ${String(m).padStart(2, '0')}분` }
         const fmt = (def, val) => {
+          // 핀 시각(자정 기준 분) — clock=단일, clock_multi=분 배열
+          if (def?.inputFormat === 'clock_multi') { const arr = Array.isArray(val) ? val : [val]; return arr.map(x => minToClock(Number(x))).join(', ') }
+          if (def?.inputFormat === 'clock') return minToClock(Number(val))
           const n = Number(val)
           if (def?.inputFormat === 'hms') {  // 저장값(분) → 시:분:초 (0시간이면 생략)
             const sec = Math.round(n * 60)

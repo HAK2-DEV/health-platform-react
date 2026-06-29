@@ -23,6 +23,7 @@ const ProgramNewPage = lazy(() => import('./pages/program/ProgramNewPage'))
 const ProgramDetailPage = lazy(() => import('./pages/program/ProgramDetailPage'))
 const BundleDetailPage = lazy(() => import('./pages/program/BundleDetailPage'))
 const ProgramStatsPage = lazy(() => import('./pages/program/ProgramStatsPage'))
+const ProgramEndReportPage = lazy(() => import('./pages/program/ProgramEndReportPage'))
 const ProgramStatsMissionsPage = lazy(() => import('./pages/program/ProgramStatsMissionsPage'))
 const ProgramStatsUsersPage = lazy(() => import('./pages/program/ProgramStatsUsersPage'))
 const ProgramStatsUserDetailPage = lazy(() => import('./pages/program/ProgramStatsUserDetailPage'))
@@ -126,6 +127,9 @@ function AppShell() {
             } />
             <Route path="/programs/:id/stats" element={
               <ProtectedRoute><ProgramStatsPage /></ProtectedRoute>
+            } />
+            <Route path="/programs/:id/report" element={
+              <ProtectedRoute><ProgramEndReportPage /></ProtectedRoute>
             } />
             <Route path="/programs/:id/stats/missions" element={
               <ProtectedRoute><ProgramStatsMissionsPage /></ProtectedRoute>

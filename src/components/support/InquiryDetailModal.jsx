@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trash2 } from 'lucide-react'
 import Modal from '../common/Modal'
@@ -26,6 +26,11 @@ function InquiryDetailModal({ inquiryId, userId, isAdmin, isOpen, onClose, onCha
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
   const [confirmDel, setConfirmDel] = useState(false)
+
+  // 모달이 다른 문의로 열릴 때마다 입력/상태 초기화 (이전 busy 가 남아 입력 막히는 것 방지)
+  useEffect(() => {
+    if (isOpen) { setComment(''); setError(null); setBusy(false); setConfirmDel(false) }
+  }, [isOpen, inquiryId])
 
   const { data: inquiry, isLoading } = useQuery({
     queryKey: ['inquiry', inquiryId],
@@ -66,11 +71,11 @@ function InquiryDetailModal({ inquiryId, userId, isAdmin, isOpen, onClose, onCha
     setBusy(true)
     try {
       await deleteInquiry(inquiryId)
-      setConfirmDel(false)
       onChanged?.()
       onClose()
     } catch (e) {
       setError(e?.message || '삭제에 실패했어요')
+    } finally {
       setBusy(false)
       setConfirmDel(false)
     }

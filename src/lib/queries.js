@@ -6,6 +6,7 @@
 //   - 같은 prefix 면 invalidate 시 한꺼번에 무효화 가능 (예: ['programs'] 무효화 → 모든 program 관련 캐시 갱신)
 //   - userId 가 필요한 키는 항상 user 인자 포함 — 로그인 다른 계정이면 캐시 자동 분리
 import { supabase } from '../supabaseClient'
+import { getPreset, expandPresetMission } from './programLibrary'
 
 export const queryKeys = {
   // 본인이 만든 프로그램 (대시보드 "내 프로그램" 섹션)
@@ -990,6 +991,110 @@ export const deleteCommunityPostComment = async (id) => {
   if (error) throw error
 }
 
+// 댓글 좋아요 — 모든 종류 댓글(답글 포함)에 좋아요. (141 인증댓글 / 142 게시판댓글)
+//   kind: 'post' → post_comment_likes(인증글 댓글) / 'community' → community_post_comment_likes(게시판 댓글)
+//   답글도 같은 테이블의 row(parent_id) 라 comment_id 만으로 커버.
+const COMMENT_LIKE_TABLE = { post: 'post_comment_likes', community: 'community_post_comment_likes' }
+
+// 주어진 댓글 id들의 좋아요 수 + 내가 누른 것 집합.
+export const fetchCommentLikes = async ({ kind, commentIds, userId }) => {
+  const table = COMMENT_LIKE_TABLE[kind]
+  if (!table || !commentIds || commentIds.length === 0) return { counts: {}, mine: new Set() }
+  const { data, error } = await supabase.from(table).select('comment_id, user_id').in('comment_id', commentIds)
+  if (error) throw error
+  const counts = {}; const mine = new Set()
+  for (const r of (data || [])) {
+    counts[r.comment_id] = (counts[r.comment_id] || 0) + 1
+    if (r.user_id === userId) mine.add(r.comment_id)
+  }
+  return { counts, mine }
+}
+
+// 베스트 응원 — 프로그램 인증글 댓글(post_comments) 중 좋아요(141) 최다 N개.
+//   금연 「응원」 탭 상단 노출용. 좋아요 0인 댓글은 제외. 동점이면 최신순.
+//   반환: [{ id, content, user_id, verification_id, likeCount, user:{nickname,avatar_path} }]
+export const fetchBestCheers = async (programId, { limit = 3 } = {}) => {
+  // 1) 프로그램 미션 → 인증 id
+  const { data: missions } = await supabase.from('missions').select('id').eq('program_id', programId)
+  const mIds = (missions || []).map(m => m.id)
+  if (mIds.length === 0) return []
+  const { data: vers } = await supabase.from('verifications').select('id').in('mission_id', mIds)
+  const vIds = (vers || []).map(v => v.id)
+  if (vIds.length === 0) return []
+  // 2) 댓글
+  const { data: comments } = await supabase
+    .from('post_comments')
+    .select('id, content, user_id, verification_id, created_at')
+    .in('verification_id', vIds)
+  if (!comments || comments.length === 0) return []
+  const cIds = comments.map(c => c.id)
+  // 3) 좋아요 집계
+  const { data: likes } = await supabase.from('post_comment_likes').select('comment_id').in('comment_id', cIds)
+  const countMap = {}
+  for (const l of (likes || [])) countMap[l.comment_id] = (countMap[l.comment_id] || 0) + 1
+  // 4) 좋아요 1↑만, 좋아요 desc → 최신 desc
+  const ranked = comments
+    .map(c => ({ ...c, likeCount: countMap[c.id] || 0 }))
+    .filter(c => c.likeCount > 0)
+    .sort((a, b) => b.likeCount - a.likeCount || new Date(b.created_at) - new Date(a.created_at))
+    .slice(0, limit)
+  if (ranked.length === 0) return []
+  // 5) 작성자
+  const uIds = Array.from(new Set(ranked.map(c => c.user_id)))
+  const { data: users } = await supabase.from('users').select('id, nickname, avatar_path').in('id', uIds)
+  const uMap = new Map((users || []).map(u => [u.id, u]))
+  return ranked.map(c => ({ ...c, user: uMap.get(c.user_id) || null }))
+}
+
+// 최근 응원글 — 프로그램 인증글 댓글 최신 N개 + 좋아요 수. (응원 콜라주 「최근 응원글」)
+//   반환: [{ id, content, user_id, verification_id, created_at, likeCount, user }]
+export const fetchRecentCheers = async (programId, { limit = 4 } = {}) => {
+  const { data: missions } = await supabase.from('missions').select('id').eq('program_id', programId)
+  const mIds = (missions || []).map(m => m.id)
+  if (mIds.length === 0) return []
+  const { data: vers } = await supabase.from('verifications').select('id').in('mission_id', mIds)
+  const vIds = (vers || []).map(v => v.id)
+  if (vIds.length === 0) return []
+  const { data: comments } = await supabase
+    .from('post_comments')
+    .select('id, content, user_id, verification_id, created_at')
+    .in('verification_id', vIds)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+  if (!comments || comments.length === 0) return []
+  const cIds = comments.map(c => c.id)
+  const { data: likes } = await supabase.from('post_comment_likes').select('comment_id').in('comment_id', cIds)
+  const countMap = {}
+  for (const l of (likes || [])) countMap[l.comment_id] = (countMap[l.comment_id] || 0) + 1
+  const uIds = Array.from(new Set(comments.map(c => c.user_id)))
+  const { data: users } = await supabase.from('users').select('id, nickname, avatar_path').in('id', uIds)
+  const uMap = new Map((users || []).map(u => [u.id, u]))
+  return comments.map(c => ({ ...c, likeCount: countMap[c.id] || 0, user: uMap.get(c.user_id) || null }))
+}
+
+// 운영자 한마디 저장 — programs.community_settings.cheerNotice (JSONB 머지, 마이그레이션 불필요).
+//   text 비면 null 로 제거. currentSettings: 기존 community_settings(다른 필드 보존용).
+export const updateCheerNotice = async (programId, currentSettings, text) => {
+  const t = (text || '').trim()
+  const next = { ...(currentSettings || {}), cheerNotice: t || null }
+  const { error } = await supabase.from('programs').update({ community_settings: next }).eq('id', programId)
+  if (error) throw error
+  return next
+}
+
+// 댓글 좋아요 토글. liked=현재 내가 누른 상태(true면 취소).
+export const toggleCommentLike = async ({ kind, commentId, userId, liked }) => {
+  const table = COMMENT_LIKE_TABLE[kind]
+  if (!table) throw new Error('unknown comment kind')
+  if (liked) {
+    const { error } = await supabase.from(table).delete().eq('comment_id', commentId).eq('user_id', userId)
+    if (error) throw error
+  } else {
+    const { error } = await supabase.from(table).insert({ comment_id: commentId, user_id: userId })
+    if (error && error.code !== '23505') throw error  // 중복은 무시
+  }
+}
+
 // 운영자 — 승인 필요(approval) 게시판의 검토 대기 글 승인/거절.
 //   승인: status='visible' (노출). 거절: 글 삭제. (RLS: 운영자 UPDATE/DELETE 허용 — 096)
 export const setCommunityPostStatus = async ({ id, status }) => {
@@ -1518,6 +1623,7 @@ export const fetchFeedPosts = async (programId, page = 0, pageSize = FEED_PAGE_S
     .from('verifications')
     .select('id, mission_id, user_id, submitted_at, image_path, numeric_value, metric_values, note, missions!inner(program_id, title, bundle_title, requires_note, metrics)')
     .eq('missions.program_id', programId)
+    .eq('missions.feed_excluded', false)   // 운영자 전용 미션(욕구 순간 등) 제외
     .eq('status', 'APPROVED')
     .eq('feed_visible', true)
     .order('submitted_at', { ascending: false })
@@ -1667,6 +1773,30 @@ export const fetchMyMetricSummary = async (programId, userId) => {
     .filter(k => (totals[k] || 0) > 0)
     .map(k => ({ ...defs[k], total: totals[k] || 0, recent: recents[k] || 0 }))  // total=누적 / recent=최근 1건(증가분)
   return { metrics, count, recentCount }
+}
+
+// 금연 테마 — 오늘의 흡연/아낀 담배 개비 합산 (히어로 "오늘 절약" 계산용).
+//   metric_values 의 'cigarettes'(흡연)·'saved'(아낀) 키를 오늘(KST) 제출분에서 합산.
+//   거부(REJECTED) 제외 — 승인/대기 모두 즉시 반영(제출 직후 보이게).
+export const fetchTodaySmokingStats = async ({ programId, userId }) => {
+  if (!programId || !userId) return { saved: 0, smoked: 0 }
+  const { data, error } = await supabase
+    .from('verifications')
+    .select('metric_values, submitted_at, missions!inner(program_id)')
+    .eq('missions.program_id', programId)
+    .eq('user_id', userId)
+    .neq('status', 'REJECTED')
+    .not('metric_values', 'is', null)
+  if (error) throw error
+  const today = formatKstDate(new Date())
+  let saved = 0, smoked = 0
+  for (const r of data || []) {
+    if (formatKstDate(new Date(r.submitted_at)) !== today) continue
+    const mv = r.metric_values || {}
+    smoked += Number(mv.cigarettes) || 0
+    saved += Number(mv.saved) || 0
+  }
+  return { saved, smoked }
 }
 
 // 누적 지표 합산 (121) — 단위별 '함께(전체) + 내 누적'. 승인된 numeric 만. RPC(SECURITY DEFINER).
@@ -1879,4 +2009,297 @@ export const fetchProgramStats = async (programId) => {
     // 원본 verification rows (id/mission_id/user_id/submitted_at + missions JOIN).
     _raw: rows,
   }
+}
+
+// 다음 기수 열기 — 프로그램 복제 (2026-06-28 본인 결정).
+//   복사 O: programs 설정 전부 + missions + quizzes/quiz_questions (날짜는 새 시작일 기준 평행 이동)
+//   복사 X: participants · verifications · score_ledgers · posts · teams (런타임 데이터)
+//   결과: DRAFT 새 프로그램 (소유자=본인). PUBLISH 는 운영자가 검토 후 → 그때만 베타 한도 검사.
+//   원자성: 미션/퀴즈 복사 중 실패하면 새 프로그램 삭제(cascade)로 롤백.
+//   newStart: 'YYYY-MM-DD' (새 기수 시작일). 기존 시작일과의 일수 차이만큼 전체·미션 날짜 평행 이동.
+export const cloneProgram = async ({ sourceId, newStart }) => {
+  const { data: auth } = await supabase.auth.getUser()
+  const uid = auth?.user?.id
+  if (!uid) throw new Error('로그인이 필요합니다')
+
+  // 1) 원본 프로그램
+  const { data: src, error: srcErr } = await supabase.from('programs').select('*').eq('id', sourceId).single()
+  if (srcErr) throw srcErr
+  if (src.owner_id !== uid) throw new Error('내가 운영하는 프로그램만 복제할 수 있어요')
+
+  // 평행 이동 오프셋 (일 단위)
+  const offsetDays = src.start_date
+    ? Math.round((new Date(`${newStart}T00:00:00+09:00`) - new Date(`${src.start_date}T00:00:00+09:00`)) / 86400000)
+    : 0
+  const shiftDateStr = (dateStr) => {
+    if (!dateStr) return dateStr
+    const d = new Date(`${dateStr}T00:00:00+09:00`)
+    d.setDate(d.getDate() + offsetDays)
+    return formatKstDate(d)
+  }
+  const shiftTs = (ts) => {
+    if (!ts) return ts
+    const d = new Date(ts)
+    d.setDate(d.getDate() + offsetDays)
+    return d.toISOString()
+  }
+
+  // 2) 새 프로그램 row — 설정 전부 복사 + 런타임/식별 필드 재설정
+  const { id: _id, created_at: _c, updated_at: _u, ...rest } = src
+  const newProgram = {
+    ...rest,
+    owner_id: uid,
+    status: 'DRAFT',
+    invite_code: null,        // unique 제약 — 발행 시 재생성
+    published_at: null,
+    start_date: src.start_date ? newStart : null,
+    end_date: src.end_date ? shiftDateStr(src.end_date) : null,
+  }
+  const { data: created, error: insErr } = await supabase.from('programs').insert(newProgram).select('id').single()
+  if (insErr) throw insErr
+  const newId = created.id
+
+  try {
+    // 3) 미션 복사 (날짜 평행 이동)
+    const { data: missions, error: mErr } = await supabase.from('missions').select('*').eq('program_id', sourceId)
+    if (mErr) throw mErr
+    if (missions?.length) {
+      const rows = missions.map(({ id, created_at, updated_at, ...m }) => ({
+        ...m,
+        program_id: newId,
+        active_from: shiftTs(m.active_from),
+        active_until: shiftTs(m.active_until),
+      }))
+      const { error } = await supabase.from('missions').insert(rows)
+      if (error) throw error
+    }
+
+    // 4) 퀴즈 + 문항 복사 (due_at 평행 이동)
+    const { data: quizzes, error: qErr } = await supabase.from('quizzes').select('*').eq('program_id', sourceId)
+    if (qErr) throw qErr
+    for (const q of quizzes || []) {
+      const { id: oldQuizId, created_at, ...qr } = q
+      const { data: nq, error: nqErr } = await supabase.from('quizzes')
+        .insert({ ...qr, program_id: newId, due_at: shiftTs(q.due_at), created_by: uid })
+        .select('id').single()
+      if (nqErr) throw nqErr
+      const { data: questions, error: qqErr } = await supabase.from('quiz_questions').select('*').eq('quiz_id', oldQuizId)
+      if (qqErr) throw qqErr
+      if (questions?.length) {
+        const qrows = questions.map(({ id, created_at: _qc, ...qq }) => ({ ...qq, quiz_id: nq.id }))
+        const { error } = await supabase.from('quiz_questions').insert(qrows)
+        if (error) throw error
+      }
+    }
+  } catch (err) {
+    // 부분 복제 롤백 — 새 프로그램 삭제 시 missions/quizzes 는 cascade 삭제
+    await supabase.from('programs').delete().eq('id', newId)
+    throw err
+  }
+
+  return newId
+}
+
+// 프리셋별 「운영자 수」 집계 — 라이브러리 화면 표시용 (마이그 135 RPC).
+//   반환: { [presetKey]: operatorCount }. RPC(SECURITY DEFINER)라 남의 프로그램 직접 조회 없이 수치만.
+export const fetchPresetUsageCounts = async () => {
+  const { data, error } = await supabase.rpc('get_preset_usage_counts')
+  if (error) throw error
+  const map = {}
+  for (const row of data || []) map[row.preset_key] = row.operator_count || 0
+  return map
+}
+
+// 오늘의 기분 체크 (마이그 137) — 금연 테마 위젯. 하루 1건(upsert).
+export const fetchTodayMood = async ({ programId, userId }) => {
+  if (!programId || !userId) return null
+  const today = formatKstDate(new Date())
+  const { data, error } = await supabase
+    .from('mood_logs')
+    .select('mood')
+    .eq('program_id', programId)
+    .eq('user_id', userId)
+    .eq('logged_date', today)
+    .maybeSingle()
+  if (error) throw error
+  return data?.mood ?? null
+}
+
+// 금연 「내 변화」 — 내 기분 추세 (mood_logs, 날짜 오름차순 전체)
+export const fetchMyMoodTrend = async ({ programId, userId }) => {
+  if (!programId || !userId) return []
+  const { data, error } = await supabase
+    .from('mood_logs')
+    .select('mood, logged_date')
+    .eq('program_id', programId)
+    .eq('user_id', userId)
+    .order('logged_date', { ascending: true })
+  if (error) throw error
+  return data || []
+}
+
+// 금연 「내 변화」 — 흡연 추세 + 자주 피는 시간대 + 욕구 시간대.
+//   흡연 기록 미션(metrics.cigarettes 보유): 일자별 흡연 개비 합 + 핀 시각(smoke_hour, 자정기준 분→시) 히스토그램.
+//   욕구 순간 미션(metrics 없는 note 미션): 제출 시각(KST) 히스토그램.
+//   거부 제외(본인 데이터 즉시 반영).
+export const fetchMyChangeStats = async ({ programId, userId, days = 14 }) => {
+  const empty = { smokingTrend: [], smokeHourHist: new Array(24).fill(0), cravingHourHist: new Array(24).fill(0), smokeTotal: 0, cravingTotal: 0, cravingNotes: [] }
+  if (!programId || !userId) return empty
+  const { data, error } = await supabase
+    .from('verifications')
+    .select('metric_values, submitted_at, note, missions!inner(program_id, metrics)')
+    .eq('missions.program_id', programId)
+    .eq('user_id', userId)
+    .neq('status', 'REJECTED')
+  if (error) throw error
+  const kstHour = (ts) => (new Date(ts).getUTCHours() + 9) % 24
+  const byDay = {}
+  const smokeHourHist = new Array(24).fill(0)
+  const cravingHourHist = new Array(24).fill(0)
+  let smokeTotal = 0, cravingTotal = 0
+  const cravingNotes = []
+  for (const r of data || []) {
+    const mv = r.metric_values || {}
+    const metrics = r.missions?.metrics || []
+    const hasCig = metrics.some(m => m?.key === 'cigarettes')
+    if (hasCig) {
+      const day = formatKstDate(new Date(r.submitted_at))
+      byDay[day] = (byDay[day] || 0) + (Number(mv.cigarettes) || 0)
+      smokeTotal += Number(mv.cigarettes) || 0
+      // 핀 시각 — clock_multi 는 배열, 구버전은 단일 숫자. 각각 시간대 히스토그램에 반영.
+      const times = Array.isArray(mv.smoke_hour) ? mv.smoke_hour : (mv.smoke_hour != null ? [mv.smoke_hour] : [])
+      for (const t of times) {
+        const h = Math.floor((Number(t) || 0) / 60)
+        if (h >= 0 && h < 24) smokeHourHist[h] += 1
+      }
+    } else if (metrics.length === 0) {
+      // 욕구 순간(note-only) — 제출 시각 + 적은 내용(욕구 요인)
+      const h = kstHour(r.submitted_at)
+      if (h >= 0 && h < 24) { cravingHourHist[h] += 1; cravingTotal += 1 }
+      if (r.note && r.note.trim()) cravingNotes.push({ text: r.note.trim(), at: r.submitted_at })
+    }
+  }
+  cravingNotes.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
+  const smokingTrend = []
+  const base = new Date()
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(base); d.setDate(d.getDate() - i)
+    const ds = formatKstDate(d)
+    smokingTrend.push({ date: ds, cigarettes: byDay[ds] || 0 })
+  }
+  return { smokingTrend, smokeHourHist, cravingHourHist, smokeTotal, cravingTotal, cravingNotes: cravingNotes.slice(0, 50) }
+}
+
+// 금연 「참가자 추세」(운영자) — 참가자별 최근 기분·누적 흡연·욕구 기록 집계.
+//   RLS: 운영자는 자기 프로그램 mood_logs(137 owner_read)·verifications·users 조회 가능.
+//   신경 쓸 사람 먼저(흡연 많은 순 → 기분 낮은 순).
+export const fetchParticipantChangeTrends = async (programId) => {
+  if (!programId) return []
+  const [ppRes, moodRes, vRes] = await Promise.all([
+    supabase.from('program_participants').select('user_id').eq('program_id', programId).eq('status', 'ACTIVE'),
+    supabase.from('mood_logs').select('user_id, mood, logged_date').eq('program_id', programId).order('logged_date', { ascending: true }),
+    supabase.from('verifications').select('user_id, metric_values, missions!inner(program_id, metrics)').eq('missions.program_id', programId).neq('status', 'REJECTED'),
+  ])
+  if (ppRes.error) throw ppRes.error
+  const map = new Map()
+  const ensure = (uid) => {
+    if (!map.has(uid)) map.set(uid, { user_id: uid, nickname: '(닉네임 없음)', moods: [], smokeTotal: 0, cravingCount: 0 })
+    return map.get(uid)
+  }
+  for (const p of ppRes.data || []) ensure(p.user_id)
+  for (const r of moodRes.data || []) ensure(r.user_id).moods.push(r.mood)
+  for (const r of vRes.data || []) {
+    const mv = r.metric_values || {}
+    const metrics = r.missions?.metrics || []
+    const u = ensure(r.user_id)
+    if (metrics.some(m => m?.key === 'cigarettes')) u.smokeTotal += Number(mv.cigarettes) || 0
+    else if (metrics.length === 0) u.cravingCount += 1
+  }
+  const ids = Array.from(map.keys())
+  if (ids.length) {
+    const { data: users } = await supabase.from('users').select('id, nickname').in('id', ids)
+    for (const u of users || []) { const e = map.get(u.id); if (e) e.nickname = u.nickname || '(닉네임 없음)' }
+  }
+  const out = Array.from(map.values()).map(u => ({
+    user_id: u.user_id,
+    nickname: u.nickname,
+    latestMood: u.moods.length ? u.moods[u.moods.length - 1] : null,
+    avgMood: u.moods.length ? u.moods.reduce((a, b) => a + b, 0) / u.moods.length : null,
+    moodCount: u.moods.length,
+    smokeTotal: u.smokeTotal,
+    cravingCount: u.cravingCount,
+  }))
+  out.sort((a, b) => (b.smokeTotal - a.smokeTotal) || ((a.avgMood ?? 99) - (b.avgMood ?? 99)))
+  return out
+}
+
+export const upsertMood = async ({ programId, userId, mood }) => {
+  const today = formatKstDate(new Date())
+  const { error } = await supabase
+    .from('mood_logs')
+    .upsert(
+      { program_id: programId, user_id: userId, mood, logged_date: today, updated_at: new Date().toISOString() },
+      { onConflict: 'program_id,user_id,logged_date' }
+    )
+  if (error) throw error
+  return mood
+}
+
+// 라이브러리에서 시작 — 관리자 프리셋으로 DRAFT 프로그램 생성 (2026-06-28).
+//   프리셋(코드 정의) → DRAFT 프로그램 + 미션(전체 기간) 생성. 이후 마법사에서 이름·날짜 마무리.
+//   날짜 변경 시 027 트리거가 미션 active_from/until 을 자동 동기화.
+//   원자성: 미션 insert 실패 시 새 프로그램 삭제(cascade)로 롤백.
+export const createProgramFromPreset = async ({ presetKey, userId, selectedKeys, durationDays }) => {
+  if (!userId) throw new Error('로그인이 필요합니다')
+  const preset = getPreset(presetKey)
+  if (!preset) throw new Error('프리셋을 찾을 수 없어요')
+  // selectedKeys 가 있으면 그 미션만, 없으면 전체
+  const chosen = Array.isArray(selectedKeys) && selectedKeys.length
+    ? (preset.missions || []).filter(m => selectedKeys.includes(m.key))
+    : (preset.missions || [])
+
+  // 기간 — 오늘 시작, 선택 기간(없으면 프리셋 기본) (운영자가 마법사에서 조정)
+  const today = new Date()
+  const start = formatKstDate(today)
+  const dur = durationDays || preset.durationDays || 14
+  const endD = new Date(today)
+  endD.setDate(endD.getDate() + dur - 1)
+  const end = formatKstDate(endD)
+  const activeFrom = `${start}T00:00:00+09:00`
+  const activeUntil = `${end}T23:59:59+09:00`
+
+  // 1) DRAFT 프로그램 (나머지 설정 컬럼은 DB 기본값)
+  const { data: created, error } = await supabase.from('programs').insert({
+    owner_id: userId,
+    status: 'DRAFT',
+    name: preset.name,
+    description: preset.description || null,
+    categories: preset.categories || [],
+    start_date: start,
+    end_date: end,
+    source_preset_key: presetKey,   // 라이브러리 출처 추적 (마이그 135) — 운영자 수 집계용
+    theme: preset.theme || null,    // 테마 프로그램(금연 등) — 상세 페이지 변형 (마이그 136)
+    // 프리셋이 지정한 메뉴 플래그만 반영 (미지정은 DB 기본값). 금연: 퀴즈/랭킹 OFF, 내 변화 ON
+    ...(preset.quizEnabled != null ? { quiz_enabled: preset.quizEnabled } : {}),
+    ...(preset.rankingEnabled != null ? { ranking_enabled: preset.rankingEnabled } : {}),
+    ...(preset.changeTabEnabled != null ? { change_tab_enabled: preset.changeTabEnabled } : {}),
+  }).select('id').single()
+  if (error) throw error
+  const newId = created.id
+
+  // 2) 미션 심기 (선택된 미션만)
+  try {
+    if (chosen.length) {
+      const rows = chosen.map(m => expandPresetMission(m, {
+        programId: newId, activeFrom, activeUntil, bundleTitle: preset.bundleTitle,
+      }))
+      const { error: mErr } = await supabase.from('missions').insert(rows)
+      if (mErr) throw mErr
+    }
+  } catch (err) {
+    await supabase.from('programs').delete().eq('id', newId)
+    throw err
+  }
+
+  return newId
 }

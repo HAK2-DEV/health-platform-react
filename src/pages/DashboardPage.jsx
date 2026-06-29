@@ -120,6 +120,49 @@ function RankRing({ rank, total }) {
   )
 }
 
+// 신규 사용자 콜드스타트 가이드 — 운영·참여 프로그램이 0개일 때 대표/활동/랭킹 3섹션을 대체.
+// 죽은 0/0/0 카드 대신 둘러보기→참여→인증 「시작 3단계」 동선을 안내한다 (참여자 온보딩 A).
+function ColdStartGuide({ onBrowse }) {
+  const steps = [
+    { n: 1, emoji: '🔍', title: '프로그램 둘러보기', body: '관심 있는 건강 프로그램을 찾아봐요.' },
+    { n: 2, emoji: '🙌', title: '마음에 드는 곳에 참여', body: '공개 프로그램은 바로, 비공개는 초대코드로 참여해요.' },
+    { n: 3, emoji: '✅', title: '매일 미션 인증', body: '사진·기록으로 인증하며 건강 습관을 쌓아요.' },
+  ]
+  return (
+    <SectionCard>
+      <div className="text-center mb-4">
+        <div className="text-4xl mb-2">🌱</div>
+        <h2 className="text-lg font-extrabold text-gray-900 leading-tight">건강 습관, 여기서 시작해요!</h2>
+        <p className="text-[13px] text-gray-500 mt-1">3단계면 충분해요. 첫 프로그램을 찾아볼까요?</p>
+      </div>
+      <ol className="space-y-3 mb-5">
+        {steps.map((s, i) => (
+          <motion.li
+            key={s.n}
+            className="flex items-start gap-3"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.1 + i * 0.1 }}
+          >
+            <span className="flex-shrink-0 w-7 h-7 rounded-full bg-emerald-100 text-emerald-700 text-sm font-bold flex items-center justify-center">{s.n}</span>
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-gray-800">{s.emoji} {s.title}</p>
+              <p className="text-[12px] text-gray-500 leading-snug">{s.body}</p>
+            </div>
+          </motion.li>
+        ))}
+      </ol>
+      <button
+        type="button"
+        onClick={onBrowse}
+        className="w-full py-3 rounded-card-lg bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-semibold transition flex items-center justify-center gap-1"
+      >
+        프로그램 둘러보기 <ChevronRight className="w-4 h-4" />
+      </button>
+    </SectionCard>
+  )
+}
+
 function DashboardPage() {
   const { session } = useAuth()
   const navigate = useNavigate()
@@ -157,7 +200,7 @@ function DashboardPage() {
     enabled: !!userId,
   })
 
-  const { data: myPrograms = [] } = useQuery({
+  const { data: myPrograms = [], isLoading: isMyLoading } = useQuery({
     queryKey: queryKeys.myPrograms(userId),
     queryFn: () => fetchMyPrograms(userId),
     enabled: !!userId,
@@ -204,6 +247,9 @@ function DashboardPage() {
   // 운영자(소유 프로그램 보유)면 대표 카드에 운영중 프로그램을, 아니면 참여중 프로그램을 노출.
   //   운영중·참여중 둘 다 있으면 스와이프/토글로 전환(effectiveMode).
   const isOperator = myPrograms.length > 0
+  // 신규 사용자 콜드스타트 — 운영·참여 프로그램이 하나도 없고 로딩도 끝난 상태.
+  // 죽은 0/0/0 대시보드 대신 「시작 3단계」 가이드로 전환 (참여자 온보딩).
+  const isColdStart = !isMyLoading && !isActiveLoading && myPrograms.length === 0 && activePrograms.length === 0
   const canToggleMode = myPrograms.length > 0 && activePrograms.length > 0
   const effectiveMode = canToggleMode ? viewMode : (isOperator ? 'operator' : 'participant')
   const showOperator = effectiveMode === 'operator'
@@ -267,6 +313,10 @@ function DashboardPage() {
       ? Math.round((opPulse.todayActiveUsers / featuredParticipants) * 100)
       : 0
   const totalVerifs = opPulse?.totalVerifs ?? null
+
+  // 첫 인증 넛지 — 참여자(운영 모드 아님)인데 대표 프로그램에 승인된 인증이 0건(활성화 전).
+  //   featuredOverview 로딩 중엔 undefined → 조건 false 라 깜빡임 없음.
+  const firstVerifyNudge = !isColdStart && !showOperator && !!featured && featuredOverview?.totalCount === 0
 
   // 대표 프로그램 4지표 (숫자 12px / 단위 9px / 색상은 지표별)
   //   운영중: 참여자 / 오늘 참여율 / 남은 기간 / 누적 인증
@@ -349,11 +399,31 @@ function DashboardPage() {
                   운영자
                 </span>
               )}
-              <span className="text-[12px] font-medium text-gray-700">건강한 습관이 쌓이고 있어요!</span>
+              <span className="text-[12px] font-medium text-gray-700">{isColdStart ? '환영해요! 첫 건강 습관을 시작해볼까요? ✨' : '건강한 습관이 쌓이고 있어요!'}</span>
             </div>
           </div>
         </div>
 
+        {/* 첫 인증 넛지 — 참여했지만 아직 한 번도 인증 안 한 사용자를 미션 탭으로 (활성화) */}
+        {firstVerifyNudge && (
+          <button
+            type="button"
+            onClick={() => navigate(`/programs/${featured.id}?tab=missions`)}
+            className="w-full flex items-center gap-3 p-3.5 rounded-[10px] bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-left shadow-elevated active:scale-[0.99] transition"
+          >
+            <span className="flex-shrink-0 w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-xl">🎯</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold leading-tight">아직 첫 인증 전이에요!</p>
+              <p className="text-[12px] text-white/85 leading-snug mt-0.5 truncate">{featured.name}에서 첫 미션을 인증하고 습관을 시작해보세요</p>
+            </div>
+            <ChevronRight className="w-5 h-5 flex-shrink-0 text-white/90" />
+          </button>
+        )}
+
+        {/* 신규 사용자 — 죽은 0/0/0 섹션 대신 시작 가이드 히어로 */}
+        {isColdStart ? (
+        <ColdStartGuide onBrowse={() => setBrowseOpen(true)} />
+        ) : (<>
         {/* ─── 운영중/참여중 전환 3개 섹션 — 프레임 고정, 안쪽만 좌우 슬라이드 ─── */}
         <div className="space-y-[9px]" onTouchStart={onModeTouchStart} onTouchEnd={onModeTouchEnd}>
         {/* ─── 대표 프로그램 (운영자=운영중 / 그 외=참여중) ─── */}
@@ -511,6 +581,7 @@ function DashboardPage() {
           </ModeSlide>
         </SectionCard>
         </div>
+        </>)}
 
         {/* 모달 — 둘러보기 + 공개 프로그램 상세 */}
         <ProgramBrowseModal

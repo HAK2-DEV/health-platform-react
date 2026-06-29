@@ -54,6 +54,11 @@ export const PROGRAM_STATUS = {
   ARCHIVED: 'ARCHIVED',
 }
 
+// 프로그램 테마 (programs.theme, 마이그 136) — 상세 페이지 변형. NULL = 일반.
+export const PROGRAM_THEME = {
+  QUIT_SMOKING: 'QUIT_SMOKING',
+}
+
 // 프로그램 기본 정보 길이 제한
 export const PROGRAM = {
   NAME_MAX_LENGTH: 20,

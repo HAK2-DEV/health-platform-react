@@ -10,6 +10,10 @@
   --font-sans: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont,
     system-ui, 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
 
+  /* 손글씨체 — 응원 콜라주(CheerBoard) 등 감성 카드용. index.html 에서 Gaegu 로드.
+     사용: font-hand 유틸 클래스. 미로드 시 본문 폰트로 폴백. */
+  --font-hand: 'Gaegu', 'Pretendard Variable', cursive;
+
   /* 본문 기본 상향: Tailwind 기본 text-sm 14px → 15px (가독성·모던 톤).
      text-sm 이 본문·댓글·알림의 주력(367곳)이라 이 한 줄로 전반이 커짐. */
   --text-sm: 0.9375rem;        /* 15px */

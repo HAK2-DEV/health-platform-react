@@ -6,11 +6,18 @@ import { useAuth } from '../../hooks/useAuth'
 import { ChevronLeft, Plus, ChevronRight, Users, Trophy, Pencil, Calendar, Activity, Award, Flame, Check, Settings, X } from 'lucide-react'
 import DoorIcon from '../../components/common/DoorIcon'
 import { supabase } from '../../supabaseClient'
-import { CATEGORY } from '../../lib/constants'
+import { CATEGORY, PROGRAM_THEME } from '../../lib/constants'
 import { formatKoreanDate, formatKoreanDateTime, isUpcomingByStartDate, formatRelativeKstDay } from '../../lib/formatters'
 import MissionCard from '../../components/program/MissionCard'
 import GardenPanel from '../../components/program/GardenPanel'
 import ConstellationPanel from '../../components/program/ConstellationPanel'
+import ProgramCompletionCelebration from '../../components/program/ProgramCompletionCelebration'
+import QuitSmokingHero from '../../components/program/QuitSmokingHero'
+import MoodCheck from '../../components/program/MoodCheck'
+import QuitSmokingTip from '../../components/program/QuitSmokingTip'
+import QuitSmokingCheer from '../../components/program/QuitSmokingCheer'
+import CheerBoard from '../../components/program/CheerBoard'
+import ProgramChangeTab from '../../components/program/ProgramChangeTab'
 import PodiumTop3 from '../../components/program/PodiumTop3'
 import TeamRankingPanel from '../../components/program/TeamRankingPanel'
 import ScoreSparkline from '../../components/program/ScoreSparkline'
@@ -72,6 +79,7 @@ import {
   fetchProgramTeamRanking,
   fetchMyRecentScoreSeries,
   fetchTodayCounts,
+  fetchTodaySmokingStats,
   fetchParticipantQuizzes,
   fetchProgramQuizzes,
   duplicateQuiz,
@@ -238,6 +246,13 @@ function ProgramDetailPage() {
   })
 
   // 「개요」 탭 모의도 데이터 — streak + activeDays + recent 한 번에
+  // 금연 테마 — 오늘 흡연/아낀 담배 (히어로 "오늘 절약" 계산). 개비당 225원(한 갑 4,500÷20).
+  const { data: smokingToday } = useQuery({
+    queryKey: ['today-smoking', id, userId],
+    queryFn: () => fetchTodaySmokingStats({ programId: id, userId }),
+    enabled: !!session && !!id && !!userId && program?.theme === PROGRAM_THEME.QUIT_SMOKING,
+  })
+
   const { data: overviewData } = useQuery({
     queryKey: queryKeys.programOverview(id, userId),
     queryFn: () => fetchProgramOverview(id, userId),
@@ -486,6 +501,7 @@ function ProgramDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   const [quizLibOpen, setQuizLibOpen] = useState(false)                // 퀴즈 라이브러리 모달
+  const [completionOpen, setCompletionOpen] = useState(false)          // 참여자 완주 축하 (종료 시)
   // 라이브러리에서 생성폼 진입 시 ?quizlib= 저장 → 폼에서 뒤로가기로 복귀하면 모달 재오픈 (PostsManagePage 패턴)
   const isQuizLibOpen = quizLibOpen || !!searchParams.get('quizlib')
   const closeQuizLib = () => {
@@ -671,8 +687,21 @@ function ProgramDetailPage() {
     if (activeTab === 'quizzes' && program.quiz_enabled === false) setActiveTab('overview')
     else if (activeTab === 'community' && program.community_enabled === false) setActiveTab('overview')
     else if (activeTab === 'ranking' && program.ranking_enabled === false) setActiveTab('overview')
+    else if (activeTab === 'change' && !(program.theme === PROGRAM_THEME.QUIT_SMOKING && program.change_tab_enabled === true)) setActiveTab('overview')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [program, activeTab])
+
+  // 참여자 완주 축하 — 종료된 프로그램 첫 진입 시 1회 자동 노출 (localStorage 가드, 내 개요 로드 후).
+  useEffect(() => {
+    if (!program || isOwner || !isActiveParticipant || !overviewData) return
+    const ended = progressUrgency(calcProgress(program.start_date, program.end_date)).urgency === 'ended'
+    if (!ended) return
+    const key = `program_completion_seen_${id}`
+    if (localStorage.getItem(key)) return
+    localStorage.setItem(key, '1')
+    setCompletionOpen(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [program, isOwner, isActiveParticipant, overviewData, id])
 
   // 커뮤니티 관리자 — 동일 패턴 (열 때 상단 스크롤, 닫을 때 복원)
   useEffect(() => {
@@ -928,7 +957,18 @@ function ProgramDetailPage() {
   const communityBoards = (program.community_settings?.boards?.length
     ? program.community_settings.boards
     : [{ id: 'all', name: '전체' }, { id: 'notice', name: '공지' }, { id: 'cert', name: '인증' }, { id: 'free', name: '자유' }])
-  const BOARD_ICON = { notice: '📢', cert: '📷', free: '💬' }
+  const BOARD_ICON = { cheer: '💛', notice: '📢', cert: '📷', free: '💬' }
+  // 금연: 응원 콜라주 전용 「응원」 칩 (가상 보드 — 글 작성/피드 아님). 순서: 전체 다음(2번째).
+  const cheerChipOn = program.theme === PROGRAM_THEME.QUIT_SMOKING
+  const displayBoards = (() => {
+    if (!cheerChipOn) return communityBoards
+    const base = communityBoards.filter(b => b.id !== 'cheer')
+    const cheer = { id: 'cheer', name: '응원' }
+    const allIdx = base.findIndex(b => b.id === 'all')
+    if (allIdx === -1) return [cheer, ...base]
+    return [...base.slice(0, allIdx + 1), cheer, ...base.slice(allIdx + 1)]
+  })()
+  const isCheerBoard = communityBoard === 'cheer'
   // 전체/인증 = 미션 인증 피드, 그 외 = 게시판 글(community_posts)
   const boardHasFeed = communityBoard === 'all' || communityBoard === 'cert'
   // 현재 게시판의 실효 레이아웃 — 게시판별 override(boards[].layout) 우선, 없으면 프로그램 전체
@@ -1024,6 +1064,26 @@ function ProgramDetailPage() {
           titleLen <= 18 ? 'text-base sm:text-lg' :
           titleLen <= 22 ? 'text-sm sm:text-base' :
           'text-xs sm:text-sm'
+
+        // 금연 테마 — 기본 프로필 대신 전용 히어로 (마이그 136 theme)
+        if (program.theme === PROGRAM_THEME.QUIT_SMOKING) {
+          return (
+            <QuitSmokingHero
+              programId={id}
+              streak={overviewData?.streak || 0}
+              smokedToday={!!smokingToday && (smokingToday.smoked || 0) > 0}
+              savedAmount={smokingToday
+                ? (program.saving_subtract_smoking !== false
+                    ? (smokingToday.saved - smokingToday.smoked)
+                    : smokingToday.saved) * 225
+                : null}
+              actionLabel={activeTab === 'community' ? '응원하기' : '기록하기'}
+              onAction={activeTab === 'community'
+                ? () => { setEditingPost(null); setIsPostModalOpen(true) }
+                : () => navigate(`/programs/${id}?tab=missions`)}
+            />
+          )
+        }
 
         return (
           <div className="relative bg-white rounded-[10px] shadow-elevated overflow-hidden mb-[6px] min-h-[108px]">
@@ -1131,8 +1191,10 @@ function ProgramDetailPage() {
           본인 결정 (Day 65): 정원/별자리도 「성장」 통합 라벨로 일원화.
           인라인 관리자 열림 시엔 탭 바도 숨김(집중 편집 화면) */}
       {!inManager && (() => {
-        // 「랭킹 메뉴 표시」(ranking_enabled) OFF 면 성장/랭킹 탭 자체를 숨김 — gamification_type 보다 우선.
-        const gType = program.ranking_enabled === false
+        // 금연 테마 — 랭킹 숨김 + 커뮤니티→'응원' 라벨 (본인 결정: 응원/인증은 커뮤니티 재활용)
+        const isQuit = program.theme === PROGRAM_THEME.QUIT_SMOKING
+        // 「랭킹 메뉴 표시」(ranking_enabled) OFF 또는 금연 테마면 성장/랭킹 탭 자체를 숨김 — gamification_type 보다 우선.
+        const gType = (program.ranking_enabled === false || isQuit)
           ? null
           : (program.gamification_type || 'RANKING')
         // 열람자에겐 개인 정원/별자리 대신 랭킹 목록 → 라벨도 '랭킹'
@@ -1140,17 +1202,20 @@ function ProgramDetailPage() {
           ? (gType ? '랭킹' : null)
           : gType === 'GARDEN' ? '성장' : gType === 'CONSTELLATION' ? '성장' : gType === 'RANKING' ? '랭킹' : null
         const tabs = [
-          { key: 'overview', label: '개요' },
+          { key: 'overview', label: isQuit ? '전체' : '개요' },
           { key: 'missions', label: '미션' },
-          // 퀴즈는 참여 필요(열람자 숨김) + 사용 토글 OFF 시 숨김
+          // 퀴즈는 참여 필요(열람자 숨김) + 사용 토글(quiz_enabled) ON 일 때만. 금연도 켜면 노출(기본 OFF).
           ...(!isViewer && quizEnabled ? [{ key: 'quizzes', label: '퀴즈' }] : []),
-          ...(communityEnabled ? [{ key: 'community', label: '커뮤니티' }] : []),
+          ...(communityEnabled ? [{ key: 'community', label: isQuit ? '응원' : '커뮤니티' }] : []),
+          // 금연 「내 변화」(참가자) / 「참가자 추세」(운영자) — 운영자 토글 ON 일 때만
+          ...((isQuit && program.change_tab_enabled === true) ? [{ key: 'change', label: isOwner ? '참가자 추세' : '내 변화' }] : []),
           ...(growthLabel ? [{ key: 'ranking', label: growthLabel }] : []),
         ]
         // 방어: 현재 탭이 사라진 탭이면 overview 로 fallback
         const tabGone = (activeTab === 'ranking' && !growthLabel)
           || (activeTab === 'quizzes' && (isViewer || !quizEnabled))
           || (activeTab === 'community' && !communityEnabled)
+          || (activeTab === 'change' && !(isQuit && program.change_tab_enabled === true))
         const safeActiveTab = tabGone ? 'overview' : activeTab
         return (
           // 메뉴 선택 바 — 풀폭 언더라인 탭 (모서리 0)
@@ -1209,8 +1274,17 @@ function ProgramDetailPage() {
       {/* ─── 개요 탭 (일반 콘텐츠) ─────────────────────────── */}
       {activeTab === 'overview' && (!overviewManageOpen || overviewPreview) && (<>
 
-      {/* 📢 공지사항 (개요 글) — 맨 위. 주요기록요약과 같은 크기의 컴팩트 카드. 본문은 요약, 클릭 시 중앙 모달 */}
-      {(program.overview_content?.trim() || isOwner) && (() => {
+      {/* 금연 테마 — 오늘의 기분 체크 (개요 최상단). 참여자/운영자(미리보기). */}
+      {program.theme === PROGRAM_THEME.QUIT_SMOKING && !isViewer && userId && (
+        <MoodCheck programId={id} userId={userId} />
+      )}
+      {/* 금연 테마 — 금연 팁 카드 (회복 단계는 히어로 「회복 단계」 클릭 시 모달) */}
+      {program.theme === PROGRAM_THEME.QUIT_SMOKING && (
+        <QuitSmokingTip />
+      )}
+
+      {/* 📢 공지사항 (개요 글) — 맨 위. 운영자가 끄면(overview_notice_enabled=false) 미노출 (마이그 138) */}
+      {program.overview_notice_enabled !== false && (program.overview_content?.trim() || isOwner) && (() => {
         const raw = program.overview_content?.trim() || ''
         // 마크다운 기호 제거한 한 줄 미리보기
         const preview = raw
@@ -1278,8 +1352,8 @@ function ProgramDetailPage() {
         )
       })()}
 
-      {/* 주요 기록 요약 카드 (Phase2) — 다중 지표 + 달성 횟수, 최근 7일 증감 */}
-      {metricSummary && (metricSummary.metrics.length > 0 || metricSummary.count > 0) && (() => {
+      {/* 주요 기록 요약 카드 (Phase2) — 다중 지표 + 달성 횟수. 금연 테마에선 숨김(히어로 지표로 대체) */}
+      {program.theme !== PROGRAM_THEME.QUIT_SMOKING && metricSummary && (metricSummary.metrics.length > 0 || metricSummary.count > 0) && (() => {
         const fmt = (n) => Number(n || 0).toLocaleString('ko-KR', { maximumFractionDigits: 1 })
         // 시:분 (H:MM) — 저장값(분) → "8:36"
         const hm = (mins) => { const h = Math.floor(mins / 60); const mm = Math.round(mins % 60); return `${h}:${String(mm).padStart(2, '0')}` }
@@ -1322,8 +1396,8 @@ function ProgramDetailPage() {
           2) 오늘의 인증 미션 미리보기 (최대 3개)
           3) 최근 인증 기록 (최대 3개) */}
 
-      {/* 1) 진행 현황 카드 */}
-      {(() => {
+      {/* 1) 진행 현황 카드 — 금연 테마에선 히어로 지표가 대체하므로 숨김 */}
+      {program.theme !== PROGRAM_THEME.QUIT_SMOKING && (() => {
         // 기간 계산 (start/end 없으면 안전 fallback)
         const startDate = program.start_date ? new Date(`${program.start_date}T00:00:00+09:00`) : null
         const endDate = program.end_date ? new Date(`${program.end_date}T00:00:00+09:00`) : null
@@ -1412,6 +1486,38 @@ function ProgramDetailPage() {
         )
       })()}
 
+      {/* 종료 리포트 진입 — 운영자 + 프로그램 종료 시 (최종 성적표) */}
+      {isOwner && progressUrgency(calcProgress(program.start_date, program.end_date)).urgency === 'ended' && (
+        <button
+          type="button"
+          onClick={() => navigate(`/programs/${id}/report`)}
+          className="w-full flex items-center gap-3 p-3.5 mb-[9px] rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-left shadow-elevated active:scale-[0.99] transition"
+        >
+          <span className="flex-shrink-0 w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-xl">🏁</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold leading-tight">프로그램이 종료되었어요</p>
+            <p className="text-[12px] text-white/85 leading-snug mt-0.5">최종 성적표 — 종료 리포트 보기</p>
+          </div>
+          <ChevronRight className="w-5 h-5 flex-shrink-0 text-white/90" />
+        </button>
+      )}
+
+      {/* 완주 요약 재진입 — 참여자 + 프로그램 종료 시 */}
+      {!isOwner && isActiveParticipant && progressUrgency(calcProgress(program.start_date, program.end_date)).urgency === 'ended' && (
+        <button
+          type="button"
+          onClick={() => setCompletionOpen(true)}
+          className="w-full flex items-center gap-3 p-3.5 mb-[9px] rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-left shadow-elevated active:scale-[0.99] transition"
+        >
+          <span className="flex-shrink-0 w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-xl">🎉</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold leading-tight">프로그램을 마쳤어요</p>
+            <p className="text-[12px] text-white/85 leading-snug mt-0.5">내 완주 요약 다시 보기</p>
+          </div>
+          <ChevronRight className="w-5 h-5 flex-shrink-0 text-white/90" />
+        </button>
+      )}
+
       {/* 📝 안내(개요 글)은 상단 📢 공지사항 컴팩트 카드로 이동 (클릭 시 중앙 모달) */}
 
       {/* 참여자 자가 탈퇴 — 자동 승인(FREE) 프로그램 + ACTIVE 참여자 (비운영자).
@@ -1428,6 +1534,11 @@ function ProgramDetailPage() {
             <span className="underline underline-offset-2">이 프로그램에서 나가기</span>
           </button>
         </div>
+      )}
+
+      {/* 금연 테마 — 응원 푸터 (개요 제일 하단) */}
+      {program.theme === PROGRAM_THEME.QUIT_SMOKING && (
+        <QuitSmokingCheer />
       )}
 
       </>)}
@@ -1677,10 +1788,27 @@ function ProgramDetailPage() {
       {/* 커뮤니티 일반(피드) 뷰 */}
       {activeTab === 'community' && !communityManageOpen && (<>
 
+      {/* 커뮤니티 헤더 — 운영자 전용 빠른 관리 진입(미션/퀴즈 + 버튼과 동일 패턴). 닫으면 피드로 복귀 */}
+      {isOwner && (
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-semibold text-gray-800">{program.theme === PROGRAM_THEME.QUIT_SMOKING ? '📣 응원' : '💬 커뮤니티'}</h2>
+          <button
+            type="button"
+            onClick={openCommunityManage}
+            title="응원·커뮤니티 관리"
+            aria-label="응원·커뮤니티 관리"
+            className="flex items-center justify-center w-7 h-7 rounded-lg text-emerald-600 hover:bg-emerald-50 transition"
+          >
+            <Plus className="w-5 h-5" strokeWidth={2.5} />
+          </button>
+        </div>
+      )}
+
       {program.feed_enabled ? (
         <>
-          {/* 검토 대기 통합 배너 — 운영자 + 대기 1건↑ (모든 게시판 가로지름, 칩 위 최상단) */}
-          {isOwner && pendingPosts.length > 0 && (
+          {/* 응원 콜라주 — 금연 응원 탭 최상단(운영자 한마디/베스트 응원/말풍선/최근 응원글/오늘의 레터) */}
+          {/* 검토 대기 통합 배너 — 운영자 + 대기 1건↑ (응원 칩 제외) */}
+          {isOwner && pendingPosts.length > 0 && !isCheerBoard && (
             <button type="button" onClick={() => setReviewOpen(true)}
               className="w-full flex items-center gap-2.5 mb-2.5 p-3 rounded-xl bg-amber-50 border border-amber-200 text-left hover:bg-amber-100/70 transition">
               <span className="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center flex-shrink-0 text-[15px]">🕐</span>
@@ -1692,9 +1820,9 @@ function ProgramDetailPage() {
             </button>
           )}
           {/* 게시판 칩 — 운영자 설정 순서대로 */}
-          {communityBoards.length > 1 && (
+          {displayBoards.length > 1 && (
             <div className="flex gap-2 overflow-x-auto -mx-1 px-1 pb-2 mb-1 scrollbar-hide">
-              {communityBoards.map(b => {
+              {displayBoards.map(b => {
                 const on = communityBoard === b.id
                 const pending = isOwner ? (communityPendingCounts[b.id] || 0) : 0   // 운영자만 검토 대기 배지
                 return (
@@ -1709,6 +1837,9 @@ function ProgramDetailPage() {
               })}
             </div>
           )}
+          {isCheerBoard ? (
+            <CheerBoard program={program} isOwner={isOwner} userId={userId} />
+          ) : (<>
           {/* 공지 배너 — 칩 아래, 게시물 위 */}
           {noticeEnabled && latestNotice && communityBoard !== 'notice' && (
             <button type="button" onClick={() => setCommunityBoard('notice')}
@@ -1742,10 +1873,11 @@ function ProgramDetailPage() {
               <button type="button"
                 onClick={() => { setEditingPost(null); setIsPostModalOpen(true) }}
                 className="w-full h-12 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/20 transition">
-                <Pencil className="w-4 h-4" /> 글쓰기
+                <Pencil className="w-4 h-4" /> {program.theme === PROGRAM_THEME.QUIT_SMOKING ? '응원 한마디' : '글쓰기'}
               </button>
             </div>
           )}
+          </>)}
         </>
       ) : (
         <EmptyState
@@ -1770,6 +1902,11 @@ function ProgramDetailPage() {
         </div>
       )}
       {/* ─── /커뮤니티 탭 ──────────────────────────────── */}
+
+      {/* ─── 금연 「내 변화」 / 「참가자 추세」 탭 ───────────────────── */}
+      {activeTab === 'change' && program.theme === PROGRAM_THEME.QUIT_SMOKING && (
+        <ProgramChangeTab programId={id} userId={userId} isOwner={isOwner} />
+      )}
 
       {/* ─── 성장 탭 (랭킹 / 정원 / 별자리 분기) ───────────────────── */}
       {activeTab === 'ranking' && !isViewer && (program.gamification_type === 'GARDEN') && (
@@ -2098,9 +2235,12 @@ function ProgramDetailPage() {
                     <PanelMenuBox icon="📋" title="퀴즈 설정" desc="퀴즈 생성·수정·결과" onClick={() => openManagerFromMenu('quizzes')} />
                   )}
                   {communityEnabled && (
-                    <PanelMenuBox icon="💬" title="커뮤니티 설정" desc="게시판·피드·신고 관리" onClick={() => openManagerFromMenu('community')} />
+                    <PanelMenuBox icon="💬" title={program.theme === PROGRAM_THEME.QUIT_SMOKING ? '응원 설정' : '커뮤니티 설정'} desc="게시판·피드·신고 관리" onClick={() => openManagerFromMenu('community')} />
                   )}
-                  <PanelMenuBox icon="🏆" title="랭킹 설정" desc="랭킹 표시·시상대·공개 등" onClick={() => openManagerFromMenu('ranking')} />
+                  {/* 금연 테마 — 랭킹 설정 항목 숨김 (랭킹 메뉴 자체가 없으므로) */}
+                  {program.theme !== PROGRAM_THEME.QUIT_SMOKING && (
+                    <PanelMenuBox icon="🏆" title="랭킹 설정" desc="랭킹 표시·시상대·공개 등" onClick={() => openManagerFromMenu('ranking')} />
+                  )}
                 </div>
               </>
             )}
@@ -2159,6 +2299,17 @@ function ProgramDetailPage() {
         confirmLabel="나가기"
         danger
         busy={leaveMutation.isPending}
+      />
+
+      {/* 참여자 완주 축하 — 종료 시 첫 진입 자동 + 재진입 배너로 열림 */}
+      <ProgramCompletionCelebration
+        isOpen={completionOpen}
+        onClose={() => setCompletionOpen(false)}
+        program={program}
+        activeDays={overviewData?.activeDays || 0}
+        totalCount={overviewData?.totalCount || 0}
+        streak={overviewData?.streak || 0}
+        points={scores?.total || 0}
       />
 
       {/* 프로그램 삭제 — 운영자 전용 2단계 확인 (제목 입력 + 최종 확인) */}

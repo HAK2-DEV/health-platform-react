@@ -10,7 +10,7 @@ import CoverImageUploader from '../../common/CoverImageUploader'
 const SUB = [
   { q: '프로그램 이름을 정해볼까요?', sub: '참여자에게 보이는 이름이에요.' },
   { q: '한 줄 설명을 적어볼까요?', sub: '프로그램을 한 문장으로 소개해요. (선택 — 비워도 돼요)' },
-  { q: '어떤 카테고리인가요?', sub: '여러 개 골라도 좋아요.' },
+  { q: '어떤 카테고리인가요?', sub: '하나만 골라주세요. 메뉴 구성이 여기에 맞춰져요.' },
   { q: '언제부터 언제까지 진행하나요?', sub: '시작 후엔 시작일을 바꿀 수 없어요.\n(종료일만 나중에 수정 가능)' },
   { q: '대표 사진을 더해요', sub: '선택이에요 — 비워도 괜찮아요.' },
 ]
@@ -39,8 +39,9 @@ function Step1Basic({ initialData, onNext, onSave, enterAtEnd = false }) {
   const [subStep, setSubStep] = useState(enterAtEnd ? TOTAL - 1 : 0)
   const [dir, setDir] = useState(enterAtEnd ? -1 : 1)
 
+  // 단일 선택 — 카테고리 1개만 (카테고리가 메뉴/테마를 결정하므로)
   const toggleCategory = (key) => {
-    setCategories(prev => prev.includes(key) ? prev.filter(c => c !== key) : [...prev, key])
+    setCategories([key])
   }
 
   const collectData = () => ({

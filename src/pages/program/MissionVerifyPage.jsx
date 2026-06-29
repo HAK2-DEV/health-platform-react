@@ -30,6 +30,55 @@ const CATEGORY_HERO = {
   ETC:        { from: 'from-gray-100',    via: 'via-gray-50/80',    to: 'to-slate-50/40',   chip: 'bg-gray-500' },
 }
 
+// 시각 입력 (inputFormat: 'clock') — 시/분 분리 입력. 시 채우면 자동으로 분 칸으로 포커스 이동.
+//   값은 "HH:MM" 문자열로 보관(상위는 자정 기준 분으로 환산해 저장).
+function ClockInput({ value, onChange, disabled }) {
+  const minRef = useRef(null)
+  const [hhRaw, mmRaw] = String(value || '').split(':')
+  const hh = hhRaw ?? '', mm = mmRaw ?? ''
+  const clampHour = (v) => { v = v.replace(/\D/g, '').slice(0, 2); if (Number(v) > 23) v = '23'; return v }
+  const clampMin = (v) => { v = v.replace(/\D/g, '').slice(0, 2); if (Number(v) > 59) v = '59'; return v }
+  const setHour = (raw) => {
+    const v = clampHour(raw)
+    onChange(`${v}:${mm}`)
+    // 2자리거나, 한 자리라도 3 이상(=두 자리 시각 불가)이면 분으로 이동
+    if (v.length === 2 || (v.length === 1 && Number(v) >= 3)) minRef.current?.focus()
+  }
+  const setMin = (raw) => onChange(`${hh}:${clampMin(raw)}`)
+  const inputCls = 'w-16 px-3 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-400 disabled:bg-gray-50 text-base text-center tracking-widest'
+  return (
+    <div className="flex items-center gap-2">
+      <input type="text" inputMode="numeric" maxLength={2} value={hh} onChange={(e) => setHour(e.target.value)} placeholder="21" disabled={disabled} className={inputCls} />
+      <span className="text-sm text-gray-500">시</span>
+      <input ref={minRef} type="text" inputMode="numeric" maxLength={2} value={mm} onChange={(e) => setMin(e.target.value)} placeholder="30" disabled={disabled} className={inputCls} />
+      <span className="text-sm text-gray-500">분</span>
+    </div>
+  )
+}
+
+// 여러 핀 시각 (inputFormat: 'clock_multi') — 시각을 여러 개 추가/삭제. value=["HH:MM", ...]
+function ClockMultiInput({ value, onChange, disabled }) {
+  const times = Array.isArray(value) ? value : []
+  const setAt = (i, v) => { const next = times.slice(); next[i] = v; onChange(next) }
+  const removeAt = (i) => onChange(times.filter((_, idx) => idx !== i))
+  return (
+    <div className="space-y-2">
+      {times.map((t, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <ClockInput value={t} onChange={(v) => setAt(i, v)} disabled={disabled} />
+          <button type="button" onClick={() => removeAt(i)} disabled={disabled} className="p-1.5 text-gray-400 hover:text-red-500 disabled:opacity-50" aria-label="시각 삭제">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      ))}
+      <button type="button" onClick={() => onChange([...times, ''])} disabled={disabled}
+        className="inline-flex items-center gap-1 px-3 py-2 rounded-lg border border-dashed border-emerald-300 text-emerald-600 text-sm font-medium hover:bg-emerald-50 disabled:opacity-50">
+        <span className="text-base leading-none">＋</span> 시각 추가
+      </button>
+    </div>
+  )
+}
+
 // 인증 화면 히어로(썸네일) 비율 — 여기 한 줄만 바꾸면 됨.
 //   예) 'aspect-[16/9]'(가로 넓게) · 'aspect-[4/3]'(더 높게) · 'aspect-square'(정사각)
 const HERO_ASPECT = 'aspect-[16/9]'
@@ -268,13 +317,28 @@ function MissionVerifyPage() {
   }
   const hmsToMinutes = (raw) => parseHMS(raw).total / 60
   const hmsLabel = (raw) => { const { h, m, s } = parseHMS(raw); return h > 0 ? `${h}시간 ${m}분 ${s}초` : `${m}분 ${s}초` }
-  // 지표 입력의 숫자값(저장용). hms 면 분으로 환산, 아니면 그대로 숫자.
+  // clock(핀 시각) — "HH:MM" 보관. 자정 기준 분으로 환산해 저장(차트는 hour=floor(분/60)).
+  const clockParts = (raw) => { const [h, mm] = String(raw ?? '').split(':'); return { h: (h ?? '').trim(), m: (mm ?? '').trim() } }
+  const clockToMinutes = (raw) => { const { h, m } = clockParts(raw); return (Number(h) || 0) * 60 + (Number(m) || 0) }
+  const clockLabel = (raw) => { const { h, m } = clockParts(raw); return `${Number(h) || 0}시 ${String(Number(m) || 0).padStart(2, '0')}분` }
+  // clock_multi(핀 시각 여러 개) — value=["HH:MM",...]. 채워진 것만 분 배열/라벨로.
+  const clockMultiMinutes = (val) => (Array.isArray(val) ? val : []).filter(t => clockParts(t).h !== '').map(clockToMinutes)
+  const clockMultiLabel = (val) => (Array.isArray(val) ? val : []).filter(t => clockParts(t).h !== '').map(clockLabel).join(', ')
+  // 지표 입력의 숫자값(저장용). hms→분, clock→자정기준 분, 아니면 그대로 숫자. clock_multi 는 배열이라 여기선 null.
   const metricNumValue = (m) => {
+    if (m.inputFormat === 'clock_multi') return null
     const r = metricValues[m.key]
-    if (r == null || String(r).trim() === '') return null
-    return m.inputFormat === 'hms' ? hmsToMinutes(r) : parseFloat(r)
+    if (r == null || String(r).trim() === '' || String(r).trim() === ':') return null
+    if (m.inputFormat === 'hms') return hmsToMinutes(r)
+    if (m.inputFormat === 'clock') return clockToMinutes(r)
+    return parseFloat(r)
   }
-  const filledMetric = (m) => { const r = metricValues[m.key]; return r != null && String(r).trim() !== '' }
+  const filledMetric = (m) => {
+    const r = metricValues[m.key]
+    if (m.inputFormat === 'clock_multi') return Array.isArray(r) && r.some(t => clockParts(t).h !== '')
+    if (m.inputFormat === 'clock') return !!clockParts(r).h  // 시가 입력돼야 채워진 것
+    return r != null && String(r).trim() !== ''
+  }
   const anyMetricFilled = hasMetrics && metricList.some(filledMetric)
   // "기록" 입력 여부 — 다중이면 지표 1개+, 아니면 단일 numeric
   const numericFilled = hasMetrics ? anyMetricFilled : !!numericValue
@@ -404,6 +468,11 @@ function MissionVerifyPage() {
         const mv = {}
         for (const m of metricList) {
           if (!filledMetric(m)) continue
+          if (m.inputFormat === 'clock_multi') {
+            const arr = clockMultiMinutes(metricValues[m.key])
+            if (arr.length) mv[m.key] = arr
+            continue
+          }
           const num = metricNumValue(m)
           if (num != null && !isNaN(num)) mv[m.key] = num
         }
@@ -505,6 +574,10 @@ function MissionVerifyPage() {
         metrics: (needsNumeric && hasMetrics)
           ? metricList.filter(filledMetric).map(m => m.inputFormat === 'hms'
               ? { label: m.label || '기록', text: hmsLabel(metricValues[m.key]), icon: m.icon || '' }
+              : m.inputFormat === 'clock'
+              ? { label: m.label || '기록', text: clockLabel(metricValues[m.key]), icon: m.icon || '' }
+              : m.inputFormat === 'clock_multi'
+              ? { label: m.label || '기록', text: clockMultiLabel(metricValues[m.key]), icon: m.icon || '' }
               : { label: m.label || '기록', value: metricNumValue(m), unit: m.unit || '', icon: m.icon || '' })
           : null,
         photoUrl: (needsImage && selectedFile) ? previewUrl : null,
@@ -549,8 +622,10 @@ function MissionVerifyPage() {
       }
       for (const m of metricList) {
         if (!filledMetric(m)) continue
+        if (m.inputFormat === 'clock_multi') continue  // 시각 배열 — 입력에서 0~23/0~59 보정됨
         const num = metricNumValue(m)
-        if (num == null || isNaN(num) || num <= 0) {
+        // allowZero 지표(예: 흡연 개비 — 0개비=금연 성공)는 0 허용. 그 외는 0 초과만.
+        if (num == null || isNaN(num) || num < 0 || (num === 0 && !m.allowZero)) {
           setError(`${m.label || '기록'}을(를) 올바르게 입력해주세요`)
           return
         }
@@ -1049,6 +1124,8 @@ function MissionVerifyPage() {
                 <div className="space-y-2.5">
                   {metricList.map(m => {
                     const isHms = m.inputFormat === 'hms'
+                    const isClock = m.inputFormat === 'clock'
+                    const isClockMulti = m.inputFormat === 'clock_multi'
                     const raw = metricValues[m.key] ?? ''
                     return (
                     <div key={m.key}>
@@ -1056,7 +1133,17 @@ function MissionVerifyPage() {
                         <span className="text-sm text-gray-700">{m.icon && <span className="mr-1">{m.icon}</span>}{m.label || '기록'}</span>
                         {m.max != null && <span className="text-[11px] text-gray-400">최대 {isHms ? `${Math.floor(Number(m.max) / 60)}시간` : `${m.max}${m.unit || ''}`}</span>}
                       </div>
-                      {isHms ? (
+                      {isClockMulti ? (
+                        <>
+                          <ClockMultiInput value={Array.isArray(metricValues[m.key]) ? metricValues[m.key] : []} onChange={(val) => setMetricValues(v => ({ ...v, [m.key]: val }))} disabled={isSubmitting} />
+                          <p className="text-[11px] text-gray-400 mt-1">담배 핀 시각을 적어요. 여러 번 폈으면 「시각 추가」로 더 넣어요. (안 폈으면 비워도 돼요)</p>
+                        </>
+                      ) : isClock ? (
+                        <>
+                          <ClockInput value={raw} onChange={(val) => setMetricValues(v => ({ ...v, [m.key]: val }))} disabled={isSubmitting} />
+                          <p className="text-[11px] text-gray-400 mt-1">담배 핀 시각을 적어요 (안 폈으면 비워도 돼요). 시 입력 후 자동으로 분 칸으로 넘어가요.</p>
+                        </>
+                      ) : isHms ? (
                         <>
                           <div className="flex items-center gap-2">
                             <input

@@ -93,7 +93,11 @@ function VerificationReviewModal({ isOpen, onClose, programId, reviews = [], rev
                 const mv = current.v_metric_values || {}
                 const rows = defs.filter(d => mv[d.key] != null)
                 if (rows.length === 0) return null
+                const minToClock = (min) => { const h = Math.floor(min / 60), m = min % 60; return `${h}시 ${String(m).padStart(2, '0')}분` }
                 const fmt = (def, val) => {
+                  // 핀 시각(자정 기준 분) — clock=단일, clock_multi=분 배열
+                  if (def?.inputFormat === 'clock_multi') { const arr = Array.isArray(val) ? val : [val]; return arr.map(v => minToClock(Number(v))).join(', ') }
+                  if (def?.inputFormat === 'clock') return minToClock(Number(val))
                   const n = Number(val)
                   if (def?.inputFormat === 'hms') { const sec = Math.round(n * 60), h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60; return h > 0 ? `${h}시간 ${m}분 ${s}초` : `${m}분 ${s}초` }
                   return `${n}${def?.unit ? ' ' + def.unit : ''}`

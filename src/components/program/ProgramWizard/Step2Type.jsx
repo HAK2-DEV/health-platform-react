@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { MISSION_LIBRARY } from '../../../lib/missionLibrary'
+import { CATEGORY } from '../../../lib/constants'
 
 // 2단계: 사용할 메뉴 — 퀴즈/커뮤니티/랭킹 메뉴 on/off (프로그램 설정과 동일) + 추천 미션 미리보기.
 //   성장(정원/별자리) 트랙은 베타 비활성 → 랭킹 메뉴 토글로 단순화. 세부(시상대·추세·기간필터)는 발행 후 「랭킹 설정」.
@@ -88,6 +89,12 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
   const [teamSizeMin, setTeamSizeMin] = useState(initialData?.team_size_min || 2)
   const [teamSizeMax, setTeamSizeMax] = useState(initialData?.team_size_max || 4)
   const [teamSizeFixed, setTeamSizeFixed] = useState(initialData?.team_size_fixed || 4)
+  // 금연 카테고리 — 「내 변화」 탭 사용 (랭킹/팀 대신). 신규 생성 시 금연이면 기본 ON.
+  const [changeTabEnabled, setChangeTabEnabled] = useState(
+    initialData?.change_tab_enabled != null
+      ? initialData.change_tab_enabled === true
+      : (initialData?.categories || []).includes(CATEGORY.NO_SMOKING.key)
+  )
 
   const [previewOpen, setPreviewOpen] = useState(false)
 
@@ -101,29 +108,47 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
 
   // Step 1 에서 선택한 카테고리들에 매칭되는 추천 미션 묶음
   const selectedCategories = initialData?.categories || []
+  // 금연 카테고리 = 금연 테마 전체 적용 (랭킹/팀 숨김, 「내 변화」 탭, theme=QUIT_SMOKING)
+  const isQuitCat = selectedCategories.includes(CATEGORY.NO_SMOKING.key)
   const recommendedBundles = MISSION_LIBRARY.filter(b =>
     selectedCategories.length === 0 || selectedCategories.includes(b.category)
   )
 
-  const collectData = () => ({
-    // 커뮤니티 메뉴 사용 = 피드 활성 (둘 통합)
-    feed_enabled: communityEnabled,
-    community_enabled: communityEnabled,
-    quiz_enabled: quizEnabled,
-    // 랭킹 메뉴 표시. 켜면 RANKING, 끄면 성장 트랙 없음(베타) → null
-    ranking_enabled: rankingEnabled,
-    gamification_type: rankingEnabled ? 'RANKING' : null,
-    // 성장 트랙(연속 보너스)은 베타 비활성 — 기본값 유지
-    streak_preset: 'medium',
-    streak_milestones: null,
-    // 팀 기능 — 토글 그대로 저장 (랭킹 OFF 시엔 화면에서 안 보일 뿐, 강제 false 안 함)
-    team_enabled: teamEnabled,
-    team_score_mode: teamEnabled ? teamScoreMode : null,
-    team_size_type: teamEnabled ? teamSizeType : null,
-    team_size_min: teamEnabled && teamSizeType === 'range' ? teamSizeMin : null,
-    team_size_max: teamEnabled && teamSizeType === 'range' ? teamSizeMax : null,
-    team_size_fixed: teamEnabled && teamSizeType === 'fixed' ? teamSizeFixed : null,
-  })
+  const collectData = () => {
+    const base = {
+      feed_enabled: communityEnabled,
+      community_enabled: communityEnabled,
+      quiz_enabled: quizEnabled,
+      gamification_type: 'RANKING',  // NOT NULL — 표시는 ranking_enabled 로 제어
+      streak_preset: 'medium',
+      streak_milestones: null,
+    }
+    // 금연 카테고리 = 금연 테마 전체 적용. 랭킹·팀 없음, 「내 변화」 탭 토글.
+    if (isQuitCat) {
+      return {
+        ...base,
+        theme: 'QUIT_SMOKING',
+        ranking_enabled: false,
+        change_tab_enabled: changeTabEnabled,
+        team_enabled: false,
+        team_score_mode: null, team_size_type: null,
+        team_size_min: null, team_size_max: null, team_size_fixed: null,
+      }
+    }
+    // 그 외 — 기존 동작 (랭킹·팀 토글)
+    return {
+      ...base,
+      theme: null,
+      ranking_enabled: rankingEnabled,
+      change_tab_enabled: false,
+      team_enabled: teamEnabled,
+      team_score_mode: teamEnabled ? teamScoreMode : null,
+      team_size_type: teamEnabled ? teamSizeType : null,
+      team_size_min: teamEnabled && teamSizeType === 'range' ? teamSizeMin : null,
+      team_size_max: teamEnabled && teamSizeType === 'range' ? teamSizeMax : null,
+      team_size_fixed: teamEnabled && teamSizeType === 'fixed' ? teamSizeFixed : null,
+    }
+  }
 
   const handleNext = () => onNext(collectData())
   const handleSave = () => onSave(collectData())
@@ -135,16 +160,39 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
         참여자에게 보일 메뉴를 켜고 꺼요. <br />발행 후에도 「프로그램 설정」에서 바꿀 수 있어요.
       </p>
 
+      {/* 금연 카테고리 안내 — 테마 전체 적용 */}
+      {isQuitCat && (
+        <div className="flex items-start gap-2 p-3 rounded-[10px] bg-emerald-50 border border-emerald-100" style={{ marginBottom: '9px' }}>
+          <span className="text-lg flex-shrink-0">🚭</span>
+          <p className="text-[12px] text-emerald-800 leading-relaxed break-keep">
+            금연 전용 화면으로 운영돼요 — 상단 금연 현황(연속 금연·절약), 오늘의 기분 체크, 금연 팁이 자동으로 들어가요. 랭킹 대신 「내 변화」 탭을 쓸 수 있어요.
+          </p>
+        </div>
+      )}
+
       <OptionToggle
         emoji="📋" title="퀴즈 메뉴 사용" accent="indigo"
         description="끄면 퀴즈 탭이 참여자에게 안 보이고 메뉴바 설정에서도 숨겨져요."
         enabled={quizEnabled} onToggle={() => setQuizEnabled(v => !v)}
       />
       <OptionToggle
-        emoji="💬" title="커뮤니티 메뉴 사용" accent="rose"
-        description="인증 피드 포함. 끄면 커뮤니티 탭이 참여자에게 안 보이고 메뉴바 설정에서도 숨겨져요."
+        emoji="💬" title={isQuitCat ? '응원 메뉴 사용' : '커뮤니티 메뉴 사용'} accent="rose"
+        description={isQuitCat
+          ? '담당자·참가자가 서로 응원해요. 끄면 응원 탭이 참여자에게 안 보여요.'
+          : '인증 피드 포함. 끄면 커뮤니티 탭이 참여자에게 안 보이고 메뉴바 설정에서도 숨겨져요.'}
         enabled={communityEnabled} onToggle={() => setCommunityEnabled(v => !v)}
       />
+      {/* 금연 — 랭킹/팀 대신 「내 변화」 탭 토글 */}
+      {isQuitCat && (
+        <OptionToggle
+          emoji="📈" title="「내 변화」 탭 사용" accent="emerald"
+          description="참가자가 자신의 기분·흡연 변화를 한눈에 봐요. 운영자에겐 「참가자 추세」 탭으로 보여 참가자별 변화를 확인할 수 있어요."
+          enabled={changeTabEnabled} onToggle={() => setChangeTabEnabled(v => !v)}
+        />
+      )}
+
+      {/* 랭킹·팀 — 금연 카테고리에선 숨김 */}
+      {!isQuitCat && (<>
       <OptionToggle
         emoji="📈" title="랭킹 메뉴 표시" accent="sky"
         description="켜면 랭킹 메뉴가 보여요. 세부(시상대·기간 필터)는 발행 후 「랭킹 설정」에서 정해요."
@@ -216,6 +264,7 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
           </div>
         </div>
       )}
+      </>)}
 
       {/* 추천 미션 미리보기 — Step 1 카테고리 매칭 */}
       <div className="bg-gray-50/60 rounded-[10px] border border-gray-200 overflow-hidden" style={{ marginTop: '9px', marginBottom: '18px' }}>

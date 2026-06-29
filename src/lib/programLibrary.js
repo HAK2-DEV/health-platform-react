@@ -1,0 +1,197 @@
+// 관리자 프리셋 프로그램 라이브러리 — 코드 정의 (missionLibrary/quizLibrary 패턴).
+//   운영자가 「라이브러리에서 시작」을 고르면 프리셋 → 미션 체크 선택 → DRAFT 프로그램 + 선택 미션 생성.
+//   운영자 공유(인기 프로그램)는 다음 슬라이스에서 DB + cloneProgram 으로 별도 구현.
+//
+// 프리셋:
+//   key, emoji, name, description, categories[](CATEGORY key), durationDays, bundleTitle,
+//   missions[] — 각 미션은 missionLibrary 와 동일한 필드(미지정 시 expandPresetMission 기본값).
+//     선택을 위해 미션마다 고유 key 부여.
+import { CATEGORY, PROGRAM_THEME } from './constants'
+
+export const PROGRAM_PRESETS = [
+  {
+    key: 'run_3km',
+    emoji: '🏃',
+    name: '3km 달리기 챌린지',
+    description: '하루 3km 달리기로 건강한 습관을 만드는 챌린지예요.',
+    categories: [CATEGORY.WALKING.key],
+    durationDays: 28,
+    bundleTitle: '🏃 3km 달리기',
+    missions: [
+      {
+        key: 'daily_3km',
+        title: '오늘 3km 달리기',
+        instruction: '평일마다 3km를 달리고, 사진과 거리(km)를 기록해요.',
+        icon: 'exercise.png',
+        point: 10,
+        requires_image: true, requires_numeric: true, requires_note: false,
+        image_point: 5, numeric_point: 5,
+        image_required: true, numeric_required: true,
+        metrics: [{ key: 'distance', label: '거리', unit: 'km', max: 100, icon: '👟' }],
+        metric_aggregate: false,
+        schedule_mode: 'WEEKDAYS',          // 평일만
+        verification_type: 'MANUAL',        // 거리 기록은 운영자 심사 후 요약 반영
+        daily_limit: 1,
+      },
+      {
+        key: 'cumulative_distance',
+        title: '달린 거리 차곡차곡 (누적)',
+        instruction: '달릴 때마다 사진과 거리(km)를 기록해요. 기간 동안 누적 60km가 목표예요! (목표는 운영자가 바꿀 수 있어요)',
+        icon: 'exercise.png',
+        point: 10,
+        requires_image: true, requires_numeric: true, requires_note: false,
+        image_point: 5, numeric_point: 5,
+        image_required: true, numeric_required: true,
+        metrics: [{ key: 'distance', label: '거리', unit: 'km', max: 100, icon: '👟' }],
+        metric_aggregate: true,             // 누적 합산 → 개요에 누적 거리 표시
+        schedule_mode: 'ALL_DAYS',
+        verification_type: 'MANUAL',
+        daily_limit: 1,
+      },
+    ],
+  },
+  {
+    key: 'quit_smoking',
+    emoji: '🚭',
+    name: '금연 습관 챌린지',
+    description: '함께 응원하며 금연 습관을 만들어가는 프로그램이에요.',
+    categories: [CATEGORY.NO_SMOKING.key],
+    durationDays: 30,
+    durationOptions: [30, 90, 180],      // 운영자 선택: 1/3/6개월
+    theme: PROGRAM_THEME.QUIT_SMOKING,   // 상세 페이지 변형(히어로/탭)
+    bundleTitle: '🚭 금연',
+    // 금연 테마 기본 메뉴 구성 — 퀴즈·랭킹 끔, 「내 변화」 탭 켬 (createProgramFromPreset 가 반영)
+    quizEnabled: false,
+    rankingEnabled: false,
+    changeTabEnabled: true,
+    // TODO(다음 슬라이스): '오늘의 기분 체크'(5단계 이모지) 미션 + '아낀 담배(돈/개비)' + 기간 1/3/6개월 선택
+    missions: [
+      {
+        key: 'smoking_log',
+        title: '오늘 흡연 기록',
+        instruction: '오늘 흡연한 개비 수와 핀 시각을 적어요. 여러 번 폈으면 시각을 여러 개 추가해요. 0개비면 금연 성공!',
+        icon: 'nosmoke.png',
+        point: 10,
+        requires_image: false, requires_numeric: true, requires_note: true,
+        numeric_point: 5, note_point: 5,
+        numeric_required: true, note_required: false,
+        // 흡연 개비 + 핀 시각(시, 0~23) — 핀 시각은 「내 변화」 흡연 시간대 패턴 차트 데이터(슬라이스 3)
+        metrics: [
+          { key: 'cigarettes', label: '흡연 개비', unit: '개비', max: 100, icon: '🚬', allowZero: true },
+          { key: 'smoke_hour', label: '핀 시각', icon: '⏰', inputFormat: 'clock_multi', allowZero: true },
+        ],
+        metric_aggregate: true,           // 누적 흡연량 추적
+        schedule_mode: 'ALL_DAYS',
+        verification_type: 'MANUAL',      // 흡연 기록은 운영자 심사
+        daily_limit: 1,
+      },
+      {
+        key: 'craving_moment',
+        title: '흡연 욕구가 올라온 순간',
+        instruction: '흡연 욕구가 올라왔을 때 언제·어떤 상황이었는지, 어떻게 넘겼는지 적어요.',
+        icon: 'diary.png',
+        point: 5,
+        requires_image: false, requires_numeric: false, requires_note: true,
+        note_point: 5, note_required: true,
+        schedule_mode: 'ALL_DAYS',
+        verification_type: 'AUTO',
+        daily_limit: null,
+        feedExcluded: true,   // 운영자 전용 — 응원/커뮤니티 피드에서 제외(「참가자 추세」에서만)
+      },
+      {
+        // 본인 결정 B(2026-06-28): 매일 아낀 담배 수를 직접 입력. 누적 합산 → 개요/히어로 절약 표시 근거.
+        key: 'saved_cigarettes',
+        title: '오늘 아낀 담배',
+        instruction: '오늘 참아서 안 핀 담배 개비 수를 적어요. 작은 숫자도 큰 변화예요!',
+        icon: 'nosmoke.png',
+        point: 10,
+        requires_image: false, requires_numeric: true, requires_note: false,
+        numeric_point: 10, numeric_required: true,
+        metrics: [{ key: 'saved', label: '아낀 담배', unit: '개비', max: 100, icon: '🚭', allowZero: true }],
+        metric_aggregate: true,
+        schedule_mode: 'ALL_DAYS',
+        verification_type: 'AUTO',   // 자기 입력 — 자동 승인
+        daily_limit: 1,
+      },
+    ],
+  },
+  {
+    key: 'diet_21days',
+    emoji: '🥗',
+    name: '건강 식습관 21일',
+    description: '21일 동안 식습관을 하나씩 바꿔보는 프로그램이에요.',
+    categories: [CATEGORY.DIET.key],
+    durationDays: 21,
+    bundleTitle: '🥗 식습관',
+    missions: [
+      { key: 'water', title: '물 8잔 마시기', instruction: '오늘 마신 물을 인증해요.', point: 10 },
+      { key: 'veggie', title: '채소 한 끼 먹기', instruction: '채소가 포함된 식사를 찍어 인증해요.', point: 10 },
+      { key: 'no_latenight', title: '야식 참기', instruction: '야식 없이 하루를 마무리했다면 인증해요.', point: 10 },
+    ],
+  },
+  {
+    key: 'mind_2weeks',
+    emoji: '🧘',
+    name: '2주 마음챙김',
+    description: '바쁜 일상 속 마음을 돌보는 2주 프로그램이에요.',
+    categories: [CATEGORY.MINDCARE.key],
+    durationDays: 14,
+    bundleTitle: '🧘 마음챙김',
+    missions: [
+      { key: 'meditate', title: '5분 명상', instruction: '명상 후 짧은 느낌을 남겨주세요.', point: 10 },
+      { key: 'gratitude', title: '감사 일기', instruction: '오늘 감사한 일 한 가지를 적어요.', point: 10 },
+      { key: 'reflect', title: '하루 돌아보기', instruction: '하루를 돌아보는 메모를 남겨요.', point: 5 },
+    ],
+  },
+]
+
+export function getPreset(key) {
+  return PROGRAM_PRESETS.find(p => p.key === key) || null
+}
+
+// 기간(일) → 라벨. 30 단위면 N개월, 7 단위면 N주, 아니면 N일.
+export function durationLabel(days) {
+  if (days % 30 === 0) return `${days / 30}개월`
+  if (days % 7 === 0) return `${days / 7}주`
+  return `${days}일`
+}
+
+// 프리셋 미션 → missions 테이블 행 (MissionLibraryModal insert 필드셋과 동일).
+//   미션 def 에 명시 안 된 필드는 합리적 기본값. 사진+거리(지표)·평일·누적 모두 지원.
+//   active_from/until 은 생성 시 프로그램 기간으로 채움(이후 027 트리거가 날짜 동기화).
+export function expandPresetMission(m, { programId, activeFrom, activeUntil, bundleTitle }) {
+  const point = m.point ?? 10
+  const ri = m.requires_image ?? true
+  const rn = m.requires_numeric ?? false
+  const rno = m.requires_note ?? false
+  const onlyImage = ri && !rn && !rno
+  const onlyNote = rno && !ri && !rn
+  return {
+    program_id: programId,
+    feature: null,
+    title: m.title,
+    instruction: m.instruction || null,
+    verification_type: m.verification_type || 'AUTO',
+    point,
+    daily_limit: m.daily_limit ?? null,
+    requires_image: ri,
+    requires_numeric: rn,
+    requires_note: rno,
+    image_point: ri ? (m.image_point ?? (onlyImage ? point : 0)) : null,
+    numeric_point: rn ? (m.numeric_point ?? 0) : null,
+    note_point: rno ? (m.note_point ?? (onlyNote ? point : 0)) : null,
+    image_required: m.image_required ?? true,
+    numeric_required: m.numeric_required ?? true,
+    note_required: m.note_required ?? true,
+    metrics: rn && Array.isArray(m.metrics) ? m.metrics : [],
+    metric_aggregate: !!m.metric_aggregate,
+    active_from: activeFrom,
+    active_until: activeUntil,
+    schedule_mode: m.schedule_mode || 'ALL_DAYS',
+    active_days: m.schedule_mode === 'CUSTOM' ? (m.active_days || []) : [],
+    excluded_periods: [],
+    bundle_title: bundleTitle || null,
+    icon_path: m.icon || null,
+    feed_excluded: !!m.feedExcluded,   // 운영자 전용 미션(피드 제외)
+  }
+}

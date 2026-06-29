@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Heart, MessageCircle, Trash2, Send, CornerDownRight } from 'lucide-react'
 import {
   fetchCommunityPostSocial, toggleCommunityPostLike,
-  addCommunityPostComment, deleteCommunityPostComment, queryKeys,
+  addCommunityPostComment, deleteCommunityPostComment,
+  fetchCommentLikes, toggleCommentLike, queryKeys,
 } from '../../lib/queries'
 import { formatRelativeKstDay } from '../../lib/formatters'
 import UserAvatar from '../common/UserAvatar'
@@ -34,6 +35,32 @@ function CommunityPostSocial({ postId, programId, myUserId, isOwner, canReact, c
     for (const c of comments) if (c.parent_id) (m[c.parent_id] ||= []).push(c)
     return m
   }, [comments])
+
+  // 게시판 댓글 좋아요 (답글 포함, 142)
+  const commentIds = useMemo(() => comments.map(c => c.id), [comments])
+  const cLikeKey = ['community-comment-likes', postId]
+  const { data: cLikes = { counts: {}, mine: new Set() } } = useQuery({
+    queryKey: cLikeKey,
+    queryFn: () => fetchCommentLikes({ kind: 'community', commentIds, userId: myUserId }),
+    enabled: commentIds.length > 0,
+  })
+  const cLikeMut = useMutation({
+    mutationFn: ({ commentId, liked }) => toggleCommentLike({ kind: 'community', commentId, userId: myUserId, liked }),
+    onMutate: async ({ commentId, liked }) => {
+      await qc.cancelQueries({ queryKey: cLikeKey })
+      const prev = qc.getQueryData(cLikeKey)
+      qc.setQueryData(cLikeKey, (old) => {
+        const counts = { ...(old?.counts || {}) }
+        const mine = new Set(old?.mine || [])
+        if (liked) { mine.delete(commentId); counts[commentId] = Math.max(0, (counts[commentId] || 0) - 1) }
+        else { mine.add(commentId); counts[commentId] = (counts[commentId] || 0) + 1 }
+        return { counts, mine }
+      })
+      return { prev }
+    },
+    onError: (e, _v, ctx) => { if (ctx?.prev) qc.setQueryData(cLikeKey, ctx.prev); alert(`좋아요 처리 실패: ${e.message}`) },
+    onSettled: () => qc.invalidateQueries({ queryKey: cLikeKey }),
+  })
 
   // 알림 ?c= 딥링크 — 해당 댓글로 스크롤 + 하이라이트 (답글이면 스레드 먼저 펼침)
   useEffect(() => {
@@ -98,6 +125,8 @@ function CommunityPostSocial({ postId, programId, myUserId, isOwner, canReact, c
   const renderComment = (c, isReply, topId) => {
     const canDel = c.user_id === myUserId || isOwner
     const isHi = highlight === c.id
+    const cLikeCount = cLikes.counts[c.id] || 0
+    const cLiked = cLikes.mine.has(c.id)
     return (
       <div key={c.id} ref={(el) => { rowRefs.current[c.id] = el }}
         className={`flex items-start gap-2 rounded-lg transition-all duration-500 ${isHi ? 'bg-amber-100 ring-2 ring-amber-300 p-1.5 -m-1.5' : ''}`}>
@@ -112,11 +141,25 @@ function CommunityPostSocial({ postId, programId, myUserId, isOwner, canReact, c
             )}
           </div>
           <p className="text-[13px] text-gray-700 whitespace-pre-wrap break-words leading-snug">{c.content}</p>
-          {canComment && (
-            <button type="button"
-              onClick={() => startReply(topId, c.user?.nickname, isReply ? c.user?.nickname : null)}
-              className="mt-0.5 text-[11px] font-semibold text-gray-400 hover:text-emerald-600 transition">답글</button>
-          )}
+          <div className="flex items-center gap-3 mt-0.5">
+            {canReact ? (
+              <button type="button" onClick={() => cLikeMut.mutate({ commentId: c.id, liked: cLiked })}
+                className={`flex items-center gap-0.5 text-[11px] font-semibold transition ${cLiked ? 'text-rose-500' : 'text-gray-400 hover:text-rose-400'}`}>
+                <Heart className={`w-3 h-3 ${cLiked ? 'fill-current' : ''}`} />{cLikeCount > 0 ? ` ${cLikeCount}` : ''}
+              </button>
+            ) : (
+              cLikeCount > 0 && (
+                <span className="flex items-center gap-0.5 text-[11px] font-semibold text-rose-400">
+                  <Heart className="w-3 h-3 fill-current" /> {cLikeCount}
+                </span>
+              )
+            )}
+            {canComment && (
+              <button type="button"
+                onClick={() => startReply(topId, c.user?.nickname, isReply ? c.user?.nickname : null)}
+                className="text-[11px] font-semibold text-gray-400 hover:text-emerald-600 transition">답글</button>
+            )}
+          </div>
         </div>
       </div>
     )

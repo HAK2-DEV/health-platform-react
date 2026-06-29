@@ -172,7 +172,10 @@ function ProgramStatsUserVerificationsMissionPage() {
                   // 다중 지표 (거리/시간/칼로리)
                   const mDefs = Array.isArray(v.missions?.metrics) ? v.missions.metrics : []
                   const mRows = v.metric_values ? mDefs.filter(d => v.metric_values[d.key] != null) : []
+                  const minToClock = (min) => { const h = Math.floor(min / 60), m = min % 60; return `${h}시 ${String(m).padStart(2, '0')}분` }
                   const fmtMetric = (def, val) => {
+                    if (def?.inputFormat === 'clock_multi') { const arr = Array.isArray(val) ? val : [val]; return arr.map(v => minToClock(Number(v))).join(', ') }
+                    if (def?.inputFormat === 'clock') return minToClock(Number(val))
                     const n = Number(val)
                     if (def?.inputFormat === 'hms') { const sec = Math.round(n * 60), h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60; return h > 0 ? `${h}시간 ${m}분 ${s}초` : `${m}분 ${s}초` }
                     return `${n}${def?.unit ? ' ' + def.unit : ''}`

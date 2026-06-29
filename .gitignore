@@ -49,3 +49,6 @@ ios/App/App.xcodeproj/xcuserdata/
 ios/App/App.xcodeproj/project.xcworkspace/xcuserdata/
 .gradle/
 tmp/
+
+# Figma MCP 설정 — 개인 액세스 토큰 포함, 커밋 금지
+.mcp.json

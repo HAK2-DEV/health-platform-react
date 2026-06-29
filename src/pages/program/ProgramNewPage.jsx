@@ -3,8 +3,9 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQueryClient, useQuery } from '@tanstack/react-query'
 import { supabase } from '../../supabaseClient'
 import { useAuth } from '../../hooks/useAuth'
-import { queryKeys, fetchMyLiveProgramCount } from '../../lib/queries'
+import { queryKeys, fetchMyLiveProgramCount, createProgramFromPreset } from '../../lib/queries'
 import { MAX_PROGRAMS_BETA } from '../../lib/constants'
+import ProgramCreateChooser from '../../components/program/ProgramCreateChooser'
 import WizardLayout from '../../components/program/ProgramWizard/WizardLayout'
 import WizardIntro from '../../components/program/ProgramWizard/WizardIntro'
 import Step1Basic from '../../components/program/ProgramWizard/Step1Basic'
@@ -28,6 +29,8 @@ function ProgramNewPage() {
   const [isLoadingDraft, setIsLoadingDraft] = useState(!!draftId)
   const [error, setError] = useState(null)
   const [showIntro, setShowIntro] = useState(!draftId)  // 새 생성 진입 인트로 (~1.5초)
+  const [showChooser, setShowChooser] = useState(!draftId)  // 마법사 전 「직접 만들기 vs 라이브러리」 선택화면
+  const [creatingKey, setCreatingKey] = useState(null)      // 라이브러리 프리셋 생성 중 key
   const [step1AtEnd, setStep1AtEnd] = useState(false)   // 2단계에서 이전 → 1단계 마지막 서브스텝부터
   const [step3AtEnd, setStep3AtEnd] = useState(false)   // 4단계에서 이전 → 3단계 마지막 서브스텝부터
 
@@ -155,6 +158,22 @@ function ProgramNewPage() {
     }
   }
 
+  // 라이브러리 프리셋 선택 → DRAFT 프로그램+미션 생성 → 마법사 재진입(?id=)으로 이름·날짜 마무리
+  const handlePickPreset = async (presetKey, selectedKeys, durationDays) => {
+    if (creatingKey) return
+    setCreatingKey(presetKey)
+    setError(null)
+    try {
+      const newId = await createProgramFromPreset({ presetKey, userId: session.user.id, selectedKeys, durationDays })
+      queryClient.invalidateQueries({ queryKey: queryKeys.myPrograms(session.user.id) })
+      navigate(`/programs/new?id=${newId}`, { replace: true })
+    } catch (err) {
+      console.error('프리셋 생성 실패:', err)
+      setError(err.message || '프로그램을 만들지 못했어요')
+      setCreatingKey(null)
+    }
+  }
+
   const handlePrev = () => {
     // 다음 단계 → 이전 단계로 돌아갈 땐 그 단계의 마지막 서브스텝부터 보이게
     if (currentStep === 2) setStep1AtEnd(true)
@@ -191,6 +210,17 @@ function ProgramNewPage() {
           내 프로그램 보기
         </button>
       </div>
+    )
+  }
+
+  // 생성 방식 선택 — 한도 검사 통과 후, 인트로/마법사 전. 「직접 만들기」 또는 「라이브러리」.
+  if (isNewCreation && showChooser) {
+    return (
+      <ProgramCreateChooser
+        onDirect={() => setShowChooser(false)}
+        onPickPreset={handlePickPreset}
+        busyKey={creatingKey}
+      />
     )
   }
 

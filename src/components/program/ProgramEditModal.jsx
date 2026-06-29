@@ -31,6 +31,7 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
   const [teamSizeMin, setTeamSizeMin] = useState(2)
   const [teamSizeMax, setTeamSizeMax] = useState(4)
   const [teamSizeFixed, setTeamSizeFixed] = useState(4)
+  const [changeTabEnabled, setChangeTabEnabled] = useState(false)  // 금연 「내 변화」 탭 (140)
   const [coverImagePath, setCoverImagePath] = useState(null)
   const [inviteCode, setInviteCode] = useState('')
   const [isSaving, setIsSaving] = useState(false)
@@ -56,6 +57,7 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
       )
       // ranking_enabled DEFAULT true — undefined/null 이면 켜진 상태로 (마법사와 동일 동작)
       setRankingEnabled(program.ranking_enabled !== false)
+      setChangeTabEnabled(program.change_tab_enabled === true)
       // 팀 기능 (126)
       setTeamEnabled(!!program.team_enabled)
       setTeamScoreMode(program.team_score_mode || 'sum')
@@ -123,6 +125,8 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
         // 랭킹 메뉴 표시 — OFF 면 세부(시상대/추세/기간필터)도 자동 OFF. 세부 설정은 「랭킹 설정」.
         ranking_enabled: rankingEnabled,
         ...(rankingEnabled ? {} : { podium_enabled: false, trend_enabled: false, period_filter_enabled: false }),
+        // 금연 「내 변화」 탭 (140) — 컬럼 적용 시에만 저장
+        ...(Object.prototype.hasOwnProperty.call(program, 'change_tab_enabled') ? { change_tab_enabled: changeTabEnabled } : {}),
         // 팀 기능 (126) — 토글 그대로 저장 (랭킹 OFF 시엔 화면에서 안 보일 뿐)
         team_enabled: teamEnabled,
         team_score_mode: teamEnabled ? teamScoreMode : null,
@@ -229,32 +233,17 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
             />
           </div>
 
-          {/* 카테고리 */}
+          {/* 카테고리 — 생성 후 변경 불가 (카테고리가 테마·메뉴 구성을 결정하므로) */}
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              카테고리 (복수 선택)
-            </label>
-            <div className="grid grid-cols-3 gap-2">
-              {CATEGORY_LIST.map(category => {
-                const isSelected = categories.includes(category.key)
-                return (
-                  <button
-                    key={category.key}
-                    type="button"
-                    onClick={() => toggleCategory(category.key)}
-                    disabled={isSaving}
-                    className={`
-                      flex items-center justify-center gap-1 px-2 py-1.5 rounded-md border-2 text-sm transition disabled:opacity-50
-                      ${isSelected
-                        ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                        : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}
-                    `}
-                  >
-                    <span>{category.emoji}</span>
-                    <span>{category.label}</span>
-                  </button>
-                )
-              })}
+            <label className="block text-sm font-medium text-gray-700 mb-2">카테고리</label>
+            <div className="flex items-center gap-2 px-3 py-2.5 rounded-md border-2 border-gray-200 bg-gray-50 text-sm text-gray-700">
+              {(() => {
+                const c = CATEGORY_LIST.find(x => categories.includes(x.key))
+                return c
+                  ? <><span>{c.emoji}</span><span>{c.label}</span></>
+                  : <span className="text-gray-400">미설정</span>
+              })()}
+              <span className="ml-auto text-[11px] text-gray-400">🔒 생성 후 변경 불가</span>
             </div>
           </div>
 
@@ -385,6 +374,29 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
             </div>
           </button>
 
+          {/* 금연 테마 — 랭킹/팀 대신 「내 변화」 탭 토글 */}
+          {program?.theme === 'QUIT_SMOKING' && (
+            <button
+              type="button"
+              onClick={() => setChangeTabEnabled(!changeTabEnabled)}
+              disabled={isSaving}
+              className={`w-full mb-3 p-3 rounded-lg border-2 text-left transition disabled:opacity-50 ${changeTabEnabled ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 bg-white hover:border-gray-300'}`}
+            >
+              <div className="flex items-start gap-2.5">
+                <span className="text-xl">📈</span>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-medium ${changeTabEnabled ? 'text-emerald-700' : 'text-gray-800'}`}>「내 변화」 탭 사용</p>
+                  <p className="text-xs text-gray-500 mt-0.5">참가자가 자신의 기분·흡연 변화를 한눈에 봐요. 운영자에겐 「참가자 추세」 탭으로 보여요.</p>
+                </div>
+                <div className={`relative w-9 h-5 rounded-full flex-shrink-0 transition mt-0.5 ${changeTabEnabled ? 'bg-emerald-500' : 'bg-gray-300'}`}>
+                  <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${changeTabEnabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                </div>
+              </div>
+            </button>
+          )}
+
+          {/* 랭킹·팀 — 금연 테마에선 숨김 */}
+          {program?.theme !== 'QUIT_SMOKING' && (<>
           {/* 랭킹 표시 — 끄면 랭킹 페이지/탭에서 숨김 (단순 습관 형성 모드) */}
           <button
             type="button"
@@ -509,6 +521,7 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
               </div>
             </div>
           )}
+          </>)}
 
           {/* 에러 */}
           {error && (

@@ -5,7 +5,7 @@ import { Heart, MessageCircle, BarChart3, Send, Trash2, Pencil, Flag, CornerDown
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
 import { formatRelativeKstDay } from '../../lib/formatters'
-import { queryKeys, fetchFeedPosts, fetchPostComments, FEED_PAGE_SIZE, formatKstDate, updateVerificationNote } from '../../lib/queries'
+import { queryKeys, fetchFeedPosts, fetchPostComments, fetchCommentLikes, toggleCommentLike, FEED_PAGE_SIZE, formatKstDate, updateVerificationNote } from '../../lib/queries'
 import { getCachedSignedUrls, getSignedUrls, thumbPathOf } from '../../lib/signedUrls'
 import OperatorVerificationActions from './OperatorVerificationActions'
 import UserAvatar from '../../components/common/UserAvatar'
@@ -310,7 +310,10 @@ function FeedContent({ program, layout: layoutProp = null, targetVerificationId 
         // 다중 기록 지표 (거리/시간/칼로리)
         const mDefs = Array.isArray(post.missions?.metrics) ? post.missions.metrics : []
         const mRows = post.metric_values ? mDefs.filter(d => post.metric_values[d.key] != null) : []
+        const minToClock = (min) => { const h = Math.floor(min / 60), m = min % 60; return `${h}시 ${String(m).padStart(2, '0')}분` }
         const fmtMetric = (def, val) => {
+          if (def?.inputFormat === 'clock_multi') { const arr = Array.isArray(val) ? val : [val]; return arr.map(v => minToClock(Number(v))).join(', ') }
+          if (def?.inputFormat === 'clock') return minToClock(Number(val))
           const n = Number(val)
           if (def?.inputFormat === 'hms') { const sec = Math.round(n * 60), h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60; return h > 0 ? `${h}시간 ${m}분 ${s}초` : `${m}분 ${s}초` }
           return `${n}${def?.unit ? ' ' + def.unit : ''}`
@@ -591,6 +594,32 @@ function CommentsSection({ verificationId, programId, myUserId, isProgramOwner, 
     return m
   }, [comments])
 
+  // 댓글 좋아요 (답글 포함) — 보이는 댓글 전체의 좋아요 수 + 내가 누른 것
+  const commentIds = useMemo(() => comments.map(c => c.id), [comments])
+  const likeKey = ['post-comment-likes', verificationId]
+  const { data: likeData = { counts: {}, mine: new Set() } } = useQuery({
+    queryKey: likeKey,
+    queryFn: () => fetchCommentLikes({ kind: 'post', commentIds, userId: myUserId }),
+    enabled: commentIds.length > 0,
+  })
+  const likeMutation = useMutation({
+    mutationFn: ({ commentId, liked }) => toggleCommentLike({ kind: 'post', commentId, userId: myUserId, liked }),
+    onMutate: async ({ commentId, liked }) => {
+      await queryClient.cancelQueries({ queryKey: likeKey })
+      const prev = queryClient.getQueryData(likeKey)
+      queryClient.setQueryData(likeKey, (old) => {
+        const counts = { ...(old?.counts || {}) }
+        const mine = new Set(old?.mine || [])
+        if (liked) { mine.delete(commentId); counts[commentId] = Math.max(0, (counts[commentId] || 0) - 1) }
+        else { mine.add(commentId); counts[commentId] = (counts[commentId] || 0) + 1 }
+        return { counts, mine }
+      })
+      return { prev }
+    },
+    onError: (err, _v, ctx) => { if (ctx?.prev) queryClient.setQueryData(likeKey, ctx.prev); alert(`좋아요 처리에 실패했습니다: ${err.message}`) },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: likeKey }),
+  })
+
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.postComments(verificationId) })
     queryClient.invalidateQueries({ queryKey: queryKeys.feedPosts(programId) })  // 댓글 수 갱신
@@ -667,6 +696,8 @@ function CommentsSection({ verificationId, programId, myUserId, isProgramOwner, 
     const isHi = highlight === c.id
     const isEditing = editingId === c.id
     const isEdited = c.updated_at && c.created_at && new Date(c.updated_at) - new Date(c.created_at) > 1000
+    const likeCount = likeData.counts[c.id] || 0
+    const liked = likeData.mine.has(c.id)
     return (
       <div
         key={c.id}
@@ -706,6 +737,18 @@ function CommentsSection({ verificationId, programId, myUserId, isProgramOwner, 
                 {isLong && (
                   <button type="button" onClick={() => toggleExpanded(c.id)} className="text-xs text-gray-400 hover:text-gray-600">
                     {expanded.has(c.id) ? '접기' : '... 더 보기'}
+                  </button>
+                )}
+                {readOnly ? (
+                  likeCount > 0 && (
+                    <span className="flex items-center gap-0.5 text-[11px] font-semibold text-rose-400">
+                      <Heart className="w-3 h-3 fill-current" /> {likeCount}
+                    </span>
+                  )
+                ) : (
+                  <button type="button" onClick={() => likeMutation.mutate({ commentId: c.id, liked })}
+                    className={`flex items-center gap-0.5 text-[11px] font-semibold transition ${liked ? 'text-rose-500' : 'text-gray-400 hover:text-rose-400'}`}>
+                    <Heart className={`w-3 h-3 ${liked ? 'fill-current' : ''}`} />{likeCount > 0 ? ` ${likeCount}` : ''}
                   </button>
                 )}
                 {!readOnly && (
