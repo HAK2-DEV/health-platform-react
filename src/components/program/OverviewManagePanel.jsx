@@ -24,6 +24,7 @@ const OverviewManagePanel = forwardRef(function OverviewManagePanel({ program, p
   const [overviewTitle, setOverviewTitle] = useState('')
   const [noticeEnabled, setNoticeEnabled] = useState(true)  // 공지사항(안내) 카드 사용 (마이그 138)
   const [savingSubtract, setSavingSubtract] = useState(true) // 금연 「오늘 절약」 흡연 차감 (마이그 139)
+  const [progressEnabled, setProgressEnabled] = useState(true) // 「나의 진행 현황」 카드 표시 (마이그 145)
   const [coverImagePath, setCoverImagePath] = useState(null)  // 배너/썸네일 표지
   const [descModalOpen, setDescModalOpen] = useState(false)  // 한줄 설명 — 넓게 입력 모달
 
@@ -41,6 +42,7 @@ const OverviewManagePanel = forwardRef(function OverviewManagePanel({ program, p
     setOverviewContent(program.overview_content || '')
     setNoticeEnabled(program.overview_notice_enabled !== false)
     setSavingSubtract(program.saving_subtract_smoking !== false)
+    setProgressEnabled(program.overview_progress_enabled !== false)
   }, [program])
 
   const statusLabel = (() => {
@@ -75,6 +77,8 @@ const OverviewManagePanel = forwardRef(function OverviewManagePanel({ program, p
       if (program && 'overview_notice_enabled' in program) payload.overview_notice_enabled = noticeEnabled
       // saving_subtract_smoking 컬럼(마이그 139)이 적용된 경우에만 포함
       if (program && 'saving_subtract_smoking' in program) payload.saving_subtract_smoking = savingSubtract
+      // overview_progress_enabled 컬럼(마이그 145)이 적용된 경우에만 포함
+      if (program && 'overview_progress_enabled' in program) payload.overview_progress_enabled = progressEnabled
       const { error } = await supabase
         .from('programs')
         .update(payload)
@@ -83,7 +87,7 @@ const OverviewManagePanel = forwardRef(function OverviewManagePanel({ program, p
       onSaved?.()
       return null
     },
-  }), [name, description, category, endDate, maxParticipants, isPublic, previewEnabled, coverImagePath, overviewTitle, overviewContent, noticeEnabled, savingSubtract, program, onSaved])
+  }), [name, description, category, endDate, maxParticipants, isPublic, previewEnabled, coverImagePath, overviewTitle, overviewContent, noticeEnabled, savingSubtract, progressEnabled, program, onSaved])
 
   const numBadge = (n) => <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500 text-white text-[11px] font-bold">{n}</span>
   const headCls = 'flex items-center gap-1.5 text-[15px] font-bold text-gray-800 mb-3'
@@ -167,6 +171,16 @@ const OverviewManagePanel = forwardRef(function OverviewManagePanel({ program, p
             <span className={labelCls}>🔢 최대 인원</span>
             <input type="number" min="1" value={maxParticipants} onChange={(e) => setMaxParticipants(e.target.value)} placeholder="제한 없음" className={fieldCls} style={fieldStyle} />
           </div>
+          {/* 「나의 진행 현황」 카드 표시 토글 (마이그 145) — 금연 테마엔 카드가 없어 숨김 */}
+          {program.theme !== PROGRAM_THEME.QUIT_SMOKING && (
+            <div className="flex items-center gap-3 pt-1">
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-medium text-gray-800">📈 「나의 진행 현황」 카드 표시</p>
+                <p className="text-[11px] text-gray-500">끄면 개요의 진행 현황 카드(활동일·참여율·연속·진행률)가 안 보여요.</p>
+              </div>
+              <Toggle on={progressEnabled} onClick={() => setProgressEnabled(v => !v)} />
+            </div>
+          )}
         </div>
       </section>
 

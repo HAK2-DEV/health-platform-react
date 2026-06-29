@@ -338,7 +338,7 @@ function DashboardPage() {
     { label: '미션 완료', value: today?.missionCount ?? 0, cap: 8, img: '/icons/activity/mission.png', bar: 'bg-emerald-500' },
     { label: '기록 작성', value: today?.recordCount ?? 0, cap: 5, img: '/icons/activity/record.png', bar: 'bg-blue-500', scale: 1.7 },
     { label: '댓글 활동', value: today?.commentCount ?? 0, cap: 10, img: '/icons/activity/comment.png', bar: 'bg-amber-500' },
-    { label: '획득 점수', value: today?.points ?? 0, cap: 300, img: '/icons/activity/point.png', bar: 'bg-purple-500', circleBg: 'bg-amber-100' },
+    { label: '획득 점수', value: today?.points ?? 0, cap: 300, glyph: 'P', glyphCls: 'text-amber-500', bar: 'bg-amber-500', circleBg: 'bg-amber-100' },
   ]
 
   return (
@@ -530,14 +530,19 @@ function DashboardPage() {
                   {/* PNG마다 연한 색 원 크기가 달라(미션·기록은 작음) 클립 안쪽에 회색 링이 남음.
                       확대 비율을 키워 색 원이 원형 클립을 꽉 채우도록 통일 */}
                   <div className={`w-9 h-9 mb-1.5 rounded-full overflow-hidden flex items-center justify-center ${m.circleBg || ''}`}>
-                    <img
-                      src={m.img}
-                      alt=""
-                      aria-hidden="true"
-                      onError={(e) => { e.currentTarget.style.visibility = 'hidden' }}
-                      style={m.circleBg ? undefined : { transform: `scale(${m.scale ?? 1.4})` }}
-                      className={m.circleBg ? 'w-[83%] h-[83%] object-contain' : 'w-full h-full object-cover'}
-                    />
+                    {m.glyph ? (
+                      // 플랫 글리프(단색) — 다른 3개(미션/기록/댓글)의 평면 아이콘과 톤 통일
+                      <span className={`text-[17px] font-extrabold leading-none ${m.glyphCls || 'text-gray-700'}`}>{m.glyph}</span>
+                    ) : (
+                      <img
+                        src={m.img}
+                        alt=""
+                        aria-hidden="true"
+                        onError={(e) => { e.currentTarget.style.visibility = 'hidden' }}
+                        style={m.circleBg ? undefined : { transform: `scale(${m.scale ?? 1.4})` }}
+                        className={m.circleBg ? 'w-[83%] h-[83%] object-contain' : 'w-full h-full object-cover'}
+                      />
+                    )}
                   </div>
                   <p className="text-lg font-extrabold text-gray-900 leading-tight"><CountUp value={m.value} duration={1100} /></p>
                   <p className="text-[11px] text-gray-500 mt-0.5 mb-1.5 break-keep">{m.label}</p>

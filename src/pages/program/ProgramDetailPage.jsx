@@ -1396,8 +1396,8 @@ function ProgramDetailPage() {
           2) 오늘의 인증 미션 미리보기 (최대 3개)
           3) 최근 인증 기록 (최대 3개) */}
 
-      {/* 1) 진행 현황 카드 — 금연 테마에선 히어로 지표가 대체하므로 숨김 */}
-      {program.theme !== PROGRAM_THEME.QUIT_SMOKING && (() => {
+      {/* 1) 진행 현황 카드 — 금연 테마에선 히어로 지표가 대체하므로 숨김 + 운영자 토글(145)로 끌 수 있음 */}
+      {program.theme !== PROGRAM_THEME.QUIT_SMOKING && program.overview_progress_enabled !== false && (() => {
         // 기간 계산 (start/end 없으면 안전 fallback)
         const startDate = program.start_date ? new Date(`${program.start_date}T00:00:00+09:00`) : null
         const endDate = program.end_date ? new Date(`${program.end_date}T00:00:00+09:00`) : null

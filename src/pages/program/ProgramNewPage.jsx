@@ -219,6 +219,7 @@ function ProgramNewPage() {
       <ProgramCreateChooser
         onDirect={() => setShowChooser(false)}
         onPickPreset={handlePickPreset}
+        onBack={() => navigate(-1)}
         busyKey={creatingKey}
       />
     )

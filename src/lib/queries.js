@@ -1046,6 +1046,28 @@ export const fetchBestCheers = async (programId, { limit = 3 } = {}) => {
   return ranked.map(c => ({ ...c, user: uMap.get(c.user_id) || null }))
 }
 
+// 화면 체류 로깅 (자체 분석, 마이그 146) — 콘텐츠 없이 화면 키 + 체류시간만.
+//   프로드 빌드에서만(본인 dev 테스트 데이터 제외). 비로그인/실패는 조용히 skip.
+//   화면 키: ID/민감 파라미터 제거 — '/programs/abc123?tab=missions' → '/programs/:id?tab=missions'
+export const screenKeyOf = (pathname, search = '') => {
+  const p = String(pathname || '/').replace(/\/[0-9a-fA-F-]{6,}/g, '/:id')  // uuid/긴 id 제거
+  let tab = ''
+  try { tab = new URLSearchParams(search).get('tab') || '' } catch { tab = '' }
+  return tab ? `${p}?tab=${tab}` : p
+}
+export const logScreenEvent = async (screen, durationMs) => {
+  if (!import.meta.env.PROD) return
+  if (!screen || !(durationMs > 0)) return
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    const uid = session?.user?.id
+    if (!uid) return
+    await supabase.from('screen_events').insert({ user_id: uid, screen, duration_ms: Math.round(durationMs) })
+  } catch {
+    // no-op (테이블 미적용/오프라인 등 — 분석은 best-effort)
+  }
+}
+
 // 최근 응원글 — 프로그램 인증글 댓글 최신 N개 + 좋아요 수. (응원 콜라주 「최근 응원글」)
 //   반환: [{ id, content, user_id, verification_id, created_at, likeCount, user }]
 export const fetchRecentCheers = async (programId, { limit = 4 } = {}) => {

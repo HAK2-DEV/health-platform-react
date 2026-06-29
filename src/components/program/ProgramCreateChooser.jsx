@@ -26,7 +26,7 @@ function missionHint(m) {
   return parts.filter(Boolean).join(' · ')
 }
 
-function ProgramCreateChooser({ onDirect, onPickPreset, busyKey }) {
+function ProgramCreateChooser({ onDirect, onPickPreset, onBack, busyKey }) {
   const [view, setView] = useState('choose')       // 'choose' | 'library' | 'detail'
   const [preset, setPreset] = useState(null)        // 선택된 프리셋
   const [selected, setSelected] = useState([])      // 선택된 미션 key[]
@@ -56,6 +56,11 @@ function ProgramCreateChooser({ onDirect, onPickPreset, busyKey }) {
         {/* ─── 선택: 직접 vs 라이브러리 ─── */}
         {view === 'choose' && (
           <motion.div key="choose" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.25 }}>
+            {onBack && (
+              <button type="button" onClick={onBack} className="p-1.5 -ml-1.5 mb-2 rounded-full hover:bg-gray-100" aria-label="뒤로">
+                <ChevronLeft className="w-5 h-5 text-gray-600" />
+              </button>
+            )}
             <div className="text-center mb-7">
               <div className="text-4xl mb-2">🌱</div>
               <h1 className="text-xl font-extrabold text-gray-900">어떻게 시작할까요?</h1>

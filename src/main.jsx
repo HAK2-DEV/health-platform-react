@@ -11,6 +11,7 @@ import { initSentry } from './lib/sentry'
 import { installSwipeBackBlocker } from './lib/disableSwipeBack'
 import { setUpdateSW, notifyNeedRefresh } from './lib/pwaUpdate'
 import ErrorBoundary from './components/common/ErrorBoundary'
+import ScreenTracker from './components/common/ScreenTracker'
 
 // Sentry 초기화 — 지연 로딩(첫 페인트 이후 idle). DSN 없으면 no-op.
 initSentry()
@@ -66,6 +67,8 @@ createRoot(document.getElementById('root')).render(
           <AuthProvider>
             <App />
           </AuthProvider>
+          {/* 화면 체류 분석(자체, 콘텐츠 미수집·프로드 한정) — Router 안에서 useLocation 사용 */}
+          <ScreenTracker />
         </BrowserRouter>
         {/* DevTools 는 dev 서버에서만 렌더 — production 빌드에서 일반 사용자에게 노출 방지 */}
         {import.meta.env.DEV && (
