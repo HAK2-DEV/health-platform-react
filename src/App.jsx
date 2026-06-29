@@ -48,6 +48,7 @@ const RecordPage = lazy(() => import('./pages/RecordPage'))
 const RankingsPage = lazy(() => import('./pages/RankingsPage'))
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage'))
 const ProfilePage = lazy(() => import('./pages/ProfilePage'))
+const AdminScreenStatsPage = lazy(() => import('./pages/AdminScreenStatsPage'))
 const MyActivityPage = lazy(() => import('./pages/MyActivityPage'))
 const MyActivityMissionsPage = lazy(() => import('./pages/MyActivityMissionsPage'))
 const MyActivityVerificationsPage = lazy(() => import('./pages/MyActivityVerificationsPage'))
@@ -115,6 +116,9 @@ function AppShell() {
             } />
             <Route path="/dashboard" element={
               <ProtectedRoute><DashboardPage /></ProtectedRoute>
+            } />
+            <Route path="/admin/screen-stats" element={
+              <ProtectedRoute><AdminScreenStatsPage /></ProtectedRoute>
             } />
             <Route path="/programs/new" element={
               <ProtectedRoute><ProgramNewPage /></ProtectedRoute>

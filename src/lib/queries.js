@@ -1055,6 +1055,12 @@ export const screenKeyOf = (pathname, search = '') => {
   try { tab = new URLSearchParams(search).get('tab') || '' } catch { tab = '' }
   return tab ? `${p}?tab=${tab}` : p
 }
+// 화면별 체류 집계 (관리자 분석, RPC 147) — 최근 N일. 관리자만 데이터 반환(RLS).
+export const fetchScreenStats = async (days = 30) => {
+  const { data, error } = await supabase.rpc('get_screen_stats', { p_days: days })
+  if (error) throw error
+  return data || []
+}
 export const logScreenEvent = async (screen, durationMs) => {
   if (!import.meta.env.PROD) return
   if (!screen || !(durationMs > 0)) return

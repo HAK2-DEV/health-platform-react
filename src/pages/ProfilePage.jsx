@@ -6,7 +6,7 @@ import { supabase } from '../supabaseClient'
 import { useAuth } from '../hooks/useAuth'
 import { useNicknameCheck } from '../hooks/useNicknameCheck'
 import { NICKNAME } from '../lib/constants'
-import { queryKeys, fetchActivePrograms, fetchMyParticipantStats } from '../lib/queries'
+import { queryKeys, fetchActivePrograms, fetchMyParticipantStats, fetchMyRole } from '../lib/queries'
 import UserAvatar from '../components/common/UserAvatar'
 import BackButton from '../components/common/BackButton'
 import NotificationBell from '../components/common/NotificationBell'
@@ -42,6 +42,14 @@ function ProfilePage() {
     },
     enabled: !!userId,
   })
+
+  // 관리자 여부 — 관리자 전용 메뉴(화면 체류 분석) 노출용
+  const { data: myRole } = useQuery({
+    queryKey: ['my-role', userId],
+    queryFn: () => fetchMyRole(userId),
+    enabled: !!userId,
+  })
+  const isAdmin = myRole === 'ADMIN'
 
   // 통계 박스 — 참여 프로그램 수 / 누적 포인트 / 연속 인증일
   const { data: activePrograms = [] } = useQuery({
@@ -422,6 +430,16 @@ function ProfilePage() {
         description="자주 묻는 질문과 1:1 문의를 확인하세요."
         onClick={() => navigate('/support')}
       />
+      {/* 관리자 전용 — 화면 체류 분석 (UI/UX 개선용) */}
+      {isAdmin && (
+        <ProfileMenuItem
+          tone="violet"
+          icon={<BarChart3 className="w-5 h-5" />}
+          title="화면 체류 분석"
+          description="관리자 전용 · 화면별 평균 체류·방문수"
+          onClick={() => navigate('/admin/screen-stats')}
+        />
+      )}
 
       {/* 로그아웃 — 소프트 레드 (참고 사진) */}
       <button
