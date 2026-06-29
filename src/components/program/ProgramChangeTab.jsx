@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { TrendingUp, Users, ChevronLeft, ChevronRight } from 'lucide-react'
 import { fetchMyMoodTrend, fetchMyChangeStats, fetchParticipantChangeTrends, formatKstDate } from '../../lib/queries'
@@ -50,11 +51,18 @@ function ProgramChangeTab({ programId, userId, isOwner }) {
     queryFn: () => fetchParticipantChangeTrends(programId),
     enabled: !!programId && isOwner,
   })
-  const [selected, setSelected] = useState(null)
+  // 선택 참가자를 URL(?puser=)로 — 히스토리에 쌓여 헤더 ‹/브라우저·하드웨어 뒤로가 목록으로 복귀.
+  const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const selectedId = searchParams.get('puser')
+  const selected = selectedId ? (participants.find(p => p.user_id === selectedId) || null) : null
+  const selectParticipant = (p) => setSearchParams(prev => {
+    const n = new URLSearchParams(prev); n.set('puser', p.user_id); return n
+  })  // push(히스토리 추가) → 뒤로가기로 목록 복귀
 
   // ─── 운영자 ───
   if (isOwner) {
-    if (selected) return <ParticipantDetail programId={programId} user={selected} onBack={() => setSelected(null)} />
+    if (selected) return <ParticipantDetail programId={programId} user={selected} onBack={() => navigate(-1)} />
     return (
       <div className="bg-white rounded-2xl shadow-elevated p-4">
         <div className="flex items-center gap-2 mb-1">
@@ -68,7 +76,7 @@ function ProgramChangeTab({ programId, userId, isOwner }) {
         ) : (
           <div className="divide-y divide-gray-50">
             {participants.map(p => (
-              <button key={p.user_id} type="button" onClick={() => setSelected(p)}
+              <button key={p.user_id} type="button" onClick={() => selectParticipant(p)}
                 className="w-full flex items-center gap-2 py-2.5 text-left hover:bg-gray-50 -mx-1 px-1 rounded-lg transition">
                 <span className="flex-1 min-w-0 text-sm font-medium text-gray-800 truncate">{p.nickname}</span>
                 <span className="inline-flex items-center gap-1 text-xs w-[68px]" title="최근 기분">

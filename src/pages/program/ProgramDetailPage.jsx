@@ -722,6 +722,29 @@ function ProgramDetailPage() {
     closeCommunityManage()
   }
 
+  // 하드웨어/브라우저 뒤로가기 = 인라인 관리자 닫기 (공통 Modal 패턴과 동일).
+  //   개요/미션/응원 관리자에 적용(퀴즈 관리는 ?panel= URL 복원 결합이라 제외).
+  //   열림 시 history 더미 push → 뒤로가기(popstate) 시 열린 관리자 닫기. 코드로 닫히면 더미 정리.
+  //   dev(StrictMode 이중 실행) 비활성 — 프로드/네이티브에서만.
+  useEffect(() => {
+    const open = overviewManageOpen || missionManageOpen || communityManageOpen
+    if (!open || import.meta.env.DEV) return
+    let viaPop = false
+    window.history.pushState({ __mgr: true }, '')
+    const onPop = () => {
+      viaPop = true
+      if (overviewManageOpen) closeOverviewManage()
+      else if (missionManageOpen) closeMissionManage()
+      else if (communityManageOpen) closeCommunityManage()
+    }
+    window.addEventListener('popstate', onPop)
+    return () => {
+      window.removeEventListener('popstate', onPop)
+      if (!viaPop) window.history.back()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [overviewManageOpen, missionManageOpen, communityManageOpen])
+
   // 부모 저장 바 → 패널 ref.save() 호출
   const handleOverviewSave = async (close) => {
     setPanelError(null)

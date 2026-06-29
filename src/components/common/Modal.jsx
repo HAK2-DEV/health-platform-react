@@ -52,6 +52,24 @@ function Modal({ isOpen, onClose, children, onPrev, onNext }) {
     }
   }, [isOpen])
 
+  // 하드웨어/브라우저 뒤로가기 = 모달 닫기 (네이티브 안드로이드 뒤로 UX).
+  //   열릴 때 history 더미 항목 push → 뒤로가기(popstate) 시 onClose.
+  //   배경/ESC/스와이프(코드)로 닫히면 우리가 push한 더미를 history.back() 으로 정리.
+  //   ※ dev(StrictMode 이중 실행)에선 history 꼬임으로 오작동 → 프로드/네이티브에서만 동작.
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
+  useEffect(() => {
+    if (!isOpen || import.meta.env.DEV) return
+    let viaPop = false
+    window.history.pushState({ __modal: true }, '')
+    const onPop = () => { viaPop = true; onCloseRef.current?.() }
+    window.addEventListener('popstate', onPop)
+    return () => {
+      window.removeEventListener('popstate', onPop)
+      if (!viaPop) window.history.back()  // 뒤로가기 외 경로로 닫힘 → 더미 제거
+    }
+  }, [isOpen])
+
   return (
     <AnimatePresence>
       {isOpen && (
