@@ -40,6 +40,7 @@ const VARIANT_EMOJI = {
 // 카테고리 KEY → 자체 표지 경로 매핑 (public/illustrations/program-covers/)
 const COVER_BY_CATEGORY = {
   WALKING: '/illustrations/program-covers/walking.jpg',
+  RUNNING: '/illustrations/program-covers/running.jpg',
   DIET: '/illustrations/program-covers/diet.jpg',
   EMPATHY: '/illustrations/program-covers/empathy.jpg',
   MINDCARE: '/illustrations/program-covers/mindcare.jpg',

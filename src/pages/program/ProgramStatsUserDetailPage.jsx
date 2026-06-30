@@ -2,12 +2,14 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { ChevronRight, Target, FileText, MessageCircle } from 'lucide-react'
+import { ChevronRight, Target, FileText, MessageCircle, Calendar } from 'lucide-react'
 import DoorIcon from '../../components/common/DoorIcon'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
 import { formatRelativeKstDay, getTodayKST } from '../../lib/formatters'
-import { queryKeys, fetchProgram, fetchProgramStats, formatKstDate } from '../../lib/queries'
+import { queryKeys, fetchProgram, fetchProgramStats, fetchMyMetricSummary, formatKstDate } from '../../lib/queries'
+import { PROGRAM_THEME } from '../../lib/constants'
+import MetricSummaryCard from '../../components/program/MetricSummaryCard'
 import StickyBackBar from '../../components/common/StickyBackBar'
 import LoadingState from '../../components/common/LoadingState'
 import EmptyState from '../../components/common/EmptyState'
@@ -103,6 +105,14 @@ function ProgramStatsUserDetailPage() {
   })
 
   const userInfo = stats?.userStats?.find(u => u.user_id === targetUserId) || null
+
+  // 달리기 테마 — 이 유저의 주요 기록 요약(총 거리/시간/칼로리/달성횟수). 운영자 SELECT 가능(승인된 본인 인증).
+  const isRunning = program?.theme === PROGRAM_THEME.RUNNING
+  const { data: userMetricSummary } = useQuery({
+    queryKey: ['metricSummary', id, targetUserId],
+    queryFn: () => fetchMyMetricSummary(id, targetUserId),
+    enabled: !!session && !!id && !!targetUserId && isOwner && isRunning,
+  })
 
   // 입장 질문 답변 — 승인제 + 입장질문 있는 프로그램일 때 표시 (program_participants.entry_answer)
   const { data: participant } = useQuery({
@@ -296,8 +306,16 @@ function ProgramStatsUserDetailPage() {
         </div>
       </motion.div>
 
+      {/* 달리기 테마 — 이 유저의 주요 기록 요약 (총 거리/시간/칼로리/달성횟수). 통계화면 톤에 맞춤 */}
+      {isRunning && userMetricSummary && (userMetricSummary.metrics?.length > 0 || userMetricSummary.count > 0) && (
+        <>
+          <h2 className="text-lg font-semibold text-gray-800" style={{ marginBottom: '9px' }}>🏃 달리기 기록 요약</h2>
+          <MetricSummaryCard summary={userMetricSummary} title={null} variant="stats" />
+        </>
+      )}
+
       {/* 최근 14일 활동 */}
-      <h2 className="text-lg font-semibold text-gray-800" style={{ marginBottom: '9px' }}>📅 최근 14일 활동</h2>
+      <h2 className="flex items-center gap-1.5 text-lg font-semibold text-gray-800" style={{ marginBottom: '9px' }}><Calendar className="w-5 h-5 text-gray-500" /> 최근 14일 활동</h2>
       <div className="bg-white border border-gray-200 rounded-[10px] p-4" style={{ marginBottom: '9px' }}>
         <div className="flex items-end gap-1 h-20">
           {recent14Days.map(d => {

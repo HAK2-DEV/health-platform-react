@@ -517,11 +517,13 @@ function MissionVerifyPage() {
 
       // Day 65 — 마일스톤 토스트 + 연속 인증일 캡처 (완료 화면 표시용).
       let streak = 0
+      let approvedToday = false
       try {
         const before = beforeOverviewRef.current
         const newOverview = await fetchProgramOverview(programId, session.user.id)
         queryClient.setQueryData(queryKeys.programOverview(programId, session.user.id), newOverview)
         streak = newOverview.streak || 0
+        approvedToday = !!newOverview.hasToday
 
         // streak_preset/streak_milestones 조회 위해 program 가져옴 (cache hit 우선)
         let program = queryClient.getQueryData(queryKeys.program(programId))
@@ -548,6 +550,12 @@ function MissionVerifyPage() {
       } catch (e) {
         // 마일스톤 체크 실패는 silent — 핵심 인증 흐름 방해 X
         console.warn('마일스톤 체크 실패:', e)
+      }
+
+      // 달리기 테마 — 오늘 인증이 즉시 승인되면 완료 화면 대신 러닝 홈으로 돌아가 「도장」 1회 재생
+      if (program?.theme === 'RUNNING' && approvedToday) {
+        navigate(`/programs/${programId}?stamped=1`, { replace: true })
+        return
       }
 
       // 완료 화면 표시 (자동 이동 X — 사용자가 「내 기록 보기 / 프로그램으로 이동」 선택)
@@ -864,24 +872,37 @@ function MissionVerifyPage() {
             </div>
           )}
 
-          {/* 버튼 — (남은 미션 있으면)나머지 미션 제출하기 + 프로그램으로 이동 */}
+          {/* 버튼 — 달리기 테마(탭 바 없음)는 랭킹 진입점이 여기뿐 → 「랭킹 보기」로 대체.
+              그 외엔 (남은 미션 있으면)나머지 미션 제출하기 + 프로그램으로 이동 */}
           <div className="flex gap-2 justify-center pt-1">
-            {remainingMissionCount > 0 && (
+            {program?.theme === 'RUNNING' && program?.ranking_enabled !== false ? (
               <button
                 type="button"
-                onClick={() => navigate(`/record?program=${programId}`, { replace: true })}
+                onClick={() => navigate(`/programs/${programId}?tab=ranking`, { replace: true, state: { fromCompletion: true } })}
                 className="w-[184px] max-w-[48%] h-[36px] rounded-[10px] bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-[13px] transition flex items-center justify-center gap-1 whitespace-nowrap"
               >
-                📋 나머지 미션 ({remainingMissionCount}개)
+                🏆 랭킹 보기
               </button>
+            ) : (
+              <>
+                {remainingMissionCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/record?program=${programId}`, { replace: true })}
+                    className="w-[184px] max-w-[48%] h-[36px] rounded-[10px] bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-[13px] transition flex items-center justify-center gap-1 whitespace-nowrap"
+                  >
+                    📋 나머지 미션 ({remainingMissionCount}개)
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={goToProgram}
+                  className="w-[184px] max-w-[48%] h-[36px] rounded-[10px] bg-white border border-emerald-300 text-emerald-600 font-bold text-[13px] hover:bg-emerald-50 transition"
+                >
+                  프로그램으로 이동
+                </button>
+              </>
             )}
-            <button
-              type="button"
-              onClick={goToProgram}
-              className="w-[184px] max-w-[48%] h-[36px] rounded-[10px] bg-white border border-emerald-300 text-emerald-600 font-bold text-[13px] hover:bg-emerald-50 transition"
-            >
-              프로그램으로 이동
-            </button>
           </div>
         </div>
       </div>

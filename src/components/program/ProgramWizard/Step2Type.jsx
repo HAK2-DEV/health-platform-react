@@ -110,6 +110,7 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
   const selectedCategories = initialData?.categories || []
   // 금연 카테고리 = 금연 테마 전체 적용 (랭킹/팀 숨김, 「내 변화」 탭, theme=QUIT_SMOKING)
   const isQuitCat = selectedCategories.includes(CATEGORY.NO_SMOKING.key)
+  const isRunningCat = selectedCategories.includes(CATEGORY.RUNNING.key)  // 달리기 테마(마라톤 코스 등)
   const recommendedBundles = MISSION_LIBRARY.filter(b =>
     selectedCategories.length === 0 || selectedCategories.includes(b.category)
   )
@@ -135,10 +136,10 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
         team_size_min: null, team_size_max: null, team_size_fixed: null,
       }
     }
-    // 그 외 — 기존 동작 (랭킹·팀 토글)
+    // 그 외 — 기존 동작 (랭킹·팀 토글). 달리기 카테고리면 달리기 테마 적용.
     return {
       ...base,
-      theme: null,
+      theme: isRunningCat ? 'RUNNING' : null,
       ranking_enabled: rankingEnabled,
       change_tab_enabled: false,
       team_enabled: teamEnabled,

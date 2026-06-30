@@ -4,6 +4,7 @@
 // 카테고리별 파스텔 색상 (Tailwind JIT 안전 — 명시적 클래스명)
 export const CATEGORY_COLORS = {
   WALKING:    { bg: 'bg-emerald-50', border: 'border-emerald-100', accent: 'bg-emerald-400' },
+  RUNNING:    { bg: 'bg-sky-50',     border: 'border-sky-100',     accent: 'bg-sky-400' },
   DIET:       { bg: 'bg-emerald-50', border: 'border-emerald-100', accent: 'bg-emerald-400' },
   EMPATHY:    { bg: 'bg-pink-50',    border: 'border-pink-100',    accent: 'bg-pink-400' },
   MINDCARE:   { bg: 'bg-orange-50',  border: 'border-orange-100',  accent: 'bg-orange-400' },
@@ -16,6 +17,7 @@ export const CATEGORY_COLORS = {
 //   본인 지정값 (임의, 추후 수정 가능). key 는 CATEGORY 키와 동일.
 export const CATEGORY_HEX = {
   WALKING: '#22C58B',     // 운동
+  RUNNING: '#0EA5E9',     // 달리기 (스카이 — 운동 초록과 구별)
   DIET: '#F5B66E',        // 식단
   EMPATHY: '#F4B8A8',     // 공감
   MINDCARE: '#F59E0B',    // 마음관리

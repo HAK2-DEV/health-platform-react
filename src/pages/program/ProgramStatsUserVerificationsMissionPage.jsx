@@ -1,7 +1,7 @@
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useState, useEffect, useMemo } from 'react'
-import { Image as ImageIcon, BarChart3, MessageSquare } from 'lucide-react'
+import { Image as ImageIcon, BarChart3, MessageSquare, Calendar } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
 import { formatRelativeKstDay } from '../../lib/formatters'
@@ -152,8 +152,8 @@ function ProgramStatsUserVerificationsMissionPage() {
             <div key={group.date}>
               {/* 날짜 헤더 */}
               <div className="flex items-center gap-2 mb-2">
-                <p className="text-sm font-medium text-gray-700">
-                  📅 {group.date.replaceAll('-', '.')}
+                <p className="flex items-center gap-1 text-sm font-medium text-gray-700">
+                  <Calendar className="w-3.5 h-3.5 text-gray-500" /> {group.date.replaceAll('-', '.')}
                 </p>
                 <span className="text-xs text-gray-400">
                   · {formatRelativeKstDay(group.items[0].submitted_at)}

@@ -14,8 +14,9 @@ export const PROGRAM_PRESETS = [
     emoji: '🏃',
     name: '3km 달리기 챌린지',
     description: '하루 3km 달리기로 건강한 습관을 만드는 챌린지예요.',
-    categories: [CATEGORY.WALKING.key],
+    categories: [CATEGORY.RUNNING.key],
     durationDays: 28,
+    theme: PROGRAM_THEME.RUNNING,   // 달리기 테마 — 상세 변형(마라톤 지도 등)
     bundleTitle: '🏃 3km 달리기',
     missions: [
       {
@@ -27,8 +28,13 @@ export const PROGRAM_PRESETS = [
         requires_image: true, requires_numeric: true, requires_note: false,
         image_point: 5, numeric_point: 5,
         image_required: true, numeric_required: true,
-        metrics: [{ key: 'distance', label: '거리', unit: 'km', max: 100, icon: '👟' }],
-        metric_aggregate: false,
+        // 달리기 기록 — 거리(주) + 시간 + 칼로리. 거리만 채워도 되고 나머지는 선택.
+        metrics: [
+          { key: 'distance', label: '거리', unit: 'km', max: 100, icon: '👟' },
+          { key: 'time', label: '시간', icon: '⏱️', inputFormat: 'hms' },
+          { key: 'calories', label: '칼로리', unit: 'kcal', max: 5000, icon: '🔥' },
+        ],
+        metric_aggregate: true,             // 누적 합산 → 개요 「주요 기록 요약」에 거리/시간/칼로리 표시
         schedule_mode: 'WEEKDAYS',          // 평일만
         verification_type: 'MANUAL',        // 거리 기록은 운영자 심사 후 요약 반영
         daily_limit: 1,
@@ -42,8 +48,12 @@ export const PROGRAM_PRESETS = [
         requires_image: true, requires_numeric: true, requires_note: false,
         image_point: 5, numeric_point: 5,
         image_required: true, numeric_required: true,
-        metrics: [{ key: 'distance', label: '거리', unit: 'km', max: 100, icon: '👟' }],
-        metric_aggregate: true,             // 누적 합산 → 개요에 누적 거리 표시
+        metrics: [
+          { key: 'distance', label: '거리', unit: 'km', max: 100, icon: '👟' },
+          { key: 'time', label: '시간', icon: '⏱️', inputFormat: 'hms' },
+          { key: 'calories', label: '칼로리', unit: 'kcal', max: 5000, icon: '🔥' },
+        ],
+        metric_aggregate: true,             // 누적 합산 → 개요에 누적 거리/시간/칼로리
         schedule_mode: 'ALL_DAYS',
         verification_type: 'MANUAL',
         daily_limit: 1,

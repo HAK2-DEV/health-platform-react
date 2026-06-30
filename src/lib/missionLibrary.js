@@ -243,7 +243,7 @@ export const MISSION_LIBRARY = [
     key: 'walking',
     title: '걷기 챌린지',
     description: '매일 꾸준한 걷기 습관',
-    category: 'WALKING',
+    category: 'RUNNING',
     emoji: '🚶',
     missions: [
       {
@@ -321,7 +321,7 @@ export const MISSION_LIBRARY = [
     key: 'running_routine',
     title: '러닝 루틴',
     description: '꾸준한 달리기로 체력 키우기',
-    category: 'WALKING',
+    category: 'RUNNING',
     emoji: '🏃',
     missions: [
       {

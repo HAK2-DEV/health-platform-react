@@ -332,7 +332,7 @@ export const fetchProgram = async (programId) => {
 export const fetchMission = async (missionId) => {
   const { data, error } = await supabase
     .from('missions')
-    .select('*, programs!inner(id, name, categories, feed_enabled, owner_id, community_settings)')
+    .select('*, programs!inner(id, name, categories, feed_enabled, owner_id, community_settings, theme, ranking_enabled)')
     .eq('id', missionId)
     .maybeSingle()
   if (error) throw error
@@ -471,7 +471,21 @@ export const fetchProgramOverview = async (programId, userId) => {
   // 4) totalCount (60일 내 APPROVED 인증 총 횟수) — 게이미피케이션 「물」
   const totalCount = rows.length
 
-  return { streak, hasToday, activeDays, recent, totalCount }
+  // 5) weekDays — 이번 주(월~일) 요일별 인증 여부 (달리기 「주간 스트릭」). 오늘 이후는 미달성.
+  const weekLabels = ['월', '화', '수', '목', '금', '토', '일']
+  const base = new Date(`${todayKst}T00:00:00+09:00`)
+  const dow = (base.getDay() + 6) % 7 // 월=0 … 일=6
+  const monday = new Date(base)
+  monday.setDate(base.getDate() - dow)
+  const weekDays = []
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday)
+    d.setDate(monday.getDate() + i)
+    const ds = formatKstDate(d)
+    weekDays.push({ label: weekLabels[i], done: ds <= todayKst && approvedDates.has(ds), today: ds === todayKst })
+  }
+
+  return { streak, hasToday, activeDays, recent, totalCount, weekDays }
 }
 
 // 프로그램 참여 모달용 정보 (Day 65 본인 결정 — UX 강화)

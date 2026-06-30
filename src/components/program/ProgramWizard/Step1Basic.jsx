@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { Calendar } from 'lucide-react'
 import { CATEGORY_LIST, PROGRAM } from '../../../lib/constants'
 import { getTodayKST } from '../../../lib/formatters'
 import { useAuth } from '../../../hooks/useAuth'
@@ -169,7 +170,7 @@ function Step1Basic({ initialData, onNext, onSave, enterAtEnd = false }) {
             {subStep === 3 && (
               <div className="flex flex-col sm:flex-row sm:items-end" style={{ gap: '9px' }}>
                 <div className="w-full sm:flex-1 min-w-0">
-                  <p className="text-[11px] text-gray-500 mb-1">📅 시작</p>
+                  <p className="flex items-center gap-1 text-[11px] text-gray-500 mb-1"><Calendar className="w-3 h-3" /> 시작</p>
                   <input
                     type="date"
                     value={startDate}
@@ -186,7 +187,7 @@ function Step1Basic({ initialData, onNext, onSave, enterAtEnd = false }) {
                 </div>
                 <span className="hidden sm:inline text-gray-500 flex-shrink-0 pb-3">~</span>
                 <div className="w-full sm:flex-1 min-w-0">
-                  <p className="text-[11px] text-gray-500 mb-1">📅 종료</p>
+                  <p className="flex items-center gap-1 text-[11px] text-gray-500 mb-1"><Calendar className="w-3 h-3" /> 종료</p>
                   <input
                     ref={endDateRef}
                     type="date"

@@ -3,7 +3,7 @@ import { supabase } from '../../supabaseClient'
 import { CATEGORY, CATEGORY_LIST, PROGRAM, PROGRAM_THEME } from '../../lib/constants'
 import { isUpcomingByStartDate } from '../../lib/formatters'
 import CoverImageUploader from '../common/CoverImageUploader'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, Calendar } from 'lucide-react'
 
 // 'YYYY-MM-DD' → 'YYYY.MM.DD' (4자리 연도)
 const ymd = (d) => (d ? d.replaceAll('-', '.') : '미정')
@@ -113,7 +113,7 @@ const OverviewManagePanel = forwardRef(function OverviewManagePanel({ program, p
           </div>
           {/* 기간 — 한 줄: 시작(고정·2자리) ~ 종료(편집·2자리 표시) */}
           <div className="flex items-center gap-2">
-            <span className={labelCls}>📅 기간</span>
+            <span className={labelCls}><Calendar className="w-3.5 h-3.5 text-gray-500" />기간</span>
             <div className="flex-1 min-w-0 flex items-center gap-1.5 text-[13px]">
               <span className="text-gray-500 whitespace-nowrap">{ymd(program.start_date)}<span className="text-[10px] text-gray-400 ml-0.5">🔒</span></span>
               <span className="text-gray-300">~</span>

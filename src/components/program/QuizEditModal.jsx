@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import Modal from '../common/Modal'
+import { Calendar } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
 
 // 퀴즈 메타 수정 (제목/설명/기한/정답공개)
@@ -118,7 +119,7 @@ function QuizEditModal({ quiz, isOpen, onClose, onSuccess }) {
               <label className="block text-sm font-medium text-gray-700 mb-2">풀이 기한 (선택)</label>
               <div className="flex flex-col sm:flex-row sm:items-end gap-2">
                 <div className="w-full sm:flex-1 min-w-0">
-                  <p className="text-[11px] text-gray-500 mb-1">📅 시작</p>
+                  <p className="flex items-center gap-1 text-[11px] text-gray-500 mb-1"><Calendar className="w-3 h-3" /> 시작</p>
                   <input
                     type="datetime-local"
                     value={startAt}
@@ -129,7 +130,7 @@ function QuizEditModal({ quiz, isOpen, onClose, onSuccess }) {
                 </div>
                 <span className="hidden sm:inline text-gray-400 flex-shrink-0 pb-2">~</span>
                 <div className="w-full sm:flex-1 min-w-0">
-                  <p className="text-[11px] text-gray-500 mb-1">📅 종료</p>
+                  <p className="flex items-center gap-1 text-[11px] text-gray-500 mb-1"><Calendar className="w-3 h-3" /> 종료</p>
                   <input
                     ref={dueAtRef}
                     type="datetime-local"

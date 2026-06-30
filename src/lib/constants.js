@@ -27,6 +27,7 @@ export const USER_ROLE = {
 // label / emoji 만 진화시켜도 기존 데이터 영향 없음.
 export const CATEGORY = {
   WALKING: { key: 'WALKING', label: '운동', emoji: '💪' },
+  RUNNING: { key: 'RUNNING', label: '달리기', emoji: '🏃' },
   DIET: { key: 'DIET', label: '식단', emoji: '🍱' },
   EMPATHY: { key: 'EMPATHY', label: '공감', emoji: '🤝' },
   MINDCARE: { key: 'MINDCARE', label: '마음관리', emoji: '🧘' },
@@ -38,6 +39,7 @@ export const CATEGORY = {
 // 본인의 화면 표시용 배열 (순서 보장)
 export const CATEGORY_LIST = [
   CATEGORY.WALKING,
+  CATEGORY.RUNNING,
   CATEGORY.DIET,
   CATEGORY.EMPATHY,
   CATEGORY.MINDCARE,
@@ -57,6 +59,7 @@ export const PROGRAM_STATUS = {
 // 프로그램 테마 (programs.theme, 마이그 136) — 상세 페이지 변형. NULL = 일반.
 export const PROGRAM_THEME = {
   QUIT_SMOKING: 'QUIT_SMOKING',
+  RUNNING: 'RUNNING',
 }
 
 // 프로그램 기본 정보 길이 제한

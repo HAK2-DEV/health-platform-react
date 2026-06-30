@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { ChevronRight, Target, FileText } from 'lucide-react'
+import { ChevronRight, Target, FileText, Calendar } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../supabaseClient'
 import {
@@ -156,7 +156,7 @@ function MyActivityPage() {
           </motion.div>
 
           {/* 14일 활동 */}
-          <h2 className="text-lg font-semibold text-gray-800" style={{ marginBottom: '9px' }}>📅 최근 14일 활동</h2>
+          <h2 className="flex items-center gap-1.5 text-lg font-semibold text-gray-800" style={{ marginBottom: '9px' }}><Calendar className="w-5 h-5 text-gray-500" /> 최근 14일 활동</h2>
           <div className="bg-white border border-gray-200 rounded-2xl p-4" style={{ marginBottom: '9px' }}>
             <div className="flex items-end gap-1 h-20">
               {recent14Days.map(d => {

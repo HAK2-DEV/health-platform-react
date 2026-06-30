@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { LogOut, Camera, Pencil, X, Loader2, BarChart3, ChevronRight, Bell, Shield, BookOpen, MessageCircle } from 'lucide-react'
+import { LogOut, Camera, Pencil, X, Loader2, BarChart3, ChevronRight, Bell, Shield, BookOpen, MessageCircle, Activity } from 'lucide-react'
 import { supabase } from '../supabaseClient'
 import { useAuth } from '../hooks/useAuth'
 import { useNicknameCheck } from '../hooks/useNicknameCheck'
@@ -392,8 +392,7 @@ function ProfilePage() {
       {/* 메뉴 카드 */}
       <ProfileMenuItem
         tone="emerald"
-        icon={<BarChart3 className="w-5 h-5" />}
-        imgSrc="/icons/profile/activity.png"
+        icon={<Activity className="w-5 h-5" />}
         title="내 기록"
         description="걷기, 운동, 수면 등 내 활동 기록을 확인하세요."
         onClick={() => navigate('/profile/activity')}
@@ -410,7 +409,6 @@ function ProfilePage() {
       <ProfileMenuItem
         tone="violet"
         icon={<Bell className="w-5 h-5" />}
-        imgSrc="/icons/profile/notify.png"
         title="알림 설정"
         description="알림 설정을 관리하고 중요한 소식을 받아보세요."
         onClick={() => navigate('/profile/notifications-settings')}
@@ -425,7 +423,6 @@ function ProfilePage() {
       <ProfileMenuItem
         tone="emerald"
         icon={<MessageCircle className="w-5 h-5" />}
-        imgSrc="/icons/profile/inquiry.png"
         title="문의하기"
         description="자주 묻는 질문과 1:1 문의를 확인하세요."
         onClick={() => navigate('/support')}

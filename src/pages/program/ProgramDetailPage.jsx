@@ -17,6 +17,8 @@ import MoodCheck from '../../components/program/MoodCheck'
 import QuitSmokingTip from '../../components/program/QuitSmokingTip'
 import QuitSmokingCheer from '../../components/program/QuitSmokingCheer'
 import CheerBoard from '../../components/program/CheerBoard'
+import RunningHome from '../../components/program/RunningHome'
+import MetricSummaryCard from '../../components/program/MetricSummaryCard'
 import ProgramChangeTab from '../../components/program/ProgramChangeTab'
 import PodiumTop3 from '../../components/program/PodiumTop3'
 import TeamRankingPanel from '../../components/program/TeamRankingPanel'
@@ -167,6 +169,8 @@ function ProgramDetailPage() {
   const missionSectionRef = useRef(null)
   const quizSectionRef = useRef(null)
   const opPanelRef = useRef(null)  // 운영자 빠른 액션 박스 — 개요 관리자 열 때 상단으로 스크롤
+  const streakRef = useRef(null)   // 달리기 주간 스트릭 — 인증 직후 도장 재생용
+  const stampedFiredRef = useRef(false)
   const scrollToSection = (ref) => {
     requestAnimationFrame(() => {
       ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -258,6 +262,30 @@ function ProgramDetailPage() {
     queryFn: () => fetchProgramOverview(id, userId),
     enabled: !!session && !!id && !!userId,
   })
+
+  // 달리기 — 오늘 인증이 승인되면(자동/수동 무관) 러닝 홈 진입 시 주간 스트릭 「도장」 1회 재생.
+  //   하루·프로그램 단위 localStorage 플래그로 중복 방지 → 수동 승인 후 첫 진입에도 동작.
+  useEffect(() => {
+    if (stampedFiredRef.current) return
+    if (program?.theme !== PROGRAM_THEME.RUNNING) return
+    const todayCell = overviewData?.weekDays?.find((d) => d.today)
+    if (!todayCell?.done) return // 오늘 미승인이면 패스
+    let key
+    try {
+      const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' })
+      key = `runStamp:${id}:${todayStr}`
+      if (localStorage.getItem(key)) return // 오늘 이미 축하함
+    } catch { /* localStorage 차단 환경 — 세션 가드만 적용 */ }
+    stampedFiredRef.current = true
+    try { if (key) localStorage.setItem(key, '1') } catch { /* noop */ }
+    const t = setTimeout(() => streakRef.current?.playToday({ bumpCount: false }), 450)
+    if (searchParams.get('stamped')) {
+      const next = new URLSearchParams(searchParams)
+      next.delete('stamped')
+      setSearchParams(next, { replace: true })
+    }
+    return () => clearTimeout(t)
+  }, [program, overviewData, searchParams, setSearchParams, id])
 
   // Day 65 게이미피케이션 — 본인 참여자 row (growth_state JSONB 보유).
   // 정원/별자리 트랙일 때만 fetch.
@@ -947,6 +975,12 @@ function ProgramDetailPage() {
     if (missionManageOpen) return closeMissionManage()
     if (quizManageOpen) return closeQuizManage()
     if (communityManageOpen) return closeCommunityManage()
+    // 달리기 테마 — 탭 바가 없으니 서브탭(미션/퀴즈/커뮤니티)에선 헤더 뒤로 = 러닝 홈(개요)으로,
+    // 러닝 홈에서 뒤로 = 대시보드로 나감
+    if (program.theme === PROGRAM_THEME.RUNNING) {
+      if (activeTab !== 'overview') return setActiveTab('overview')
+      return navigate('/dashboard')
+    }
     // 미션 완료 → 「프로그램으로 이동」으로 들어온 경우: 뒤로가기는 묶음/완료 화면이 아니라 대시보드로
     if (location.state?.fromCompletion) return navigate('/dashboard')
     navigate(-1)
@@ -973,8 +1007,8 @@ function ProgramDetailPage() {
   const hdrDraft = program.status === 'DRAFT'
   const hdrStatusLabel = hdrDraft ? '임시저장' : hdrPublished ? (hdrUpcoming ? '예정' : '진행중') : program.status
   const hdrStatusCls = hdrDraft
-    ? 'bg-gray-500 text-white'
-    : (hdrPublished && !hdrUpcoming) ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'
+    ? 'border border-gray-300 text-gray-500 bg-white'
+    : (hdrPublished && !hdrUpcoming) ? 'border border-emerald-400 text-emerald-600 bg-white' : 'border border-amber-400 text-amber-600 bg-white'
 
   // 커뮤니티 게시판 칩 — 운영자 설정(community_settings.boards) 순서대로. 미설정 시 기본 4종.
   const communityBoards = (program.community_settings?.boards?.length
@@ -1023,7 +1057,7 @@ function ProgramDetailPage() {
           {/* 제목은 항상 정중앙 / 상태 배지는 제목 왼쪽에 오버행(중앙 정렬에 영향 X) */}
           <div className={`relative ${isOwner ? 'max-w-[50%]' : 'max-w-[58%]'}`}>
             <span className="block text-[16px] font-bold text-gray-800 truncate px-1 text-center whitespace-nowrap">{program.name}</span>
-            <span className={`absolute right-full top-1/2 -translate-y-1/2 mr-1 px-2 py-0.5 rounded-md text-[11px] font-semibold whitespace-nowrap ${hdrStatusCls}`}>{hdrStatusLabel}</span>
+            <span className={`absolute right-full top-1/2 -translate-y-1/2 mr-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold whitespace-nowrap ${hdrStatusCls}`}>{hdrStatusLabel}</span>
           </div>
           <div className="absolute right-2 flex items-center gap-0.5">
             {isOwner && (
@@ -1050,8 +1084,9 @@ function ProgramDetailPage() {
       </header>
 
       {/* 프로그램 헤더 — 모의도 디자인: 배경 사진 풀 블리드 + 우측 페이드 + 진행중 배지.
-          인라인 관리자 열림(inManager) 시엔 숨김 → 집중 편집 화면 */}
-      {!inManager && (() => {
+          인라인 관리자 열림(inManager) 시엔 숨김 → 집중 편집 화면.
+          달리기 테마는 RunningHome 자체 히어로/코스로 대체하므로 프로필 숨김 */}
+      {!inManager && program.theme !== PROGRAM_THEME.RUNNING && (() => {
         const isPublished = program.status === 'PUBLISHED'
         const isUpcoming = isPublished && isUpcomingByStartDate(program.start_date)
         const isDraft = program.status === 'DRAFT'
@@ -1128,12 +1163,15 @@ function ProgramDetailPage() {
 
             {/* 텍스트 영역 — 우측 (사진 끝과 살짝 겹쳐 페이드 자연스럽게) */}
             <div className="relative z-10 pl-[calc(34%+15px)] pr-4 sm:pr-5 py-2.5 min-h-[108px] flex flex-col justify-center">
-              <h1
-                className={`${titleSize} font-bold text-gray-800 mb-1 leading-tight whitespace-nowrap overflow-hidden text-ellipsis`}
-                title={program.name}
-              >
-                {program.name}
-              </h1>
+              {/* 제목 — 달리기 테마는 상단 헤더 제목과 중복이라 숨김 */}
+              {program.theme !== PROGRAM_THEME.RUNNING && (
+                <h1
+                  className={`${titleSize} font-bold text-gray-800 mb-1 leading-tight whitespace-nowrap overflow-hidden text-ellipsis`}
+                  title={program.name}
+                >
+                  {program.name}
+                </h1>
+              )}
               {(program.start_date || program.end_date) && (
                 <p className="text-xs sm:text-sm text-gray-600 mb-1.5 whitespace-nowrap overflow-hidden text-ellipsis">
                   <span className="text-gray-400">기간 </span>
@@ -1212,8 +1250,9 @@ function ProgramDetailPage() {
 
       {/* 탭 바 — 개요/미션/퀴즈/커뮤니티/성장. 마지막 탭 라벨은 gamification_type 에 따라 분기.
           본인 결정 (Day 65): 정원/별자리도 「성장」 통합 라벨로 일원화.
-          인라인 관리자 열림 시엔 탭 바도 숨김(집중 편집 화면) */}
-      {!inManager && (() => {
+          인라인 관리자 열림 시엔 탭 바도 숨김(집중 편집 화면).
+          달리기 테마는 탭 바 없이 RunningHome 카드로 이동 → 서브탭엔 별도 홈 복귀 바 */}
+      {!inManager && program.theme !== PROGRAM_THEME.RUNNING && (() => {
         // 금연 테마 — 랭킹 숨김 + 커뮤니티→'응원' 라벨 (본인 결정: 응원/인증은 커뮤니티 재활용)
         const isQuit = program.theme === PROGRAM_THEME.QUIT_SMOKING
         // 「랭킹 메뉴 표시」(ranking_enabled) OFF 또는 금연 테마면 성장/랭킹 탭 자체를 숨김 — gamification_type 보다 우선.
@@ -1306,8 +1345,8 @@ function ProgramDetailPage() {
         <QuitSmokingTip />
       )}
 
-      {/* 📢 공지사항 (개요 글) — 맨 위. 운영자가 끄면(overview_notice_enabled=false) 미노출 (마이그 138) */}
-      {program.overview_notice_enabled !== false && (program.overview_content?.trim() || isOwner) && (() => {
+      {/* 📢 공지사항 (개요 글) — 맨 위. 운영자가 끄면(overview_notice_enabled=false) 미노출 (마이그 138). 러닝은 RunningHome 내부 공지로 대체 */}
+      {program.theme !== PROGRAM_THEME.RUNNING && program.overview_notice_enabled !== false && (program.overview_content?.trim() || isOwner) && (() => {
         const raw = program.overview_content?.trim() || ''
         // 마크다운 기호 제거한 한 줄 미리보기
         const preview = raw
@@ -1375,42 +1414,59 @@ function ProgramDetailPage() {
         )
       })()}
 
-      {/* 주요 기록 요약 카드 (Phase2) — 다중 지표 + 달성 횟수. 금연 테마에선 숨김(히어로 지표로 대체) */}
-      {program.theme !== PROGRAM_THEME.QUIT_SMOKING && metricSummary && (metricSummary.metrics.length > 0 || metricSummary.count > 0) && (() => {
-        const fmt = (n) => Number(n || 0).toLocaleString('ko-KR', { maximumFractionDigits: 1 })
-        // 시:분 (H:MM) — 저장값(분) → "8:36"
-        const hm = (mins) => { const h = Math.floor(mins / 60); const mm = Math.round(mins % 60); return `${h}:${String(mm).padStart(2, '0')}` }
-        // 지표 1개를 표시값/단위로 (포맷 우선 → 변환계수 → 그대로)
-        const disp = (m, raw) => {
-          if (m.format === 'hm') return { value: hm(raw), unit: '' }
-          if (m.divide > 1) return { value: fmt(raw / m.divide), unit: m.sumUnit || m.unit }
-          return { value: fmt(raw), unit: m.sumUnit || m.unit }
+      {/* 달리기 테마 — 전용 대시보드(RunningHome). 마라톤 코스·데일리 로그·미션/퀴즈/커뮤니티 진입 통합 */}
+      {program.theme === PROGRAM_THEME.RUNNING && (() => {
+        const mTotal = (k) => metricSummary?.metrics?.find(x => x.key === k)?.total || 0
+        const noticeRaw = program.overview_content?.trim() || ''
+        const noticePreview = noticeRaw
+          .replace(/!\[.*?\]\(.*?\)/g, '').replace(/\[(.*?)\]\(.*?\)/g, '$1')
+          .replace(/[#>*_`~]/g, '').replace(/\s+/g, ' ').trim()
+        // 주간 스트릭 — 미션 운영 요일(schedule_mode/active_days)만 노출. 평일만이면 월~금만.
+        const DOW_BY_MODE = { WEEKDAYS: [1, 2, 3, 4, 5], WEEKENDS: [6, 7], ALL_DAYS: [1, 2, 3, 4, 5, 6, 7] }
+        const activeDows = new Set()
+        for (const m of (missions || [])) {
+          const mode = m.schedule_mode || 'ALL_DAYS'
+          if (mode === 'CUSTOM') (m.active_days || []).forEach(d => activeDows.add(Number(d)))
+          else (DOW_BY_MODE[mode] || DOW_BY_MODE.ALL_DAYS).forEach(d => activeDows.add(d))
         }
-        const cells = [
-          ...metricSummary.metrics.map(m => {
-            const d = disp(m, m.total), r = disp(m, m.recent)
-            return { icon: m.icon || '📊', label: `총 ${m.label}`, value: d.value, unit: d.unit, recent: m.recent, rvalue: r.value, runit: r.unit }
-          }),
-          { icon: '🏃', label: '총 달성 횟수', value: fmt(metricSummary.count), unit: '회', recent: metricSummary.recentCount, rvalue: fmt(metricSummary.recentCount), runit: '회' },
-        ]
+        if (activeDows.size === 0) [1, 2, 3, 4, 5, 6, 7].forEach(d => activeDows.add(d))
+        // weekDays 는 월(0)~일(6) 순 → ISO dow = i+1
+        const weekDays = (overviewData?.weekDays || []).filter((_, i) => activeDows.has(i + 1))
         return (
-          <div className="bg-white rounded-2xl shadow-elevated p-4 mb-[9px]">
-            <h3 className="text-sm font-bold text-gray-800 mb-3">주요 기록 요약</h3>
-            <div className="flex overflow-x-auto scrollbar-hide -mx-1 px-1">
-              {cells.map((c, i) => (
-                <div key={i} className={`flex-1 min-w-[72px] flex flex-col items-center text-center px-2 ${i !== 0 ? 'border-l border-gray-100' : ''}`}>
-                  <span className="text-xl mb-1 leading-none">{c.icon}</span>
-                  <span className="text-[10px] text-gray-500 mb-0.5 leading-tight truncate max-w-full">{c.label}</span>
-                  <span className="text-[15px] font-bold text-gray-800 leading-tight truncate max-w-full">{c.value}<span className="text-[10px] font-medium text-gray-400 ml-0.5">{c.unit}</span></span>
-                  {c.recent > 0 && (
-                    <span className="mt-0.5 text-[10px] font-semibold text-emerald-500 truncate max-w-full">↑{c.rvalue}{c.runit}</span>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
+          <RunningHome
+            programName={program.title}
+            startDate={(program.start_date || '').replace(/-/g, '.')}
+            endDate={(program.end_date || '').replace(/-/g, '.')}
+            progress={calcProgress(program.start_date, program.end_date)}
+            pace={program.run_pace || "6'20"}
+            weekStreak={{ count: overviewData?.streak || 0, days: weekDays }}
+            notice={noticePreview || (isOwner ? '운영자 메뉴에서 공지를 작성해보세요' : '챌린지 인증 시 GPS 기록을 꼭 확인해주세요!')}
+            daily={{
+              distanceKm: mTotal('distance'),
+              timeHours: Math.round((mTotal('time') / 60) * 10) / 10,
+              streakDays: overviewData?.streak || 0,
+              calories: mTotal('calories'),
+            }}
+            quizEnabled={quizEnabled && !isViewer}
+            communityEnabled={communityEnabled}
+            streakRef={streakRef}
+            paceEditable={isOwner}
+            onPaceChange={async (v) => {
+              const { error } = await supabase.from('programs').update({ run_pace: v }).eq('id', id)
+              if (error) { alert('추천 페이스 저장에 실패했어요.'); return }
+              queryClient.invalidateQueries({ queryKey: queryKeys.program(id) })
+            }}
+            onOpenTab={(key) => setActiveTab(key)}
+            onNotice={() => { setCommunityBoard('notice'); setActiveTab('community') }}
+            onRecord={() => setActiveTab('missions')}
+          />
         )
       })()}
+
+      {/* 주요 기록 요약 카드 (Phase2) — 다중 지표 + 달성 횟수. 금연·달리기 테마에선 숨김(전용 표시로 대체) */}
+      {program.theme !== PROGRAM_THEME.QUIT_SMOKING && program.theme !== PROGRAM_THEME.RUNNING && (
+        <MetricSummaryCard summary={metricSummary} />
+      )}
 
       {/* 운영자 패널·초대 링크 → 탭 위 빠른 액션 박스 + 모달로 이동 (페이지 하단 모달 렌더) */}
 
@@ -1419,8 +1475,8 @@ function ProgramDetailPage() {
           2) 오늘의 인증 미션 미리보기 (최대 3개)
           3) 최근 인증 기록 (최대 3개) */}
 
-      {/* 1) 진행 현황 카드 — 금연 테마에선 히어로 지표가 대체하므로 숨김 + 운영자 토글(145)로 끌 수 있음 */}
-      {program.theme !== PROGRAM_THEME.QUIT_SMOKING && program.overview_progress_enabled !== false && (() => {
+      {/* 1) 진행 현황 카드 — 금연/달리기 테마는 전용 표시로 대체하므로 숨김 + 운영자 토글(145)로 끌 수 있음 */}
+      {program.theme !== PROGRAM_THEME.QUIT_SMOKING && program.theme !== PROGRAM_THEME.RUNNING && program.overview_progress_enabled !== false && (() => {
         // 기간 계산 (start/end 없으면 안전 fallback)
         const startDate = program.start_date ? new Date(`${program.start_date}T00:00:00+09:00`) : null
         const endDate = program.end_date ? new Date(`${program.end_date}T00:00:00+09:00`) : null
