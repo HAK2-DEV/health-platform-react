@@ -152,7 +152,8 @@ const WeeklyStreak = forwardRef(function WeeklyStreak({ count = 0, days = [], ic
     </span>
   )
 
-  // 요일 동그라미들 (도장 연출 포함) — card/wide 공용
+  // 요일 동그라미들 (도장 연출 포함) — card/wide 공용. 반폭 카드는 7개 넉넉히 들어가게 살짝 작게.
+  const cellSize = variant === 'wide' ? 'w-5 h-5' : 'w-[18px] h-[18px]'
   const dayCells = days.map((d, i) => {
     const done = cellDone(i)
     const stamping = stampIdx === i
@@ -161,7 +162,7 @@ const WeeklyStreak = forwardRef(function WeeklyStreak({ count = 0, days = [], ic
       <div key={i} className="relative flex flex-col items-center gap-1">
         <motion.span
           animate={stamping ? cellCtrl : undefined}
-          className="relative w-5 h-5 rounded-full flex items-center justify-center"
+          className={`relative ${cellSize} rounded-full flex items-center justify-center`}
           style={{ backgroundColor: done ? col : '#F3F4F6', color: done ? '#fff' : '#D1D5DB' }}
         >
           {stamping && impacted && (
@@ -195,7 +196,7 @@ const WeeklyStreak = forwardRef(function WeeklyStreak({ count = 0, days = [], ic
 
         {stamping && (
           <motion.span
-            className="absolute top-0 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full flex items-center justify-center pointer-events-none"
+            className={`absolute top-0 left-1/2 -translate-x-1/2 ${cellSize} rounded-full flex items-center justify-center pointer-events-none`}
             style={{ backgroundColor: col, color: '#fff', boxShadow: `0 4px 10px ${col}80` }}
             initial={{ y: -34, scale: 1.9, rotate: -14, opacity: 0 }}
             animate={stampCtrl}
@@ -244,15 +245,16 @@ const WeeklyStreak = forwardRef(function WeeklyStreak({ count = 0, days = [], ic
             </div>
           </div>
         ) : (
+          // 레퍼런스 — [불꽃(주황 원)+제목] 상단 / N일 연속 성공 중 / 요일 원
           <>
-            <div className="flex items-start gap-2.5">
-              {flameEl}
-              <div className="min-w-0 flex-1">
-                <span className="text-[12px] font-bold text-gray-700">주간 스트릭</span>
-                <p className="text-[11px] text-gray-500 mt-1.5">{streak}일 연속 달성 중</p>
-              </div>
+            <div className="flex items-center gap-2">
+              <span className="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center flex-shrink-0">
+                <motion.span animate={flameCtrl} style={{ transformOrigin: '50% 90%', display: 'inline-flex' }}>{icon}</motion.span>
+              </span>
+              <span className="text-[13px] font-bold text-gray-800">주간 스트릭</span>
             </div>
-            <div className="flex items-center justify-between px-1 mt-3">{dayCells}</div>
+            <p className="text-[11px] text-gray-500 mt-1.5">{streak}일 연속 성공 중</p>
+            <div className="flex items-center justify-between mt-3">{dayCells}</div>
           </>
         )}
 

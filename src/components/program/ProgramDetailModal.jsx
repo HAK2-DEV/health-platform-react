@@ -10,6 +10,7 @@ import { CATEGORY } from '../../lib/constants'
 import { queryKeys, fetchProgramJoinInfo } from '../../lib/queries'
 import ProgramCover from '../common/ProgramCover'
 import UserAvatar from '../common/UserAvatar'
+import ConfirmModal from '../common/ConfirmModal'
 
 // 참여 상태: 'loading' | 'owner' | 'active' | 'pending' | 'rejected' | 'none'
 // Day 65 본인 결정 — 모달 UX 강화 (베타 첫 인상):
@@ -26,6 +27,7 @@ function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
   const [isJoining, setIsJoining] = useState(false)
   const [joinError, setJoinError] = useState(null)
   const [justJoined, setJustJoined] = useState(false)
+  const [reserveMsg, setReserveMsg] = useState(null)  // 참여 예약 확인 모달
 
   // APPROVAL 입장 답변
   const [entryAnswer, setEntryAnswer] = useState('')
@@ -116,10 +118,9 @@ function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
   const handleReserve = () => {
     const isApproval = program?.join_type === 'APPROVAL'
     const msg = isApproval
-      ? '참여를 예약 신청하시겠습니까?\n운영자 승인 후, 시작일에 자동으로 참여돼요.'
-      : `프로그램 참여를 예약하시겠습니까?\n${formatKoreanDate(program?.start_date)} 시작일에 자동으로 참여돼요.`
-    if (!window.confirm(msg)) return
-    handleJoin()
+      ? '운영자 승인 후, 시작일에 자동으로 참여돼요.'
+      : `${formatKoreanDate(program?.start_date)} 시작일에 자동으로 참여돼요.`
+    setReserveMsg(msg)
   }
 
   // 참여 상태 조회
@@ -212,6 +213,7 @@ function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
   })()
 
   return (
+    <>
     <Modal isOpen={isOpen} onClose={onClose} onPrev={onPrev} onNext={onNext}>
       {program && (
         <div>
@@ -459,6 +461,18 @@ function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
         </div>
       )}
     </Modal>
+
+    {/* 참여 예약 확인 — 브라우저 confirm 대체 커스텀 UI */}
+    <ConfirmModal
+      isOpen={reserveMsg !== null}
+      onClose={() => setReserveMsg(null)}
+      onConfirm={() => { setReserveMsg(null); handleJoin() }}
+      title="프로그램 참여 예약"
+      message={reserveMsg}
+      confirmLabel="예약하기"
+      busy={isJoining}
+    />
+    </>
   )
 }
 

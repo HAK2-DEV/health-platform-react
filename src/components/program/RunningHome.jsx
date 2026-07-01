@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
-import { Timer, Flame, Megaphone, Footprints, Star, ClipboardList, HelpCircle, MessageSquare, ChevronRight, Check, MapPin, Pencil, X } from 'lucide-react'
+import { Timer, Flame, Megaphone, Footprints, Star, ClipboardList, HelpCircle, MessageSquare, ChevronRight, Check, Pencil, X } from 'lucide-react'
 import WeeklyStreak from './WeeklyStreak'
+import RunningCourseMini from './RunningCourseMini'
 import CountUp from '../common/CountUp'
 
 // 달리기 테마 전용 홈(대시보드) — 목업 기준 UI (2026-06-30, v2).
@@ -373,13 +374,11 @@ function RunningHome({
           </div>
           <p className="text-[11px] text-gray-400 leading-snug">{yy(startDate)} ~ {yy(endDate)}</p>
         </div>
-        {/* 우: 코스 맵 (풀블리드, 깃발 2개 보이게) + 진행 위치 핀. 없으면 SVG 폴백 */}
+        {/* 우: 코스 맵(지도 사진 그대로) + 그 위에 코스 진행 라인·핀 오버레이. 사진 없으면 SVG 폴백 */}
         <div className="flex-1 relative bg-gradient-to-br from-emerald-50 to-sky-50">
-          <AssetImg src={`${RUN}/course-map.png`} className="absolute inset-0 w-full h-full object-cover" fallback={<CourseRoute progress={progress} />} />
-          {/* 진행 위치 핀 — 흰 길 위(세로 62%), 양끝 깃발 피해 16~84% 사이 */}
-          <div className="absolute -translate-x-1/2 -translate-y-full transition-all" style={{ left: `${Math.max(16, Math.min(84, progress))}%`, top: '62%' }}>
-            <MapPin className="w-5 h-5 text-emerald-600 fill-emerald-500 drop-shadow" strokeWidth={2} />
-          </div>
+          <AssetImg src={`${RUN}/course-map.png`} className="absolute inset-0 w-full h-full object-cover object-top" fallback={<CourseRoute progress={progress} />} />
+          {/* 진행률(0~100%)만큼 코스가 초록으로 채워지고 위치 핀이 경로를 따라 이동 */}
+          <RunningCourseMini progress={progress} showTest={showStampTest} />
         </div>
       </div>
 

@@ -148,10 +148,12 @@ function runActiveWeekDays(weekDays, missions) {
     const isMain = m.is_main !== false // 미설정 시 메인 취급
     dows.forEach((d) => { active.add(d); if (isMain) main.add(d) })
   }
-  const src = (weekDays || []).map((d, i) => ({ ...d, dow: i + 1 }))
-  // kind: 해당 요일에 메인 미션이 하나라도 있으면 'main'(초록), 서브만이면 'sub'(앰버)
-  if (active.size === 0) return src.map((d) => ({ ...d, kind: 'main' }))
-  return src.filter((d) => active.has(d.dow)).map((d) => ({ ...d, kind: main.has(d.dow) ? 'main' : 'sub' }))
+  // 월~일 7일 모두 표시. kind: 메인 미션 있는 요일 'main'(초록) / 서브만 'sub'(앰버) / 운영 안 하는 요일 'off'(회색)
+  return (weekDays || []).map((d, i) => {
+    const dow = i + 1
+    const kind = main.has(dow) ? 'main' : active.has(dow) ? 'sub' : (active.size === 0 ? 'main' : 'off')
+    return { ...d, kind }
+  })
 }
 
 function ProgramDetailPage() {
