@@ -245,15 +245,17 @@ const WeeklyStreak = forwardRef(function WeeklyStreak({ count = 0, days = [], ic
             </div>
           </div>
         ) : (
-          // 레퍼런스 — [불꽃(주황 원)+제목] 상단 / N일 연속 성공 중 / 요일 원
+          // 아이콘 + 컬럼(제목/부제 들여쓰기 정렬) — 추천 페이스 카드와 동일 구조로 제목 높이·정렬 일치
           <>
-            <div className="flex items-center gap-2">
-              <span className="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center flex-shrink-0">
+            <div className="flex items-start gap-2.5">
+              <span className="w-9 h-9 rounded-full bg-orange-50 flex items-center justify-center flex-shrink-0">
                 <motion.span animate={flameCtrl} style={{ transformOrigin: '50% 90%', display: 'inline-flex' }}>{icon}</motion.span>
               </span>
-              <span className="text-[13px] font-bold text-gray-800">주간 스트릭</span>
+              <div className="min-w-0 flex-1">
+                <span className="text-[13px] font-bold text-gray-800">주간 스트릭</span>
+                <p className="text-[11px] text-gray-500 mt-1.5">{streak}일 연속 성공 중</p>
+              </div>
             </div>
-            <p className="text-[11px] text-gray-500 mt-1.5">{streak}일 연속 성공 중</p>
             <div className="flex items-center justify-between mt-3">{dayCells}</div>
           </>
         )}

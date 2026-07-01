@@ -24,14 +24,14 @@ function AssetImg({ src, fallback, className }) {
 //   sized=true(박스 2개 이하): 170×133 고정 / false(3개): 그리드 셀에 맞춤.
 function NavCard({ icon, title, desc, actionLabel = '바로가기', onClick, sized = false, nudgeX = 0 }) {
   return (
-    <div className={`rounded-2xl p-3 bg-white border border-gray-100 shadow-soft flex flex-col ${sized ? 'w-[170px] h-[133px]' : ''}`}>
-      <div className="flex items-start gap-0.5 mb-1 h-9">
+    <div className={`rounded-2xl p-3 bg-white border border-gray-100 shadow-soft flex flex-col justify-between ${sized ? 'w-[170px] h-[133px]' : 'min-h-[118px]'}`}>
+      <div className="flex items-start gap-0.5">
         {icon}
         <p className="text-[12px] font-bold text-gray-800 leading-tight break-keep" style={{ transform: `translate(${nudgeX}px, 4px)` }}>{title}</p>
       </div>
-      <p className="text-[10.5px] text-gray-500 leading-snug flex-1">{desc}</p>
+      <p className="text-[10.5px] text-gray-500 leading-snug text-center">{desc}</p>
       <button type="button" onClick={onClick}
-        className="mt-2 h-8 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] font-bold flex items-center justify-center gap-0.5 transition">
+        className="h-8 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] font-bold flex items-center justify-center gap-0.5 transition">
         {actionLabel} <ChevronRight className="w-3.5 h-3.5" />
       </button>
     </div>
@@ -309,7 +309,7 @@ function RunningHome({
             </span>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1">
-                <span className="text-[12px] font-bold text-gray-700">추천 페이스</span>
+                <span className="text-[13px] font-bold text-gray-800">추천 페이스</span>
                 {paceEditable && !editingPace && (
                   <button type="button" onClick={() => { setPaceInput(pace); setEditingPace(true) }}
                     className="text-gray-300 hover:text-emerald-500 transition" aria-label="추천 페이스 수정">
@@ -386,9 +386,9 @@ function RunningHome({
           3개: 그리드(셀 맞춤) / 1~2개: 170×133 고정 박스 */}
       {(() => {
         const boxes = [
-          { key: 'mission', actionLabel: '기록하기', onClick: onRecord, title: '미션', desc: '3km 달리기 기록 등록하기', nudgeX: 2,
+          { key: 'mission', actionLabel: '기록하기', onClick: onRecord, title: '미션', desc: '오늘의 미션 기록', nudgeX: 2,
             icon: <AssetImg src={`${RICON}/mission.png`} className="w-[21px] h-[21px] object-contain flex-shrink-0" fallback={<ClipboardList className="w-[21px] h-[21px] text-emerald-500 flex-shrink-0" />} /> },
-          quizEnabled && { key: 'quiz', onClick: () => onOpenTab('quizzes'), title: '퀴즈', desc: '건강 퀴즈 풀기', nudgeX: 2,
+          quizEnabled && { key: 'quiz', actionLabel: '풀어보기', onClick: () => onOpenTab('quizzes'), title: '퀴즈', desc: '건강 퀴즈 풀기', nudgeX: 2,
             icon: <AssetImg src={`${RICON}/quiz.png`} className="w-[21px] h-[21px] object-contain flex-shrink-0" fallback={<HelpCircle className="w-[21px] h-[21px] text-emerald-500 flex-shrink-0" />} /> },
           communityEnabled && { key: 'community', onClick: () => onOpenTab('community'), title: '커뮤니티', desc: '응원·소식 나누기', nudgeX: 2,
             icon: <AssetImg src={`${RICON}/community.png`} className="w-[21px] h-[21px] object-contain flex-shrink-0" fallback={<MessageSquare className="w-[21px] h-[21px] text-emerald-500 flex-shrink-0" />} /> },

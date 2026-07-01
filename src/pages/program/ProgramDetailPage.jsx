@@ -1120,6 +1120,11 @@ function ProgramDetailPage() {
                   className="w-8 h-8 flex items-center justify-center rounded-lg text-emerald-600 hover:bg-emerald-50 transition">
                   <Plus className="w-5 h-5" strokeWidth={2.5} />
                 </button>
+              ) : (activeTab === 'community' && isOwner && !communityManageOpen) ? (
+                <button type="button" onClick={openCommunityManage} title="응원·커뮤니티 관리" aria-label="응원·커뮤니티 관리"
+                  className="w-8 h-8 flex items-center justify-center rounded-lg text-emerald-600 hover:bg-emerald-50 transition">
+                  <Plus className="w-5 h-5" strokeWidth={2.5} />
+                </button>
               ) : null
             ) : (
               <>
@@ -2011,8 +2016,9 @@ function ProgramDetailPage() {
       {/* 커뮤니티 일반(피드) 뷰 */}
       {activeTab === 'community' && !communityManageOpen && (<>
 
-      {/* 커뮤니티 헤더 — 운영자 전용 빠른 관리 진입(미션/퀴즈 + 버튼과 동일 패턴). 닫으면 피드로 복귀 */}
-      {isOwner && (
+      {/* 커뮤니티 헤더 — 운영자 전용 빠른 관리 진입(미션/퀴즈 + 버튼과 동일 패턴). 닫으면 피드로 복귀.
+          달리기 테마는 제목·+ 를 상단 헤더로 이전(미션/퀴즈와 동일)했으므로 인라인 헤더 숨김 */}
+      {isOwner && !isRunningTheme && (
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-semibold text-gray-800">{program.theme === PROGRAM_THEME.QUIT_SMOKING ? '📣 응원' : '💬 커뮤니티'}</h2>
           <button
