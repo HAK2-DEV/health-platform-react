@@ -41,6 +41,7 @@ function VerificationReviewModal({ isOpen, onClose, programId, reviews = [], rev
     qc.invalidateQueries({ queryKey: ['rankings'] })
     qc.invalidateQueries({ queryKey: ['stats'] })
     qc.invalidateQueries({ queryKey: ['metricSummary'] })  // 승인 후 주요 기록 요약 반영
+    qc.invalidateQueries({ queryKey: ['program-overview'] })  // 승인 후 주간 스트릭·연속 반영
   }
   const approveMut = useMutation({
     mutationFn: (id) => approveVerification({ id, reviewerId }),

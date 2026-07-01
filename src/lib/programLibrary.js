@@ -40,9 +40,9 @@ export const PROGRAM_PRESETS = [
         daily_limit: 1,
       },
       {
-        key: 'cumulative_distance',
-        title: '달린 거리 차곡차곡 (누적)',
-        instruction: '달릴 때마다 사진과 거리(km)를 기록해요. 기간 동안 누적 60km가 목표예요! (목표는 운영자가 바꿀 수 있어요)',
+        key: 'weekend_social_run',
+        title: '가족, 동료와 함께 달리기',
+        instruction: '주말에 가족·동료·친구와 함께 달리고, 사진과 거리(km)를 기록해요.',
         icon: 'exercise.png',
         point: 10,
         requires_image: true, requires_numeric: true, requires_note: false,
@@ -53,10 +53,11 @@ export const PROGRAM_PRESETS = [
           { key: 'time', label: '시간', icon: '⏱️', inputFormat: 'hms' },
           { key: 'calories', label: '칼로리', unit: 'kcal', max: 5000, icon: '🔥' },
         ],
-        metric_aggregate: true,             // 누적 합산 → 개요에 누적 거리/시간/칼로리
-        schedule_mode: 'ALL_DAYS',
+        metric_aggregate: true,             // 누적 합산 → 개요 「주요 기록 요약」에 반영
+        schedule_mode: 'WEEKENDS',          // 주말만
         verification_type: 'MANUAL',
         daily_limit: 1,
+        is_main: false,                     // 서브 미션 → 주간 스트릭 앰버(주말 구분)
       },
     ],
   },
@@ -203,5 +204,6 @@ export function expandPresetMission(m, { programId, activeFrom, activeUntil, bun
     bundle_title: bundleTitle || null,
     icon_path: m.icon || null,
     feed_excluded: !!m.feedExcluded,   // 운영자 전용 미션(피드 제외)
+    is_main: m.is_main !== false,      // 메인/서브(달리기 주간 스트릭 색). 기본 메인
   }
 }

@@ -1,12 +1,14 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { motion, AnimatePresence, useAnimationControls } from 'framer-motion'
-import { Check } from 'lucide-react'
+import { Check, Calendar } from 'lucide-react'
 
 // 주간 스트릭 — "도장 찍기" 강조 연출.
 //   playStamp(dayIndex) 호출 시: 카드 확대+딤 → 도장 낙하 → 임팩트(즉시 상태 반영+펀치+잉크링+색종이) → 복귀.
 //   영구 상태(찍힌 요일/연속 일수)는 transition 없이 즉시 반영, 일시 연출만 애니메이션.
 //   props: count(연속 일수), days([{label,done,today}]), icon(불꽃 노드), showTest(데모 트리거 버튼)
 const BRAND = '#22A45C'
+const SUB_COLOR = '#F59E0B' // 서브 미션 요일 도장(앰버)
+const kindColor = (d) => (d?.kind === 'sub' ? SUB_COLOR : BRAND)
 const OVERSHOOT = [0.34, 1.5, 0.64, 1]
 const reduceMotion = () =>
   typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches
@@ -20,7 +22,7 @@ const PARTICLES = Array.from({ length: 8 }, (_, i) => {
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms))
 
-const WeeklyStreak = forwardRef(function WeeklyStreak({ count = 0, days = [], icon = null, showTest = false }, ref) {
+const WeeklyStreak = forwardRef(function WeeklyStreak({ count = 0, days = [], icon = null, showTest = false, variant = 'card', bestStreak = 0 }, ref) {
   const doneFromProps = () => new Set(days.map((d, i) => (d.done ? i : -1)).filter((i) => i >= 0))
   const [doneSet, setDoneSet] = useState(doneFromProps)
   const [streak, setStreak] = useState(count)
@@ -141,6 +143,70 @@ const WeeklyStreak = forwardRef(function WeeklyStreak({ count = 0, days = [], ic
     playStamp(next >= 0 ? next : 0)
   }
 
+  // 불꽃 아이콘 (도장 시 flicker)
+  const flameEl = (
+    <span className="w-9 h-9 rounded-full bg-orange-50 flex items-center justify-center flex-shrink-0">
+      <motion.span animate={flameCtrl} style={{ transformOrigin: '50% 90%', display: 'inline-flex' }}>
+        {icon}
+      </motion.span>
+    </span>
+  )
+
+  // 요일 동그라미들 (도장 연출 포함) — card/wide 공용
+  const dayCells = days.map((d, i) => {
+    const done = cellDone(i)
+    const stamping = stampIdx === i
+    const col = kindColor(d) // 메인=초록 / 서브=앰버
+    return (
+      <div key={i} className="relative flex flex-col items-center gap-1">
+        <motion.span
+          animate={stamping ? cellCtrl : undefined}
+          className="relative w-5 h-5 rounded-full flex items-center justify-center"
+          style={{ backgroundColor: done ? col : '#F3F4F6', color: done ? '#fff' : '#D1D5DB' }}
+        >
+          {stamping && impacted && (
+            <motion.span
+              className="absolute inset-0 rounded-full border-2"
+              style={{ borderColor: col }}
+              initial={{ scale: 0.6, opacity: 0.55 }}
+              animate={{ scale: 2.7, opacity: 0 }}
+              transition={{ duration: 0.6, ease: 'easeOut' }}
+            />
+          )}
+          <Check className="w-3 h-3" strokeWidth={3} />
+        </motion.span>
+        <span className={`text-[10px] ${d.today ? 'text-emerald-600 font-bold' : 'text-gray-400'}`}>{d.label}</span>
+
+        <AnimatePresence>
+          {stamping &&
+            particlesOn &&
+            PARTICLES.map((p) => (
+              <motion.span
+                key={p.id}
+                className="absolute top-[10px] left-1/2 w-1.5 h-1.5 rounded-[1px] pointer-events-none"
+                style={{ backgroundColor: p.color }}
+                initial={{ x: 0, y: 0, opacity: 1, scale: 1, rotate: 0 }}
+                animate={{ x: p.x, y: p.y, opacity: 0, scale: 0.4, rotate: p.rot }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.6, ease: 'easeOut' }}
+              />
+            ))}
+        </AnimatePresence>
+
+        {stamping && (
+          <motion.span
+            className="absolute top-0 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full flex items-center justify-center pointer-events-none"
+            style={{ backgroundColor: col, color: '#fff', boxShadow: `0 4px 10px ${col}80` }}
+            initial={{ y: -34, scale: 1.9, rotate: -14, opacity: 0 }}
+            animate={stampCtrl}
+          >
+            <Check className="w-3 h-3" strokeWidth={3} />
+          </motion.span>
+        )}
+      </div>
+    )
+  })
+
   return (
     <>
       {/* 딤 백드롭 — 카드 아래 전체 화면 */}
@@ -162,75 +228,33 @@ const WeeklyStreak = forwardRef(function WeeklyStreak({ count = 0, days = [], ic
         animate={cardCtrl}
         className={`relative rounded-2xl p-3.5 bg-white border border-gray-100 shadow-soft ${dim ? 'z-50' : ''}`}
       >
-        <div className="flex items-start gap-2.5">
-          <span className="w-9 h-9 rounded-full bg-orange-50 flex items-center justify-center flex-shrink-0">
-            <motion.span animate={flameCtrl} style={{ transformOrigin: '50% 90%', display: 'inline-flex' }}>
-              {icon}
-            </motion.span>
-          </span>
-          <div className="min-w-0 flex-1">
-            <span className="text-[12px] font-bold text-gray-700">주간 스트릭</span>
-            <p className="text-[11px] text-gray-500 mt-1.5">{streak}일 연속 달성 중</p>
+        {variant === 'wide' ? (
+          // 레퍼런스 와이드 — 좌 텍스트 / 가운데 요일 / 우 불꽃·최고기록
+          <div className="flex items-center gap-3">
+            <div className="min-w-0 flex-shrink-0">
+              <p className="text-[11px] font-bold text-gray-900 flex items-center gap-1"><Calendar className="w-3 h-3 text-emerald-600" /> 이번 주 기록</p>
+              <p className="text-[14px] font-extrabold text-gray-800 mt-0.5 whitespace-nowrap">{streak}일 연속 성공!</p>
+              <p className="text-[10px] text-gray-400 mt-0.5">꾸준함이 만드는 변화</p>
+            </div>
+            <div className="flex-1 flex items-center justify-center gap-1.5">{dayCells}</div>
+            <div className="flex flex-col items-center flex-shrink-0">
+              {flameEl}
+              <p className="text-[9px] text-gray-400 mt-1 leading-none">최고 기록</p>
+              <p className="text-[11px] font-extrabold text-gray-700 leading-none mt-0.5 whitespace-nowrap">{bestStreak}일 연속</p>
+            </div>
           </div>
-        </div>
-
-        <div className="flex items-center justify-between px-1 mt-3">
-          {days.map((d, i) => {
-            const done = cellDone(i)
-            const stamping = stampIdx === i
-            return (
-              <div key={i} className="relative flex flex-col items-center gap-1">
-                <motion.span
-                  animate={stamping ? cellCtrl : undefined}
-                  className="relative w-5 h-5 rounded-full flex items-center justify-center"
-                  style={{ backgroundColor: done ? BRAND : '#F3F4F6', color: done ? '#fff' : '#D1D5DB' }}
-                >
-                  {/* 잉크 번짐 — 임팩트 순간 링 확산 */}
-                  {stamping && impacted && (
-                    <motion.span
-                      className="absolute inset-0 rounded-full border-2"
-                      style={{ borderColor: BRAND }}
-                      initial={{ scale: 0.6, opacity: 0.55 }}
-                      animate={{ scale: 2.7, opacity: 0 }}
-                      transition={{ duration: 0.6, ease: 'easeOut' }}
-                    />
-                  )}
-                  <Check className="w-3 h-3" strokeWidth={3} />
-                </motion.span>
-                <span className={`text-[10px] ${d.today ? 'text-emerald-600 font-bold' : 'text-gray-400'}`}>{d.label}</span>
-
-                {/* 색종이 반짝임 — 임팩트 후 방사형 */}
-                <AnimatePresence>
-                  {stamping &&
-                    particlesOn &&
-                    PARTICLES.map((p) => (
-                      <motion.span
-                        key={p.id}
-                        className="absolute top-[10px] left-1/2 w-1.5 h-1.5 rounded-[1px] pointer-events-none"
-                        style={{ backgroundColor: p.color }}
-                        initial={{ x: 0, y: 0, opacity: 1, scale: 1, rotate: 0 }}
-                        animate={{ x: p.x, y: p.y, opacity: 0, scale: 0.4, rotate: p.rot }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.6, ease: 'easeOut' }}
-                      />
-                    ))}
-                </AnimatePresence>
-
-                {/* 낙하 도장 */}
-                {stamping && (
-                  <motion.span
-                    className="absolute top-0 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full flex items-center justify-center pointer-events-none"
-                    style={{ backgroundColor: BRAND, color: '#fff', boxShadow: '0 4px 10px rgba(34,164,92,0.5)' }}
-                    initial={{ y: -34, scale: 1.9, rotate: -14, opacity: 0 }}
-                    animate={stampCtrl}
-                  >
-                    <Check className="w-3 h-3" strokeWidth={3} />
-                  </motion.span>
-                )}
+        ) : (
+          <>
+            <div className="flex items-start gap-2.5">
+              {flameEl}
+              <div className="min-w-0 flex-1">
+                <span className="text-[12px] font-bold text-gray-700">주간 스트릭</span>
+                <p className="text-[11px] text-gray-500 mt-1.5">{streak}일 연속 달성 중</p>
               </div>
-            )
-          })}
-        </div>
+            </div>
+            <div className="flex items-center justify-between px-1 mt-3">{dayCells}</div>
+          </>
+        )}
 
         {/* 데모/테스트 트리거 */}
         {showTest && (

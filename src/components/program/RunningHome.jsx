@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Timer, Flame, Megaphone, Footprints, Star, ClipboardList, HelpCircle, MessageSquare, ChevronRight, Check, MapPin, Pencil, X } from 'lucide-react'
 import WeeklyStreak from './WeeklyStreak'
+import CountUp from '../common/CountUp'
 
 // 달리기 테마 전용 홈(대시보드) — 목업 기준 UI (2026-06-30, v2).
 //   변경: 히어로에 추천페이스+주간스트릭 통합(층층이), 회복점수→칼로리, 운영자 설정 페이스, 일러스트 연결.
@@ -36,6 +37,228 @@ function NavCard({ icon, title, desc, actionLabel = '바로가기', onClick, siz
   )
 }
 
+// ── 히어로 편집 (운영자) ──────────────────────────────
+const HERO_TITLE_SIZES = [
+  { key: 'sm', label: '작게', px: 16 },
+  { key: 'md', label: '보통', px: 20 },
+  { key: 'lg', label: '크게', px: 24 },
+  { key: 'xl', label: '아주', px: 28 },
+]
+const HERO_SUB_SIZES = [
+  { key: 'sm', label: '작게', px: 11 },
+  { key: 'md', label: '보통', px: 13 },
+  { key: 'lg', label: '크게', px: 15 },
+]
+const HERO_PALETTE = ['#111827', '#374151', '#6B7280', '#059669', '#0EA5E9', '#D97706', '#E11D48', '#7C3AED']
+const HERO_DEFAULT_HTML = {
+  titleHtml: '오늘도 한 걸음,<br><span style="color:#059669">더 건강한 나를 향해</span>',
+  subtitleHtml: '지속 가능한 러닝 습관을 만들어가요.',
+}
+const sizePx = (list, key, fb) => (list.find((s) => s.key === key)?.px ?? fb)
+
+// 색 화이트리스트 + HTML 새니타이즈 — 참여자에게도 렌더되므로 XSS 방지: span[color]/br/텍스트만 허용
+const _HEX = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i
+const _RGB = /^rgb\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*\)$/i
+function safeColor(v) {
+  const c = String(v || '').trim().toLowerCase()
+  return _HEX.test(c) || _RGB.test(c) ? c : null
+}
+function safeFontSize(v) {
+  const s = String(v || '').trim().toLowerCase()
+  return /^\d{1,3}px$/.test(s) ? s : null
+}
+function safeFontWeight(v) {
+  const s = String(v || '').trim().toLowerCase()
+  if (s === 'bold') return '800'
+  if (s === 'normal') return '400'
+  return /^[1-9]00$/.test(s) ? s : null
+}
+const _esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+function sanitizeHeroHtml(html) {
+  if (!html || typeof document === 'undefined') return ''
+  const tpl = document.createElement('template')
+  tpl.innerHTML = String(html).slice(0, 4000)
+  let out = ''
+  const walk = (node) => {
+    node.childNodes.forEach((n) => {
+      if (n.nodeType === 3) out += _esc(n.nodeValue)
+      else if (n.nodeType === 1) {
+        const tag = n.tagName.toLowerCase()
+        if (tag === 'br') { out += '<br>'; return }
+        if (tag === 'div') { if (out && !out.endsWith('<br>')) out += '<br>'; walk(n); return }
+        if (tag === 'span' || tag === 'font') {
+          const st = []
+          const col = safeColor(n.style?.color || n.getAttribute('color'))
+          if (col) st.push(`color:${col}`)
+          const fs = safeFontSize(n.style?.fontSize)
+          if (fs) st.push(`font-size:${fs}`)
+          const fw = safeFontWeight(n.style?.fontWeight)
+          if (fw) st.push(`font-weight:${fw}`)
+          if (st.length) { out += `<span style="${st.join(';')}">`; walk(n); out += '</span>'; return }
+          walk(n); return
+        }
+        if (tag === 'b' || tag === 'strong') { out += '<span style="font-weight:800">'; walk(n); out += '</span>'; return }
+        walk(n)
+      }
+    })
+  }
+  walk(tpl.content)
+  return out
+}
+function plainToHtml(text, color) {
+  const h = _esc(text).replace(/\n/g, '<br>')
+  const col = safeColor(color)
+  return col ? `<span style="color:${col}">${h}</span>` : h
+}
+
+// 글자(선택 영역) 단위로 크기·볼드·색을 지정하는 편집 필드 (contentEditable).
+//   선택 영역을 style span 으로 감싸는 방식 → 크기/볼드/색 모두 동일 메커니즘.
+function RichField({ initialHtml, baseFontSize, baseFontWeight, baseColor, sizes, onChange }) {
+  const ref = useRef(null)
+  useEffect(() => { if (ref.current) ref.current.innerHTML = initialHtml || '' }, [])
+  const emit = () => onChange?.(sanitizeHeroHtml(ref.current?.innerHTML || ''))
+  const applyStyle = (styleObj) => {
+    const el = ref.current
+    if (!el) return
+    if (document.activeElement !== el) el.focus()
+    const sel = window.getSelection()
+    if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return // 선택 없으면 무시
+    const range = sel.getRangeAt(0)
+    if (!el.contains(range.commonAncestorContainer)) return
+    const span = document.createElement('span')
+    Object.assign(span.style, styleObj)
+    try { range.surroundContents(span) }
+    catch {
+      // 선택이 여러 요소에 걸쳐 surroundContents 실패 시 — 추출 후 감싸기
+      const frag = range.extractContents()
+      span.appendChild(frag)
+      range.insertNode(span)
+    }
+    sel.removeAllRanges()
+    const r = document.createRange()
+    r.selectNodeContents(span)
+    sel.addRange(r)
+    emit()
+  }
+  const toggleBold = () => {
+    const sel = window.getSelection()
+    if (!sel || sel.rangeCount === 0) return
+    let node = sel.anchorNode
+    if (node && node.nodeType === 3) node = node.parentElement
+    const cur = node ? parseInt(window.getComputedStyle(node).fontWeight, 10) || 400 : 400
+    applyStyle({ fontWeight: cur >= 600 ? '400' : '800' })
+  }
+  const md = (fn) => (e) => { e.preventDefault(); fn() } // 선택 유지(blur 방지)
+  return (
+    <>
+      <div ref={ref} contentEditable suppressContentEditableWarning onInput={emit} onBlur={emit}
+        className="mt-1 w-full px-2 py-1.5 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-400 leading-snug break-keep"
+        style={{ fontSize: baseFontSize, fontWeight: baseFontWeight, color: baseColor, whiteSpace: 'pre-wrap', minHeight: 34 }} />
+      <p className="text-[10px] text-gray-400 mt-1">🎨 글자를 드래그로 선택한 뒤 크기·B·색을 누르면 그 부분만 적용돼요</p>
+      <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+        <div className="flex rounded-md border border-gray-200 overflow-hidden">
+          {sizes.map((s) => (
+            <button key={s.key} type="button" onMouseDown={md(() => applyStyle({ fontSize: `${s.px}px` }))}
+              className="px-2 h-7 text-[11px] font-bold bg-white text-gray-500 hover:bg-gray-50">{s.label}</button>
+          ))}
+        </div>
+        <button type="button" onMouseDown={md(toggleBold)}
+          className="w-7 h-7 rounded-md border border-gray-200 bg-white text-gray-600 text-[13px] font-extrabold hover:bg-gray-50">B</button>
+        <div className="flex items-center gap-1">
+          {HERO_PALETTE.map((c) => (
+            <button key={c} type="button" onMouseDown={md(() => applyStyle({ color: c }))} aria-label={c}
+              className="w-5 h-5 rounded-full border border-gray-200" style={{ backgroundColor: c }} />
+          ))}
+        </div>
+      </div>
+    </>
+  )
+}
+
+function RunningHeroBlock({ hero, editable, onHeroChange }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(HERO_DEFAULT_HTML)
+  const set = (k, v) => setDraft((d) => ({ ...d, [k]: v }))
+  const open = () => {
+    const seed = { ...HERO_DEFAULT_HTML }
+    if (hero) {
+      seed.titleHtml = hero.titleHtml != null ? hero.titleHtml
+        : (hero.title != null ? plainToHtml(hero.title, hero.titleColor) : HERO_DEFAULT_HTML.titleHtml)
+      seed.subtitleHtml = hero.subtitleHtml != null ? hero.subtitleHtml
+        : (hero.subtitle != null ? plainToHtml(hero.subtitle, hero.subtitleColor) : '')
+    }
+    setDraft(seed)
+    setEditing(true)
+  }
+  const save = () => {
+    onHeroChange?.({
+      titleHtml: sanitizeHeroHtml(draft.titleHtml),
+      subtitleHtml: sanitizeHeroHtml(draft.subtitleHtml),
+    })
+    setEditing(false)
+  }
+
+  const titleHtml = hero?.titleHtml != null ? hero.titleHtml
+    : (hero?.title != null ? plainToHtml(hero.title, hero.titleColor) : null)
+  const subHtml = hero?.subtitleHtml != null ? hero.subtitleHtml
+    : (hero?.subtitle != null ? plainToHtml(hero.subtitle, hero.subtitleColor) : null)
+
+  return (
+    <>
+      <div className="relative rounded-2xl px-4 pt-[11px] pb-4 bg-white border border-gray-100 shadow-soft">
+        {editable && (
+          <button type="button" onClick={open} className="absolute top-3 right-3 text-gray-300 hover:text-emerald-500 transition" aria-label="홈 문구 편집">
+            <Pencil className="w-4 h-4" />
+          </button>
+        )}
+        {titleHtml != null ? (
+          <>
+            <h1 className="leading-snug break-keep"
+              style={{ fontSize: sizePx(HERO_TITLE_SIZES, hero.titleSize, 24), fontWeight: hero.titleBold === false ? 600 : 800, color: '#111827' }}
+              dangerouslySetInnerHTML={{ __html: sanitizeHeroHtml(titleHtml) }} />
+            {subHtml && (
+              <p className="break-keep" style={{ fontSize: sizePx(HERO_SUB_SIZES, hero.subtitleSize, 14), color: '#6B7280', marginTop: 6 }}
+                dangerouslySetInnerHTML={{ __html: sanitizeHeroHtml(subHtml) }} />
+            )}
+          </>
+        ) : (
+          <>
+            <h1 className="text-[24px] font-extrabold text-gray-900 leading-snug">
+              오늘도 한 걸음,<br />
+              <span className="text-emerald-600">더 건강한 나를 향해</span>
+            </h1>
+            <p className="text-[14px] text-gray-500 mt-1.5">지속 가능한 러닝 습관을 만들어가요.</p>
+          </>
+        )}
+      </div>
+
+      {/* 히어로 편집 — 화면 중앙 모달 */}
+      {editing && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-5" style={{ background: 'rgba(15,23,42,0.45)' }}
+          onClick={() => setEditing(false)}>
+          <div className="w-full max-w-[340px] max-h-[85vh] overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl space-y-3" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-[15px] font-bold text-gray-800">홈 문구 편집</h3>
+            <div>
+              <label className="block text-[13px] font-bold text-gray-700 mb-0.5">제목</label>
+              <RichField initialHtml={draft.titleHtml} baseFontSize={24} baseFontWeight={800} baseColor="#111827"
+                sizes={HERO_TITLE_SIZES} onChange={(h) => set('titleHtml', h)} />
+            </div>
+            <div>
+              <label className="block text-[13px] font-bold text-gray-700 mb-0.5">부제</label>
+              <RichField initialHtml={draft.subtitleHtml} baseFontSize={14} baseFontWeight={500} baseColor="#6B7280"
+                sizes={HERO_SUB_SIZES} onChange={(h) => set('subtitleHtml', h)} />
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button type="button" onClick={() => setEditing(false)} className="flex-1 h-10 rounded-lg border border-gray-200 text-gray-500 text-[14px] font-bold">취소</button>
+              <button type="button" onClick={save} className="flex-[1.4] h-10 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[14px] font-bold transition">저장</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
 function RunningHome({
   programName = '러닝 프로그램',
   startDate = '2026.06.29',
@@ -54,6 +277,9 @@ function RunningHome({
   onPaceChange = null,           // (newPace) => void
   showStampTest = false,         // 주간 스트릭 도장 데모 트리거 노출
   streakRef = null,              // WeeklyStreak ref (playStamp 외부 호출용)
+  hero = null,                   // 운영자 커스텀 히어로(run_hero) — null이면 기본 디자인
+  heroEditable = false,          // 운영자 — 히어로 편집 가능
+  onHeroChange = null,           // (heroConfig) => void
 }) {
   const fmt = (n) => Number(n || 0).toLocaleString('ko-KR', { maximumFractionDigits: 3 })
   // 연도 4자리 → 2자리 (2026.06.29 → 26.06.29)
@@ -68,15 +294,9 @@ function RunningHome({
   }
 
   return (
-    <div className="-mx-[11px] px-4 pb-6 space-y-3">
-      {/* 1) 히어로 — 인사만 (나뭇잎·스탯 제거) */}
-      <div className="rounded-2xl p-4 bg-white border border-gray-100 shadow-soft">
-        <h1 className="text-[20px] font-extrabold text-gray-900 leading-snug">
-          오늘도 한 걸음,<br />
-          <span className="text-emerald-600">더 건강한 나를 향해</span>
-        </h1>
-        <p className="text-[12px] text-gray-500 mt-1.5">지속 가능한 러닝 습관을 만들어가요.</p>
-      </div>
+    <div className="-mx-[11px] px-4 pb-6 space-y-[9px]">
+      {/* 1) 히어로 — 운영자 편집(텍스트/크기/볼드/색) */}
+      <RunningHeroBlock hero={hero} editable={heroEditable} onHeroChange={onHeroChange} />
 
       {/* 2) 추천 페이스 / 주간 스트릭 — 별도 박스 */}
       <div className="grid grid-cols-2 gap-3">
@@ -96,27 +316,7 @@ function RunningHome({
                   </button>
                 )}
               </div>
-              {editingPace ? (
-                <div className="flex items-center gap-1" style={{ marginTop: '6px' }}>
-                  <input
-                    value={paceInput}
-                    onChange={(e) => setPaceInput(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') savePace(); if (e.key === 'Escape') setEditingPace(false) }}
-                    autoFocus
-                    maxLength={8}
-                    placeholder="6'20"
-                    className="w-[68px] px-1.5 py-0.5 text-[18px] font-extrabold text-emerald-600 border border-emerald-300 rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-400"
-                  />
-                  <button type="button" onClick={savePace} className="w-7 h-7 rounded-md bg-emerald-500 text-white flex items-center justify-center flex-shrink-0" aria-label="저장">
-                    <Check className="w-4 h-4" strokeWidth={3} />
-                  </button>
-                  <button type="button" onClick={() => setEditingPace(false)} className="w-7 h-7 rounded-md bg-gray-100 text-gray-400 flex items-center justify-center flex-shrink-0" aria-label="취소">
-                    <X className="w-4 h-4" strokeWidth={3} />
-                  </button>
-                </div>
-              ) : (
-                <p className="text-[24px] font-extrabold text-emerald-600 leading-none" style={{ marginTop: '15px' }}>{pace}<span className="text-[12px] font-bold text-gray-400 ml-1">/km</span></p>
-              )}
+              <p className="text-[24px] font-extrabold text-emerald-600 leading-none" style={{ marginTop: '15px' }}>{pace}<span className="text-[12px] font-bold text-gray-400 ml-1">/km</span></p>
               <p className="text-[11px] text-gray-400" style={{ marginTop: '6px' }}>편안하게 유지해요!</p>
             </div>
           </div>
@@ -147,17 +347,17 @@ function RunningHome({
         <h3 className="text-[13px] font-bold text-gray-800 mb-3">주요 기록 요약</h3>
         <div className="flex">
           {[
-            { img: `${RICON}/shoe.png`,      fb: <Footprints className="w-5 h-5 text-emerald-500" />, label: '누적 거리', value: fmt(daily.distanceKm), unit: 'km' },
-            { img: `${RICON}/stopwatch.png`, fb: <Timer className="w-5 h-5 text-sky-500" />,           label: '러닝 시간', value: daily.timeHours, unit: '시간' },
-            { img: `${RICON}/star.png`,      fb: <Star className="w-5 h-5 text-violet-500" />,         label: '연속 인증', value: daily.streakDays, unit: '일' },
-            { img: `${RICON}/flame.png`,     fb: <Flame className="w-5 h-5 text-rose-500" />,          label: '칼로리',   value: daily.calories, unit: 'kcal' },
+            { img: `${RICON}/shoe.png`,      fb: <Footprints className="w-5 h-5 text-emerald-500" />, label: '누적 거리', num: daily.distanceKm, fmtFn: (v) => Number(v || 0).toLocaleString('ko-KR', { maximumFractionDigits: 1 }), unit: 'km' },
+            { img: `${RICON}/stopwatch.png`, fb: <Timer className="w-5 h-5 text-sky-500" />,           label: '러닝 시간', num: daily.timeHours, fmtFn: (v) => Number(v || 0).toLocaleString('ko-KR', { maximumFractionDigits: 1 }), unit: '시간' },
+            { img: `${RICON}/star.png`,      fb: <Star className="w-5 h-5 text-violet-500" />,         label: '연속 인증', num: daily.streakDays, fmtFn: (v) => Number(v || 0).toLocaleString('ko-KR', { maximumFractionDigits: 0 }), unit: '일' },
+            { img: `${RICON}/flame.png`,     fb: <Flame className="w-5 h-5 text-rose-500" />,          label: '칼로리',   num: daily.calories, fmtFn: (v) => Number(v || 0).toLocaleString('ko-KR', { maximumFractionDigits: 0 }), unit: 'kcal' },
           ].map((c, i) => (
             <div key={i} className={`flex-1 flex flex-col items-center text-center px-1 ${i !== 0 ? 'border-l border-gray-100' : ''}`}>
               <div className="flex items-center gap-0.5 mb-1">
                 <AssetImg src={c.img} className="w-[18px] h-[18px] object-contain" fallback={c.fb} />
                 <span className="text-[10px] text-gray-400">{c.label}</span>
               </div>
-              <span className="text-[15px] font-extrabold text-gray-900 leading-tight">{c.value}<span className="text-[10px] font-medium text-gray-400 ml-0.5">{c.unit}</span></span>
+              <span className="text-[15px] font-extrabold text-gray-900 leading-tight"><CountUp value={c.num} format={c.fmtFn} duration={1100} /><span className="text-[10px] font-medium text-gray-400 ml-0.5">{c.unit}</span></span>
             </div>
           ))}
         </div>
@@ -217,6 +417,29 @@ function RunningHome({
           </div>
         </div>
       </div>
+      {/* 추천 페이스 편집 — 화면 중앙 모달 */}
+      {editingPace && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-6" style={{ background: 'rgba(15,23,42,0.45)' }}
+          onClick={() => setEditingPace(false)}>
+          <div className="w-full max-w-[300px] rounded-2xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-[15px] font-bold text-gray-800">추천 페이스 설정</h3>
+            <p className="text-[12px] text-gray-400 mt-0.5 mb-3">분&apos;초 /km — 예: 6&apos;20</p>
+            <input
+              value={paceInput}
+              onChange={(e) => setPaceInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') savePace(); if (e.key === 'Escape') setEditingPace(false) }}
+              autoFocus
+              maxLength={8}
+              placeholder="6'20"
+              className="w-full h-12 px-3 text-center text-[22px] font-extrabold text-emerald-600 border border-emerald-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-400"
+            />
+            <div className="flex gap-2 mt-4">
+              <button type="button" onClick={() => setEditingPace(false)} className="flex-1 h-10 rounded-lg border border-gray-200 text-gray-500 text-[14px] font-bold">취소</button>
+              <button type="button" onClick={savePace} className="flex-[1.4] h-10 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[14px] font-bold transition">저장</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -749,12 +749,12 @@ function MissionVerifyPage() {
       <div className="min-h-screen bg-gray-50 -mx-4 -mt-2">
         {/* 헤더 — 뒤로 + 제목(진입 경로별) + 알림 */}
         <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-gray-100">
-          <div className="max-w-md mx-auto h-[46px] px-4 flex items-center justify-center relative">
-            <button type="button" onClick={handleClose} className="absolute left-3 p-1.5 -ml-1.5 text-gray-500 hover:text-gray-800" aria-label="뒤로">
+          <div className="max-w-md mx-auto h-[56px] px-4 flex items-center justify-center relative">
+            <button type="button" onClick={handleClose} className="absolute left-3 top-1/2 -translate-y-1/2 p-1.5 -ml-1.5 text-gray-500 hover:text-gray-800" aria-label="뒤로">
               <ChevronLeft className="w-5 h-5" />
             </button>
             <span className="text-[17px] font-bold text-gray-800">{fromRecord ? '기록하기' : '미션 인증'}</span>
-            <div className="absolute right-3"><NotificationBell /></div>
+            <div className="absolute right-[20px] top-1/2 -translate-y-1/2"><NotificationBell bare compact showBack /></div>
           </div>
         </header>
 
@@ -872,38 +872,57 @@ function MissionVerifyPage() {
             </div>
           )}
 
-          {/* 버튼 — 달리기 테마(탭 바 없음)는 랭킹 진입점이 여기뿐 → 「랭킹 보기」로 대체.
-              그 외엔 (남은 미션 있으면)나머지 미션 제출하기 + 프로그램으로 이동 */}
-          <div className="flex gap-2 justify-center pt-1">
-            {program?.theme === 'RUNNING' && program?.ranking_enabled !== false ? (
-              <button
-                type="button"
-                onClick={() => navigate(`/programs/${programId}?tab=ranking`, { replace: true, state: { fromCompletion: true } })}
-                className="w-[184px] max-w-[48%] h-[36px] rounded-[10px] bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-[13px] transition flex items-center justify-center gap-1 whitespace-nowrap"
-              >
-                🏆 랭킹 보기
-              </button>
-            ) : (
-              <>
+          {/* 버튼 — 달리기 테마: 랭킹 보기 / 나머지 미션 제출 / 홈으로 이동 3개. 그 외: 나머지 미션 + 프로그램으로 이동 */}
+          {program?.theme === 'RUNNING' ? (
+            <div className="space-y-2 pt-1">
+              {program?.ranking_enabled !== false && (
+                <button
+                  type="button"
+                  onClick={() => navigate(`/programs/${programId}?tab=ranking`, { replace: true, state: { fromCompletion: true } })}
+                  className="w-full h-11 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-[14px] transition flex items-center justify-center gap-1"
+                >
+                  🏆 랭킹 보기
+                </button>
+              )}
+              <div className="flex gap-2">
                 {remainingMissionCount > 0 && (
                   <button
                     type="button"
                     onClick={() => navigate(`/record?program=${programId}`, { replace: true })}
-                    className="w-[184px] max-w-[48%] h-[36px] rounded-[10px] bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-[13px] transition flex items-center justify-center gap-1 whitespace-nowrap"
+                    className="flex-1 h-11 rounded-xl bg-white border border-emerald-300 text-emerald-600 font-bold text-[13px] hover:bg-emerald-50 transition flex items-center justify-center gap-1"
                   >
-                    📋 나머지 미션 ({remainingMissionCount}개)
+                    📋 나머지 미션 제출
                   </button>
                 )}
                 <button
                   type="button"
                   onClick={goToProgram}
-                  className="w-[184px] max-w-[48%] h-[36px] rounded-[10px] bg-white border border-emerald-300 text-emerald-600 font-bold text-[13px] hover:bg-emerald-50 transition"
+                  className="flex-1 h-11 rounded-xl bg-white border border-gray-200 text-gray-500 font-bold text-[13px] hover:bg-gray-50 transition flex items-center justify-center gap-1"
                 >
-                  프로그램으로 이동
+                  🏠 홈으로 이동
                 </button>
-              </>
-            )}
-          </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex gap-2 justify-center pt-1">
+              {remainingMissionCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => navigate(`/record?program=${programId}`, { replace: true })}
+                  className="w-[184px] max-w-[48%] h-[36px] rounded-[10px] bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-[13px] transition flex items-center justify-center gap-1 whitespace-nowrap"
+                >
+                  📋 나머지 미션 ({remainingMissionCount}개)
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={goToProgram}
+                className="w-[184px] max-w-[48%] h-[36px] rounded-[10px] bg-white border border-emerald-300 text-emerald-600 font-bold text-[13px] hover:bg-emerald-50 transition"
+              >
+                프로그램으로 이동
+              </button>
+            </div>
+          )}
         </div>
       </div>
     )

@@ -6,6 +6,10 @@ import { motion, AnimatePresence, useDragControls } from 'framer-motion'
 const SWIPE_CLOSE_DISTANCE = 100     // 아래로 끌어 닫기 — 100px 이상
 const SWIPE_CLOSE_VELOCITY = 500     // 또는 빠른 플릭 (px/s)
 
+// 모달 히스토리(하드웨어 뒤로=닫기) — 자기유발 back 이 다른 모달/네비게이션을 오작동시키지 않도록
+let _modalSeq = 0
+let _ignoreNextPop = false
+
 // props:
 //   isOpen / onClose — 기본
 //   onPrev / onNext — 좌우 화살표 버튼 클릭 시 호출. undefined 면 해당 버튼 숨김 (첫/마지막).
@@ -53,20 +57,33 @@ function Modal({ isOpen, onClose, children, onPrev, onNext }) {
   }, [isOpen])
 
   // 하드웨어/브라우저 뒤로가기 = 모달 닫기 (네이티브 안드로이드 뒤로 UX).
-  //   열릴 때 history 더미 항목 push → 뒤로가기(popstate) 시 onClose.
-  //   배경/ESC/스와이프(코드)로 닫히면 우리가 push한 더미를 history.back() 으로 정리.
+  //   열릴 때 history 더미(고유 key) push → 뒤로가기(popstate) 시 onClose.
+  //   닫힐 때: 뒤로가기로 닫힌 게 아니고 우리 더미가 아직 최상단일 때만 history.back() 으로 정리.
+  //     · 모달→모달 전환/모달→페이지 네비게이션 시엔 더미가 이미 위에 덮이거나(navigate) 자기유발
+  //       popstate 라서, key 확인 + _ignoreNextPop 로 오작동(상세 모달 즉시 닫힘·홈으로 튕김) 방지.
   //   ※ dev(StrictMode 이중 실행)에선 history 꼬임으로 오작동 → 프로드/네이티브에서만 동작.
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
   useEffect(() => {
     if (!isOpen || import.meta.env.DEV) return
     let viaPop = false
-    window.history.pushState({ __modal: true }, '')
-    const onPop = () => { viaPop = true; onCloseRef.current?.() }
+    const myKey = `__m${++_modalSeq}`
+    window.history.pushState({ __modal: true, __mkey: myKey }, '')
+    const onPop = () => {
+      // 다른 모달/네비의 프로그램적 back 이 유발한 popstate 는 자기 뒤로가기로 오인하지 않도록 무시
+      if (_ignoreNextPop) { _ignoreNextPop = false; return }
+      viaPop = true
+      onCloseRef.current?.()
+    }
     window.addEventListener('popstate', onPop)
     return () => {
       window.removeEventListener('popstate', onPop)
-      if (!viaPop) window.history.back()  // 뒤로가기 외 경로로 닫힘 → 더미 제거
+      // 뒤로가기로 닫힌 게 아니고, 우리 더미가 아직 최상단(네비게이션 등으로 벗어나지 않음)일 때만 정리
+      if (!viaPop && window.history.state?.__mkey === myKey) {
+        _ignoreNextPop = true
+        window.history.back()
+        setTimeout(() => { _ignoreNextPop = false }, 0) // 아무도 안 잡아도 플래그 누수 방지
+      }
     }
   }, [isOpen])
 

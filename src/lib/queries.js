@@ -454,6 +454,24 @@ export const fetchProgramOverview = async (programId, userId) => {
     }
   }
 
+  // 1-1) maxStreak — 전체 기간 최장 연속 일수 (달리기 「최고 기록」)
+  let maxStreak = 0
+  {
+    const sortedDs = [...approvedDates].sort() // 'YYYY-MM-DD' = 사전식 = 시간순
+    let run = 0
+    let prevDs = null
+    for (const ds of sortedDs) {
+      if (prevDs) {
+        const diff = Math.round((new Date(`${ds}T00:00:00+09:00`) - new Date(`${prevDs}T00:00:00+09:00`)) / 86400000)
+        run = diff === 1 ? run + 1 : 1
+      } else {
+        run = 1
+      }
+      if (run > maxStreak) maxStreak = run
+      prevDs = ds
+    }
+  }
+
   // 2) activeDays (60일 내 고유 일수)
   const activeDays = approvedDates.size
 
@@ -485,7 +503,7 @@ export const fetchProgramOverview = async (programId, userId) => {
     weekDays.push({ label: weekLabels[i], done: ds <= todayKst && approvedDates.has(ds), today: ds === todayKst })
   }
 
-  return { streak, hasToday, activeDays, recent, totalCount, weekDays }
+  return { streak, maxStreak, hasToday, activeDays, recent, totalCount, weekDays }
 }
 
 // 프로그램 참여 모달용 정보 (Day 65 본인 결정 — UX 강화)
@@ -795,16 +813,20 @@ export const fetchMyRecentScoreSeries = async (programId, userId, days = 14) => 
 export const fetchProgramQuizzes = async (programId) => {
   const { data, error } = await supabase
     .from('quizzes')
-    .select('*, quiz_questions(point), quiz_submissions(count)')
+    .select('*, quiz_questions(point, type), quiz_submissions(count)')
     .eq('program_id', programId)
     .order('created_at', { ascending: false })
   if (error) throw error
-  return (data || []).map(q => ({
-    ...q,
-    questionCount: q.quiz_questions?.length || 0,
-    totalPoint: (q.quiz_questions || []).reduce((s, r) => s + (r.point || 0), 0),
-    submissionCount: q.quiz_submissions?.[0]?.count || 0,
-  }))
+  return (data || []).map(q => {
+    const qs = q.quiz_questions || []
+    return {
+      ...q,
+      questionCount: qs.length,
+      totalPoint: qs.reduce((s, r) => s + (r.point || 0), 0),
+      typeBreakdown: qs.reduce((acc, r) => { acc[r.type] = (acc[r.type] || 0) + 1; return acc }, {}),
+      submissionCount: q.quiz_submissions?.[0]?.count || 0,
+    }
+  })
 }
 
 // 편집용 퀴즈 단건 — 운영자 RLS 로 문항(정답 포함) + 제출 수까지 조회.
@@ -881,10 +903,22 @@ export const fetchParticipantQuizzes = async (programId) => {
     .eq('program_id', programId)
     .order('created_at', { ascending: false })
   if (error) throw error
-  return (data || []).map(q => ({
-    ...q,
-    mySubmission: q.quiz_submissions?.[0] || null,
-  }))
+  // 문항 수·총점·유형은 RLS 로 참여자가 직접 못 읽어 RPC(150)로 집계만 받아 병합 (정답 비노출)
+  const metaMap = {}
+  try {
+    const { data: meta } = await supabase.rpc('get_program_quiz_meta', { p_program_id: programId })
+    for (const m of meta || []) metaMap[m.quiz_id] = m
+  } catch { /* RPC 미적용(마이그 150 전) — 0 으로 폴백 */ }
+  return (data || []).map(q => {
+    const m = metaMap[q.id]
+    return {
+      ...q,
+      mySubmission: q.quiz_submissions?.[0] || null,
+      questionCount: m?.question_count || 0,
+      totalPoint: m?.total_point || 0,
+      typeBreakdown: m?.type_counts || {},
+    }
+  })
 }
 
 // ─── 커뮤니티 게시판 글 (096) ─────────────────────────────

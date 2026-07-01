@@ -7,7 +7,7 @@ import { ChevronLeft, Plus, ChevronRight, Users, Trophy, Pencil, Calendar, Activ
 import DoorIcon from '../../components/common/DoorIcon'
 import { supabase } from '../../supabaseClient'
 import { CATEGORY, PROGRAM_THEME } from '../../lib/constants'
-import { formatKoreanDate, formatKoreanDateTime, isUpcomingByStartDate, formatRelativeKstDay } from '../../lib/formatters'
+import { formatKoreanDate, formatKoreanDateTime, isUpcomingByStartDate, formatRelativeKstDay, checkMissionToday } from '../../lib/formatters'
 import MissionCard from '../../components/program/MissionCard'
 import GardenPanel from '../../components/program/GardenPanel'
 import ConstellationPanel from '../../components/program/ConstellationPanel'
@@ -18,6 +18,11 @@ import QuitSmokingTip from '../../components/program/QuitSmokingTip'
 import QuitSmokingCheer from '../../components/program/QuitSmokingCheer'
 import CheerBoard from '../../components/program/CheerBoard'
 import RunningHome from '../../components/program/RunningHome'
+import RunningMissionHero from '../../components/program/RunningMissionHero'
+import RunningMissionCard from '../../components/program/RunningMissionCard'
+import RunningQuizHero from '../../components/program/RunningQuizHero'
+import RunningQuizCard from '../../components/program/RunningQuizCard'
+import WeeklyStreak from '../../components/program/WeeklyStreak'
 import MetricSummaryCard from '../../components/program/MetricSummaryCard'
 import ProgramChangeTab from '../../components/program/ProgramChangeTab'
 import PodiumTop3 from '../../components/program/PodiumTop3'
@@ -130,6 +135,23 @@ function PanelMenuBox({ icon, title, desc, onClick, chevron = false, badge = 0, 
       {chevron && <ChevronRight className="w-5 h-5 text-gray-300 flex-shrink-0" />}
     </button>
   )
+}
+
+// 달리기 주간 스트릭 — 미션 운영 요일(schedule_mode/active_days)만 노출. 월(0)~일(6) 순.
+const RUN_DOW_BY_MODE = { WEEKDAYS: [1, 2, 3, 4, 5], WEEKENDS: [6, 7], ALL_DAYS: [1, 2, 3, 4, 5, 6, 7] }
+function runActiveWeekDays(weekDays, missions) {
+  const active = new Set()
+  const main = new Set()
+  for (const m of (missions || [])) {
+    const mode = m.schedule_mode || 'ALL_DAYS'
+    const dows = mode === 'CUSTOM' ? (m.active_days || []).map(Number) : (RUN_DOW_BY_MODE[mode] || RUN_DOW_BY_MODE.ALL_DAYS)
+    const isMain = m.is_main !== false // 미설정 시 메인 취급
+    dows.forEach((d) => { active.add(d); if (isMain) main.add(d) })
+  }
+  const src = (weekDays || []).map((d, i) => ({ ...d, dow: i + 1 }))
+  // kind: 해당 요일에 메인 미션이 하나라도 있으면 'main'(초록), 서브만이면 'sub'(앰버)
+  if (active.size === 0) return src.map((d) => ({ ...d, kind: 'main' }))
+  return src.filter((d) => active.has(d.dow)).map((d) => ({ ...d, kind: main.has(d.dow) ? 'main' : 'sub' }))
 }
 
 function ProgramDetailPage() {
@@ -268,6 +290,7 @@ function ProgramDetailPage() {
   useEffect(() => {
     if (stampedFiredRef.current) return
     if (program?.theme !== PROGRAM_THEME.RUNNING) return
+    if (activeTab !== 'overview') return // 도장 카드(홈)가 떠 있을 때만
     const todayCell = overviewData?.weekDays?.find((d) => d.today)
     if (!todayCell?.done) return // 오늘 미승인이면 패스
     let key
@@ -277,15 +300,26 @@ function ProgramDetailPage() {
       if (localStorage.getItem(key)) return // 오늘 이미 축하함
     } catch { /* localStorage 차단 환경 — 세션 가드만 적용 */ }
     stampedFiredRef.current = true
-    try { if (key) localStorage.setItem(key, '1') } catch { /* noop */ }
-    const t = setTimeout(() => streakRef.current?.playToday({ bumpCount: false }), 450)
     if (searchParams.get('stamped')) {
       const next = new URLSearchParams(searchParams)
       next.delete('stamped')
       setSearchParams(next, { replace: true })
     }
-    return () => clearTimeout(t)
-  }, [program, overviewData, searchParams, setSearchParams, id])
+    // 스트릭 카드가 마운트될 때까지 잠깐 재시도 → 실제 재생에 성공해야 플래그 기록(미동작 시 다음 기회)
+    let timer
+    let tries = 0
+    const tick = () => {
+      if (streakRef.current?.playToday) {
+        streakRef.current.playToday({ bumpCount: false })
+        try { if (key) localStorage.setItem(key, '1') } catch { /* noop */ }
+        return
+      }
+      if (tries++ < 20) timer = setTimeout(tick, 150)
+      else stampedFiredRef.current = false // 끝내 준비 안 되면 다음 진입 때 재시도
+    }
+    timer = setTimeout(tick, 300)
+    return () => clearTimeout(timer)
+  }, [program, overviewData, activeTab, searchParams, setSearchParams, id])
 
   // Day 65 게이미피케이션 — 본인 참여자 row (growth_state JSONB 보유).
   // 정원/별자리 트랙일 때만 fetch.
@@ -474,7 +508,9 @@ function ProgramDetailPage() {
   const { data: noticePosts = [] } = useQuery({
     queryKey: queryKeys.communityPosts(id, 'notice'),
     queryFn: () => fetchCommunityPosts(id, 'notice'),
-    enabled: !!session && !!id && !!program && activeTab === 'community' && !!program?.feed_enabled
+    enabled: !!session && !!id && !!program
+      && ((activeTab === 'community' && !!program?.feed_enabled)
+        || (program?.theme === PROGRAM_THEME.RUNNING && program?.community_enabled !== false))   // 러닝 홈 공지 카드용
       && (program?.community_settings?.noticeEnabled !== false),
   })
   // 운영자 — 검토 대기 글 전체(통합 검토함 + 칩 배지). 게시판별 수는 여기서 파생.
@@ -837,15 +873,17 @@ function ProgramDetailPage() {
   // 단독 그룹의 각 미션 = 카드 1개, 묶음 그룹 전체 = 카드 1개
   const missionCards = useMemo(() => {
     const cards = []
+    // 달리기 테마는 묶음(번들) 드릴다운 없이 개별 미션 카드로 평탄화
+    const flatten = program?.theme === PROGRAM_THEME.RUNNING
     for (const group of missionGroups) {
-      if (group.bundleTitle === null) {
+      if (group.bundleTitle === null || flatten) {
         for (const m of group.missions) cards.push({ kind: 'solo', mission: m })
       } else {
         cards.push({ kind: 'bundle', group })
       }
     }
     return cards
-  }, [missionGroups])
+  }, [missionGroups, program])
   const displayedMissionCards = showAllMissions ? missionCards : missionCards.slice(0, 3)
 
   // 모달 mutation 후 갱신 헬퍼
@@ -989,6 +1027,9 @@ function ProgramDetailPage() {
   // 메뉴바 사용 토글(102) — 컬럼 없으면(마이그레이션 전) 사용으로 간주
   const quizEnabled = program.quiz_enabled !== false
   const communityEnabled = program.community_enabled !== false
+  // 달리기 테마 — 홈(개요) 외 서브화면에선 헤더 진행중·이름·톱니 숨김
+  const isRunningTheme = program.theme === PROGRAM_THEME.RUNNING
+  const runningSub = isRunningTheme && activeTab !== 'overview'
   // 운영자 메뉴 시트 「내 프로그램 설정」 → 각 설정 클릭 시 탭 전환 + 인라인 관리자 열기
   const openManagerFromMenu = (key) => {
     closePanel()
@@ -1053,32 +1094,54 @@ function ProgramDetailPage() {
           <button type="button" onClick={handleHeaderBack} className="absolute left-2 p-1.5 text-gray-600 hover:text-gray-900" aria-label="뒤로">
             <ChevronLeft className="w-5 h-5" />
           </button>
-          {/* 제목 + 상태 배지 — 항상 화면 정중앙 (좌우 버튼 폭과 무관) */}
-          {/* 제목은 항상 정중앙 / 상태 배지는 제목 왼쪽에 오버행(중앙 정렬에 영향 X) */}
-          <div className={`relative ${isOwner ? 'max-w-[50%]' : 'max-w-[58%]'}`}>
-            <span className="block text-[16px] font-bold text-gray-800 truncate px-1 text-center whitespace-nowrap">{program.name}</span>
-            <span className={`absolute right-full top-1/2 -translate-y-1/2 mr-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold whitespace-nowrap ${hdrStatusCls}`}>{hdrStatusLabel}</span>
-          </div>
+          {/* 정중앙 — 달리기 서브화면은 탭 이름(미션/퀴즈/커뮤니티/랭킹), 그 외는 프로그램명+상태배지 */}
+          {runningSub ? (
+            <span className="text-[16px] font-bold text-gray-800">
+              {{ missions: '미션', quizzes: '퀴즈', community: '커뮤니티', ranking: '랭킹' }[activeTab] || ''}
+            </span>
+          ) : (
+            <div className={`relative ${isOwner ? 'max-w-[50%]' : 'max-w-[58%]'}`}>
+              <span className="block text-[16px] font-bold text-gray-800 truncate px-1 text-center whitespace-nowrap">{program.name}</span>
+              <span className={`absolute right-full top-1/2 -translate-y-1/2 mr-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold whitespace-nowrap ${hdrStatusCls}`}>{hdrStatusLabel}</span>
+            </div>
+          )}
           <div className="absolute right-2 flex items-center gap-0.5">
-            {isOwner && (
-              <button
-                type="button"
-                onClick={() => setIsPanelOpen(true)}
-                className="relative w-8 h-8 flex items-center justify-center flex-shrink-0 text-gray-600 hover:text-amber-600 transition"
-                title="운영자 메뉴"
-                aria-label="운영자 메뉴"
-              >
-                <Settings className="w-[18px] h-[18px]" />
-                {pendingCount > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none ring-2 ring-white">
-                    {pendingCount > 9 ? '9+' : pendingCount}
-                  </span>
+            {runningSub ? (
+              // 달리기 서브화면 — 톱니 숨김. 미션/퀴즈 탭은 운영자에게 + (추가), 참여자는 없음
+              (activeTab === 'missions' && isOwner && !missionManageOpen) ? (
+                <button type="button" onClick={() => setIsLibraryOpen(true)} title="미션 추가" aria-label="미션 추가"
+                  className="w-8 h-8 flex items-center justify-center rounded-lg text-emerald-600 hover:bg-emerald-50 transition">
+                  <Plus className="w-5 h-5" strokeWidth={2.5} />
+                </button>
+              ) : (activeTab === 'quizzes' && isOwner && !quizManageOpen && !quizPreview) ? (
+                <button type="button" onClick={() => setQuizLibOpen(true)} title="퀴즈 추가" aria-label="퀴즈 추가"
+                  className="w-8 h-8 flex items-center justify-center rounded-lg text-emerald-600 hover:bg-emerald-50 transition">
+                  <Plus className="w-5 h-5" strokeWidth={2.5} />
+                </button>
+              ) : null
+            ) : (
+              <>
+                {isOwner && (
+                  <button
+                    type="button"
+                    onClick={() => setIsPanelOpen(true)}
+                    className="relative w-8 h-8 flex items-center justify-center flex-shrink-0 text-gray-600 hover:text-amber-600 transition"
+                    title="운영자 메뉴"
+                    aria-label="운영자 메뉴"
+                  >
+                    <Settings className="w-[18px] h-[18px]" />
+                    {pendingCount > 0 && (
+                      <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none ring-2 ring-white">
+                        {pendingCount > 9 ? '9+' : pendingCount}
+                      </span>
+                    )}
+                  </button>
                 )}
-              </button>
+                {/* 운영자 화면에선 알림·프로필 숨김 (운영자 메뉴로 충분). 참여자는 유지 */}
+                {!isOwner && <NotificationBell bare compact showBack />}
+                {!isOwner && <ProfileButton bare compact showBack />}
+              </>
             )}
-            {/* 운영자 화면에선 알림·프로필 숨김 (운영자 메뉴로 충분). 참여자는 유지 */}
-            {!isOwner && <NotificationBell bare compact showBack />}
-            {!isOwner && <ProfileButton bare compact showBack />}
           </div>
         </div>
       </header>
@@ -1417,10 +1480,8 @@ function ProgramDetailPage() {
       {/* 달리기 테마 — 전용 대시보드(RunningHome). 마라톤 코스·데일리 로그·미션/퀴즈/커뮤니티 진입 통합 */}
       {program.theme === PROGRAM_THEME.RUNNING && (() => {
         const mTotal = (k) => metricSummary?.metrics?.find(x => x.key === k)?.total || 0
-        const noticeRaw = program.overview_content?.trim() || ''
-        const noticePreview = noticeRaw
-          .replace(/!\[.*?\]\(.*?\)/g, '').replace(/\[(.*?)\]\(.*?\)/g, '$1')
-          .replace(/[#>*_`~]/g, '').replace(/\s+/g, ' ').trim()
+        // 공지 카드 문구 — 커뮤니티 공지 게시판의 고정(없으면 최신) 글 제목. 미리 쓴 문구 X.
+        const noticeTitle = latestNotice ? (latestNotice.title || latestNotice.body || '') : ''
         // 주간 스트릭 — 미션 운영 요일(schedule_mode/active_days)만 노출. 평일만이면 월~금만.
         const DOW_BY_MODE = { WEEKDAYS: [1, 2, 3, 4, 5], WEEKENDS: [6, 7], ALL_DAYS: [1, 2, 3, 4, 5, 6, 7] }
         const activeDows = new Set()
@@ -1440,7 +1501,7 @@ function ProgramDetailPage() {
             progress={calcProgress(program.start_date, program.end_date)}
             pace={program.run_pace || "6'20"}
             weekStreak={{ count: overviewData?.streak || 0, days: weekDays }}
-            notice={noticePreview || (isOwner ? '운영자 메뉴에서 공지를 작성해보세요' : '챌린지 인증 시 GPS 기록을 꼭 확인해주세요!')}
+            notice={noticeTitle || (isOwner ? '공지를 작성해보세요' : '등록된 공지가 없어요')}
             daily={{
               distanceKm: mTotal('distance'),
               timeHours: Math.round((mTotal('time') / 60) * 10) / 10,
@@ -1454,6 +1515,13 @@ function ProgramDetailPage() {
             onPaceChange={async (v) => {
               const { error } = await supabase.from('programs').update({ run_pace: v }).eq('id', id)
               if (error) { alert('추천 페이스 저장에 실패했어요.'); return }
+              queryClient.invalidateQueries({ queryKey: queryKeys.program(id) })
+            }}
+            hero={program.run_hero || null}
+            heroEditable={isOwner}
+            onHeroChange={async (cfg) => {
+              const { error } = await supabase.from('programs').update({ run_hero: cfg }).eq('id', id)
+              if (error) { alert('히어로 저장에 실패했어요.'); return }
               queryClient.invalidateQueries({ queryKey: queryKeys.program(id) })
             }}
             onOpenTab={(key) => setActiveTab(key)}
@@ -1657,10 +1725,39 @@ function ProgramDetailPage() {
       {/* ─── 미션 탭 (일반/깔끔 뷰) — 관리 모드에선 미리보기 때만 노출 ─── */}
       {activeTab === 'missions' && (!missionManageOpen || missionPreview) && (<>
 
-      {/* 미션 목록 — 3개 + 전체보기 토글 + framer 부드러운 전환 */}
+      {/* 달리기 — 미션 화면 상단 히어로(프로그램명·미션수·총점 + 오늘 완료 원형 링) */}
+      {isRunningTheme && (() => {
+        const todayList = (missions || []).filter((m) => checkMissionToday(m).active)
+        const todayDone = todayList.filter((m) => (todayCounts[m.id]?.total || 0) >= (m.daily_limit || 1)).length
+        const totalPoints = (missions || []).reduce((s, m) => s + (m.point || 0), 0)
+        return (
+          <RunningMissionHero
+            programName={program.name}
+            missionCount={(missions || []).length}
+            totalPoints={totalPoints}
+            todayDone={todayDone}
+            todayTotal={todayList.length}
+          />
+        )
+      })()}
+
+      {/* 달리기 — 주간 스트릭(와이드: 좌 텍스트 / 가운데 요일 / 우 불꽃·최고기록) */}
+      {isRunningTheme && (
+        <div className="mb-[9px]">
+          <WeeklyStreak
+            variant="wide"
+            count={overviewData?.streak || 0}
+            bestStreak={overviewData?.maxStreak || 0}
+            days={runActiveWeekDays(overviewData?.weekDays, missions)}
+            icon={<img src="/icons/running/flame.png" alt="" aria-hidden="true" className="w-6 h-6 object-contain" />}
+          />
+        </div>
+      )}
+
+      {/* 미션 목록 헤더 — 달리기는 「📋 미션 목록」·인라인 + 숨김(상단 헤더로 이동), 전체보기만 */}
       <div ref={missionSectionRef} className="flex items-center justify-between mb-3 scroll-mt-16">
-        <h2 className="text-lg font-semibold text-gray-800">📋 미션 목록</h2>
-        <div className="flex items-center gap-2">
+        {!isRunningTheme && <h2 className="text-lg font-semibold text-gray-800">📋 미션 목록</h2>}
+        <div className="flex items-center gap-2 ml-auto">
           {missionCards.length > 3 && (
             <button
               type="button"
@@ -1671,8 +1768,8 @@ function ProgramDetailPage() {
               {!showAllMissions && <ChevronRight className="w-3 h-3" />}
             </button>
           )}
-          {/* 미션 추가 — 운영자 전용 빠른 추가(미리보기 중 숨김). 라이브러리 모달 진입 */}
-          {isOwner && !missionPreview && (
+          {/* 미션 추가 — 운영자 전용(미리보기 중 숨김). 달리기는 상단 헤더 + 로 이동 */}
+          {!isRunningTheme && isOwner && !missionPreview && (
             <button
               type="button"
               onClick={() => setIsLibraryOpen(true)}
@@ -1688,11 +1785,29 @@ function ProgramDetailPage() {
       {missions.length === 0 ? (
         <EmptyState icon="🎯" title="미션이 아직 없어요" description={isOwner && !missionPreview ? '오른쪽 + 버튼으로 새 미션을 추가하세요' : undefined} />
       ) : (
-        <motion.div layout className="grid grid-cols-1 gap-3">
+        <motion.div layout className="grid grid-cols-1 gap-[9px]">
           <AnimatePresence initial={false}>
-            {displayedMissionCards.map(card => {
+            {displayedMissionCards.map((card, idx) => {
               if (card.kind === 'solo') {
                 const m = card.mission
+                const commonProps = {
+                  mission: m,
+                  todayCounts,
+                  isOwner,
+                  showOwnerActions: isOwner,
+                  isDeletePending: deleteMissionMutation.isPending,
+                  onDelete: handleMissionDelete,
+                  onEdit: (mission) => { setEditingMission(mission); setIsMissionCreateOpen(true) },
+                  programId: id,
+                  viewerMode: isViewer,
+                  onViewerAction: () => setJoinOpen(true),
+                  onToggleMain: async (m) => {
+                    const newVal = !(m.is_main !== false)
+                    const { error } = await supabase.from('missions').update({ is_main: newVal }).eq('id', m.id)
+                    if (error) { alert(`메인/서브 설정에 실패했어요: ${error.message}`); return }
+                    queryClient.invalidateQueries({ queryKey: queryKeys.programMissions(id) })
+                  },
+                }
                 return (
                   <motion.div
                     key={`solo:${m.id}`}
@@ -1702,18 +1817,9 @@ function ProgramDetailPage() {
                     exit={{ opacity: 0, scale: 0.96 }}
                     transition={{ duration: 0.25, ease: 'easeOut' }}
                   >
-                    <MissionCard
-                      mission={m}
-                      todayCounts={todayCounts}
-                      isOwner={isOwner}
-                      showOwnerActions={isOwner}
-                      isDeletePending={deleteMissionMutation.isPending}
-                      onDelete={handleMissionDelete}
-                      onEdit={(mission) => { setEditingMission(mission); setIsMissionCreateOpen(true) }}
-                      programId={id}
-                      viewerMode={isViewer}
-                      onViewerAction={() => setJoinOpen(true)}
-                    />
+                    {isRunningTheme
+                      ? <RunningMissionCard index={idx} {...commonProps} />
+                      : <MissionCard {...commonProps} />}
                   </motion.div>
                 )
               }
@@ -1792,11 +1898,34 @@ function ProgramDetailPage() {
         if (!isOwner && quizList.length === 0) {
           return <EmptyState icon="📝" title="아직 풀 수 있는 퀴즈가 없어요" />
         }
+        // 달리기 — 히어로(푼/전체 링) + 상태 요약(진행중/예정/종료)
+        const now = new Date()
+        const qUpcoming = quizList.filter((q) => q.start_at && new Date(q.start_at) > now).length
+        const qEnded = quizList.filter((q) => q.due_at && new Date(q.due_at) < now).length
+        const qActive = quizList.length - qUpcoming - qEnded
+        const qSolved = quizList.filter((q) => q.mySubmission).length
         return (
         <div ref={quizSectionRef} className="scroll-mt-16">
+          {isRunningTheme && (
+            <>
+              <RunningQuizHero programName={program.name} quizCount={quizList.length} solved={qSolved} />
+              <div className="rounded-2xl p-3 mb-[9px] bg-white border border-gray-100 shadow-soft flex items-center">
+                {[
+                  { label: '진행중', value: qActive, cls: 'text-emerald-600' },
+                  { label: '예정', value: qUpcoming, cls: 'text-amber-500' },
+                  { label: '종료', value: qEnded, cls: 'text-gray-400' },
+                ].map((s, i) => (
+                  <div key={s.label} className={`flex-1 flex flex-col items-center ${i !== 0 ? 'border-l border-gray-100' : ''}`}>
+                    <span className="text-[11px] text-gray-400">{s.label}</span>
+                    <span className={`text-[16px] font-extrabold ${s.cls}`}>{s.value}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold text-gray-800">📝 퀴즈</h2>
-            <div className="flex items-center gap-2">
+            {!isRunningTheme && <h2 className="text-lg font-semibold text-gray-800">📝 퀴즈</h2>}
+            <div className="flex items-center gap-2 ml-auto">
               {quizList.length > 3 && (
                 <button
                   type="button"
@@ -1807,8 +1936,8 @@ function ProgramDetailPage() {
                   {!showAllQuizzes && <ChevronRight className="w-3 h-3" />}
                 </button>
               )}
-              {/* 퀴즈 추가 — 운영자 전용 빠른 추가(미리보기 중 숨김). 퀴즈 라이브러리 진입 */}
-              {isOwner && !quizPreview && (
+              {/* 퀴즈 추가 — 운영자 전용(미리보기 중 숨김). 달리기는 상단 헤더 + 로 이동 */}
+              {!isRunningTheme && isOwner && !quizPreview && (
                 <button
                   type="button"
                   onClick={() => setQuizLibOpen(true)}
@@ -1824,9 +1953,22 @@ function ProgramDetailPage() {
           {quizList.length === 0 ? (
             <EmptyState icon="📝" title="아직 퀴즈가 없어요" description="오른쪽 + 버튼으로 새 퀴즈를 추가하세요" />
           ) : (
-            <div className="grid grid-cols-1 gap-3">
-              {(showAllQuizzes ? quizList : quizList.slice(0, 3)).map(quiz => (
-                <QuizListItem key={quiz.id} quiz={quiz} programId={id} quizPreview={quizPreview} />
+            <div className="grid grid-cols-1 gap-[9px]">
+              {(showAllQuizzes ? quizList : quizList.slice(0, 3)).map((quiz, qi) => (
+                isRunningTheme ? (
+                  <RunningQuizCard
+                    key={quiz.id}
+                    quiz={quiz}
+                    index={qi}
+                    programId={id}
+                    quizPreview={quizPreview}
+                    isOwner={isOwner}
+                    onEdit={(q) => navigate(`/programs/${id}/posts/quiz/${q.id}/edit`)}
+                    onDelete={handleQuizDelete}
+                  />
+                ) : (
+                  <QuizListItem key={quiz.id} quiz={quiz} programId={id} quizPreview={quizPreview} />
+                )
               ))}
             </div>
           )}

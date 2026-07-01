@@ -1,8 +1,10 @@
+import { useState } from 'react'
 import { ChevronLeft, Settings } from 'lucide-react'
 import RunningHome from '../components/program/RunningHome'
 
 // 달리기 홈 UI 데모 — localhost:5173/running-home-demo. 본 페이지 통합 전 비주얼 확인용.
 function RunningHomeDemoPage() {
+  const [hero, setHero] = useState(null)
   return (
     <div className="min-h-screen bg-white py-3">
       <div className="max-w-[430px] mx-auto px-[11px]">
@@ -20,6 +22,9 @@ function RunningHomeDemoPage() {
           progress={3}
           paceEditable
           showStampTest
+          hero={hero}
+          heroEditable
+          onHeroChange={setHero}
         />
       </div>
     </div>

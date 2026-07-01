@@ -46,6 +46,7 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
   const [scheduleMode, setScheduleMode] = useState('ALL_DAYS')
   const [activeDays, setActiveDays] = useState([])
   const [excludedPeriods, setExcludedPeriods] = useState([])
+  const [isMain, setIsMain] = useState(true)  // 달리기 메인/서브(주간 스트릭 색)
   // 예약 미션 — 운영 기간 (시작일 미래 → 예약)
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
@@ -87,6 +88,7 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
       setScheduleMode('ALL_DAYS')
       setActiveDays([])
       setExcludedPeriods([])
+      setIsMain(true)
       setStartDate(program?.start_date || '')
       setEndDate(program?.end_date || '')
       setError(null)
@@ -128,6 +130,7 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
       setScheduleMode(editMission.schedule_mode || 'ALL_DAYS')
       setActiveDays(editMission.active_days || [])
       setExcludedPeriods(editMission.excluded_periods || [])
+      setIsMain(editMission.is_main !== false)
       setStartDate(editMission.active_from ? toKSTDateString(editMission.active_from) : (program?.start_date || ''))
       setEndDate(editMission.active_until ? toKSTDateString(editMission.active_until) : (program?.end_date || ''))
     }
@@ -242,6 +245,7 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
       schedule_mode: scheduleMode,
       active_days: scheduleMode === 'CUSTOM' ? activeDays : [],
       excluded_periods: excludedPeriods.filter(p => p.start_date && p.end_date),
+      is_main: isMain,   // 메인/서브(달리기 주간 스트릭 색)
       // 예약 미션 운영 기간 — 생성·수정 모두 반영 (시작 미래 → 예약)
       active_from: `${startDate || program.start_date}T00:00:00+09:00`,
       active_until: `${endDate || program.end_date}T23:59:59+09:00`,
@@ -511,6 +515,23 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
           <p className="text-[12px] text-gray-500 leading-relaxed mb-4 bg-gray-50 rounded-lg p-2.5 break-keep">
             미션을 <b className="text-gray-700">언제·어떻게 운영</b>할지 정해요. <br /> 나중에 언제든 수정할 수 있어요.
           </p>
+          {/* 달리기 전용 — 메인/서브 (주간 스트릭 색 구분) */}
+          {program?.theme === 'RUNNING' && (
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">주간 스트릭 구분</label>
+              <p className="text-xs text-gray-400 mb-2 break-keep">메인은 주간 스트릭에 <b className="text-emerald-600">초록</b> 도장, 서브는 <b className="text-amber-600">앰버</b> 도장으로 표시돼요.</p>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setIsMain(true)} disabled={isSaving}
+                  className={`flex-1 h-11 rounded-lg border-2 text-sm font-bold transition ${isMain ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 text-gray-400 hover:border-gray-300'}`}>
+                  🟢 메인 미션
+                </button>
+                <button type="button" onClick={() => setIsMain(false)} disabled={isSaving}
+                  className={`flex-1 h-11 rounded-lg border-2 text-sm font-bold transition ${!isMain ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-gray-200 text-gray-400 hover:border-gray-300'}`}>
+                  🟡 서브 미션
+                </button>
+              </div>
+            </div>
+          )}
           {/* 하루 최대 */}
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-1">
