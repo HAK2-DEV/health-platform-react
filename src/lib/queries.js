@@ -1109,6 +1109,12 @@ export const fetchScreenStats = async (days = 30) => {
   if (error) throw error
   return data || []
 }
+// 특정 화면의 계정별 체류 드릴다운 (관리자, RPC 152) — 어떤 계정이 오래 머물렀는지. 관리자만 반환.
+export const fetchScreenUserStats = async (screen, days = 30) => {
+  const { data, error } = await supabase.rpc('get_screen_user_stats', { p_screen: screen, p_days: days })
+  if (error) throw error
+  return data || []
+}
 export const logScreenEvent = async (screen, durationMs) => {
   if (!import.meta.env.PROD) return
   if (!screen || !(durationMs > 0)) return
