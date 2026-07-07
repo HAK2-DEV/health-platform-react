@@ -51,6 +51,8 @@ const ProfilePage = lazy(() => import('./pages/ProfilePage'))
 const AdminScreenStatsPage = lazy(() => import('./pages/AdminScreenStatsPage'))
 const FlowerDemoPage = lazy(() => import('./pages/FlowerDemoPage'))
 const RunningHomeDemoPage = lazy(() => import('./pages/RunningHomeDemoPage'))
+const CategoryIconsDemoPage = lazy(() => import('./pages/CategoryIconsDemoPage'))
+const IconMockupDemoPage = lazy(() => import('./pages/IconMockupDemoPage'))
 const MyActivityPage = lazy(() => import('./pages/MyActivityPage'))
 const MyActivityMissionsPage = lazy(() => import('./pages/MyActivityMissionsPage'))
 const MyActivityVerificationsPage = lazy(() => import('./pages/MyActivityVerificationsPage'))
@@ -124,6 +126,8 @@ function AppShell() {
             } />
             <Route path="/flower-demo" element={<FlowerDemoPage />} />
             <Route path="/running-home-demo" element={<RunningHomeDemoPage />} />
+            <Route path="/category-icons-demo" element={<CategoryIconsDemoPage />} />
+            <Route path="/icon-mockups" element={<IconMockupDemoPage />} />
             <Route path="/programs/new" element={
               <ProtectedRoute><ProgramNewPage /></ProtectedRoute>
             } />
