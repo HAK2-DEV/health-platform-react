@@ -290,8 +290,8 @@ export const MISSION_LIBRARY = [
     emoji: '🤝',
     missions: [
       {
-        title: '오늘의 감사 한 줄',
-        instruction: '오늘 감사했던 일을 한 줄로 남겨주세요',
+        title: '고마움 전하기',
+        instruction: '오늘 누군가에게 전한 고마움을 한 줄로 남겨주세요',
         icon: 'diary.png',
         requires_image: false,
         requires_numeric: false,

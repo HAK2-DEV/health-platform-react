@@ -169,6 +169,38 @@
 - 웹: Vercel 배포(PWA). 청크 404 자가복구, 마이그레이션-코드 순서 안전 배포.
 - 자체 호스팅 분석(외부 추적 도구 미사용) — 개인정보·통제 관점 결정.
 
+### 6.4 UI/디자인 스펙 — 레이아웃·라운딩·간격·아이콘
+*(단일 출처: `src/index.css`의 `@theme` 토큰 + [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md). 아래는 구현 관용 요약)*
+
+**레이아웃 배치**
+- **모바일 우선**. 페이지 컨테이너 `max-w-4xl mx-auto px-3 sm:px-4`(좌우 여백 12→16px).
+- 하단 **5탭 BottomTabBar**, 본문 하단 `pb-24`로 탭 가림 방지. 상단 헤더 `sticky`(좌: 뒤로 / 중앙: 제목 / 우: 액션).
+- 카드 세로 간격 `space-y-4`(섹션)·`space-y-3`(카드). 다중 카드는 `grid grid-cols-N gap-3`, 균등 높이는 `items-stretch`.
+- **테마 화면**: 달리기는 탭바 대신 RunningHome 단일 스크롤 대시보드(히어로→페이스/스트릭→요약→코스맵→진입 카드→배너).
+- 라우트 전환 시 `scrollTo(0,0)`, safe-area 패딩, 가로 스와이프 뒤로가기 차단.
+
+**모서리 라운딩(Radius)**
+- 토큰: `rounded-card` **24px**(기본 카드) · `rounded-card-lg` **28px**(강조 카드) · `rounded-pill` **9999px**(칩·뱃지·탭·CTA).
+- 콤팩트 카드·오버레이·이미지 컨테이너·모달 상단은 `rounded-2xl`(**16px**) 관용. 아이콘 원형 배경은 `rounded-full`. 진행 바 등은 `rounded-full`.
+
+**간격(Spacing) — 4px 베이스, 6단계**
+- **4 / 8 / 12 / 16 / 20 / 24**(Tailwind 1~6)만 사용해 톤 일관.
+- 아이콘↔텍스트 `gap-1~1.5` · 칩·인라인 `gap-2` · 카드 내 요소(썸네일↔본문) `gap-3`.
+- 카드 패딩 `sm=p-3` / **`md=p-4`(기본)** / `lg=p-5` · 모달·빈 상태 `p-6`.
+
+**아이콘(Icons) — 2계층**
+- ① **시스템 아이콘** `lucide-react`(UI 액션·메타·내비, `strokeWidth≈2`). ② **브랜드 일러스트 PNG**(미션·카테고리·러닝 아이콘 등) — `AssetImg`로 로드, 실패 시 `onError`로 lucide **fallback**.
+- 관용 크기: 내비 카드 **21×21** · 아이콘 원형 배경 **w-9(36px)** · 메타 아이콘 **w-3(12px)** · 헤더 액션 **w-5(20px)**.
+- 카테고리 이모지·액센트색(운동·달리기·식단·공감·마음관리·수면·금연·기타)은 `CATEGORY`·`programVisuals.CATEGORY_COLORS`와 연동.
+
+**그림자 · 버튼 · 타이포(요약)**
+- 그림자: `shadow-soft`(기본) / `shadow-elevated`(호버·강조) / `shadow-fab`(+버튼) — 그린 틴트.
+- Primary CTA: emerald→teal 그라데이션 **pill** 버튼. 비활성 `disabled:opacity-40`.
+- 글꼴 **Pretendard Variable**(자간 -0.01em), 본문 `text-sm`=15px 주력, 섹션 제목 `text-lg` bold.
+- 브랜드색 **Emerald**(Primary `#059669`/`#10b981` · Accent `#34D399` · Bg `#ECFDF5` · Ink `#073B33`).
+
+> 전체 디자인 토큰·타입 스케일·컴포넌트 프리미티브(Badge·IconBox·Card·Modal·EmptyState 등)는 [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md)가 정본.
+
 ---
 
 ## 7. 운영 정책

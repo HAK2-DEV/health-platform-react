@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { Timer, Flame, Megaphone, Footprints, Star, ClipboardList, HelpCircle, MessageSquare, ChevronRight, Check, Pencil, X } from 'lucide-react'
 import WeeklyStreak from './WeeklyStreak'
 import RunningCourseMini from './RunningCourseMini'
@@ -20,6 +21,47 @@ function AssetImg({ src, fallback, className }) {
   return <img src={src} alt="" aria-hidden="true" className={className} onError={() => setErr(true)} />
 }
 
+// 하단 격려 배너 — 배경 일러스트 + 문구가 함께 5초마다 옆으로 슬라이드(무한 루프).
+//   화분 아이콘만 고정(원형 흰 배경) + 컨테이너 높이를 정의해 원래 크기(≈78px) 유지.
+const BANNER_SLIDES = [
+  { img: `${RUN}/banner.png`,  title: '오늘도 한 걸음 더, 가볍게 달려봐요', sub: '작은 습관이 큰 변화를 만들어요!' },
+  { img: `${RUN}/banner2.jpg`, title: '멈추지 않으면, 결국 도착해요',        sub: '어제의 나보다 딱 1분 더!' },
+]
+function BottomBanner() {
+  const [idx, setIdx] = useState(0)
+  useEffect(() => {
+    const t = setInterval(() => setIdx((i) => (i + 1) % BANNER_SLIDES.length), 5000)
+    return () => clearInterval(t)
+  }, [])
+  const s = BANNER_SLIDES[idx]
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-gray-100 shadow-soft bg-gradient-to-r from-sky-50 to-emerald-50 h-[78px]">
+      {/* 배경 + 화분 + 문구 — 한 덩어리로 5초마다 좌측 슬라이드 인/아웃(원래 크기 유지 위해 컨테이너 높이 고정) */}
+      <AnimatePresence initial={false}>
+        <motion.div
+          key={idx}
+          className="absolute inset-0"
+          initial={{ x: '100%' }}
+          animate={{ x: 0 }}
+          exit={{ x: '-100%' }}
+          transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
+        >
+          <AssetImg src={s.img} className="absolute inset-0 w-full h-full object-cover" fallback={<span />} />
+          <div className="relative z-10 flex items-center gap-3 p-4 h-full">
+            <span className="w-11 h-11 rounded-full bg-white/70 flex items-center justify-center flex-shrink-0">
+              <AssetImg src={`${RUN}/plant.png`} className="w-9 h-9 object-contain" fallback={<span className="text-xl">🌱</span>} />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[13px] font-extrabold text-gray-800 truncate">{s.title}</p>
+              <p className="text-[11px] text-gray-500 mt-0.5 truncate">{s.sub}</p>
+            </div>
+          </div>
+        </motion.div>
+      </AnimatePresence>
+    </div>
+  )
+}
+
 // 미션/퀴즈/커뮤니티 진입 카드 — 비활성 메뉴는 호출부에서 제외(여기선 항상 활성 박스만 렌더).
 //   sized=true(박스 2개 이하): 170×133 고정 / false(3개): 그리드 셀에 맞춤.
 function NavCard({ icon, title, desc, actionLabel = '바로가기', onClick, sized = false, nudgeX = 0 }) {
@@ -29,7 +71,7 @@ function NavCard({ icon, title, desc, actionLabel = '바로가기', onClick, siz
         {icon}
         <p className="text-[12px] font-bold text-gray-800 leading-tight break-keep" style={{ transform: `translate(${nudgeX}px, 4px)` }}>{title}</p>
       </div>
-      <p className="text-[10.5px] text-gray-500 leading-snug text-center">{desc}</p>
+      <p className="text-[11.5px] text-gray-500 leading-snug text-center">{desc}</p>
       <button type="button" onClick={onClick}
         className="h-8 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] font-bold flex items-center justify-center gap-0.5 transition">
         {actionLabel} <ChevronRight className="w-3.5 h-3.5" />
@@ -356,7 +398,7 @@ function RunningHome({
             <div key={i} className={`flex-1 flex flex-col items-center text-center px-1 ${i !== 0 ? 'border-l border-gray-100' : ''}`}>
               <div className="flex items-center gap-0.5 mb-1">
                 <AssetImg src={c.img} className="w-[18px] h-[18px] object-contain" fallback={c.fb} />
-                <span className="text-[10px] text-gray-400">{c.label}</span>
+                <span className="text-[11px] text-gray-400 whitespace-nowrap">{c.label}</span>
               </div>
               <span className="text-[15px] font-extrabold text-gray-900 leading-tight"><CountUp value={c.num} format={c.fmtFn} duration={1100} /><span className="text-[10px] font-medium text-gray-400 ml-0.5">{c.unit}</span></span>
             </div>
@@ -370,7 +412,7 @@ function RunningHome({
         <div className="w-[42%] flex-shrink-0 px-4 py-3 flex flex-col justify-center">
           <div className="flex items-center gap-1.5 mb-0.5">
             <AssetImg src={`${RUN}/runner.png`} className="w-5 h-5 object-contain" fallback={<span className="text-[15px]">🏃</span>} />
-            <h3 className="text-[13px] font-bold text-gray-800 truncate">{programName} 진행률</h3>
+            <h3 className="text-[13px] font-bold text-gray-800 truncate">프로그램 진행률</h3>
           </div>
           <p className="text-[11px] text-gray-400 leading-snug">{yy(startDate)} ~ {yy(endDate)}</p>
         </div>
@@ -403,19 +445,8 @@ function RunningHome({
         )
       })()}
 
-      {/* 6) 하단 격려 배너 (일러스트 배경) */}
-      <div className="relative overflow-hidden rounded-2xl border border-gray-100 shadow-soft bg-gradient-to-r from-sky-50 to-emerald-50">
-        <AssetImg src={`${RUN}/banner.png`} className="absolute inset-0 w-full h-full object-cover" fallback={<span />} />
-        <div className="relative flex items-center gap-3 p-4">
-          <span className="w-11 h-11 rounded-xl bg-white/70 flex items-center justify-center flex-shrink-0">
-            <AssetImg src={`${RUN}/plant.png`} className="w-9 h-9 object-contain" fallback={<span className="text-xl">🌱</span>} />
-          </span>
-          <div className="min-w-0">
-            <p className="text-[13px] font-extrabold text-gray-800">오늘도 한 걸음 더, 가볍게 달려봐요</p>
-            <p className="text-[11px] text-gray-500 mt-0.5">작은 습관이 큰 변화를 만들어요!</p>
-          </div>
-        </div>
-      </div>
+      {/* 6) 하단 격려 배너 — 배경 5초 슬라이드 + 화분 고정 오버레이 */}
+      <BottomBanner />
       {/* 추천 페이스 편집 — 화면 중앙 모달 */}
       {editingPace && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-6" style={{ background: 'rgba(15,23,42,0.45)' }}

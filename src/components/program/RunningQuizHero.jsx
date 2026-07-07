@@ -16,7 +16,7 @@ function QuizRing({ done = 0, total = 0 }) {
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-[16px] font-extrabold text-gray-900 leading-none">{done}/{total}</span>
-        <span className="text-[9px] text-gray-400 mt-0.5">완료</span>
+        <span className="text-[11px] text-gray-400 mt-0.5">완료</span>
       </div>
     </div>
   )

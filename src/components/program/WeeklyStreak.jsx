@@ -240,8 +240,7 @@ const WeeklyStreak = forwardRef(function WeeklyStreak({ count = 0, days = [], ic
             <div className="flex-1 flex items-center justify-center gap-1.5">{dayCells}</div>
             <div className="flex flex-col items-center flex-shrink-0">
               {flameEl}
-              <p className="text-[9px] text-gray-400 mt-1 leading-none">최고 기록</p>
-              <p className="text-[11px] font-extrabold text-gray-700 leading-none mt-0.5 whitespace-nowrap">{bestStreak}일 연속</p>
+              <p className="text-[11px] font-extrabold text-gray-700 leading-none mt-1 whitespace-nowrap">{bestStreak}일 연속</p>
             </div>
           </div>
         ) : (

@@ -19,12 +19,12 @@ function ProgressRing({ done = 0, total = 0 }) {
         {total > 0 ? (
           <>
             <span className="text-[16px] font-extrabold text-gray-900 leading-none">{done}/{total}</span>
-            <span className="text-[9px] text-gray-400 mt-0.5">완료</span>
+            <span className="text-[11px] text-gray-400 mt-0.5">완료</span>
           </>
         ) : (
           <>
             <span className="text-[12px] font-extrabold text-gray-400 leading-none">휴식</span>
-            <span className="text-[9px] text-gray-300 mt-0.5">오늘</span>
+            <span className="text-[11px] text-gray-300 mt-0.5">오늘</span>
           </>
         )}
       </div>

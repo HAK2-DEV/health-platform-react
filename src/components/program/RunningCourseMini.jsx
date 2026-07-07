@@ -122,7 +122,7 @@ function RunningCourseMini({ progress = 0, showTest = false, className = '' }) {
         </svg>
         {/* %배지 — 기본은 핀 위, 상단 근처(결승)면 tip 아래로 뒤집어 잘림·깃발 겹침 방지 */}
         <span
-          className="absolute px-1 py-[1px] rounded-full bg-white/90 backdrop-blur text-[9px] font-extrabold text-emerald-600 tabular-nums leading-none shadow-sm whitespace-nowrap"
+          className="absolute px-1 py-[1px] rounded-full bg-white/90 backdrop-blur text-[11px] font-extrabold text-emerald-600 tabular-nums leading-none shadow-sm whitespace-nowrap"
           style={{ transform: badgeBelow ? 'translate(-50%, 4px)' : 'translate(-50%, calc(-100% - 20px))' }}
         >
           {pct}%
