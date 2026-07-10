@@ -13,6 +13,7 @@ import GardenPanel from '../../components/program/GardenPanel'
 import ConstellationPanel from '../../components/program/ConstellationPanel'
 import ProgramCompletionCelebration from '../../components/program/ProgramCompletionCelebration'
 import QuitSmokingHero from '../../components/program/QuitSmokingHero'
+import QuitSmokingHome, { QUIT_BOX_ORDER, QUIT_BOX_LABELS } from '../../components/program/QuitSmokingHome'
 import MoodCheck from '../../components/program/MoodCheck'
 import QuitSmokingTip from '../../components/program/QuitSmokingTip'
 import QuitSmokingCheer from '../../components/program/QuitSmokingCheer'
@@ -904,10 +905,9 @@ function ProgramDetailPage() {
   // 단독 그룹의 각 미션 = 카드 1개, 묶음 그룹 전체 = 카드 1개
   const missionCards = useMemo(() => {
     const cards = []
-    // 달리기 + 카드홈(신규 표준) 은 묶음(번들) 드릴다운 없이 개별 미션 카드로 평탄화
+    // 달리기 + 카드홈(표준·금연) 은 묶음(번들) 드릴다운 없이 개별 미션 카드로 평탄화
     //   → 라이브러리 묶음도 바로 인증 가능한 개별 카드로 노출 (cardHome 과 동일 판별)
-    const flatten = program?.theme === PROGRAM_THEME.RUNNING ||
-      (program?.card_home === true && program?.theme !== PROGRAM_THEME.QUIT_SMOKING)
+    const flatten = program?.theme === PROGRAM_THEME.RUNNING || program?.card_home === true
     for (const group of missionGroups) {
       if (group.bundleTitle === null || flatten) {
         for (const m of group.missions) cards.push({ kind: 'solo', mission: m })
@@ -1062,10 +1062,11 @@ function ProgramDetailPage() {
   const communityEnabled = program.community_enabled !== false
   // 달리기 테마 — 홈(개요) 외 서브화면에선 헤더 진행중·이름·톱니 숨김
   const isRunningTheme = program.theme === PROGRAM_THEME.RUNNING
-  // 카드형 홈(개편 2026-07-07) — 신규 표준 프로그램(card_home). 달리기는 RunningHome, 표준은 ProgramHome.
-  //   금연은 전용 히어로라 제외. 기존 프로그램(card_home=false)은 탭형 유지.
-  const usesCardHome = program.card_home === true && program.theme !== PROGRAM_THEME.RUNNING && program.theme !== PROGRAM_THEME.QUIT_SMOKING
-  const cardHome = isRunningTheme || usesCardHome   // 탭바·프로필카드 숨김 + 서브화면 헤더 대상
+  const isQuitSmoking = program.theme === PROGRAM_THEME.QUIT_SMOKING
+  // 카드형 홈(개편 2026-07-07) — 달리기=RunningHome, 표준=ProgramHome, 금연=QuitSmokingHome.
+  const usesCardHome = program.card_home === true && !isRunningTheme && !isQuitSmoking
+  const usesQuitHome = program.card_home === true && isQuitSmoking   // 금연 전용 카드홈(절충 변형)
+  const cardHome = isRunningTheme || usesCardHome || usesQuitHome   // 탭바·프로필카드 숨김 + 서브화면 헤더 대상
   const runningSub = cardHome && activeTab !== 'overview'   // 카드형 홈의 서브화면(탭바 없이 뒤로+이름 헤더)
   // 운영자 메뉴 시트 「내 프로그램 설정」 → 각 설정 클릭 시 탭 전환 + 인라인 관리자 열기
   const openManagerFromMenu = (key) => {
@@ -1441,12 +1442,53 @@ function ProgramDetailPage() {
       {/* ─── 개요 탭 (일반 콘텐츠) ─────────────────────────── */}
       {activeTab === 'overview' && (!overviewManageOpen || overviewPreview) && (<>
 
-      {/* 금연 테마 — 오늘의 기분 체크 (개요 최상단). 참여자/운영자(미리보기). */}
-      {program.theme === PROGRAM_THEME.QUIT_SMOKING && !isViewer && userId && (
+      {/* 금연 카드형 홈(절충) — QuitSmokingHero + 기분체크 + 카드메뉴(미션·퀴즈·응원·내변화) + 목표/스트릭 + 팁 + 진행현황 + 배너 */}
+      {usesQuitHome && (() => {
+        const qStreak = overviewData?.streak || 0
+        const qSaved = smokingToday
+          ? (program.saving_subtract_smoking !== false ? (smokingToday.saved - smokingToday.smoked) : smokingToday.saved) * 225
+          : null
+        const qSmokedToday = !!smokingToday && (smokingToday.smoked || 0) > 0
+        const qNotice = latestNotice ? (latestNotice.title || latestNotice.body || '') : ''
+        const qT = calcProgramTiming(program.start_date, program.end_date, overviewData?.activeDays ?? 0)
+        const qProgress = {
+          activeDays: overviewData?.activeDays ?? 0, totalDays: qT.programDays,
+          participationRate: qT.participationRate, points: scores?.total ?? 0, streak: qStreak,
+        }
+        return (
+          <QuitSmokingHome
+            programId={id} programName={program.name} categories={program.categories}
+            streak={qStreak} savedAmount={qSaved} smokedToday={qSmokedToday} statusLabel="진행중"
+            notice={qNotice}
+            progressData={qProgress} progress={calcProgress(program.start_date, program.end_date)}
+            streakData={{ count: qStreak, days: overviewData?.weekDays || [] }}
+            moodSlot={(!isViewer && userId) ? <MoodCheck programId={id} userId={userId} /> : null}
+            tipSlot={<QuitSmokingTip />}
+            bannerSlot={<QuitSmokingCheer />}
+            variant="goal"
+            homeGoal={program.home_goal}
+            onGoalChange={(cfg) => homeGoalMutation.mutate(cfg)}
+            ownerId={program.owner_id}
+            editable={isOwner}
+            streakRef={streakRef}
+            boxOrder={program.home_layout?.order || null}
+            hiddenBoxes={program.home_layout?.hidden || []}
+            onEditLayout={() => setHomeEditOpen(true)}
+            quizEnabled={quizEnabled && !isViewer}
+            communityEnabled={communityEnabled}
+            changeEnabled={program.change_tab_enabled === true}
+            onRecord={() => setActiveTab('missions')}
+            onOpenTab={(key) => setActiveTab(key)}
+            onNotice={() => { setCommunityBoard('notice'); setActiveTab('community') }}
+          />
+        )
+      })()}
+
+      {/* (비카드 금연 폴백) 오늘의 기분 체크 + 금연 팁 — card_home=false 인 옛 금연 프로그램만 */}
+      {isQuitSmoking && !usesQuitHome && !isViewer && userId && (
         <MoodCheck programId={id} userId={userId} />
       )}
-      {/* 금연 테마 — 금연 팁 카드 (회복 단계는 히어로 「회복 단계」 클릭 시 모달) */}
-      {program.theme === PROGRAM_THEME.QUIT_SMOKING && (
+      {isQuitSmoking && !usesQuitHome && (
         <QuitSmokingTip />
       )}
 
@@ -1652,6 +1694,19 @@ function ProgramDetailPage() {
           onSave={(layout) => homeLayoutMutation.mutate(layout)}
         />
       )}
+      {/* 금연 카드홈 — 전용 박스(기분체크/공지/메뉴/목표·스트릭/팁/진행/응원배너) 편집기 */}
+      {usesQuitHome && isOwner && homeEditOpen && (
+        <ProgramHomeLayoutEditor
+          boxKeys={QUIT_BOX_ORDER}
+          boxLabels={QUIT_BOX_LABELS}
+          currentOrder={program.home_layout?.order || null}
+          currentHidden={program.home_layout?.hidden || []}
+          menuLabels={['미션', (quizEnabled && !isViewer) ? '퀴즈' : null, communityEnabled ? '응원' : null, (program.change_tab_enabled === true) ? '내 변화' : null].filter(Boolean)}
+          saving={homeLayoutMutation.isPending}
+          onClose={() => setHomeEditOpen(false)}
+          onSave={(layout) => homeLayoutMutation.mutate(layout)}
+        />
+      )}
 
       {/* 주요 기록 요약 카드 (Phase2) — 다중 지표 + 달성 횟수. 금연·달리기·카드홈 테마에선 숨김(전용 표시로 대체) */}
       {!cardHome && program.theme !== PROGRAM_THEME.QUIT_SMOKING && (
@@ -1792,8 +1847,8 @@ function ProgramDetailPage() {
         </div>
       )}
 
-      {/* 금연 테마 — 응원 푸터 (개요 제일 하단) */}
-      {program.theme === PROGRAM_THEME.QUIT_SMOKING && (
+      {/* 금연 테마 — 응원 푸터 (개요 제일 하단). 카드홈(usesQuitHome)은 QuitSmokingHome 배너로 이동 */}
+      {isQuitSmoking && !usesQuitHome && (
         <QuitSmokingCheer />
       )}
 
@@ -2236,9 +2291,12 @@ function ProgramDetailPage() {
       {/* ─── /커뮤니티 탭 ──────────────────────────────── */}
 
       {/* ─── 금연 「내 변화」 / 「참가자 추세」 탭 ───────────────────── */}
-      {activeTab === 'change' && program.theme === PROGRAM_THEME.QUIT_SMOKING && (
-        <ProgramChangeTab programId={id} userId={userId} isOwner={isOwner} />
-      )}
+      {activeTab === 'change' && program.theme === PROGRAM_THEME.QUIT_SMOKING && (() => {
+        // 차트 기간 = 프로그램 경과일(진행할수록 늘어 최종엔 전체 개월수). 최소 14일.
+        const t = calcProgramTiming(program.start_date, program.end_date, 0)
+        const periodDays = Math.max(14, Math.min(t.elapsedDays || 0, t.programDays || 0))
+        return <ProgramChangeTab programId={id} userId={userId} isOwner={isOwner} periodDays={periodDays} />
+      })()}
 
       {/* ─── 성장 탭 (랭킹 / 정원 / 별자리 분기) ───────────────────── */}
       {activeTab === 'ranking' && !isViewer && (program.gamification_type === 'GARDEN') && (

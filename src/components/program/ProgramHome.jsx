@@ -73,7 +73,7 @@ function Icon3D({ src, emoji, className = 'w-[22px] h-[22px]' }) {
 }
 
 // 가로 배치 메뉴 카드 — 아이콘 상단 중앙 + 제목 + 설명 + 버튼 (레퍼런스: 달리기 홈 하단 카드).
-function NavCard({ iconSrc, iconEmoji, title, desc, actionLabel, onClick }) {
+export function NavCard({ iconSrc, iconEmoji, title, desc, actionLabel, onClick }) {
   return (
     <div className="rounded-2xl p-2 pt-3 bg-white border border-gray-100 shadow-soft flex flex-col items-center text-center gap-1">
       <Icon3D src={iconSrc} emoji={iconEmoji} className="w-9 h-9" />
@@ -102,7 +102,7 @@ function GoalField({ label, value, onChange, placeholder, cls = '' }) {
 }
 
 // 요약 지표 좌측 「목표 카드」 — 운영자가 제목·내용·단위·힌트 편집 (달리기 추천 페이스 카드 구조).
-function GoalCard({ emoji, title, value, unit, hint, editable = false, onSave = null }) {
+export function GoalCard({ emoji, title, value, unit, hint, editable = false, onSave = null }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState({ title, value, unit, hint })
   const set = (k, v) => setDraft((d) => ({ ...d, [k]: v }))

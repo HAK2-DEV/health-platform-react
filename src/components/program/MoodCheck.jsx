@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Target, Check, Loader2 } from 'lucide-react'
+import { Check, Loader2 } from 'lucide-react'
 import { fetchTodayMood, upsertMood } from '../../lib/queries'
 
 // 오늘의 기분 체크 — 금연 테마 전용 위젯 (본인 결정 B, 2026-06-28).
@@ -37,7 +37,7 @@ function MoodCheck({ programId, userId }) {
   const dirty = selected != null && selected !== savedMood
 
   return (
-    <div className="relative overflow-hidden bg-white rounded-2xl shadow-elevated p-3 mb-[9px] mx-auto w-[398px] max-w-full h-[195px]">
+    <div className="relative overflow-hidden bg-white rounded-2xl shadow-elevated p-3 mb-[9px] mx-auto w-[398px] max-w-full">
       {/* 클립보드 일러스트 — 우상단 장식 (없으면 숨김) */}
       <img
         src="/illustrations/themes/mood-check.png"
@@ -46,16 +46,13 @@ function MoodCheck({ programId, userId }) {
         className="absolute top-0 right-1 w-28 h-28 object-contain pointer-events-none"
       />
       <div className="relative z-10 pr-24">
-      <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-bold mb-1.5">
-        <Target className="w-3 h-3" /> 오늘의 미션
-      </div>
       <h3 className="text-[15px] font-extrabold text-gray-900">오늘의 기분 체크</h3>
       <p className="text-[12px] text-gray-500 mt-0.5">
         {recorded ? '오늘 기분을 기록했어요. 바꿀 수도 있어요.' : '지금 내 기분을 선택해보세요.'}
       </p>
       </div>
 
-      <div className="flex gap-1.5 mt-1.5 mb-1.5">
+      <div className="relative z-10 flex gap-1.5 mt-1.5 mb-1.5">
         {MOODS.map(m => {
           const on = selected === m.value
           return (
@@ -90,7 +87,7 @@ function MoodCheck({ programId, userId }) {
         type="button"
         onClick={() => selected != null && mutation.mutate(selected)}
         disabled={selected == null || mutation.isPending || (recorded && !dirty)}
-        className="w-full h-8 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold flex items-center justify-center gap-2 transition disabled:opacity-50"
+        className="relative z-10 w-full h-8 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold flex items-center justify-center gap-2 transition disabled:opacity-50"
       >
         {mutation.isPending
           ? (<><Loader2 className="w-4 h-4 animate-spin" /> 기록 중...</>)

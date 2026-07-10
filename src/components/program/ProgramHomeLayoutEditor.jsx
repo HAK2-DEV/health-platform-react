@@ -6,7 +6,7 @@ import { HOME_BOX_ORDER, HOME_BOX_LABELS } from './ProgramHome'
 // 박스 미리보기 — 실제 홈 모양의 흰 카드.
 //   요약=2칸 반폭 / 메뉴=활성 개수(2~4)칸 / 오늘의 미션·최근 인증=큰 Long / 그 외=Wide.
 const CARD = 'rounded-2xl bg-white shadow-md flex items-center justify-center'
-function BoxShape({ boxKey, menuLabels }) {
+function BoxShape({ boxKey, menuLabels, labels = HOME_BOX_LABELS }) {
   if (boxKey === 'summary') {
     return (
       <div className="grid grid-cols-2 gap-2.5">
@@ -24,15 +24,16 @@ function BoxShape({ boxKey, menuLabels }) {
     )
   }
   const tall = boxKey === 'todayMissions' || boxKey === 'recent'
-  return <div className={`${CARD} ${tall ? 'h-[148px]' : 'h-[84px]'}`}><span className="text-[15px] font-bold text-gray-400">{HOME_BOX_LABELS[boxKey] || boxKey}</span></div>
+  return <div className={`${CARD} ${tall ? 'h-[148px]' : 'h-[84px]'}`}><span className="text-[15px] font-bold text-gray-400">{labels[boxKey] || boxKey}</span></div>
 }
 
 // 개요 화면(카드홈) 레이아웃 편집기 — 운영자 전용.
 //   커스터마이즈 박스만 대상(고정: 표지 히어로·메뉴 카드 제외). 박스 크기는 고정(Rule 1) — 순서·숨김만.
 //   ▲▼ 순서 변경 / − 숨김 / + 복원 / 완료 → home_layout 저장.
 //   부모가 open 시에만 마운트(조건부 렌더) → 열 때마다 현재 값으로 초기화.
-function ProgramHomeLayoutEditor({ currentOrder, currentHidden, menuLabels, saving, onClose, onSave }) {
-  const allKeys = HOME_BOX_ORDER
+function ProgramHomeLayoutEditor({ currentOrder, currentHidden, menuLabels, saving, onClose, onSave,
+  boxKeys = HOME_BOX_ORDER, boxLabels = HOME_BOX_LABELS, nonHideable = ['menu'] }) {
+  const allKeys = boxKeys
   const [visible, setVisible] = useState(() => {
     const hiddenArr = (currentHidden || []).filter((k) => allKeys.includes(k))
     const base = (currentOrder && currentOrder.length ? currentOrder : allKeys).filter((k) => allKeys.includes(k))
@@ -70,7 +71,7 @@ function ProgramHomeLayoutEditor({ currentOrder, currentHidden, menuLabels, savi
           {visible.map((k, i) => (
             <motion.li key={k} layout transition={{ type: 'spring', stiffness: 600, damping: 42 }} className="relative">
               {/* 숨기기 — 좌상단 오버행 (메뉴는 숨김 불가: 카드홈엔 탭바가 없어 내비 유지 필요) */}
-              {k !== 'menu' && (
+              {!nonHideable.includes(k) && (
                 <button type="button" onClick={() => hide(k)} className="absolute -top-2 -left-2 z-10 w-8 h-8 rounded-full bg-gray-300 border-4 border-gray-50 text-gray-600 flex items-center justify-center hover:bg-gray-400 transition" aria-label="숨기기">
                   <Minus className="w-4 h-4" strokeWidth={2.5} />
                 </button>
@@ -80,7 +81,7 @@ function ProgramHomeLayoutEditor({ currentOrder, currentHidden, menuLabels, savi
                 <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="w-7 h-7 rounded-lg bg-gray-50 border border-gray-200 text-gray-500 flex items-center justify-center disabled:opacity-30 hover:bg-gray-100 transition" aria-label="위로"><ChevronUp className="w-4 h-4" /></button>
                 <button type="button" onClick={() => move(i, 1)} disabled={i === visible.length - 1} className="w-7 h-7 rounded-lg bg-gray-50 border border-gray-200 text-gray-500 flex items-center justify-center disabled:opacity-30 hover:bg-gray-100 transition" aria-label="아래로"><ChevronDown className="w-4 h-4" /></button>
               </div>
-              <BoxShape boxKey={k} menuLabels={menuLabels} />
+              <BoxShape boxKey={k} menuLabels={menuLabels} labels={boxLabels} />
             </motion.li>
           ))}
           {visible.length === 0 && (
@@ -95,7 +96,7 @@ function ProgramHomeLayoutEditor({ currentOrder, currentHidden, menuLabels, savi
             <ul className="space-y-2">
               {hidden.map((k) => (
                 <li key={k} className="flex items-center gap-2 bg-gray-50 border border-gray-100 rounded-2xl px-3 py-3.5">
-                  <span className="flex-1 text-[14px] font-bold text-gray-400">{HOME_BOX_LABELS[k] || k}</span>
+                  <span className="flex-1 text-[14px] font-bold text-gray-400">{boxLabels[k] || k}</span>
                   <button type="button" onClick={() => restore(k)} className="w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center flex-shrink-0 hover:bg-emerald-600 transition" aria-label="복원">
                     <Plus className="w-4 h-4" />
                   </button>
