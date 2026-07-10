@@ -47,7 +47,7 @@ function QuitSmokingHome({
   ].filter(Boolean)
 
   const goal = {
-    emoji: '🚭',
+    emoji: homeGoal?.emoji ?? '🚭',
     title: homeGoal?.title ?? '금연 목표',
     value: homeGoal?.value ?? '0',
     unit: homeGoal?.unit ?? '개비',
@@ -131,9 +131,9 @@ function QuitSmokingHome({
           categories={categories} programName={programName} ownerId={ownerId} onHeroChange={onHeroChange} />
       )}
 
-      {/* [고정] 금연 지표 히어로 */}
+      {/* [고정] 금연 지표 히어로 — 진행중 배지는 페이지 헤더에 이미 있어 제외(제목과 겹침 방지) */}
       <QuitSmokingHero programId={programId} streak={streak} savedAmount={savedAmount}
-        smokedToday={smokedToday} statusLabel={statusLabel} onAction={onRecord} />
+        smokedToday={smokedToday} onAction={onRecord} />
 
       {/* [커스터마이즈] 운영자 순서·숨김 반영 */}
       {orderedKeys.map((k) => <Fragment key={k}>{BOXES[k]()}</Fragment>)}

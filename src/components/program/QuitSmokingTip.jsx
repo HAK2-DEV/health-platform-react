@@ -15,7 +15,7 @@ function QuitSmokingTip() {
     <div className="relative rounded-2xl overflow-hidden shadow-elevated mb-[9px] mx-auto w-[398px] max-w-full h-[103px] bg-white border border-gray-100">
       {/* 일러스트 — 우측, 흰 배경이라 카드와 자연스럽게 이어짐 */}
       <img
-        src="/illustrations/themes/quit-smoking-tip.png"
+        src="/illustrations/themes/quit-smoking-tip.webp"
         alt="" aria-hidden="true"
         onError={(e) => { e.currentTarget.style.display = 'none' }}
         className="absolute right-0 inset-y-0 h-full w-[50%] object-contain object-center"

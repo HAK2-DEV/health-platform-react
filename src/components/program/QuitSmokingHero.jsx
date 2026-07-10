@@ -23,7 +23,7 @@ function QuitSmokingHero({ programId, streak = 0, savedAmount = null, healthScor
     <div className="relative rounded-2xl overflow-hidden shadow-elevated mb-[9px] mx-auto w-[398px] max-w-full h-[220px] bg-gradient-to-br from-emerald-50 to-teal-50">
       {/* 일러스트 — 카드 전체 배경(cover), 상단 정렬(머리 보존). 없으면 숨김 */}
       <img
-        src="/illustrations/themes/quit-smoking.png"
+        src="/illustrations/themes/quit-smoking.webp"
         alt="" aria-hidden="true"
         onError={(e) => { e.currentTarget.style.display = 'none' }}
         className="absolute inset-0 w-full h-full object-cover object-top"

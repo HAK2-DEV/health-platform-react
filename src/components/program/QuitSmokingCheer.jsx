@@ -5,7 +5,7 @@ function QuitSmokingCheer() {
     <div className="relative rounded-2xl overflow-hidden shadow-elevated mb-[9px] mx-auto w-[398px] max-w-full h-[56px] bg-white border border-gray-100">
       {/* 일러스트 — 좌측 배치, 흰 배경이라 카드와 자연스럽게 이어짐 (페이드 없음) */}
       <img
-        src="/illustrations/themes/quit-smoking-cheer.png"
+        src="/illustrations/themes/quit-smoking-cheer.webp"
         alt="" aria-hidden="true"
         onError={(e) => { e.currentTarget.style.display = 'none' }}
         className="absolute left-0 inset-y-0 h-full w-[46%] object-contain object-center"

@@ -90,6 +90,9 @@ export function NavCard({ iconSrc, iconEmoji, title, desc, actionLabel, onClick 
   )
 }
 
+// 목표 카드 아이콘 팔레트 — 운영자가 고르는 이모지 후보(건강·목표 계열)
+const GOAL_EMOJIS = ['🎯', '⏱️', '👣', '🏃', '🚶', '🍱', '🥗', '💪', '🔥', '🌙', '😴', '🧘', '🧠', '❤️', '🩺', '🚭', '💧', '⭐', '🏆', '📈']
+
 // 목표 카드 편집 입력 필드 (모듈 레벨 — 내부 정의 시 리마운트로 포커스 빠짐 방지)
 function GoalField({ label, value, onChange, placeholder, cls = '' }) {
   return (
@@ -104,13 +107,15 @@ function GoalField({ label, value, onChange, placeholder, cls = '' }) {
 // 요약 지표 좌측 「목표 카드」 — 운영자가 제목·내용·단위·힌트 편집 (달리기 추천 페이스 카드 구조).
 export function GoalCard({ emoji, title, value, unit, hint, editable = false, onSave = null }) {
   const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState({ title, value, unit, hint })
+  const [draft, setDraft] = useState({ emoji, title, value, unit, hint })
   const set = (k, v) => setDraft((d) => ({ ...d, [k]: v }))
-  const open = () => { setDraft({ title, value, unit, hint }); setEditing(true) }
+  const open = () => { setDraft({ emoji, title, value, unit, hint }); setEditing(true) }
   const save = () => {
-    onSave?.({ title: (draft.title || '').trim(), value: (draft.value || '').trim(), unit: (draft.unit || '').trim(), hint: (draft.hint || '').trim() })
+    onSave?.({ emoji: draft.emoji || emoji, title: (draft.title || '').trim(), value: (draft.value || '').trim(), unit: (draft.unit || '').trim(), hint: (draft.hint || '').trim() })
     setEditing(false)
   }
+  // 현재 아이콘이 팔레트에 없으면 앞에 붙여 항상 선택 상태로 보이게
+  const palette = draft.emoji && !GOAL_EMOJIS.includes(draft.emoji) ? [draft.emoji, ...GOAL_EMOJIS] : GOAL_EMOJIS
   return (
     <div className="relative rounded-2xl p-3.5 bg-white border border-gray-100 shadow-soft">
       {editable && (
@@ -130,6 +135,17 @@ export function GoalCard({ emoji, title, value, unit, hint, editable = false, on
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-5" style={{ background: 'rgba(15,23,42,0.45)' }} onClick={() => setEditing(false)}>
           <div className="w-full max-w-[320px] rounded-2xl bg-white p-5 shadow-2xl space-y-3" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-[15px] font-bold text-gray-800">목표 카드 편집</h3>
+            <div>
+              <span className="text-[12px] font-bold text-gray-600">아이콘</span>
+              <div className="mt-1 flex flex-wrap gap-1.5">
+                {palette.map((e) => (
+                  <button key={e} type="button" onClick={() => set('emoji', e)}
+                    className={`w-9 h-9 rounded-lg flex items-center justify-center text-lg transition ${draft.emoji === e ? 'bg-emerald-100 ring-2 ring-emerald-400' : 'bg-gray-50 hover:bg-gray-100'}`}>
+                    {e}
+                  </button>
+                ))}
+              </div>
+            </div>
             <GoalField label="제목" value={draft.title} onChange={(v) => set('title', v)} placeholder="예: 목표 걸음" />
             <div className="flex gap-2">
               <GoalField label="내용" value={draft.value} onChange={(v) => set('value', v)} placeholder="예: 8,000" cls="flex-[1.5]" />
@@ -229,7 +245,7 @@ function ProgramHome({
       const defValue = g.value != null ? g.value : (pace || "6'20")   // 달리기는 운영자 페이스
       // 운영자가 저장한 값(home_goal) 우선, 없으면 카테고리 기본값
       const goal = {
-        emoji: g.emoji,
+        emoji: homeGoal?.emoji ?? g.emoji,
         title: homeGoal?.title ?? g.title,
         value: homeGoal?.value ?? defValue,
         unit: homeGoal?.unit ?? g.unit,

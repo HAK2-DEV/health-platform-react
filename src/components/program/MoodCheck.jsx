@@ -40,7 +40,7 @@ function MoodCheck({ programId, userId }) {
     <div className="relative overflow-hidden bg-white rounded-2xl shadow-elevated p-3 mb-[9px] mx-auto w-[398px] max-w-full">
       {/* 클립보드 일러스트 — 우상단 장식 (없으면 숨김) */}
       <img
-        src="/illustrations/themes/mood-check.png"
+        src="/illustrations/themes/mood-check.webp"
         alt="" aria-hidden="true"
         onError={(e) => { e.currentTarget.style.display = 'none' }}
         className="absolute top-0 right-1 w-28 h-28 object-contain pointer-events-none"
