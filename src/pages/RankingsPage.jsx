@@ -309,8 +309,8 @@ function RankingsPage() {
             <>
               {hasPodium && <Podium top3={podiumTop3} userId={userId} />}
 
-              {/* 프로그램 선택 칩 — 시상대 아래 */}
-              {programChips}
+              {/* 프로그램 선택 칩 — 시상대가 있을 때만 그 아래에 (없으면 상단 268번에서 표시 → 중복 방지) */}
+              {hasPodium && programChips}
 
               {restRanking.length > 0 && (
                 <motion.div

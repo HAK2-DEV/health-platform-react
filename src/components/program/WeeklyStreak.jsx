@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import { cloneElement, forwardRef, isValidElement, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { motion, AnimatePresence, useAnimationControls } from 'framer-motion'
 import { Check, Calendar } from 'lucide-react'
 
@@ -22,7 +22,7 @@ const PARTICLES = Array.from({ length: 8 }, (_, i) => {
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms))
 
-const WeeklyStreak = forwardRef(function WeeklyStreak({ count = 0, days = [], icon = null, showTest = false, variant = 'card', bestStreak = 0 }, ref) {
+const WeeklyStreak = forwardRef(function WeeklyStreak({ count = 0, days = [], icon = null, showTest = false, variant = 'card', bestStreak = 0, clickReplay = true }, ref) {
   const doneFromProps = () => new Set(days.map((d, i) => (d.done ? i : -1)).filter((i) => i >= 0))
   const [doneSet, setDoneSet] = useState(doneFromProps)
   const [streak, setStreak] = useState(count)
@@ -30,7 +30,10 @@ const WeeklyStreak = forwardRef(function WeeklyStreak({ count = 0, days = [], ic
   const [impacted, setImpacted] = useState(false) // 임팩트(상태 확정) 여부
   const [particlesOn, setParticlesOn] = useState(false)
   const [dim, setDim] = useState(false)
+  const [flamePlay, setFlamePlay] = useState(0)   // 도장 연출 시 불꽃(FlameIcon)도 타오르게 하는 신호
   const busyRef = useRef(false)
+  // 불꽃 아이콘에 playSignal(도장 시 타오름) + interactive(클릭 반응) 주입. FlameIcon 아니어도 안전.
+  const flameNode = isValidElement(icon) ? cloneElement(icon, { playSignal: flamePlay, interactive: clickReplay }) : icon
 
   const cardRef = useRef(null)
   const cardCtrl = useAnimationControls()
@@ -46,15 +49,15 @@ const WeeklyStreak = forwardRef(function WeeklyStreak({ count = 0, days = [], ic
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [days, count])
 
-  const playStamp = async (dayIndex, { bumpCount = true } = {}) => {
+  const playStamp = async (dayIndex, { bumpCount = true, noReset = false } = {}) => {
     if (busyRef.current) return
     if (dayIndex == null || dayIndex < 0 || dayIndex >= days.length) return
     busyRef.current = true
 
-    // 7일(전체)이 다 차 있으면 자동 리셋 후 시작
+    // 7일(전체)이 다 차 있으면 자동 리셋 후 시작 (재생(noReset)에선 유지)
     let baseDone = doneSet
     let baseStreak = streak
-    if (doneSet.size >= days.length) {
+    if (!noReset && doneSet.size >= days.length) {
       baseDone = new Set()
       baseStreak = 0
       setDoneSet(baseDone)
@@ -88,6 +91,7 @@ const WeeklyStreak = forwardRef(function WeeklyStreak({ count = 0, days = [], ic
       dy = Math.round(92 - r.top)
     }
     setDim(true)
+    setFlamePlay((p) => p + 1)   // 도장 연출 동안 불꽃(FlameIcon)도 타오르게
     // 불꽃 — 도장 시퀀스 동안만 타오름(밑동 기준 flicker + 주황 glow), 마지막에 원상복귀
     flameCtrl.start({
       scale: [1, 1.2, 0.95, 1.16, 1.05, 1.12, 1],
@@ -133,7 +137,16 @@ const WeeklyStreak = forwardRef(function WeeklyStreak({ count = 0, days = [], ic
     const i = days.findIndex((d) => d.today)
     if (i >= 0) playStamp(i, opts)
   }
-  useImperativeHandle(ref, () => ({ playStamp, playToday }))
+  // 축하 다시 보기 — 오늘 찍혀있으면 오늘, 아니면 마지막으로 찍힌 칸을 재생(카운트·리셋 없음)
+  const replayCelebrate = () => {
+    if (busyRef.current) return
+    const todayIdx = days.findIndex((d) => d.today)
+    let idx = (todayIdx >= 0 && doneSet.has(todayIdx)) ? todayIdx : -1
+    if (idx < 0) for (let i = days.length - 1; i >= 0; i--) { if (doneSet.has(i)) { idx = i; break } }
+    if (idx < 0) return // 아직 찍힌 칸 없음 → 축하할 게 없음
+    playStamp(idx, { bumpCount: false, noReset: true })
+  }
+  useImperativeHandle(ref, () => ({ playStamp, playToday, replayCelebrate }))
 
   // 도장 찍는 칸은 임팩트 전까지 회색(미달성)으로 보여 gray→green 연출
   const cellDone = (i) => (stampIdx === i && !impacted ? false : doneSet.has(i))
@@ -147,7 +160,7 @@ const WeeklyStreak = forwardRef(function WeeklyStreak({ count = 0, days = [], ic
   const flameEl = (
     <span className="w-9 h-9 rounded-full bg-orange-50 flex items-center justify-center flex-shrink-0">
       <motion.span animate={flameCtrl} style={{ transformOrigin: '50% 90%', display: 'inline-flex' }}>
-        {icon}
+        {flameNode}
       </motion.span>
     </span>
   )
@@ -227,7 +240,9 @@ const WeeklyStreak = forwardRef(function WeeklyStreak({ count = 0, days = [], ic
       <motion.div
         ref={cardRef}
         animate={cardCtrl}
-        className={`relative rounded-2xl p-3.5 bg-white border border-gray-100 shadow-soft ${dim ? 'z-50' : ''}`}
+        onClick={clickReplay ? replayCelebrate : undefined}
+        title={clickReplay ? '다시 보기' : undefined}
+        className={`relative rounded-2xl p-3.5 bg-white border border-gray-100 shadow-soft ${clickReplay ? 'cursor-pointer' : ''} ${dim ? 'z-50' : ''}`}
       >
         {variant === 'wide' ? (
           // 레퍼런스 와이드 — 좌 텍스트 / 가운데 요일 / 우 불꽃·최고기록
@@ -248,7 +263,7 @@ const WeeklyStreak = forwardRef(function WeeklyStreak({ count = 0, days = [], ic
           <>
             <div className="flex items-start gap-2.5">
               <span className="w-9 h-9 rounded-full bg-orange-50 flex items-center justify-center flex-shrink-0">
-                <motion.span animate={flameCtrl} style={{ transformOrigin: '50% 90%', display: 'inline-flex' }}>{icon}</motion.span>
+                <motion.span animate={flameCtrl} style={{ transformOrigin: '50% 90%', display: 'inline-flex' }}>{flameNode}</motion.span>
               </span>
               <div className="min-w-0 flex-1">
                 <span className="text-[13px] font-bold text-gray-800">주간 스트릭</span>
@@ -263,7 +278,7 @@ const WeeklyStreak = forwardRef(function WeeklyStreak({ count = 0, days = [], ic
         {showTest && (
           <button
             type="button"
-            onClick={testTrigger}
+            onClick={(e) => { e.stopPropagation(); testTrigger() }}
             className="mt-3 w-full h-7 rounded-lg bg-emerald-50 text-emerald-600 text-[11px] font-bold border border-emerald-200 hover:bg-emerald-100 transition"
           >
             🟢 도장 찍기 테스트

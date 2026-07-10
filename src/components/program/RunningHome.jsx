@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Timer, Flame, Megaphone, Footprints, Star, ClipboardList, HelpCircle, MessageSquare, ChevronRight, Check, Pencil, X } from 'lucide-react'
 import WeeklyStreak from './WeeklyStreak'
+import FlameIcon from '../common/FlameIcon'
 import RunningCourseMini from './RunningCourseMini'
 import CountUp from '../common/CountUp'
 
@@ -369,7 +370,7 @@ function RunningHome({
           ref={streakRef}
           count={weekStreak.count}
           days={weekStreak.days}
-          icon={<AssetImg src={`${RICON}/flame.png`} className="w-6 h-6 object-contain" fallback={<Flame className="w-6 h-6 text-orange-400" />} />}
+          icon={<FlameIcon />}
           showTest={showStampTest}
         />
       </div>

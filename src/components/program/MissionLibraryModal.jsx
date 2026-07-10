@@ -4,6 +4,21 @@ import { supabase } from '../../supabaseClient'
 import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Plus, X, Image as ImageIcon, BarChart3, MessageSquare, Pencil, Check } from 'lucide-react'
 import { CATEGORY_LIST, SCHEDULE_MODES, WEEKDAY_OPTIONS } from '../../lib/constants'
 import { MISSION_LIBRARY } from '../../lib/missionLibrary'
+import { resolveMissionIcon } from '../../lib/missionIcons'
+
+// 카테고리 칩 3D 아이콘 (실패 시 이모지 폴백)
+function Cat3D({ cat }) {
+  const [err, setErr] = useState(false)
+  if (err) return <span>{cat.emoji}</span>
+  return <img src={`/icons/category/${cat.key.toLowerCase()}.png`} alt="" aria-hidden="true" onError={() => setErr(true)} className="w-4 h-4 object-contain" />
+}
+// 묶음 카드 3D 아이콘 — 묶음의 첫 미션 아이콘(3D) 사용. 없으면 이모지 폴백
+function Bundle3D({ bundle }) {
+  const [err, setErr] = useState(false)
+  const iconFile = bundle.missions?.find((m) => m.icon)?.icon
+  if (err || !iconFile) return <span className="text-2xl">{bundle.emoji}</span>
+  return <img src={resolveMissionIcon(iconFile)} alt="" aria-hidden="true" onError={() => setErr(true)} className="w-9 h-9 object-contain" />
+}
 
 // 인증 입력 유형 — 한 미션에 복수 선택 가능 (사진+소감 통합 등). missions.requires_* 와 매핑.
 // 제출 화면(MissionVerifyPage)이 이미 사진/기록/소감을 한 미션에 같이 띄워 한 번에 제출함.
@@ -308,7 +323,7 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
                         : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}
                     `}
                   >
-                    <span>{category.emoji}</span>
+                    <Cat3D cat={category} />
                     <span>{category.label}</span>
                     {count > 0 && (
                       <span className={`text-xs ${isActive ? 'text-emerald-50' : 'text-gray-400'}`}>
@@ -338,8 +353,8 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
                       transition text-left
                     "
                   >
-                    <div className="w-12 h-12 flex-shrink-0 bg-emerald-50 rounded-xl flex items-center justify-center text-2xl">
-                      {b.emoji}
+                    <div className="w-12 h-12 flex-shrink-0 bg-emerald-50 rounded-xl flex items-center justify-center">
+                      <Bundle3D bundle={b} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="font-medium text-gray-800 text-sm truncate">
@@ -404,7 +419,7 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
           </button>
 
           <h2 className="text-xl font-semibold text-gray-800 mb-1 pr-8 flex items-center gap-2">
-            <span className="text-2xl">{bundle.emoji}</span>
+            <span className="w-8 h-8 flex items-center justify-center flex-shrink-0"><Bundle3D bundle={bundle} /></span>
             {bundle.title}
           </h2>
           <p className="text-xs text-gray-500 mb-5">

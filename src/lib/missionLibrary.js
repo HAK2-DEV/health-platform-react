@@ -249,7 +249,7 @@ export const MISSION_LIBRARY = [
       {
         title: '걸음 수 기록',
         instruction: '오늘 걸은 걸음 수를 기록해요',
-        icon: 'exercise.png',
+        icon: 'walk.png',
         requires_image: false,
         requires_numeric: true,
         requires_note: false,
@@ -260,7 +260,7 @@ export const MISSION_LIBRARY = [
       {
         title: '산책 사진',
         instruction: '오늘 산책한 풍경을 사진으로 인증해요',
-        icon: 'exercise.png',
+        icon: 'walk.png',
         requires_image: true,
         requires_numeric: false,
         requires_note: false,
@@ -271,7 +271,7 @@ export const MISSION_LIBRARY = [
       {
         title: '걷기 후 컨디션',
         instruction: '걷기 후 느낌을 한 줄로 남겨주세요',
-        icon: 'exercise.png',
+        icon: 'walk.png',
         requires_image: false,
         requires_numeric: false,
         requires_note: true,
@@ -327,7 +327,7 @@ export const MISSION_LIBRARY = [
       {
         title: '러닝 인증',
         instruction: '러닝 후 거리·시간·칼로리를 기록하고, 사진과 한 줄 소감을 남겨요',
-        icon: 'exercise.png',
+        icon: 'running.png',
         requires_image: true,
         requires_numeric: true,
         requires_note: true,

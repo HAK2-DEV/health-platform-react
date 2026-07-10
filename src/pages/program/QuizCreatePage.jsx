@@ -313,8 +313,11 @@ function QuizCreatePage() {
       if (isEdit) {
         queryClient.invalidateQueries({ queryKey: queryKeys.quizEdit(quizId) })
         queryClient.invalidateQueries({ queryKey: queryKeys.programQuizStats(id) })
+        exitToManager()   // 수정 저장 — 퀴즈 관리자로 복귀
+      } else {
+        // 신규 발행 — 관리 패널(다시 편집 모달) 이 아니라 퀴즈 화면(목록) 으로 나가기
+        navigate(`/programs/${id}?tab=quizzes`, { replace: true })
       }
-      exitToManager()   // 퀴즈 관리자로 복귀 (히스토리 정리 → 뒤로가기 루프 방지)
     },
     onError: (err) => {
       console.error('퀴즈 저장 실패:', err)

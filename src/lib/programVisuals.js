@@ -39,6 +39,24 @@ export const calcProgress = (startDate, endDate) => {
   return Math.round((passed / total) * 100)
 }
 
+// 프로그램 일수/경과일/남은일 + 참여율(=인증일÷경과일) 공용 계산 (KST).
+//   대시보드·상세 개요·카드홈이 반드시 같은 값을 쓰도록 단일 소스로 통일.
+//   경과일은 프로그램 기간(programDays)으로 상한 → 종료 후에도 분모가 늘지 않아
+//   참여율이 계속 줄어드는 문제 방지. (예전 대시보드 uncapped 버그 교정)
+export const calcProgramTiming = (startDate, endDate, activeDays = 0) => {
+  const start = startDate ? new Date(`${startDate}T00:00:00+09:00`) : null
+  const end = endDate ? new Date(`${endDate}T00:00:00+09:00`) : null
+  const programDays = (start && end) ? Math.max(1, Math.round((end - start) / 86400000) + 1) : null
+  const elapsedDays = start
+    ? Math.min(programDays || 9999, Math.max(0, Math.round((new Date() - start) / 86400000) + 1))
+    : 0
+  const remainingDays = (programDays != null) ? Math.max(0, programDays - elapsedDays) : null
+  const participationRate = elapsedDays > 0
+    ? Math.min(100, Math.round(((activeDays || 0) / elapsedDays) * 100))
+    : 0
+  return { programDays, elapsedDays, remainingDays, participationRate }
+}
+
 // Day 65 — 진행도 막대의 종료 임박 시각화.
 //   normal   (<70%): 카테고리 색 그대로 (override null)
 //   soon   (70-89%): amber — 마무리 단계

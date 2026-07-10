@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
@@ -14,6 +14,7 @@ import StickyBackBar from '../../components/common/StickyBackBar'
 import LoadingState from '../../components/common/LoadingState'
 import ConfirmModal from '../../components/common/ConfirmModal'
 import Confetti from '../../components/common/Confetti'
+import SubmitCelebration from '../../components/common/SubmitCelebration'
 import { formatKoreanDateTime } from '../../lib/formatters'
 import { PROGRAM_THEME } from '../../lib/constants'
 
@@ -42,12 +43,16 @@ function QuizSolvePage() {
     enabled: !!id,
   })
   const isRunning = program?.theme === PROGRAM_THEME.RUNNING
+  // 카드홈(신규 표준) 도 달리기식 결과 화면(정답보기 팝업 + 버튼 + 제출 연출) 사용
+  const isCardHome = program?.card_home === true && program?.theme !== PROGRAM_THEME.RUNNING && program?.theme !== PROGRAM_THEME.QUIT_SMOKING
+  const cardHome = isRunning || isCardHome
 
   const [answers, setAnswers] = useState({})
   const [currentIdx, setCurrentIdx] = useState(0)
   const [submitError, setSubmitError] = useState(null)
   const [confirmOpen, setConfirmOpen] = useState(false)  // 미응답 제출 확인 모달
   const [resultOpen, setResultOpen] = useState(false)    // 정답 보기 모달
+  const [celebrated, setCelebrated] = useState(false)    // 제출 완료 연출 재생 여부
 
   const submitMutation = useMutation({
     mutationFn: () => {
@@ -141,15 +146,25 @@ function QuizSolvePage() {
     )
   }
 
-  // 달리기 테마 — 제출 완료(결과): 버튼 3개 + 정답 보기 중앙 팝업 (긴 스크롤 제거)
-  if (isRunning && !isPreview && isSubmitted) {
+  // 달리기 + 카드홈 — 제출 완료(결과): 버튼 3개 + 정답 보기 중앙 팝업 (긴 스크롤 제거)
+  if (cardHome && !isPreview && isSubmitted) {
     const rankingOn = program?.ranking_enabled !== false
-    const pendingReview = my_submission.status === 'PENDING'
+    const sub = my_submission
+    const amap = answerMap
+    const pendingReview = sub.status === 'PENDING'
     const totalQ = questions.length
-    const correctCount = questions.filter((q) => answerMap[q.id]?.is_correct === true).length
+    const correctCount = questions.filter((q) => amap[q.id]?.is_correct === true).length
     const correctRate = totalQ > 0 ? Math.round((correctCount / totalQ) * 100) : 0
+    // 방금 제출했으면(제출 성공) 3D 아이콘 연출 1회
+    const showIntro = submitMutation.isSuccess && !celebrated
     return (
       <div className="px-4 pt-2 pb-10 max-w-2xl mx-auto">
+        {showIntro && (
+          <SubmitCelebration
+            emptySrc="/icons/feature/quiz-empty.png" checkSrc="/icons/feature/quiz-check.png" checkOrigin="51% 51%"
+            label="제출 완료!" points={sub.total_score || 0} pending={pendingReview}
+            onDone={() => setCelebrated(true)} />
+        )}
         <StickyBackBar fallbackPath={`/programs/${id}`} title="프로그램으로" />
 
         <div className="bg-white border border-gray-100 rounded-2xl shadow-soft p-4 mb-[9px] flex items-center gap-3">
@@ -175,11 +190,11 @@ function QuizSolvePage() {
               <h2 className="text-[21px] font-extrabold text-gray-900 leading-tight">제출 완료!</h2>
               {pendingReview ? (
                 <p className="text-[12px] text-gray-500 mt-1 break-keep">
-                  서술형 문항은 운영자 채점 후 점수가 확정돼요<br />(현재 {my_submission.total_score}점)
+                  서술형 문항은 운영자 채점 후 점수가 확정돼요<br />(현재 {sub.total_score}점)
                 </p>
               ) : (
                 <p className="text-[12px] text-gray-500 mt-1 break-keep">
-                  채점 완료 · <b className="text-emerald-600">{my_submission.total_score}점</b> 랭킹에 반영됐어요
+                  채점 완료 · <b className="text-emerald-600">{sub.total_score}점</b> 랭킹에 반영됐어요
                 </p>
               )}
             </div>
@@ -187,7 +202,7 @@ function QuizSolvePage() {
           {/* 통계 — 정답률 / 획득 예정 (제출완료 박스 안에 통합) */}
           <div className="relative grid grid-cols-2 gap-2">
             <StatTile icon={<Check className="w-4 h-4" strokeWidth={3} />} iconBg="bg-emerald-100 text-emerald-600" label="정답률" value={`${correctRate}%`} valueClass="text-emerald-600" />
-            <StatTile icon={<Trophy className="w-4 h-4" />} iconBg="bg-amber-100 text-amber-500" label={pendingReview ? '획득 예정' : '획득 점수'} value={`+${my_submission.total_score}P`} valueClass="text-amber-600" />
+            <StatTile icon={<Trophy className="w-4 h-4" />} iconBg="bg-amber-100 text-amber-500" label={pendingReview ? '획득 예정' : '획득 점수'} value={`+${sub.total_score}P`} valueClass="text-amber-600" />
           </div>
         </div>
 
@@ -205,7 +220,7 @@ function QuizSolvePage() {
             </button>
             <button type="button" onClick={() => navigate(`/programs/${id}`)}
               className="flex-1 h-11 rounded-xl bg-white border border-gray-200 text-gray-500 font-bold text-[13px] hover:bg-gray-50 transition flex items-center justify-center gap-1">
-              🏠 프로그램 이동
+              🏠 프로그램 돌아가기
             </button>
           </div>
         </div>
@@ -220,7 +235,7 @@ function QuizSolvePage() {
               </div>
               <div className="px-5 py-2">
                 {questions.map((q, idx) => {
-                  const myAns = answerMap[q.id]
+                  const myAns = amap[q.id]
                   return (
                     <div key={q.id} className="py-3 border-b border-gray-100 last:border-0">
                       <p className="text-[13px] font-bold text-gray-800 leading-snug break-keep"><span className="text-gray-400 mr-1">{idx + 1}.</span>{q.question_text}</p>

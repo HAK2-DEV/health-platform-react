@@ -4,6 +4,13 @@ import { Calendar } from 'lucide-react'
 import { CATEGORY_LIST, PROGRAM } from '../../../lib/constants'
 import { getTodayKST } from '../../../lib/formatters'
 import { useAuth } from '../../../hooks/useAuth'
+
+// 카테고리 3D 아이콘 (public/icons/category/<key>.png) — 로드 실패 시 이모지 폴백
+function CatIcon({ cat }) {
+  const [err, setErr] = useState(false)
+  if (err) return <span className="text-base leading-none">{cat.emoji}</span>
+  return <img src={`/icons/category/${cat.key.toLowerCase()}.png`} alt="" aria-hidden="true" onError={() => setErr(true)} className="w-6 h-6 object-contain" />
+}
 import CoverImageUploader from '../../common/CoverImageUploader'
 
 // 1단계: 기본 정보 — 무스크롤 서브스텝(타입폼) 방식.
@@ -158,7 +165,7 @@ function Step1Basic({ initialData, onNext, onSave, enterAtEnd = false }) {
                       className={`flex items-center justify-center gap-1 px-2 py-2.5 rounded-[10px] border-2 text-sm transition leading-tight min-w-0
                         ${on ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
                     >
-                      <span className="flex-shrink-0">{category.emoji}</span>
+                      <span className="flex-shrink-0"><CatIcon cat={category} /></span>
                       <span className="whitespace-pre-line text-center">{category.label === '마음관리' ? '마음\n관리' : category.label}</span>
                     </button>
                   )

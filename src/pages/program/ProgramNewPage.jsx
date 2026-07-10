@@ -110,6 +110,7 @@ function ProgramNewPage() {
           .insert({
             owner_id: session.user.id,
             status: 'DRAFT',
+            card_home: true,   // 신규 생성 프로그램 = 카드형 홈(개편 2026-07-07). 표준 테마에만 코드에서 적용.
             ...stepData,
           })
           .select()

@@ -5,7 +5,9 @@
 export const MISSION_ICONS = [
   'diet.png',        // 식단 (샐러드)
   'water.png',       // 수분 (물병)
-  'exercise.png',    // 운동·걷기·러닝 (운동화)
+  'exercise.png',    // 운동 (운동화)
+  'walk.png',        // 걷기 (걷기 전용)
+  'running.png',     // 러닝 (달리기 전용)
   'stretching.png',  // 스트레칭 (요가)
   'sleep.png',       // 수면 (달·베개)
   'meditation.png',  // 명상·마음 (연꽃)

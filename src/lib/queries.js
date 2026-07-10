@@ -319,6 +319,22 @@ export const fetchPublicPrograms = async (excludeUserId) => {
   return data || []
 }
 
+// 카드홈 레이아웃 저장 (운영자) — home_layout = { order:[...], hidden:[...] } (마이그 154)
+export const updateProgramHomeLayout = async (programId, layout) => {
+  const { error } = await supabase.from('programs').update({ home_layout: layout }).eq('id', programId)
+  if (error) throw error
+}
+// 카드홈 히어로 저장 (운영자) — home_hero = { titleHtml, subtitleHtml, useImage, gradient } (마이그 155)
+export const updateProgramHomeHero = async (programId, heroCfg) => {
+  const { error } = await supabase.from('programs').update({ home_hero: heroCfg }).eq('id', programId)
+  if (error) throw error
+}
+// 카드홈 요약 지표 좌측 「목표 카드」 저장 (운영자) — home_goal = { title, value, unit, hint } (마이그 157)
+export const updateProgramHomeGoal = async (programId, goal) => {
+  const { error } = await supabase.from('programs').update({ home_goal: goal }).eq('id', programId)
+  if (error) throw error
+}
+
 export const fetchProgram = async (programId) => {
   const { data, error } = await supabase
     .from('programs')
@@ -2354,6 +2370,7 @@ export const createProgramFromPreset = async ({ presetKey, userId, selectedKeys,
   const { data: created, error } = await supabase.from('programs').insert({
     owner_id: userId,
     status: 'DRAFT',
+    card_home: true,   // 신규 생성 = 카드형 홈(개편 2026-07-07). 표준 테마에만 코드에서 적용.
     name: preset.name,
     description: preset.description || null,
     categories: preset.categories || [],

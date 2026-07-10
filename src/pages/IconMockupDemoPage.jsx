@@ -32,8 +32,7 @@ function Phone({ title, children }) {
 }
 
 // ─── 실제 앱 하단 탭바(BottomTabBar)의 정적 복제 ──────────────
-//   5칸: 대시보드 / 프로그램 / 가운데 기록하기(+) / 성장 / 마이페이지.
-//   라벨 없이 아이콘만. 성장 탭은 3D 새싹 아이콘. 나머지는 solid heroicons(MIT).
+//   5칸: 대시보드 / 프로그램 / 가운데 기록하기(+) / 랭킹 / 마이페이지. 라벨 + solid heroicons(MIT).
 const HomeSolid = ({ className }) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
     <path d="M11.47 3.84a.75.75 0 011.06 0l8.69 8.69a.75.75 0 11-1.06 1.06l-.69-.69v6.81a1.5 1.5 0 01-1.5 1.5h-3a.75.75 0 01-.75-.75v-4.5a.75.75 0 00-.75-.75h-1.5a.75.75 0 00-.75.75v4.5a.75.75 0 01-.75.75h-3a1.5 1.5 0 01-1.5-1.5v-6.81l-.69.69a.75.75 0 01-1.06-1.06l8.69-8.69z" />
@@ -42,6 +41,11 @@ const HomeSolid = ({ className }) => (
 const FlagSolid = ({ className }) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
     <path d="M3 2.25a.75.75 0 01.75.75v.54l1.838-.46a9.75 9.75 0 016.725.738l.108.054a8.25 8.25 0 005.58.652l3.109-.732a.75.75 0 01.917.81 47.784 47.784 0 00.005 10.337.75.75 0 01-.574.812l-3.114.733a9.75 9.75 0 01-6.594-.77l-.108-.054a8.25 8.25 0 00-5.69-.625l-2.202.55V21a.75.75 0 01-1.5 0V3A.75.75 0 013 2.25z" />
+  </svg>
+)
+const ChartSolid = ({ className }) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+    <path d="M18.75 3.75a.75.75 0 00-.75.75v15c0 .414.336.75.75.75h.75a.75.75 0 00.75-.75v-15a.75.75 0 00-.75-.75h-.75zM11.625 7.5a.75.75 0 00-.75.75v11.25c0 .414.336.75.75.75h.75a.75.75 0 00.75-.75V8.25a.75.75 0 00-.75-.75h-.75zM4.5 11.25a.75.75 0 00-.75.75v7.5c0 .414.336.75.75.75h.75a.75.75 0 00.75-.75V12a.75.75 0 00-.75-.75H4.5z" />
   </svg>
 )
 const UserSolid = ({ className }) => (
@@ -54,22 +58,37 @@ const PlusIcon = ({ className }) => (
     <path d="M12 5v14M5 12h14" />
   </svg>
 )
+// 성장 탭 아이콘 — 2D 새싹 (나머지 탭과 크기·무게감 통일 · solid fill)
+//   잎을 도톰하게 + 줄기를 두껍게 해 heroicons solid 와 시각적 무게 맞춤.
+const SproutSolid = ({ className }) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+    <path d="M10.9 11h2.2v10h-2.2z" />
+    <path d="M12 12.6C12 7.5 8.6 4.4 3.2 4.8c-.4 5.1 3 8.2 8.8 7.8Z" />
+    <path d="M12 12.6C12 7.5 15.4 4.4 20.8 4.8c.4 5.1-3 8.2-8.8 7.8Z" />
+  </svg>
+)
 
 function TabBar({ active }) {
-  // solid 아이콘 탭 (라벨 없음)
-  const SvgTab = ({ k, Icon }) => {
-    const on = active === k
+  const tabs = [
+    { key: 'dashboard', label: '대시보드', Icon: HomeSolid },
+    { key: 'programs', label: '프로그램', Icon: FlagSolid },
+    { key: 'growth', label: '성장', Icon: SproutSolid },
+    { key: 'profile', label: '마이페이지', Icon: UserSolid },
+  ]
+  const Tab = ({ t }) => {
+    const on = active === t.key
     return (
-      <div className={`flex-1 flex items-center justify-center py-3.5 ${on ? 'text-emerald-600' : 'text-gray-400'}`}>
-        <Icon className="w-[26px] h-[26px]" />
+      <div className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 ${on ? 'text-emerald-600' : 'text-gray-400'}`}>
+        <t.Icon className="w-6 h-6" />
+        <span className="text-[11px] font-medium">{t.label}</span>
       </div>
     )
   }
   return (
     <div className="sticky bottom-0 bg-white border-t border-gray-100">
       <div className="flex items-stretch">
-        <SvgTab k="dashboard" Icon={HomeSolid} />
-        <SvgTab k="programs" Icon={FlagSolid} />
+        <Tab t={tabs[0]} />
+        <Tab t={tabs[1]} />
         {/* 가운데 기록하기 — 떠 있는 + 버튼 */}
         <div className="flex-1 flex items-center justify-center">
           <span className="-translate-y-[18px]">
@@ -78,11 +97,8 @@ function TabBar({ active }) {
             </span>
           </span>
         </div>
-        {/* 성장 — 3D 새싹 아이콘 (비활성 시 흐리게) */}
-        <div className="flex-1 flex items-center justify-center py-3.5">
-          <I group="growth" name="sprout" emoji="🌱" size={28} className={active === 'growth' ? '' : 'opacity-40 grayscale'} />
-        </div>
-        <SvgTab k="profile" Icon={UserSolid} />
+        <Tab t={tabs[2]} />
+        <Tab t={tabs[3]} />
       </div>
     </div>
   )
@@ -119,6 +135,12 @@ const CalOutline = ({ className }) => (
 )
 const ChevR = ({ className }) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg>
+)
+const ChevL = ({ className }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true"><path d="m15 5-7 7 7 7" /></svg>
+)
+const TrophySolid = ({ className }) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true"><path fillRule="evenodd" clipRule="evenodd" d="M5.166 2.621v.858c-1.035.148-2.059.33-3.071.543a.75.75 0 0 0-.584.859 6.753 6.753 0 0 0 6.138 5.6 6.73 6.73 0 0 0 2.743 1.347A6.707 6.707 0 0 1 9.279 15H8.54c-1.036 0-1.875.84-1.875 1.875V19.5h-.75a2.25 2.25 0 0 0-2.25 2.25c0 .414.336.75.75.75h15a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-2.25-2.25h-.75v-2.625c0-1.036-.84-1.875-1.875-1.875h-.739a6.706 6.706 0 0 1-1.112-3.173 6.73 6.73 0 0 0 2.743-1.347 6.753 6.753 0 0 0 6.139-5.6.75.75 0 0 0-.585-.858 47.077 47.077 0 0 0-3.07-.543V2.62a.75.75 0 0 0-.658-.744 49.22 49.22 0 0 0-6.093-.377c-2.063 0-4.096.128-6.093.377a.75.75 0 0 0-.657.744ZM5.166 5.25c0 1.196.312 2.32.857 3.294A5.266 5.266 0 0 1 3.16 5.337a45.6 45.6 0 0 1 2.006-.343V5.25Zm13.5 0v-.256c.674.1 1.343.214 2.006.343a5.265 5.265 0 0 1-2.863 3.207 6.72 6.72 0 0 0 .857-3.294Z" /></svg>
 )
 
 // 내 랭킹 도넛 링 (정적)
@@ -157,7 +179,7 @@ function CardAction({ children }) {
 }
 
 function HomeMock() {
-  // 운영자 관점 — 운영 중인 프로그램(참여자/오늘 참여율/남은 기간/누적 인증)
+  // 운영자 관점 — 운영 중인 프로그램(참여자/오늘 참여율/남은 기간/누적 인증). 지표 아이콘은 원래대로 2D solid.
   const stats = [
     { Icon: UsersSolid, label: '참여자', num: '128', unit: '명', color: 'text-emerald-600' },
     { Icon: FlagSolid, label: '오늘 참여율', num: '84', unit: '%', color: 'text-emerald-600' },
@@ -330,67 +352,192 @@ function BrowseMock() {
   )
 }
 
-// ─── 3. 프로그램 상세 (탭 + 미션) ──────────────────────
-const DETAIL_TABS = [
-  { key: 'overview', label: '개요', group: 'feature', name: 'stats', e: '📊' },
-  { key: 'missions', label: '미션', group: 'feature', name: 'mission', e: '📋' },
-  { key: 'quiz', label: '퀴즈', group: 'feature', name: 'quiz', e: '❓' },
-  { key: 'community', label: '커뮤니티', group: 'feature', name: 'community', e: '💬' },
-  { key: 'ranking', label: '랭킹', group: 'reward', name: 'ranking', e: '🏆' },
-]
+// ─── 3. 프로그램 상세 · 미션 (실제 ProgramDetailPage 표준 재현) ──────
+//   표준 프로그램 = 텍스트 전용 탭바(개요/미션/퀴즈/커뮤니티/성장). 하단 탭바 없음(딥드릴 화면).
+//   3D 아이콘은 미션 카드 썸네일에 등장.
+const PROG_TABS = ['개요', '미션', '퀴즈', '커뮤니티', '성장']
 const DETAIL_MISSIONS = [
-  { g: 'mission', n: 'stretching', e: '🤸', name: '아침 스트레칭', pt: 10, done: true },
-  { g: 'mission', n: 'meal', e: '🥗', name: '건강한 한 끼 인증', pt: 15, done: true },
-  { g: 'mission', n: 'sleep', e: '🌙', name: '11시 전 취침', pt: 10, done: false },
-  { g: 'action', n: 'water', e: '💧', name: '물 2L 마시기', pt: 5, done: false },
+  { g: 'mission', n: 'stretching', name: '아침 스트레칭', sub: '운영자 심사 · 하루 1회', pt: 10, state: 'verify', btn: '인증' },
+  { g: 'action', n: 'water', name: '물 2L 마시기', sub: '자동 승인 · 무제한', pt: 5, state: 'verify', btn: '기록' },
+  { g: 'mission', n: 'meal', name: '건강한 한 끼 인증', sub: '운영자 심사 · 하루 1회', pt: 15, state: 'done' },
+  { g: 'mission', n: 'sleep', name: '11시 전 취침', sub: '자동 승인 · 무제한', pt: 10, state: 'pending' },
 ]
-function DetailMock() {
-  const [tab, setTab] = useState('missions')
+
+// 프로그램 상세 공통 셸 — 헤더 + 프로필 카드 + 텍스트 전용 탭바 (실제 ProgramDetailPage 재현).
+//   active: 현재 탭 라벨. 하단 탭바 없음(딥드릴 화면).
+function ProgramShell({ active, children }) {
   return (
     <>
-      <Header title="3km 달리기 챌린지" />
-      {/* 탭 */}
-      <div className="sticky top-[44px] z-10 bg-white flex border-b border-gray-100">
-        {DETAIL_TABS.map((t) => (
-          <button key={t.key} type="button" onClick={() => setTab(t.key)}
-            className={`flex-1 flex flex-col items-center gap-0.5 py-2 ${tab === t.key ? '' : 'opacity-45'}`}>
-            <I group={t.group} name={t.name} emoji={t.e} size={22} className={tab === t.key ? '' : 'grayscale'} />
-            <span className={`text-[9.5px] font-bold ${tab === t.key ? 'text-emerald-600' : 'text-gray-400'}`}>{t.label}</span>
-            {tab === t.key && <span className="w-6 h-0.5 rounded-full bg-emerald-500 mt-0.5" />}
-          </button>
+      <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm h-[44px] px-2 flex items-center justify-center relative border-b border-gray-50">
+        <button type="button" className="absolute left-2 p-1.5 text-gray-600"><ChevL className="w-5 h-5" /></button>
+        <div className="flex items-center gap-1.5 max-w-[68%]">
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500 text-white flex-shrink-0">진행중</span>
+          <span className="text-[15px] font-bold text-gray-800 truncate">매일 걷기 30일</span>
+        </div>
+        <div className="absolute right-2 flex items-center gap-1.5">
+          <BellOutline className="w-5 h-5 text-gray-500" />
+          <div className="w-7 h-7 rounded-full bg-gray-200" />
+        </div>
+      </div>
+      <div className="px-3 pt-2 pb-4">
+        {/* 프로그램 프로필 카드 — 표지 좌측 38% + 우측 페이드 */}
+        <div className="relative bg-white rounded-[10px] shadow-elevated overflow-hidden min-h-[108px]">
+          <div className="absolute inset-y-0 left-0 w-[38%]">
+            <img src="/illustrations/program-covers/walking.jpg" alt="" aria-hidden="true" onError={(e) => { e.currentTarget.style.display = 'none' }} className="w-full h-full object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-white" />
+          </div>
+          <div className="relative z-10 pl-[calc(34%+15px)] pr-4 py-2.5 min-h-[108px] flex flex-col justify-center">
+            <h1 className="text-lg font-bold text-gray-800 mb-1 leading-tight truncate">매일 걷기 30일</h1>
+            <p className="text-xs text-gray-600 mb-1.5 truncate"><span className="text-gray-400">기간 </span>26.07.01 ~ 26.07.30 <span className="text-gray-500">(30일)</span></p>
+            <div className="mb-1.5 flex items-center gap-2">
+              <div className="flex-1 h-2 bg-white/70 rounded-full overflow-hidden border border-gray-100">
+                <div className="h-full rounded-full bg-emerald-400" style={{ width: '45%' }} />
+              </div>
+              <span className="text-sm font-semibold text-emerald-600 flex-shrink-0">45% ⏳</span>
+            </div>
+            <div className="flex items-center gap-3 text-xs text-gray-600">
+              <span className="inline-flex items-center gap-1"><UsersSolid className="w-3.5 h-3.5 text-gray-400" /><span className="text-gray-500">참여자</span><span className="text-gray-800 font-semibold">42명</span></span>
+              <span className="inline-flex items-center gap-1"><TrophySolid className="w-3.5 h-3.5 text-amber-400" /><span className="text-gray-500">내 순위</span><span className="text-gray-800 font-semibold">5등</span></span>
+            </div>
+          </div>
+        </div>
+        {/* 텍스트 전용 탭바 */}
+        <div className="-mx-3 mt-1.5 mb-2 border-b border-gray-100">
+          <div className="flex">
+            {PROG_TABS.map((t) => {
+              const on = active === t
+              return (
+                <button key={t} type="button" className={`relative flex-1 h-[40px] text-[14px] ${on ? 'text-emerald-600 font-bold' : 'text-gray-400 font-semibold'}`}>
+                  {t}
+                  {on && <span className="absolute left-0 right-0 -bottom-px h-[2.5px] bg-emerald-500 rounded-full" />}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+        {children}
+      </div>
+    </>
+  )
+}
+
+// 미션 탭 — 실제 MissionCard 레이아웃 · 썸네일=3D
+function DetailMock() {
+  return (
+    <ProgramShell active="미션">
+      <div className="space-y-2.5">
+        {DETAIL_MISSIONS.map((m) => (
+          <div key={m.name} className="bg-white rounded-2xl shadow-elevated p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="w-14 h-14 flex-shrink-0 rounded-xl bg-gray-50 flex items-center justify-center">
+                <I group={m.g} name={m.n} size={46} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-medium text-gray-800 mb-1 text-[14px] truncate">{m.name}</h3>
+                <p className="text-xs text-gray-500">{m.sub}</p>
+              </div>
+              <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                <span className="px-2 py-1 bg-emerald-100 text-emerald-700 text-sm rounded font-medium whitespace-nowrap">{m.pt}P</span>
+                {m.state === 'done' ? (
+                  <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-50 text-emerald-600 text-xs rounded font-medium whitespace-nowrap">✓ 오늘 인증 완료</span>
+                ) : m.state === 'pending' ? (
+                  <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-amber-50 text-amber-700 text-xs rounded font-medium whitespace-nowrap">⏳ 심사 대기</span>
+                ) : (
+                  <span className="px-3 py-1.5 bg-gradient-to-r from-emerald-400 to-teal-500 text-white text-sm rounded whitespace-nowrap">{m.btn}</span>
+                )}
+              </div>
+            </div>
+          </div>
         ))}
       </div>
-      <div className="p-3 space-y-2.5 pb-4">
-        <div className="flex items-center justify-between px-1">
-          <span className="text-[12px] font-bold text-gray-700">오늘의 미션 <span className="text-emerald-600">2/4</span></span>
-          <span className="text-[10px] text-gray-400">획득 25P</span>
+    </ProgramShell>
+  )
+}
+
+// 프로그램 홈 (카드형) — 달리기 홈처럼 탭바 없이 카드로. 개편 1단계.
+//   표지 히어로(코스맵 자리 대체) + 공지 + 주요 기록 요약 + 메뉴 카드 4종(3D) + 배너.
+const HOME_METRICS = [
+  { e: '📏', l: '누적 거리', v: '42.5', u: 'km' },
+  { e: '⏱️', l: '걷기 시간', v: '7.2', u: '시간' },
+  { e: '👣', l: '누적 걸음', v: '58,200', u: '' },
+  { e: '🔥', l: '연속 인증', v: '6', u: '일' },
+]
+const HOME_CARDS = [
+  { g: 'feature', n: 'mission', t: '미션', d: '오늘의 미션 기록', a: '기록하기' },
+  { g: 'feature', n: 'quiz', t: '퀴즈', d: '건강 퀴즈 풀기', a: '풀어보기' },
+  { g: 'feature', n: 'community', t: '커뮤니티', d: '응원·소식 나누기', a: '바로가기' },
+  { g: 'reward', n: 'ranking', t: '랭킹', d: '순위·성장 확인', a: '바로가기' },
+]
+function ProgramHomeMock() {
+  return (
+    <>
+      {/* 헤더 — 뒤로 + 이름 + 알림/프로필 */}
+      <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm h-[44px] px-2 flex items-center justify-center relative border-b border-gray-50">
+        <button type="button" className="absolute left-2 p-1.5 text-gray-600"><ChevL className="w-5 h-5" /></button>
+        <span className="text-[15px] font-bold text-gray-800 truncate max-w-[60%]">매일 걷기 30일</span>
+        <div className="absolute right-2 flex items-center gap-1.5">
+          <BellOutline className="w-5 h-5 text-gray-500" />
+          <div className="w-7 h-7 rounded-full bg-gray-200" />
         </div>
-        {DETAIL_MISSIONS.map((m) => (
-          <div key={m.name} className={`bg-white rounded-[12px] shadow-sm p-3 flex items-center gap-3 ${m.done ? 'opacity-95' : ''}`}>
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${m.done ? 'bg-emerald-50' : 'bg-gray-50'}`}>
-              <I group={m.g} name={m.n} emoji={m.e} size={34} />
+      </div>
+
+      <div className="px-3 pt-2 pb-4 space-y-[9px]">
+        {/* 1) 표지 히어로 (코스맵 자리 대체) — 표지 사진 + 진행률 오버레이 */}
+        <div className="relative rounded-2xl overflow-hidden h-[152px] shadow-soft">
+          <img src="/illustrations/program-covers/walking.jpg" alt="" aria-hidden="true" onError={(e) => { e.currentTarget.style.display = 'none' }} className="absolute inset-0 w-full h-full object-cover" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/15 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 p-3.5 text-white">
+            <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500 mb-1.5">진행중</span>
+            <h1 className="text-xl font-extrabold leading-tight drop-shadow-sm">매일 걷기 30일</h1>
+            <p className="text-[11px] text-white/85 mt-0.5">기간 26.07.01 ~ 26.07.30 · 참여자 42명 · 내 순위 5등</p>
+            <div className="flex items-center gap-2 mt-1.5">
+              <div className="flex-1 h-1.5 bg-white/30 rounded-full overflow-hidden"><div className="h-full bg-emerald-400 rounded-full" style={{ width: '45%' }} /></div>
+              <span className="text-[12px] font-bold drop-shadow-sm">45%</span>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-bold text-gray-800 truncate">{m.name}</p>
-              <p className="text-[10px] text-emerald-600 font-bold mt-0.5">+{m.pt}P</p>
+          </div>
+        </div>
+
+        {/* 2) 공지사항 */}
+        <button type="button" className="w-full flex items-center gap-3 rounded-2xl p-3.5 bg-white border border-gray-100 shadow-soft text-left">
+          <span className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center flex-shrink-0 text-[15px]">📢</span>
+          <div className="flex-1 min-w-0"><p className="text-[13px] font-bold text-gray-800">공지사항</p><p className="text-[12px] text-gray-500 truncate">이번 주 목표는 하루 6천 보예요! 함께 걸어요 👟</p></div>
+          <ChevR className="w-4 h-4 text-gray-300 flex-shrink-0" />
+        </button>
+
+        {/* 3) 주요 기록 요약 */}
+        <div className="rounded-2xl p-4 bg-white border border-gray-100 shadow-soft">
+          <h3 className="text-[13px] font-bold text-gray-800 mb-3">주요 기록 요약</h3>
+          <div className="flex">
+            {HOME_METRICS.map((c, i) => (
+              <div key={c.l} className={`flex-1 flex flex-col items-center text-center px-1 ${i ? 'border-l border-gray-100' : ''}`}>
+                <div className="flex items-center gap-0.5 mb-1"><span className="text-[15px] leading-none">{c.e}</span><span className="text-[11px] text-gray-400 whitespace-nowrap">{c.l}</span></div>
+                <span className="text-[15px] font-extrabold text-gray-900 leading-tight">{c.v}<span className="text-[10px] font-medium text-gray-400 ml-0.5">{c.u}</span></span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 4) 메뉴 카드 4종 (탭바 대신) — 아이콘 3D */}
+        <div className="grid grid-cols-2 gap-3">
+          {HOME_CARDS.map((b) => (
+            <div key={b.n} className="rounded-2xl p-3 bg-white border border-gray-100 shadow-soft flex flex-col justify-between min-h-[126px]">
+              <div className="flex items-start gap-1.5">
+                <I group={b.g} name={b.n} size={28} />
+                <p className="text-[13px] font-bold text-gray-800 leading-tight mt-1">{b.t}</p>
+              </div>
+              <p className="text-[11.5px] text-gray-500 leading-snug text-center">{b.d}</p>
+              <button type="button" className="h-8 rounded-lg bg-emerald-500 text-white text-[11px] font-bold flex items-center justify-center gap-0.5">{b.a} <ChevR className="w-3 h-3" /></button>
             </div>
-            {m.done ? (
-              <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 flex-shrink-0">
-                <I group="action" name="complete" emoji="✅" size={18} /> 완료
-              </span>
-            ) : (
-              <span className="text-[11px] font-bold text-white bg-emerald-500 rounded-full px-3 py-1.5 flex-shrink-0">인증</span>
-            )}
+          ))}
+        </div>
+
+        {/* 5) 하단 격려 배너 */}
+        <div className="relative overflow-hidden rounded-2xl border border-gray-100 shadow-soft bg-gradient-to-r from-sky-50 to-emerald-50 h-[78px] flex items-center gap-3 p-4">
+          <span className="w-11 h-11 rounded-full bg-white/70 flex items-center justify-center flex-shrink-0"><I group="growth" name="sprout" emoji="🌱" size={34} /></span>
+          <div className="min-w-0">
+            <p className="text-[13px] font-extrabold text-gray-800 truncate">오늘도 한 걸음 더, 가볍게 걸어봐요</p>
+            <p className="text-[11px] text-gray-500 mt-0.5 truncate">작은 습관이 큰 변화를 만들어요!</p>
           </div>
-        ))}
-        {/* 퀴즈 카드 */}
-        <div className="bg-gradient-to-r from-violet-50 to-indigo-50 rounded-[12px] p-3 flex items-center gap-3">
-          <I group="feature" name="quiz" emoji="❓" size={40} />
-          <div className="flex-1">
-            <p className="text-[13px] font-bold text-gray-800">오늘의 건강 퀴즈</p>
-            <p className="text-[10px] text-gray-500 mt-0.5">맞히면 +10P · 하루 1회</p>
-          </div>
-          <span className="text-[11px] font-bold text-indigo-600 bg-white rounded-full px-3 py-1.5">풀기</span>
         </div>
       </div>
     </>
@@ -458,105 +605,135 @@ function RankMock() {
 }
 
 // ─── 5. 응원 게시판 ──────────────────────────────────
-const CHEER_POSTS = [
-  { g: 'cheer', n: 'people', e: '🙌', name: '지영', body: '오늘 3km 완주했어요! 다들 힘내요 💪', likes: 12, cmt: 4 },
-  { g: 'cheer', n: 'letter', e: '💌', name: '민수', body: '한 주간 개근 성공! 응원 편지 남기고 갑니다', likes: 8, cmt: 2 },
-  { g: 'cheer', n: 'sprout', e: '🍀', name: '수진', body: '작은 습관이 새싹처럼 자라는 게 느껴져요 🌱', likes: 15, cmt: 6 },
-]
+// 응원 콜라주 체크무늬 배경 (실제 CheerBoard 와 동일)
+const CHECK_BG = {
+  backgroundColor: '#eaf5ec',
+  backgroundImage: 'linear-gradient(#d6ecdb 1px, transparent 1px), linear-gradient(90deg, #d6ecdb 1px, transparent 1px)',
+  backgroundSize: '13px 13px',
+}
+const CI = (name) => `/icons/cheer/${name}.png`
+// 응원 탭 — 실제 CheerBoard 콜라주 재현. 카드 속 아이콘을 3D cheer 아이콘으로.
 function CheerMock() {
   return (
-    <>
-      <Header title="응원 게시판" />
-      <div className="p-3 space-y-2.5 pb-4">
-        {/* 작성 유도 */}
-        <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-[12px] p-3 flex items-center gap-3">
-          <I group="cheer" name="heart" emoji="💚" size={34} />
-          <span className="flex-1 text-[12px] text-gray-500">오늘의 응원 한마디를 남겨보세요</span>
-          <span className="text-[11px] font-bold text-white bg-emerald-500 rounded-full px-3 py-1.5">작성</span>
-        </div>
-        {CHEER_POSTS.map((p) => (
-          <div key={p.name} className="bg-white rounded-[12px] shadow-sm p-3">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-9 h-9 rounded-full bg-emerald-50 flex items-center justify-center">
-                <I group={p.g} name={p.n} emoji={p.e} size={26} />
-              </div>
-              <div className="flex-1">
-                <p className="text-[12px] font-bold text-gray-800">{p.name}</p>
-                <p className="text-[9px] text-gray-400">방금 전</p>
-              </div>
+    <ProgramShell active="커뮤니티">
+      <div className="relative rounded-2xl overflow-hidden bg-[#f3f2ec] border border-black/5">
+        <div className="relative w-full aspect-[355/497]">
+          {/* 장식 잎 + 하트 */}
+          <img src={CI('leaf')} alt="" className="pointer-events-none absolute rotate-[20deg] opacity-90" style={{ right: '-1%', top: '24%', width: '13%' }} />
+          <img src={CI('leaf')} alt="" className="pointer-events-none absolute -rotate-[100deg] opacity-90" style={{ left: '18%', top: '54%', width: '10%' }} />
+          <img src={CI('heart-red')} alt="" className="pointer-events-none absolute z-10 -rotate-12" style={{ left: '3%', top: '46%', width: '13%' }} />
+
+          {/* 운영자 한마디 (좌상, 흰 노트) */}
+          <div className="absolute bg-white rounded-2xl p-3 shadow-md border border-black/5 overflow-hidden -rotate-2" style={{ left: '4%', top: '8.5%', width: '42%', height: '40%' }}>
+            <span className="absolute left-1/2 -translate-x-1/2 top-1.5 w-12 h-3.5 rounded-sm bg-emerald-200/70 -rotate-2" />
+            <div className="relative flex items-center gap-1 mb-1 mt-2">
+              <img src={CI('people')} alt="" className="w-5 h-5 object-contain" />
+              <span className="text-[12px] font-extrabold text-[#2E5D3B]">운영자 한마디</span>
             </div>
-            <p className="text-[12.5px] text-gray-700 leading-relaxed">{p.body}</p>
-            <div className="flex items-center gap-4 mt-2.5 pt-2 border-t border-gray-50">
-              <span className="flex items-center gap-1 text-[11px] font-bold text-gray-500">
-                <I group="cheer" name="heart-red" emoji="❤️" size={18} /> {p.likes}
-              </span>
-              <span className="flex items-center gap-1 text-[11px] font-bold text-gray-500">
-                <I group="action" name="comment" emoji="💬" size={16} /> {p.cmt}
-              </span>
+            <p className="text-[13px] font-bold text-gray-800 leading-snug">당신의 응원이<br />누군가의 내일이 돼요 💚</p>
+            <img src={CI('sprout')} alt="" className="pointer-events-none absolute bottom-2 right-2 w-12 object-contain opacity-90" />
+          </div>
+
+          {/* 베스트 응원 (우상, 크림 + 트로피) */}
+          <div className="absolute bg-[#fdf6e9] rounded-2xl p-2.5 shadow-md border border-amber-100/70 -rotate-3" style={{ left: '52%', top: '9.5%', width: '40%', height: '22%' }}>
+            <img src={CI('trophy')} alt="" className="absolute -top-6 -right-2 w-11 h-11 object-contain rotate-6" />
+            <div className="flex items-center gap-1 mb-1"><img src={CI('star')} alt="" className="w-4 h-4 object-contain" /><span className="text-[11.5px] font-extrabold text-[#7B5C44]">베스트 응원</span></div>
+            <p className="text-[13px] font-bold text-gray-800 leading-snug line-clamp-2">함께라서 완주했어요. 다들 고마워요!</p>
+            <div className="flex items-center gap-1.5 mt-1.5">
+              <div className="w-4 h-4 rounded-full bg-emerald-200 flex-shrink-0" />
+              <span className="text-[11px] font-semibold text-gray-600">지영</span>
+              <span className="ml-auto flex items-center gap-0.5 text-[12px] font-bold text-rose-500">❤️ 24</span>
             </div>
           </div>
-        ))}
+
+          {/* 응원 말풍선 (우중, 체크무늬) */}
+          <div className="absolute rounded-2xl border border-emerald-100 px-3 py-2.5 shadow-sm -rotate-3 overflow-hidden" style={{ left: '52%', top: '39%', width: '41%', height: '21%', ...CHECK_BG }}>
+            <p className="text-[13px] font-bold text-emerald-800 leading-snug">오늘도<br />한 걸음 더 🌿</p>
+            <p className="text-[11px] text-emerald-500 mt-0.5">— 도담</p>
+            <img src={CI('heart')} alt="" className="absolute bottom-2 right-2 w-6 h-6 object-contain" />
+          </div>
+
+          {/* 최근 응원글 (좌하) */}
+          <div className="absolute bg-white rounded-2xl p-3 shadow-sm border border-black/5 overflow-hidden" style={{ left: '4%', top: '60.5%', width: '52%', height: '37%' }}>
+            <div className="flex items-center gap-1 mb-1.5"><img src={CI('people')} alt="" className="w-4 h-4 object-contain" /><span className="text-[12px] font-extrabold text-gray-700">최근 응원글</span></div>
+            <ul className="space-y-1.5">
+              {[{ n: '민수', t: '2시간 전', c: '다들 화이팅이에요!' }, { n: '수진', t: '어제', c: '꾸준함이 답이네요 👍' }, { n: '태호', t: '어제', c: '오늘도 인증 완료!' }].map((r) => (
+                <li key={r.n} className="flex items-center gap-1.5">
+                  <div className="w-5 h-5 rounded-full bg-gray-200 flex-shrink-0" />
+                  <div className="flex-1 min-w-0"><div className="flex items-center gap-1"><span className="text-[11px] font-bold text-gray-700">{r.n}</span><span className="text-[9px] text-gray-400">{r.t}</span></div><p className="text-[11px] text-gray-500 truncate">{r.c}</p></div>
+                  <span className="text-[10px] font-bold text-rose-500 flex-shrink-0">❤️ 3</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* 오늘의 응원 레터 (우하, 초록 + 봉투) */}
+          <div className="absolute bg-gradient-to-b from-emerald-50 to-white rounded-2xl p-3 shadow-sm border border-emerald-100 overflow-hidden" style={{ left: '60%', top: '68.5%', width: '36%', height: '29%' }}>
+            <div className="flex items-center gap-1 mb-1"><img src={CI('letter')} alt="" className="w-4 h-4 object-contain" /><span className="text-[10.5px] font-extrabold text-gray-700">오늘의 응원 레터</span></div>
+            <p className="text-[13px] font-extrabold text-emerald-800 leading-snug">작은 습관이<br />큰 변화로</p>
+            <p className="text-[10px] text-gray-500 mt-1 leading-snug line-clamp-2">오늘 하루도 한 걸음 나아간 당신을 응원해요.</p>
+            <img src={CI('letter')} alt="" className="pointer-events-none absolute -bottom-1 right-1 w-12 h-12 object-contain opacity-95" />
+          </div>
+        </div>
       </div>
-      <TabBar active="programs" />
-    </>
+    </ProgramShell>
   )
 }
 
 // ─── 6. 성장 ─────────────────────────────────────────
+// 성장(정원) 탭 — 실제 GardenPanel 재현. 단계 식물·물·햇빛을 3D 성장 아이콘으로.
 function GrowthMock() {
-  const stages = [
-    { n: 'seed', e: '🌰', label: '씨앗', on: true },
-    { n: 'sprout', e: '🌱', label: '새싹', on: true },
-    { n: 'sapling', e: '🌿', label: '묘목', on: true },
-    { n: 'tree', e: '🌳', label: '나무', on: false },
-    { n: 'bloom', e: '🌸', label: '만개', on: false },
-  ]
+  const PLANTED = 5   // 심어진 칸 (베타 MVP = 1식물)
   return (
-    <>
-      <Header title="나의 성장" />
-      <div className="p-3 space-y-2.5 pb-4">
-        {/* 현재 단계 히어로 */}
-        <div className="bg-gradient-to-b from-emerald-50 to-white rounded-[12px] shadow-md p-4 flex flex-col items-center">
-          <I group="growth" name="sapling" emoji="🌿" size={96} />
-          <p className="text-[15px] font-extrabold text-gray-800 mt-2">묘목 단계</p>
-          <p className="text-[11px] text-gray-500 mt-0.5">꾸준함이 나무로 자라고 있어요</p>
-          <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden mt-3">
-            <div className="h-full bg-emerald-400 rounded-full" style={{ width: '62%' }} />
-          </div>
-          <p className="text-[10px] text-gray-400 mt-1.5">다음 단계까지 인증 6번</p>
-        </div>
-        {/* 단계 진행 */}
-        <div className="bg-white rounded-[12px] shadow-sm p-3">
-          <p className="text-[12px] font-bold text-gray-700 mb-3">성장 단계</p>
-          <div className="flex items-end justify-between">
-            {stages.map((s) => (
-              <div key={s.n} className="flex flex-col items-center gap-1">
-                <I group="growth" name={s.n} emoji={s.e} size={s.on ? 40 : 32} className={s.on ? '' : 'opacity-30 grayscale'} />
-                <span className={`text-[9px] font-bold ${s.on ? 'text-emerald-600' : 'text-gray-300'}`}>{s.label}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-        {/* 물·햇빛 액션 */}
-        <div className="grid grid-cols-2 gap-2.5">
-          <div className="bg-white rounded-[12px] shadow-sm p-3 flex items-center gap-2.5">
-            <I group="growth" name="water" emoji="💧" size={38} />
+    <ProgramShell active="성장">
+      {/* 헤더 — 현재 단계 + 물/햇빛 + 진행 바 */}
+      <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl p-4 border border-emerald-100 mb-3">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <I group="growth" name="sapling" emoji="🌿" size={32} />
             <div>
-              <p className="text-[12px] font-bold text-gray-800">물 주기</p>
-              <p className="text-[9px] text-gray-400">= 미션 인증</p>
+              <p className="text-sm font-semibold text-emerald-800">묘목 단계</p>
+              <p className="text-[11px] text-emerald-700">단계 3/5</p>
             </div>
           </div>
-          <div className="bg-white rounded-[12px] shadow-sm p-3 flex items-center gap-2.5">
-            <I group="growth" name="sun" emoji="☀️" size={38} />
-            <div>
-              <p className="text-[12px] font-bold text-gray-800">햇빛</p>
-              <p className="text-[9px] text-gray-400">= 출석</p>
-            </div>
+          <div className="flex items-center gap-3 text-xs">
+            <span className="inline-flex items-center gap-1 text-sky-700"><I group="growth" name="water" emoji="💧" size={16} /> 물 42</span>
+            <span className="inline-flex items-center gap-1 text-amber-700"><I group="growth" name="sun" emoji="☀️" size={16} /> 햇빛 14</span>
           </div>
+        </div>
+        <div className="h-2 bg-white/70 rounded-full overflow-hidden">
+          <div className="h-full bg-gradient-to-r from-emerald-400 to-teal-500" style={{ width: '62%' }} />
         </div>
       </div>
-      <TabBar active="programs" />
-    </>
+      {/* 4×4 격자 */}
+      <div className="bg-amber-50/50 rounded-2xl p-3 border border-amber-100 mb-3">
+        <div className="grid grid-cols-4 gap-2">
+          {Array.from({ length: 16 }).map((_, idx) => {
+            const planted = idx === PLANTED
+            return (
+              <div key={idx} className={`relative aspect-square rounded-xl flex items-center justify-center ${planted ? 'bg-gradient-to-br from-emerald-100 to-teal-100 border-2 border-emerald-300 shadow-sm' : 'bg-amber-100/60 border border-amber-200'}`}>
+                {planted ? <I group="growth" name="sapling" emoji="🌿" size={40} /> : <span className="text-xs text-amber-500/60">+</span>}
+              </div>
+            )
+          })}
+        </div>
+        <p className="text-[11px] text-gray-500 text-center mt-2 leading-relaxed">미션 인증 = 물 💧 / 매일 첫 인증 = 햇빛 ☀️</p>
+      </div>
+      {/* 도감 미니 */}
+      <div className="bg-white border border-gray-200 rounded-2xl p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-sm font-semibold text-gray-800">🌸 나의 식물 도감</span>
+          <span className="text-xs text-gray-500 ml-auto">2/16</span>
+        </div>
+        <div className="grid grid-cols-6 gap-2">
+          <div className="aspect-square flex items-center justify-center bg-violet-50 rounded-lg"><I group="growth" name="bloom" emoji="🌸" size={26} /></div>
+          <div className="aspect-square flex items-center justify-center bg-violet-50 rounded-lg"><I group="growth" name="tree" emoji="🌳" size={26} /></div>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="aspect-square bg-gray-50 rounded-lg flex items-center justify-center text-gray-300 text-sm">?</div>
+          ))}
+        </div>
+      </div>
+    </ProgramShell>
   )
 }
 
@@ -660,41 +837,53 @@ function NotifMock() {
   )
 }
 
-// ─── 9. 퀴즈 풀기 ────────────────────────────────────
+// ─── 9. 퀴즈 풀기 (실제 QuizSolvePage 표준 재현 · 독립 페이지) ──────
 function QuizMock() {
-  const opts = [
-    { k: 'A', t: '하루 30분 이상 걷기', on: false },
-    { k: 'B', t: '물을 충분히 마시기', on: true },
-    { k: 'C', t: '자기 전 스마트폰 보기', on: false },
-    { k: 'D', t: '규칙적인 수면 시간', on: false },
+  const questions = [
+    { q: '다음 중 유산소 운동이 아닌 것은?', pt: 5, opts: ['걷기', '달리기', '웨이트 리프팅', '수영'], sel: 2 },
+    { q: '성인 권장 수면 시간에 가까운 것은?', pt: 5, opts: ['4~5시간', '7~8시간', '10시간 이상'], sel: 1 },
+    { q: '하루 권장 물 섭취량에 가까운 것은?', pt: 5, opts: ['0.5L', '1.5~2L', '5L 이상'], sel: null },
   ]
   return (
     <>
-      <Header title="건강 퀴즈" />
-      <div className="p-3 space-y-3 pb-4">
-        {/* 히어로 */}
-        <div className="bg-gradient-to-b from-indigo-50 to-white rounded-[14px] shadow-md p-4 flex flex-col items-center text-center">
-          <I group="feature" name="quiz" emoji="❓" size={72} />
-          <p className="text-[11px] font-bold text-indigo-500 mt-2">오늘의 퀴즈 · 3/5</p>
-          <p className="text-[15px] font-extrabold text-gray-800 leading-snug mt-1">다음 중 건강에<br />도움이 되지 <span className="text-rose-500">않는</span> 습관은?</p>
+      {/* 뒤로 바 (StickyBackBar) */}
+      <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm h-[44px] px-2 flex items-center gap-1 border-b border-gray-50">
+        <button type="button" className="p-1.5 text-gray-600"><ChevL className="w-5 h-5" /></button>
+        <span className="text-[14px] font-semibold text-gray-600">프로그램으로</span>
+      </div>
+      <div className="px-4 pt-2 pb-6">
+        {/* 퀴즈 헤더 */}
+        <div className="bg-white border border-gray-200 rounded-2xl p-5 mb-3">
+          <div className="flex items-start justify-between gap-2">
+            <h1 className="text-xl font-medium text-gray-800 mb-1">📝 건강 상식 퀴즈</h1>
+            <div className="flex items-center gap-1 bg-amber-50 rounded-full px-2.5 py-1 flex-shrink-0"><I group="reward" name="gift" emoji="🎁" size={20} /><span className="text-[11px] font-bold text-amber-600">15점</span></div>
+          </div>
+          <p className="text-sm text-gray-600 mb-2">건강 습관에 대한 상식을 확인해봐요.</p>
+          <div className="flex items-center gap-3 text-xs text-gray-500"><span>문제 3개</span><span>~ 7월 10일까지</span></div>
         </div>
-        {/* 보기 */}
-        <div className="space-y-2">
-          {opts.map((o) => (
-            <div key={o.k} className={`flex items-center gap-3 p-3 rounded-[12px] border-2 ${o.on ? 'border-indigo-400 bg-indigo-50' : 'border-gray-100 bg-white'}`}>
-              <span className={`w-7 h-7 rounded-full flex items-center justify-center text-[12px] font-extrabold flex-shrink-0 ${o.on ? 'bg-indigo-500 text-white' : 'bg-gray-100 text-gray-500'}`}>{o.k}</span>
-              <span className={`text-[13px] font-bold ${o.on ? 'text-indigo-700' : 'text-gray-700'}`}>{o.t}</span>
+        {/* 문제 목록 */}
+        <div className="space-y-3">
+          {questions.map((q, i) => (
+            <div key={i} className="bg-white border border-gray-200 rounded-2xl p-5">
+              <div className="flex items-start justify-between gap-2 mb-3">
+                <p className="font-medium text-gray-800"><span className="text-gray-400 mr-1">{i + 1}.</span>{q.q}</p>
+                <span className="text-xs text-gray-400 flex-shrink-0 whitespace-nowrap">{q.pt}점</span>
+              </div>
+              <div className="space-y-2">
+                {q.opts.map((o, oi) => {
+                  const on = q.sel === oi
+                  return (
+                    <div key={oi} className={`flex items-center gap-2.5 p-2.5 rounded-xl border ${on ? 'border-emerald-400 bg-emerald-50' : 'border-gray-200 bg-white'}`}>
+                      <span className={`w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${on ? 'border-emerald-500' : 'border-gray-300'}`}>{on && <span className="w-2 h-2 rounded-full bg-emerald-500" />}</span>
+                      <span className={`text-[13px] ${on ? 'text-emerald-800 font-semibold' : 'text-gray-700'}`}>{o}</span>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           ))}
         </div>
-        {/* 보상 + 제출 */}
-        <div className="flex items-center gap-2 pt-1">
-          <div className="flex items-center gap-1.5 bg-amber-50 rounded-full px-3 py-2">
-            <I group="reward" name="gift" emoji="🎁" size={22} />
-            <span className="text-[11px] font-bold text-amber-600">+10P</span>
-          </div>
-          <div className="flex-1 py-3 rounded-[12px] bg-indigo-500 text-white text-center text-[13px] font-bold">제출하기</div>
-        </div>
+        <button type="button" className="w-full mt-4 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-400 to-teal-500 text-white text-[14px] font-bold">제출하기</button>
       </div>
     </>
   )
@@ -749,14 +938,16 @@ function IconMockupDemoPage() {
         <div className="flex flex-wrap justify-center gap-x-6 gap-y-8 pb-6 mt-5">
           <Phone title="① 홈 대시보드"><HomeMock /></Phone>
           <Phone title="② 둘러보기"><BrowseMock /></Phone>
-          <Phone title="③ 프로그램 상세 · 미션"><DetailMock /></Phone>
-          <Phone title="④ 랭킹"><RankMock /></Phone>
-          <Phone title="⑤ 응원 게시판"><CheerMock /></Phone>
-          <Phone title="⑥ 성장"><GrowthMock /></Phone>
-          <Phone title="⑦ 마이페이지"><ProfileMock /></Phone>
-          <Phone title="⑧ 알림"><NotifMock /></Phone>
-          <Phone title="⑨ 퀴즈 풀기"><QuizMock /></Phone>
-          <Phone title="⑩ 미션 인증"><VerifyMock /></Phone>
+          {/* 프로그램 딥드릴 — 홈(카드형)/미션/퀴즈/응원/성장 (3D) */}
+          <Phone title="③ 프로그램 · 홈 (신규 카드형)"><ProgramHomeMock /></Phone>
+          <Phone title="④ 프로그램 · 미션"><DetailMock /></Phone>
+          <Phone title="⑤ 프로그램 · 퀴즈 풀기"><QuizMock /></Phone>
+          <Phone title="⑥ 프로그램 · 응원"><CheerMock /></Phone>
+          <Phone title="⑦ 프로그램 · 성장(정원)"><GrowthMock /></Phone>
+          <Phone title="⑧ 랭킹"><RankMock /></Phone>
+          <Phone title="⑨ 마이페이지"><ProfileMock /></Phone>
+          <Phone title="⑩ 알림"><NotifMock /></Phone>
+          <Phone title="⑪ 미션 인증"><VerifyMock /></Phone>
         </div>
       </div>
     </div>

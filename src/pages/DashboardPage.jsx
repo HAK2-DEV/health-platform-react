@@ -12,7 +12,7 @@ import ProgramCover from '../components/common/ProgramCover'
 import CountUp from '../components/common/CountUp'
 import LoadingState from '../components/common/LoadingState'
 import EmptyState from '../components/common/EmptyState'
-import { calcProgress, progressUrgency } from '../lib/programVisuals'
+import { calcProgress, progressUrgency, calcProgramTiming } from '../lib/programVisuals'
 import { formatKoreanDate } from '../lib/formatters'
 import {
   queryKeys,
@@ -297,12 +297,10 @@ function DashboardPage() {
     const end = new Date(`${featured.end_date}T23:59:59+09:00`)
     return Math.max(0, Math.ceil((end - new Date()) / 86400000))
   })()
-  const achieveRate = (() => {
-    if (!featured?.start_date) return null
-    const start = new Date(`${featured.start_date}T00:00:00+09:00`)
-    const elapsed = Math.max(1, Math.round((new Date() - start) / 86400000) + 1)
-    return Math.min(100, Math.round(((featuredOverview?.activeDays ?? 0) / elapsed) * 100))
-  })()
+  // 목표 달성률 = 상세 개요 "참여율" 과 동일 공식(calcProgramTiming) — 경과일 기간 상한.
+  const achieveRate = featured?.start_date
+    ? calcProgramTiming(featured.start_date, featured.end_date, featuredOverview?.activeDays ?? 0).participationRate
+    : null
 
   const featuredParticipants = featured ? (activeCounts[featured.id] ?? null) : null
 

@@ -18,6 +18,7 @@ import LoadingState from '../../components/common/LoadingState'
 import ImageCropModal from '../../components/common/ImageCropModal'
 import NotificationBell from '../../components/common/NotificationBell'
 import Confetti from '../../components/common/Confetti'
+import SubmitCelebration from '../../components/common/SubmitCelebration'
 
 // 카테고리 → 히어로 그라데이션
 const CATEGORY_HERO = {
@@ -255,6 +256,7 @@ function MissionVerifyPage() {
   //   사라져 폼이 다시 떴음. 제출 성공 시 현재 history 엔트리 state 에 완료정보를 박제 →
   //   뒤로가기 복귀 시 location.state.completed 로 완료 화면을 복원한다 (해당 엔트리에만 묶임).
   const [submitted, setSubmitted] = useState(() => location.state?.completed || null)
+  const [celebrated, setCelebrated] = useState(false)   // 제출 완료 연출(체크 그리기 → 클립보드) 재생 여부
 
   // 오늘 더 인증 가능한 미션이 남았는지 — 「나머지 미션」 버튼 + 제출 후 전체완료 분기용.
   //   제출 직후(onSuccess)에 즉시 판단해야 하므로 submitted 와 무관하게 항상 조회.
@@ -747,6 +749,12 @@ function MissionVerifyPage() {
     const isReview = mission?.verification_type !== 'AUTO'
     return (
       <div className="min-h-screen bg-gray-50 -mx-4 -mt-2">
+        {!celebrated && (
+          <SubmitCelebration
+            emptySrc="/icons/feature/mission-empty.png" checkSrc="/icons/feature/mission-check.png" checkOrigin="51% 54%"
+            label={isReview ? '제출 완료!' : '미션 완료!'} points={submitted.points || 0} pending={isReview}
+            onDone={() => setCelebrated(true)} />
+        )}
         {/* 헤더 — 뒤로 + 제목(진입 경로별) + 알림 */}
         <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-gray-100">
           <div className="max-w-md mx-auto h-[56px] px-4 flex items-center justify-center relative">
@@ -1376,6 +1384,7 @@ function MissionVerifyPage() {
     </div>
   )
 }
+
 
 // 완료 화면 요약 통계 타일 (아이콘/이미지 왼쪽 + 라벨/값 오른쪽)
 function StatTile({ icon, iconBg, imgSrc, imgStyle, label, value, valueClass }) {
