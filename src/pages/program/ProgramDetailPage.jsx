@@ -26,7 +26,7 @@ import RunningQuizCard from '../../components/program/RunningQuizCard'
 import WeeklyStreak from '../../components/program/WeeklyStreak'
 import FlameIcon from '../../components/common/FlameIcon'
 import MetricSummaryCard from '../../components/program/MetricSummaryCard'
-import ProgramHome from '../../components/program/ProgramHome'
+import ProgramHome, { HOME_BOX_ORDER, HOME_BOX_LABELS } from '../../components/program/ProgramHome'
 import ProgramHomeLayoutEditor from '../../components/program/ProgramHomeLayoutEditor'
 import { resolveMissionIcon } from '../../lib/missionIcons'
 import ProgramChangeTab from '../../components/program/ProgramChangeTab'
@@ -1184,6 +1184,11 @@ function ProgramDetailPage() {
                   className="w-8 h-8 flex items-center justify-center rounded-lg text-emerald-600 hover:bg-emerald-50 transition">
                   <Plus className="w-5 h-5" strokeWidth={2.5} />
                 </button>
+              ) : (activeTab === 'classes' && isOwner && !classManageOpen && !searchParams.get('class')) ? (
+                <button type="button" onClick={openClassManage} title="클래스 관리" aria-label="클래스 관리"
+                  className="w-8 h-8 flex items-center justify-center rounded-lg text-emerald-600 hover:bg-emerald-50 transition">
+                  <Plus className="w-5 h-5" strokeWidth={2.5} />
+                </button>
               ) : null
             ) : (
               <>
@@ -1712,6 +1717,8 @@ function ProgramDetailPage() {
       {/* 카드홈 레이아웃 편집기 (운영자 전용, 풀스크린 오버레이) */}
       {usesCardHome && isOwner && homeEditOpen && (
         <ProgramHomeLayoutEditor
+          boxKeys={program.class_feature_enabled ? HOME_BOX_ORDER : HOME_BOX_ORDER.filter(k => k !== 'classes')}
+          boxLabels={HOME_BOX_LABELS}
           currentOrder={program.home_layout?.order || null}
           currentHidden={program.home_layout?.hidden || []}
           menuLabels={['미션', (quizEnabled && !isViewer) ? '퀴즈' : null, communityEnabled ? '커뮤니티' : null, (program.ranking_enabled !== false) ? '랭킹' : null].filter(Boolean)}
@@ -1723,7 +1730,7 @@ function ProgramDetailPage() {
       {/* 금연 카드홈 — 전용 박스(기분체크/공지/메뉴/목표·스트릭/팁/진행/응원배너) 편집기 */}
       {usesQuitHome && isOwner && homeEditOpen && (
         <ProgramHomeLayoutEditor
-          boxKeys={QUIT_BOX_ORDER}
+          boxKeys={program.class_feature_enabled ? QUIT_BOX_ORDER : QUIT_BOX_ORDER.filter(k => k !== 'classes')}
           boxLabels={QUIT_BOX_LABELS}
           currentOrder={program.home_layout?.order || null}
           currentHidden={program.home_layout?.hidden || []}
@@ -2327,7 +2334,7 @@ function ProgramDetailPage() {
       {/* ─── 클래스 일정 — 전체 목록 ↔ 상세(?class=) ───────────────────── */}
       {activeTab === 'classes' && (() => {
         const selClass = searchParams.get('class')
-        if (selClass) return <ClassDetail sessionId={selClass} programId={id} userId={userId} isOwner={isOwner} />
+        if (selClass) return <ClassDetail sessionId={selClass} programId={id} userId={userId} isOwner={isOwner} attendanceMode={program.class_attendance_mode} checkinBeforeMin={program.class_checkin_before_min ?? 30} />
         return <ClassScheduleList programId={id} userId={userId}
           onOpenSession={(sid) => setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('class', sid); return n })} />
       })()}
@@ -2614,7 +2621,7 @@ function ProgramDetailPage() {
             </div>
           </header>
           <div className="px-[11px] py-3 max-w-4xl mx-auto">
-            <ClassManageSection programId={id} />
+            <ClassManageSection programId={id} userId={userId} attendanceMode={program.class_attendance_mode} />
           </div>
         </div>
       )}

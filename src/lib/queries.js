@@ -404,6 +404,75 @@ export const cancelSessionRegistration = async ({ sessionId, userId }) => {
     .update({ status: 'cancelled' }).eq('session_id', sessionId).eq('user_id', userId)
   if (error) throw error
 }
+
+// 내 출석 상태(단건) — 'confirmed'|'pending'|'rejected'|null
+export const fetchMyAttendance = async ({ sessionId, userId }) => {
+  if (!sessionId || !userId) return null
+  const { data, error } = await supabase.from('session_attendance')
+    .select('status').eq('session_id', sessionId).eq('user_id', userId).maybeSingle()
+  if (error) throw error
+  return data?.status || null
+}
+// 자가출석 요청(self_approve) — pending 삽입(RLS: 본인+pending+활성참가자). 이미 있으면 무시.
+export const requestSelfAttendance = async ({ sessionId, userId }) => {
+  const { error } = await supabase.from('session_attendance')
+    .upsert({ session_id: sessionId, user_id: userId, status: 'pending', method: 'self_approve' },
+      { onConflict: 'session_id,user_id', ignoreDuplicates: true })
+  if (error) throw error
+}
+
+// 운영자 출석부 — 신청자 명단 + 출석 상태. (RLS: 운영자 신청/출석 조회)
+export const fetchSessionRoster = async (sessionId) => {
+  if (!sessionId) return []
+  const [regRes, attRes] = await Promise.all([
+    supabase.from('session_registrations')
+      .select('user_id, users(nickname, avatar_path)')
+      .eq('session_id', sessionId).eq('status', 'registered'),
+    supabase.from('session_attendance').select('user_id, status').eq('session_id', sessionId),
+  ])
+  if (regRes.error) throw regRes.error
+  if (attRes.error) throw attRes.error
+  const att = {}
+  ;(attRes.data || []).forEach(a => { att[a.user_id] = a.status })
+  return (regRes.data || []).map(r => ({
+    user_id: r.user_id,
+    nickname: r.users?.nickname || '(닉네임 없음)',
+    avatar_path: r.users?.avatar_path || null,
+    attStatus: att[r.user_id] || null,   // 'confirmed' | 'pending' | 'rejected' | null
+  }))
+}
+// 현장 출석 코드(venue_code) — 운영자 전용(마이그 161). session_codes.
+export const fetchSessionCode = async (sessionId) => {
+  if (!sessionId) return ''
+  const { data, error } = await supabase.from('session_codes').select('code').eq('session_id', sessionId).maybeSingle()
+  if (error) throw error
+  return data?.code || ''
+}
+export const setSessionCode = async ({ sessionId, code }) => {
+  const { error } = await supabase.from('session_codes')
+    .upsert({ session_id: sessionId, code, updated_at: new Date().toISOString() }, { onConflict: 'session_id' })
+  if (error) throw error
+}
+// 참가자 자가 체크인 — RPC(코드 검증). 반환: 'ok'|'wrong_code'|'no_code'|'not_participant'|'mode'|'not_found'
+export const checkInWithCode = async ({ sessionId, code }) => {
+  const { data, error } = await supabase.rpc('check_in_with_code', { p_session_id: sessionId, p_code: code })
+  if (error) throw error
+  return data
+}
+
+// 출석 확정/해제 — operator_roll. attended=false 는 rejected 로(트리거가 적립 회수).
+export const setSessionAttendance = async ({ sessionId, userId, attended, confirmedBy = null }) => {
+  if (attended) {
+    const { error } = await supabase.from('session_attendance')
+      .upsert({ session_id: sessionId, user_id: userId, status: 'confirmed', method: 'operator_roll', confirmed_by: confirmedBy },
+        { onConflict: 'session_id,user_id' })
+    if (error) throw error
+  } else {
+    const { error } = await supabase.from('session_attendance')
+      .update({ status: 'rejected' }).eq('session_id', sessionId).eq('user_id', userId)
+    if (error) throw error
+  }
+}
 export const createSession = async (payload) => {
   const { data, error } = await supabase.from('sessions').insert(payload).select().single()
   if (error) throw error
@@ -416,6 +485,15 @@ export const updateSession = async (id, patch) => {
 export const deleteSession = async (id) => {
   const { error } = await supabase.from('sessions').delete().eq('id', id)
   if (error) throw error
+}
+
+// 프로그램 이름 중복 검사(전역) — RPC(마이그 163). 종료된 건 무관. p_exclude_id=편집 중 자신 제외.
+export const checkProgramNameTaken = async ({ name, excludeId = null }) => {
+  const trimmed = (name || '').trim()
+  if (!trimmed) return false
+  const { data, error } = await supabase.rpc('program_name_taken', { p_name: trimmed, p_exclude_id: excludeId })
+  if (error) throw error
+  return !!data
 }
 
 export const fetchProgram = async (programId) => {

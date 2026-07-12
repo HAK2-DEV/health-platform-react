@@ -1,18 +1,13 @@
 import { Calendar, Clock, MapPin, Users, ChevronRight, ChevronLeft, Bell, Check } from 'lucide-react'
+import { CLASS_CATEGORIES as CATS } from '../lib/classCategories'
 
 // 데모 — 강사 클래스 「개요 진입 카드 · 전체 일정 · 클래스 상세」. /class-schedule-demo
-//   참가자 화면 기준. 문구·UI 확정용(실데이터 전 스캐폴드).
+//   참가자 화면 기준. 종목 색/아이콘은 공용 classCategories 사용(실화면과 동일).
 const WD = ['일', '월', '화', '수', '목', '금', '토']
 const today = new Date()
 const addDays = (n) => { const d = new Date(today); d.setDate(d.getDate() + n); return d }
 const dLabel = (d) => `${d.getMonth() + 1}/${d.getDate()}(${WD[d.getDay()]})`
-
-const CATS = {
-  yoga: { label: '요가', emoji: '🧘', pill: 'bg-emerald-100 text-emerald-700', grad: 'from-emerald-400 to-teal-500' },
-  crossfit: { label: '크로스핏', emoji: '🏋️', pill: 'bg-orange-100 text-orange-700', grad: 'from-orange-400 to-rose-500' },
-  pilates: { label: '필라테스', emoji: '🤸', pill: 'bg-violet-100 text-violet-700', grad: 'from-violet-400 to-fuchsia-500' },
-  gym: { label: '헬스', emoji: '💪', pill: 'bg-sky-100 text-sky-700', grad: 'from-sky-400 to-indigo-500' },
-}
+const catBadge = (c) => c.icon ? <img src={c.icon} alt="" aria-hidden="true" className="w-4 h-4 object-contain" /> : c.emoji
 
 const SESSIONS = [
   { id: 1, cat: 'yoga', title: '하타 요가 · 코어 안정화', instr: '김서연', spec: '요가 지도자 · 8년', date: addDays(2), time: '19:00~20:00', place: '스튜디오 A (2층)', cap: 12, joined: 8, signup: 'rsvp', mine: true, week: '이번 주' },
@@ -36,7 +31,7 @@ function OverviewCard() {
           const c = CATS[s.cat]
           return (
             <div key={s.id} className="flex items-center gap-3 rounded-xl bg-gray-50 p-2.5">
-              <span className={`inline-flex items-center gap-1 px-2 h-6 rounded-lg text-[11px] font-bold flex-shrink-0 ${c.pill}`}>{c.emoji} {c.label}</span>
+              <span className={`inline-flex items-center gap-1 px-2 h-6 rounded-lg text-[11px] font-bold flex-shrink-0 ${c.pill}`}>{catBadge(c)} {c.label}</span>
               <div className="min-w-0 flex-1">
                 <p className="text-[13px] font-bold text-gray-800 truncate">{s.title}</p>
                 <p className="text-[11px] text-gray-500 truncate">{dLabel(s.date)} · {s.time.split('~')[0]} · {s.instr} 강사</p>
@@ -58,7 +53,7 @@ function ClassCard({ s }) {
   return (
     <div className="rounded-2xl bg-white border border-gray-100 shadow-soft p-3.5">
       <div className="flex items-center gap-2 mb-2">
-        <span className={`inline-flex items-center gap-1 px-2 h-6 rounded-lg text-[11px] font-bold ${c.pill}`}>{c.emoji} {c.label}</span>
+        <span className={`inline-flex items-center gap-1 px-2 h-6 rounded-lg text-[11px] font-bold ${c.pill}`}>{catBadge(c)} {c.label}</span>
         <span className="text-[11px] text-gray-400 ml-auto">{s.signup === 'rsvp' ? '사전 신청' : '자유 참여'}</span>
       </div>
       <p className="text-[15px] font-bold text-gray-900 mb-1.5">{s.title}</p>
@@ -102,10 +97,9 @@ function ClassDetail() {
   const c = CATS[s.cat]
   return (
     <div className="space-y-[9px]">
-      {/* 히어로 */}
-      <div className={`rounded-2xl overflow-hidden shadow-elevated bg-gradient-to-br ${c.grad} p-5 h-[130px] flex flex-col justify-end`}>
-        <span className="inline-flex w-fit items-center gap-1 px-2 h-6 rounded-lg text-[11px] font-bold bg-white/90 text-gray-700 mb-1.5">{c.emoji} {c.label}</span>
-        <h2 className="text-xl font-extrabold text-white leading-tight">{s.title}</h2>
+      {/* 히어로 — 고정 높이. 기본 흰 배경 + 좌상단 제목 (실화면은 사진 있으면 그 위에 오버레이) */}
+      <div className="relative h-[132px] rounded-2xl overflow-hidden shadow-elevated bg-white border border-gray-100">
+        <h2 className="absolute top-4 left-4 right-14 text-xl font-extrabold text-gray-900 leading-tight line-clamp-2">{s.title}</h2>
       </div>
       {/* 강사 카드 */}
       <div className="rounded-2xl bg-white border border-gray-100 shadow-soft p-4 flex items-center gap-3">
@@ -116,8 +110,9 @@ function ClassDetail() {
           <p className="text-[12px] text-gray-500 mt-0.5 break-keep">몸의 균형과 호흡에 집중하는 수업을 진행해요. 초보자도 환영!</p>
         </div>
       </div>
-      {/* 정보 */}
+      {/* 정보 — 종목 뱃지 + 일시·장소·정원 */}
       <div className="rounded-2xl bg-white border border-gray-100 shadow-soft p-4 space-y-2.5">
+        <span className={`inline-flex w-fit items-center gap-1 pl-1 pr-2 h-6 rounded-lg text-[11px] font-bold ${c.pill}`}>{catBadge(c)} {c.label}</span>
         <p className="flex items-center gap-2 text-[13px] text-gray-700"><Calendar className="w-4 h-4 text-emerald-500" />{dLabel(s.date)} {s.time}</p>
         <p className="flex items-center gap-2 text-[13px] text-gray-700"><MapPin className="w-4 h-4 text-emerald-500" />{s.place} · 서울 강남구 …</p>
         <p className="flex items-center gap-2 text-[13px] text-gray-700"><Users className="w-4 h-4 text-emerald-500" />정원 {s.joined}/{s.cap}명 · 사전 신청</p>

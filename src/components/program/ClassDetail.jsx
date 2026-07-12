@@ -1,7 +1,22 @@
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Calendar, MapPin, Users, Loader2 } from 'lucide-react'
-import { fetchSession, fetchMyRegistrations, registerSession, cancelSessionRegistration } from '../../lib/queries'
+import { Calendar, MapPin, Users, Loader2, Check, Pencil, X } from 'lucide-react'
+import { supabase } from '../../supabaseClient'
+import { fetchSession, fetchMyRegistrations, registerSession, cancelSessionRegistration, fetchMyAttendance, requestSelfAttendance, checkInWithCode, updateSession, formatKstDate } from '../../lib/queries'
 import { catOf } from '../../lib/classCategories'
+import AttendanceRosterModal from './AttendanceRosterModal'
+import CoverImageUploader from '../common/CoverImageUploader'
+
+const CODE_ERR = {
+  wrong_code: '코드가 일치하지 않아요.',
+  no_code: '아직 출석 코드가 등록되지 않았어요.',
+  not_participant: '참여자만 출석할 수 있어요.',
+  not_registered: '신청한 참가자만 출석할 수 있어요.',
+  too_early: '아직 출석 시간이 아니에요.',
+  too_late: '출석 가능 시간이 지났어요.',
+  mode: '출석할 수 없는 클래스예요.',
+  not_found: '클래스를 찾을 수 없어요.',
+}
 
 // 참가자 클래스 상세 — 히어로·강사·정보·안내 + 신청/취소(RSVP).
 //   참가자는 정원·본인 상태만(명단은 RLS 로 비공개). 운영자는 「클래스 관리」에서 명단 확인.
@@ -9,11 +24,14 @@ const WD = ['일', '월', '화', '수', '목', '금', '토']
 const dLabel = (iso) => { const d = new Date(iso); return `${d.getMonth() + 1}/${d.getDate()}(${WD[d.getDay()]})` }
 const tLabel = (iso) => { const d = new Date(iso); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` }
 
-export default function ClassDetail({ sessionId, programId, userId, isOwner = false }) {
+export default function ClassDetail({ sessionId, programId, userId, isOwner = false, attendanceMode = 'operator_roll', checkinBeforeMin = 30 }) {
   const qc = useQueryClient()
   const { data: s, isLoading } = useQuery({ queryKey: ['session', sessionId], queryFn: () => fetchSession(sessionId), enabled: !!sessionId })
   const { data: myRegs = {} } = useQuery({
     queryKey: ['my-registrations', programId, userId], queryFn: () => fetchMyRegistrations({ programId, userId }), enabled: !!programId && !!userId,
+  })
+  const { data: myAtt = null } = useQuery({
+    queryKey: ['my-attendance', sessionId, userId], queryFn: () => fetchMyAttendance({ sessionId, userId }), enabled: !!sessionId && !!userId && !isOwner,
   })
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ['session', sessionId] })
@@ -22,22 +40,67 @@ export default function ClassDetail({ sessionId, programId, userId, isOwner = fa
   }
   const mReg = useMutation({ mutationFn: () => registerSession({ sessionId, userId }), onSuccess: invalidate })
   const mCancel = useMutation({ mutationFn: () => cancelSessionRegistration({ sessionId, userId }), onSuccess: invalidate })
+  const mSelfAtt = useMutation({
+    mutationFn: () => requestSelfAttendance({ sessionId, userId }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['my-attendance', sessionId, userId] }),
+  })
+  const [code, setCode] = useState('')
+  const [codeErr, setCodeErr] = useState(null)
+  const [rosterOpen, setRosterOpen] = useState(false)
+  const [heroEditOpen, setHeroEditOpen] = useState(false)
+  const mCover = useMutation({
+    mutationFn: (coverPath) => updateSession(sessionId, { cover_path: coverPath }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['session', sessionId] }); qc.invalidateQueries({ queryKey: ['sessions', programId] }) },
+  })
+  const mCheckIn = useMutation({
+    mutationFn: () => checkInWithCode({ sessionId, code: code.trim() }),
+    onSuccess: (result) => {
+      if (result === 'ok') { setCodeErr(null); setCode(''); qc.invalidateQueries({ queryKey: ['my-attendance', sessionId, userId] }) }
+      else setCodeErr(CODE_ERR[result] || '출석에 실패했어요.')
+    },
+    onError: () => setCodeErr('출석에 실패했어요.'),
+  })
   const busy = mReg.isPending || mCancel.isPending
 
   if (isLoading) return <div className="py-16 flex justify-center"><Loader2 className="w-6 h-6 text-gray-300 animate-spin" /></div>
   if (!s) return <p className="text-[13px] text-gray-500 py-16 text-center">클래스를 찾을 수 없어요.</p>
 
   const c = catOf(s.category)
+  const coverUrl = s.cover_path ? supabase.storage.from('program-covers').getPublicUrl(s.cover_path).data?.publicUrl : null
   const mine = myRegs[s.id] === 'registered'
   const full = s.capacity != null && (s.joined ?? 0) >= s.capacity && !mine
   const isRsvp = s.signup_mode === 'rsvp'
+  const isClassDay = formatKstDate(new Date(s.starts_at)) === formatKstDate(new Date())
+  // 자가출석 게이팅 — 신청자(rsvp) + 시작 N분 전 ~ 종료 후 3시간
+  const startMs = new Date(s.starts_at).getTime()
+  const endMs = s.ends_at ? new Date(s.ends_at).getTime() : startMs
+  const nowMs = Date.now()
+  const openMs = startMs - (checkinBeforeMin || 30) * 60000
+  const closeMs = endMs + 3 * 3600000
+  const registered = !isRsvp || mine        // open 클래스는 신청 불필요
+  const attMsg = !registered ? '신청한 참가자만 출석할 수 있어요'
+    : nowMs < openMs ? `출석은 시작 ${checkinBeforeMin || 30}분 전부터 가능해요`
+    : nowMs > closeMs ? '출석 가능 시간이 지났어요'
+    : null                                   // null = 출석 가능
+  const grayBox = 'w-full h-11 rounded-xl bg-gray-100 text-gray-500 font-bold flex items-center justify-center text-[13px] break-keep px-3 text-center'
 
   return (
     <div className="space-y-[9px]">
-      {/* 히어로 */}
-      <div className={`rounded-2xl overflow-hidden shadow-elevated bg-gradient-to-br ${c.grad} p-5 min-h-[120px] flex flex-col justify-end`}>
-        <span className="inline-flex w-fit items-center gap-1 px-2 h-6 rounded-lg text-[11px] font-bold bg-white/90 text-gray-700 mb-1.5">{c.emoji} {c.label}</span>
-        <h2 className="text-xl font-extrabold text-white leading-tight break-keep">{s.title}</h2>
+      {/* 히어로 — 고정 높이(사진 유무 무관). 기본 흰 배경, 제목 좌상단. 사진 있으면 그 위에 오버레이. */}
+      <div className="relative h-[132px] rounded-2xl overflow-hidden shadow-elevated bg-white border border-gray-100">
+        {coverUrl && (
+          <>
+            <img src={coverUrl} alt="" aria-hidden="true" className="absolute inset-0 w-full h-full object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/10 to-transparent" />
+          </>
+        )}
+        {isOwner && (
+          <button type="button" onClick={() => setHeroEditOpen(true)}
+            className="absolute top-2.5 right-2.5 z-10 w-8 h-8 rounded-full bg-white/90 shadow flex items-center justify-center text-gray-500 hover:text-emerald-600 transition" aria-label="대표 사진 편집">
+            <Pencil className="w-4 h-4" />
+          </button>
+        )}
+        <h2 className={`absolute top-4 left-4 right-14 text-xl font-extrabold leading-tight break-keep line-clamp-2 ${coverUrl ? 'text-white' : 'text-gray-900'}`}>{s.title}</h2>
       </div>
 
       {/* 강사 카드 */}
@@ -52,8 +115,9 @@ export default function ClassDetail({ sessionId, programId, userId, isOwner = fa
         </div>
       )}
 
-      {/* 정보 */}
+      {/* 정보 — 종목 뱃지 + 일시·장소·정원 */}
       <div className="rounded-2xl bg-white border border-gray-100 shadow-soft p-4 space-y-2.5">
+        <span className={`inline-flex w-fit items-center gap-1 pl-1 pr-2 h-6 rounded-lg text-[11px] font-bold ${c.pill}`}>{c.icon ? <img src={c.icon} alt="" aria-hidden="true" className="w-4 h-4 object-contain" /> : c.emoji} {c.label}</span>
         <p className="flex items-center gap-2 text-[13px] text-gray-700"><Calendar className="w-4 h-4 text-emerald-500 flex-shrink-0" />{dLabel(s.starts_at)} {tLabel(s.starts_at)}{s.ends_at ? `~${tLabel(s.ends_at)}` : ''}</p>
         {(s.place_name || s.place_address) && (
           <p className="flex items-center gap-2 text-[13px] text-gray-700"><MapPin className="w-4 h-4 text-emerald-500 flex-shrink-0" />{[s.place_name, s.place_address].filter(Boolean).join(' · ')}</p>
@@ -71,9 +135,12 @@ export default function ClassDetail({ sessionId, programId, userId, isOwner = fa
         </div>
       )}
 
-      {/* CTA — 운영자는 관리 안내, 참가자는 신청 */}
+      {/* CTA — 운영자는 출석부 바로 관리, 참가자는 신청 */}
       {isOwner ? (
-        <div className="w-full h-12 rounded-2xl bg-gray-50 text-gray-500 text-[13px] font-semibold flex items-center justify-center">운영자는 「클래스 관리」에서 명단·출석을 관리해요</div>
+        <button type="button" onClick={() => setRosterOpen(true)}
+          className="w-full h-12 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold transition">
+          출석부 관리
+        </button>
       ) : !isRsvp ? (
         <div className="w-full h-12 rounded-2xl bg-emerald-50 text-emerald-600 font-bold flex items-center justify-center">자유 참여 · 신청 없이 참석하세요</div>
       ) : mine ? (
@@ -88,6 +155,83 @@ export default function ClassDetail({ sessionId, programId, userId, isOwner = fa
           className="w-full h-12 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold transition disabled:opacity-50 flex items-center justify-center gap-2">
           {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : null}신청하기
         </button>
+      )}
+
+      {/* 자가출석(self_approve) — 당일 참가자, 신청·시간창 게이팅 */}
+      {!isOwner && attendanceMode === 'self_approve' && isClassDay && (
+        <div className="rounded-2xl bg-white border border-gray-100 shadow-soft p-4">
+          <p className="text-[13px] font-bold text-gray-800 mb-2">오늘 출석</p>
+          {myAtt === 'confirmed' ? (
+            <div className="w-full h-11 rounded-xl bg-emerald-50 text-emerald-600 font-bold flex items-center justify-center gap-1"><Check className="w-4 h-4" /> 출석 완료</div>
+          ) : myAtt === 'pending' ? (
+            <div className="w-full h-11 rounded-xl bg-amber-50 text-amber-600 font-bold flex items-center justify-center">출석 요청됨 · 승인 대기</div>
+          ) : myAtt === 'rejected' ? (
+            <div className="w-full h-11 rounded-xl bg-gray-100 text-gray-400 font-bold flex items-center justify-center">출석 미인정</div>
+          ) : attMsg ? (
+            <div className={grayBox}>{attMsg}</div>
+          ) : (
+            <button type="button" onClick={() => mSelfAtt.mutate()} disabled={mSelfAtt.isPending}
+              className="w-full h-11 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold transition disabled:opacity-50 flex items-center justify-center gap-2">
+              {mSelfAtt.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}출석 요청
+            </button>
+          )}
+          <p className="text-[11px] text-gray-400 mt-2 leading-relaxed">운영자가 승인하면 출석 포인트가 부여돼요.</p>
+        </div>
+      )}
+
+      {/* venue_code — 당일 참가자, 신청·시간창 게이팅 후 현장 코드 입력 */}
+      {!isOwner && attendanceMode === 'venue_code' && isClassDay && (
+        <div className="rounded-2xl bg-white border border-gray-100 shadow-soft p-4">
+          <p className="text-[13px] font-bold text-gray-800 mb-2">오늘 출석</p>
+          {myAtt === 'confirmed' ? (
+            <div className="w-full h-11 rounded-xl bg-emerald-50 text-emerald-600 font-bold flex items-center justify-center gap-1"><Check className="w-4 h-4" /> 출석 완료</div>
+          ) : attMsg ? (
+            <div className={grayBox}>{attMsg}</div>
+          ) : (
+            <>
+              <div className="flex gap-2">
+                <input value={code} onChange={e => { setCode(e.target.value); setCodeErr(null) }} placeholder="현장 코드 입력" maxLength={12}
+                  className="flex-1 h-11 px-3 rounded-xl border border-gray-200 text-[15px] font-bold tracking-widest text-gray-800 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
+                <button type="button" onClick={() => mCheckIn.mutate()} disabled={mCheckIn.isPending || !code.trim()}
+                  className="h-11 px-5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold transition disabled:opacity-50 flex items-center justify-center gap-2 flex-shrink-0 whitespace-nowrap">
+                  {mCheckIn.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}출석
+                </button>
+              </div>
+              {codeErr && <p className="text-[12px] text-red-500 mt-2">{codeErr}</p>}
+              <p className="text-[11px] text-gray-400 mt-2 leading-relaxed">강사가 현장에서 알려준 코드를 입력하면 출석돼요.</p>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* operator_roll — 참가자 안내(당일) */}
+      {!isOwner && attendanceMode === 'operator_roll' && isClassDay && (
+        <p className="text-[12px] text-gray-400 text-center">출석은 현장에서 운영자가 확인해요.</p>
+      )}
+
+      {/* 운영자 출석부 — 이 화면에서 바로 */}
+      {isOwner && rosterOpen && (
+        <AttendanceRosterModal session={s} confirmedBy={userId} attendanceMode={attendanceMode} onClose={() => setRosterOpen(false)} />
+      )}
+
+      {/* 운영자 대표 사진 편집 (개요 프로필과 동일 업로더) */}
+      {isOwner && heroEditOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/45" onClick={() => setHeroEditOpen(false)}>
+          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-[16px] font-bold text-gray-900">클래스 대표 사진</h3>
+              <button type="button" onClick={() => setHeroEditOpen(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+            </div>
+            <CoverImageUploader
+              ownerId={userId}
+              imagePath={s.cover_path}
+              onChange={(newPath) => mCover.mutate(newPath)}
+              categories={[]}
+              name={s.title}
+              disabled={mCover.isPending}
+            />
+          </div>
+        </div>
       )}
     </div>
   )

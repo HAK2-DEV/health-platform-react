@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Calendar, MapPin, Users, Pencil, Trash2, X } from 'lucide-react'
+import { Plus, Calendar, MapPin, Users, Pencil, Trash2, X, ChevronDown, ChevronUp } from 'lucide-react'
 import { CLASS_CAT_LIST, catOf } from '../../lib/classCategories'
 import ConfirmModal from '../common/ConfirmModal'
 
@@ -18,6 +18,33 @@ function Field({ label, children }) {
   )
 }
 const inputCls = 'w-full h-10 px-2.5 border border-gray-200 rounded-lg text-[13px] focus:outline-none focus:ring-1 focus:ring-emerald-400'
+
+// 종목 선택 — 아이콘 표시용 커스텀 드롭다운(native select 는 이미지 불가). 인라인 확장(모달 클리핑 회피).
+const catBadge = (c, size) => c.icon
+  ? <img src={c.icon} alt="" aria-hidden="true" className="object-contain flex-shrink-0" style={{ width: size, height: size }} />
+  : <span>{c.emoji}</span>
+function CategorySelect({ value, onChange }) {
+  const [open, setOpen] = useState(false)
+  const cur = catOf(value)
+  return (
+    <div>
+      <button type="button" onClick={() => setOpen(o => !o)} className={`${inputCls} flex items-center justify-between text-left`}>
+        <span className="flex items-center gap-1.5">{catBadge(cur, 18)} {cur.label}</span>
+        {open ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+      </button>
+      {open && (
+        <div className="mt-1 rounded-lg border border-gray-200 overflow-hidden">
+          {CLASS_CAT_LIST.map(c => (
+            <button key={c.key} type="button" onClick={() => { onChange(c.key); setOpen(false) }}
+              className={`w-full flex items-center gap-2 px-2.5 h-10 text-left text-[13px] transition ${c.key === value ? 'bg-emerald-50 text-emerald-700 font-bold' : 'text-gray-700 hover:bg-gray-50'}`}>
+              {catBadge(c, 20)} {c.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 // ── 강사 폼 모달 ──
 function InstructorForm({ initial, onSave, onClose, busy }) {
@@ -72,9 +99,7 @@ function SessionForm({ instructors, initial, onSave, onClose, busy }) {
       <Field label="클래스 제목 *"><input className={inputCls} value={title} onChange={e => setTitle(e.target.value)} placeholder="예: 하타 요가 · 코어 안정화" /></Field>
       <div className="grid grid-cols-2 gap-2">
         <Field label="종목">
-          <select className={inputCls} value={category} onChange={e => setCategory(e.target.value)}>
-            {CLASS_CAT_LIST.map(c => <option key={c.key} value={c.key}>{c.emoji} {c.label}</option>)}
-          </select>
+          <CategorySelect value={category} onChange={setCategory} />
         </Field>
         <Field label="강사">
           <select className={inputCls} value={instructorId} onChange={e => setInstructorId(e.target.value)}>
@@ -136,10 +161,12 @@ export default function ClassManageView({
   instructors = [], sessions = [], busy = false,
   onCreateInstructor, onUpdateInstructor, onDeleteInstructor,
   onCreateSession, onUpdateSession, onDeleteSession,
+  renderRoster = null,   // (session, onClose) => ReactNode — 출석부 모달(운영자)
 }) {
   const [instrForm, setInstrForm] = useState(null)   // { } (new) | instructor (edit) | null
   const [sessForm, setSessForm] = useState(null)     // { } (new) | session (edit) | null
   const [confirm, setConfirm] = useState(null)       // { kind:'instr'|'sess', id, name }
+  const [rosterSession, setRosterSession] = useState(null)
 
   return (
     <div className="space-y-4">
@@ -192,7 +219,7 @@ export default function ClassManageView({
               return (
                 <div key={s.id} className="rounded-2xl bg-white border border-gray-100 shadow-soft p-3.5">
                   <div className="flex items-center gap-2 mb-1.5">
-                    <span className={`inline-flex items-center gap-1 px-2 h-6 rounded-lg text-[11px] font-bold ${c.pill}`}>{c.emoji} {c.label}</span>
+                    <span className={`inline-flex items-center gap-1 pl-1 pr-2 h-6 rounded-lg text-[11px] font-bold ${c.pill}`}>{c.icon ? <img src={c.icon} alt="" aria-hidden="true" className="w-4 h-4 object-contain" /> : c.emoji} {c.label}</span>
                     <span className="text-[11px] text-gray-400">{s.signup_mode === 'rsvp' ? '사전 신청' : '자유 참여'}</span>
                     <button type="button" onClick={() => setSessForm(s)} className="ml-auto p-1 text-gray-300 hover:text-emerald-600"><Pencil className="w-4 h-4" /></button>
                     <button type="button" onClick={() => setConfirm({ kind: 'sess', id: s.id, name: s.title })} className="p-1 text-gray-300 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
@@ -203,6 +230,12 @@ export default function ClassManageView({
                     {s.place_name && <p className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-gray-400" />{s.place_name}</p>}
                     <p className="flex items-center gap-1.5"><Users className="w-3.5 h-3.5 text-gray-400" />{s.instructor?.name || '강사 미지정'} · 신청 {s.joined ?? 0}{s.capacity ? `/${s.capacity}` : ''}명{s.points ? ` · +${s.points}P` : ''}</p>
                   </div>
+                  {renderRoster && (
+                    <button type="button" onClick={() => setRosterSession(s)}
+                      className="mt-3 w-full h-9 rounded-xl bg-gray-50 text-gray-600 text-[12px] font-bold hover:bg-gray-100 transition">
+                      출석부
+                    </button>
+                  )}
                 </div>
               )
             })}
@@ -235,6 +268,8 @@ export default function ClassManageView({
           }}
         />
       )}
+
+      {rosterSession && renderRoster?.(rosterSession, () => setRosterSession(null))}
 
       <ConfirmModal
         isOpen={!!confirm}

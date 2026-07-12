@@ -6,7 +6,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
 import { ChevronRight, ClipboardList, Calendar, Trash2 } from 'lucide-react'
 import { CATEGORY, CATEGORY_LIST } from '../../lib/constants'
-import { calcProgress, CATEGORY_HEX } from '../../lib/programVisuals'
+import { calcProgress, CATEGORY_HEX, progressUrgency } from '../../lib/programVisuals'
 import ProgramCover from '../../components/common/ProgramCover'
 import LoadingState from '../../components/common/LoadingState'
 import EmptyState from '../../components/common/EmptyState'
@@ -46,6 +46,7 @@ function ProgramCard({ program, ctaLabel, onClick, onDelete }) {
   const catLabel = CATEGORY[catKey]?.label || '기타'
   const isDraft = program.status === 'DRAFT'
   const progress = calcProgress(program.start_date, program.end_date)
+  const urg = progressUrgency(progress)   // 70%↑ 주황·90%↑ 빨강 (카드홈·대시보드와 통일)
   const days = daysLeftOf(program)
   const desc = oneLineDesc(program)
 
@@ -104,9 +105,9 @@ function ProgramCard({ program, ctaLabel, onClick, onDelete }) {
         ) : (
           <div className="flex-1 flex items-center gap-2 min-w-0">
             <span className="text-[11px] text-gray-500 flex-shrink-0">진행률</span>
-            <span className="text-[11px] font-bold flex-shrink-0" style={{ color }}>{progress}%</span>
+            <span className={`text-[11px] font-bold flex-shrink-0 ${urg.textCls || ''}`} style={urg.textCls ? undefined : { color }}>{progress}%</span>
             <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-              <div className="h-full rounded-full" style={{ backgroundColor: color, width: `${progress}%` }} />
+              <div className={`h-full rounded-full ${urg.barCls || ''}`} style={{ width: `${progress}%`, ...(urg.barCls ? {} : { backgroundColor: color }) }} />
             </div>
           </div>
         )}

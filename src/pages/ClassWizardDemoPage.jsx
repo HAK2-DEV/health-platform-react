@@ -50,13 +50,22 @@ function MethodCard({ m, selected, onSelect }) {
 export default function ClassWizardDemoPage() {
   const [enabled, setEnabled] = useState(false)
   const [method, setMethod] = useState('operator_roll')
+  const [checkinBeforeMin, setCheckinBeforeMin] = useState(30)
 
   return (
     <WizardLayout currentStep={2}>
       <h2 className="text-xl font-semibold text-gray-800" style={{ marginBottom: '5px' }}>강사 클래스 운영</h2>
       <p className="text-sm text-gray-600 break-keep" style={{ marginBottom: '18px' }}>
-        발행 후에도 「프로그램 설정」에서 바꿀 수 있어요.
+        외부 강사가 특정 날짜에 진행하는 클래스 일정을 운영해요.
       </p>
+
+      {/* 클래스 설정 변경 불가 알림 */}
+      <div className="flex items-start gap-2 p-3 rounded-[10px] bg-amber-50 border border-amber-200" style={{ marginBottom: '9px' }}>
+        <span className="text-base flex-shrink-0">⚠️</span>
+        <p className="text-[12px] text-amber-800 leading-relaxed break-keep">
+          클래스 설정(운영 여부·출석 확정 방식)은 <span className="font-bold">프로그램 생성 후 변경할 수 없어요.</span> 신중히 선택해주세요.
+        </p>
+      </div>
 
       {/* 기능 토글 */}
       <button
@@ -91,6 +100,19 @@ export default function ClassWizardDemoPage() {
           {METHODS.map(m => (
             <MethodCard key={m.key} m={m} selected={method === m.key} onSelect={() => setMethod(m.key)} />
           ))}
+
+          {method !== 'operator_roll' && (
+            <div className="rounded-[10px] border border-gray-200 bg-white p-3" style={{ marginTop: '3px' }}>
+              <p className="text-sm font-bold text-gray-800" style={{ marginBottom: '2px' }}>출석 가능 시점</p>
+              <p className="text-xs text-gray-500 break-keep" style={{ marginBottom: '8px' }}>
+                <b className="text-emerald-700">신청한 참가자</b>가 클래스 <b>시작 전부터</b> 출석할 수 있어요. 언제부터 열지 골라요.
+              </p>
+              <select value={checkinBeforeMin} onChange={(e) => setCheckinBeforeMin(Number(e.target.value))}
+                className="w-full h-10 px-2.5 rounded-lg border-2 border-gray-200 bg-white text-sm text-gray-700 focus:border-emerald-400 focus:outline-none">
+                {[10, 15, 30, 60, 120].map(n => <option key={n} value={n}>시작 {n}분 전부터</option>)}
+              </select>
+            </div>
+          )}
         </div>
       )}
 

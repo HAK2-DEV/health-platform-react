@@ -4,9 +4,10 @@ import {
   fetchSessions, createSession, updateSession, deleteSession,
 } from '../../lib/queries'
 import ClassManageView from './ClassManageView'
+import AttendanceRosterModal from './AttendanceRosterModal'
 
 // 운영자 「클래스 관리」 컨테이너 — 실쿼리 배선. class_feature_enabled && isOwner 일 때 노출.
-export default function ClassManageSection({ programId }) {
+export default function ClassManageSection({ programId, userId = null, attendanceMode = 'operator_roll' }) {
   const qc = useQueryClient()
   const { data: instructors = [] } = useQuery({
     queryKey: ['instructors', programId], queryFn: () => fetchInstructors(programId), enabled: !!programId,
@@ -37,6 +38,9 @@ export default function ClassManageSection({ programId }) {
       onCreateSession={(p) => mCreateSess.mutate(p)}
       onUpdateSession={(id, patch) => mUpdateSess.mutate({ id, patch })}
       onDeleteSession={(id) => mDeleteSess.mutate(id)}
+      renderRoster={(session, onClose) => (
+        <AttendanceRosterModal session={{ ...session, program_id: programId }} confirmedBy={userId} attendanceMode={attendanceMode} onClose={onClose} />
+      )}
     />
   )
 }

@@ -1,8 +1,10 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Calendar } from 'lucide-react'
+import { Calendar, AlertCircle, Loader2 } from 'lucide-react'
 import { CATEGORY_LIST, PROGRAM } from '../../../lib/constants'
 import { getTodayKST } from '../../../lib/formatters'
+import { checkProgramNameTaken } from '../../../lib/queries'
 import { useAuth } from '../../../hooks/useAuth'
 
 // 카테고리 3D 아이콘 (public/icons/category/<key>.png) — 로드 실패 시 이모지 폴백
@@ -43,6 +45,22 @@ function Step1Basic({ initialData, onNext, onSave, enterAtEnd = false }) {
   const [coverImagePath, setCoverImagePath] = useState(initialData?.cover_image_path || null)
   const [error, setError] = useState(null)
 
+  // 이름 중복 검사(전역, 마이그 163 RPC) — 종료된 건 무관. 입력 디바운스 후 검사.
+  const [debouncedName, setDebouncedName] = useState(name.trim())
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedName(name.trim()), 350)
+    return () => clearTimeout(t)
+  }, [name])
+  const { data: nameTaken = false, isFetching: nameFetching } = useQuery({
+    queryKey: ['program-name-taken', debouncedName.toLowerCase(), initialData?.id || null],
+    queryFn: () => checkProgramNameTaken({ name: debouncedName, excludeId: initialData?.id }),
+    enabled: !!ownerId && debouncedName.length > 0,
+    staleTime: 0,
+  })
+  const nameSettled = debouncedName === name.trim()
+  const isDupName = name.trim().length > 0 && nameSettled && nameTaken
+  const nameChecking = name.trim().length > 0 && (!nameSettled || nameFetching)  // 확인 중(진행 차단)
+
   // 2단계에서 「이전」으로 돌아오면 마지막 서브스텝(소개·사진)부터 보이게
   const [subStep, setSubStep] = useState(enterAtEnd ? TOTAL - 1 : 0)
   const [dir, setDir] = useState(enterAtEnd ? -1 : 1)
@@ -66,6 +84,8 @@ function Step1Basic({ initialData, onNext, onSave, enterAtEnd = false }) {
     if (s === 0) {
       if (!name.trim()) return '프로그램 이름을 입력해주세요'
       if (name.length > PROGRAM.NAME_MAX_LENGTH) return `이름은 최대 ${PROGRAM.NAME_MAX_LENGTH}자예요`
+      if (isDupName) return '이미 있는 프로그램 이름이에요. 다른 이름을 써주세요'
+      if (nameChecking) return '이름 확인 중이에요. 잠시 후 다시 눌러주세요'
     }
     if (s === 1 && description.length > PROGRAM.DESCRIPTION_MAX_LENGTH) {
       return `한 줄 설명은 최대 ${PROGRAM.DESCRIPTION_MAX_LENGTH}자예요`
@@ -91,6 +111,8 @@ function Step1Basic({ initialData, onNext, onSave, enterAtEnd = false }) {
 
   const handleSave = () => {
     if (!name.trim()) { setError('임시저장하려면 이름을 입력해주세요'); return }
+    if (isDupName) { setError('이미 있는 프로그램 이름이에요. 다른 이름을 써주세요'); return }
+    if (nameChecking) { setError('이름 확인 중이에요. 잠시 후 다시 눌러주세요'); return }
     setError(null)
     onSave(collectData())
   }
@@ -121,18 +143,31 @@ function Step1Basic({ initialData, onNext, onSave, enterAtEnd = false }) {
 
             {/* 0: 이름 */}
             {subStep === 0 && (
-              <div className="relative">
-                <input
-                  type="text"
-                  autoFocus
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') goNext() }}
-                  maxLength={PROGRAM.NAME_MAX_LENGTH}
-                  placeholder="예: 봄철 걷기 챌린지"
-                  className="w-full px-3.5 py-3 border-2 border-gray-200 rounded-[10px] focus:outline-none focus:border-emerald-500 text-[15px]"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">{name.length}/{PROGRAM.NAME_MAX_LENGTH}</span>
+              <div>
+                <div className="relative">
+                  <input
+                    type="text"
+                    autoFocus
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') goNext() }}
+                    maxLength={PROGRAM.NAME_MAX_LENGTH}
+                    placeholder="예: 봄철 걷기 챌린지"
+                    className={`w-full px-3.5 py-3 border-2 rounded-[10px] focus:outline-none text-[15px] ${isDupName ? 'border-red-300 focus:border-red-400' : 'border-gray-200 focus:border-emerald-500'}`}
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">{name.length}/{PROGRAM.NAME_MAX_LENGTH}</span>
+                </div>
+                {isDupName ? (
+                  <p className="flex items-center gap-1 mt-2 text-[13px] text-red-600">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" /> 이미 있는 프로그램 이름이에요. 다른 이름을 써주세요.
+                  </p>
+                ) : nameChecking ? (
+                  <p className="flex items-center gap-1 mt-2 text-[12px] text-gray-400">
+                    <Loader2 className="w-3.5 h-3.5 flex-shrink-0 animate-spin" /> 이름 확인 중…
+                  </p>
+                ) : name.trim().length > 0 ? (
+                  <p className="mt-2 text-[12px] text-emerald-600">사용 가능한 이름이에요 ✓</p>
+                ) : null}
               </div>
             )}
 
@@ -235,8 +270,8 @@ function Step1Basic({ initialData, onNext, onSave, enterAtEnd = false }) {
         )}
         <button type="button" onClick={handleSave}
           className="px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-[10px] transition text-sm whitespace-nowrap">임시저장</button>
-        <button type="button" onClick={goNext}
-          className="flex-1 px-3 py-3 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-bold rounded-[10px] transition text-sm">
+        <button type="button" onClick={goNext} disabled={subStep === 0 && (isDupName || nameChecking)}
+          className="flex-1 px-3 py-3 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-bold rounded-[10px] transition text-sm disabled:opacity-50 disabled:cursor-not-allowed">
           {subStep < TOTAL - 1 ? '다음' : '다음 단계로'}
         </button>
       </div>

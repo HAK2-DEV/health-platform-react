@@ -22,7 +22,7 @@ import { progressUrgency } from '../../lib/programVisuals'
 //   onOpenTab(key), onRecord(), onNotice()
 
 // 커스터마이즈 가능한 박스 — 기본 순서 + 라벨(편집 화면·Phase 2 에서 재사용). 고정(hero/menu) 제외.
-export const HOME_BOX_ORDER = ['notice', 'summary', 'menu', 'progress', 'metrics', 'todayMissions', 'recent', 'banner']
+export const HOME_BOX_ORDER = ['notice', 'summary', 'menu', 'progress', 'metrics', 'todayMissions', 'recent', 'banner', 'classes']
 export const HOME_BOX_LABELS = {
   notice: '공지사항',
   summary: '요약 지표',
@@ -32,6 +32,7 @@ export const HOME_BOX_LABELS = {
   todayMissions: '오늘의 미션',
   recent: '최근 인증',
   banner: '격려 배너',
+  classes: '클래스 일정',
 }
 // 박스 크기(고정, Rule 1) — 편집 화면에서 실제 크기감으로 표시. Long(큰) / Wide(중)
 export const HOME_BOX_SIZES = {
@@ -42,6 +43,7 @@ export const HOME_BOX_SIZES = {
   todayMissions: 'Long',
   recent: 'Long',
   banner: 'Wide',
+  classes: 'Wide',
 }
 
 // 카테고리별 추천/목표 (요약 지표 박스 좌측) — 제목·내용이 카테고리에 맞게 바뀜.
@@ -355,8 +357,14 @@ function ProgramHome({
         </div>
       </div>
     ),
+    // 강사 클래스 — 개요 진입 카드 (기능 ON 시 주입). 위치·숨김 편집 가능.
+    classes: () => classSlot || null,
   }
-  const order = (boxOrder && boxOrder.length ? boxOrder : HOME_BOX_ORDER).filter((k) => BOXES[k])
+  // 저장된 순서 우선 + 신규 박스(예: classes)는 뒤에 append(구 레이아웃 대응).
+  //   'classes' 박스는 강사 클래스 기능 ON(classSlot 주입) 일 때만 존재.
+  const savedOrder = (boxOrder && boxOrder.length ? boxOrder : HOME_BOX_ORDER).filter((k) => BOXES[k])
+  HOME_BOX_ORDER.forEach((k) => { if (BOXES[k] && !savedOrder.includes(k)) savedOrder.push(k) })
+  const order = savedOrder.filter((k) => k !== 'classes' || classSlot)
   const hidden = new Set(hiddenBoxes)
   const orderedKeys = order.filter((k) => !hidden.has(k))
 
@@ -373,11 +381,8 @@ function ProgramHome({
         onHeroChange={onHeroChange}
       />
 
-      {/* [커스터마이즈] 운영자 순서·숨김 반영 (메뉴 포함) */}
+      {/* [커스터마이즈] 운영자 순서·숨김 반영 (메뉴·클래스 일정 포함) */}
       {orderedKeys.map((k) => <Fragment key={k}>{BOXES[k]()}</Fragment>)}
-
-      {/* 강사 클래스 — 개요 진입 카드 (기능 ON 시 주입). 편집 버튼 위. */}
-      {classSlot}
 
       {/* [운영자] 개요 화면 편집 — 가장 아래·중앙·옅은 회색 */}
       {editable && (

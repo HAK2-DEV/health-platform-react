@@ -140,6 +140,7 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
   // 강사 클래스 운영 — 기능 토글 + 출석 확정 방식 (기본 OFF / operator_roll)
   const [classEnabled, setClassEnabled] = useState(!!initialData?.class_feature_enabled)
   const [attendanceMode, setAttendanceMode] = useState(initialData?.class_attendance_mode || 'operator_roll')
+  const [checkinBeforeMin, setCheckinBeforeMin] = useState(initialData?.class_checkin_before_min ?? 30)
 
   const [previewOpen, setPreviewOpen] = useState(false)
 
@@ -168,9 +169,10 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
       gamification_type: 'RANKING',  // NOT NULL — 표시는 ranking_enabled 로 제어
       streak_preset: 'medium',
       streak_milestones: null,
-      // 강사 클래스 운영 (마이그 158) — 카테고리 무관 공통
+      // 강사 클래스 운영 (마이그 158·162) — 카테고리 무관 공통
       class_feature_enabled: classEnabled,
       class_attendance_mode: attendanceMode,
+      class_checkin_before_min: Number(checkinBeforeMin) || 30,
     }
     // 금연 카테고리 = 금연 테마 전체 적용. 랭킹·팀 없음, 「내 변화」 탭 토글.
     if (isQuitCat) {
@@ -316,6 +318,12 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
       </>)}
 
       {/* 강사 클래스 운영 — 카테고리 무관(운동·달리기·금연·정신건강 등) */}
+      <div className="flex items-start gap-2 p-3 rounded-[10px] bg-amber-50 border border-amber-200" style={{ marginBottom: '9px' }}>
+        <span className="text-base flex-shrink-0">⚠️</span>
+        <p className="text-[12px] text-amber-800 leading-relaxed break-keep">
+          클래스 설정(운영 여부·출석 확정 방식)은 <span className="font-bold">프로그램 생성 후 변경할 수 없어요.</span> 신중히 선택해주세요.
+        </p>
+      </div>
       <OptionToggle
         emoji="🧘" title="강사 클래스 운영" accent="emerald"
         description="특정 날짜에 외부 강사가 진행하는 클래스(요가·필라테스·크로스핏 등) 일정을 운영해요. 참가자는 일정을 보고 신청·출석할 수 있어요."
@@ -330,6 +338,20 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
           {CLASS_METHODS.map(m => (
             <ClassMethodCard key={m.key} m={m} selected={attendanceMode === m.key} onSelect={() => setAttendanceMode(m.key)} />
           ))}
+
+          {/* 자가체크 방식(현장 코드·자가출석) — 출석 가능 시점 */}
+          {attendanceMode !== 'operator_roll' && (
+            <div className="rounded-[10px] border border-gray-200 bg-white p-3" style={{ marginTop: '3px' }}>
+              <p className="text-sm font-bold text-gray-800" style={{ marginBottom: '2px' }}>출석 가능 시점</p>
+              <p className="text-xs text-gray-500 break-keep" style={{ marginBottom: '8px' }}>
+                <b className="text-emerald-700">신청한 참가자</b>가 클래스 <b>시작 전부터</b> 출석할 수 있어요. 언제부터 열지 골라요.
+              </p>
+              <select value={checkinBeforeMin} onChange={(e) => setCheckinBeforeMin(Number(e.target.value))}
+                className="w-full h-10 px-2.5 rounded-lg border-2 border-gray-200 bg-white text-sm text-gray-700 focus:border-emerald-400 focus:outline-none">
+                {[10, 15, 30, 60, 120].map(n => <option key={n} value={n}>시작 {n}분 전부터</option>)}
+              </select>
+            </div>
+          )}
         </div>
       )}
 
