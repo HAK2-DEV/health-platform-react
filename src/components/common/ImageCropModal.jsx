@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
 import Cropper from 'react-easy-crop'
-import { Loader2, ZoomIn, ZoomOut } from 'lucide-react'
+import { Loader2, ZoomIn, ZoomOut, Camera, Trash2 } from 'lucide-react'
 import Modal from './Modal'
 import { getCroppedImg } from '../../lib/cropImage'
 
@@ -29,6 +29,8 @@ function ImageCropModal({
   title = '사진 편집',
   description = '드래그하고 확대·축소해 위치를 맞춰주세요',
   minZoom = 0.3,  // 1 미만 허용 → 작은 이미지도 여백 두고 축소 배치 가능
+  onPickNew,   // 주면 「변경」(다른 사진 선택) 버튼 노출
+  onDelete,    // 주면 「삭제」 버튼 노출
 }) {
   const [crop, setCrop] = useState({ x: 0, y: 0 })
   const [zoom, setZoom] = useState(1)
@@ -144,6 +146,24 @@ function ImageCropModal({
 
         {error && (
           <p className="mb-3 text-xs text-red-600 text-center">{error}</p>
+        )}
+
+        {/* 보조 액션 — 변경(다른 사진 선택)/삭제 (주어질 때만) */}
+        {(onPickNew || onDelete) && (
+          <div className="flex gap-2 mb-2">
+            {onPickNew && (
+              <button type="button" onClick={onPickNew} disabled={busy}
+                className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 border border-gray-200 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 transition disabled:opacity-50">
+                <Camera className="w-4 h-4" /> 변경
+              </button>
+            )}
+            {onDelete && (
+              <button type="button" onClick={onDelete} disabled={busy}
+                className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 border border-red-200 text-red-600 text-sm font-medium rounded-md hover:bg-red-50 transition disabled:opacity-50">
+                <Trash2 className="w-4 h-4" /> 삭제
+              </button>
+            )}
+          </div>
         )}
 
         {/* 버튼 */}

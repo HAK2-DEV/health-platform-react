@@ -315,6 +315,7 @@ function RunningHome({
   onOpenTab = () => {},
   onRecord = () => {},
   onNotice = null,               // 공지 클릭 동작(미지정 시 커뮤니티 탭으로)
+  classSlot = null,              // 강사 클래스 개요 진입 카드 (기능 ON 시 주입)
   quizEnabled = true,            // 마법사 「퀴즈」 토글
   communityEnabled = true,       // 마법사 「커뮤니티」 토글
   paceEditable = false,          // 운영자 — 추천 페이스 수정 가능
@@ -445,6 +446,9 @@ function RunningHome({
           </div>
         )
       })()}
+
+      {/* 강사 클래스 — 개요 진입 카드 (기능 ON 시 주입) */}
+      {classSlot}
 
       {/* 6) 하단 격려 배너 — 배경 5초 슬라이드 + 화분 고정 오버레이 */}
       <BottomBanner />

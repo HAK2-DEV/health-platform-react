@@ -14,6 +14,7 @@ import IconBox from '../components/common/IconBox'
 import CountUp from '../components/common/CountUp'
 import FitText from '../components/common/FitText'
 import ImageCropModal from '../components/common/ImageCropModal'
+import ConfirmModal from '../components/common/ConfirmModal'
 
 // 프로필 페이지 — Bottom Tab Bar 👤 진입점
 // 기능 (Day 56):
@@ -65,6 +66,11 @@ function ProfilePage() {
 
   // 캐시버스터 — 아바타 새로 올린 직후 브라우저 캐시 회피
   const [avatarCacheBust, setAvatarCacheBust] = useState(0)
+  // 사진 삭제 확인 모달 (window.confirm 대체)
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
+  const avatarPublicUrl = profile?.avatar_path
+    ? supabase.storage.from('profile-avatars').getPublicUrl(profile.avatar_path).data?.publicUrl
+    : null
 
   // ─── 닉네임 변경 폼 ─────────────────────────────────────
   const [isEditingNickname, setIsEditingNickname] = useState(false)
@@ -197,10 +203,12 @@ function ProfilePage() {
       queryClient.invalidateQueries({ queryKey: ['rankings'] })
       queryClient.invalidateQueries({ queryKey: ['feed'] })
       queryClient.invalidateQueries({ queryKey: ['stats'] })
+      setConfirmDeleteOpen(false)
     },
     onError: (err) => {
       console.error('아바타 삭제 실패:', err)
       setAvatarError(err.message)
+      setConfirmDeleteOpen(false)
     },
   })
 
@@ -220,7 +228,8 @@ function ProfilePage() {
     }
     setAvatarError(null)
     const url = URL.createObjectURL(file)
-    setCropImageSrc(url)
+    // 편집 중 「변경」으로 다른 사진 고를 때 — 이전 objectURL 정리(누수 방지)
+    setCropImageSrc(prev => { if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev); return url })
     setIsCropOpen(true)
   }
 
@@ -238,9 +247,33 @@ function ProfilePage() {
     avatarMutation.mutate(blob)
   }
 
-  const handleRemoveAvatar = () => {
-    if (!window.confirm('프로필 사진을 삭제할까요?')) return
-    removeAvatarMutation.mutate()
+  const handleRemoveAvatar = () => setConfirmDeleteOpen(true)
+
+  // 현재 사진 위치·크기 조절(편집) — 원격 사진을 blob 으로 받아(오염 방지) 크롭 모달로 편집
+  const [adjustLoading, setAdjustLoading] = useState(false)
+  const handleAdjustAvatar = async () => {
+    if (!avatarPublicUrl) return
+    setAdjustLoading(true)
+    setAvatarError(null)
+    try {
+      const res = await fetch(`${avatarPublicUrl}?t=${Date.now()}`)   // 캐시버스터 → 신선한 CORS 응답
+      if (!res.ok) throw new Error('불러오기 실패')
+      const blob = await res.blob()
+      const objUrl = URL.createObjectURL(blob)
+      setCropImageSrc(objUrl)
+      setIsCropOpen(true)
+    } catch (e) {
+      console.error('사진 편집용 로드 실패:', e)
+      setAvatarError('사진을 불러오지 못했어요. 다시 시도해주세요.')
+    } finally {
+      setAdjustLoading(false)
+    }
+  }
+
+  // 아바타 탭 — 사진 있으면 바로 편집(크롭) 화면, 없으면 파일 선택(추가)
+  const handleAvatarTap = () => {
+    if (profile?.avatar_path) handleAdjustAvatar()
+    else fileInputRef.current?.click()
   }
 
   const handleLogout = () => {
@@ -278,15 +311,24 @@ function ProfilePage() {
             {/* 아바타 + 카메라 */}
             <div className="flex flex-col items-center flex-shrink-0">
               <div className="relative">
-                <UserAvatar
-                  avatarPath={profile?.avatar_path}
-                  nickname={nickname}
-                  size="lg"
-                  cacheBust={avatarCacheBust || undefined}
-                  className="ring-2 ring-white shadow-sm"
-                />
-                {isAvatarBusy && (
-                  <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center">
+                <button
+                  type="button"
+                  onClick={handleAvatarTap}
+                  disabled={isAvatarBusy}
+                  className="block rounded-full focus:outline-none focus:ring-2 focus:ring-emerald-400 disabled:opacity-70"
+                  aria-label={profile?.avatar_path ? '프로필 사진 크게 보기' : '프로필 사진 추가'}
+                  title={profile?.avatar_path ? '크게 보기' : '사진 추가'}
+                >
+                  <UserAvatar
+                    avatarPath={profile?.avatar_path}
+                    nickname={nickname}
+                    size="lg"
+                    cacheBust={avatarCacheBust || undefined}
+                    className="ring-2 ring-white shadow-sm"
+                  />
+                </button>
+                {(isAvatarBusy || adjustLoading) && (
+                  <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center pointer-events-none">
                     <Loader2 className="w-6 h-6 text-white animate-spin" />
                   </div>
                 )}
@@ -463,6 +505,18 @@ function ProfilePage() {
         </button>
       </div>
 
+      {/* 프로필 사진 삭제 확인 — window.confirm 대체 */}
+      <ConfirmModal
+        isOpen={confirmDeleteOpen}
+        onClose={() => setConfirmDeleteOpen(false)}
+        onConfirm={() => removeAvatarMutation.mutate()}
+        title="프로필 사진 삭제"
+        message="프로필 사진을 삭제할까요?"
+        confirmLabel="삭제"
+        danger
+        busy={removeAvatarMutation.isPending}
+      />
+
       {/* 프로필 사진 크롭 모달 — 1:1 원형, 512x512 */}
       <ImageCropModal
         isOpen={isCropOpen}
@@ -476,6 +530,8 @@ function ProfilePage() {
         outputHeight={512}
         title="프로필 사진 편집"
         description="원 안에서 드래그하고 확대·축소해 위치를 맞춰주세요"
+        onPickNew={() => fileInputRef.current?.click()}
+        onDelete={profile?.avatar_path ? () => { closeCropModal(); handleRemoveAvatar() } : undefined}
       />
 
       </div>

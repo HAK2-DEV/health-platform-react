@@ -53,7 +53,7 @@ function randomNonce() {
   return toHex(arr.buffer)
 }
 
-function GoogleSignInButton({ clientId }) {
+function GoogleSignInButton({ clientId, onInitError }) {
   const ref = useRef(null)
   const [error, setError] = useState(null)
 
@@ -98,13 +98,14 @@ function GoogleSignInButton({ clientId }) {
         })
       } catch (e) {
         console.error('GIS 초기화 실패:', e)
-        if (!cancelled) setError('Google 로그인 초기화에 실패했어요')
+        // 초기화 실패(원본 미승인·스크립트 차단 등) → 부모가 리다이렉트 방식 버튼으로 폴백
+        if (!cancelled) onInitError?.(e)
       }
     }
 
     init()
     return () => { cancelled = true }
-  }, [clientId])
+  }, [clientId, onInitError])
 
   return (
     <div className="w-full">

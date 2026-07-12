@@ -26,7 +26,7 @@ function QuitSmokingHome({
   streak = 0, savedAmount = null, smokedToday = false, statusLabel = '진행중',
   progressData = null, progress = 0, notice = '',
   streakData = null,
-  moodSlot = null, tipSlot = null, bannerSlot = null,
+  moodSlot = null, tipSlot = null, bannerSlot = null, classSlot = null,
   variant = 'basic',
   homeHero = null, onHeroChange = null, homeGoal = null, onGoalChange = null, ownerId = null, editable = false,
   streakRef = null,
@@ -137,6 +137,9 @@ function QuitSmokingHome({
 
       {/* [커스터마이즈] 운영자 순서·숨김 반영 */}
       {orderedKeys.map((k) => <Fragment key={k}>{BOXES[k]()}</Fragment>)}
+
+      {/* 강사 클래스 — 개요 진입 카드 (기능 ON 시 주입). 편집 버튼 위. */}
+      {classSlot}
 
       {/* [운영자] 개요 화면 편집 */}
       {editable && (

@@ -51,6 +51,10 @@ import CommunityPostModal from '../../components/program/CommunityPostModal'
 import CommunityPostList from '../../components/program/CommunityPostList'
 import CommunityReviewModal from '../../components/program/CommunityReviewModal'
 import ReportsManageSection from '../../components/program/ReportsManageSection'
+import ClassManageSection from '../../components/program/ClassManageSection'
+import ClassOverviewCard from '../../components/program/ClassOverviewCard'
+import ClassScheduleList from '../../components/program/ClassScheduleList'
+import ClassDetail from '../../components/program/ClassDetail'
 import HiddenPostsSection from '../../components/program/HiddenPostsSection'
 import VerificationReviewModal from '../../components/program/VerificationReviewModal'
 import MarkdownView from '../../components/common/MarkdownView'
@@ -487,6 +491,7 @@ function ProgramDetailPage() {
   const quizManageOpen = searchParams.get('panel') === 'quiz'          // 퀴즈 관리자 — URL 유지(새 퀴즈/편집 후 뒤로가기 복원)
   const [quizPreview, setQuizPreview] = useState(false)
   const [communityManageOpen, setCommunityManageOpen] = useState(false) // 커뮤니티 관리자 작업 페이지
+  const [classManageOpen, setClassManageOpen] = useState(false)         // 클래스 관리 오버레이(운영자)
   const communityManageRef = useRef(null)
   // 참여자 커뮤니티 — 선택 게시판 칩. 알림 딥링크(?board=)면 그 게시판으로 시작.
   const [communityBoard, setCommunityBoard] = useState(() => searchParams.get('board') || 'all')
@@ -661,6 +666,10 @@ function ProgramDetailPage() {
     requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, y)))
   }
 
+  // 클래스 관리 — 전체화면 오버레이(탭 무관). 닫으면 운영자 메뉴 복귀(afterManagerClose).
+  const openClassManage = () => setClassManageOpen(true)
+  const closeClassManage = () => { setClassManageOpen(false); afterManagerClose() }
+
   // 미션 관리자 — 동일 패턴 (열 때 상단 스크롤, 닫을 때 복원, 미리보기 토글)
   useEffect(() => {
     if (missionManageOpen) requestAnimationFrame(() => requestAnimationFrame(() => opPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })))
@@ -823,7 +832,7 @@ function ProgramDetailPage() {
   //   열림 시 history 더미 push → 뒤로가기(popstate) 시 열린 관리자 닫기. 코드로 닫히면 더미 정리.
   //   dev(StrictMode 이중 실행) 비활성 — 프로드/네이티브에서만.
   useEffect(() => {
-    const open = overviewManageOpen || missionManageOpen || communityManageOpen
+    const open = overviewManageOpen || missionManageOpen || communityManageOpen || classManageOpen
     if (!open || import.meta.env.DEV) return
     let viaPop = false
     window.history.pushState({ __mgr: true }, '')
@@ -832,6 +841,7 @@ function ProgramDetailPage() {
       if (overviewManageOpen) closeOverviewManage()
       else if (missionManageOpen) closeMissionManage()
       else if (communityManageOpen) closeCommunityManage()
+      else if (classManageOpen) closeClassManage()
     }
     window.addEventListener('popstate', onPop)
     return () => {
@@ -839,7 +849,7 @@ function ProgramDetailPage() {
       if (!viaPop) window.history.back()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [overviewManageOpen, missionManageOpen, communityManageOpen])
+  }, [overviewManageOpen, missionManageOpen, communityManageOpen, classManageOpen])
 
   // 부모 저장 바 → 패널 ref.save() 호출
   const handleOverviewSave = async (close) => {
@@ -1046,6 +1056,10 @@ function ProgramDetailPage() {
     if (missionManageOpen) return closeMissionManage()
     if (quizManageOpen) return closeQuizManage()
     if (communityManageOpen) return closeCommunityManage()
+    if (activeTab === 'classes') {   // 상세(?class=) 열림 → 목록으로, 목록 → 개요
+      if (searchParams.get('class')) return navigate(-1)
+      return setActiveTab('overview')
+    }
     // 카드형 홈(달리기 + 신규 표준) — 탭 바가 없으니 서브화면에선 헤더 뒤로 = 홈(개요)으로,
     // 홈에서 뒤로 = 대시보드로 나감
     if (cardHome) {
@@ -1078,6 +1092,7 @@ function ProgramDetailPage() {
     else if (key === 'missions') { setActiveTab('missions'); openMissionManage() }
     else if (key === 'quizzes') { openQuizManage() }            // openQuizManage 가 tab=quizzes 까지 설정
     else if (key === 'community') { setActiveTab('community'); openCommunityManage() }
+    else if (key === 'classes') { openClassManage() }   // 전체화면 오버레이(탭 전환 없음)
   }
 
   // 상태 배지(진행중/예정/임시저장) — 헤더 제목 옆 + (프로필 카드에서 이전됨)
@@ -1123,6 +1138,14 @@ function ProgramDetailPage() {
   // 공지 배너 — 공지 사용 ON + 최신 노출 공지 존재 + 공지 탭이 아닐 때
   const noticeEnabled = program.community_settings?.noticeEnabled !== false
   const latestNotice = noticePosts.find(p => p.status === 'visible') || null
+  // 강사 클래스 개요 진입 카드 — 기능 ON 시 각 카드홈의 편집버튼 위 슬롯으로 주입
+  const openClassesTab = () => {
+    if (searchParams.get('class')) setSearchParams(prev => { const n = new URLSearchParams(prev); n.delete('class'); return n }, { replace: true })
+    setActiveTab('classes')
+  }
+  const classOverviewSlot = program.class_feature_enabled
+    ? <ClassOverviewCard programId={id} onOpenAll={openClassesTab} />
+    : null
 
   return (
     <div className="px-[11px] pt-2 pb-6 max-w-4xl mx-auto">
@@ -1135,7 +1158,7 @@ function ProgramDetailPage() {
           {/* 정중앙 — 달리기 서브화면은 탭 이름(미션/퀴즈/커뮤니티/랭킹), 그 외는 프로그램명+상태배지 */}
           {runningSub ? (
             <span className="text-[16px] font-bold text-gray-800">
-              {{ missions: '미션', quizzes: '퀴즈', community: '커뮤니티', ranking: '랭킹' }[activeTab] || ''}
+              {{ missions: '미션', quizzes: '퀴즈', community: '커뮤니티', ranking: '랭킹', classes: '클래스 일정' }[activeTab] || ''}
             </span>
           ) : (
             <div className={`relative ${isOwner ? 'max-w-[50%]' : 'max-w-[58%]'}`}>
@@ -1465,6 +1488,7 @@ function ProgramDetailPage() {
             moodSlot={(!isViewer && userId) ? <MoodCheck programId={id} userId={userId} /> : null}
             tipSlot={<QuitSmokingTip />}
             bannerSlot={<QuitSmokingCheer />}
+            classSlot={classOverviewSlot}
             variant="goal"
             homeGoal={program.home_goal}
             onGoalChange={(cfg) => homeGoalMutation.mutate(cfg)}
@@ -1611,6 +1635,7 @@ function ProgramDetailPage() {
             onOpenTab={(key) => setActiveTab(key)}
             onNotice={() => { setCommunityBoard('notice'); setActiveTab('community') }}
             onRecord={() => setActiveTab('missions')}
+            classSlot={classOverviewSlot}
           />
         )
       })()}
@@ -1673,6 +1698,7 @@ function ProgramDetailPage() {
             streakRef={streakRef}
             editable={isOwner}
             onEditLayout={() => setHomeEditOpen(true)}
+            classSlot={classOverviewSlot}
             quizEnabled={quizEnabled && !isViewer}
             communityEnabled={communityEnabled}
             rankingEnabled={program.ranking_enabled !== false}
@@ -2298,6 +2324,14 @@ function ProgramDetailPage() {
         return <ProgramChangeTab programId={id} userId={userId} isOwner={isOwner} periodDays={periodDays} />
       })()}
 
+      {/* ─── 클래스 일정 — 전체 목록 ↔ 상세(?class=) ───────────────────── */}
+      {activeTab === 'classes' && (() => {
+        const selClass = searchParams.get('class')
+        if (selClass) return <ClassDetail sessionId={selClass} programId={id} userId={userId} isOwner={isOwner} />
+        return <ClassScheduleList programId={id} userId={userId}
+          onOpenSession={(sid) => setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('class', sid); return n })} />
+      })()}
+
       {/* ─── 성장 탭 (랭킹 / 정원 / 별자리 분기) ───────────────────── */}
       {activeTab === 'ranking' && !isViewer && (program.gamification_type === 'GARDEN') && (
         <GardenPanel
@@ -2568,6 +2602,23 @@ function ProgramDetailPage() {
         )}
       </Suspense>
 
+      {/* 클래스 관리 — 전체화면 오버레이(운영자). class_feature_enabled 일 때 메뉴바에서 진입 */}
+      {isOwner && classManageOpen && (
+        <div className="fixed inset-0 z-[45] bg-gray-50 overflow-y-auto">
+          <header className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm border-b border-gray-100">
+            <div className="max-w-4xl mx-auto h-[44px] px-2 flex items-center justify-center relative">
+              <button type="button" onClick={closeClassManage} className="absolute left-2 p-1.5 text-gray-600 hover:text-gray-900" aria-label="뒤로">
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <span className="text-[16px] font-bold text-gray-800">클래스 관리</span>
+            </div>
+          </header>
+          <div className="px-[11px] py-3 max-w-4xl mx-auto">
+            <ClassManageSection programId={id} />
+          </div>
+        </div>
+      )}
+
       {/* 운영자 메뉴 시트 — 헤더 ⚙️ 진입. 3단계: 루트 → 내 프로그램 설정 → 메뉴바 설정 */}
       {isOwner && (
         <Modal isOpen={isPanelOpen} onClose={closePanel}>
@@ -2630,6 +2681,10 @@ function ProgramDetailPage() {
                   {/* 금연 테마 — 랭킹 설정 항목 숨김 (랭킹 메뉴 자체가 없으므로) */}
                   {program.theme !== PROGRAM_THEME.QUIT_SMOKING && (
                     <PanelMenuBox icon="🏆" title="랭킹 설정" desc="랭킹 표시·시상대·공개 등" onClick={() => openManagerFromMenu('ranking')} />
+                  )}
+                  {/* 강사 클래스 운영 ON 일 때만 (마이그 158) */}
+                  {program.class_feature_enabled && (
+                    <PanelMenuBox icon="🧘" title="클래스 관리" desc="강사 프로필 · 클래스 일정" onClick={() => openManagerFromMenu('classes')} />
                   )}
                 </div>
               </>

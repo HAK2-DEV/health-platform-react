@@ -193,6 +193,7 @@ function ProgramHome({
   streakRef = null,           // 주간 스트릭 ref — 첫 인증 후 개요 진입 시 도장 재생용
   editable = false,           // 운영자 — 「개요 화면 편집」 박스 노출
   onEditLayout = () => {},    // 편집 화면 열기(Phase 2)
+  classSlot = null,           // 강사 클래스 개요 진입 카드 (기능 ON 시 주입)
   onOpenTab = () => {},
   onRecord = () => {},
   onNotice = null,
@@ -374,6 +375,9 @@ function ProgramHome({
 
       {/* [커스터마이즈] 운영자 순서·숨김 반영 (메뉴 포함) */}
       {orderedKeys.map((k) => <Fragment key={k}>{BOXES[k]()}</Fragment>)}
+
+      {/* 강사 클래스 — 개요 진입 카드 (기능 ON 시 주입). 편집 버튼 위. */}
+      {classSlot}
 
       {/* [운영자] 개요 화면 편집 — 가장 아래·중앙·옅은 회색 */}
       {editable && (

@@ -335,6 +335,89 @@ export const updateProgramHomeGoal = async (programId, goal) => {
   if (error) throw error
 }
 
+// ─── 강사 클래스(일정) — 마이그 158 ───────────────────────────
+//   instructors: 운영자 입력 강사 프로필 / sessions: 클래스 1건.
+export const fetchInstructors = async (programId) => {
+  if (!programId) return []
+  const { data, error } = await supabase
+    .from('instructors').select('*')
+    .eq('program_id', programId).order('created_at', { ascending: true })
+  if (error) throw error
+  return data || []
+}
+export const createInstructor = async ({ programId, name, specialty, bio, photoPath = null }) => {
+  const { data, error } = await supabase.from('instructors')
+    .insert({ program_id: programId, name, specialty, bio, photo_path: photoPath })
+    .select().single()
+  if (error) throw error
+  return data
+}
+export const updateInstructor = async (id, patch) => {
+  const { error } = await supabase.from('instructors').update(patch).eq('id', id)
+  if (error) throw error
+}
+export const deleteInstructor = async (id) => {
+  const { error } = await supabase.from('instructors').delete().eq('id', id)
+  if (error) throw error
+}
+
+// 클래스 목록 — 강사명 + 신청 인원(registered_count, 마이그 159). 운영자·참가자 공용.
+export const fetchSessions = async (programId) => {
+  if (!programId) return []
+  const { data, error } = await supabase
+    .from('sessions')
+    .select('*, instructor:instructors(id,name,specialty)')
+    .eq('program_id', programId).order('starts_at', { ascending: true })
+  if (error) throw error
+  return (data || []).map(s => ({ ...s, joined: s.registered_count ?? 0 }))
+}
+// 단건 상세 (강사 소개·사진 포함)
+export const fetchSession = async (sessionId) => {
+  if (!sessionId) return null
+  const { data, error } = await supabase
+    .from('sessions')
+    .select('*, instructor:instructors(id,name,specialty,bio,photo_path)')
+    .eq('id', sessionId).maybeSingle()
+  if (error) throw error
+  return data ? { ...data, joined: data.registered_count ?? 0 } : null
+}
+// 내 신청 상태 맵 { sessionId: 'registered'|'cancelled' } — 프로그램 단위
+export const fetchMyRegistrations = async ({ programId, userId }) => {
+  if (!programId || !userId) return {}
+  const { data, error } = await supabase
+    .from('session_registrations')
+    .select('session_id, status, sessions!inner(program_id)')
+    .eq('user_id', userId).eq('sessions.program_id', programId)
+  if (error) throw error
+  const map = {}
+  ;(data || []).forEach(r => { map[r.session_id] = r.status })
+  return map
+}
+// 클래스 신청 / 취소 (RSVP) — RLS: 본인 행 + 활성 참가자
+export const registerSession = async ({ sessionId, userId }) => {
+  const { error } = await supabase.from('session_registrations')
+    .upsert({ session_id: sessionId, user_id: userId, status: 'registered' }, { onConflict: 'session_id,user_id' })
+  if (error) throw error
+}
+export const cancelSessionRegistration = async ({ sessionId, userId }) => {
+  const { error } = await supabase.from('session_registrations')
+    .update({ status: 'cancelled' }).eq('session_id', sessionId).eq('user_id', userId)
+  if (error) throw error
+}
+export const createSession = async (payload) => {
+  const { data, error } = await supabase.from('sessions').insert(payload).select().single()
+  if (error) throw error
+  return data
+}
+export const updateSession = async (id, patch) => {
+  const { error } = await supabase.from('sessions').update(patch).eq('id', id)
+  if (error) throw error
+}
+export const deleteSession = async (id) => {
+  const { error } = await supabase.from('sessions').delete().eq('id', id)
+  if (error) throw error
+}
+
 export const fetchProgram = async (programId) => {
   const { data, error } = await supabase
     .from('programs')

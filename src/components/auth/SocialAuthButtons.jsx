@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../../supabaseClient'
 import { detectInAppBrowser, IN_APP_BROWSER_NAME, openExternalBrowser } from '../../lib/inAppBrowser'
 import GoogleSignInButton from './GoogleSignInButton'
@@ -22,6 +22,9 @@ const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
 //   VITE_KAKAO_REST_API_KEY  : Kakao Developers 의 REST API 키 (공개 가능 — redirect_uri 화이트리스트로 보호)
 function SocialAuthButtons() {
   const [loading, setLoading] = useState(null)  // 'google' | 'kakao' | 'naver' | null
+  // GIS(인페이지) 초기화 실패 시 → 리다이렉트 방식 Google 버튼으로 폴백 (에러 노출 X)
+  const [gisFailed, setGisFailed] = useState(false)
+  const handleGisInitError = useCallback(() => setGisFailed(true), [])
 
   // OAuth 리다이렉트 중단(인앱 브라우저 차단) 또는 뒤로가기(bfcache) 로 페이지에
   //   되돌아오면 loading 이 stuck 되어 버튼이 잠긴 채 남는다 → 페이지가 다시 보이면 초기화.
@@ -106,9 +109,9 @@ function SocialAuthButtons() {
 
       {/* 소셜 버튼 3개 — 세로 배치 (모바일 친화) */}
       <div className="flex flex-col gap-2">
-        {/* Google — GIS 인페이지 로그인(리다이렉트 X). client ID 미설정 시 기존 리다이렉트 폴백 */}
-        {GOOGLE_CLIENT_ID ? (
-          <GoogleSignInButton clientId={GOOGLE_CLIENT_ID} />
+        {/* Google — GIS 인페이지 로그인(리다이렉트 X). client ID 미설정 또는 GIS 초기화 실패 시 리다이렉트 폴백 */}
+        {GOOGLE_CLIENT_ID && !gisFailed ? (
+          <GoogleSignInButton clientId={GOOGLE_CLIENT_ID} onInitError={handleGisInitError} />
         ) : (
           <button
             type="button"
