@@ -108,6 +108,7 @@ import {
   updateProgramHomeLayout,
   updateProgramHomeHero,
   updateProgramHomeGoal,
+  invalidateParticipation,
 } from '../../lib/queries'
 
 // 기간 필터 옵션 (period_filter_enabled 옵션 시) — period → ISO 시작점
@@ -888,8 +889,9 @@ function ProgramDetailPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['my-part-status', id, userId] })
-      queryClient.invalidateQueries({ queryKey: queryKeys.activePrograms(userId) })
       queryClient.invalidateQueries({ queryKey: ['rankings'] })
+      // 탈퇴 → 참여자 수·둘러보기·통계 즉시 반영
+      invalidateParticipation(queryClient, { programId: id, userId })
       navigate('/programs')
     },
     onError: (err) => {
@@ -1623,6 +1625,7 @@ function ProgramDetailPage() {
             }}
             quizEnabled={quizEnabled && !isViewer}
             communityEnabled={communityEnabled}
+            rankingEnabled={program.ranking_enabled !== false}
             streakRef={streakRef}
             paceEditable={isOwner}
             onPaceChange={async (v) => {

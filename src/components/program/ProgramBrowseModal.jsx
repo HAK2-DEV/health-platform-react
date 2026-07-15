@@ -28,6 +28,7 @@ function ProgramBrowseModal({ isOpen, onClose, programs = [], onSelect }) {
     queryKey: queryKeys.activeParticipantCounts(programIds),
     queryFn: () => fetchActiveParticipantCounts(programIds),
     enabled: isOpen && programIds.length > 0,
+    refetchOnMount: 'always',   // 모달 열 때마다 참여자 수 최신
   })
 
   // 실제 프로그램이 존재하는 카테고리만 칩으로 노출 (빈 카테고리 숨김)

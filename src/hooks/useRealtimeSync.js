@@ -1,0 +1,64 @@
+import { useEffect, useRef } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { supabase } from '../supabaseClient'
+import { useAuth } from './useAuth'
+
+// 참여자·프로그램 변경을 Supabase Realtime 으로 감지 → 관련 react-query 캐시 무효화.
+//   목적: 화면을 켜둔 채로도 "참여자 수"·"둘러보기 목록"이 다른 사용자의 변경까지 반영되도록.
+//   RLS 존중: 「내가 SELECT 할 수 있는 행」만 배달됨 (마이그 164 주석 참고).
+//     - 운영자는 자기 프로그램 참여자 INSERT/UPDATE → 대시보드 참여자 수 라이브 갱신
+//     - 참가자는 본인 참여 행 → 본인 화면 갱신
+//     - 공개(PUBLISHED) 프로그램 신규/수정 → 둘러보기 목록 라이브 갱신
+//   이벤트가 몰릴 때(대량 승인 등)는 짧게 디바운스해 한 번만 무효화한다.
+//   마이그 164 미적용 환경에서는 이벤트가 오지 않을 뿐, 에러 없이 무해하게 동작.
+export function useRealtimeSync() {
+  const queryClient = useQueryClient()
+  const { session } = useAuth()
+  const userId = session?.user?.id
+  const timers = useRef({})
+
+  useEffect(() => {
+    if (!userId) return
+    const timersMap = timers.current
+
+    const debounce = (key, fn, ms = 400) => {
+      clearTimeout(timersMap[key])
+      timersMap[key] = setTimeout(fn, ms)
+    }
+
+    // 참여자 변경 → 참여자 수·통계·홈지표·랭킹·내 참여목록 무효화
+    const partChannel = supabase
+      .channel('rt-participants')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'program_participants' },
+        () => debounce('participants', () => {
+          queryClient.invalidateQueries({ queryKey: ['programs', 'participant-counts'] })
+          queryClient.invalidateQueries({ queryKey: ['stats'] })
+          queryClient.invalidateQueries({ queryKey: ['home-stats'] })
+          queryClient.invalidateQueries({ queryKey: ['rankings'] })
+          queryClient.invalidateQueries({ queryKey: ['programs', 'active', userId] })
+        }),
+      )
+      .subscribe()
+
+    // 프로그램 변경(신규 게시·수정·종료) → 둘러보기 목록·내 운영목록 무효화
+    const progChannel = supabase
+      .channel('rt-programs')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'programs' },
+        () => debounce('programs', () => {
+          queryClient.invalidateQueries({ queryKey: ['programs', 'public'] })
+          queryClient.invalidateQueries({ queryKey: ['programs', 'mine', userId] })
+        }),
+      )
+      .subscribe()
+
+    return () => {
+      Object.values(timersMap).forEach(clearTimeout)
+      supabase.removeChannel(partChannel)
+      supabase.removeChannel(progChannel)
+    }
+  }, [userId, queryClient])
+}

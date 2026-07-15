@@ -87,6 +87,19 @@ export const queryKeys = {
   programOperatorPulse: (programId) => ['home-stats', 'op-pulse', programId],
 }
 
+// 참여자 집합이 바뀌면(참여·탈퇴·승인·코드가입) 「참여자 수」를 쓰는 모든 화면을 갱신.
+//   participant-counts: 대시보드·둘러보기·프로그램 탭 카드의 N명 표시(키가 programIds 조합이라 prefix 로 통째 무효화)
+//   public: 둘러보기 목록(인기순 정렬·노출), stats: 운영자 참여자 통계, program: 상세 헤더 인원.
+//   activePrograms/myPrograms: 참여/운영 목록. (호출부에서 queryClient 를 넘김)
+export const invalidateParticipation = (queryClient, { programId = null, userId = null } = {}) => {
+  queryClient.invalidateQueries({ queryKey: ['programs', 'participant-counts'] })
+  queryClient.invalidateQueries({ queryKey: ['programs', 'public'] })
+  queryClient.invalidateQueries({ queryKey: ['stats'] })
+  queryClient.invalidateQueries({ queryKey: ['home-stats'] })
+  if (userId) queryClient.invalidateQueries({ queryKey: queryKeys.activePrograms(userId) })
+  if (programId) queryClient.invalidateQueries({ queryKey: queryKeys.program(programId) })
+}
+
 // 이번 주 시작(월요일 00:00 KST)의 절대 시점 — 통계 "이번 주" 경계용.
 //   KST 는 DST 없음 → 일 단위 빼기 안전.
 const kstWeekStart = () => {
@@ -2532,7 +2545,7 @@ export const createProgramFromPreset = async ({ presetKey, userId, selectedKeys,
     owner_id: userId,
     status: 'DRAFT',
     card_home: true,   // 신규 생성 = 카드형 홈(개편 2026-07-07). 표준 테마에만 코드에서 적용.
-    name: preset.name,
+    name: '',          // 이름은 본인이 직접 입력(마법사 1단계) — 이름 중복 차단 때문에 프리셋명 자동 미적용
     description: preset.description || null,
     categories: preset.categories || [],
     start_date: start,

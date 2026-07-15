@@ -8,6 +8,7 @@ import { ToastProvider } from './contexts/ToastContext'
 import PwaUpdatePrompt from './components/common/PwaUpdatePrompt'
 import SplashScreen from './components/common/SplashScreen'
 import BottomTabBar from './components/common/BottomTabBar'
+import { useRealtimeSync } from './hooks/useRealtimeSync'
 
 // 코드 스플리팅 — 페이지별 lazy chunk 분리 (Day 65 본인 결정)
 //   첫 진입 시 메인 번들(~1.2MB) 한 번에 다운로드 X → 필요한 페이지만 점진적 로드.
@@ -46,6 +47,7 @@ const MissionVerifyPage = lazy(() => import('./pages/program/MissionVerifyPage')
 const ProgramListPage = lazy(() => import('./pages/program/ProgramListPage'))
 const RecordPage = lazy(() => import('./pages/RecordPage'))
 const RankingsPage = lazy(() => import('./pages/RankingsPage'))
+const GrowthPage = lazy(() => import('./pages/GrowthPage'))
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage'))
 const ProfilePage = lazy(() => import('./pages/ProfilePage'))
 const AdminScreenStatsPage = lazy(() => import('./pages/AdminScreenStatsPage'))
@@ -83,12 +85,15 @@ function AppShell() {
   const location = useLocation()
   const navigate = useNavigate()
 
+  // 참여자 수·둘러보기 목록 실시간 동기화 (Realtime → 캐시 무효화). 로그아웃 시 자동 무시.
+  useRealtimeSync()
+
   // 콜드 스타트 시 진입 화면 정규화 — 본인 결정 (Day 67)
   //   브라우저/설치형 PWA 가 직전에 보던 메인 탭(둘러보기/프로필)으로 "복원"되면
   //   "/" 를 거치지 않아 홈이 아닌 화면으로 시작됨. 이때만 홈으로 보낸다.
   //   딥링크(/programs/:id, /login, 통계 등)는 정규화 대상이 아니라 그대로 유지.
   useEffect(() => {
-    if (['/programs', '/profile', '/rankings'].includes(window.location.pathname)) {
+    if (['/programs', '/profile', '/rankings', '/growth'].includes(window.location.pathname)) {
       navigate('/dashboard', { replace: true })
     }
     // 최초 마운트 1회만
@@ -104,7 +109,7 @@ function AppShell() {
 
   // 하단 탭바 — 메인 5탭(홈·프로그램·기록하기·랭킹·프로필)에서만 상시 노출.
   //   기록하기는 라우트가 아니라 액션(+ 버튼). 깊은 화면은 숨기고 뒤로가기.
-  const showTabBar = ['/dashboard', '/programs', '/rankings', '/profile'].includes(location.pathname)
+  const showTabBar = ['/dashboard', '/programs', '/growth', '/profile'].includes(location.pathname)
 
   return (
    <div className="app">
@@ -229,6 +234,9 @@ function AppShell() {
             } />
             <Route path="/rankings" element={
               <ProtectedRoute><RankingsPage /></ProtectedRoute>
+            } />
+            <Route path="/growth" element={
+              <ProtectedRoute><GrowthPage /></ProtectedRoute>
             } />
             <Route path="/notifications" element={
               <ProtectedRoute><NotificationsPage /></ProtectedRoute>

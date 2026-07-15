@@ -27,6 +27,12 @@ const UserSolid = ({ className }) => (
     <path d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 01-.437-.695z" />
   </svg>
 )
+// 화분(성장) — Material Symbols(본인 제공). viewBox 0 -960 960 960, fill=currentColor.
+const PlantSolid = ({ className }) => (
+  <svg viewBox="0 -960 960 960" fill="currentColor" className={className} aria-hidden="true">
+    <path d="M342-160h276l40-160H302l40 160Zm0 80q-28 0-49-17t-28-44l-45-179h520l-45 179q-7 27-28 44t-49 17H342ZM200-400h560v-80H200v80Zm280-240q0-100 70-170t170-70q0 90-57 156t-143 80v84h320v160q0 33-23.5 56.5T760-320H200q-33 0-56.5-23.5T120-400v-160h320v-84q-86-14-143-80t-57-156q100 0 170 70t70 170Z" />
+  </svg>
+)
 
 // 부채꼴(쿼터원) 한 조각 — 직각 꼭짓점이 + 버튼(돔 중앙 하단)에 오고 호가 바깥쪽으로 펼쳐짐.
 //   라이트 그레이 조각 + 중앙 그린 버튼 둘레를 마스크로 도려내(컷아웃) 도넛형 돔.
@@ -141,7 +147,8 @@ function BottomTabBar() {
   const tabs = [
     { path: '/dashboard', label: '대시보드', Icon: HomeSolid },
     { path: '/programs', label: '프로그램', Icon: FlagSolid },
-    { path: '/rankings', label: '랭킹', Icon: ChartSolid },
+    // 화분(Material Symbols)은 viewBox 를 꽉 채워 크게 보임 → 살짝 줄여 다른 탭과 시각 크기 맞춤
+    { path: '/growth', label: '성장', Icon: PlantSolid, iconCls: 'w-[21px] h-[21px]' },
     { path: '/profile', label: '마이페이지', Icon: UserSolid },
   ]
 
@@ -155,7 +162,7 @@ function BottomTabBar() {
         ${isActive ? 'text-emerald-600' : 'text-gray-400 hover:text-gray-500'}
       `}
     >
-      <tab.Icon className="w-6 h-6" />
+      <tab.Icon className={tab.iconCls || 'w-6 h-6'} />
       <span className="text-[11px] font-medium">{tab.label}</span>
     </NavLink>
   )

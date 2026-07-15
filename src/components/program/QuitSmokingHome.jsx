@@ -15,7 +15,7 @@ import { progressUrgency } from '../../lib/programVisuals'
 //   variant: 'basic'(지표 히어로만) | 'extras'(편집 히어로+목표+스트릭) | 'goal'(목표+스트릭). 실사용=goal.
 // 금연 개요 박스 순서·집합(본인 지정 2026-07-10): 기분체크 → 공지 → 목표·스트릭 → 메뉴 → 금연 팁 → 응원 배너.
 //   진행 현황(progress)은 금연에선 제외(QuitSmokingHero 가 이미 지표 표시).
-export const QUIT_BOX_ORDER = ['mood', 'notice', 'summary', 'menu', 'tip', 'banner', 'classes']
+export const QUIT_BOX_ORDER = ['mood', 'notice', 'summary', 'menu', 'tip', 'classes', 'banner']
 export const QUIT_BOX_LABELS = {
   mood: '기분 체크', notice: '공지사항', menu: '메뉴', summary: '목표·주간 스트릭',
   tip: '금연 팁', banner: '응원 배너', classes: '클래스 일정',
@@ -122,7 +122,11 @@ function QuitSmokingHome({
   const base = (boxOrder && boxOrder.length ? boxOrder : QUIT_BOX_ORDER).filter((k) => QUIT_BOX_ORDER.includes(k))
   QUIT_BOX_ORDER.forEach((k) => { if (!base.includes(k)) base.push(k) })
   const hidden = new Set((hiddenBoxes || []).filter((k) => k !== 'menu'))
-  const orderedKeys = base.filter((k) => !hidden.has(k) && (k !== 'classes' || classSlot))
+  const visibleKeys = base.filter((k) => !hidden.has(k) && (k !== 'classes' || classSlot))
+  // 응원 배너는 항상 최하단
+  const orderedKeys = visibleKeys.includes('banner')
+    ? [...visibleKeys.filter((k) => k !== 'banner'), 'banner']
+    : visibleKeys
 
   return (
     <div className="-mx-[11px] px-4 pb-6 space-y-[9px]">

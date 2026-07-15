@@ -218,12 +218,14 @@ function DashboardPage() {
     queryKey: queryKeys.activeParticipantCounts(activeProgramIds),
     queryFn: () => fetchActiveParticipantCounts(activeProgramIds),
     enabled: activeProgramIds.length > 0,
+    refetchOnMount: 'always',   // 참여자 수는 진입 때마다 최신으로 (참여 변동 즉시 반영)
   })
 
   const { data: publicPrograms = [] } = useQuery({
     queryKey: queryKeys.publicPrograms(userId),
     queryFn: () => fetchPublicPrograms(userId),
     enabled: !!userId,
+    refetchOnMount: 'always',   // 새로 게시된 프로그램이 둘러보기에 바로 노출되도록
   })
 
   const { data: unreadNotifCount = 0 } = useQuery({

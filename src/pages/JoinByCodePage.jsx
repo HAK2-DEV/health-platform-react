@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { CheckCircle2, XCircle, Loader2, Search, Calendar, Users, Crown, Lock } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
-import { queryKeys, lookupInviteProgram, joinByInviteCode, fetchProgramJoinInfo } from '../lib/queries'
+import { queryKeys, lookupInviteProgram, joinByInviteCode, fetchProgramJoinInfo, invalidateParticipation } from '../lib/queries'
 import ProgramCover from '../components/common/ProgramCover'
 import UserAvatar from '../components/common/UserAvatar'
 import StickyBackBar from '../components/common/StickyBackBar'
@@ -69,9 +69,10 @@ function JoinByCodePage() {
     try {
       const data = await joinByInviteCode(code.trim(), entryAnswer)
       if (data?.ok) {
-        queryClient.invalidateQueries({ queryKey: queryKeys.activePrograms(session?.user?.id) })
         queryClient.invalidateQueries({ queryKey: ['missions', 'today'] })
         queryClient.invalidateQueries({ queryKey: ['rankings'] })
+        // 참여자 수·둘러보기·통계 즉시 반영
+        invalidateParticipation(queryClient, { programId: data.program_id, userId: session?.user?.id })
         setJoinResult(data)
         setStatus('joined')
       } else {

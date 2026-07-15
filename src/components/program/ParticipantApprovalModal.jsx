@@ -5,7 +5,7 @@ import UserAvatar from '../common/UserAvatar'
 import LoadingState from '../common/LoadingState'
 import { supabase } from '../../supabaseClient'
 import { formatRelativeKstDay } from '../../lib/formatters'
-import { queryKeys } from '../../lib/queries'
+import { queryKeys, invalidateParticipation } from '../../lib/queries'
 
 // 참여자 승인 심사 모달 — 운영자 패널 「인증 심사」에서 진입.
 //   PENDING 신청자 목록 + 입장 답변 확인 + 승인/거절.
@@ -47,8 +47,9 @@ function ParticipantApprovalModal({ programId, isOpen, onClose }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['program-pending', programId] })
       queryClient.invalidateQueries({ queryKey: ['program-pending-count', programId] })
-      queryClient.invalidateQueries({ queryKey: queryKeys.programStats(programId) })
       queryClient.invalidateQueries({ queryKey: ['rankings'] })
+      // 승인 → PENDING→ACTIVE 로 참여자 수 증가 → 관련 화면 전부 갱신
+      invalidateParticipation(queryClient, { programId })
     },
     onError: (err) => {
       console.error('승인/거절 실패:', err)

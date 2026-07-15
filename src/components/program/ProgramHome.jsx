@@ -22,7 +22,7 @@ import { progressUrgency } from '../../lib/programVisuals'
 //   onOpenTab(key), onRecord(), onNotice()
 
 // 커스터마이즈 가능한 박스 — 기본 순서 + 라벨(편집 화면·Phase 2 에서 재사용). 고정(hero/menu) 제외.
-export const HOME_BOX_ORDER = ['notice', 'summary', 'menu', 'progress', 'metrics', 'todayMissions', 'recent', 'banner', 'classes']
+export const HOME_BOX_ORDER = ['notice', 'summary', 'menu', 'progress', 'metrics', 'todayMissions', 'recent', 'classes', 'banner']
 export const HOME_BOX_LABELS = {
   notice: '공지사항',
   summary: '요약 지표',
@@ -366,7 +366,11 @@ function ProgramHome({
   HOME_BOX_ORDER.forEach((k) => { if (BOXES[k] && !savedOrder.includes(k)) savedOrder.push(k) })
   const order = savedOrder.filter((k) => k !== 'classes' || classSlot)
   const hidden = new Set(hiddenBoxes)
-  const orderedKeys = order.filter((k) => !hidden.has(k))
+  const visibleKeys = order.filter((k) => !hidden.has(k))
+  // 응원 배너는 항상 최하단 (레이아웃 편집·신규 박스와 무관하게 고정)
+  const orderedKeys = visibleKeys.includes('banner')
+    ? [...visibleKeys.filter((k) => k !== 'banner'), 'banner']
+    : visibleKeys
 
   return (
     <div className="-mx-[11px] px-4 pb-6 space-y-[9px]">

@@ -7,7 +7,7 @@ import { formatKoreanDate } from '../../lib/formatters'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
 import { CATEGORY } from '../../lib/constants'
-import { queryKeys, fetchProgramJoinInfo } from '../../lib/queries'
+import { queryKeys, fetchProgramJoinInfo, invalidateParticipation } from '../../lib/queries'
 import ProgramCover from '../common/ProgramCover'
 import UserAvatar from '../common/UserAvatar'
 import ConfirmModal from '../common/ConfirmModal'
@@ -110,7 +110,9 @@ function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
     // 프로그램 상세/인증/댓글 권한 판정 쿼리 — 참여 직후 stale "미참여" 방지
     queryClient.invalidateQueries({ queryKey: ['my-participation', program.id, userId] })
     queryClient.invalidateQueries({ queryKey: ['my-part-status', program.id, userId] })
-    queryClient.invalidateQueries({ queryKey: queryKeys.publicPrograms(userId) })
+    // 참여자 수·둘러보기·통계 등 「참여자 수」를 쓰는 모든 화면 갱신 (ACTIVE 로 즉시 참여한 경우)
+    if (insertData.status === 'ACTIVE') invalidateParticipation(queryClient, { programId: program.id, userId })
+    else queryClient.invalidateQueries({ queryKey: queryKeys.publicPrograms(userId) })
   }
 
   // 시작 전 프로그램 — 참여 예약 (시작일에 자동 참여). confirm 후 handleJoin 재사용.

@@ -20,6 +20,7 @@ function RunningHomeDemoPage() {
           startDate="2026.06.29"
           endDate="2026.07.26"
           progress={3}
+          rankingEnabled
           paceEditable
           showStampTest
           hero={hero}

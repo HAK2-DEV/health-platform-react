@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Timer, Flame, Megaphone, Footprints, Star, ClipboardList, HelpCircle, MessageSquare, ChevronRight, Check, Pencil, X } from 'lucide-react'
+import { Timer, Flame, Megaphone, Footprints, Star, ClipboardList, HelpCircle, MessageSquare, Trophy, ChevronRight, Check, Pencil, X } from 'lucide-react'
 import WeeklyStreak from './WeeklyStreak'
 import FlameIcon from '../common/FlameIcon'
 import RunningCourseMini from './RunningCourseMini'
 import CountUp from '../common/CountUp'
+import { NavCard } from './ProgramHome'
 
 // 달리기 테마 전용 홈(대시보드) — 목업 기준 UI (2026-06-30, v2).
 //   변경: 히어로에 추천페이스+주간스트릭 통합(층층이), 회복점수→칼로리, 운영자 설정 페이스, 일러스트 연결.
@@ -65,22 +66,6 @@ function BottomBanner() {
 
 // 미션/퀴즈/커뮤니티 진입 카드 — 비활성 메뉴는 호출부에서 제외(여기선 항상 활성 박스만 렌더).
 //   sized=true(박스 2개 이하): 170×133 고정 / false(3개): 그리드 셀에 맞춤.
-function NavCard({ icon, title, desc, actionLabel = '바로가기', onClick, sized = false, nudgeX = 0 }) {
-  return (
-    <div className={`rounded-2xl p-3 bg-white border border-gray-100 shadow-soft flex flex-col justify-between ${sized ? 'w-[170px] h-[133px]' : 'min-h-[118px]'}`}>
-      <div className="flex items-start gap-0.5">
-        {icon}
-        <p className="text-[12px] font-bold text-gray-800 leading-tight break-keep" style={{ transform: `translate(${nudgeX}px, 4px)` }}>{title}</p>
-      </div>
-      <p className="text-[11.5px] text-gray-500 leading-snug text-center">{desc}</p>
-      <button type="button" onClick={onClick}
-        className="h-8 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] font-bold flex items-center justify-center gap-0.5 transition">
-        {actionLabel} <ChevronRight className="w-3.5 h-3.5" />
-      </button>
-    </div>
-  )
-}
-
 // ── 히어로 편집 (운영자) ──────────────────────────────
 const HERO_TITLE_SIZES = [
   { key: 'sm', label: '작게', px: 16 },
@@ -318,6 +303,7 @@ function RunningHome({
   classSlot = null,              // 강사 클래스 개요 진입 카드 (기능 ON 시 주입)
   quizEnabled = true,            // 마법사 「퀴즈」 토글
   communityEnabled = true,       // 마법사 「커뮤니티」 토글
+  rankingEnabled = false,        // 랭킹 메뉴 표시 (달리기도 랭킹 카드 노출)
   paceEditable = false,          // 운영자 — 추천 페이스 수정 가능
   onPaceChange = null,           // (newPace) => void
   showStampTest = false,         // 주간 스트릭 도장 데모 트리거 노출
@@ -426,22 +412,19 @@ function RunningHome({
         </div>
       </div>
 
-      {/* 5) 미션 / 퀴즈 / 커뮤니티 — 비활성 메뉴는 박스 제거, 활성 개수에 따라 레이아웃 변경
-          3개: 그리드(셀 맞춤) / 1~2개: 170×133 고정 박스 */}
+      {/* 5) 미션 / 퀴즈 / 커뮤니티 / 랭킹 — ProgramHome 카드형 메뉴와 완전 동일(NavCard 공유).
+          비활성 메뉴는 박스 제거, 활성 개수에 맞춰 균등 그리드 */}
       {(() => {
-        const boxes = [
-          { key: 'mission', actionLabel: '기록하기', onClick: onRecord, title: '미션', desc: '오늘의 미션 기록', nudgeX: 2,
-            icon: <AssetImg src={`${RICON}/mission.png`} className="w-[21px] h-[21px] object-contain flex-shrink-0" fallback={<ClipboardList className="w-[21px] h-[21px] text-emerald-500 flex-shrink-0" />} /> },
-          quizEnabled && { key: 'quiz', actionLabel: '풀어보기', onClick: () => onOpenTab('quizzes'), title: '퀴즈', desc: '건강 퀴즈 풀기', nudgeX: 2,
-            icon: <AssetImg src={`${RICON}/quiz.png`} className="w-[21px] h-[21px] object-contain flex-shrink-0" fallback={<HelpCircle className="w-[21px] h-[21px] text-emerald-500 flex-shrink-0" />} /> },
-          communityEnabled && { key: 'community', onClick: () => onOpenTab('community'), title: '커뮤니티', desc: '응원·소식 나누기', nudgeX: 2,
-            icon: <AssetImg src={`${RICON}/community.png`} className="w-[21px] h-[21px] object-contain flex-shrink-0" fallback={<MessageSquare className="w-[21px] h-[21px] text-emerald-500 flex-shrink-0" />} /> },
+        const cards = [
+          { key: 'mission', iconSrc: '/icons/feature/mission.png', iconEmoji: '📋', title: '미션', desc: '목표를 달성해요', actionLabel: '기록하기', onClick: onRecord },
+          quizEnabled && { key: 'quiz', iconSrc: '/icons/feature/quiz.png', iconEmoji: '❓', title: '퀴즈', desc: '건강 지식을 배워요', actionLabel: '풀어보기', onClick: () => onOpenTab('quizzes') },
+          communityEnabled && { key: 'community', iconSrc: '/icons/feature/community.png', iconEmoji: '💬', title: '커뮤니티', desc: '함께 응원해요', actionLabel: '바로가기', onClick: () => onOpenTab('community') },
+          rankingEnabled && { key: 'ranking', iconSrc: '/icons/reward/ranking.png', iconEmoji: '🏆', title: '랭킹', desc: '순위를 확인해요', actionLabel: '확인하기', onClick: () => onOpenTab('ranking') },
         ].filter(Boolean)
-        const three = boxes.length === 3
         return (
-          <div className={three ? 'grid grid-cols-3 gap-3 items-stretch' : 'flex gap-3'}>
-            {boxes.map(b => (
-              <NavCard key={b.key} sized={!three} icon={b.icon} title={b.title} desc={b.desc} actionLabel={b.actionLabel} onClick={b.onClick} nudgeX={b.nudgeX || 0} />
+          <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${cards.length}, minmax(0,1fr))` }}>
+            {cards.map((c) => (
+              <NavCard key={c.key} iconSrc={c.iconSrc} iconEmoji={c.iconEmoji} title={c.title} desc={c.desc} actionLabel={c.actionLabel} onClick={c.onClick} />
             ))}
           </div>
         )
