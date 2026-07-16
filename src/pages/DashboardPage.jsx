@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion, useInView } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../hooks/useAuth'
-import { Bell, ChevronRight, Calendar } from 'lucide-react'
+import { Bell, ChevronRight } from 'lucide-react'
 import { supabase } from '../supabaseClient'
 import ProgramDetailModal from '../components/program/ProgramDetailModal'
 import ProgramBrowseModal from '../components/program/ProgramBrowseModal'
@@ -12,8 +12,7 @@ import ProgramCover from '../components/common/ProgramCover'
 import CountUp from '../components/common/CountUp'
 import LoadingState from '../components/common/LoadingState'
 import EmptyState from '../components/common/EmptyState'
-import { calcProgress, progressUrgency, calcProgramTiming } from '../lib/programVisuals'
-import { formatKoreanDate } from '../lib/formatters'
+import { calcProgress, progressUrgency } from '../lib/programVisuals'
 import {
   queryKeys,
   fetchMyPrograms,
@@ -25,7 +24,6 @@ import {
   fetchMyTodayActivity,
   fetchMyRankChange,
   fetchProgramOverview,
-  fetchProgramOperatorPulse,
 } from '../lib/queries'
 
 // 채워진(solid) 통계 아이콘 — fill=currentColor 라 text-* 로 색 (heroicons solid, MIT)
@@ -34,27 +32,105 @@ const UsersSolid = ({ className }) => (
     <path d="M4.5 6.375a4.125 4.125 0 1 1 8.25 0 4.125 4.125 0 0 1-8.25 0ZM14.25 8.625a3.375 3.375 0 1 1 6.75 0 3.375 3.375 0 0 1-6.75 0ZM1.5 19.125a7.125 7.125 0 0 1 14.25 0v.003l-.001.119a.75.75 0 0 1-.363.63 13.067 13.067 0 0 1-6.761 1.873c-2.472 0-4.786-.684-6.76-1.873a.75.75 0 0 1-.364-.63l-.001-.122ZM17.25 19.128l-.001.144a2.25 2.25 0 0 1-.233.96 10.088 10.088 0 0 0 5.06-1.01.75.75 0 0 0 .42-.643 4.875 4.875 0 0 0-6.957-4.611 8.586 8.586 0 0 1 1.71 5.157v.003Z" />
   </svg>
 )
-const TrophySolid = ({ className }) => (
-  <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
-    <path fillRule="evenodd" clipRule="evenodd" d="M5.166 2.621v.858c-1.035.148-2.059.33-3.071.543a.75.75 0 0 0-.584.859 6.753 6.753 0 0 0 6.138 5.6 6.73 6.73 0 0 0 2.743 1.347A6.707 6.707 0 0 1 9.279 15H8.54c-1.036 0-1.875.84-1.875 1.875V19.5h-.75a2.25 2.25 0 0 0-2.25 2.25c0 .414.336.75.75.75h15a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-2.25-2.25h-.75v-2.625c0-1.036-.84-1.875-1.875-1.875h-.739a6.706 6.706 0 0 1-1.112-3.173 6.73 6.73 0 0 0 2.743-1.347 6.753 6.753 0 0 0 6.139-5.6.75.75 0 0 0-.585-.858 47.077 47.077 0 0 0-3.07-.543V2.62a.75.75 0 0 0-.658-.744 49.22 49.22 0 0 0-6.093-.377c-2.063 0-4.096.128-6.093.377a.75.75 0 0 0-.657.744ZM5.166 5.25c0 1.196.312 2.32.857 3.294A5.266 5.266 0 0 1 3.16 5.337a45.6 45.6 0 0 1 2.006-.343V5.25Zm13.5 0v-.256c.674.1 1.343.214 2.006.343a5.265 5.265 0 0 1-2.863 3.207 6.72 6.72 0 0 0 .857-3.294Z" />
-  </svg>
-)
 const CalendarSolid = ({ className }) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
     <path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3h1V3a1 1 0 0 1 1-1Z" />
   </svg>
 )
-const FlagSolid = ({ className }) => (
-  <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
-    <path d="M3 2.25a.75.75 0 0 1 .75.75v.54l1.838-.46a9.75 9.75 0 0 1 6.725.738l.108.054a8.25 8.25 0 0 0 5.58.652l3.109-.732a.75.75 0 0 1 .917.81 47.784 47.784 0 0 0 .005 10.337.75.75 0 0 1-.574.812l-3.114.733a9.75 9.75 0 0 1-6.594-.77l-.108-.054a8.25 8.25 0 0 0-5.69-.625l-2.202.55V21a.75.75 0 0 1-1.5 0V3A.75.75 0 0 1 3 2.25Z" />
-  </svg>
-)
-const ClipboardSolid = ({ className }) => (
-  <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
-    <path fillRule="evenodd" d="M7.502 6h7.128A3.375 3.375 0 0 1 18 9.375v9.375a3 3 0 0 0 3-3V6.108c0-1.505-1.125-2.811-2.664-2.94a48.972 48.972 0 0 0-.673-.05A3 3 0 0 0 15 1.5h-1.5a3 3 0 0 0-2.663 1.618c-.225.015-.45.032-.673.05C8.662 3.295 7.554 4.542 7.502 6ZM13.5 3A1.5 1.5 0 0 0 12 4.5h4.5A1.5 1.5 0 0 0 15 3h-1.5Z" clipRule="evenodd" />
-    <path fillRule="evenodd" d="M3 9.375C3 8.339 3.84 7.5 4.875 7.5h9.75c1.036 0 1.875.84 1.875 1.875v11.25c0 1.035-.84 1.875-1.875 1.875h-9.75A1.875 1.875 0 0 1 3 20.625V9.375ZM6 12a.75.75 0 0 1 .75-.75h.008a.75.75 0 0 1 .75.75v.008a.75.75 0 0 1-.75.75H6.75a.75.75 0 0 1-.75-.75V12Zm2.25 0a.75.75 0 0 1 .75-.75h3.75a.75.75 0 0 1 0 1.5H9a.75.75 0 0 1-.75-.75ZM6 15a.75.75 0 0 1 .75-.75h.008a.75.75 0 0 1 .75.75v.008a.75.75 0 0 1-.75.75H6.75a.75.75 0 0 1-.75-.75V15Zm2.25 0a.75.75 0 0 1 .75-.75h3.75a.75.75 0 0 1 0 1.5H9a.75.75 0 0 1-.75-.75ZM6 18a.75.75 0 0 1 .75-.75h.008a.75.75 0 0 1 .75.75v.008a.75.75 0 0 1-.75.75H6.75a.75.75 0 0 1-.75-.75V18Zm2.25 0a.75.75 0 0 1 .75-.75h3.75a.75.75 0 0 1 0 1.5H9a.75.75 0 0 1-.75-.75Z" clipRule="evenodd" />
-  </svg>
-)
+
+// 대시보드 프로그램 캐러셀 카드 (2026-07-16 목업).
+//   표지가 우측에서 흘러나오고 좌측은 흰 그라데이션으로 덮어 글자 가독성 확보.
+//   상태별 변형 — 진행중: 진행률 막대 / 준비중(시작 전): 진행률 0% 는 무의미하므로 기간 날짜.
+//   지표는 참여자·남은 기간 2개만 (오늘 참여율·누적 인증은 프로그램 통계에서).
+export function ProgramSlideCard({ program, participants, onClick }) {
+  const progress = calcProgress(program.start_date, program.end_date)
+  const urg = progressUrgency(progress)
+  const todayKst = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date())
+  const notStarted = !!program.start_date && program.start_date > todayKst
+  const daysLeft = program.end_date
+    ? Math.max(0, Math.ceil((new Date(`${program.end_date}T23:59:59+09:00`) - new Date()) / 86400000))
+    : null
+  const status = notStarted
+    ? { label: '준비중', cls: 'bg-sky-100 text-sky-700' }
+    : urg.urgency === 'ended'
+      ? { label: '종료', cls: 'bg-gray-200 text-gray-600' }
+      : { label: '진행중', cls: 'bg-emerald-100 text-emerald-700' }
+  const md = (d) => { const p = d.split('-'); return `${Number(p[1])}/${Number(p[2])}` }
+  // 기간이 없는 상시 프로그램은 진행률이 늘 0% 라 막대가 거짓 정보 → 아예 표시하지 않음
+  const hasPeriod = !!(program.start_date && program.end_date)
+  const ended = hasPeriod && urg.urgency === 'ended'
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="relative w-full h-[144px] rounded-2xl overflow-hidden bg-white border border-gray-100 shadow-elevated text-left"
+    >
+      {/* 표지 — 우측에서 흘러나옴.
+          ⚠️ ProgramCover 는 루트에 position:relative 를 하드코딩해서, className 으로 absolute 를
+          줘도 Tailwind 의 position 유틸 생성 순서상 relative 가 이긴다(= 표지가 흐름에 남아
+          본문을 밀어냄). 그래서 위치는 래퍼가 잡고 ProgramCover 는 안을 채우기만 한다.
+          variant='tile' 사용 — thumb 의 rounded-xl·aspect-square·objectPosition 간섭을 피함.
+          w-full+h-full 로 두 축이 확정되면 variant 의 aspect 는 무시된다. */}
+      <div className="absolute inset-y-0 right-0 w-[48%] overflow-hidden">
+        <ProgramCover
+          imagePath={program.cover_image_path}
+          categories={program.categories}
+          name={program.name}
+          variant="tile"
+          className="w-full h-full"
+        />
+      </div>
+      {/* 표지 왼쪽 경계에만 좁게 페이드 — 카드 배경이 이미 흰색이라 전면 그라데이션은 불필요하고,
+          전면으로 덮으면 표지 전체가 뿌옇게 씻긴다(그래서 사진이 흐려 보였음). */}
+      <div className="absolute inset-y-0 left-[44%] w-[14%] bg-gradient-to-r from-white to-transparent" />
+
+      {/* 본문 폭 + 표지 폭이 100% 를 넘으면 진행률 바가 표지를 침범한다 → 52% + 48% 로 분리 */}
+      <div className="relative h-full w-[52%] p-4 flex flex-col justify-between">
+        <div>
+          <span className={`inline-flex items-center px-2 h-[20px] rounded-md text-[10px] font-bold ${status.cls}`}>
+            {status.label}
+          </span>
+          <h3 className="text-[17px] font-extrabold text-gray-900 truncate leading-tight mt-1.5">{program.name}</h3>
+        </div>
+
+        {!hasPeriod ? (
+          <p className="text-[13px] font-semibold text-gray-500">상시 운영</p>
+        ) : notStarted ? (
+          <p className="text-[13px] font-semibold text-gray-500">{`${md(program.start_date)}~${md(program.end_date)}`}</p>
+        ) : (
+          <div className="flex items-center gap-2">
+            <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+              <motion.div
+                className={`h-full rounded-full ${urg.barCls || 'bg-emerald-400'}`}
+                initial={{ width: 0 }}
+                whileInView={{ width: `${progress}%` }}
+                viewport={{ once: true, margin: '0px 0px -12% 0px' }}
+                transition={{ duration: 0.9, ease: 'easeOut', delay: 0.2 }}
+              />
+            </div>
+            <span className={`text-[15px] font-extrabold flex-shrink-0 ${urg.textCls || 'text-emerald-600'}`}>{progress}%</span>
+          </div>
+        )}
+
+        {/* 캐러셀(86% 폭)에선 본문이 좁아 줄바꿈되므로 nowrap + 11px 로 한 줄 유지 */}
+        <div className="flex items-center gap-1.5 text-[11px] text-gray-600 font-semibold">
+          <span className="inline-flex items-center gap-1 whitespace-nowrap">
+            <UsersSolid className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+            {participants != null ? `${participants}명 참여` : '-'}
+          </span>
+          <span className="w-px h-3 bg-gray-200 flex-shrink-0" />
+          <span className="inline-flex items-center gap-1 whitespace-nowrap">
+            <CalendarSolid className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+            {ended ? '종료됨' : daysLeft != null ? `${daysLeft}일 남음` : '상시'}
+          </span>
+        </div>
+      </div>
+    </button>
+  )
+}
 
 // 섹션 카드 — 모서리 10px, 제목 + 우측 액션. 진입 시 아래에서 살짝 떠오름(stagger).
 // 카드는 항상 보임(페이드인 없음) — 깜빡임 방지. 모션은 내부 숫자·바·링만 (마이페이지와 동일).
@@ -174,8 +250,10 @@ function DashboardPage() {
   // 대표 카드 모드 토글 (운영중 ⇄ 참여중) — 둘 다 있을 때 스와이프로 전환
   const [viewMode, setViewMode] = useState('operator')
   const [modeDir, setModeDir] = useState(0)
-  const modeTouch = useRef({ x: 0, y: 0 })
-  const swipedRef = useRef(false)
+  // 프로그램 캐러셀 — 좌우 스와이프는 「현재 모드의 프로그램 넘기기」(본인 결정 2026-07-16).
+  //   기존의 「스와이프로 운영중↔참여중 전환」은 제스처가 겹쳐 폐기 → 모드 전환은 토글 버튼 전담.
+  const trackRef = useRef(null)
+  const [slide, setSlide] = useState(0)
 
   useEffect(() => {
     if (session === null) navigate('/login')
@@ -255,23 +333,27 @@ function DashboardPage() {
   const canToggleMode = myPrograms.length > 0 && activePrograms.length > 0
   const effectiveMode = canToggleMode ? viewMode : (isOperator ? 'operator' : 'participant')
   const showOperator = effectiveMode === 'operator'
-  const featured = showOperator ? (myPrograms[0] || null) : (activePrograms[0] || null)
-  // 모드 전환 (방향 기록 → 슬라이드 페이드)
+  // 캐러셀에 깔 목록 = 현재 모드의 프로그램 전부. featured(첫 장)는 넛지·랭킹 섹션이 계속 사용.
+  const slideList = showOperator ? myPrograms : activePrograms
+  const featured = slideList[0] || null
+  // 모드 전환 (방향 기록 → 슬라이드 페이드). 토글 버튼 전담.
   const switchMode = (m) => {
     if (!canToggleMode || m === effectiveMode) return
     setModeDir(m === 'participant' ? 1 : -1)
     setViewMode(m)
   }
-  const onModeTouchStart = (e) => { swipedRef.current = false; const t = e.touches[0]; modeTouch.current = { x: t.clientX, y: t.clientY } }
-  const onModeTouchEnd = (e) => {
-    if (!canToggleMode) return
-    const t = e.changedTouches[0]
-    const dx = t.clientX - modeTouch.current.x
-    const dy = t.clientY - modeTouch.current.y
-    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-      swipedRef.current = true   // 카드 탭(네비게이션) 억제
-      switchMode(dx < 0 ? 'participant' : 'operator')
-    }
+  // 모드가 바뀌면 목록이 통째로 바뀌므로 캐러셀을 첫 장으로 되감음
+  useEffect(() => {
+    setSlide(0)
+    if (trackRef.current) trackRef.current.scrollLeft = 0
+  }, [effectiveMode])
+  // 스크롤 위치 → 현재 페이지 인덱스 (도트 표시용)
+  const onTrackScroll = (e) => {
+    const el = e.currentTarget
+    const first = el.firstElementChild
+    if (!first) return
+    const step = first.offsetWidth + 12   // 카드 폭 + gap-3
+    setSlide(Math.max(0, Math.min(slideList.length - 1, Math.round(el.scrollLeft / step))))
   }
   const { data: featuredRank } = useQuery({
     queryKey: queryKeys.myRankChange(featured?.id, userId),
@@ -283,55 +365,17 @@ function DashboardPage() {
     queryFn: () => fetchProgramOverview(featured.id, userId),
     enabled: !!featured?.id && !!userId,
   })
-  // 운영중 카드 지표 — 오늘 참여(고유 인증자) + 누적 인증. 운영자일 때만.
-  const { data: opPulse } = useQuery({
-    queryKey: queryKeys.programOperatorPulse(featured?.id),
-    queryFn: () => fetchProgramOperatorPulse(featured.id),
-    enabled: showOperator && !!featured?.id,
-  })
-
   // ─── 파생 ─────────
-
-  const fProgress = featured ? calcProgress(featured.start_date, featured.end_date) : 0
-  const fUrgency = featured ? progressUrgency(fProgress) : null
-  const daysLeft = (() => {
-    if (!featured?.end_date) return null
-    const end = new Date(`${featured.end_date}T23:59:59+09:00`)
-    return Math.max(0, Math.ceil((end - new Date()) / 86400000))
-  })()
-  // 목표 달성률 = 상세 개요 "참여율" 과 동일 공식(calcProgramTiming) — 경과일 기간 상한.
-  const achieveRate = featured?.start_date
-    ? calcProgramTiming(featured.start_date, featured.end_date, featuredOverview?.activeDays ?? 0).participationRate
-    : null
+  //   카드 지표를 「참여자 · 남은 기간」 2개로 줄이면서(본인 결정 2026-07-16 — 오늘 참여율·누적
+  //   인증은 프로그램 통계에서 보면 되고, 대시보드에 있다고 운영이 쉬워지진 않음) 프로그램마다
+  //   따로 받던 opPulse 쿼리가 필요 없어짐 → 캐러셀로 N장을 깔아도 추가 요청이 0.
+  //   진행률·남은 기간은 날짜로 클라 계산, 참여자 수는 activeCounts 에 이미 전량 있음.
 
   const featuredParticipants = featured ? (activeCounts[featured.id] ?? null) : null
-
-  // 운영중 카드 지표 파생 — 오늘 참여율(오늘 인증자 ÷ 참여자) / 누적 인증
-  const todayRate = opPulse == null
-    ? null
-    : (featuredParticipants && featuredParticipants > 0)
-      ? Math.round((opPulse.todayActiveUsers / featuredParticipants) * 100)
-      : 0
-  const totalVerifs = opPulse?.totalVerifs ?? null
 
   // 첫 인증 넛지 — 참여자(운영 모드 아님)인데 대표 프로그램에 승인된 인증이 0건(활성화 전).
   //   featuredOverview 로딩 중엔 undefined → 조건 false 라 깜빡임 없음.
   const firstVerifyNudge = !isColdStart && !showOperator && !!featured && featuredOverview?.totalCount === 0
-
-  // 대표 프로그램 4지표 (숫자 12px / 단위 9px / 색상은 지표별)
-  //   운영중: 참여자 / 오늘 참여율 / 남은 기간 / 누적 인증
-  //   참여중: 참여자 / 내 순위 / 남은 기간 / 목표 달성률
-  const fStats = showOperator ? [
-    { icon: UsersSolid, label: '참여자', num: featuredParticipants != null ? `${featuredParticipants}` : '-', unit: featuredParticipants != null ? '명' : '', color: 'text-emerald-600' },
-    { icon: FlagSolid, label: '오늘 참여율', num: todayRate != null ? `${todayRate}` : '-', unit: todayRate != null ? '%' : '', color: 'text-emerald-600' },
-    { icon: CalendarSolid, label: '남은 기간', num: daysLeft != null ? `${daysLeft}` : '상시', unit: daysLeft != null ? '일' : '', color: 'text-gray-900' },
-    { icon: ClipboardSolid, label: '누적 인증', num: totalVerifs != null ? `${totalVerifs}` : '-', unit: totalVerifs != null ? '건' : '', color: 'text-gray-900' },
-  ] : [
-    { icon: UsersSolid, label: '참여자', num: featuredParticipants != null ? `${featuredParticipants}` : '-', unit: featuredParticipants != null ? '명' : '', color: 'text-emerald-600' },
-    { icon: TrophySolid, label: '내 순위', num: featuredRank?.current_rank ? `${featuredRank.current_rank}` : '-', unit: featuredRank?.current_rank ? '등' : '', color: 'text-gray-900' },
-    { icon: CalendarSolid, label: '남은 기간', num: daysLeft != null ? `${daysLeft}` : '상시', unit: daysLeft != null ? '일' : '', color: 'text-gray-900' },
-    { icon: FlagSolid, label: '목표 달성률', num: achieveRate != null ? `${achieveRate}` : '-', unit: achieveRate != null ? '%' : '', color: 'text-emerald-600' },
-  ]
 
   // 오늘의 활동 (값 / 소프트 캡 → 막대 비율)
   const todayMetrics = [
@@ -424,93 +468,70 @@ function DashboardPage() {
         {isColdStart ? (
         <ColdStartGuide onBrowse={() => setBrowseOpen(true)} />
         ) : (<>
-        {/* ─── 운영중/참여중 전환 3개 섹션 — 프레임 고정, 안쪽만 좌우 슬라이드 ─── */}
-        <div className="space-y-[9px]" onTouchStart={onModeTouchStart} onTouchEnd={onModeTouchEnd}>
-        {/* ─── 대표 프로그램 (운영자=운영중 / 그 외=참여중) ─── */}
-        <SectionCard
-          title={canToggleMode ? (
-            <span className="inline-flex items-center gap-0.5 bg-gray-100 rounded-full p-0.5">
-              <button type="button" onClick={() => switchMode('operator')} className={`px-2.5 py-1 rounded-full text-[12px] font-bold transition ${showOperator ? 'bg-white text-emerald-600 shadow-sm' : 'text-gray-500'}`}>운영중</button>
-              <button type="button" onClick={() => switchMode('participant')} className={`px-2.5 py-1 rounded-full text-[12px] font-bold transition ${!showOperator ? 'bg-white text-emerald-600 shadow-sm' : 'text-gray-500'}`}>참여중</button>
-            </span>
-          ) : (showOperator ? '운영 중인 프로그램' : '참여 중인 프로그램')}
-          action={(showOperator ? myPrograms.length : activePrograms.length) > 0 && (
-            <button type="button" onClick={() => navigate(showOperator ? '/programs?tab=mine' : '/programs')} className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700">
-              전체 보기 {(showOperator ? myPrograms.length : activePrograms.length) > 1 && `(${showOperator ? myPrograms.length : activePrograms.length})`}<ChevronRight className="w-3 h-3" />
-            </button>
-          )}
-        >
+        {/* ─── 운영중/참여중 전환 3개 섹션 ─── */}
+        <div className="space-y-[9px]">
+        {/* ─── 프로그램 — 토글 + 카드 캐러셀 (2026-07-16 목업).
+             좌우 스와이프 = 현재 모드의 프로그램 넘기기(본인 결정). 모드 전환은 토글 전담.
+             흰 SectionCard 로 감싸면 카드 속 카드가 되어, 헤더만 두고 카드는 배경 위에 띄움. ─── */}
+        <section>
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <h2 className="text-base font-bold text-gray-800 flex-shrink-0">프로그램</h2>
+              {canToggleMode && (
+                <span className="inline-flex items-center gap-0.5 bg-gray-100 rounded-full p-0.5">
+                  <button type="button" onClick={() => switchMode('operator')} className={`px-2.5 py-1 rounded-full text-[12px] font-bold transition ${showOperator ? 'bg-white text-emerald-600 shadow-sm' : 'text-gray-500'}`}>운영중</button>
+                  <button type="button" onClick={() => switchMode('participant')} className={`px-2.5 py-1 rounded-full text-[12px] font-bold transition ${!showOperator ? 'bg-white text-emerald-600 shadow-sm' : 'text-gray-500'}`}>참여중</button>
+                </span>
+              )}
+            </div>
+            {slideList.length > 0 && (
+              <button type="button" onClick={() => navigate(showOperator ? '/programs?tab=mine' : '/programs')} className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700 flex-shrink-0">
+                전체 보기 {slideList.length > 1 && `(${slideList.length})`}<ChevronRight className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+
           <ModeSlide mode={effectiveMode} dir={modeDir}>
           {isActiveLoading ? (
             <LoadingState size="sm" />
-          ) : !featured ? (
+          ) : slideList.length === 0 ? (
             <EmptyState
               icon="🎯"
-              title="참여 중인 프로그램이 없어요"
-              description="새로운 건강 프로그램에 참여해보세요"
+              title={showOperator ? '운영 중인 프로그램이 없어요' : '참여 중인 프로그램이 없어요'}
+              description={showOperator ? '새 프로그램을 만들어보세요' : '새로운 건강 프로그램에 참여해보세요'}
               action={{ label: '프로그램 둘러보기', onClick: () => setBrowseOpen(true) }}
               variant="mint"
               size="lg"
             />
           ) : (
-            <button type="button" onClick={() => { if (swipedRef.current) { swipedRef.current = false; return } navigate(`/programs/${featured.id}`) }} className="w-full text-left text-[14px]">
-              <div className="flex gap-3">
-                <ProgramCover
-                  imagePath={featured.cover_image_path}
-                  categories={featured.categories}
-                  name={featured.name}
-                  variant="thumb"
-                  className="w-[134px] h-[89px] aspect-auto rounded-xl flex-shrink-0"
-                />
-                <div className="flex-1 min-w-0 flex flex-col gap-[15px]">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-bold text-gray-800 truncate leading-tight">{featured.name}</h3>
-                    <span className={`inline-flex items-center justify-center w-[33px] h-[16px] rounded-[3px] text-[9px] font-bold flex-shrink-0 ${fUrgency?.urgency === 'ended' ? 'bg-gray-200 text-gray-600' : 'bg-emerald-100 text-emerald-700'}`}>
-                      {fUrgency?.urgency === 'ended' ? '종료' : '진행중'}
-                    </span>
+            <>
+              {/* 가로 스크롤 스냅 캐러셀 — 네이티브 관성 스크롤. -mx-4 로 화면 끝까지 흘리고 다음 장 살짝 보임 */}
+              <div
+                ref={trackRef}
+                onScroll={onTrackScroll}
+                className="flex gap-3 overflow-x-auto snap-x snap-mandatory scrollbar-hide -mx-4 px-4 pb-1"
+              >
+                {slideList.map(p => (
+                  <div key={p.id} className={`snap-start flex-shrink-0 ${slideList.length > 1 ? 'w-[86%]' : 'w-full'}`}>
+                    <ProgramSlideCard
+                      program={p}
+                      participants={activeCounts[p.id] ?? null}
+                      onClick={() => navigate(`/programs/${p.id}`)}
+                    />
                   </div>
-                  <p className="text-xs text-gray-500 leading-tight flex items-center gap-1">
-                    <Calendar className="w-3 h-3 flex-shrink-0 text-gray-400" />
-                    기간 {formatKoreanDate(featured.start_date)} ~ {formatKoreanDate(featured.end_date)}
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500 flex-shrink-0">진행률</span>
-                    <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                      <motion.div className={`h-full rounded-full ${fUrgency?.barCls || 'bg-emerald-400'}`}
-                        initial={{ width: 0 }}
-                        whileInView={{ width: `${fProgress}%` }}
-                        viewport={{ once: true, margin: '0px 0px -12% 0px' }}
-                        transition={{ duration: 0.9, ease: 'easeOut', delay: 0.3 }}
-                      />
-                    </div>
-                    <span className={`text-sm font-bold flex-shrink-0 ${fUrgency?.textCls || 'text-emerald-600'}`}>{fProgress}%</span>
-                  </div>
+                ))}
+              </div>
+              {slideList.length > 1 && (
+                <div className="flex justify-center items-center gap-1.5 mt-2.5">
+                  {slideList.map((p, i) => (
+                    <span key={p.id} className={`h-1.5 rounded-full transition-all ${i === slide ? 'w-4 bg-emerald-500' : 'w-1.5 bg-gray-300'}`} />
+                  ))}
                 </div>
-              </div>
-              {/* 구분선 (w356) */}
-              <div className="h-px w-[356px] max-w-full bg-gray-100 mx-auto mt-3" />
-              {/* 4지표 — 선과 6px 간격, 아이콘 + 회색 세로 구분선 */}
-              <div className="flex mt-[6px]">
-                {fStats.map((s, i) => {
-                  const Icon = s.icon
-                  return (
-                    <div key={s.label} className={`flex-1 text-center px-1 ${i > 0 ? 'border-l border-gray-200' : ''}`}>
-                      <div className="flex items-center justify-center gap-1 text-[11px] text-gray-500">
-                        <Icon className="w-3 h-3 text-gray-400" />
-                        <span className="break-keep">{s.label}</span>
-                      </div>
-                      <p className="font-bold leading-tight mt-[-5px]">
-                        <span className={`text-[12px] ${s.color}`}>{s.num}</span>
-                        {s.unit && <span className="text-[10px] text-gray-500">{s.unit}</span>}
-                      </p>
-                    </div>
-                  )
-                })}
-              </div>
-            </button>
+              )}
+            </>
           )}
           </ModeSlide>
-        </SectionCard>
+        </section>
 
         {/* ─── 오늘의 활동 요약 — 세로 구분선 + 상태바 ─── */}
         <SectionCard

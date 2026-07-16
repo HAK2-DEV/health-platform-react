@@ -1,7 +1,8 @@
+import { useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { ChevronLeft } from 'lucide-react'
+import { ChevronLeft, ChevronDown } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { queryKeys, fetchProgram, fetchProgramStats } from '../../lib/queries'
 import { getKstHour, formatHour12, bucketOfHour } from '../../lib/formatters'
@@ -60,6 +61,9 @@ function ProgramStatsMissionsPage() {
   })
 
   const isOwner = program?.owner_id === userId
+
+  // 펼친 미션(누가 인증했는지 보기) — mission_id, 한 번에 하나만
+  const [openMission, setOpenMission] = useState(null)
 
   const { data: stats, isLoading: isStatsLoading } = useQuery({
     queryKey: queryKeys.programStats(id),
@@ -123,6 +127,25 @@ function ProgramStatsMissionsPage() {
     return map
   })()
 
+  // 미션별 「누가 몇 건 인증했는지」 — _raw(mission_id·user_id) + userStats(닉네임) 로 클라 집계.
+  //   추가 쿼리 없음. 건수 많은 순 정렬.
+  const missionUsers = (() => {
+    const nickOf = new Map((stats?.userStats || []).map(u => [u.user_id, u.nickname]))
+    const perMission = new Map()   // mission_id → Map(user_id → count)
+    for (const v of stats?._raw || []) {
+      if (!perMission.has(v.mission_id)) perMission.set(v.mission_id, new Map())
+      const um = perMission.get(v.mission_id)
+      um.set(v.user_id, (um.get(v.user_id) || 0) + 1)
+    }
+    const out = new Map()
+    for (const [mid, um] of perMission) {
+      out.set(mid, Array.from(um, ([user_id, count]) => ({
+        user_id, count, nickname: nickOf.get(user_id) || '(알 수 없음)',
+      })).sort((a, b) => b.count - a.count))
+    }
+    return out
+  })()
+
   return (
     <div className="px-4 pt-2 pb-6 max-w-4xl mx-auto">
       <StickyBackBar
@@ -174,22 +197,57 @@ function ProgramStatsMissionsPage() {
                     const mPercent = Math.round((m.count / maxMissionCount) * 100)
                     const hourData = missionHourly.get(m.mission_id)
                     const peakBucket = hourData?.peakHour != null ? bucketOfHour(hourData.peakHour) : null
+                    const users = missionUsers.get(m.mission_id) || []
+                    const isOpen = openMission === m.mission_id
                     return (
                       <div key={m.mission_id}>
-                        <div className="flex items-center justify-between mb-0.5">
-                          <p className="text-xs text-gray-600 truncate flex-1 min-w-0 pr-2">
-                            {m.title}
-                          </p>
-                          <span className="text-xs text-gray-500 whitespace-nowrap">
-                            {m.count}건
-                          </span>
-                        </div>
-                        <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden mb-2">
-                          <div
-                            className="h-full bg-emerald-300 rounded-full transition-all"
-                            style={{ width: `${mPercent}%` }}
-                          />
-                        </div>
+                        {/* 제목 행 클릭 → 이 미션을 누가 몇 건 인증했는지 펼침 */}
+                        <button
+                          type="button"
+                          onClick={() => setOpenMission(isOpen ? null : m.mission_id)}
+                          disabled={users.length === 0}
+                          className="w-full text-left disabled:cursor-default"
+                        >
+                          <div className="flex items-center justify-between mb-0.5">
+                            <p className="text-xs text-gray-600 truncate flex-1 min-w-0 pr-2">
+                              {m.title}
+                            </p>
+                            <span className="text-xs text-gray-500 whitespace-nowrap inline-flex items-center gap-1">
+                              {users.length > 0 && <span className="text-gray-400">{users.length}명</span>}
+                              {m.count}건
+                              {users.length > 0 && (
+                                <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                              )}
+                            </span>
+                          </div>
+                          <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden mb-2">
+                            <div
+                              className="h-full bg-emerald-300 rounded-full transition-all"
+                              style={{ width: `${mPercent}%` }}
+                            />
+                          </div>
+                        </button>
+
+                        {/* 인증자 명단 — 닉네임 + 건수. 탭하면 그 사람의 「이 미션」 실제 인증 게시물로.
+                            from=missions → 승인 인증만 표시(여기 건수와 일치) + 뒤로가기 이 페이지로 */}
+                        {isOpen && users.length > 0 && (
+                          <div className="mb-2 rounded-lg bg-white border border-gray-200 divide-y divide-gray-100">
+                            {users.map(u => (
+                              <button
+                                key={u.user_id}
+                                type="button"
+                                onClick={() => {
+                                  const bundleParam = bundle.bundleTitle ? encodeURIComponent(bundle.bundleTitle) : 'solo'
+                                  navigate(`/programs/${id}/stats/users/${u.user_id}/verifications/${bundleParam}/${m.mission_id}?from=missions`)
+                                }}
+                                className="w-full flex items-center justify-between gap-2 px-3 py-2 text-xs hover:bg-gray-50 transition text-left"
+                              >
+                                <span className="text-gray-700 truncate">{u.nickname}</span>
+                                <span className="text-gray-500 font-semibold whitespace-nowrap flex-shrink-0">{u.count}건 ›</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
                         {/* 시간대 sparkline + peak 시간 칩 — 미션 시간 조정 결정의 근거 */}
                         {hourData && hourData.total > 0 ? (
                           <div className="flex items-end gap-2">

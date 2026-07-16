@@ -23,12 +23,18 @@ const STATUS_BADGE = {
 function ProgramStatsUserVerificationsMissionPage() {
   const { id, userId: targetUserId, bundleParam, missionId } = useParams()
   const [searchParams] = useSearchParams()
-  const scoredOnly = searchParams.get('scored') === '1' // 점수 요인에서 진입 — 승인된 인증만 표시
-  // 진입 경로에 맞는 뒤로가기 대상 (점수 요인 → 점수 요인, 그 외 → 미션 목록)
-  const backPath = scoredOnly
-    ? `/programs/${id}/stats/users/${targetUserId}/points`
-    : `/programs/${id}/stats/users/${targetUserId}/verifications/${bundleParam}`
-  const backTitle = scoredOnly ? '점수 요인' : '미션 목록'
+  const scoredOnly = searchParams.get('scored') === '1'      // 점수 요인에서 진입
+  const fromMissions = searchParams.get('from') === 'missions' // 미션별 통계 → 인증자 명단에서 진입
+  // 승인 인증만 표시해야 하는 진입 — 점수 요인·미션별 통계 둘 다 APPROVED 기준으로 집계된
+  // 숫자를 보여주므로, 여기서 거절/대기까지 섞이면 건수가 안 맞아 보인다.
+  const approvedOnly = scoredOnly || fromMissions
+  // 진입 경로에 맞는 뒤로가기 대상
+  const backPath = fromMissions
+    ? `/programs/${id}/stats/missions`
+    : scoredOnly
+      ? `/programs/${id}/stats/users/${targetUserId}/points`
+      : `/programs/${id}/stats/users/${targetUserId}/verifications/${bundleParam}`
+  const backTitle = fromMissions ? '미션별' : scoredOnly ? '점수 요인' : '미션 목록'
   const { session } = useAuth()
   const navigate = useNavigate()
   const myUserId = session?.user?.id
@@ -70,9 +76,9 @@ function ProgramStatsUserVerificationsMissionPage() {
   // 이 미션의 인증만 + 날짜별 그루핑 (KST)
   const missionVerifications = useMemo(
     () => userVerifications.filter(v =>
-      v.mission_id === missionId && (!scoredOnly || v.status === 'APPROVED')
+      v.mission_id === missionId && (!approvedOnly || v.status === 'APPROVED')
     ),
-    [userVerifications, missionId, scoredOnly]
+    [userVerifications, missionId, approvedOnly]
   )
 
   const missionTitle = missionVerifications[0]?.missions?.title || '(삭제된 미션)'

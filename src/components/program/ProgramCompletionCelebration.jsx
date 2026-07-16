@@ -1,7 +1,8 @@
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Sparkles, CalendarCheck, Flame, Award, ClipboardCheck } from 'lucide-react'
+import { X } from 'lucide-react'
+import { Icon3D } from './ProgramHome'
 
 // 참여자 완주 축하 (2026-06-28 본인 결정: 첫 진입 자동 축하 + 재진입 배너).
 //   종료된 프로그램에서 내 성적을 축하 톤으로 요약. 운영자 리포트와 동일 완주 기준(활동일 ≥ 기간 50%).
@@ -24,11 +25,12 @@ function ProgramCompletionCelebration({ isOpen, onClose, program, activeDays = 0
   const completed = threshold ? activeDays >= threshold : activeDays > 0
   const rate = programDays ? Math.min(100, Math.round((activeDays / programDays) * 100)) : null
 
+  // 3D 아이콘(폴백=이모지) — 앱 전반 아이콘 톤과 통일
   const stats = [
-    { icon: CalendarCheck, label: '활동일', value: activeDays, unit: programDays ? `/${programDays}일` : '일', color: 'text-emerald-600' },
-    { icon: ClipboardCheck, label: '인증', value: totalCount, unit: '건', color: 'text-sky-600' },
-    { icon: Flame, label: '최고 연속', value: streak, unit: '일', color: 'text-orange-500' },
-    { icon: Award, label: '획득 점수', value: points, unit: 'P', color: 'text-amber-600' },
+    { src: '/icons/feature/attendance.png', emoji: '📅', label: '활동일', value: activeDays, unit: programDays ? `/${programDays}일` : '일' },
+    { src: '/icons/feature/mission.png', emoji: '📋', label: '인증', value: totalCount, unit: '건' },
+    { src: '/icons/feature/streak.png', emoji: '🔥', label: '최고 연속', value: streak, unit: '일' },
+    { src: '/icons/feature/point.png', emoji: '⭐', label: '획득 점수', value: points, unit: 'P' },
   ]
 
   return (
@@ -42,47 +44,51 @@ function ProgramCompletionCelebration({ isOpen, onClose, program, activeDays = 0
           initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0 }}
           transition={{ type: 'spring', damping: 22, stiffness: 260 }} onClick={(e) => e.stopPropagation()}
         >
-          {/* 헤더 — 축하 그라데이션 */}
-          <div className="relative bg-gradient-to-br from-emerald-500 to-teal-600 text-white px-6 pt-7 pb-6 text-center">
-            <button type="button" onClick={onClose} className="absolute top-3 right-3 p-1 text-white/80 hover:text-white" aria-label="닫기">
+          {/* 헤더 — 흰 배경(본인 결정 2026-07-14). 아이콘은 3D 로 통일 */}
+          <div className="relative bg-white px-6 pt-7 pb-5 text-center">
+            <button type="button" onClick={onClose} className="absolute top-3 right-3 p-1 text-gray-400 hover:text-gray-600" aria-label="닫기">
               <X className="w-5 h-5" />
             </button>
             <motion.div
               initial={{ scale: 0, rotate: -30 }} animate={{ scale: 1, rotate: 0 }}
               transition={{ delay: 0.1, type: 'spring', stiffness: 300, damping: 14 }}
-              className="text-5xl mb-2"
+              className="mb-2"
             >
-              {completed ? '🎉' : '👏'}
+              <Icon3D
+                src={completed ? '/icons/cheer/trophy.png' : '/icons/cheer/people.png'}
+                emoji={completed ? '🎉' : '👏'}
+                className="w-[84px] h-[84px] mx-auto"
+              />
             </motion.div>
-            <h2 className="text-xl font-extrabold leading-tight">{completed ? '완주를 축하해요!' : '끝까지 수고했어요!'}</h2>
-            <p className="text-sm text-white/90 mt-1 break-keep">{program.name}</p>
-            {completed && (
-              <span className="inline-flex items-center gap-1 mt-3 px-3 py-1 rounded-full bg-white/20 text-xs font-bold">
-                <Sparkles className="w-3.5 h-3.5" /> 완주 배지 획득
-              </span>
-            )}
+            <h2 className="text-xl font-extrabold text-gray-900 leading-tight">{completed ? '완주를 축하해요!' : '끝까지 수고했어요!'}</h2>
+            {/* 「완주 배지 획득」 배지 제거(2026-07-14 본인 결정) — 실제 배지 기능이 아직 없어
+                획득했다고 안내하면 거짓이 됨. 배지 기능 생기면 여기에 다시 노출. */}
           </div>
 
           {/* 본문 — 내 성적 */}
-          <div className="p-5">
-            {rate != null && (
-              <p className="text-center text-[13px] text-gray-600 mb-4">
-                전체 {programDays}일 중 <b className="text-emerald-700">{activeDays}일</b> 함께했어요 ({rate}%)
-              </p>
-            )}
-            <div className="grid grid-cols-2 gap-3 mb-5">
-              {stats.map(s => {
-                const Icon = s.icon
-                return (
-                  <div key={s.label} className="rounded-xl bg-gray-50 p-3 text-center">
-                    <Icon className={`w-4 h-4 mx-auto mb-1 ${s.color}`} />
-                    <p className="text-lg font-extrabold text-gray-900 leading-none">
-                      {s.value}<span className="text-xs text-gray-500 font-bold ml-0.5">{s.unit}</span>
-                    </p>
-                    <p className="text-[11px] text-gray-500 mt-1">{s.label}</p>
-                  </div>
-                )
-              })}
+          <div className="px-5 pb-5">
+            {/* 프로그램 이름 + 함께한 일수를 한 박스로 묶음(본인 요청).
+                주의: App.css 의 전역 `p { margin: 0 }` 이 unlayered 라 <p> 에는 마진 유틸(mt/mb,
+                space-y)이 전부 무시된다 → 간격은 마진이 아닌 flex 의 gap 으로 준다. */}
+            <div className="rounded-xl bg-gray-50 px-4 py-3 flex flex-col items-center gap-1 text-center">
+              <p className="text-sm font-semibold text-gray-700 break-keep">{program.name}</p>
+              {rate != null && (
+                <p className="text-[13px] font-semibold text-gray-600">
+                  전체 {programDays}일 중 <b className="text-emerald-700">{activeDays}일</b> 함께했어요 ({rate}%)
+                </p>
+              )}
+            </div>
+            {/* 지표 박스와 동일한 gap-3 리듬으로 쌓음 */}
+            <div className="grid grid-cols-2 gap-3 mt-3 mb-5">
+              {stats.map(s => (
+                <div key={s.label} className="rounded-xl bg-gray-50 p-3 text-center">
+                  <Icon3D src={s.src} emoji={s.emoji} className="w-9 h-9 mx-auto mb-1.5" />
+                  <p className="text-lg font-extrabold text-gray-900 leading-none">
+                    {s.value}<span className="text-xs text-gray-500 font-bold ml-0.5">{s.unit}</span>
+                  </p>
+                  <p className="text-[11px] text-gray-500 mt-1">{s.label}</p>
+                </div>
+              ))}
             </div>
             <button
               type="button"

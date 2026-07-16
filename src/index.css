@@ -108,3 +108,12 @@ html, body {
   18%  { opacity: 1; }
   100% { transform: translateY(-13px) translateX(var(--ex,2px)) scale(0.2); opacity: 0; }
 }
+
+/* scrollbar-hide — 가로 스크롤 컨테이너(대시보드 프로그램 캐러셀·칩 목록 등)의 스크롤바 숨김.
+   주의: 이 클래스는 프로젝트 10개 파일에서 이미 쓰이고 있었지만 정의가 어디에도 없어
+   그동안 아무 효과가 없었다(2026-07-16 발견). 여기서 처음 실제로 동작하게 됨. */
+@utility scrollbar-hide {
+  -ms-overflow-style: none;   /* 구 Edge/IE */
+  scrollbar-width: none;      /* Firefox */
+  &::-webkit-scrollbar { display: none; }   /* Chrome/Safari/삼성인터넷 */
+}

@@ -26,7 +26,7 @@ import RunningQuizCard from '../../components/program/RunningQuizCard'
 import WeeklyStreak from '../../components/program/WeeklyStreak'
 import FlameIcon from '../../components/common/FlameIcon'
 import MetricSummaryCard from '../../components/program/MetricSummaryCard'
-import ProgramHome, { HOME_BOX_ORDER, HOME_BOX_LABELS } from '../../components/program/ProgramHome'
+import ProgramHome, { HOME_BOX_ORDER, HOME_BOX_LABELS, Icon3D } from '../../components/program/ProgramHome'
 import ProgramHomeLayoutEditor from '../../components/program/ProgramHomeLayoutEditor'
 import { resolveMissionIcon } from '../../lib/missionIcons'
 import ProgramChangeTab from '../../components/program/ProgramChangeTab'
@@ -126,7 +126,8 @@ const periodToISOStart = (p) => {
 }
 
 // 운영자 메뉴 시트 — 항목 박스 (아이콘 + 제목 + 설명, 우측 화살표/배지)
-function PanelMenuBox({ icon, title, desc, onClick, chevron = false, badge = 0, danger = false }) {
+// iconSrc 주면 3D 아이콘(로드 실패 시 icon 이모지로 폴백), 없으면 기존처럼 이모지만
+function PanelMenuBox({ icon, iconSrc, title, desc, onClick, chevron = false, badge = 0, danger = false }) {
   return (
     <button
       type="button"
@@ -135,7 +136,9 @@ function PanelMenuBox({ icon, title, desc, onClick, chevron = false, badge = 0, 
         danger ? 'border-red-200 hover:border-red-400 hover:bg-red-50/50' : 'border-gray-200 hover:border-amber-400 hover:bg-amber-50/50'
       }`}
     >
-      <span className="text-2xl flex-shrink-0">{icon}</span>
+      {iconSrc
+        ? <Icon3D src={iconSrc} emoji={icon} className="w-7 h-7" />
+        : <span className="text-2xl flex-shrink-0">{icon}</span>}
       <div className="flex-1 min-w-0">
         <p className={`text-[15px] font-bold ${danger ? 'text-red-600' : 'text-gray-800'}`}>{title}</p>
         {desc && <p className="text-[12px] text-gray-500 mt-0.5 break-keep">{desc}</p>}
@@ -2680,21 +2683,21 @@ function ProgramDetailPage() {
                   <h2 className="text-lg font-bold text-gray-800">메뉴바 설정</h2>
                 </div>
                 <div className="grid grid-cols-1 gap-2.5">
-                  <PanelMenuBox icon="📝" title="개요 설정" desc="개요 글·표지" onClick={() => openManagerFromMenu('overview')} />
-                  <PanelMenuBox icon="🎯" title="미션 설정" desc="미션 추가·수정·순서" onClick={() => openManagerFromMenu('missions')} />
+                  <PanelMenuBox iconSrc="/icons/action/record.png" icon="📝" title="개요 설정" desc="개요 글·표지" onClick={() => openManagerFromMenu('overview')} />
+                  <PanelMenuBox iconSrc="/icons/feature/mission.png" icon="📋" title="미션 설정" desc="미션 추가·수정·순서" onClick={() => openManagerFromMenu('missions')} />
                   {quizEnabled && (
-                    <PanelMenuBox icon="📋" title="퀴즈 설정" desc="퀴즈 생성·수정·결과" onClick={() => openManagerFromMenu('quizzes')} />
+                    <PanelMenuBox iconSrc="/icons/feature/quiz.png" icon="📋" title="퀴즈 설정" desc="퀴즈 생성·수정·결과" onClick={() => openManagerFromMenu('quizzes')} />
                   )}
                   {communityEnabled && (
-                    <PanelMenuBox icon="💬" title={program.theme === PROGRAM_THEME.QUIT_SMOKING ? '응원 설정' : '커뮤니티 설정'} desc="게시판·피드·신고 관리" onClick={() => openManagerFromMenu('community')} />
+                    <PanelMenuBox iconSrc="/icons/feature/community.png" icon="💬" title={program.theme === PROGRAM_THEME.QUIT_SMOKING ? '응원 설정' : '커뮤니티 설정'} desc="게시판·피드·신고 관리" onClick={() => openManagerFromMenu('community')} />
                   )}
                   {/* 금연 테마 — 랭킹 설정 항목 숨김 (랭킹 메뉴 자체가 없으므로) */}
                   {program.theme !== PROGRAM_THEME.QUIT_SMOKING && (
-                    <PanelMenuBox icon="🏆" title="랭킹 설정" desc="랭킹 표시·시상대·공개 등" onClick={() => openManagerFromMenu('ranking')} />
+                    <PanelMenuBox iconSrc="/icons/reward/ranking.png" icon="🏆" title="랭킹 설정" desc="랭킹 표시·시상대·공개 등" onClick={() => openManagerFromMenu('ranking')} />
                   )}
                   {/* 강사 클래스 운영 ON 일 때만 (마이그 158) */}
                   {program.class_feature_enabled && (
-                    <PanelMenuBox icon="🧘" title="클래스 관리" desc="강사 프로필 · 클래스 일정" onClick={() => openManagerFromMenu('classes')} />
+                    <PanelMenuBox iconSrc="/icons/class/yoga.png" icon="🧘" title="클래스 관리" desc="강사 프로필 · 클래스 일정" onClick={() => openManagerFromMenu('classes')} />
                   )}
                 </div>
               </>

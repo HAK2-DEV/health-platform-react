@@ -60,7 +60,8 @@ const CATEGORY_GOAL = {
 }
 
 // 3D 아이콘 + 폴백(이모지) — public/icons/<group>/<name>.png
-function Icon3D({ src, emoji, className = 'w-[22px] h-[22px]' }) {
+// export: 완주 축하 모달 등 다른 화면에서도 동일 폴백 규칙으로 재사용
+export function Icon3D({ src, emoji, className = 'w-[22px] h-[22px]' }) {
   const [err, setErr] = useState(false)
   if (err) return <span className={`${className} inline-flex items-center justify-center leading-none flex-shrink-0`}>{emoji}</span>
   return (

@@ -59,6 +59,8 @@ const IconMockupDemoPage = lazy(() => import('./pages/IconMockupDemoPage'))
 const ProgramHomeDemoPage = lazy(() => import('./pages/ProgramHomeDemoPage'))
 const QuitSmokingHomeDemoPage = lazy(() => import('./pages/QuitSmokingHomeDemoPage'))
 const ChangeDemoPage = lazy(() => import('./pages/ChangeDemoPage'))
+const CompletionDemoPage = lazy(() => import('./pages/CompletionDemoPage'))
+const CardDemoPage = lazy(() => import('./pages/CardDemoPage'))
 const ClassWizardDemoPage = lazy(() => import('./pages/ClassWizardDemoPage'))
 const ClassScheduleDemoPage = lazy(() => import('./pages/ClassScheduleDemoPage'))
 const ClassManageDemoPage = lazy(() => import('./pages/ClassManageDemoPage'))
@@ -145,6 +147,8 @@ function AppShell() {
             <Route path="/program-home-demo" element={<ProgramHomeDemoPage />} />
             <Route path="/quit-smoking-demo" element={<QuitSmokingHomeDemoPage />} />
             <Route path="/change-demo" element={<ChangeDemoPage />} />
+            <Route path="/completion-demo" element={<CompletionDemoPage />} />
+            <Route path="/card-demo" element={<CardDemoPage />} />
             <Route path="/class-wizard-demo" element={<ClassWizardDemoPage />} />
             <Route path="/class-schedule-demo" element={<ClassScheduleDemoPage />} />
             <Route path="/class-manage-demo" element={<ClassManageDemoPage />} />

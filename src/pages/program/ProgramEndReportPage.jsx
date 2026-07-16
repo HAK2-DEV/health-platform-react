@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronLeft, ChevronDown, Users, ClipboardCheck, Trophy, Target, TrendingUp, MessageSquare, Flag, Copy } from 'lucide-react'
+import { ChevronLeft, ChevronDown, ChevronRight, Trophy, Target, TrendingUp, MessageSquare, Flag, Copy } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { queryKeys, fetchProgram, fetchProgramStats, formatKstDate } from '../../lib/queries'
 import { formatKoreanDate } from '../../lib/formatters'
@@ -10,6 +10,7 @@ import StickyBackBar from '../../components/common/StickyBackBar'
 import LoadingState from '../../components/common/LoadingState'
 import CountUp from '../../components/common/CountUp'
 import CloneProgramModal from '../../components/program/CloneProgramModal'
+import { Icon3D } from '../../components/program/ProgramHome'
 
 // 운영자 종료 리포트 — 프로그램이 끝난 뒤 "최종 성적표" 한 장.
 //   본인 결정 (2026-06-27): 운영자 경험 먼저. A1(리포트 먼저, 복제는 후속) + B(고정 3구간) + C(종료 진입 시).
@@ -141,28 +142,51 @@ function ProgramEndReportPage() {
         <LoadingState />
       ) : (
         <div className="space-y-3">
-          {/* ─── 히어로 ─── */}
+          {/* ─── 히어로 — 흰 배경 + 3D 아이콘(본인 결정 2026-07-14).
+               주의: App.css 의 전역 `p { margin: 0 }` 이 unlayered 라 <p> 에는 마진 유틸이
+               무시된다 → 간격은 전부 flex 의 gap 으로 준다. */}
           <motion.div
             initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}
-            className="rounded-card-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white p-6 text-center shadow-elevated"
+            className="rounded-card-lg bg-white border border-gray-100 p-6 shadow-elevated flex flex-col items-center gap-3"
           >
-            <div className="text-4xl mb-2">🏁</div>
-            <h1 className="text-xl font-extrabold leading-tight">프로그램이 끝났어요</h1>
-            <p className="text-sm font-semibold text-white/90 mt-1 break-keep">{program.name}</p>
-            {program.start_date && program.end_date && (
-              <p className="text-[12px] text-white/75 mt-2">
-                {formatKoreanDate(program.start_date)} ~ {formatKoreanDate(program.end_date)}
-                {report.programDays ? ` · ${report.programDays}일간` : ''}
-              </p>
-            )}
-            <p className="text-[13px] text-white/90 mt-3">운영하시느라 수고 많으셨어요 🙌</p>
+            <div className="flex flex-col items-center gap-1.5">
+              <Icon3D src="/icons/feature/mission.png" emoji="🏁" className="w-16 h-16" />
+              <h1 className="text-xl font-extrabold text-gray-900 leading-tight text-center">프로그램이 끝났어요</h1>
+            </div>
+
+            {/* 프로그램 제목 / 기간 / 일수 — 라벨+값.
+                2열 그리드(auto 1fr)라 라벨 열 폭이 가장 긴 라벨에 자동으로 맞춰지고
+                값들이 같은 x 에 정렬됨(고정폭 하드코딩 시 라벨이 길어지면 넘침). */}
+            <div className="w-full rounded-xl bg-gray-50 px-4 py-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-[13px] text-left">
+              <span className="font-semibold text-gray-500 whitespace-nowrap">프로그램 제목</span>
+              <span className="font-semibold text-gray-800 break-keep">{program.name}</span>
+
+              {program.start_date && program.end_date && (
+                <>
+                  <span className="font-semibold text-gray-500 whitespace-nowrap">기간</span>
+                  <span className="font-semibold text-gray-800">
+                    {formatKoreanDate(program.start_date)} ~ {formatKoreanDate(program.end_date)}
+                  </span>
+                </>
+              )}
+
+              {report.programDays ? (
+                <>
+                  <span className="font-semibold text-gray-500 whitespace-nowrap">일수</span>
+                  <span className="font-semibold text-gray-800">{report.programDays}일</span>
+                </>
+              ) : null}
+            </div>
           </motion.div>
 
           {/* ─── 핵심 3지표 ─── */}
           <div className="grid grid-cols-3 gap-3">
-            <StatTile icon={Users} color="sky" label="참여자" value={report.totalParticipants} unit="명" />
-            <StatTile icon={ClipboardCheck} color="emerald" label="누적 인증" value={report.totalVerifications} unit="건" />
-            <StatTile icon={Trophy} color="amber" label="완주율" value={report.completionRate ?? 0} unit={report.completionRate == null ? '' : '%'} dim={report.completionRate == null} />
+            {/* 참여자 → 참여자 명단 / 누적 인증 → 미션별 인증 현황(유저 내역 포함) */}
+            <StatTile src="/icons/report/participants.png" emoji="👥" label="참여자" value={report.totalParticipants} unit="명"
+              onClick={() => navigate(`/programs/${id}/stats/users`)} />
+            <StatTile src="/icons/report/verifications.png" emoji="📋" label="누적 인증" value={report.totalVerifications} unit="건"
+              onClick={() => navigate(`/programs/${id}/stats/missions`)} />
+            <StatTile src="/icons/report/completion.png" emoji="🏆" label="완주율" value={report.completionRate ?? 0} unit={report.completionRate == null ? '' : '%'} dim={report.completionRate == null} />
           </div>
 
           {/* ─── 완주 분포 ─── */}
@@ -186,24 +210,28 @@ function ProgramEndReportPage() {
   )
 }
 
-// ─── 핵심 지표 타일 ───
-const TILE_COLORS = {
-  sky: 'text-sky-600 bg-sky-50',
-  emerald: 'text-emerald-600 bg-emerald-50',
-  amber: 'text-amber-600 bg-amber-50',
-}
-function StatTile({ icon: Icon, color, label, value, unit, dim }) {
+// ─── 핵심 지표 타일 — 3D 아이콘(본인 제공 2026-07-14). 아이콘 자체가 색을 가져 색상 원 배경 제거.
+//   간격은 flex gap 으로 — 전역 `p { margin: 0 }` 때문에 <p> 의 mt-* 는 무시됨.
+function StatTile({ src, emoji, label, value, unit, dim, onClick }) {
+  const Tag = onClick ? 'button' : 'div'
   return (
-    <div className="bg-white border border-gray-100 rounded-card-lg shadow-soft p-4 text-center">
-      <div className={`w-9 h-9 mx-auto mb-2 rounded-full flex items-center justify-center ${TILE_COLORS[color]}`}>
-        <Icon className="w-5 h-5" />
-      </div>
+    <Tag
+      {...(onClick ? { type: 'button', onClick } : {})}
+      className={`w-full bg-white border border-gray-100 rounded-card-lg shadow-soft p-4 flex flex-col items-center gap-1.5 text-center${
+        onClick ? ' hover:border-emerald-200 hover:shadow-elevated active:scale-[0.98] transition' : ''
+      }`}
+    >
+      <Icon3D src={src} emoji={emoji} className="w-10 h-10" />
       <p className="text-2xl font-extrabold text-gray-900 leading-none">
         {dim ? '-' : <CountUp value={value} duration={1000} />}
         {unit && !dim && <span className="text-sm text-gray-500 font-bold ml-0.5">{unit}</span>}
       </p>
-      <p className="text-[11px] text-gray-500 mt-1.5">{label}</p>
-    </div>
+      {/* 클릭 가능한 타일은 라벨 옆 chevron 으로 진입 가능함을 표시 */}
+      <p className="text-[11px] text-gray-500 inline-flex items-center gap-0.5">
+        {label}
+        {onClick && <ChevronRight className="w-3 h-3 text-gray-400" />}
+      </p>
+    </Tag>
   )
 }
 
