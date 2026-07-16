@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Sparkles, BookOpen, ChevronRight, ChevronLeft, Loader2, Check, Users } from 'lucide-react'
 import { PROGRAM_PRESETS, durationLabel } from '../../lib/programLibrary'
 import { fetchPresetUsageCounts } from '../../lib/queries'
+import { PROGRAM_THEME } from '../../lib/constants'
 
 // 프로그램 생성 진입 선택화면 (2026-06-28 본인 결정: 마법사 전 「직접 만들기 vs 라이브러리」).
 //   라이브러리 → 프리셋 선택 → 미션 체크(기본 전체) → DRAFT 생성. 미션 1개만 골라도 됨.
@@ -132,7 +133,9 @@ function ProgramCreateChooser({ onDirect, onPickPreset, onBack, busyKey }) {
             {/* 기간 선택 — durationOptions 있을 때(예: 금연 1/3/6개월) */}
             {preset.durationOptions?.length > 0 && (
               <div className="mb-4">
-                <p className="text-xs font-semibold text-gray-700 mb-1.5">기간</p>
+                <p className="text-xs font-semibold text-gray-700 mb-1.5">
+                  {preset.theme === PROGRAM_THEME.QUIT_SMOKING ? '금연 프로그램 기간을 설정해주세요' : '기간을 설정해주세요'}
+                </p>
                 <div className="flex gap-2">
                   {preset.durationOptions.map(d => (
                     <button key={d} type="button" onClick={() => setDuration(d)} disabled={!!busyKey}
@@ -160,7 +163,10 @@ function ProgramCreateChooser({ onDirect, onPickPreset, onBack, busyKey }) {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold text-gray-800 truncate">{m.title}</p>
                       <p className="text-[12px] text-gray-500 leading-snug">{m.instruction}</p>
-                      <p className="text-[11px] text-emerald-700 mt-0.5">{missionHint(m)} · {m.point ?? 10}P</p>
+                      {/* 랭킹 없는 프리셋(금연 등)은 포인트가 무의미 → 숨김 */}
+                      <p className="text-[11px] text-emerald-700 mt-0.5">
+                        {missionHint(m)}{preset.rankingEnabled !== false ? ` · ${m.point ?? 10}P` : ''}
+                      </p>
                     </div>
                   </button>
                 )

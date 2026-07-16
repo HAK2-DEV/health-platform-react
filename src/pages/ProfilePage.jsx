@@ -436,7 +436,6 @@ function ProfilePage() {
         tone="emerald"
         icon={<Activity className="w-5 h-5" />}
         title="내 기록"
-        description="걷기, 운동, 수면 등 내 활동 기록을 확인하세요."
         onClick={() => navigate('/profile/activity')}
       />
       {/* 운영자 가이드 — UI 대폭 변경으로 내용 갱신 필요, 임시 숨김 (2026-06-22).
@@ -452,21 +451,18 @@ function ProfilePage() {
         tone="violet"
         icon={<Bell className="w-5 h-5" />}
         title="알림 설정"
-        description="알림 설정을 관리하고 중요한 소식을 받아보세요."
         onClick={() => navigate('/profile/notifications-settings')}
       />
       <ProfileMenuItem
         tone="sky"
         icon={<Shield className="w-5 h-5" />}
         title="계정 설정"
-        description="개인정보 및 계정 정보를 관리하세요."
         onClick={() => navigate('/profile/account-settings')}
       />
       <ProfileMenuItem
         tone="emerald"
         icon={<MessageCircle className="w-5 h-5" />}
         title="문의하기"
-        description="자주 묻는 질문과 1:1 문의를 확인하세요."
         onClick={() => navigate('/support')}
       />
       {/* 관리자 전용 — 화면 체류 분석 (UI/UX 개선용) */}
@@ -575,7 +571,7 @@ function ProfileMenuItem({ tone, icon, imgSrc, title, description, onClick }) {
       </IconBox>
       <div className="flex-1 min-w-0">
         <h3 className="font-semibold text-gray-800">{title}</h3>
-        <p className="text-xs text-gray-500 mt-0.5">{description}</p>
+        {description && <p className="text-xs text-gray-500 mt-0.5">{description}</p>}
       </div>
       <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
     </button>

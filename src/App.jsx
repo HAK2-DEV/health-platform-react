@@ -8,6 +8,7 @@ import { ToastProvider } from './contexts/ToastContext'
 import PwaUpdatePrompt from './components/common/PwaUpdatePrompt'
 import SplashScreen from './components/common/SplashScreen'
 import BottomTabBar from './components/common/BottomTabBar'
+import InAppBrowserBanner from './components/common/InAppBrowserBanner'
 import { useRealtimeSync } from './hooks/useRealtimeSync'
 
 // 코드 스플리팅 — 페이지별 lazy chunk 분리 (Day 65 본인 결정)
@@ -113,6 +114,8 @@ function AppShell() {
 
   return (
    <div className="app">
+      {/* 인앱 브라우저(카톡 등) 안내 — 화면 축소 이슈. 감지 안 되면 렌더 X */}
+      <InAppBrowserBanner />
       <main
         className={`app-main ${showTabBar ? 'pb-24' : 'pb-4'}`}
         style={{ paddingTop: 'max(env(safe-area-inset-top), 0.75rem)' }}

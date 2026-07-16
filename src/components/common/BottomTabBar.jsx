@@ -147,8 +147,9 @@ function BottomTabBar() {
   const tabs = [
     { path: '/dashboard', label: '대시보드', Icon: HomeSolid },
     { path: '/programs', label: '프로그램', Icon: FlagSolid },
-    // 화분(Material Symbols)은 viewBox 를 꽉 채워 크게 보임 → 살짝 줄여 다른 탭과 시각 크기 맞춤
-    { path: '/growth', label: '성장', Icon: PlantSolid, iconCls: 'w-[21px] h-[21px]' },
+    // 아이콘은 4탭 모두 동일 크기(w-6). 성장만 줄이면 세로 높이가 3px 작아져
+    // justify-center 때문에 라벨까지 위로 밀림 → 크기·라벨 위치 모두 어긋남.
+    { path: '/growth', label: '성장', Icon: PlantSolid },
     { path: '/profile', label: '마이페이지', Icon: UserSolid },
   ]
 
@@ -162,7 +163,7 @@ function BottomTabBar() {
         ${isActive ? 'text-emerald-600' : 'text-gray-400 hover:text-gray-500'}
       `}
     >
-      <tab.Icon className={tab.iconCls || 'w-6 h-6'} />
+      <tab.Icon className="w-6 h-6" />
       <span className="text-[11px] font-medium">{tab.label}</span>
     </NavLink>
   )
