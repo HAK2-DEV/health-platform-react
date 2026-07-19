@@ -42,7 +42,7 @@ const CalendarSolid = ({ className }) => (
 //   표지가 우측에서 흘러나오고 좌측은 흰 그라데이션으로 덮어 글자 가독성 확보.
 //   상태별 변형 — 진행중: 진행률 막대 / 준비중(시작 전): 진행률 0% 는 무의미하므로 기간 날짜.
 //   지표는 참여자·남은 기간 2개만 (오늘 참여율·누적 인증은 프로그램 통계에서).
-export function ProgramSlideCard({ program, participants, onClick }) {
+export function ProgramSlideCard({ program, participants, onClick, active = false }) {
   const progress = calcProgress(program.start_date, program.end_date)
   const urg = progressUrgency(progress)
   const todayKst = new Intl.DateTimeFormat('en-CA', {
@@ -66,7 +66,9 @@ export function ProgramSlideCard({ program, participants, onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className="relative w-full h-[144px] rounded-2xl overflow-hidden bg-white border border-gray-100 shadow-elevated text-left"
+      className={`relative w-full h-[144px] rounded-2xl overflow-hidden bg-white border-2 shadow-elevated text-left transition-colors ${
+        active ? 'border-emerald-300' : 'border-gray-200'
+      }`}
     >
       {/* 표지 — 우측에서 흘러나옴.
           ⚠️ ProgramCover 는 루트에 position:relative 를 하드코딩해서, className 으로 absolute 를
@@ -85,7 +87,7 @@ export function ProgramSlideCard({ program, participants, onClick }) {
       </div>
       {/* 표지 왼쪽 경계에만 좁게 페이드 — 카드 배경이 이미 흰색이라 전면 그라데이션은 불필요하고,
           전면으로 덮으면 표지 전체가 뿌옇게 씻긴다(그래서 사진이 흐려 보였음). */}
-      <div className="absolute inset-y-0 left-[44%] w-[14%] bg-gradient-to-r from-white to-transparent" />
+      <div className="absolute inset-y-0 left-[36%] w-[24%] bg-gradient-to-r from-white via-white/85 to-transparent" />
 
       {/* 본문 폭 + 표지 폭이 100% 를 넘으면 진행률 바가 표지를 침범한다 → 52% + 48% 로 분리 */}
       <div className="relative h-full w-[52%] p-4 flex flex-col justify-between">
@@ -378,11 +380,14 @@ function DashboardPage() {
   const firstVerifyNudge = !isColdStart && !showOperator && !!featured && featuredOverview?.totalCount === 0
 
   // 오늘의 활동 (값 / 소프트 캡 → 막대 비율)
+  // 오늘의 활동 요약 — 파스텔 타일(2026-07-19 목업) + 원 없는 2D 아이콘(본인 제공).
+  //   activity/{mission,record,comment}.png 를 배경 원 없는 투명 버전으로 교체 → 클립·확대 불필요.
+  //   scale 은 PNG별 여백 차이로 인한 시각 크기만 미세 보정.
   const todayMetrics = [
-    { label: '미션 완료', value: today?.missionCount ?? 0, cap: 8, img: '/icons/activity/mission.png', bar: 'bg-emerald-500' },
-    { label: '기록 작성', value: today?.recordCount ?? 0, cap: 5, img: '/icons/activity/record.png', bar: 'bg-blue-500', scale: 1.7 },
-    { label: '댓글 활동', value: today?.commentCount ?? 0, cap: 10, img: '/icons/activity/comment.png', bar: 'bg-amber-500' },
-    { label: '획득 점수', value: today?.points ?? 0, cap: 300, glyph: 'P', glyphCls: 'text-amber-500', bar: 'bg-amber-500', circleBg: 'bg-amber-100' },
+    { label: '미션 완료', value: today?.missionCount ?? 0, unit: '개', img: '/icons/activity/mission.png', bg: 'bg-[#e4fcf0]', scale: 1.25 },
+    { label: '게시물 작성', value: today?.postCount ?? 0, unit: '개', img: '/icons/activity/record.png', bg: 'bg-[#e7f4fe]', scale: 1.85 },
+    { label: '댓글 활동', value: today?.commentCount ?? 0, unit: '개', img: '/icons/activity/comment.png', bg: 'bg-[#fff7dd]', scale: 1.45 },
+    { label: '획득 점수', value: today?.points ?? 0, unit: 'P', img: '/icons/activity/point.png', bg: 'bg-[#f1eeff]', scale: 0.84 },
   ]
 
   return (
@@ -505,17 +510,20 @@ function DashboardPage() {
             />
           ) : (
             <>
-              {/* 가로 스크롤 스냅 캐러셀 — 네이티브 관성 스크롤. -mx-4 로 화면 끝까지 흘리고 다음 장 살짝 보임 */}
+              {/* 가로 스크롤 스냅 캐러셀. 엣지 블리드(-mx) 금지 — 이 캐러셀은 ModeSlide 의
+                  overflow-hidden 안에 있어, 음수 마진으로 삐져나가면 첫 카드 왼쪽 테두리가 잘린다.
+                  카드 86% + 우측 overflow 만으로 다음 장이 살짝 보임. px-0.5 는 테두리 여백. */}
               <div
                 ref={trackRef}
                 onScroll={onTrackScroll}
-                className="flex gap-3 overflow-x-auto snap-x snap-mandatory scrollbar-hide -mx-4 px-4 pb-1"
+                className="flex gap-3 overflow-x-auto snap-x snap-mandatory scrollbar-hide px-0.5 pb-1"
               >
-                {slideList.map(p => (
+                {slideList.map((p, i) => (
                   <div key={p.id} className={`snap-start flex-shrink-0 ${slideList.length > 1 ? 'w-[86%]' : 'w-full'}`}>
                     <ProgramSlideCard
                       program={p}
                       participants={activeCounts[p.id] ?? null}
+                      active={i === slide}
                       onClick={() => navigate(`/programs/${p.id}`)}
                     />
                   </div>
@@ -533,54 +541,37 @@ function DashboardPage() {
           </ModeSlide>
         </section>
 
-        {/* ─── 오늘의 활동 요약 — 세로 구분선 + 상태바 ─── */}
-        <SectionCard
-          title="오늘의 활동 요약"
-          action={
-            <button type="button" onClick={() => navigate('/profile/activity')} className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700">
-              자세히 보기<ChevronRight className="w-3 h-3" />
-            </button>
-          }
-        >
-          <ModeSlide mode={effectiveMode} dir={modeDir}>
-          <div className="flex">
-            {todayMetrics.map((m, i) => {
-              const fill = Math.min(100, Math.round((m.value / m.cap) * 100))
-              return (
-                <div key={m.label} className={`flex-1 flex flex-col items-center text-center px-2 ${i > 0 ? 'border-l border-gray-200' : ''}`}>
-                  {/* PNG마다 연한 색 원 크기가 달라(미션·기록은 작음) 클립 안쪽에 회색 링이 남음.
-                      확대 비율을 키워 색 원이 원형 클립을 꽉 채우도록 통일 */}
-                  <div className={`w-9 h-9 mb-1.5 rounded-full overflow-hidden flex items-center justify-center ${m.circleBg || ''}`}>
-                    {m.glyph ? (
-                      // 플랫 글리프(단색) — 다른 3개(미션/기록/댓글)의 평면 아이콘과 톤 통일
-                      <span className={`text-[17px] font-extrabold leading-none ${m.glyphCls || 'text-gray-700'}`}>{m.glyph}</span>
-                    ) : (
-                      <img
-                        src={m.img}
-                        alt=""
-                        aria-hidden="true"
-                        onError={(e) => { e.currentTarget.style.visibility = 'hidden' }}
-                        style={m.circleBg ? undefined : { transform: `scale(${m.scale ?? 1.4})` }}
-                        className={m.circleBg ? 'w-[83%] h-[83%] object-contain' : 'w-full h-full object-cover'}
-                      />
-                    )}
-                  </div>
-                  <p className="text-lg font-extrabold text-gray-900 leading-tight"><CountUp value={m.value} duration={1100} /></p>
-                  <p className="text-[11px] text-gray-500 mt-0.5 mb-1.5 break-keep">{m.label}</p>
-                  <div className="w-full h-1 bg-gray-100 rounded-full overflow-hidden">
-                    <motion.div className={`h-full rounded-full ${m.bar}`}
-                      initial={{ width: 0 }}
-                      whileInView={{ width: `${fill}%` }}
-                      viewport={{ once: true, margin: '0px 0px -12% 0px' }}
-                      transition={{ duration: 1.0, ease: 'easeOut', delay: 0.25 + i * 0.18 }}
-                    />
-                  </div>
-                </div>
-              )
-            })}
+        {/* ─── 오늘의 활동 요약 — 제목을 「프로그램」처럼 카드 밖으로(본인 요청). 타일은 흰 카드에 담음 ─── */}
+        <section>
+          <h2 className="text-base font-bold text-gray-800 mb-3">오늘의 활동 요약</h2>
+          <div className="bg-white rounded-[10px] shadow-elevated p-4">
+            <ModeSlide mode={effectiveMode} dir={modeDir}>
+            <div className="grid grid-cols-4 gap-2">
+              {todayMetrics.map((m) => (
+                <button
+                  key={m.label}
+                  type="button"
+                  onClick={() => navigate('/profile/activity')}
+                  className={`rounded-xl p-2.5 flex flex-col items-center text-center ${m.bg} transition active:scale-[0.97]`}
+                >
+                  <img
+                    src={m.img}
+                    alt=""
+                    aria-hidden="true"
+                    onError={(e) => { e.currentTarget.style.visibility = 'hidden' }}
+                    style={{ transform: `scale(${m.scale})` }}
+                    className="w-9 h-9 object-contain"
+                  />
+                  <p className="text-[11px] text-gray-500 mt-1.5 break-keep leading-tight">{m.label}</p>
+                  <p className="text-[17px] font-extrabold text-gray-900 leading-tight mt-0.5">
+                    <CountUp value={m.value} duration={1100} /><span className="text-[11px] text-gray-500 font-bold ml-0.5">{m.unit}</span>
+                  </p>
+                </button>
+              ))}
+            </div>
+            </ModeSlide>
           </div>
-          </ModeSlide>
-        </SectionCard>
+        </section>
 
         {/* ─── 내 점수 및 랭킹 ─── */}
         <SectionCard

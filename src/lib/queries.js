@@ -282,15 +282,29 @@ export const fetchProgramOperatorPulse = async (programId) => {
 
 // 홈 「오늘의 활동 요약」 (Day 68) — 오늘(KST) 기준
 //   미션 완료(APPROVED+PENDING 인증 수) / 기록 작성(numeric|note 있는 인증) / 댓글 활동 / 획득 점수
+// 오늘의 활동 요약 4지표 — 서로 겹치지 않는 4가지 활동(본인 결정 2026-07-19):
+//   missionCount(미션 완료): 오늘 제출한 미션 인증 수(승인+심사대기)
+//   postCount(게시물 작성): 오늘 쓴 자유게시판 글 수(community_posts)
+//   commentCount(댓글 활동): 인증 피드 댓글(post_comments) + 자유게시판 댓글(community_post_comments) 합산
+//   points(획득 점수): 오늘 적립 포인트 합
 export const fetchMyTodayActivity = async (userId) => {
   const todayKst = formatKstDate(new Date())
   const startISO = new Date(`${todayKst}T00:00:00+09:00`).toISOString()
-  const [vRes, cRes, lRes] = await Promise.all([
+  const [vRes, pRes, fcRes, ccRes, lRes] = await Promise.all([
     supabase.from('verifications')
-      .select('id, numeric_value, note, status')
+      .select('id', { count: 'exact', head: true })
       .eq('user_id', userId)
+      .in('status', ['APPROVED', 'PENDING_REVIEW'])
       .gte('submitted_at', startISO),
-    supabase.from('post_comments')
+    supabase.from('community_posts')
+      .select('id', { count: 'exact', head: true })
+      .eq('author_id', userId)
+      .gte('created_at', startISO),
+    supabase.from('post_comments')                    // 인증 피드 댓글
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .gte('created_at', startISO),
+    supabase.from('community_post_comments')          // 자유게시판 댓글
       .select('id', { count: 'exact', head: true })
       .eq('user_id', userId)
       .gte('created_at', startISO),
@@ -302,12 +316,11 @@ export const fetchMyTodayActivity = async (userId) => {
   if (vRes.error) throw vRes.error
   if (lRes.error) throw lRes.error
 
-  const verifs = (vRes.data || []).filter(v => v.status === 'APPROVED' || v.status === 'PENDING_REVIEW')
-  const missionCount = verifs.length
-  const recordCount = verifs.filter(v => v.numeric_value != null || (v.note && v.note.trim())).length
-  const commentCount = cRes.count || 0
+  const missionCount = vRes.count || 0
+  const postCount = pRes.count || 0
+  const commentCount = (fcRes.count || 0) + (ccRes.count || 0)
   const points = (lRes.data || []).reduce((s, r) => s + (r.point || 0), 0)
-  return { missionCount, recordCount, commentCount, points }
+  return { missionCount, postCount, commentCount, points }
 }
 
 export const fetchPublicPrograms = async (excludeUserId) => {
