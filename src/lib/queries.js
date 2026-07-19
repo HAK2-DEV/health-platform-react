@@ -83,8 +83,10 @@ export const queryKeys = {
     ['home-stats', 'operator', userId, [...(programIds || [])].sort().join(',')],
   // 홈 「오늘의 활동 요약」 (Day 68)
   myTodayActivity: (userId) => ['home-stats', 'today-activity', userId],
+  myTodayActivityDetail: (userId) => ['home-stats', 'today-detail', userId],
   // 대시보드 운영중 프로그램 카드 — 오늘 참여율 + 누적 인증
   programOperatorPulse: (programId) => ['home-stats', 'op-pulse', programId],
+  programOperatorToday: (programId) => ['home-stats', 'op-today', programId],
 }
 
 // 참여자 집합이 바뀌면(참여·탈퇴·승인·코드가입) 「참여자 수」를 쓰는 모든 화면을 갱신.
@@ -280,6 +282,36 @@ export const fetchProgramOperatorPulse = async (programId) => {
   return { todayActiveUsers: todayUsers.size, totalVerifs: rows.length }
 }
 
+// 대시보드 「오늘의 운영 현황」(운영자 모드) — 선택된 운영 프로그램 1개의 오늘 지표.
+//   review: 심사 대기 인증 수 / join: 참여 승인 대기 수 / report: 미처리 신고 수
+//   todayRate: 오늘 인증한 고유 참여자 ÷ 참여자 수(%) / todayVerifs: 오늘 인증 건수(인증 심사 화면용)
+export const fetchProgramOperatorToday = async (programId) => {
+  if (!programId) return { review: 0, join: 0, report: 0, todayRate: 0, todayVerifs: 0 }
+  const todayKst = formatKstDate(new Date())
+  const startISO = new Date(`${todayKst}T00:00:00+09:00`).toISOString()
+  const [pulse, report, reviewRes, joinRes, activeRes, todayVerifRes] = await Promise.all([
+    fetchProgramOperatorPulse(programId),
+    fetchUnresolvedReportCount(programId),
+    supabase.from('verifications').select('id, missions!inner(program_id)', { count: 'exact', head: true })
+      .eq('missions.program_id', programId).eq('status', 'PENDING_REVIEW'),
+    supabase.from('program_participants').select('id', { count: 'exact', head: true })
+      .eq('program_id', programId).eq('status', 'PENDING'),
+    supabase.from('program_participants').select('id', { count: 'exact', head: true })
+      .eq('program_id', programId).eq('status', 'ACTIVE'),
+    supabase.from('verifications').select('id, missions!inner(program_id)', { count: 'exact', head: true })
+      .eq('missions.program_id', programId).in('status', ['APPROVED', 'PENDING_REVIEW']).gte('submitted_at', startISO),
+  ])
+  const participants = activeRes.count || 0
+  const todayRate = participants > 0 ? Math.round((pulse.todayActiveUsers / participants) * 100) : 0
+  return {
+    review: reviewRes.count || 0,
+    join: joinRes.count || 0,
+    report: report || 0,
+    todayRate,
+    todayVerifs: todayVerifRes.count || 0,
+  }
+}
+
 // 홈 「오늘의 활동 요약」 (Day 68) — 오늘(KST) 기준
 //   미션 완료(APPROVED+PENDING 인증 수) / 기록 작성(numeric|note 있는 인증) / 댓글 활동 / 획득 점수
 // 오늘의 활동 요약 4지표 — 서로 겹치지 않는 4가지 활동(본인 결정 2026-07-19):
@@ -321,6 +353,90 @@ export const fetchMyTodayActivity = async (userId) => {
   const commentCount = (fcRes.count || 0) + (ccRes.count || 0)
   const points = (lRes.data || []).reduce((s, r) => s + (r.point || 0), 0)
   return { missionCount, postCount, commentCount, points }
+}
+
+// 「오늘의 활동」 상세 — 대시보드 활동요약 타일 클릭 시 진입하는 4탭 리스트(오늘 KST).
+//   missions/posts/points 는 시간 역순. comments 는 피드+커뮤니티 합쳐 시간 역순.
+//   게시판명은 community_settings JSON 이라 프로그램명으로 대체(간결).
+export const fetchTodayActivityDetail = async (userId) => {
+  const todayKst = formatKstDate(new Date())
+  const startISO = new Date(`${todayKst}T00:00:00+09:00`).toISOString()
+  const fmtTime = (iso) => new Intl.DateTimeFormat('ko-KR', {
+    timeZone: 'Asia/Seoul', hour: 'numeric', minute: '2-digit', hour12: true,
+  }).format(new Date(iso))
+
+  // 딥링크 경로 빌더 — 인증은 피드 단일뷰(?v=, 댓글은 &c=), 게시글은 커뮤니티 탭(?post=, 댓글은 &c=)
+  const verifLink = (programId, verificationId, commentId) => (programId && verificationId)
+    ? `/programs/${programId}/feed?v=${verificationId}${commentId ? `&c=${commentId}` : ''}`
+    : (programId ? `/programs/${programId}` : null)
+  // ret: 게시글 상세 모달을 닫을 때 돌아갈 오늘의 활동 탭(posts/comments) — ProgramDetailPage 가 처리
+  const postLink = (programId, boardId, postId, commentId, ret) => (programId && postId)
+    ? `/programs/${programId}?tab=community${boardId ? `&board=${boardId}` : ''}&post=${postId}${commentId ? `&c=${commentId}` : ''}&from=today&ret=${ret}`
+    : null
+
+  const [vRes, pRes, fcRes, ccRes, lRes] = await Promise.all([
+    supabase.from('verifications')
+      .select('id, submitted_at, status, missions!inner(title, program_id, programs(name))')
+      .eq('user_id', userId)
+      .in('status', ['APPROVED', 'PENDING_REVIEW'])
+      .gte('submitted_at', startISO)
+      .order('submitted_at', { ascending: false }),
+    supabase.from('community_posts')
+      .select('id, title, body, created_at, program_id, board_id, programs(name)')
+      .eq('author_id', userId)
+      .gte('created_at', startISO)
+      .order('created_at', { ascending: false }),
+    supabase.from('post_comments')                                  // 인증 피드 댓글
+      .select('id, content, created_at, verification_id, verifications(missions(title, program_id))')
+      .eq('user_id', userId)
+      .gte('created_at', startISO),
+    supabase.from('community_post_comments')                        // 자유게시판 댓글
+      .select('id, content, created_at, community_posts(id, title, body, program_id, board_id)')
+      .eq('user_id', userId)
+      .gte('created_at', startISO),
+    supabase.from('score_ledgers')
+      .select('id, point, reason, created_at, program_id, verification_id, programs(name)')
+      .eq('user_id', userId)
+      .gte('created_at', startISO)
+      .order('created_at', { ascending: false }),
+  ])
+  for (const r of [vRes, pRes, fcRes, ccRes, lRes]) if (r.error) throw r.error
+
+  const missions = (vRes.data || []).map(v => ({
+    id: v.id, title: v.missions?.title || '(미션)',
+    program: v.missions?.programs?.name || '', status: v.status, time: fmtTime(v.submitted_at),
+    link: verifLink(v.missions?.program_id, v.id),
+  }))
+  const posts = (pRes.data || []).map(p => ({
+    id: p.id, title: p.title || (p.body || '').split('\n')[0].slice(0, 40) || '(제목 없음)',
+    body: p.body || '', program: p.programs?.name || '', time: fmtTime(p.created_at),
+    link: postLink(p.program_id, p.board_id, p.id, null, 'posts'),
+  }))
+  const comments = [
+    ...(fcRes.data || []).map(c => {
+      const m = c.verifications?.missions
+      return {
+        id: 'f' + c.id, content: c.content, where: 'feed',
+        on: m?.title || '인증 게시글', at: c.created_at,
+        link: verifLink(m?.program_id, c.verification_id, c.id),
+      }
+    }),
+    ...(ccRes.data || []).map(c => {
+      const post = c.community_posts
+      return {
+        id: 'c' + c.id, content: c.content, where: 'community',
+        on: post?.title || (post?.body || '').slice(0, 20) || '게시글', at: c.created_at,
+        link: postLink(post?.program_id, post?.board_id, post?.id, c.id, 'comments'),
+      }
+    }),
+  ].sort((a, b) => b.at.localeCompare(a.at)).map(c => ({ ...c, time: fmtTime(c.at) }))
+  const points = (lRes.data || []).map(l => ({
+    id: l.id, point: l.point, reason: l.reason || '포인트 적립',
+    program: l.programs?.name || '', time: fmtTime(l.created_at),
+    link: verifLink(l.program_id, l.verification_id),
+  }))
+
+  return { missions, posts, comments, points }
 }
 
 export const fetchPublicPrograms = async (excludeUserId) => {

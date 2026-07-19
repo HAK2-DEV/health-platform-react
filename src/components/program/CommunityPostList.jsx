@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trash2, Pencil, Flag, Pin, PinOff, Clock, Check, EyeOff } from 'lucide-react'
 import { deleteCommunityPost, setCommunityPostPin, setCommunityPostStatus, rejectCommunityPost, queryKeys } from '../../lib/queries'
@@ -15,7 +16,11 @@ import RejectReasonModal from './RejectReasonModal'
 //   layout: feed(기본 카드) / list(가로 행) / grid(2열) / magazine(대1+소2+중1 반복).
 //   - 이미지 없는 글은 이미지 자리 대신 프로필+텍스트 카드. 매거진에선 중(가로) 우선 배치.
 //   - 카드 탭 시 상세 모달(글 펼치기).
-function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId, isOwner, onEdit, layout = 'feed', canReact = false, canComment = false, focusPostId = null, focusCommentId = null, onFocusHandled }) {
+function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId, isOwner, onEdit, layout = 'feed', canReact = false, canComment = false, focusPostId = null, focusCommentId = null, onFocusHandled, focusCloseTo = null }) {
+  const navigate = useNavigate()
+  // 딥링크(?post=)로 연 상세를 닫을 때, focusCloseTo 가 있으면 그 경로로 복귀(예: 오늘의 활동).
+  //   일반 목록에서 연 상세는 그대로 닫힘. openedViaFocusRef 로 구분.
+  const openedViaFocusRef = useRef(false)
   const queryClient = useQueryClient()
   // 검토 대기(pending) 글은 작성자·운영자에게만 노출 (RLS 보강 — 캐시·엣지로 새어와도 클라에서 차단).
   //   useMemo 필수 — 매 렌더 새 배열이면 아래 imageUrls effect([posts])가 무한 반복돼 signed URL 폭주.
@@ -39,6 +44,7 @@ function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId,
     const target = posts.find(p => String(p.id) === String(focusPostId))
     if (!target) return
     focusedRef.current = focusPostId
+    openedViaFocusRef.current = true
     setDetailPost(target)
     setCommentTarget(focusCommentId || null)
     setScrollComments(!focusCommentId)   // 댓글 타겟이면 섹션 대신 그 댓글로 스크롤
@@ -72,6 +78,16 @@ function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId,
     })
     return () => { cancelled = true }
   }, [posts])
+
+  // 상세 닫기 — 딥링크로 열렸고 복귀 경로가 있으면 그리로(오늘의 활동), 아니면 일반 닫기
+  const closeDetail = () => {
+    if (openedViaFocusRef.current && focusCloseTo) {
+      openedViaFocusRef.current = false
+      navigate(focusCloseTo)
+      return
+    }
+    setDetailPost(null)
+  }
 
   const invalidatePosts = () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.communityPosts(programId, boardId) })
@@ -388,7 +404,7 @@ function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId,
 
       {/* 상세(글 펼치기) — 화면 중앙 카드 (삭제 확인과 동일 스타일) */}
       {detailPost && (
-        <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-5" style={{ touchAction: 'pan-y' }} onClick={() => setDetailPost(null)}>
+        <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-5" style={{ touchAction: 'pan-y' }} onClick={closeDetail}>
           <div className="w-full max-w-md max-h-[85vh] overflow-y-auto overflow-x-hidden overscroll-contain bg-white rounded-2xl p-5 shadow-xl" style={{ touchAction: 'pan-y' }} onClick={(e) => e.stopPropagation()}>
             {detailPost.pinned_at && <div className="mb-2"><PinPill /></div>}
             <div className="flex items-center gap-2.5 mb-3">

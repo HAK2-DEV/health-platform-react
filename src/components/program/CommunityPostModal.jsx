@@ -76,6 +76,7 @@ function CommunityPostModal({ isOpen, onClose, program, boards = [], defaultBoar
       queryClient.invalidateQueries({ queryKey: queryKeys.communityPosts(program.id, boardId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.communityPosts(program.id, 'all') })
       if (isEdit && editPost.board_id !== boardId) queryClient.invalidateQueries({ queryKey: queryKeys.communityPosts(program.id, editPost.board_id) })
+      if (!isEdit) queryClient.invalidateQueries({ queryKey: ['home-stats'] })  // 대시보드 「오늘의 활동」 게시물 작성 즉시 갱신
       onClose()
       // 승인 필요 게시판 → 폼 닫고 「검토 요청 완료」 중앙 카드 안내
       if (!isEdit && post?.status === 'pending') setPendingDone(true)

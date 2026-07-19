@@ -13,7 +13,7 @@ import { detectMilestonesReached, resolveStreakMilestones, computeStage } from '
 import { useToast } from '../../contexts/ToastContext'
 import { compressImage, compressThumbnail } from '../../lib/imageCompression'
 import { thumbPathOf } from '../../lib/signedUrls'
-import { primeAudio, playSuccessChime } from '../../lib/sound'
+import { primeAudio } from '../../lib/sound'
 import LoadingState from '../../components/common/LoadingState'
 import ImageCropModal from '../../components/common/ImageCropModal'
 import NotificationBell from '../../components/common/NotificationBell'
@@ -506,7 +506,7 @@ function MissionVerifyPage() {
       }
     },
     onSuccess: async () => {
-      playSuccessChime()   // 인증 완료 효과음 (띠링↗)
+      // 효과음은 SubmitCelebration 이 체크 스탬프 순간에 재생(싱크). 여기서 즉시 울리면 소리가 먼저 남.
       // 인증 성공 → 점수/카운트/랭킹 모두 무효화 → 다른 화면 진입 시 fresh
       // prefix 무효화로 한 번에 처리 (새 키 추가 시 빠질 위험 줄임)
       queryClient.invalidateQueries({ queryKey: ['scores'] })
@@ -516,6 +516,7 @@ function MissionVerifyPage() {
       queryClient.invalidateQueries({ queryKey: ['stats'] })
       queryClient.invalidateQueries({ queryKey: ['feed'] })
       queryClient.invalidateQueries({ queryKey: ['metricSummary'] })
+      queryClient.invalidateQueries({ queryKey: ['home-stats'] })  // 대시보드 「오늘의 활동」(미션 완료·점수) 즉시 갱신
 
       // Day 65 — 마일스톤 토스트 + 연속 인증일 캡처 (완료 화면 표시용).
       let streak = 0

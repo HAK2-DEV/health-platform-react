@@ -95,6 +95,7 @@ function CommunityPostSocial({ postId, programId, myUserId, isOwner, canReact, c
     onSuccess: () => {
       if (replyTo?.id) setExpanded(prev => new Set(prev).add(replyTo.id))
       setText(''); setReplyTo(null); invalidate()
+      qc.invalidateQueries({ queryKey: ['home-stats'] })  // 대시보드 「오늘의 활동」 댓글 활동 즉시 갱신
     },
     onError: (e) => alert(`댓글 등록 실패: ${e.message}`),
   })

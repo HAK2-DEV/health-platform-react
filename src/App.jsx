@@ -61,10 +61,13 @@ const QuitSmokingHomeDemoPage = lazy(() => import('./pages/QuitSmokingHomeDemoPa
 const ChangeDemoPage = lazy(() => import('./pages/ChangeDemoPage'))
 const CompletionDemoPage = lazy(() => import('./pages/CompletionDemoPage'))
 const CardDemoPage = lazy(() => import('./pages/CardDemoPage'))
+const TodayActivityDemoPage = lazy(() => import('./pages/TodayActivityDemoPage'))
+const OperatorSummaryDemoPage = lazy(() => import('./pages/OperatorSummaryDemoPage'))
 const ClassWizardDemoPage = lazy(() => import('./pages/ClassWizardDemoPage'))
 const ClassScheduleDemoPage = lazy(() => import('./pages/ClassScheduleDemoPage'))
 const ClassManageDemoPage = lazy(() => import('./pages/ClassManageDemoPage'))
 const MyActivityPage = lazy(() => import('./pages/MyActivityPage'))
+const TodayActivityPage = lazy(() => import('./pages/TodayActivityPage'))
 const MyActivityMissionsPage = lazy(() => import('./pages/MyActivityMissionsPage'))
 const MyActivityVerificationsPage = lazy(() => import('./pages/MyActivityVerificationsPage'))
 const MyActivityVerificationsBundlePage = lazy(() => import('./pages/MyActivityVerificationsBundlePage'))
@@ -149,6 +152,8 @@ function AppShell() {
             <Route path="/change-demo" element={<ChangeDemoPage />} />
             <Route path="/completion-demo" element={<CompletionDemoPage />} />
             <Route path="/card-demo" element={<CardDemoPage />} />
+            <Route path="/today-activity-demo" element={<TodayActivityDemoPage />} />
+            <Route path="/operator-summary-demo" element={<OperatorSummaryDemoPage />} />
             <Route path="/class-wizard-demo" element={<ClassWizardDemoPage />} />
             <Route path="/class-schedule-demo" element={<ClassScheduleDemoPage />} />
             <Route path="/class-manage-demo" element={<ClassManageDemoPage />} />
@@ -265,6 +270,9 @@ function AppShell() {
             } />
             <Route path="/profile/activity" element={
               <ProtectedRoute><MyActivityPage /></ProtectedRoute>
+            } />
+            <Route path="/profile/activity/today" element={
+              <ProtectedRoute><TodayActivityPage /></ProtectedRoute>
             } />
             <Route path="/profile/activity/:programId/missions" element={
               <ProtectedRoute><MyActivityMissionsPage /></ProtectedRoute>

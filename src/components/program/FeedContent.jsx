@@ -633,6 +633,7 @@ function CommentsSection({ verificationId, programId, myUserId, isProgramOwner, 
     onSuccess: () => {
       if (replyTo?.id) setRepliesOpen(prev => new Set(prev).add(replyTo.id))
       setInput(''); setReplyTo(null); invalidate()
+      queryClient.invalidateQueries({ queryKey: ['home-stats'] })  // 대시보드 「오늘의 활동」 댓글 활동 즉시 갱신
     },
     onError: (err) => alert(`댓글 작성에 실패했습니다: ${err.message}`),
   })

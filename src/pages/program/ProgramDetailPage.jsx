@@ -784,7 +784,7 @@ function ProgramDetailPage() {
   useEffect(() => {
     const om = searchParams.get('opmenu')
     if (!om) return
-    setPanelView(['root', 'settings', 'menubar'].includes(om) ? om : 'root')
+    setPanelView(['root', 'settings', 'menubar', 'reports'].includes(om) ? om : 'root')
     setIsPanelOpen(true)
     setSearchParams(prev => { const n = new URLSearchParams(prev); n.delete('opmenu'); return n }, { replace: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2289,6 +2289,7 @@ function ProgramDetailPage() {
             <CommunityPostList programId={id} boardId={communityBoard} posts={communityPosts} myUserId={userId} isOwner={isOwner}
               layout={activeBoardLayout} canReact={canReact} canComment={canComment}
               focusPostId={focusPostId} focusCommentId={focusCommentId} onFocusHandled={clearFocusPost}
+              focusCloseTo={searchParams.get('from') === 'today' ? `/profile/activity/today?tab=${searchParams.get('ret') || 'posts'}` : null}
               onEdit={(p) => { setEditingPost(p); setIsPostModalOpen(true) }} />
           )}
 

@@ -2,10 +2,10 @@ import { ProgramSlideCard } from './DashboardPage'
 
 // 오늘의 활동 요약 파스텔 타일 미리보기(대시보드와 동일 마크업 · 목업 검증용)
 const ACTIVITY = [
-  { label: '미션 완료', value: 3, unit: '개', img: '/icons/activity/mission.png', bg: 'bg-[#e4fcf0]', scale: 1.25 },
-  { label: '게시물 작성', value: 2, unit: '개', img: '/icons/activity/record.png', bg: 'bg-[#e7f4fe]', scale: 1.85 },
-  { label: '댓글 활동', value: 5, unit: '개', img: '/icons/activity/comment.png', bg: 'bg-[#fff7dd]', scale: 1.45 },
-  { label: '획득 점수', value: 120, unit: 'P', img: '/icons/activity/point.png', bg: 'bg-[#f1eeff]', scale: 0.84 },
+  { label: '미션 완료', value: 3, unit: '개', img: '/icons/activity/mission.png', bg: 'bg-emerald-50', scale: 1.25 },
+  { label: '게시물 작성', value: 2, unit: '개', img: '/icons/activity/record.png', bg: 'bg-sky-50', scale: 1.85 },
+  { label: '댓글 활동', value: 5, unit: '개', img: '/icons/activity/comment.png', bg: 'bg-amber-50', scale: 1.45 },
+  { label: '획득 점수', value: 120, unit: 'P', img: '/icons/activity/point.png', bg: 'bg-violet-50', scale: 0.84 },
 ]
 
 // 대시보드 프로그램 캐러셀 카드 UI 데모 — /card-demo. 로그인 없이 카드만 확인·디버깅용.
@@ -22,15 +22,15 @@ function CardDemoPage() {
       <div className="max-w-[430px] mx-auto px-4">
         <h1 className="text-lg font-bold text-gray-900 mb-4">프로그램 카드 데모</h1>
 
-        {/* 오늘의 활동 요약 파스텔 타일 */}
-        <div className="bg-white rounded-[10px] shadow-elevated p-4 mb-6">
+        {/* 오늘의 활동 요약 파스텔 타일 — 흰 카드 없이 직접, 확대 버전 */}
+        <div className="mb-6">
           <h2 className="text-base font-bold text-gray-800 mb-3">오늘의 활동 요약</h2>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-4 gap-2.5">
             {ACTIVITY.map(m => (
-              <button key={m.label} type="button" className={`rounded-xl p-2.5 flex flex-col items-center text-center ${m.bg} transition active:scale-[0.97]`}>
-                <img src={m.img} alt="" aria-hidden="true" style={{ transform: `scale(${m.scale})` }} className="w-9 h-9 object-contain" />
-                <p className="text-[11px] text-gray-500 mt-1.5 break-keep leading-tight">{m.label}</p>
-                <p className="text-[17px] font-extrabold text-gray-900 leading-tight mt-0.5">
+              <button key={m.label} type="button" className={`rounded-2xl p-3 flex flex-col items-center text-center ${m.bg} shadow-soft transition active:scale-[0.97]`}>
+                <img src={m.img} alt="" aria-hidden="true" style={{ transform: `scale(${m.scale})` }} className="w-10 h-10 object-contain" />
+                <p className="text-[11.5px] text-gray-500 mt-2 break-keep leading-tight">{m.label}</p>
+                <p className="text-[18px] font-extrabold text-gray-900 leading-tight mt-0.5">
                   {m.value}<span className="text-[11px] text-gray-500 font-bold ml-0.5">{m.unit}</span>
                 </p>
               </button>

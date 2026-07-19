@@ -24,6 +24,7 @@ import {
   fetchMyTodayActivity,
   fetchMyRankChange,
   fetchProgramOverview,
+  fetchProgramOperatorToday,
 } from '../lib/queries'
 
 // 채워진(solid) 통계 아이콘 — fill=currentColor 라 text-* 로 색 (heroicons solid, MIT)
@@ -324,6 +325,7 @@ function DashboardPage() {
     queryKey: queryKeys.myTodayActivity(userId),
     queryFn: () => fetchMyTodayActivity(userId),
     enabled: !!userId,
+    refetchOnMount: 'always',   // 인증·게시·댓글 후 대시보드 복귀 시 항상 최신(안전망)
   })
 
   // 운영자(소유 프로그램 보유)면 대표 카드에 운영중 프로그램을, 아니면 참여중 프로그램을 노출.
@@ -338,6 +340,14 @@ function DashboardPage() {
   // 캐러셀에 깔 목록 = 현재 모드의 프로그램 전부. featured(첫 장)는 넛지·랭킹 섹션이 계속 사용.
   const slideList = showOperator ? myPrograms : activePrograms
   const featured = slideList[0] || null
+  // 캐러셀에서 현재 보고 있는 프로그램(슬라이드 인덱스) — 운영 현황 지표가 이걸 따라감
+  const selectedOperatorProgram = showOperator ? (slideList[slide] || null) : null
+  const { data: opToday } = useQuery({
+    queryKey: queryKeys.programOperatorToday(selectedOperatorProgram?.id),
+    queryFn: () => fetchProgramOperatorToday(selectedOperatorProgram.id),
+    enabled: showOperator && !!selectedOperatorProgram?.id,
+    refetchOnMount: 'always',
+  })
   // 모드 전환 (방향 기록 → 슬라이드 페이드). 토글 버튼 전담.
   const switchMode = (m) => {
     if (!canToggleMode || m === effectiveMode) return
@@ -383,12 +393,22 @@ function DashboardPage() {
   // 오늘의 활동 요약 — 파스텔 타일(2026-07-19 목업) + 원 없는 2D 아이콘(본인 제공).
   //   activity/{mission,record,comment}.png 를 배경 원 없는 투명 버전으로 교체 → 클립·확대 불필요.
   //   scale 은 PNG별 여백 차이로 인한 시각 크기만 미세 보정.
-  const todayMetrics = [
-    { label: '미션 완료', value: today?.missionCount ?? 0, unit: '개', img: '/icons/activity/mission.png', bg: 'bg-[#e4fcf0]', scale: 1.25 },
-    { label: '게시물 작성', value: today?.postCount ?? 0, unit: '개', img: '/icons/activity/record.png', bg: 'bg-[#e7f4fe]', scale: 1.85 },
-    { label: '댓글 활동', value: today?.commentCount ?? 0, unit: '개', img: '/icons/activity/comment.png', bg: 'bg-[#fff7dd]', scale: 1.45 },
-    { label: '획득 점수', value: today?.points ?? 0, unit: 'P', img: '/icons/activity/point.png', bg: 'bg-[#f1eeff]', scale: 0.84 },
+  const participantMetrics = [
+    { label: '미션 완료', value: today?.missionCount ?? 0, unit: '개', img: '/icons/activity/mission.png', bg: 'bg-emerald-50', scale: 1.25, onClick: () => navigate('/profile/activity/today?tab=missions') },
+    { label: '게시물 작성', value: today?.postCount ?? 0, unit: '개', img: '/icons/activity/record.png', bg: 'bg-sky-50', scale: 1.85, onClick: () => navigate('/profile/activity/today?tab=posts') },
+    { label: '댓글 활동', value: today?.commentCount ?? 0, unit: '개', img: '/icons/activity/comment.png', bg: 'bg-amber-50', scale: 1.45, onClick: () => navigate('/profile/activity/today?tab=comments') },
+    { label: '획득 점수', value: today?.points ?? 0, unit: 'P', img: '/icons/activity/point.png', bg: 'bg-violet-50', scale: 0.84, onClick: () => navigate('/profile/activity/today?tab=points') },
   ]
+  // 운영중 「오늘의 운영 현황」 — 선택 프로그램 기준. 앞 3개는 할 일 인박스(값>0 강조), 4번째는 참여율 pulse.
+  //   탭 → 심사/승인/신고/통계 화면(신고는 ?opmenu=reports 로 운영자 패널 오픈).
+  const opId = selectedOperatorProgram?.id
+  const operatorMetrics = [
+    { label: '인증 심사', value: opToday?.review ?? 0, unit: '개', img: '/icons/operator/review.png', bg: 'bg-emerald-50', accent: 'text-emerald-600', inbox: true, onClick: () => opId && navigate(`/programs/${opId}/reviews`) },
+    { label: '참여 승인', value: opToday?.join ?? 0, unit: '개', img: '/icons/operator/approve.png', bg: 'bg-sky-50', accent: 'text-sky-600', inbox: true, onClick: () => opId && navigate(`/programs/${opId}?approvals=1`) },
+    { label: '신고 처리', value: opToday?.report ?? 0, unit: '개', img: '/icons/operator/report.png', bg: 'bg-amber-50', accent: 'text-amber-500', inbox: true, onClick: () => opId && navigate(`/programs/${opId}?opmenu=reports`) },
+    { label: '오늘 참여율', value: opToday?.todayRate ?? 0, unit: '%', img: '/icons/operator/rate.png', bg: 'bg-violet-50', onClick: () => opId && navigate(`/programs/${opId}/stats`) },
+  ]
+  const summaryMetrics = showOperator ? operatorMetrics : participantMetrics
 
   return (
     <div className="min-h-screen bg-white">
@@ -415,8 +435,8 @@ function DashboardPage() {
         </div>
       </header>
 
-      {/* 콘텐츠 — 간격 9px */}
-      <div className="w-full max-w-4xl mx-auto px-3 sm:px-4 pt-[9px] pb-6 space-y-[9px]">
+      {/* 콘텐츠 — 섹션 간격 16px(히어로·프로그램·활동요약·점수 균일, 제목이 위 박스에 붙지 않게) */}
+      <div className="w-full max-w-4xl mx-auto px-3 sm:px-4 pt-[9px] pb-6 space-y-4">
 
         {/* ─── 인사말 헤더 (이미지 카드, 모서리 10) — 페이드 없이 항상 보임 ─── */}
         <div className="relative overflow-hidden rounded-[10px] bg-[#eef7f1] h-[120px]">
@@ -473,8 +493,8 @@ function DashboardPage() {
         {isColdStart ? (
         <ColdStartGuide onBrowse={() => setBrowseOpen(true)} />
         ) : (<>
-        {/* ─── 운영중/참여중 전환 3개 섹션 ─── */}
-        <div className="space-y-[9px]">
+        {/* ─── 운영중/참여중 전환 3개 섹션 — 섹션 간격 16px(위 콘텐츠와 균일) ─── */}
+        <div className="space-y-4">
         {/* ─── 프로그램 — 토글 + 카드 캐러셀 (2026-07-16 목업).
              좌우 스와이프 = 현재 모드의 프로그램 넘기기(본인 결정). 모드 전환은 토글 전담.
              흰 SectionCard 로 감싸면 카드 속 카드가 되어, 헤더만 두고 카드는 배경 위에 띄움. ─── */}
@@ -541,62 +561,72 @@ function DashboardPage() {
           </ModeSlide>
         </section>
 
-        {/* ─── 오늘의 활동 요약 — 제목을 「프로그램」처럼 카드 밖으로(본인 요청). 타일은 흰 카드에 담음 ─── */}
+        {/* ─── 오늘의 활동 요약 / 운영 현황 — 모드별 4타일. 흰 카드 없이 페이지에 직접. ─── */}
         <section>
-          <h2 className="text-base font-bold text-gray-800 mb-3">오늘의 활동 요약</h2>
-          <div className="bg-white rounded-[10px] shadow-elevated p-4">
-            <ModeSlide mode={effectiveMode} dir={modeDir}>
-            <div className="grid grid-cols-4 gap-2">
-              {todayMetrics.map((m) => (
+          <h2 className="text-base font-bold text-gray-800 mb-3">{showOperator ? '오늘의 운영 현황' : '오늘의 활동 요약'}</h2>
+          <ModeSlide mode={effectiveMode} dir={modeDir}>
+          <div className="grid grid-cols-4 gap-2.5">
+            {summaryMetrics.map((m) => {
+              const highlight = m.inbox && m.value > 0   // 할 일 인박스: 값>0 이면 색으로 강조
+              return (
                 <button
                   key={m.label}
                   type="button"
-                  onClick={() => navigate('/profile/activity')}
-                  className={`rounded-xl p-2.5 flex flex-col items-center text-center ${m.bg} transition active:scale-[0.97]`}
+                  onClick={m.onClick}
+                  className={`rounded-2xl p-3 flex flex-col items-center text-center ${m.bg} shadow-soft transition active:scale-[0.97]`}
                 >
                   <img
                     src={m.img}
                     alt=""
                     aria-hidden="true"
                     onError={(e) => { e.currentTarget.style.visibility = 'hidden' }}
-                    style={{ transform: `scale(${m.scale})` }}
-                    className="w-9 h-9 object-contain"
+                    style={m.scale ? { transform: `scale(${m.scale})` } : undefined}
+                    className="w-10 h-10 object-contain"
                   />
-                  <p className="text-[11px] text-gray-500 mt-1.5 break-keep leading-tight">{m.label}</p>
-                  <p className="text-[17px] font-extrabold text-gray-900 leading-tight mt-0.5">
-                    <CountUp value={m.value} duration={1100} /><span className="text-[11px] text-gray-500 font-bold ml-0.5">{m.unit}</span>
+                  <p className="text-[11.5px] text-gray-500 mt-2 break-keep leading-tight">{m.label}</p>
+                  <p className="text-[18px] font-extrabold leading-tight mt-0.5">
+                    <span className={highlight ? m.accent : 'text-gray-900'}><CountUp value={m.value} duration={1100} /></span>
+                    <span className="text-[11px] text-gray-500 font-bold ml-0.5">{m.unit}</span>
                   </p>
                 </button>
-              ))}
+              )
+            })}
+          </div>
+          </ModeSlide>
+        </section>
+
+        {/* ─── 내 점수 및 랭킹 — 제목 카드 밖으로(프로그램·활동요약과 통일). 박스 안: 트로피(좌) + 점수·랭킹(우).
+             pt-1(4px): 본인 요청으로 이 섹션만 살짝 더 내림(space-y 마진과 충돌 없게 padding 사용) ─── */}
+        <section className="pt-1">
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <h2 className="text-base font-bold text-gray-800">내 점수 및 랭킹</h2>
+            <button type="button" onClick={() => navigate('/rankings')} className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700">
+              전체 랭킹<ChevronRight className="w-3 h-3" />
+            </button>
+          </div>
+          <div className="bg-white rounded-[10px] shadow-elevated p-4">
+            <ModeSlide mode={effectiveMode} dir={modeDir}>
+            <div className="flex items-center gap-3">
+              {/* 트로피 3D 아이콘(본인 제공 2026-07-19) — 좌측 */}
+              {/* 박스 높이는 고정, 트로피만 시각적으로 크게 — 아이콘 여백을 넘겨 살짝 오버플로우 */}
+              <img src="/icons/reward/trophy.png" alt="" aria-hidden="true" className="w-[104px] h-[104px] object-contain flex-shrink-0 -my-3 -ml-[5px]" />
+              {/* 점수·랭킹 — 아이콘이 좌측을 차지하므로 우측으로 이동 */}
+              <div className="flex-1 flex items-center justify-around gap-3">
+                <div className="text-center">
+                  <p className="text-[11px] text-emerald-600 font-semibold mb-0.5">총 점수</p>
+                  <p className="text-xl font-extrabold text-gray-900 leading-tight">
+                    <CountUp value={pStats?.totalPoints ?? 0} duration={1100} /><span className="text-sm text-gray-500 font-bold"> P</span>
+                  </p>
+                  {pStats?.weekPoints > 0 && (
+                    <p className="text-[11px] font-semibold text-emerald-600 mt-0.5">이번주 ↑{pStats.weekPoints}P</p>
+                  )}
+                </div>
+                <RankRing rank={featuredRank?.current_rank} total={featuredParticipants} />
+              </div>
             </div>
             </ModeSlide>
           </div>
         </section>
-
-        {/* ─── 내 점수 및 랭킹 ─── */}
-        <SectionCard
-          title="내 점수 및 랭킹"
-          action={
-            <button type="button" onClick={() => navigate('/rankings')} className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700">
-              전체 랭킹<ChevronRight className="w-3 h-3" />
-            </button>
-          }
-        >
-          <ModeSlide mode={effectiveMode} dir={modeDir}>
-          <div className="flex items-center justify-around gap-3">
-            <div className="text-center">
-              <p className="text-[11px] text-emerald-600 font-semibold mb-0.5">총 점수</p>
-              <p className="text-xl font-extrabold text-gray-900 leading-tight">
-<CountUp value={pStats?.totalPoints ?? 0} duration={1100} /><span className="text-sm text-gray-500 font-bold"> P</span>
-              </p>
-              {pStats?.weekPoints > 0 && (
-                <p className="text-[11px] font-semibold text-emerald-600 mt-0.5">이번주 ↑{pStats.weekPoints}P</p>
-              )}
-            </div>
-            <RankRing rank={featuredRank?.current_rank} total={featuredParticipants} />
-          </div>
-          </ModeSlide>
-        </SectionCard>
         </div>
         </>)}
 

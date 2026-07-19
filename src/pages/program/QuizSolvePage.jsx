@@ -15,6 +15,7 @@ import LoadingState from '../../components/common/LoadingState'
 import ConfirmModal from '../../components/common/ConfirmModal'
 import Confetti from '../../components/common/Confetti'
 import SubmitCelebration from '../../components/common/SubmitCelebration'
+import { primeAudio } from '../../lib/sound'
 import { formatKoreanDateTime } from '../../lib/formatters'
 import { PROGRAM_THEME } from '../../lib/constants'
 
@@ -67,6 +68,7 @@ function QuizSolvePage() {
       queryClient.invalidateQueries({ queryKey: queryKeys.participantQuizzes(id, userId) })
       queryClient.invalidateQueries({ queryKey: ['rankings'] })
       queryClient.invalidateQueries({ queryKey: ['scores'] })
+      queryClient.invalidateQueries({ queryKey: ['home-stats'] })  // 대시보드 「오늘의 활동」 획득 점수 즉시 갱신
       setSubmitError(null)
     },
     onError: (err) => {
@@ -109,10 +111,11 @@ function QuizSolvePage() {
   const unanswered = questions.filter(q => !answers[q.id]?.toString().trim()).length
 
   const handleSubmit = () => {
+    primeAudio()   // 사용자 제스처에서 오디오 잠금 해제(모바일) → 제출 완료 효과음 재생 보장
     if (unanswered > 0) { setConfirmOpen(true); return }
     submitMutation.mutate()
   }
-  const confirmSubmit = () => { setConfirmOpen(false); submitMutation.mutate() }
+  const confirmSubmit = () => { primeAudio(); setConfirmOpen(false); submitMutation.mutate() }
   const unansweredModal = (
     <ConfirmModal
       isOpen={confirmOpen}

@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Star } from 'lucide-react'
+import { playSuccessChime } from '../../lib/sound'
 
 // 제출 완료 축하 연출 (미션·퀴즈 공용).
 //   ① 빈 아이콘이 Y축으로 회전하며 부드럽게 안착(회전→등장을 하나의 연속 동작으로 — 끊김 방지)
@@ -20,6 +21,13 @@ const SPARKS = Array.from({ length: 6 }, (_, i) => {
 function SubmitCelebration({ emptySrc, checkSrc, checkOrigin = '51% 54%', label = '제출 완료!', points = 0, pending = false, onDone }) {
   const reduce = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches
   useEffect(() => { if (reduce) onDone?.() }, [reduce, onDone])
+  // 효과음은 체크 조각이 찍히는 순간에 맞춰 재생(스탬프 delay 0.82s). 예전엔 제출 onSuccess 에서
+  // 즉시 울려 소리가 애니보다 먼저 났음 → 여기로 옮겨 미션·퀴즈 공용으로 싱크.
+  useEffect(() => {
+    if (reduce) return
+    const t = setTimeout(() => playSuccessChime(), 860)
+    return () => clearTimeout(t)
+  }, [reduce])
   if (reduce) return null
 
   const fadeUp = (delay) => ({ initial: { opacity: 0, y: 14 }, animate: { opacity: 1, y: 0 }, transition: { delay, duration: 0.35, ease: 'easeOut' } })
