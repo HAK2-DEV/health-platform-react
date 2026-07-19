@@ -52,20 +52,6 @@ const GrowthPage = lazy(() => import('./pages/GrowthPage'))
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage'))
 const ProfilePage = lazy(() => import('./pages/ProfilePage'))
 const AdminScreenStatsPage = lazy(() => import('./pages/AdminScreenStatsPage'))
-const FlowerDemoPage = lazy(() => import('./pages/FlowerDemoPage'))
-const RunningHomeDemoPage = lazy(() => import('./pages/RunningHomeDemoPage'))
-const CategoryIconsDemoPage = lazy(() => import('./pages/CategoryIconsDemoPage'))
-const IconMockupDemoPage = lazy(() => import('./pages/IconMockupDemoPage'))
-const ProgramHomeDemoPage = lazy(() => import('./pages/ProgramHomeDemoPage'))
-const QuitSmokingHomeDemoPage = lazy(() => import('./pages/QuitSmokingHomeDemoPage'))
-const ChangeDemoPage = lazy(() => import('./pages/ChangeDemoPage'))
-const CompletionDemoPage = lazy(() => import('./pages/CompletionDemoPage'))
-const CardDemoPage = lazy(() => import('./pages/CardDemoPage'))
-const TodayActivityDemoPage = lazy(() => import('./pages/TodayActivityDemoPage'))
-const OperatorSummaryDemoPage = lazy(() => import('./pages/OperatorSummaryDemoPage'))
-const ClassWizardDemoPage = lazy(() => import('./pages/ClassWizardDemoPage'))
-const ClassScheduleDemoPage = lazy(() => import('./pages/ClassScheduleDemoPage'))
-const ClassManageDemoPage = lazy(() => import('./pages/ClassManageDemoPage'))
 const MyActivityPage = lazy(() => import('./pages/MyActivityPage'))
 const TodayActivityPage = lazy(() => import('./pages/TodayActivityPage'))
 const MyActivityMissionsPage = lazy(() => import('./pages/MyActivityMissionsPage'))
@@ -143,20 +129,6 @@ function AppShell() {
             <Route path="/admin/screen-stats" element={
               <ProtectedRoute><AdminScreenStatsPage /></ProtectedRoute>
             } />
-            <Route path="/flower-demo" element={<FlowerDemoPage />} />
-            <Route path="/running-home-demo" element={<RunningHomeDemoPage />} />
-            <Route path="/category-icons-demo" element={<CategoryIconsDemoPage />} />
-            <Route path="/icon-mockups" element={<IconMockupDemoPage />} />
-            <Route path="/program-home-demo" element={<ProgramHomeDemoPage />} />
-            <Route path="/quit-smoking-demo" element={<QuitSmokingHomeDemoPage />} />
-            <Route path="/change-demo" element={<ChangeDemoPage />} />
-            <Route path="/completion-demo" element={<CompletionDemoPage />} />
-            <Route path="/card-demo" element={<CardDemoPage />} />
-            <Route path="/today-activity-demo" element={<TodayActivityDemoPage />} />
-            <Route path="/operator-summary-demo" element={<OperatorSummaryDemoPage />} />
-            <Route path="/class-wizard-demo" element={<ClassWizardDemoPage />} />
-            <Route path="/class-schedule-demo" element={<ClassScheduleDemoPage />} />
-            <Route path="/class-manage-demo" element={<ClassManageDemoPage />} />
             <Route path="/programs/new" element={
               <ProtectedRoute><ProgramNewPage /></ProtectedRoute>
             } />

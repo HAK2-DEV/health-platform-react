@@ -406,7 +406,7 @@ function RunningHome({
         </div>
         {/* 우: 코스 맵(지도 사진 그대로) + 그 위에 코스 진행 라인·핀 오버레이. 사진 없으면 SVG 폴백 */}
         <div className="flex-1 relative bg-gradient-to-br from-emerald-50 to-sky-50">
-          <AssetImg src={`${RUN}/course-map.png`} className="absolute inset-0 w-full h-full object-cover object-top" fallback={<CourseRoute progress={progress} />} />
+          <AssetImg src={`${RUN}/course-map.jpg`} className="absolute inset-0 w-full h-full object-cover object-top" fallback={<CourseRoute progress={progress} />} />
           {/* 진행률(0~100%)만큼 코스가 초록으로 채워지고 위치 핀이 경로를 따라 이동 */}
           <RunningCourseMini progress={progress} showTest={showStampTest} />
         </div>
