@@ -302,11 +302,12 @@ function DashboardPage() {
     // 참여자 수 변동은 Realtime(program_participants) + 참여/탈퇴 무효화가 갱신 → 매 진입 재요청(always) 제거
   })
 
-  const { data: publicPrograms = [] } = useQuery({
+  const { data: publicPrograms = [], isFetching: isPublicFetching } = useQuery({
     queryKey: queryKeys.publicPrograms(userId),
     queryFn: () => fetchPublicPrograms(userId),
-    enabled: !!userId,
-    // 공개 프로그램 전량 fetch — 매 진입 재요청(always)은 무거움. 게시 무효화 + Realtime(programs)로 갱신.
+    // 공개 프로그램 전량 fetch — 둘러보기 모달 전용이라 대시보드 진입마다 받을 필요 없음.
+    // 둘러보기를 열거나(공개 프로그램 선택 상태 포함) 할 때만 fetch → 진입 부하 제거.
+    enabled: !!userId && (browseOpen || selectedPublicId != null),
   })
 
   const { data: unreadNotifCount = 0 } = useQuery({
@@ -636,6 +637,7 @@ function DashboardPage() {
           isOpen={browseOpen}
           onClose={() => setBrowseOpen(false)}
           programs={publicPrograms}
+          isLoading={isPublicFetching && publicPrograms.length === 0}
           onSelect={(id) => { setBrowseOpen(false); setSelectedPublicId(id) }}
         />
         {(() => {

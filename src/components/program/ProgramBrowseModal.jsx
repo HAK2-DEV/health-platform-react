@@ -17,7 +17,7 @@ const SORTS = [
   { key: 'popular', label: '인기순' },
 ]
 
-function ProgramBrowseModal({ isOpen, onClose, programs = [], onSelect }) {
+function ProgramBrowseModal({ isOpen, onClose, programs = [], onSelect, isLoading = false }) {
   const [cat, setCat] = useState('all')
   const [sort, setSort] = useState('latest')
   const [query, setQuery] = useState('')
@@ -125,8 +125,12 @@ function ProgramBrowseModal({ isOpen, onClose, programs = [], onSelect }) {
           </div>
         </div>
 
-        {/* 리스트 */}
-        {filtered.length === 0 ? (
+        {/* 리스트 — 지연 로딩(대시보드는 둘러보기 열 때 fetch) 중이면 로더 */}
+        {isLoading ? (
+          <div className="py-12 flex justify-center">
+            <span className="w-7 h-7 rounded-full border-2 border-gray-200 border-t-emerald-500 animate-spin" />
+          </div>
+        ) : filtered.length === 0 ? (
           <EmptyState icon="🔍" title={query.trim() ? '검색 결과가 없어요' : '해당 카테고리에 프로그램이 없어요'} />
         ) : (
           <div className="grid grid-cols-1 gap-2.5">
