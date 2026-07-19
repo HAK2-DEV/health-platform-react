@@ -24,6 +24,7 @@ function ReportsManageSection({ programId, onNavigate }) {
     queryClient.invalidateQueries({ queryKey: ['reportsUnresolvedCount', programId] })
     queryClient.invalidateQueries({ queryKey: ['feed'] })
     queryClient.invalidateQueries({ queryKey: ['communityPosts'] })
+    queryClient.invalidateQueries({ queryKey: ['home-stats'] })   // 대시보드 「오늘의 운영 현황」 미처리 신고 수 반영
   }
 
   // 가리기/복구 — 노출 상태를 바꾸고, 그 콘텐츠의 신고를 처리됨으로.

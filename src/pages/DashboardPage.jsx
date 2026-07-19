@@ -299,14 +299,14 @@ function DashboardPage() {
     queryKey: queryKeys.activeParticipantCounts(activeProgramIds),
     queryFn: () => fetchActiveParticipantCounts(activeProgramIds),
     enabled: activeProgramIds.length > 0,
-    refetchOnMount: 'always',   // 참여자 수는 진입 때마다 최신으로 (참여 변동 즉시 반영)
+    // 참여자 수 변동은 Realtime(program_participants) + 참여/탈퇴 무효화가 갱신 → 매 진입 재요청(always) 제거
   })
 
   const { data: publicPrograms = [] } = useQuery({
     queryKey: queryKeys.publicPrograms(userId),
     queryFn: () => fetchPublicPrograms(userId),
     enabled: !!userId,
-    refetchOnMount: 'always',   // 새로 게시된 프로그램이 둘러보기에 바로 노출되도록
+    // 공개 프로그램 전량 fetch — 매 진입 재요청(always)은 무거움. 게시 무효화 + Realtime(programs)로 갱신.
   })
 
   const { data: unreadNotifCount = 0 } = useQuery({
@@ -325,7 +325,8 @@ function DashboardPage() {
     queryKey: queryKeys.myTodayActivity(userId),
     queryFn: () => fetchMyTodayActivity(userId),
     enabled: !!userId,
-    refetchOnMount: 'always',   // 인증·게시·댓글 후 대시보드 복귀 시 항상 최신(안전망)
+    // 갱신은 각 작성 지점의 home-stats 무효화가 담당(무효화되면 재진입 시 자동 refetch).
+    // 'always' 는 매 진입마다 재요청이라 랙 유발 → 제거.
   })
 
   // 운영자(소유 프로그램 보유)면 대표 카드에 운영중 프로그램을, 아니면 참여중 프로그램을 노출.
@@ -346,7 +347,7 @@ function DashboardPage() {
     queryKey: queryKeys.programOperatorToday(selectedOperatorProgram?.id),
     queryFn: () => fetchProgramOperatorToday(selectedOperatorProgram.id),
     enabled: showOperator && !!selectedOperatorProgram?.id,
-    refetchOnMount: 'always',
+    // 심사·승인·신고 처리 후 home-stats 무효화로 갱신 → 'always' 불필요(랙 방지)
   })
   // 모드 전환 (방향 기록 → 슬라이드 페이드). 토글 버튼 전담.
   const switchMode = (m) => {
