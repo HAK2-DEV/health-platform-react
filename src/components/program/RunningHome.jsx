@@ -299,6 +299,8 @@ function RunningHome({
   daily = { distanceKm: 42.195, timeHours: 23.3, streakDays: 7, calories: 409 },
   onOpenTab = () => {},
   onRecord = () => {},
+  newMissionCount = 0,           // 새 미션/퀴즈 NEW 배지
+  newQuizCount = 0,
   onNotice = null,               // 공지 클릭 동작(미지정 시 커뮤니티 탭으로)
   classSlot = null,              // 강사 클래스 개요 진입 카드 (기능 ON 시 주입)
   quizEnabled = true,            // 마법사 「퀴즈」 토글
@@ -416,15 +418,15 @@ function RunningHome({
           비활성 메뉴는 박스 제거, 활성 개수에 맞춰 균등 그리드 */}
       {(() => {
         const cards = [
-          { key: 'mission', iconSrc: '/icons/feature/mission.png', iconEmoji: '📋', title: '미션', desc: '목표를 달성해요', actionLabel: '기록하기', onClick: onRecord },
-          quizEnabled && { key: 'quiz', iconSrc: '/icons/feature/quiz.png', iconEmoji: '❓', title: '퀴즈', desc: '건강 지식을 배워요', actionLabel: '풀어보기', onClick: () => onOpenTab('quizzes') },
+          { key: 'mission', iconSrc: '/icons/feature/mission.png', iconEmoji: '📋', title: '미션', desc: '목표를 달성해요', actionLabel: '기록하기', onClick: onRecord, newCount: newMissionCount },
+          quizEnabled && { key: 'quiz', iconSrc: '/icons/feature/quiz.png', iconEmoji: '❓', title: '퀴즈', desc: '건강 지식을 배워요', actionLabel: '풀어보기', onClick: () => onOpenTab('quizzes'), newCount: newQuizCount },
           communityEnabled && { key: 'community', iconSrc: '/icons/feature/community.png', iconEmoji: '💬', title: '커뮤니티', desc: '함께 응원해요', actionLabel: '바로가기', onClick: () => onOpenTab('community') },
           rankingEnabled && { key: 'ranking', iconSrc: '/icons/reward/ranking.png', iconEmoji: '🏆', title: '랭킹', desc: '순위를 확인해요', actionLabel: '확인하기', onClick: () => onOpenTab('ranking') },
         ].filter(Boolean)
         return (
           <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${cards.length}, minmax(0,1fr))` }}>
             {cards.map((c) => (
-              <NavCard key={c.key} iconSrc={c.iconSrc} iconEmoji={c.iconEmoji} title={c.title} desc={c.desc} actionLabel={c.actionLabel} onClick={c.onClick} />
+              <NavCard key={c.key} iconSrc={c.iconSrc} iconEmoji={c.iconEmoji} title={c.title} desc={c.desc} actionLabel={c.actionLabel} onClick={c.onClick} newCount={c.newCount} />
             ))}
           </div>
         )

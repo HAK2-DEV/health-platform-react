@@ -34,14 +34,15 @@ function QuitSmokingHome({
   boxOrder = null, hiddenBoxes = [], onEditLayout = () => {},
   quizEnabled = true, communityEnabled = true, changeEnabled = true,
   onRecord = () => {}, onOpenTab = () => {}, onNotice = null,
+  newMissionCount = 0, newQuizCount = 0,
 }) {
   const showEditHero = variant === 'extras'
   const showGoal = variant === 'extras' || variant === 'goal'
   const showStreak = variant === 'extras' || variant === 'goal'
 
   const cards = [
-    { key: 'mission', iconSrc: '/icons/feature/mission.png', iconEmoji: '📋', title: '미션', desc: '금연 미션 인증', actionLabel: '기록하기', onClick: onRecord },
-    quizEnabled && { key: 'quiz', iconSrc: '/icons/feature/quiz.png', iconEmoji: '❓', title: '퀴즈', desc: '금연 지식을 배워요', actionLabel: '풀어보기', onClick: () => onOpenTab('quizzes') },
+    { key: 'mission', iconSrc: '/icons/feature/mission.png', iconEmoji: '📋', title: '미션', desc: '금연 미션 인증', actionLabel: '기록하기', onClick: onRecord, newCount: newMissionCount },
+    quizEnabled && { key: 'quiz', iconSrc: '/icons/feature/quiz.png', iconEmoji: '❓', title: '퀴즈', desc: '금연 지식을 배워요', actionLabel: '풀어보기', onClick: () => onOpenTab('quizzes'), newCount: newQuizCount },
     communityEnabled && { key: 'community', iconSrc: '/icons/feature/community.png', iconEmoji: '💬', title: '응원', desc: '서로 응원해요', actionLabel: '바로가기', onClick: () => onOpenTab('community') },
     changeEnabled && { key: 'change', iconSrc: '/icons/reward/trend.png', iconEmoji: '📈', title: '내 변화', desc: '나의 금연 변화', actionLabel: '확인하기', onClick: () => onOpenTab('change') },
   ].filter(Boolean)
@@ -71,7 +72,7 @@ function QuitSmokingHome({
     menu: () => (
       <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${cards.length}, minmax(0,1fr))` }}>
         {cards.map((c) => (
-          <NavCard key={c.key} iconSrc={c.iconSrc} iconEmoji={c.iconEmoji} title={c.title} desc={c.desc} actionLabel={c.actionLabel} onClick={c.onClick} />
+          <NavCard key={c.key} iconSrc={c.iconSrc} iconEmoji={c.iconEmoji} title={c.title} desc={c.desc} actionLabel={c.actionLabel} onClick={c.onClick} newCount={c.newCount} />
         ))}
       </div>
     ),

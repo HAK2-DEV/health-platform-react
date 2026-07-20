@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { MapPin, ChevronRight, ChevronDown } from 'lucide-react'
+import { MapPin, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../supabaseClient'
@@ -368,11 +368,21 @@ function RankingsPage() {
   )
 }
 
-// ─── 상단 헤더 (랭킹 + 알림) — 대표 아이콘은 대시보드에만 ──────────
+// ─── 상단 헤더 (뒤로 + 랭킹 + 알림) — 대시보드 「전체 랭킹」 진입이라 뒤로가기 필수 ──────────
 function RankingHeader() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  // 스마트 백: history 있으면 pop, 딥링크 첫 진입이면 대시보드로
+  const onBack = () => {
+    if (location.key === 'default') navigate('/dashboard', { replace: true })
+    else navigate(-1)
+  }
   return (
     <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm">
       <div className="max-w-md mx-auto h-[46px] px-4 flex items-center justify-center relative">
+        <button type="button" onClick={onBack} className="absolute left-3 top-1/2 -translate-y-1/2 p-1.5 -ml-1.5 text-gray-500 hover:text-gray-800" aria-label="뒤로">
+          <ChevronLeft className="w-5 h-5" />
+        </button>
         <span className="text-[17px] font-bold text-gray-800">랭킹</span>
         <div className="absolute right-3"><NotificationBell bare /></div>
       </div>

@@ -257,9 +257,9 @@ function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId,
   )
   const pinnedRing = (p) => p.pinned_at ? 'ring-2 ring-emerald-400' : ''
 
-  // ── feed (기본형) — 풀 카드 (본문 전체) ───────────────────
+  // ── feed (기본형) — 풀 카드 (본문 전체). 탭 시 상세(댓글 포함) 오픈 ───────────────────
   const renderFeed = (p) => (
-    <article key={p.id} className={`rounded-2xl p-4 transition ${p.status === 'hidden' ? 'opacity-60 ' : ''}${p.pinned_at ? 'border-2 border-emerald-400 ring-2 ring-emerald-100 bg-emerald-50/40 shadow-sm' : 'bg-white shadow-elevated'}`}>
+    <article key={p.id} onClick={() => setDetailPost(p)} className={`rounded-2xl p-4 cursor-pointer transition ${p.status === 'hidden' ? 'opacity-60 ' : ''}${p.pinned_at ? 'border-2 border-emerald-400 ring-2 ring-emerald-100 bg-emerald-50/40 shadow-sm' : 'bg-white shadow-elevated'}`}>
       {p.pinned_at && <div className="mb-2"><PinPill /></div>}
       <div className="flex items-center gap-2.5 mb-2">
         <UserAvatar avatarPath={p.author?.avatar_path} nickname={p.author?.nickname} size="md" />
@@ -450,6 +450,8 @@ function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId,
         programId={programId}
         targetType="post"
         targetId={reportId}
+        // 상세 오버레이 위에서 신고했을 때, 접수 후 그 아래 딤이 남지 않게 상세도 닫음
+        onReported={() => setDetailPost(null)}
       />
 
       {/* 게시글 삭제 확인 */}

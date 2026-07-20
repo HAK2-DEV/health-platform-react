@@ -130,6 +130,14 @@ function MissionVerifyPage() {
   const goToProgram = () => {
     navigate(`/programs/${programId}`, { replace: true, state: { fromCompletion: true } })
   }
+  // 완료 화면 「나머지 미션」 — + 버튼(기록하기)로 들어왔으면 기록하기 미션 선택으로,
+  //   아니면(프로그램 미션에서 진입) 원래 왔던 곳(returnPath) 또는 프로그램 미션 탭으로 복귀.
+  const goToRemaining = () => {
+    navigate(
+      fromRecord ? `/record?program=${programId}` : (returnPath || `/programs/${programId}?tab=missions`),
+      { replace: true },
+    )
+  }
 
   // 미션 로드 — RQ
   const {
@@ -768,40 +776,41 @@ function MissionVerifyPage() {
         </header>
 
         <div className="max-w-md mx-auto px-4 pt-3 pb-10 space-y-3">
-          {/* 단계 인디케이터 (400×82, r10) — 전 단계 완료 */}
-          <div className="w-[400px] max-w-full h-[82px] mx-auto bg-white border border-gray-100 rounded-[10px] shadow-soft px-4 flex items-center">
-            <div className="flex items-start w-full">
-              {STEPS_DONE.map((label, i) => (
-                <Fragment key={label}>
-                  {i > 0 && <div className="flex-1 h-0.5 mt-[14px] mx-1 rounded-full bg-emerald-500" />}
-                  <div className="flex flex-col items-center flex-shrink-0">
-                    <div className="w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center">
-                      <Check className="w-4 h-4" />
+          {/* 단계 인디케이터 (400×82, r10) — 기록하기(+버튼) 진입일 때만. 프로그램 미션에서 진입 시 숨김 */}
+          {fromRecord && (
+            <div className="w-[400px] max-w-full h-[82px] mx-auto bg-white border border-gray-100 rounded-[10px] shadow-soft px-4 flex items-center">
+              <div className="flex items-start w-full">
+                {STEPS_DONE.map((label, i) => (
+                  <Fragment key={label}>
+                    {i > 0 && <div className="flex-1 h-0.5 mt-[14px] mx-1 rounded-full bg-emerald-500" />}
+                    <div className="flex flex-col items-center flex-shrink-0">
+                      <div className="w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center">
+                        <Check className="w-4 h-4" />
+                      </div>
+                      <span className={`mt-1 text-[11px] font-medium whitespace-nowrap ${i === 2 ? 'text-emerald-600' : 'text-gray-400'}`}>
+                        {label}
+                      </span>
                     </div>
-                    <span className={`mt-1 text-[11px] font-medium whitespace-nowrap ${i === 2 ? 'text-emerald-600' : 'text-gray-400'}`}>
-                      {label}
-                    </span>
-                  </div>
-                </Fragment>
-              ))}
+                  </Fragment>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* 완료 카드 — 🎉(빵빠레) + 텍스트 + 통계(2/3) 포함 */}
           <div className="relative overflow-hidden bg-white border border-gray-100 rounded-2xl shadow-soft p-5 space-y-4">
             <Confetti count={16} fall={300} />
-            <div className="relative flex items-center gap-4">
-              <motion.div
-                className="text-5xl flex-shrink-0 select-none leading-none"
+            <div className="relative flex flex-col items-center text-center gap-2.5">
+              <motion.img
+                src="/icons/celebrate/mission.png" alt="" aria-hidden="true"
+                className="w-20 h-20 flex-shrink-0 select-none object-contain"
                 initial={{ scale: 0, rotate: -25 }}
                 animate={{ scale: [0, 1.35, 0.92, 1.08, 1], rotate: [-25, 12, -6, 0] }}
                 transition={{ duration: 0.9, times: [0, 0.4, 0.65, 0.85, 1], ease: 'easeOut' }}
-              >
-                🎉
-              </motion.div>
+              />
               <div className="min-w-0">
                 <h2 className="text-[21px] font-extrabold text-gray-900 leading-tight">{isReview ? '인증을 제출했어요!' : '기록이 완료되었어요!'}</h2>
-                <p className="text-[12px] text-gray-500 mt-1">{isReview ? '운영자 승인 후 점수가 반영돼요.' : '오늘의 미션 인증이 정상적으로 제출되었어요.'}</p>
+                {isReview && <p className="text-[12px] text-gray-500 mt-1">운영자 승인 후 점수가 반영돼요.</p>}
               </div>
             </div>
 
@@ -841,9 +850,9 @@ function MissionVerifyPage() {
                   <StatTile icon={<Check className="w-4 h-4" />} iconBg="bg-sky-100 text-sky-600" label="인증 상태" value="제출 완료" valueClass="text-emerald-600" />
                 )}
                 {isReview ? (
-                  <StatTile icon={<Star className="w-4 h-4 fill-current" />} iconBg="bg-amber-100 text-amber-500" label="획득 예정" value={`+${submitted.points}P`} valueClass="text-amber-600" />
+                  <StatTile imgSrc="/icons/activity/point.png" label="획득 예정" value={`+${submitted.points}P`} valueClass="text-amber-600" />
                 ) : (
-                  <StatTile icon={<Star className="w-4 h-4 fill-current" />} iconBg="bg-amber-100 text-yellow-400" label="획득 포인트" value={`+${submitted.points}P`} valueClass="text-emerald-600" />
+                  <StatTile imgSrc="/icons/activity/point.png" label="획득 포인트" value={`+${submitted.points}P`} valueClass="text-emerald-600" />
                 )}
                 <StatTile imgSrc="/icons/activity/points.png" imgStyle={{ filter: 'hue-rotate(100deg) saturate(1.3)' }} label="연속 참여" value={`${submitted.streak}일 연속`} />
               </div>
@@ -897,7 +906,7 @@ function MissionVerifyPage() {
                 {remainingMissionCount > 0 && (
                   <button
                     type="button"
-                    onClick={() => navigate(`/record?program=${programId}`, { replace: true })}
+                    onClick={goToRemaining}
                     className="flex-1 h-11 rounded-xl bg-white border border-emerald-300 text-emerald-600 font-bold text-[13px] hover:bg-emerald-50 transition flex items-center justify-center gap-1"
                   >
                     📋 나머지 미션 제출
@@ -917,7 +926,7 @@ function MissionVerifyPage() {
               {remainingMissionCount > 0 && (
                 <button
                   type="button"
-                  onClick={() => navigate(`/record?program=${programId}`, { replace: true })}
+                  onClick={goToRemaining}
                   className="w-[184px] max-w-[48%] h-[36px] rounded-[10px] bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-[13px] transition flex items-center justify-center gap-1 whitespace-nowrap"
                 >
                   📋 나머지 미션 ({remainingMissionCount}개)

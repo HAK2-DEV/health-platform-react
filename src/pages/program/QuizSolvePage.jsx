@@ -180,15 +180,14 @@ function QuizSolvePage() {
 
         <div className="relative overflow-hidden bg-white border border-gray-100 rounded-2xl shadow-soft p-5 mb-[9px] space-y-4">
           <Confetti count={16} fall={300} />
-          <div className="relative flex items-center gap-4">
-            <motion.div
-              className="text-5xl flex-shrink-0 select-none leading-none"
+          <div className="relative flex flex-col items-center text-center gap-2.5">
+            <motion.img
+              src="/icons/celebrate/quiz.png" alt="" aria-hidden="true"
+              className="w-20 h-20 flex-shrink-0 select-none object-contain"
               initial={{ scale: 0, rotate: -25 }}
               animate={{ scale: [0, 1.35, 0.92, 1.08, 1], rotate: [-25, 12, -6, 0] }}
               transition={{ duration: 0.9, delay: 0.12, times: [0, 0.4, 0.65, 0.85, 1], ease: 'easeOut' }}
-            >
-              🎉
-            </motion.div>
+            />
             <div className="min-w-0">
               <h2 className="text-[21px] font-extrabold text-gray-900 leading-tight">제출 완료!</h2>
               {pendingReview ? (

@@ -9,7 +9,8 @@ import LoadingState from '../common/LoadingState'
 // 운영자 신고 관리 — 신고된 콘텐츠를 대상별로 묶어 신고자·사유·횟수 + 현재 상태로.
 //   신고자 신원은 운영자에게만 노출(피어/작성자에겐 영원히 비공개). 가리기·복구·보러가기.
 //   onNavigate: 보러가기로 페이지 이동하기 직전 호출(운영자 메뉴 모달 닫기 등).
-function ReportsManageSection({ programId, onNavigate }) {
+//   returnTo: 게시글 상세를 닫을 때 복귀할 경로(예: 오늘의 운영). 없으면 기본 닫기.
+function ReportsManageSection({ programId, onNavigate, returnTo = null }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
@@ -48,9 +49,11 @@ function ReportsManageSection({ programId, onNavigate }) {
   const goTo = (g) => {
     if (g.deleted) return
     onNavigate?.()
+    // 상세를 닫으면(모달 backdrop) returnTo 로 복귀 — 오늘의 운영에서 진입 시 신고 처리 탭으로.
+    const closeParam = returnTo ? `&closeTo=${encodeURIComponent(returnTo)}` : ''
     if (g.targetType === 'post') {
       const board = g.target?.board_id || 'all'
-      navigate(`/programs/${programId}?tab=community&board=${board}&post=${g.targetId}`)
+      navigate(`/programs/${programId}?tab=community&board=${board}&post=${g.targetId}${closeParam}`)
     } else {
       navigate(`/programs/${programId}/feed?v=${g.targetId}`)
     }
@@ -106,33 +109,40 @@ function ReportsManageSection({ programId, onNavigate }) {
                   </span>
                 </div>
 
-                {/* 대상 콘텐츠 미리보기 */}
+                {/* 대상 콘텐츠 미리보기 (제목만 클릭 → 보러가기) */}
                 <button type="button" onClick={() => goTo(g)} disabled={g.deleted}
-                  className={`w-full text-left flex items-start gap-2 ${g.deleted ? 'opacity-60' : 'hover:opacity-80'}`}>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-bold text-gray-800 line-clamp-1">{previewOf(g)}</p>
-                    {authorOf(g) && <p className="text-[11px] text-gray-400 mt-0.5">작성자 {authorOf(g)}</p>}
-                  </div>
-                  {!g.deleted && <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0 mt-0.5" />}
+                  className={`w-full text-left flex items-center gap-2 ${g.deleted ? 'opacity-60' : 'hover:opacity-80'}`}>
+                  <p className="flex-1 min-w-0 text-[13.5px] font-bold text-gray-800 line-clamp-1">{previewOf(g)}</p>
+                  {!g.deleted && <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />}
                 </button>
 
-                {/* 신고자 목록 (운영자 전용) */}
-                <ul className="mt-2.5 pt-2.5 border-t border-gray-100 space-y-2">
-                  {g.reporters.map(rp => (
-                    <li key={rp.id} className="flex items-start gap-2">
-                      <UserAvatar avatarPath={rp.avatar_path} nickname={rp.nickname} size="sm" />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[12px] font-semibold text-gray-700 truncate">{rp.nickname}</span>
+                {/* 라벨형 정보 — 작성자 / 신고자 / 신고내용 (신고자 정보는 운영자 전용) */}
+                <div className="mt-2.5 pt-2.5 border-t border-gray-100 space-y-1.5">
+                  {authorOf(g) && (
+                    <div className="flex gap-2 text-[12.5px]">
+                      <span className="w-[52px] flex-shrink-0 text-gray-400 font-semibold">작성자</span>
+                      <span className="text-gray-700 font-medium truncate">{authorOf(g)}</span>
+                    </div>
+                  )}
+                  {g.reporters.map((rp, i) => (
+                    <div key={rp.id} className={`space-y-1.5 ${i > 0 ? 'pt-1.5 border-t border-gray-50' : ''}`}>
+                      <div className="flex gap-2 text-[12.5px]">
+                        <span className="w-[52px] flex-shrink-0 text-gray-400 font-semibold">신고자</span>
+                        <span className="min-w-0 flex items-center gap-1.5">
+                          <UserAvatar avatarPath={rp.avatar_path} nickname={rp.nickname} size="sm" />
+                          <span className="text-gray-700 font-medium truncate">{rp.nickname}</span>
                           <span className="text-[10px] text-gray-400 flex-shrink-0">{formatRelativeKstDay(rp.created_at)}</span>
-                        </div>
-                        {rp.reason
-                          ? <p className="text-[12px] text-gray-600 whitespace-pre-wrap break-words leading-snug">{rp.reason}</p>
-                          : <p className="text-[12px] text-gray-400 italic">사유 미입력</p>}
+                        </span>
                       </div>
-                    </li>
+                      <div className="flex gap-2 text-[12.5px]">
+                        <span className="w-[52px] flex-shrink-0 text-gray-400 font-semibold">신고내용</span>
+                        {rp.reason
+                          ? <span className="text-gray-600 whitespace-pre-wrap break-words leading-snug">{rp.reason}</span>
+                          : <span className="text-gray-400 italic">사유 미입력</span>}
+                      </div>
+                    </div>
                   ))}
-                </ul>
+                </div>
 
                 {/* 액션 — 가리기/복구(처리 포함) · 처리 완료(노출 유지) · 보러가기 */}
                 {(!g.deleted || g.unresolved > 0) && (

@@ -36,6 +36,8 @@ import ScoreSparkline from '../../components/program/ScoreSparkline'
 import StickyBackBar from '../../components/common/StickyBackBar'
 import Modal from '../../components/common/Modal'
 import DeleteProgramModal from '../../components/program/DeleteProgramModal'
+import OperatorReviewBanner from '../../components/program/OperatorReviewBanner'
+import { markSeen, countNew } from '../../lib/newContent'
 import UserAvatar from '../../components/common/UserAvatar'
 import ProfileButton from '../../components/common/ProfileButton'
 import NotificationBell from '../../components/common/NotificationBell'
@@ -455,7 +457,7 @@ function ProgramDetailPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('program_participants')
-        .select('id, status')
+        .select('id, status, joined_at')
         .eq('program_id', id)
         .eq('user_id', userId)
         .maybeSingle()
@@ -465,6 +467,17 @@ function ProgramDetailPage() {
     enabled: !!session && !!id && !!userId && !isOwner,
   })
   const isActiveParticipant = myPart?.status === 'ACTIVE'
+
+  // 「새 미션/퀴즈」 강조 — 기준(lastSeen 없으면 참여시각) 이후 생성분 개수. 미션/퀴즈 탭 열면 seen 처리(배지 사라짐).
+  const quizzesForNew = isOwner ? programQuizzes : participantQuizzes
+  const [newSeenTick, setNewSeenTick] = useState(0)
+  useEffect(() => {   // 해당 탭 열면 seen 갱신 → 배지 사라짐
+    if (!id) return
+    if (activeTab === 'missions') { markSeen(id, 'missions'); setNewSeenTick(t => t + 1) }
+    else if (activeTab === 'quizzes') { markSeen(id, 'quizzes'); setNewSeenTick(t => t + 1) }
+  }, [activeTab, id])
+  const newMissionCount = useMemo(() => countNew(missionsRaw, id, 'missions', myPart?.joined_at), [missionsRaw, id, myPart, newSeenTick])
+  const newQuizCount = useMemo(() => countNew(quizzesForNew, id, 'quizzes', myPart?.joined_at), [quizzesForNew, id, myPart, newSeenTick])
 
   // 열람 모드 — 미리보기 허용(preview_enabled) 프로그램의 비참여자. 보기만, 쓰기 차단.
   //   is_public(검색 노출)과 무관 — 내부 열람은 preview_enabled 가 결정.
@@ -578,6 +591,16 @@ function ProgramDetailPage() {
     enabled: !!session && !!id && !!program && !!userId,
   })
   const [vreviewOpen, setVreviewOpen] = useState(false)
+  // 인증 심사 대기 배너 강조 연출 — 진입(마운트) 후 심사 대기가 처음 감지될 때 1회만.
+  //   ref 가드로 탭 전환/재검증 시 중복 재생 방지. 실제 재진입(remount) 시엔 ref 초기화되어 다시 재생.
+  const reviewIntroPlayedRef = useRef(false)
+  const [playReviewIntro, setPlayReviewIntro] = useState(false)
+  useEffect(() => {
+    if (!reviewIntroPlayedRef.current && isOwner && pendingReviews.length > 0) {
+      reviewIntroPlayedRef.current = true
+      setPlayReviewIntro(true)
+    }
+  }, [isOwner, pendingReviews.length])
   useEffect(() => {
     if (searchParams.get('vreview') === '1') {
       setVreviewOpen(true)
@@ -1445,17 +1468,15 @@ function ProgramDetailPage() {
         )
       })()}
 
-      {/* 인증 심사 대기 배너 — 운영자 + 검토 필요 인증 (개요·미션 탭). 탭하면 인증 검토 큐 */}
+      {/* 인증 심사 대기 배너 — 운영자 + 검토 필요 인증 (개요·미션 탭). 탭하면 인증 검토 큐.
+          진입 시 1회 강조 연출(정중앙 팝업 → 원위치). */}
       {isOwner && pendingReviews.length > 0 && (activeTab === 'overview' || activeTab === 'missions') && (
-        <button type="button" onClick={() => setVreviewOpen(true)}
-          className="w-full flex items-center gap-2.5 mb-3 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-left hover:bg-emerald-100/70 transition">
-          <span className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center flex-shrink-0 text-[15px]">📝</span>
-          <div className="flex-1 min-w-0">
-            <p className="text-[13px] font-bold text-gray-800">인증 심사 대기 {pendingReviews.length}건</p>
-            <p className="text-[11px] text-emerald-700/80">탭해서 한 번에 검토 (승인/거절)</p>
-          </div>
-          <ChevronRight className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-        </button>
+        <OperatorReviewBanner
+          count={pendingReviews.length}
+          onClick={() => setVreviewOpen(true)}
+          playIntro={playReviewIntro}
+          onIntroDone={() => setPlayReviewIntro(false)}
+        />
       )}
 
       {/* ─── 개요 탭 — 관리자 편집 폼 (미리보기 중엔 숨김, mounted 유지) ─── */}
@@ -1512,6 +1533,8 @@ function ProgramDetailPage() {
             communityEnabled={communityEnabled}
             changeEnabled={program.change_tab_enabled === true}
             onRecord={() => setActiveTab('missions')}
+            newMissionCount={newMissionCount}
+            newQuizCount={newQuizCount}
             onOpenTab={(key) => setActiveTab(key)}
             onNotice={() => { setCommunityBoard('notice'); setActiveTab('community') }}
           />
@@ -1646,6 +1669,8 @@ function ProgramDetailPage() {
             onOpenTab={(key) => setActiveTab(key)}
             onNotice={() => { setCommunityBoard('notice'); setActiveTab('community') }}
             onRecord={() => setActiveTab('missions')}
+            newMissionCount={newMissionCount}
+            newQuizCount={newQuizCount}
             classSlot={classOverviewSlot}
           />
         )
@@ -1715,6 +1740,8 @@ function ProgramDetailPage() {
             rankingEnabled={program.ranking_enabled !== false}
             onOpenTab={(key) => setActiveTab(key)}
             onRecord={() => setActiveTab('missions')}
+            newMissionCount={newMissionCount}
+            newQuizCount={newQuizCount}
             onNotice={() => { setCommunityBoard('notice'); setActiveTab('community') }}
           />
         )
@@ -2289,7 +2316,11 @@ function ProgramDetailPage() {
             <CommunityPostList programId={id} boardId={communityBoard} posts={communityPosts} myUserId={userId} isOwner={isOwner}
               layout={activeBoardLayout} canReact={canReact} canComment={canComment}
               focusPostId={focusPostId} focusCommentId={focusCommentId} onFocusHandled={clearFocusPost}
-              focusCloseTo={searchParams.get('from') === 'today' ? `/profile/activity/today?tab=${searchParams.get('ret') || 'posts'}` : null}
+              focusCloseTo={
+                searchParams.get('closeTo') ? decodeURIComponent(searchParams.get('closeTo'))
+                  : searchParams.get('from') === 'today' ? `/profile/activity/today?tab=${searchParams.get('ret') || 'posts'}`
+                  : null
+              }
               onEdit={(p) => { setEditingPost(p); setIsPostModalOpen(true) }} />
           )}
 

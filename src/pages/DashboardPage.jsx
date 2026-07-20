@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, useInView } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
@@ -9,6 +9,7 @@ import ProgramDetailModal from '../components/program/ProgramDetailModal'
 import ProgramBrowseModal from '../components/program/ProgramBrowseModal'
 import WelcomeOperatorModal from '../components/program/WelcomeOperatorModal'
 import ProgramCover from '../components/common/ProgramCover'
+import { countNew } from '../lib/newContent'
 import CountUp from '../components/common/CountUp'
 import LoadingState from '../components/common/LoadingState'
 import EmptyState from '../components/common/EmptyState'
@@ -21,7 +22,8 @@ import {
   fetchPublicPrograms,
   fetchUnreadNotificationsCount,
   fetchMyParticipantStats,
-  fetchMyTodayActivity,
+  fetchMyTodayActivityForProgram,
+  fetchProgramsContentTimes,
   fetchMyRankChange,
   fetchProgramOverview,
   fetchProgramOperatorToday,
@@ -43,7 +45,8 @@ const CalendarSolid = ({ className }) => (
 //   표지가 우측에서 흘러나오고 좌측은 흰 그라데이션으로 덮어 글자 가독성 확보.
 //   상태별 변형 — 진행중: 진행률 막대 / 준비중(시작 전): 진행률 0% 는 무의미하므로 기간 날짜.
 //   지표는 참여자·남은 기간 2개만 (오늘 참여율·누적 인증은 프로그램 통계에서).
-export function ProgramSlideCard({ program, participants, onClick, active = false }) {
+export function ProgramSlideCard({ program, participants, onClick, active = false, newMission = 0, newQuiz = 0 }) {
+  const newTotal = newMission + newQuiz
   const progress = calcProgress(program.start_date, program.end_date)
   const urg = progressUrgency(progress)
   const todayKst = new Intl.DateTimeFormat('en-CA', {
@@ -93,10 +96,20 @@ export function ProgramSlideCard({ program, participants, onClick, active = fals
       {/* 본문 폭 + 표지 폭이 100% 를 넘으면 진행률 바가 표지를 침범한다 → 52% + 48% 로 분리 */}
       <div className="relative h-full w-[52%] p-4 flex flex-col justify-between">
         <div>
-          <span className={`inline-flex items-center px-2 h-[20px] rounded-md text-[10px] font-bold ${status.cls}`}>
-            {status.label}
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className={`inline-flex items-center px-2 h-[20px] rounded-md text-[10px] font-bold ${status.cls}`}>
+              {status.label}
+            </span>
+            {newTotal > 0 && (
+              <span className="inline-flex items-center px-1.5 h-[20px] rounded-md bg-red-500 text-white text-[10px] font-extrabold flex-shrink-0">NEW {newTotal}</span>
+            )}
+          </div>
           <h3 className="text-[17px] font-extrabold text-gray-900 truncate leading-tight mt-1.5">{program.name}</h3>
+          {newTotal > 0 && (
+            <p className="text-[10px] font-bold text-red-500 mt-0.5 truncate">
+              🆕 {[newMission > 0 && `새 미션 ${newMission}`, newQuiz > 0 && `새 퀴즈 ${newQuiz}`].filter(Boolean).join(' · ')}
+            </p>
+          )}
         </div>
 
         {!hasPeriod ? (
@@ -209,12 +222,12 @@ function ColdStartGuide({ onBrowse }) {
   ]
   return (
     <SectionCard>
-      <div className="text-center mb-4">
-        <div className="text-4xl mb-2">🌱</div>
+      <div className="text-center mb-5">
+        <img src="/icons/growth/sprout.png" alt="" aria-hidden="true" className="w-32 h-32 object-contain mx-auto -mt-12 mb-1" />
         <h2 className="text-lg font-extrabold text-gray-900 leading-tight">건강 습관, 여기서 시작해요!</h2>
-        <p className="text-[13px] text-gray-500 mt-1">3단계면 충분해요. 첫 프로그램을 찾아볼까요?</p>
+        <p className="text-[13.5px] font-semibold text-gray-600 mt-2.5">3단계면 충분해요. 첫 프로그램을 찾아볼까요?</p>
       </div>
-      <ol className="space-y-3 mb-5">
+      <ol className="space-y-4 mb-5">
         {steps.map((s, i) => (
           <motion.li
             key={s.n}
@@ -225,8 +238,8 @@ function ColdStartGuide({ onBrowse }) {
           >
             <span className="flex-shrink-0 w-7 h-7 rounded-full bg-emerald-100 text-emerald-700 text-sm font-bold flex items-center justify-center">{s.n}</span>
             <div className="min-w-0">
-              <p className="text-sm font-bold text-gray-800">{s.emoji} {s.title}</p>
-              <p className="text-[12px] text-gray-500 leading-snug">{s.body}</p>
+              <p className="text-[15px] font-bold text-gray-800">{s.emoji} {s.title}</p>
+              <p className="text-[13px] text-gray-500 leading-snug mt-1">{s.body}</p>
             </div>
           </motion.li>
         ))}
@@ -322,14 +335,6 @@ function DashboardPage() {
     enabled: !!userId,
   })
 
-  const { data: today } = useQuery({
-    queryKey: queryKeys.myTodayActivity(userId),
-    queryFn: () => fetchMyTodayActivity(userId),
-    enabled: !!userId,
-    // 갱신은 각 작성 지점의 home-stats 무효화가 담당(무효화되면 재진입 시 자동 refetch).
-    // 'always' 는 매 진입마다 재요청이라 랙 유발 → 제거.
-  })
-
   // 운영자(소유 프로그램 보유)면 대표 카드에 운영중 프로그램을, 아니면 참여중 프로그램을 노출.
   //   운영중·참여중 둘 다 있으면 스와이프/토글로 전환(effectiveMode).
   const isOperator = myPrograms.length > 0
@@ -349,6 +354,30 @@ function DashboardPage() {
     queryFn: () => fetchProgramOperatorToday(selectedOperatorProgram.id),
     enabled: showOperator && !!selectedOperatorProgram?.id,
     // 심사·승인·신고 처리 후 home-stats 무효화로 갱신 → 'always' 불필요(랙 방지)
+  })
+  // 「새 미션/퀴즈」 배지 — 캐러셀 프로그램들의 미션·퀴즈 생성시각(2쿼리) → localStorage lastSeen 비교로 new 개수.
+  const slideIds = useMemo(() => slideList.map(p => p.id), [slideList])
+  const { data: contentTimes } = useQuery({
+    queryKey: [...queryKeys.programsContentTimes(slideIds), userId],
+    queryFn: () => fetchProgramsContentTimes(slideIds, userId),
+    enabled: !!userId && slideIds.length > 0,
+  })
+  const newCountsFor = (pid) => {
+    const t = contentTimes?.[pid]
+    if (!t) return { mission: 0, quiz: 0 }
+    // 기준: localStorage lastSeen(탭 열면 갱신) 없으면 참여시각 → 참여 후 추가분이 new
+    return {
+      mission: countNew(t.missions, pid, 'missions', t.joinedAt),
+      quiz: countNew(t.quizzes, pid, 'quizzes', t.joinedAt),
+    }
+  }
+
+  // 참여중 모드 — 캐러셀에서 보고 있는 참여 프로그램(운영 현황과 대칭). 오늘의 활동을 이 프로그램 기준으로.
+  const selectedParticipantProgram = !showOperator ? (slideList[slide] || null) : null
+  const { data: todayProgram } = useQuery({
+    queryKey: queryKeys.myTodayActivityForProgram(userId, selectedParticipantProgram?.id),
+    queryFn: () => fetchMyTodayActivityForProgram(userId, selectedParticipantProgram.id),
+    enabled: !showOperator && !!userId && !!selectedParticipantProgram?.id,
   })
   // 모드 전환 (방향 기록 → 슬라이드 페이드). 토글 버튼 전담.
   const switchMode = (m) => {
@@ -395,20 +424,23 @@ function DashboardPage() {
   // 오늘의 활동 요약 — 파스텔 타일(2026-07-19 목업) + 원 없는 2D 아이콘(본인 제공).
   //   activity/{mission,record,comment}.png 를 배경 원 없는 투명 버전으로 교체 → 클립·확대 불필요.
   //   scale 은 PNG별 여백 차이로 인한 시각 크기만 미세 보정.
+  const pid = selectedParticipantProgram?.id
+  const goActivity = (tab) => navigate(`/profile/activity/today?tab=${tab}${pid ? `&program=${pid}` : ''}`)
   const participantMetrics = [
-    { label: '미션 완료', value: today?.missionCount ?? 0, unit: '개', img: '/icons/activity/mission.png', bg: 'bg-emerald-50', scale: 1.25, onClick: () => navigate('/profile/activity/today?tab=missions') },
-    { label: '게시물 작성', value: today?.postCount ?? 0, unit: '개', img: '/icons/activity/record.png', bg: 'bg-sky-50', scale: 1.85, onClick: () => navigate('/profile/activity/today?tab=posts') },
-    { label: '댓글 활동', value: today?.commentCount ?? 0, unit: '개', img: '/icons/activity/comment.png', bg: 'bg-amber-50', scale: 1.45, onClick: () => navigate('/profile/activity/today?tab=comments') },
-    { label: '획득 점수', value: today?.points ?? 0, unit: 'P', img: '/icons/activity/point.png', bg: 'bg-violet-50', scale: 0.84, onClick: () => navigate('/profile/activity/today?tab=points') },
+    { label: '미션 완료', value: todayProgram?.missionCount ?? 0, unit: '개', img: '/icons/activity/mission.png', bg: 'bg-emerald-50', scale: 1.25, onClick: () => goActivity('missions') },
+    { label: '게시물 작성', value: todayProgram?.postCount ?? 0, unit: '개', img: '/icons/activity/record.png', bg: 'bg-sky-50', scale: 1.85, onClick: () => goActivity('posts') },
+    { label: '댓글 활동', value: todayProgram?.commentCount ?? 0, unit: '개', img: '/icons/activity/comment.png', bg: 'bg-amber-50', scale: 1.45, onClick: () => goActivity('comments') },
+    { label: '획득 점수', value: todayProgram?.points ?? 0, unit: 'P', img: '/icons/activity/point.png', bg: 'bg-violet-50', scale: 0.84, onClick: () => goActivity('points') },
   ]
   // 운영중 「오늘의 운영 현황」 — 선택 프로그램 기준. 앞 3개는 할 일 인박스(값>0 강조), 4번째는 참여율 pulse.
-  //   탭 → 심사/승인/신고/통계 화면(신고는 ?opmenu=reports 로 운영자 패널 오픈).
+  //   타일 → 「오늘의 운영」 상세(/programs/:id/operator-today?tab=…) 단일 4탭 페이지.
   const opId = selectedOperatorProgram?.id
+  const goOpToday = (t) => opId && navigate(`/programs/${opId}/operator-today?tab=${t}`)
   const operatorMetrics = [
-    { label: '인증 심사', value: opToday?.review ?? 0, unit: '개', img: '/icons/operator/review.png', bg: 'bg-emerald-50', accent: 'text-emerald-600', inbox: true, onClick: () => opId && navigate(`/programs/${opId}/reviews`) },
-    { label: '참여 승인', value: opToday?.join ?? 0, unit: '개', img: '/icons/operator/approve.png', bg: 'bg-sky-50', accent: 'text-sky-600', inbox: true, onClick: () => opId && navigate(`/programs/${opId}?approvals=1`) },
-    { label: '신고 처리', value: opToday?.report ?? 0, unit: '개', img: '/icons/operator/report.png', bg: 'bg-amber-50', accent: 'text-amber-500', inbox: true, onClick: () => opId && navigate(`/programs/${opId}?opmenu=reports`) },
-    { label: '오늘 참여율', value: opToday?.todayRate ?? 0, unit: '%', img: '/icons/operator/rate.png', bg: 'bg-violet-50', onClick: () => opId && navigate(`/programs/${opId}/stats`) },
+    { label: '인증 심사', value: opToday?.review ?? 0, unit: '개', img: '/icons/operator/review.png', bg: 'bg-emerald-50', accent: 'text-emerald-600', inbox: true, onClick: () => goOpToday('review') },
+    { label: '참여 승인', value: opToday?.join ?? 0, unit: '개', img: '/icons/operator/approve.png', bg: 'bg-sky-50', accent: 'text-sky-600', inbox: true, onClick: () => goOpToday('join') },
+    { label: '신고 처리', value: opToday?.report ?? 0, unit: '개', img: '/icons/operator/report.png', bg: 'bg-amber-50', accent: 'text-amber-500', inbox: true, onClick: () => goOpToday('report') },
+    { label: '오늘 참여율', value: opToday?.todayRate ?? 0, unit: '%', img: '/icons/operator/rate.png', bg: 'bg-violet-50', onClick: () => goOpToday('rate') },
   ]
   const summaryMetrics = showOperator ? operatorMetrics : participantMetrics
 
@@ -547,6 +579,8 @@ function DashboardPage() {
                       participants={activeCounts[p.id] ?? null}
                       active={i === slide}
                       onClick={() => navigate(`/programs/${p.id}`)}
+                      newMission={newCountsFor(p.id).mission}
+                      newQuiz={newCountsFor(p.id).quiz}
                     />
                   </div>
                 ))}

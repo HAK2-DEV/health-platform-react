@@ -76,9 +76,12 @@ export function Icon3D({ src, emoji, className = 'w-[22px] h-[22px]' }) {
 }
 
 // 가로 배치 메뉴 카드 — 아이콘 상단 중앙 + 제목 + 설명 + 버튼 (레퍼런스: 달리기 홈 하단 카드).
-export function NavCard({ iconSrc, iconEmoji, title, desc, actionLabel, onClick }) {
+export function NavCard({ iconSrc, iconEmoji, title, desc, actionLabel, onClick, newCount = 0 }) {
   return (
-    <div className="rounded-2xl p-2 pt-3 bg-white border border-gray-100 shadow-soft flex flex-col items-center text-center gap-1">
+    <div className="relative rounded-2xl p-2 pt-3 bg-white border border-gray-100 shadow-soft flex flex-col items-center text-center gap-1">
+      {newCount > 0 && (
+        <span className="absolute top-1.5 right-1.5 px-1.5 py-[1px] rounded-full bg-red-500 text-white text-[8px] font-extrabold tracking-wide shadow-sm">NEW</span>
+      )}
       <Icon3D src={iconSrc} emoji={iconEmoji} className="w-9 h-9" />
       <p className="text-[12px] font-bold text-gray-800 leading-tight">{title}</p>
       <p className="text-[9.5px] text-gray-500 leading-tight break-keep mb-1">{desc}</p>
@@ -200,10 +203,12 @@ function ProgramHome({
   onOpenTab = () => {},
   onRecord = () => {},
   onNotice = null,
+  newMissionCount = 0,        // 새 미션 개수 (NEW 배지)
+  newQuizCount = 0,           // 새 퀴즈 개수
 }) {
   const cards = [
-    { key: 'mission', iconSrc: '/icons/feature/mission.png', iconEmoji: '📋', title: '미션', desc: '목표를 달성해요', actionLabel: '기록하기', onClick: onRecord },
-    quizEnabled && { key: 'quiz', iconSrc: '/icons/feature/quiz.png', iconEmoji: '❓', title: '퀴즈', desc: '건강 지식을 배워요', actionLabel: '풀어보기', onClick: () => onOpenTab('quizzes') },
+    { key: 'mission', iconSrc: '/icons/feature/mission.png', iconEmoji: '📋', title: '미션', desc: '목표를 달성해요', actionLabel: '기록하기', onClick: onRecord, newCount: newMissionCount },
+    quizEnabled && { key: 'quiz', iconSrc: '/icons/feature/quiz.png', iconEmoji: '❓', title: '퀴즈', desc: '건강 지식을 배워요', actionLabel: '풀어보기', onClick: () => onOpenTab('quizzes'), newCount: newQuizCount },
     communityEnabled && { key: 'community', iconSrc: '/icons/feature/community.png', iconEmoji: '💬', title: '커뮤니티', desc: '함께 응원해요', actionLabel: '바로가기', onClick: () => onOpenTab('community') },
     rankingEnabled && { key: 'ranking', iconSrc: '/icons/reward/ranking.png', iconEmoji: '🏆', title: '랭킹', desc: '순위를 확인해요', actionLabel: '확인하기', onClick: () => onOpenTab('ranking') },
   ].filter(Boolean)
@@ -342,7 +347,7 @@ function ProgramHome({
     menu: () => (
       <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${cards.length}, minmax(0, 1fr))` }}>
         {cards.map((b) => (
-          <NavCard key={b.key} iconSrc={b.iconSrc} iconEmoji={b.iconEmoji} title={b.title} desc={b.desc} actionLabel={b.actionLabel} onClick={b.onClick} />
+          <NavCard key={b.key} iconSrc={b.iconSrc} iconEmoji={b.iconEmoji} title={b.title} desc={b.desc} actionLabel={b.actionLabel} onClick={b.onClick} newCount={b.newCount} />
         ))}
       </div>
     ),

@@ -50,11 +50,12 @@ function TodayActivityPage() {
   const userId = session?.user?.id
   const [params, setParams] = useSearchParams()
   const tab = ['missions', 'posts', 'comments', 'points'].includes(params.get('tab')) ? params.get('tab') : 'missions'
-  const setTab = (k) => setParams({ tab: k }, { replace: true })
+  const programId = params.get('program') || null   // 대시보드 참여 프로그램별 진입 시 스코프
+  const setTab = (k) => setParams(programId ? { tab: k, program: programId } : { tab: k }, { replace: true })
 
   const { data, isLoading } = useQuery({
-    queryKey: queryKeys.myTodayActivityDetail(userId),
-    queryFn: () => fetchTodayActivityDetail(userId),
+    queryKey: queryKeys.myTodayActivityDetail(userId, programId),
+    queryFn: () => fetchTodayActivityDetail(userId, programId),
     enabled: !!userId,
   })
   const d = data || { missions: [], posts: [], comments: [], points: [] }

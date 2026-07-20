@@ -548,7 +548,10 @@ function FeedContent({ program, layout: layoutProp = null, targetVerificationId 
         programId={id}
         targetType="verification"
         targetId={reportVid}
-        onReported={() => queryClient.invalidateQueries({ queryKey: queryKeys.feedPosts(id) })}
+        onReported={() => {
+          queryClient.invalidateQueries({ queryKey: queryKeys.feedPosts(id) })
+          setFocusedId(null)   // 포커스 풀뷰 위에서 신고 시, 접수 후 그 아래 딤이 남지 않게 함께 닫음
+        }}
       />
     </motion.div>
   )
@@ -729,9 +732,9 @@ function CommentsSection({ verificationId, programId, myUserId, isProgramOwner, 
             </div>
           ) : (
             <>
-              <p className={`break-words ${clamped ? 'line-clamp-2' : ''}`}>
-                <span className="font-medium text-gray-800">{c.user?.nickname || '(?)'}</span>{' '}
-                <span className="text-gray-700 whitespace-pre-wrap">{c.content}</span>
+              <p className="text-[12px] font-bold text-gray-800 leading-tight">{c.user?.nickname || '(?)'}</p>
+              <p className={`text-gray-700 whitespace-pre-wrap break-words mt-0.5 ${clamped ? 'line-clamp-2' : ''}`}>
+                {c.content}
                 {isEdited && <span className="text-[11px] text-gray-400 ml-1">(수정됨)</span>}
               </p>
               <div className="flex items-center gap-2 mt-0.5">
