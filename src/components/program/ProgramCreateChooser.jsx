@@ -63,7 +63,7 @@ function ProgramCreateChooser({ onDirect, onPickPreset, onBack, busyKey }) {
               </button>
             )}
             <div className="text-center mb-7">
-              <div className="text-4xl mb-2">🌱</div>
+              <img src="/icons/growth/sprout.png" alt="" aria-hidden="true" className="w-24 h-24 object-contain mx-auto mb-2" />
               <h1 className="text-xl font-extrabold text-gray-900">어떻게 시작할까요?</h1>
               <p className="text-[13px] text-gray-500 mt-1">처음부터 만들거나, 준비된 프로그램으로 빠르게 시작해요.</p>
             </div>
@@ -147,24 +147,27 @@ function ProgramCreateChooser({ onDirect, onPickPreset, onBack, busyKey }) {
               </div>
             )}
 
-            <p className="text-[12px] text-gray-400 mb-3">
-              넣을 미션을 골라주세요{!preset.durationOptions?.length ? ` · 기본 ${preset.durationDays}일` : ''}
+            <p className="text-[15px] font-semibold text-gray-800 mb-3">
+              미션을 골라주세요
+              {!preset.durationOptions?.length && (
+                <span className="text-[12px] font-normal text-gray-400 ml-1.5">· 기본 {preset.durationDays}일</span>
+              )}
             </p>
 
-            <div className="space-y-2 mb-6">
+            <div className="space-y-2.5 mb-6">
               {preset.missions.map(m => {
                 const on = selected.includes(m.key)
                 return (
                   <button key={m.key} type="button" onClick={() => toggle(m.key)} disabled={!!busyKey}
-                    className={`w-full flex items-center gap-3 p-3.5 rounded-xl border text-left transition disabled:opacity-60 ${on ? 'border-emerald-400 bg-emerald-50/60' : 'border-gray-200 hover:bg-gray-50'}`}>
-                    <span className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 border ${on ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-gray-300 text-transparent'}`}>
+                    className={`w-full flex items-start gap-3 p-4 rounded-xl border text-left transition disabled:opacity-60 ${on ? 'border-emerald-400 bg-emerald-50/60' : 'border-gray-200 hover:bg-gray-50'}`}>
+                    <span className={`w-6 h-6 mt-0.5 rounded-md flex items-center justify-center flex-shrink-0 border ${on ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-gray-300 text-transparent'}`}>
                       <Check className="w-4 h-4" strokeWidth={3} />
                     </span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-gray-800 truncate">{m.title}</p>
-                      <p className="text-[12px] text-gray-500 leading-snug">{m.instruction}</p>
+                      <p className="text-[15px] font-bold text-gray-900">{m.title}</p>
+                      <p className="text-[14px] text-gray-600 leading-relaxed mt-1 break-keep">{m.instruction}</p>
                       {/* 랭킹 없는 프리셋(금연 등)은 포인트가 무의미 → 숨김 */}
-                      <p className="text-[11px] text-emerald-700 mt-0.5">
+                      <p className="text-[12px] font-semibold text-emerald-700 mt-1.5">
                         {missionHint(m)}{preset.rankingEnabled !== false ? ` · ${m.point ?? 10}P` : ''}
                       </p>
                     </div>

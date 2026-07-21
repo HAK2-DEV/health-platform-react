@@ -113,14 +113,14 @@ function Step3JoinConditions({ initialData, onNext, onSave, onPrev, enterAtEnd =
                   <button type="button" onClick={() => setIsPublic(false)}
                     className={`p-3 rounded-[10px] border-2 text-left transition ${!isPublic ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 bg-white'}`}>
                     <div className={`font-medium ${!isPublic ? 'text-emerald-700' : 'text-gray-800'}`}>🔒 비공개</div>
-                    <div className="text-xs text-gray-600 mt-0.5 break-keep leading-relaxed">둘러보기에 안 보여요.{' '}
-                        <span className="whitespace-nowrap">초대·링크로만 참여 가능해요</span>
+                    <div className="text-xs text-gray-600 mt-0.5 break-keep leading-relaxed">초대·링크로만 찾을 수 있어요{' '}
+                        <span className="whitespace-nowrap"></span>
                     </div>
                   </button>
                   <button type="button" onClick={() => setIsPublic(true)}
                     className={`p-3 rounded-[10px] border-2 text-left transition ${isPublic ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 bg-white'}`}>
                     <div className={`font-medium ${isPublic ? 'text-emerald-700' : 'text-gray-800'}`}>🌍 공개</div>
-                    <div className="text-xs text-gray-600 mt-0.5 break-keep leading-relaxed">둘러보기에 노출돼<br />누구나 검색할 수 있어요</div>
+                    <div className="text-xs text-gray-600 mt-0.5 break-keep leading-relaxed">누구나 검색해서 찾을 수 있어요.</div>
                   </button>
                 </div>
                 <button type="button" onClick={() => setPreviewEnabled(!previewEnabled)}

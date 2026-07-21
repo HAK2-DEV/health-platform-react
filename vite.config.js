@@ -9,11 +9,11 @@ export default defineConfig({
     react(),
     tailwindcss(),
     // PWA — Service Worker + manifest 자동 생성/등록
-    //   registerType: 'prompt' = 새 배포 감지 시 사용자에게 「새 버전 있어요 — 새로고침」 배너.
-    //     사용자가 누르기 전까진 옛 SW 가 옛 청크를 계속 서빙 → 작업 중 강제 갱신/청크404 최소화.
-    //     (onNeedRefresh → PwaUpdatePrompt 배너 → applyUpdate 로 적용. main.jsx + lib/pwaUpdate.js)
+    //   registerType: 'autoUpdate' + skipWaiting/clientsClaim = 새 배포 감지 시 새 SW 를 즉시 활성화하고
+    //     페이지를 자동 갱신 → 배너 클릭 없이 새로고침/재진입만으로 최신 버전. (모바일이 옛 빌드에 머무는 문제 해결)
+    //     청크404 는 vite:preloadError 자가복구가 커버. main.jsx 에서 주기적 update() 로 오래 켠 세션도 감지.
     VitePWA({
-      registerType: 'prompt',
+      registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'app-icon.png'],
       manifest: {
         name: '도담 · 건강증진 플랫폼',
@@ -49,6 +49,8 @@ export default defineConfig({
       },
       workbox: {
         cleanupOutdatedCaches: true,
+        skipWaiting: true,      // 새 SW 대기 없이 즉시 활성화
+        clientsClaim: true,     // 활성화 즉시 열린 탭 제어 → 새 precache(최신 빌드) 서빙
         // Supabase API / 이미지 등은 SW 캐시에서 제외 — 항상 최신
         navigateFallbackDenylist: [/^\/api\//, /supabase\.co/],
         runtimeCaching: [

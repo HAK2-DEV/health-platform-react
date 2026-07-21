@@ -208,7 +208,7 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
     <div>
       <h2 className="text-xl font-semibold text-gray-800" style={{ marginBottom: '5px' }}>2단계: 사용할 메뉴</h2>
       <p className="text-sm text-gray-600 break-keep" style={{ marginBottom: '18px' }}>
-        참여자에게 보일 메뉴를 켜고 꺼요. <br />발행 후에도 「프로그램 설정」에서 바꿀 수 있어요.
+        참여자에게 보일 메뉴를 선택해요. <br />발행 후에도 「프로그램 설정」에서 바꿀 수 있어요.
       </p>
 
       {/* 금연 카테고리 안내 — 테마 전체 적용 */}
@@ -321,7 +321,7 @@ function Step2Type({ initialData, onNext, onSave, onPrev }) {
       <div className="flex items-start gap-2 p-3 rounded-[10px] bg-amber-50 border border-amber-200" style={{ marginBottom: '9px' }}>
         <span className="text-base flex-shrink-0">⚠️</span>
         <p className="text-[12px] text-amber-800 leading-relaxed break-keep">
-          클래스 설정(운영 여부·출석 확정 방식)은 <span className="font-bold">프로그램 생성 후 변경할 수 없어요.</span> 신중히 선택해주세요.
+          강사 클래스 운영(운영 여부·출석 확정 방식)은 <span className="font-bold">프로그램 생성 후 변경할 수 없어요.</span> 신중히 선택해주세요.
         </p>
       </div>
       <OptionToggle

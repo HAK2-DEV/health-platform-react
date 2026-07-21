@@ -192,7 +192,7 @@ function QuizSolvePage() {
               <h2 className="text-[21px] font-extrabold text-gray-900 leading-tight">제출 완료!</h2>
               {pendingReview ? (
                 <p className="text-[12px] text-gray-500 mt-1 break-keep">
-                  서술형 문항은 운영자 채점 후 점수가 확정돼요<br />(현재 {sub.total_score}점)
+                  서술형 문항은 운영자 채점 후 점수가 확정돼요<br /><span className="whitespace-nowrap">(현재 {sub.total_score}점)</span>
                 </p>
               ) : (
                 <p className="text-[12px] text-gray-500 mt-1 break-keep">
@@ -315,12 +315,13 @@ function QuizSolvePage() {
           animate={{ opacity: 1, y: 0 }}
           className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-2xl p-5 mb-4 text-center"
         >
-          <Trophy className="w-8 h-8 text-amber-500 mx-auto mb-2" />
+          <img src="/icons/feature/quiz.png" alt="" aria-hidden="true" className="w-16 h-16 object-contain mx-auto mb-2" />
           {my_submission.status === 'PENDING' ? (
             <>
               <p className="text-lg font-medium text-emerald-800">제출 완료!</p>
               <p className="text-sm text-emerald-700 mt-1">
-                서술형 문항은 운영자 채점 후 점수가 확정돼요 (현재 {my_submission.total_score}점)
+                서술형 문항은 운영자 채점 후 점수가 확정돼요
+                <br /><span className="whitespace-nowrap">(현재 {my_submission.total_score}점)</span>
               </p>
             </>
           ) : (

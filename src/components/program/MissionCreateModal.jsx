@@ -411,9 +411,9 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
           {/* 인증 유형 — 다중 선택 */}
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              인증 유형 (최소 1개) *
+              인증 방법 (최소 1개) *
             </label>
-            <p className="text-xs text-gray-400 mb-2 break-keep">
+            <p className="text-sm text-gray-400 mb-2 break-keep">
               📷 사진 = 인증샷 <br /> 📊 기록 = 숫자 입력(걸음수·시간 등) <br /> 💬 소감 = 한 줄 글
             </p>
             <div className="grid grid-cols-3 gap-2">
@@ -518,16 +518,22 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
           {/* 달리기 전용 — 메인/서브 (주간 스트릭 색 구분) */}
           {program?.theme === 'RUNNING' && (
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">주간 스트릭 구분</label>
-              <p className="text-xs text-gray-400 mb-2 break-keep">메인은 주간 스트릭에 <b className="text-emerald-600">초록</b> 도장, 서브는 <b className="text-amber-600">앰버</b> 도장으로 표시돼요.</p>
+              <label className="block text-sm font-medium text-gray-700 mb-1">메인 미션 · 서브 미션</label>
+              <p className="text-[12px] text-gray-500 mb-2.5 break-keep leading-relaxed">
+                꼭 해야 할 <b className="text-gray-700">핵심 미션</b>은 메인, 하면 좋은 <b className="text-gray-700">보조·선택 미션</b>은 서브로 정해요.
+                프로그램 홈의 <b className="text-gray-700">주간 스트릭(요일 도장)</b>에서 메인은 <b className="text-emerald-600">초록</b>, 서브는 <b className="text-amber-600">앰버</b>로 칠해져 한눈에 구분돼요.
+                <br /><span className="text-gray-400">예: 「평일 3km 달리기」 = 메인 · 「주말 함께 달리기」 = 서브</span>
+              </p>
               <div className="flex gap-2">
                 <button type="button" onClick={() => setIsMain(true)} disabled={isSaving}
-                  className={`flex-1 h-11 rounded-lg border-2 text-sm font-bold transition ${isMain ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 text-gray-400 hover:border-gray-300'}`}>
-                  🟢 메인 미션
+                  className={`flex-1 rounded-lg border-2 py-2.5 px-2 text-center transition ${isMain ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                  <span className={`block text-sm font-bold ${isMain ? 'text-emerald-700' : 'text-gray-500'}`}>🟢 메인 미션</span>
+                  <span className={`block text-[11px] font-medium mt-0.5 ${isMain ? 'text-emerald-600/80' : 'text-gray-400'}`}>꼭 해야 할 핵심 미션</span>
                 </button>
                 <button type="button" onClick={() => setIsMain(false)} disabled={isSaving}
-                  className={`flex-1 h-11 rounded-lg border-2 text-sm font-bold transition ${!isMain ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-gray-200 text-gray-400 hover:border-gray-300'}`}>
-                  🟡 서브 미션
+                  className={`flex-1 rounded-lg border-2 py-2.5 px-2 text-center transition ${!isMain ? 'border-amber-500 bg-amber-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                  <span className={`block text-sm font-bold ${!isMain ? 'text-amber-700' : 'text-gray-500'}`}>🟡 서브 미션</span>
+                  <span className={`block text-[11px] font-medium mt-0.5 ${!isMain ? 'text-amber-600/80' : 'text-gray-400'}`}>하면 좋은 보조 미션</span>
                 </button>
               </div>
             </div>

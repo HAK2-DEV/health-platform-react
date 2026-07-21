@@ -29,8 +29,9 @@ function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
   const [justJoined, setJustJoined] = useState(false)
   const [reserveMsg, setReserveMsg] = useState(null)  // 참여 예약 확인 모달
 
-  // APPROVAL 입장 답변
+  // APPROVAL 입장 답변 — 「참여 신청하기」 누르면 입장 질문 폼이 펼쳐짐(showEntryForm)
   const [entryAnswer, setEntryAnswer] = useState('')
+  const [showEntryForm, setShowEntryForm] = useState(false)
 
   // 모달 fetch — 운영자/참여자/미션 정보 한 번에
   const { data: joinInfo } = useQuery({
@@ -44,6 +45,7 @@ function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
       setJustJoined(false)
       setEntryAnswer('')
       setJoinError(null)
+      setShowEntryForm(false)
     }
   }, [isOpen])
 
@@ -100,6 +102,7 @@ function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
     setParticipationStatus(insertData.status === 'PENDING' ? 'pending' : 'active')
     setJustJoined(true)
     setIsJoining(false)
+    setShowEntryForm(false)   // 입장 질문 모달 닫기
 
     const userId = session.user.id
     queryClient.invalidateQueries({ queryKey: queryKeys.activePrograms(userId) })
@@ -384,29 +387,16 @@ function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
               </div>
             )}
 
-            {participationStatus === 'none' && (
+            {participationStatus === 'none' && (() => {
+              // 입장 질문이 있는 승인제 프로그램 — 「참여 신청하기」 누르면 폼 펼침(2단계)
+              const needsEntryForm = program.join_type === 'APPROVAL' && !!program.entry_question && !isAfterEnd
+              return (
               <>
-                {joinError && (
-                  <p className="mb-2 p-2 bg-red-100 text-red-700 rounded-xl text-sm text-center">
+                {/* 입장 질문 오류는 모달 안에서 표시 → 모달 열렸을 땐 숨김 */}
+                {joinError && !showEntryForm && (
+                  <p className="mb-3 px-3 py-2.5 bg-red-100 text-red-700 rounded-xl text-sm text-center">
                     {joinError}
                   </p>
-                )}
-
-                {program.join_type === 'APPROVAL' && program.entry_question && !isAfterEnd && (
-                  <div className="mb-2 p-3 bg-sky-50/70 border border-sky-200 rounded-2xl">
-                    <p className="text-xs font-semibold text-sky-800 mb-1.5 whitespace-pre-wrap break-words">
-                      📝 {program.entry_question}
-                    </p>
-                    <textarea
-                      value={entryAnswer}
-                      onChange={(e) => setEntryAnswer(e.target.value)}
-                      placeholder="답변을 입력해주세요 (최대 200자)"
-                      rows={2}
-                      maxLength={200}
-                      disabled={isJoining}
-                      className="w-full px-3 py-2 border-2 border-gray-200 bg-white rounded-xl focus:outline-none focus:border-sky-500 text-sm resize-none disabled:bg-gray-50"
-                    />
-                  </div>
                 )}
 
                 {isAfterEnd ? (
@@ -426,7 +416,7 @@ function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
                   <div>
                     <button
                       type="button"
-                      onClick={handleReserve}
+                      onClick={needsEntryForm ? () => { setJoinError(null); setShowEntryForm(true) } : handleReserve}
                       disabled={isJoining}
                       className="w-full px-4 py-3 bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-500 hover:to-orange-500 text-white font-semibold rounded-2xl transition shadow-md shadow-amber-300/40 disabled:from-gray-400 disabled:to-gray-400 disabled:shadow-none"
                     >
@@ -439,7 +429,7 @@ function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
                 ) : (
                   <button
                     type="button"
-                    onClick={handleJoin}
+                    onClick={needsEntryForm ? () => { setJoinError(null); setShowEntryForm(true) } : handleJoin}
                     disabled={isJoining}
                     className="w-full px-4 py-3 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-semibold rounded-2xl transition shadow-md shadow-emerald-300/40 disabled:from-gray-400 disabled:to-gray-400 disabled:shadow-none"
                   >
@@ -458,7 +448,8 @@ function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
                   </button>
                 )}
               </>
-            )}
+            )
+          })()}
           </div>
         </div>
       )}
@@ -474,6 +465,40 @@ function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
       confirmLabel="예약하기"
       busy={isJoining}
     />
+
+    {/* 입장 질문 답변 — 정중앙 모달 (회색 딤 배경) */}
+    {showEntryForm && (
+      <div className="fixed inset-0 z-[90] bg-black/40 flex items-center justify-center p-5"
+        style={{ touchAction: 'pan-y' }} onClick={() => !isJoining && setShowEntryForm(false)}>
+        <div className="w-full max-w-sm bg-white rounded-2xl p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <p className="text-[16px] font-bold text-sky-900 leading-snug whitespace-pre-wrap break-words">
+            📝 {program?.entry_question}
+          </p>
+          <p className="text-[12px] text-gray-500 mt-1 mb-3.5">답변을 작성하면 운영자가 확인 후 승인해요.</p>
+          <textarea
+            value={entryAnswer}
+            onChange={(e) => setEntryAnswer(e.target.value)}
+            placeholder="답변을 입력해주세요 (최대 200자)"
+            rows={4}
+            maxLength={200}
+            autoFocus
+            disabled={isJoining}
+            className="w-full px-3.5 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-sky-500 text-[14px] resize-none disabled:bg-gray-50"
+          />
+          {joinError && (
+            <p className="mt-3 px-3 py-2.5 bg-red-100 text-red-700 rounded-xl text-sm text-center">{joinError}</p>
+          )}
+          <div className="flex gap-2 mt-4">
+            <button type="button" onClick={() => setShowEntryForm(false)} disabled={isJoining}
+              className="flex-1 h-11 rounded-xl border border-gray-200 text-gray-600 text-sm font-bold hover:bg-gray-50 transition disabled:opacity-50">취소</button>
+            <button type="button" onClick={handleJoin} disabled={isJoining}
+              className="flex-[1.6] h-11 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold transition disabled:opacity-50">
+              {isJoining ? '처리 중...' : '신청 제출'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     </>
   )
 }

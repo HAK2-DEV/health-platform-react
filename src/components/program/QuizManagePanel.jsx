@@ -62,8 +62,8 @@ function QuizCard({ q, now, onEdit, onPreview, onResults, onDelete, onDuplicate,
   return (
     <div className="bg-white border border-gray-100 rounded-2xl shadow-soft overflow-hidden">
       <div className="flex items-start gap-2.5 p-3">
-        <span className="inline-flex items-center justify-center w-11 h-11 flex-shrink-0 rounded-xl bg-emerald-50 text-emerald-500">
-          <HelpCircle className="w-6 h-6" />
+        <span className="inline-flex items-center justify-center w-11 h-11 flex-shrink-0">
+          <img src="/icons/feature/quiz.png" alt="" aria-hidden="true" className="w-9 h-9 object-contain" />
         </span>
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">

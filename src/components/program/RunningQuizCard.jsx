@@ -5,7 +5,7 @@ import { Trash2, Pencil, Check, ClipboardCheck } from 'lucide-react'
 import { formatKoreanDateTime } from '../../lib/formatters'
 
 // 달리기 전용 퀴즈 카드 — 번호·아이콘·제목·설명·문항 유형·점수 + 상태(시작/완료/채점중/예정/마감) + 운영자 수정/삭제.
-const QUIZ_ICON = '/icons/running/quiz.png'
+const QUIZ_ICON = '/icons/feature/quiz.png'
 const TYPE_LABEL = { MULTIPLE: '객관식', OX: 'OX', SHORT: '서술형' }
 const TYPE_ORDER = ['MULTIPLE', 'OX', 'SHORT']
 

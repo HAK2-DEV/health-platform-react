@@ -107,7 +107,7 @@ export function ProgramSlideCard({ program, participants, onClick, active = fals
           <h3 className="text-[17px] font-extrabold text-gray-900 truncate leading-tight mt-1.5">{program.name}</h3>
           {newTotal > 0 && (
             <p className="text-[10px] font-bold text-red-500 mt-0.5 truncate">
-              🆕 {[newMission > 0 && `새 미션 ${newMission}`, newQuiz > 0 && `새 퀴즈 ${newQuiz}`].filter(Boolean).join(' · ')}
+              {[newMission > 0 && `새 미션 ${newMission}`, newQuiz > 0 && `새 퀴즈 ${newQuiz}`].filter(Boolean).join(' · ')}
             </p>
           )}
         </div>

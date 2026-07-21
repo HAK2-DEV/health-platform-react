@@ -22,7 +22,7 @@ export const PROGRAM_PRESETS = [
       {
         key: 'daily_3km',
         title: '오늘 3km 달리기',
-        instruction: '평일마다 3km를 달리고, 사진과 거리(km)를 기록해요.',
+        instruction: '평일마다 3km 이상 달린 뒤, 러닝앱·시계 기록 화면을 사진으로 찍고 달린 거리(km)를 입력해 인증해요. 시간·칼로리는 선택이에요.',
         icon: 'exercise.png',
         point: 10,
         requires_image: true, requires_numeric: true, requires_note: false,
@@ -42,7 +42,7 @@ export const PROGRAM_PRESETS = [
       {
         key: 'weekend_social_run',
         title: '가족, 동료와 함께 달리기',
-        instruction: '주말에 가족·동료·친구와 함께 달리고, 사진과 거리(km)를 기록해요.',
+        instruction: '주말에 가족·동료·친구와 함께 달리고, 함께 찍은 사진과 달린 거리(km)를 올려 인증해요. 혼자보다 오래 꾸준히 가는 힘이 돼요.',
         icon: 'exercise.png',
         point: 10,
         requires_image: true, requires_numeric: true, requires_note: false,
@@ -80,7 +80,7 @@ export const PROGRAM_PRESETS = [
       {
         key: 'smoking_log',
         title: '오늘 흡연 기록',
-        instruction: '오늘 흡연한 개비 수와 핀 시각을 적어요. 여러 번 폈으면 시각을 여러 개 추가해요. 0개비면 금연 성공!',
+        instruction: '하루를 마무리하며 오늘 피운 담배 개비 수와 피운 시각을 기록해요. 여러 번 피웠다면 시각을 여러 개 추가하고, 한 개비도 안 피웠다면 0개비로 금연 성공을 남겨요.',
         icon: 'nosmoke.png',
         point: 10,
         requires_image: false, requires_numeric: true, requires_note: true,
@@ -99,7 +99,7 @@ export const PROGRAM_PRESETS = [
       {
         key: 'craving_moment',
         title: '흡연 욕구가 올라온 순간',
-        instruction: '흡연 욕구가 올라왔을 때 언제·어떤 상황이었는지, 어떻게 넘겼는지 적어요.',
+        instruction: '담배 생각이 강하게 든 순간을 기록해요. 언제·어떤 상황이었는지, 그 욕구를 어떻게 넘겼는지 적으면 나만의 대처법이 쌓여요. (기록은 운영자만 봐요)',
         icon: 'diary.png',
         point: 5,
         requires_image: false, requires_numeric: false, requires_note: true,
@@ -113,7 +113,7 @@ export const PROGRAM_PRESETS = [
         // 본인 결정 B(2026-06-28): 매일 아낀 담배 수를 직접 입력. 누적 합산 → 개요/히어로 절약 표시 근거.
         key: 'saved_cigarettes',
         title: '오늘 아낀 담배',
-        instruction: '오늘 참아서 안 핀 담배 개비 수를 적어요. 작은 숫자도 큰 변화예요!',
+        instruction: '평소 같으면 피웠을 텐데 오늘 참아서 아낀 담배 개비 수를 입력해요. 아낀 담배가 쌓여 절약한 돈·건강 회복으로 이어져요.',
         icon: 'nosmoke.png',
         point: 10,
         requires_image: false, requires_numeric: true, requires_note: false,
@@ -135,9 +135,9 @@ export const PROGRAM_PRESETS = [
     durationDays: 21,
     bundleTitle: '🥗 식습관',
     missions: [
-      { key: 'water', title: '물 8잔 마시기', instruction: '오늘 마신 물을 인증해요.', point: 10 },
-      { key: 'veggie', title: '채소 한 끼 먹기', instruction: '채소가 포함된 식사를 찍어 인증해요.', point: 10 },
-      { key: 'no_latenight', title: '야식 참기', instruction: '야식 없이 하루를 마무리했다면 인증해요.', point: 10 },
+      { key: 'water', title: '물 8잔 마시기', instruction: '하루 8잔(약 2L)을 목표로 물을 자주 마셔요. 마신 물병·컵을 사진으로 찍어 인증하면 완료돼요.', point: 10 },
+      { key: 'veggie', title: '채소 한 끼 먹기', instruction: '채소가 들어간 식사를 하루 한 끼 이상 챙겨 먹고, 그 식사 사진을 올려 인증해요.', point: 10 },
+      { key: 'no_latenight', title: '야식 참기', instruction: '야식 없이 하루를 마무리했다면 인증해요. 참기 힘들었던 순간이나 대신 한 일을 함께 적으면 더 좋아요.', point: 10 },
     ],
   },
   {
@@ -149,9 +149,9 @@ export const PROGRAM_PRESETS = [
     durationDays: 14,
     bundleTitle: '🧘 마음챙김',
     missions: [
-      { key: 'meditate', title: '5분 명상', instruction: '명상 후 짧은 느낌을 남겨주세요.', point: 10 },
-      { key: 'gratitude', title: '감사 일기', instruction: '오늘 감사한 일 한 가지를 적어요.', point: 10 },
-      { key: 'reflect', title: '하루 돌아보기', instruction: '하루를 돌아보는 메모를 남겨요.', point: 5 },
+      { key: 'meditate', title: '5분 명상', instruction: '조용한 곳에서 5분간 호흡에 집중하며 명상해요. 끝난 뒤 느낀 점을 짧게 적어 인증해요.', point: 10 },
+      { key: 'gratitude', title: '감사 일기', instruction: '오늘 감사했던 일 한 가지를 떠올려 적어요. 작고 사소한 것도 좋아요.', point: 10 },
+      { key: 'reflect', title: '하루 돌아보기', instruction: '오늘 하루를 돌아보며 잘한 점·아쉬운 점을 짧게 메모로 남겨 인증해요.', point: 5 },
     ],
   },
 ]
