@@ -10,7 +10,8 @@ const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
 // Day 65 본인 결정: Google + Kakao + Naver 단계별 도입.
 //   1단계: Google (Supabase 기본 지원) — 활성
 //   2단계: Kakao (Edge Function Custom OAuth) — 활성 (kakao-oauth Edge Function 필요)
-//   3단계: Naver — 준비 중
+//   3단계: Naver (Edge Function Custom OAuth) — 활성 (naver-oauth Edge Function + 네이버 검수 필요)
+//          Naver: state 필수(CSRF). VITE_NAVER_CLIENT_ID 필요. Edge secrets: NAVER_CLIENT_ID/SECRET/REDIRECT_URI
 //
 // 소셜 가입 흐름:
 //   Kakao: OAuth 인증 → /auth/callback → kakao-oauth Edge Function → verifyOtp → 로그인
@@ -95,7 +96,24 @@ function SocialAuthButtons() {
   }
 
   const handleNaver = () => {
-    alert('🔧 Naver 로그인은 다음 단계에서 구현됩니다 (Edge Function 도입).')
+    const clientId = import.meta.env.VITE_NAVER_CLIENT_ID
+    if (!clientId) {
+      alert('Naver 로그인 설정이 누락됐어요 (VITE_NAVER_CLIENT_ID).\n.env 또는 호스팅 환경변수를 확인해주세요.')
+      return
+    }
+    setLoading('naver')
+    // 네이버는 CSRF 방지용 state 필수 — 랜덤 생성해 보내고, 콜백에서 일치 검증.
+    const state = (crypto?.randomUUID?.() || String(Math.random()).slice(2))
+    sessionStorage.setItem('oauth_provider', 'naver')
+    sessionStorage.setItem('oauth_state', state)
+    const redirectUri = `${window.location.origin}/auth/callback`
+    const params = new URLSearchParams({
+      response_type: 'code',
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      state,
+    })
+    window.location.href = `https://nid.naver.com/oauth2.0/authorize?${params.toString()}`
   }
 
   return (

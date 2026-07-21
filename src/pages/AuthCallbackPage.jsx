@@ -17,7 +17,7 @@ import { supabase } from '../supabaseClient'
 
 const PROVIDER_FN = {
   kakao: 'kakao-oauth',
-  // naver: 'naver-oauth',  // 추후 추가
+  naver: 'naver-oauth',
 }
 
 function AuthCallbackPage() {
@@ -33,8 +33,11 @@ function AuthCallbackPage() {
 
     // provider 는 SocialAuthButtons 에서 sessionStorage 에 저장 — Kakao Redirect URI 정확 일치 위해 쿼리 X.
     const provider = sessionStorage.getItem('oauth_provider')
+    const storedState = sessionStorage.getItem('oauth_state')  // Naver CSRF 검증용
     sessionStorage.removeItem('oauth_provider')  // 한 번만 사용
+    sessionStorage.removeItem('oauth_state')
     const code = searchParams.get('code')
+    const state = searchParams.get('state')      // Naver 는 state 를 되돌려줌(토큰 교환에 필요)
     const providerError = searchParams.get('error')
 
     // provider 가 에러 응답 (사용자가 동의 취소 등)
@@ -48,6 +51,12 @@ function AuthCallbackPage() {
       setErrorMsg('잘못된 접근이에요 (provider/code 누락)')
       return
     }
+    // Naver CSRF — 되돌아온 state 가 우리가 보낸 state 와 일치해야 함
+    if (provider === 'naver' && (!state || state !== storedState)) {
+      setStatus('error')
+      setErrorMsg('보안 검증에 실패했어요 (state 불일치) — 다시 시도해주세요')
+      return
+    }
     const fnName = PROVIDER_FN[provider]
     if (!fnName) {
       setStatus('error')
@@ -55,7 +64,7 @@ function AuthCallbackPage() {
       return
     }
 
-    handleCallback(fnName, code)
+    handleCallback(fnName, code, state)
       .then(() => {
         // 로그인 완료 → 홈으로. HomePage 가 nickname 체크 후 적절한 페이지로 이동
         navigate('/', { replace: true })
@@ -67,12 +76,13 @@ function AuthCallbackPage() {
       })
   }, [searchParams, navigate])
 
-  async function handleCallback(fnName, code) {
+  async function handleCallback(fnName, code, state) {
     // 현재 페이지의 redirect_uri 를 Edge Function 에도 전달 (token 교환 시 동일해야 함)
     const redirectUri = `${window.location.origin}/auth/callback`
 
+    // state 는 Naver 토큰 교환에 필요 (Kakao 함수는 무시) → 항상 동봉
     const { data, error } = await supabase.functions.invoke(fnName, {
-      body: { code, redirect_uri: redirectUri },
+      body: { code, redirect_uri: redirectUri, state },
     })
     if (error) {
       // FunctionsHttpError 의 경우 context.json() 로 본문 추출
