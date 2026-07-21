@@ -174,7 +174,13 @@ export function PrivacyContent() {
           <li>이메일 주소 (회원 식별·로그인용)</li>
           <li>비밀번호 (해시 저장 — 평문 보관 X)</li>
           <li>닉네임 (본인이 직접 설정)</li>
-          <li>소셜 로그인 시: 제공자 식별자 (Kakao ID 등) + 제공자가 동의 후 전달한 정보(닉네임·프로필 사진)</li>
+          <li>소셜 로그인 시: 제공자 회원 식별자 + 제공자가 이용자 동의 후 전달한 프로필 정보
+            <ul className="list-circle list-inside pl-3 mt-1 space-y-0.5">
+              <li>네이버: 이용자 식별자(필수), 이름·별명·프로필 사진(필수), 이메일 주소(선택 — 이용자 동의 시)</li>
+              <li>카카오: 회원번호(식별자), 닉네임·프로필 사진</li>
+              <li>구글: 계정 식별자, 이름·이메일·프로필 사진</li>
+            </ul>
+          </li>
           <li>서비스 이용 중 본인이 등록한 인증 사진·기록·메모, 참여 프로그램·미션 내역</li>
         </Sub>
         <p className="mt-3">(자동 수집)</p>
@@ -184,7 +190,7 @@ export function PrivacyContent() {
           <li>화면 이용 통계: 화면 경로(식별자 제거)와 머문 시간만 수집하며, UI/UX 개선 목적의 내부 분석에만 사용합니다. 입력 내용·사진·건강 정보는 수집하지 않으며, 제3자에게 전송하지 않습니다.</li>
         </Sub>
         <p className="text-xs text-gray-500 mt-3">
-          {'⚠️ Kakao 일반 앱 단계에서는 이메일 권한이 제한되어 가상 이메일(kakao_{ID}@kakao.local)이 생성됩니다. 이는 외부에 전송되지 않으며 본 서비스 내부 식별자로만 사용됩니다.'}
+          {'⚠️ 소셜 로그인 시 이용자가 이메일 제공에 동의하지 않았거나 제공자 정책상 이메일을 받지 못하는 경우, 서비스 내부 식별용 가상 이메일(예: kakao_{ID}@kakao.local, naver_{ID}@naver.local)이 생성됩니다. 이 값은 외부로 전송되지 않으며 본 서비스 내부 회원 식별자로만 사용됩니다.'}
         </p>
       </Section>
 
@@ -213,7 +219,9 @@ export function PrivacyContent() {
           <li>Supabase (데이터베이스·인증·스토리지 호스팅) — 미국</li>
           <li>Vercel (정적 자원 호스팅·CDN) — 미국</li>
           <li>Sentry (에러 추적·진단) — 미국</li>
+          <li>네이버 (소셜 로그인 시 제공자) — 한국</li>
           <li>Kakao (소셜 로그인 시 제공자) — 한국</li>
+          <li>Google (소셜 로그인 시 제공자) — 미국</li>
         </Sub>
         <p className="text-xs text-gray-500 mt-2">
           위탁 업체에는 처리 목적에 필요한 최소한의 정보만 제공되며, 위탁 계약 종료 시
