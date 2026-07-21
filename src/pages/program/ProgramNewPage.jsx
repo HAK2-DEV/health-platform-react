@@ -182,6 +182,19 @@ function ProgramNewPage() {
     setCurrentStep(currentStep - 1)
   }
 
+  // 마법사 헤더 뒤로가기 — 「직접 만들기」로 들어온 1단계에선 chooser 로 복귀.
+  //   (라이브러리는 chooser 내부 상태 복귀라 정상인데, 직접 만들기는 상태 전환이라
+  //    기존 navigate(-1) 이 대시보드로 튀던 버그 수정. 라이브러리 뒤로가기와 대칭 맞춤.)
+  //   2~4단계 / DRAFT 재진입은 기존대로 이전 라우트로.
+  const handleWizardBack = () => {
+    if (isNewCreation && currentStep === 1) {
+      setShowIntro(false)     // 인트로 재생 없이 바로 선택화면
+      setShowChooser(true)
+    } else {
+      navigate(-1)
+    }
+  }
+
   if (isLoadingDraft) {
     return <LoadingState variant="page" text="임시저장 불러오는 중..." />
   }
@@ -232,7 +245,7 @@ function ProgramNewPage() {
   }
 
   return (
-    <WizardLayout currentStep={currentStep}>
+    <WizardLayout currentStep={currentStep} onBack={handleWizardBack}>
       {error && (
         <p className="p-2 bg-red-100 text-red-700 rounded-[10px] text-sm text-center" style={{ marginBottom: '9px' }}>
           {error}

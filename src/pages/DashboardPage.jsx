@@ -71,7 +71,7 @@ export function ProgramSlideCard({ program, participants, onClick, active = fals
       type="button"
       onClick={onClick}
       className={`relative w-full h-[144px] rounded-2xl overflow-hidden bg-white border-2 shadow-elevated text-left transition-colors ${
-        active ? 'border-emerald-300' : 'border-gray-200'
+        active ? 'border-emerald-200' : 'border-gray-100'
       }`}
     >
       {/* 표지 — 우측에서 흘러나옴.
@@ -80,7 +80,17 @@ export function ProgramSlideCard({ program, participants, onClick, active = fals
           본문을 밀어냄). 그래서 위치는 래퍼가 잡고 ProgramCover 는 안을 채우기만 한다.
           variant='tile' 사용 — thumb 의 rounded-xl·aspect-square·objectPosition 간섭을 피함.
           w-full+h-full 로 두 축이 확정되면 variant 의 aspect 는 무시된다. */}
-      <div className="absolute inset-y-0 right-0 w-[48%] overflow-hidden">
+      {/* 표지 왼쪽 끝을 마스크로 투명 처리 → 흰 카드 배경으로 '녹아들게' 한다.
+          흰색을 위에 덮던 기존 방식은 어두운 사진에서 안개처럼 뿌옇게 떠서 경계가 도드라졌음.
+          마스크는 사진 밝기와 무관하게 경계선 없이 매끄럽게 이어진다(목업과 동일한 느낌).
+          래퍼 폭을 52%로 넓혀(본문 폭과 겹침) 사진이 카드 중앙까지 서서히 스며들 공간 확보. */}
+      <div
+        className="absolute inset-y-0 right-0 w-[52%] overflow-hidden"
+        style={{
+          maskImage: 'linear-gradient(to right, transparent 0%, #000 42%)',
+          WebkitMaskImage: 'linear-gradient(to right, transparent 0%, #000 42%)',
+        }}
+      >
         <ProgramCover
           imagePath={program.cover_image_path}
           categories={program.categories}
@@ -89,9 +99,6 @@ export function ProgramSlideCard({ program, participants, onClick, active = fals
           className="w-full h-full"
         />
       </div>
-      {/* 표지 왼쪽 경계에만 좁게 페이드 — 카드 배경이 이미 흰색이라 전면 그라데이션은 불필요하고,
-          전면으로 덮으면 표지 전체가 뿌옇게 씻긴다(그래서 사진이 흐려 보였음). */}
-      <div className="absolute inset-y-0 left-[36%] w-[24%] bg-gradient-to-r from-white via-white/85 to-transparent" />
 
       {/* 본문 폭 + 표지 폭이 100% 를 넘으면 진행률 바가 표지를 침범한다 → 52% + 48% 로 분리 */}
       <div className="relative h-full w-[52%] p-4 flex flex-col justify-between">

@@ -10,15 +10,17 @@ const STEPS = [
   { number: 4, label: '요약·게시' },
 ]
 
-function WizardLayout({ currentStep, children }) {
+function WizardLayout({ currentStep, children, onBack }) {
   const navigate = useNavigate()
+  // onBack 미지정 시 기존 동작(이전 라우트). 지정 시 부모가 chooser 복귀 등 제어.
+  const handleBack = onBack || (() => navigate(-1))
   return (
     <div className="max-w-2xl mx-auto py-4 px-[11px]">
       {/* 헤더 */}
       <div className="flex items-center gap-2" style={{ marginBottom: '9px' }}>
         <button
           type="button"
-          onClick={() => navigate(-1)}
+          onClick={handleBack}
           className="p-2 hover:bg-gray-100 rounded-full transition"
           aria-label="뒤로"
         >
