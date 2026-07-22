@@ -149,9 +149,9 @@ export const PROGRAM_PRESETS = [
     durationDays: 14,
     bundleTitle: '🧘 마음챙김',
     missions: [
-      { key: 'meditate', title: '5분 명상', instruction: '조용한 곳에서 5분간 호흡에 집중하며 명상해요. 끝난 뒤 느낀 점을 짧게 적어 인증해요.', point: 10 },
-      { key: 'gratitude', title: '감사 일기', instruction: '오늘 감사했던 일 한 가지를 떠올려 적어요. 작고 사소한 것도 좋아요.', point: 10 },
-      { key: 'reflect', title: '하루 돌아보기', instruction: '오늘 하루를 돌아보며 잘한 점·아쉬운 점을 짧게 메모로 남겨 인증해요.', point: 5 },
+      { key: 'meditate', title: '5분 명상', instruction: '조용한 곳에서 5분간 호흡에 집중하며 명상해요. 끝난 뒤 느낀 점을 짧게 적어 인증해요.', point: 10, requires_image: false, requires_note: true },
+      { key: 'gratitude', title: '감사 일기', instruction: '오늘 감사했던 일 한 가지를 떠올려 적어요. 작고 사소한 것도 좋아요.', point: 10, requires_image: false, requires_note: true },
+      { key: 'reflect', title: '하루 돌아보기', instruction: '오늘 하루를 돌아보며 잘한 점·아쉬운 점을 짧게 메모로 남겨 인증해요.', point: 5, requires_image: false, requires_note: true },
     ],
   },
 ]
