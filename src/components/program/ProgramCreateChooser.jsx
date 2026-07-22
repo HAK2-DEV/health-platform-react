@@ -65,7 +65,6 @@ function ProgramCreateChooser({ onDirect, onPickPreset, onBack, busyKey }) {
             <div className="text-center mb-7">
               <img src="/icons/growth/sprout.png" alt="" aria-hidden="true" className="w-24 h-24 object-contain mx-auto mb-2" />
               <h1 className="text-xl font-extrabold text-gray-900">어떻게 시작할까요?</h1>
-              <p className="text-[13px] text-gray-500 mt-1">처음부터 만들거나, 준비된 프로그램으로 빠르게 시작해요.</p>
             </div>
             <div className="space-y-3">
               <button type="button" onClick={onDirect} className="w-full flex items-center gap-4 p-5 rounded-2xl border border-gray-200 hover:border-emerald-300 hover:bg-gray-50 transition text-left">

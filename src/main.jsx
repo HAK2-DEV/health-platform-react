@@ -9,7 +9,7 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { registerSW } from 'virtual:pwa-register'
 import { initSentry } from './lib/sentry'
 import { installSwipeBackBlocker } from './lib/disableSwipeBack'
-import { setUpdateSW } from './lib/pwaUpdate'
+import { setUpdateSW, notifyNeedRefresh } from './lib/pwaUpdate'
 import ErrorBoundary from './components/common/ErrorBoundary'
 import ScreenTracker from './components/common/ScreenTracker'
 
@@ -32,11 +32,13 @@ window.addEventListener('vite:preloadError', () => {
   window.location.reload()
 })
 
-// Service Worker 등록 — autoUpdate 전략
-//   새 배포 감지 시 새 SW 를 즉시 활성화(skipWaiting)하고 페이지를 자동 갱신 → 배너 클릭 없이
-//   새로고침/재진입만으로 최신 버전. 오래 켜둔 세션도 1시간마다 update() 로 새 배포 확인.
+// Service Worker 등록 — prompt 전략
+//   새 배포 감지 → 새 SW 대기 → onNeedRefresh 발생 → PwaUpdatePrompt 배너 노출.
+//   사용자가 「새로고침」 누르면 브랜드 스플래시 뒤 updateSW(true)로 skipWaiting+reload.
+//   오래 켜둔 세션도 1시간마다 update() 로 새 배포 확인. 청크404 는 vite:preloadError 자가복구.
 const updateSW = registerSW({
   immediate: true,
+  onNeedRefresh() { notifyNeedRefresh() },
   onRegisteredSW(_swUrl, registration) {
     if (registration) setInterval(() => { registration.update() }, 60 * 60_000)
   },

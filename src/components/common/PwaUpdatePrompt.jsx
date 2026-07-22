@@ -2,22 +2,37 @@ import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { RefreshCw, X } from 'lucide-react'
 import { onNeedRefresh, applyUpdate } from '../../lib/pwaUpdate'
+import UpdateSplash from './UpdateSplash'
 
 // 새 버전 알림 배너 — 새 SW 가 대기하면(onNeedRefresh) 하단에 노출.
-//   「새로고침」 → applyUpdate() (새 SW 활성화 + reload). 「나중에」 → 닫기(다음 진입 때 다시).
-//   bottom-24 — BottomTabBar 위로 띄움. 강제 갱신 X, 사용자가 좋은 시점에 적용.
-function PwaUpdatePrompt() {
-  const [show, setShow] = useState(false)
+//   「새로고침」 → 브랜드 스플래시(UpdateSplash) 잠깐 → applyUpdate() (새 SW 활성화 + reload).
+//   「나중에」 → 닫기(다음 진입 때 다시). 강제 갱신 X, 사용자가 좋은 시점에 적용.
+// props (데모 전용):
+//   demo      — true 면 onNeedRefresh 구독 대신 forceShow 로만 노출, 「새로고침」이 reload 안 하고 스플래시만 재생
+//   forceShow — 마운트 즉시 배너 노출 (데모/미리보기)
+function PwaUpdatePrompt({ demo = false, forceShow = false }) {
+  const [show, setShow] = useState(forceShow)
   const [applying, setApplying] = useState(false)
 
-  useEffect(() => onNeedRefresh(() => setShow(true)), [])
+  useEffect(() => {
+    if (demo) return          // 데모는 SW 이벤트 구독 안 함
+    return onNeedRefresh(() => setShow(true))
+  }, [demo])
 
   const handleRefresh = () => {
+    setShow(false)            // 배너 감추고 스플래시로 전환
     setApplying(true)
-    applyUpdate()
+    if (demo) {
+      // 데모: 실제 reload 없이 클립을 끝까지 보여주고 종료 (클립 3초)
+      setTimeout(() => setApplying(false), 3000)
+      return
+    }
+    // 3D 새싹 스플래시를 보여준 뒤 새 SW 활성화 + reload
+    setTimeout(() => applyUpdate(), 2400)
   }
 
   return (
+    <>
     <AnimatePresence>
       {show && (
         <motion.div
@@ -55,6 +70,8 @@ function PwaUpdatePrompt() {
         </motion.div>
       )}
     </AnimatePresence>
+    {applying && <UpdateSplash />}
+    </>
   )
 }
 

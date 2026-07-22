@@ -9,11 +9,13 @@ export default defineConfig({
     react(),
     tailwindcss(),
     // PWA — Service Worker + manifest 자동 생성/등록
-    //   registerType: 'autoUpdate' + skipWaiting/clientsClaim = 새 배포 감지 시 새 SW 를 즉시 활성화하고
-    //     페이지를 자동 갱신 → 배너 클릭 없이 새로고침/재진입만으로 최신 버전. (모바일이 옛 빌드에 머무는 문제 해결)
-    //     청크404 는 vite:preloadError 자가복구가 커버. main.jsx 에서 주기적 update() 로 오래 켠 세션도 감지.
+    //   registerType: 'prompt' — 새 배포 감지 시 새 SW 가 '대기' 상태가 되고 onNeedRefresh 발생 →
+    //     PwaUpdatePrompt 배너("새 버전이 있어요 · 새로고침") 노출. 사용자가 새로고침 누르면 브랜드
+    //     스플래시(UpdateSplash) 잠깐 뒤 updateSW(true)(skipWaiting+reload)로 최신 버전 적용.
+    //     배너 무시해도 새 화면(lazy chunk) 이동 시 vite:preloadError 자가복구가 최신화 안전망.
+    //     ※ 배너를 띄우려면 workbox skipWaiting/clientsClaim 을 켜지 않아야 함(켜면 대기 없이 즉시 활성화됨).
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       includeAssets: ['favicon.svg', 'app-icon.png'],
       manifest: {
         name: '도담 · 건강증진 플랫폼',
@@ -49,8 +51,8 @@ export default defineConfig({
       },
       workbox: {
         cleanupOutdatedCaches: true,
-        skipWaiting: true,      // 새 SW 대기 없이 즉시 활성화
-        clientsClaim: true,     // 활성화 즉시 열린 탭 제어 → 새 precache(최신 빌드) 서빙
+        // skipWaiting/clientsClaim 은 의도적으로 끔 — prompt 모드에서 새 SW 가 '대기'해야
+        //   onNeedRefresh(배너)가 발생. 새로고침 클릭 시 updateSW(true)가 skipWaiting 수행.
         // Supabase API / 이미지 등은 SW 캐시에서 제외 — 항상 최신
         navigateFallbackDenylist: [/^\/api\//, /supabase\.co/],
         runtimeCaching: [

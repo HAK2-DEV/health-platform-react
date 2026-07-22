@@ -68,6 +68,7 @@ const OperatorGuidePage = lazy(() => import('./pages/OperatorGuidePage'))
 const SupportPage = lazy(() => import('./pages/SupportPage'))
 const OperatorTodayPage = lazy(() => import('./pages/program/OperatorTodayPage'))
 const RunnerAnimDemo = lazy(() => import('./pages/RunnerAnimDemo'))
+const UpdateDemoPage = lazy(() => import('./pages/UpdateDemoPage'))
 
 // 가입 승인 알림(/programs/:id/participants) → 프로그램 상세 + 승인 심사 모달 자동 오픈
 function ApprovalsRedirect() {
@@ -243,6 +244,7 @@ function AppShell() {
               <ProtectedRoute><OperatorTodayPage /></ProtectedRoute>
             } />
             <Route path="/runner-anim-demo" element={<RunnerAnimDemo />} />
+            <Route path="/update-demo" element={<UpdateDemoPage />} />
             <Route path="/support" element={
               <ProtectedRoute><SupportPage /></ProtectedRoute>
             } />
