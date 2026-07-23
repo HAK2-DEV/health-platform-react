@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
-import { lazy, Suspense, useEffect } from 'react'
+import { lazy, Suspense, useEffect, useLayoutEffect } from 'react'
 import './index.css'
 import './App.css'
 import ProtectedRoute from './components/ProtectedRoute'
@@ -100,8 +100,12 @@ function AppShell() {
   // 라우트 변경 시 무조건 페이지 상단부터 시작 — 본인 결정 (Day 55)
   //   다른 페이지로 넘어가면 스크롤 위치가 어디든 reset
   //   같은 페이지에서 query/hash 만 바뀌는 경우 (예: 피드 ?v=&c=) 는 그 컴포넌트가 scrollIntoView 로 직접 제어하므로 별도 처리
-  useEffect(() => {
+  //   useLayoutEffect(페인트 전) + 다음 프레임 재확정 — lazy 청크/비동기 로딩·iOS 스크롤 지연으로
+  //   이전 페이지 스크롤이 남는 경우(예: 스크롤 내린 상태에서 퀴즈 진입 시 살짝 내려간 채 시작)를 막음.
+  useLayoutEffect(() => {
     window.scrollTo(0, 0)
+    const r = requestAnimationFrame(() => window.scrollTo(0, 0))
+    return () => cancelAnimationFrame(r)
   }, [location.pathname])
 
   // 하단 탭바 — 메인 5탭(홈·프로그램·기록하기·랭킹·프로필)에서만 상시 노출.
