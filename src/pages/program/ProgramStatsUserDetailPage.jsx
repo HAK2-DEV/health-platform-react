@@ -2,7 +2,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { ChevronRight, Target, FileText, MessageCircle, Calendar } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import DoorIcon from '../../components/common/DoorIcon'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
@@ -15,6 +15,7 @@ import LoadingState from '../../components/common/LoadingState'
 import EmptyState from '../../components/common/EmptyState'
 import UserAvatar from '../../components/common/UserAvatar'
 import ConfirmModal from '../../components/common/ConfirmModal'
+import CheerModal from '../../components/program/CheerModal'
 
 // 한 유저의 활동 메인 — 핵심 지표 + 14일 차트 + 2개 진입 카드 (미션별 분포 / 인증 기록)
 // 라우트: /programs/:id/stats/users/:userId
@@ -162,6 +163,9 @@ function ProgramStatsUserDetailPage() {
   const [removeStep, setRemoveStep] = useState(0)   // 0=닫힘 1=1차 2=2차
   const handleRemove = () => { if (userInfo) setRemoveStep(1) }
 
+  // 응원 보내기 모달 (운영자 → 이 참여자)
+  const [cheerOpen, setCheerOpen] = useState(false)
+
   // 최근 14일 활동 — Intl Asia/Seoul 로 정확
   const recent14Days = useMemo(() => {
     const todayKst = getTodayKST()
@@ -266,6 +270,16 @@ function ProgramStatsUserDetailPage() {
         )}
       </div>
 
+      {/* 응원 보내기 — 참여자에게 격려 알림 (하루 1회) */}
+      <button
+        type="button"
+        onClick={() => setCheerOpen(true)}
+        className="w-full flex items-center justify-center gap-2 h-11 rounded-[10px] bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold transition"
+        style={{ marginBottom: '9px' }}
+      >
+        💌 응원 보내기
+      </button>
+
       {/* 핵심 지표 4카드 */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
@@ -315,7 +329,7 @@ function ProgramStatsUserDetailPage() {
       )}
 
       {/* 최근 14일 활동 */}
-      <h2 className="flex items-center gap-1.5 text-lg font-semibold text-gray-800" style={{ marginBottom: '9px' }}><Calendar className="w-5 h-5 text-gray-500" /> 최근 14일 활동</h2>
+      <h2 className="flex items-center gap-1.5 text-lg font-semibold text-gray-800" style={{ marginBottom: '9px' }}><img src="/icons/mypage/calendar.png" alt="" aria-hidden="true" className="w-5 h-5 object-contain" /> 최근 14일 활동</h2>
       <div className="bg-white border border-gray-200 rounded-[10px] p-4" style={{ marginBottom: '9px' }}>
         <div className="flex items-end gap-1 h-20">
           {recent14Days.map(d => {
@@ -353,12 +367,10 @@ function ProgramStatsUserDetailPage() {
           onClick={() => navigate(`/programs/${id}/stats/users/${targetUserId}/missions`)}
           className="w-full flex items-center gap-4 p-5 bg-white border border-gray-200 rounded-[10px] hover:bg-gray-50 hover:border-emerald-300 transition text-left"
         >
-          <div className="w-12 h-12 flex-shrink-0 bg-emerald-100 rounded-xl flex items-center justify-center">
-            <Target className="w-6 h-6 text-emerald-600" />
-          </div>
+          <img src="/icons/mypage/missions.png" alt="" aria-hidden="true" className="w-12 h-12 flex-shrink-0 object-contain" />
           <div className="flex-1 min-w-0">
             <h3 className="font-medium text-gray-800 mb-0.5">
-              🎯 미션별 분포
+              미션별 분포
             </h3>
             <p className="text-xs text-gray-500">
               어떤 미션을 얼마나 했는지 묶음별 분석
@@ -372,12 +384,10 @@ function ProgramStatsUserDetailPage() {
           onClick={() => navigate(`/programs/${id}/stats/users/${targetUserId}/verifications`)}
           className="w-full flex items-center gap-4 p-5 bg-white border border-gray-200 rounded-[10px] hover:bg-gray-50 hover:border-sky-300 transition text-left"
         >
-          <div className="w-12 h-12 flex-shrink-0 bg-sky-100 rounded-xl flex items-center justify-center">
-            <FileText className="w-6 h-6 text-sky-600" />
-          </div>
+          <img src="/icons/mypage/records.png" alt="" aria-hidden="true" className="w-12 h-12 flex-shrink-0 object-contain" />
           <div className="flex-1 min-w-0">
             <h3 className="font-medium text-gray-800 mb-0.5">
-              📝 인증 기록
+              인증 기록
             </h3>
             <p className="text-xs text-gray-500">
               실제 제출한 사진 · 기록 · 소감을 카테고리별로 확인
@@ -394,11 +404,9 @@ function ProgramStatsUserDetailPage() {
           onClick={() => navigate(`/programs/${id}/stats/users/${targetUserId}/posts`)}
           className="w-full flex items-center gap-4 p-5 bg-white border border-gray-200 rounded-[10px] hover:bg-gray-50 hover:border-violet-300 transition text-left"
         >
-          <div className="w-12 h-12 flex-shrink-0 bg-violet-100 rounded-xl flex items-center justify-center">
-            <FileText className="w-6 h-6 text-violet-600" />
-          </div>
+          <img src="/icons/mypage/posts.png" alt="" aria-hidden="true" className="w-12 h-12 flex-shrink-0 object-contain" />
           <div className="flex-1 min-w-0">
-            <h3 className="font-medium text-gray-800 mb-0.5">📝 작성한 게시글 ({userPosts.length})</h3>
+            <h3 className="font-medium text-gray-800 mb-0.5">작성한 게시글 ({userPosts.length})</h3>
             <p className="text-xs text-gray-500">이 유저가 게시판에 쓴 글을 확인</p>
           </div>
           <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
@@ -409,11 +417,9 @@ function ProgramStatsUserDetailPage() {
           onClick={() => navigate(`/programs/${id}/stats/users/${targetUserId}/comments`)}
           className="w-full flex items-center gap-4 p-5 bg-white border border-gray-200 rounded-[10px] hover:bg-gray-50 hover:border-amber-300 transition text-left"
         >
-          <div className="w-12 h-12 flex-shrink-0 bg-amber-100 rounded-xl flex items-center justify-center">
-            <MessageCircle className="w-6 h-6 text-amber-600" />
-          </div>
+          <img src="/icons/mypage/comments.png" alt="" aria-hidden="true" className="w-12 h-12 flex-shrink-0 object-contain" />
           <div className="flex-1 min-w-0">
-            <h3 className="font-medium text-gray-800 mb-0.5">💬 작성한 댓글 ({allComments.length})</h3>
+            <h3 className="font-medium text-gray-800 mb-0.5">작성한 댓글 ({allComments.length})</h3>
             <p className="text-xs text-gray-500">게시판 글 · 인증 피드에 단 댓글</p>
           </div>
           <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
@@ -433,6 +439,16 @@ function ProgramStatsUserDetailPage() {
         danger
         busy={removeMutation.isPending}
       />
+
+      {/* 응원 보내기 모달 */}
+      {cheerOpen && (
+        <CheerModal
+          programId={id}
+          targetUserId={targetUserId}
+          targetNickname={userInfo.nickname}
+          onClose={() => setCheerOpen(false)}
+        />
+      )}
     </div>
   )
 }

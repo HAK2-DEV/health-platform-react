@@ -164,6 +164,7 @@ function computeInsights(stats, program) {
       kind: 'positive',
       emoji: '✨',
       text: `이번 주 신규 참여자 ${newComersCount}명이 합류했어요.`,
+      action: { label: '참여자 보기', to: 'users' },
     })
   }
   if (streakers.length > 0) {
@@ -172,6 +173,7 @@ function computeInsights(stats, program) {
       kind: 'positive',
       emoji: '🔥',
       text: `${names} 님이 꾸준히 참여 중이에요. 응원 한마디 전해보시는 건 어떠세요?`,
+      action: { label: '활발 참여자 보기', to: 'users?filter=active' },
     })
   }
   if (topMission) {
@@ -179,6 +181,7 @@ function computeInsights(stats, program) {
       kind: 'positive',
       emoji: '📈',
       text: `「${topMission.title}」 인증이 활발해요 (${topMission.count}건). 비슷한 미션을 추가하시면 효과적일 수 있어요.`,
+      action: { label: '미션별 현황 보기', to: 'missions' },
     })
   }
   if (zeroMissions.length > 0) {
@@ -187,6 +190,7 @@ function computeInsights(stats, program) {
       kind: 'suggestion',
       emoji: '🌱',
       text: `${sample}${zeroMissions.length > 2 ? ` 외 ${zeroMissions.length - 2}건` : ''} 참여도가 낮습니다. 적절한 조치를 권고드립니다.`,
+      action: { label: '미션별 현황 보기', to: 'missions' },
     })
   }
   // 시간대 편중 — 한 구간이 50% 이상 차지하면 운영 시점 조정 힌트
@@ -213,6 +217,7 @@ function computeInsights(stats, program) {
         kind: 'positive',
         emoji: '🎯',
         text: `「${m.title}」은 ${peakBucket.emoji} ${formatHour12(m.peakHour)} 즈음에 ${pct}% 인증이 몰려있어요. 같은 시간대를 활용하는 새 미션을 추가하시면 효과적일 수 있어요.`,
+        action: { label: '미션별 현황 보기', to: 'missions' },
       })
     }
 
@@ -241,6 +246,7 @@ function computeInsights(stats, program) {
       kind: 'suggestion',
       emoji: '💌',
       text: `휴면 참여자 ${dormantCount}명이 있어요. 응원 메시지나 새 미션 추가를 권해드려요.`,
+      action: { label: '휴면 참여자 보기', to: 'users?filter=dormant' },
     })
   }
   if (highlights.length === 0) {
@@ -286,11 +292,11 @@ function ProgramInsightsSummary({ stats, program }) {
       transition={{ duration: 0.3 }}
       className="space-y-3 mb-4"
     >
+      <WidgetHighlights insights={insights} onAction={(to) => navigate(`/programs/${programId}/stats/${to}`)} />
       <WidgetMetrics insights={insights} />
       <WidgetTrend insights={insights} />
       <WidgetHourly insights={insights} />
       <WidgetDistribution insights={insights} onSegmentClick={goToFilteredUsers} />
-      <WidgetHighlights insights={insights} />
     </motion.div>
   )
 }
@@ -559,7 +565,7 @@ function WidgetDistribution({ insights, onSegmentClick }) {
 }
 
 // ─── 위젯 4: 이번 주 하이라이트 ──────────────
-function WidgetHighlights({ insights }) {
+function WidgetHighlights({ insights, onAction }) {
   return (
     <div className="bg-white border border-gray-100 rounded-card-lg shadow-soft p-5">
       <div className="flex items-center gap-2 mb-3">
@@ -567,19 +573,32 @@ function WidgetHighlights({ insights }) {
         <h3 className="text-sm font-bold text-gray-800">이번 주 하이라이트</h3>
       </div>
       <div className="space-y-2">
-        {insights.highlights.map((h, i) => (
-          <div
-            key={i}
-            className={`flex gap-2 p-2.5 rounded-xl text-xs leading-relaxed ${
-              h.kind === 'positive' ? 'bg-emerald-50/60'
-              : h.kind === 'suggestion' ? 'bg-amber-50/60'
-              : 'bg-gray-50'
-            }`}
-          >
-            <span className="flex-shrink-0">{h.emoji}</span>
-            <p className="text-gray-700">{h.text}</p>
-          </div>
-        ))}
+        {insights.highlights.map((h, i) => {
+          const cls = `p-2.5 rounded-xl text-xs leading-relaxed ${
+            h.kind === 'positive' ? 'bg-emerald-50/60'
+            : h.kind === 'suggestion' ? 'bg-amber-50/60'
+            : 'bg-gray-50'
+          }`
+          const content = (
+            <div className="flex gap-2 items-center">
+              <span className="flex-shrink-0 self-start">{h.emoji}</span>
+              <p className="text-gray-700 flex-1">{h.text}</p>
+              {h.action && <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />}
+            </div>
+          )
+          return h.action ? (
+            <button
+              key={i}
+              type="button"
+              onClick={() => onAction?.(h.action.to)}
+              className={`${cls} w-full text-left cursor-pointer transition hover:brightness-95 active:brightness-90`}
+            >
+              {content}
+            </button>
+          ) : (
+            <div key={i} className={cls}>{content}</div>
+          )
+        })}
       </div>
     </div>
   )

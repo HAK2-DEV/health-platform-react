@@ -11,13 +11,14 @@ import StickyBackBar from '../../components/common/StickyBackBar'
 import LoadingState from '../../components/common/LoadingState'
 import EmptyState from '../../components/common/EmptyState'
 import UserAvatar from '../../components/common/UserAvatar'
+import CheerModal from '../../components/program/CheerModal'
 
 // 활동 상태 필터 (?filter=active|normal|dormant) — ProgramInsightsSummary 위젯 3 클릭 시 도착
 const DAY_MS = 86_400_000
 const FILTER_META = {
-  active: { label: '🟢 활발 (3일 내)', threshold: 3 },
-  normal: { label: '🟡 보통 (3-7일)', threshold: 7 },
-  dormant: { label: '🔴 휴면 (7일+)', threshold: null },
+  active: { label: '🟢 활발 (3일 내)', short: '활발 참여자', threshold: 3 },
+  normal: { label: '🟡 보통 (3-7일)', short: '보통 참여자', threshold: 7 },
+  dormant: { label: '🔴 휴면 (7일+)', short: '휴면 참여자', threshold: null },
 }
 function matchesFilter(user, filterKey) {
   if (!filterKey || !FILTER_META[filterKey]) return true
@@ -44,6 +45,7 @@ function ProgramStatsUsersPage() {
   const focusPendingId = searchParams.get('pending')  // 가입 알림 딥링크 — 그 신청자로 스크롤
   const pendingRefs = useRef({})
   const [highlightPending, setHighlightPending] = useState(null)
+  const [cheerOpen, setCheerOpen] = useState(false)   // 일괄 응원 모달
 
   const { data: program, isLoading: isProgramLoading } = useQuery({
     queryKey: queryKeys.program(id),
@@ -221,6 +223,17 @@ function ProgramStatsUsersPage() {
         </div>
       )}
 
+      {/* 일괄 응원 — 필터로 좁힌 그룹(활발/보통/휴면) 전체에게 격려 (오늘 이미 받은 사람은 자동 제외) */}
+      {activeFilterMeta && filteredUserStats.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setCheerOpen(true)}
+          className="w-full flex items-center justify-center gap-2 h-11 mb-4 rounded-[10px] bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold transition"
+        >
+          💌 {activeFilterMeta.short} {filteredUserStats.length}명에게 응원 보내기
+        </button>
+      )}
+
       {/* 승인 대기 신청자 — APPROVAL 프로그램만 / 있을 때만 */}
       {pendingApplicants.length > 0 && (
         <div className="mb-6">
@@ -388,6 +401,16 @@ function ProgramStatsUsersPage() {
             ))}
           </div>
         </div>
+      )}
+
+      {/* 일괄 응원 모달 — 현재 필터 그룹 전체 대상 */}
+      {cheerOpen && activeFilterMeta && (
+        <CheerModal
+          programId={id}
+          targetUserIds={filteredUserStats.map(u => u.user_id)}
+          groupLabel={`${activeFilterMeta.short} ${filteredUserStats.length}명`}
+          onClose={() => setCheerOpen(false)}
+        />
       )}
     </div>
   )

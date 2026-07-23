@@ -62,8 +62,19 @@ function ProgramStatsMissionsPage() {
 
   const isOwner = program?.owner_id === userId
 
-  // 펼친 미션(누가 인증했는지 보기) — mission_id, 한 번에 하나만
-  const [openMission, setOpenMission] = useState(null)
+  // 펼친 미션(누가 인증했는지 보기) — mission_id, 한 번에 하나만.
+  //   세부(참여자 인증 게시물)로 들어갔다 뒤로 와도 유지되도록 sessionStorage 에 저장/복원.
+  const OPEN_KEY = `stats-missions-open-${id}`
+  const [openMission, setOpenMission] = useState(() => {
+    try { return sessionStorage.getItem(OPEN_KEY) || null } catch { return null }
+  })
+  const toggleMission = (mid) => {
+    setOpenMission((cur) => {
+      const next = cur === mid ? null : mid
+      try { next ? sessionStorage.setItem(OPEN_KEY, next) : sessionStorage.removeItem(OPEN_KEY) } catch { /* sessionStorage 미지원 */ }
+      return next
+    })
+  }
 
   const { data: stats, isLoading: isStatsLoading } = useQuery({
     queryKey: queryKeys.programStats(id),
@@ -204,7 +215,7 @@ function ProgramStatsMissionsPage() {
                         {/* 제목 행 클릭 → 이 미션을 누가 몇 건 인증했는지 펼침 */}
                         <button
                           type="button"
-                          onClick={() => setOpenMission(isOpen ? null : m.mission_id)}
+                          onClick={() => toggleMission(m.mission_id)}
                           disabled={users.length === 0}
                           className="w-full text-left disabled:cursor-default"
                         >

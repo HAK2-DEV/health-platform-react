@@ -37,6 +37,7 @@ const TYPE_META = {
   TEAM_LEADER_CHANGED:    { cat: 'request', tone: 'violet',  icon: Users,         iconCls: '' },
   INQUIRY_RECEIVED:       { cat: 'request', tone: 'sky',     icon: MessageCircle, iconCls: '' },
   INQUIRY_ANSWERED:       { cat: 'comment', tone: 'sky',     icon: MessageCircle, iconCls: '' },
+  OPERATOR_CHEER:         { cat: 'like',    tone: 'pink',    icon: Heart,         iconCls: 'fill-current' },
 }
 const DEFAULT_META = { cat: 'verify', tone: 'slate', icon: Bell, iconCls: '' }
 
@@ -133,7 +134,7 @@ function NotificationsPage() {
   })
 
   // 사유성 알림(점수 제외·게시글 거절)은 이동 대신 사유 전체를 상세로 펼침. 그 외는 link_path 이동.
-  const REASON_TYPES = new Set(['REVIEW_REJECTED', 'POST_REJECTED'])
+  const REASON_TYPES = new Set(['REVIEW_REJECTED', 'POST_REJECTED', 'OPERATOR_CHEER'])
   const handleClick = (n) => {
     if (!n.is_read) markReadMutation.mutate(n.id)
     if (REASON_TYPES.has(n.type) || !n.link_path) setDetailNotif(n)
