@@ -65,7 +65,9 @@ function MyActivityMissionsPage() {
 
       <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-4">
         <p className="text-xs text-gray-500 mb-1">{program?.name}</p>
-        <h1 className="text-2xl font-medium text-gray-800">🎯 미션별 분포</h1>
+        <h1 className="flex items-center gap-2 text-2xl font-medium text-gray-800">
+          <img src="/icons/mypage/missions.png" alt="" aria-hidden="true" className="w-8 h-8 object-contain" /> 미션별 분포
+        </h1>
         <p className="text-xs text-gray-500 mt-1">
           본인이 인증한 미션 ({activity.approvedCount}건 · {activity.missionStats.length}개 미션)
         </p>
@@ -81,7 +83,7 @@ function MyActivityMissionsPage() {
               className="bg-white border border-gray-200 rounded-2xl p-4"
             >
               <h2 className="text-lg font-semibold text-gray-800 mb-3 flex items-center justify-between gap-2">
-                <span className="truncate">{g.bundleTitle ? `📦 ${g.bundleTitle}` : '🔹 단독 미션'}</span>
+                <span className="truncate">{g.bundleTitle ? g.bundleTitle : '단독 미션'}</span>
                 <span className="text-xs text-gray-500 flex-shrink-0 font-normal">{g.totalCount}건</span>
               </h2>
               <div className="space-y-2.5">

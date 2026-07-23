@@ -57,6 +57,8 @@ const TodayActivityPage = lazy(() => import('./pages/TodayActivityPage'))
 const MyActivityMissionsPage = lazy(() => import('./pages/MyActivityMissionsPage'))
 const MyActivityVerificationsPage = lazy(() => import('./pages/MyActivityVerificationsPage'))
 const MyActivityVerificationsBundlePage = lazy(() => import('./pages/MyActivityVerificationsBundlePage'))
+const MyActivityPostsPage = lazy(() => import('./pages/MyActivityPostsPage'))
+const MyActivityCommentsPage = lazy(() => import('./pages/MyActivityCommentsPage'))
 const JoinByCodePage = lazy(() => import('./pages/JoinByCodePage'))
 const AuthCallbackPage = lazy(() => import('./pages/AuthCallbackPage'))
 const NotificationSettingsPage = lazy(() => import('./pages/NotificationSettingsPage'))
@@ -262,6 +264,12 @@ function AppShell() {
             } />
             <Route path="/profile/activity/:programId/verifications/:bundleParam" element={
               <ProtectedRoute><MyActivityVerificationsBundlePage /></ProtectedRoute>
+            } />
+            <Route path="/profile/activity/:programId/posts" element={
+              <ProtectedRoute><MyActivityPostsPage /></ProtectedRoute>
+            } />
+            <Route path="/profile/activity/:programId/comments" element={
+              <ProtectedRoute><MyActivityCommentsPage /></ProtectedRoute>
             } />
             <Route path="/join" element={<JoinByCodePage />} />
             {/* 약관/정책 — 공개 페이지 (비로그인도 접근 가능) */}

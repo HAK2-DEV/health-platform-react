@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { ChevronRight, Target, FileText, Calendar } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../supabaseClient'
 import {
@@ -11,7 +11,6 @@ import {
   fetchMyActivity,
   formatKstDate,
 } from '../lib/queries'
-import { CATEGORY } from '../lib/constants'
 import { formatRelativeKstDay, getTodayKST } from '../lib/formatters'
 import StickyBackBar from '../components/common/StickyBackBar'
 import LoadingState from '../components/common/LoadingState'
@@ -74,7 +73,9 @@ function MyActivityPage() {
     return (
       <div className="px-4 pt-2 pb-6 max-w-2xl mx-auto">
         <StickyBackBar fallbackPath="/profile" title="프로필로" />
-        <h1 className="text-2xl font-medium text-gray-800 mb-2">📊 내 인증 현황</h1>
+        <h1 className="flex items-center gap-2 text-2xl font-medium text-gray-800 mb-2">
+          <img src="/icons/mypage/status.png" alt="" aria-hidden="true" className="w-7 h-7 object-contain" /> 내 인증 현황
+        </h1>
         <EmptyState
           icon="📋"
           title="참여 중인 프로그램이 없어요"
@@ -90,13 +91,13 @@ function MyActivityPage() {
     <div className="px-4 pt-2 pb-6 max-w-2xl mx-auto">
       <StickyBackBar fallbackPath="/profile" title="프로필로" />
 
-      <h1 className="text-2xl font-medium text-gray-800" style={{ marginBottom: '9px' }}>📊 내 인증 현황</h1>
+      <h1 className="flex items-center gap-2 text-2xl font-medium text-gray-800" style={{ marginBottom: '9px' }}>
+        <img src="/icons/mypage/status.png" alt="" aria-hidden="true" className="w-7 h-7 object-contain" /> 내 인증 현황
+      </h1>
 
       {/* 프로그램 선택 칩 */}
       <div className="flex gap-2 overflow-x-auto -mx-4 px-4 scrollbar-hide" style={{ paddingBottom: '4px', marginBottom: '9px' }}>
         {activePrograms.map(p => {
-          const catKey = p.categories?.[0] || 'ETC'
-          const cat = CATEGORY[catKey] || CATEGORY.ETC
           const isActive = p.id === selectedProgramId
           return (
             <button
@@ -104,13 +105,12 @@ function MyActivityPage() {
               type="button"
               onClick={() => setSelectedProgramId(p.id)}
               className={`
-                flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-sm transition
+                flex-shrink-0 inline-flex items-center px-3 py-2 rounded-full text-sm transition
                 ${isActive
                   ? 'bg-emerald-500 text-white shadow-sm font-medium'
                   : 'bg-white border border-gray-200 text-gray-700 hover:border-emerald-300'}
               `}
             >
-              <span>{cat.emoji}</span>
               <span className="max-w-[140px] truncate">{p.name}</span>
             </button>
           )
@@ -156,7 +156,7 @@ function MyActivityPage() {
           </motion.div>
 
           {/* 14일 활동 */}
-          <h2 className="flex items-center gap-1.5 text-lg font-semibold text-gray-800" style={{ marginBottom: '9px' }}><Calendar className="w-5 h-5 text-gray-500" /> 최근 14일 활동</h2>
+          <h2 className="flex items-center gap-1.5 text-lg font-semibold text-gray-800" style={{ marginBottom: '9px' }}><img src="/icons/mypage/calendar.png" alt="" aria-hidden="true" className="w-5 h-5 object-contain" /> 최근 14일 활동</h2>
           <div className="bg-white border border-gray-200 rounded-2xl p-4" style={{ marginBottom: '9px' }}>
             <div className="flex items-end gap-1 h-20">
               {recent14Days.map(d => {
@@ -194,11 +194,9 @@ function MyActivityPage() {
               onClick={() => navigate(`/profile/activity/${selectedProgramId}/missions`)}
               className="w-full flex items-center gap-4 p-5 bg-white border border-gray-200 rounded-2xl hover:bg-gray-50 hover:border-emerald-300 transition text-left"
             >
-              <div className="w-12 h-12 flex-shrink-0 bg-emerald-100 rounded-xl flex items-center justify-center">
-                <Target className="w-6 h-6 text-emerald-600" />
-              </div>
+              <img src="/icons/mypage/missions.png" alt="" aria-hidden="true" className="w-12 h-12 flex-shrink-0 object-contain" />
               <div className="flex-1 min-w-0">
-                <h3 className="font-medium text-gray-800 mb-0.5">🎯 미션별 분포</h3>
+                <h3 className="font-medium text-gray-800 mb-0.5">미션별 분포</h3>
                 <p className="text-xs text-gray-500">어떤 미션을 얼마나 했는지 묶음별 분석</p>
               </div>
               <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
@@ -209,12 +207,36 @@ function MyActivityPage() {
               onClick={() => navigate(`/profile/activity/${selectedProgramId}/verifications`)}
               className="w-full flex items-center gap-4 p-5 bg-white border border-gray-200 rounded-2xl hover:bg-gray-50 hover:border-sky-300 transition text-left"
             >
-              <div className="w-12 h-12 flex-shrink-0 bg-sky-100 rounded-xl flex items-center justify-center">
-                <FileText className="w-6 h-6 text-sky-600" />
-              </div>
+              <img src="/icons/mypage/records.png" alt="" aria-hidden="true" className="w-12 h-12 flex-shrink-0 object-contain" />
               <div className="flex-1 min-w-0">
-                <h3 className="font-medium text-gray-800 mb-0.5">📝 인증 기록</h3>
+                <h3 className="font-medium text-gray-800 mb-0.5">인증 기록</h3>
                 <p className="text-xs text-gray-500">실제 제출한 사진 · 기록 · 소감을 시간순으로</p>
+              </div>
+              <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => navigate(`/profile/activity/${selectedProgramId}/posts`)}
+              className="w-full flex items-center gap-4 p-5 bg-white border border-gray-200 rounded-2xl hover:bg-gray-50 hover:border-violet-300 transition text-left"
+            >
+              <img src="/icons/mypage/posts.png" alt="" aria-hidden="true" className="w-12 h-12 flex-shrink-0 object-contain" />
+              <div className="flex-1 min-w-0">
+                <h3 className="font-medium text-gray-800 mb-0.5">내가 쓴 게시글</h3>
+                <p className="text-xs text-gray-500">커뮤니티에 작성한 글 모아보기</p>
+              </div>
+              <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => navigate(`/profile/activity/${selectedProgramId}/comments`)}
+              className="w-full flex items-center gap-4 p-5 bg-white border border-gray-200 rounded-2xl hover:bg-gray-50 hover:border-amber-300 transition text-left"
+            >
+              <img src="/icons/mypage/comments.png" alt="" aria-hidden="true" className="w-12 h-12 flex-shrink-0 object-contain" />
+              <div className="flex-1 min-w-0">
+                <h3 className="font-medium text-gray-800 mb-0.5">내가 쓴 댓글</h3>
+                <p className="text-xs text-gray-500">인증 피드 · 커뮤니티 댓글 모아보기</p>
               </div>
               <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
             </button>
