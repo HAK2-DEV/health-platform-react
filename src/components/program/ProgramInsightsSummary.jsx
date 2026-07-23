@@ -540,7 +540,7 @@ function WidgetHourly({ insights }) {
       )}
 
       {/* 24개 막대 — peak 강조 색. 꾹 누르면 해당 시각 건수 툴팁 */}
-      <div className="relative flex items-end gap-[2px] h-14 mb-1">
+      <div className="relative flex items-end gap-[2px] h-14 mb-1 select-none" style={{ WebkitTouchCallout: 'none', touchAction: 'none' }}>
         {activeHour !== null && (
           <div
             className="absolute bottom-full z-20 -translate-x-1/2 mb-1 pointer-events-none"

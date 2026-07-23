@@ -116,5 +116,5 @@ export default function ParticipationTrendChart({ data, height = 200, field = 'r
     }
   }, [data, field, unit, maxCap, subField, subUnit])
 
-  return <canvas ref={cvRef} style={{ width: '100%', height: `${height}px`, display: 'block', touchAction: 'none', borderRadius: '10px' }} />
+  return <canvas ref={cvRef} style={{ width: '100%', height: `${height}px`, display: 'block', touchAction: 'none', borderRadius: '10px', userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }} />
 }
