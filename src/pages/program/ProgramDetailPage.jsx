@@ -1091,6 +1091,8 @@ function ProgramDetailPage() {
     // 카드형 홈(달리기 + 신규 표준) — 탭 바가 없으니 서브화면에선 헤더 뒤로 = 홈(개요)으로,
     // 홈에서 뒤로 = 대시보드로 나감
     if (cardHome) {
+      // 외부(퀴즈 「랭킹 보기」 등)에서 특정 탭으로 직접 들어온 경우엔 개요가 아니라 이전 화면으로 복귀
+      if (activeTab !== 'overview' && location.state?.fromExternalTab) return navigate(-1)
       if (activeTab !== 'overview') return setActiveTab('overview')
       return navigate('/dashboard')
     }

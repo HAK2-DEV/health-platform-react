@@ -210,7 +210,7 @@ function QuizSolvePage() {
 
         <div className="space-y-2">
           {rankingOn && (
-            <button type="button" onClick={() => navigate(`/programs/${id}?tab=ranking`)}
+            <button type="button" onClick={() => navigate(`/programs/${id}?tab=ranking`, { state: { fromExternalTab: true } })}
               className="w-full h-11 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-[14px] transition flex items-center justify-center gap-1">
               🏆 랭킹 보기
             </button>

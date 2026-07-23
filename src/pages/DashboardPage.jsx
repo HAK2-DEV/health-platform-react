@@ -271,12 +271,16 @@ function DashboardPage() {
   const [browseOpen, setBrowseOpen] = useState(false)
   const [showWelcome, setShowWelcome] = useState(false)
   // 대표 카드 모드 토글 (운영중 ⇄ 참여중) — 둘 다 있을 때 스와이프로 전환
-  const [viewMode, setViewMode] = useState('operator')
+  const [viewMode, setViewMode] = useState(() => {
+    // 마지막으로 보던 모드(운영중/참여중) 복원 — 뒤로 왔을 때 그 모드로
+    try { return sessionStorage.getItem('dash-viewmode') === 'participant' ? 'participant' : 'operator' } catch { return 'operator' }
+  })
   const [modeDir, setModeDir] = useState(0)
   // 프로그램 캐러셀 — 좌우 스와이프는 「현재 모드의 프로그램 넘기기」(본인 결정 2026-07-16).
   //   기존의 「스와이프로 운영중↔참여중 전환」은 제스처가 겹쳐 폐기 → 모드 전환은 토글 버튼 전담.
   const trackRef = useRef(null)
   const [slide, setSlide] = useState(0)
+  const restoredRef = useRef(false)   // 뒤로 복귀 시 선택 프로그램 복원 — 마운트당 1회
 
   useEffect(() => {
     if (session === null) navigate('/login')
@@ -351,9 +355,11 @@ function DashboardPage() {
   const canToggleMode = myPrograms.length > 0 && activePrograms.length > 0
   const effectiveMode = canToggleMode ? viewMode : (isOperator ? 'operator' : 'participant')
   const showOperator = effectiveMode === 'operator'
-  // 캐러셀에 깔 목록 = 현재 모드의 프로그램 전부. featured(첫 장)는 넛지·랭킹 섹션이 계속 사용.
+  // 캐러셀에 깔 목록 = 현재 모드의 프로그램 전부.
   const slideList = showOperator ? myPrograms : activePrograms
-  const featured = slideList[0] || null
+  // featured = 캐러셀에서 지금 보고 있는 슬라이드(넛지·랭킹·참여자수 등이 선택 프로그램을 따라감).
+  //   slide 가 목록 범위를 벗어나면(모드전환 직후 등) 첫 장으로 폴백.
+  const featured = slideList[slide] || slideList[0] || null
   // 캐러셀에서 현재 보고 있는 프로그램(슬라이드 인덱스) — 운영 현황 지표가 이걸 따라감
   const selectedOperatorProgram = showOperator ? (slideList[slide] || null) : null
   const { data: opToday } = useQuery({
@@ -391,12 +397,33 @@ function DashboardPage() {
     if (!canToggleMode || m === effectiveMode) return
     setModeDir(m === 'participant' ? 1 : -1)
     setViewMode(m)
+    try { sessionStorage.setItem('dash-viewmode', m) } catch { /* 미지원 */ }
   }
   // 모드가 바뀌면 목록이 통째로 바뀌므로 캐러셀을 첫 장으로 되감음
   useEffect(() => {
     setSlide(0)
     if (trackRef.current) trackRef.current.scrollLeft = 0
   }, [effectiveMode])
+
+  // 뒤로 복귀 시 — 직전에 클릭했던 프로그램을 다시 메인(캐러셀 현재 장)으로 복원.
+  //   카드 클릭 때 sessionStorage 에 저장한 id 를 찾아 그 인덱스로 스크롤. 마운트당 1회만(스크롤 방해 X).
+  useEffect(() => {
+    if (restoredRef.current || slideList.length === 0) return
+    let savedId = null
+    try { savedId = sessionStorage.getItem(`dash-sel-${effectiveMode}`) } catch { /* 미지원 */ }
+    restoredRef.current = true
+    if (!savedId) return
+    const idx = slideList.findIndex(p => p.id === savedId)
+    if (idx > 0) {
+      setSlide(idx)
+      requestAnimationFrame(() => {
+        const el = trackRef.current
+        if (!el || !el.firstElementChild) return
+        el.scrollLeft = idx * (el.firstElementChild.offsetWidth + 12)
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slideList, effectiveMode])
   // 스크롤 위치 → 현재 페이지 인덱스 (도트 표시용)
   const onTrackScroll = (e) => {
     const el = e.currentTarget
@@ -585,7 +612,10 @@ function DashboardPage() {
                       program={p}
                       participants={activeCounts[p.id] ?? null}
                       active={i === slide}
-                      onClick={() => navigate(`/programs/${p.id}`)}
+                      onClick={() => {
+                        try { sessionStorage.setItem(`dash-sel-${effectiveMode}`, p.id) } catch { /* 미지원 */ }
+                        navigate(`/programs/${p.id}`)
+                      }}
                       newMission={newCountsFor(p.id).mission}
                       newQuiz={newCountsFor(p.id).quiz}
                     />
