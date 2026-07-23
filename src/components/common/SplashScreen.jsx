@@ -22,12 +22,23 @@ const pop = {
 }
 
 function SplashScreen() {
-  const [show, setShow] = useState(true)
+  // 업데이트 reload 로 진입한 경우엔 이미 업데이트 스플래시(3D 새싹)를 봤으므로 초기 스플래시 생략
+  //   (로딩화면 2번 노출 방지). 플래그는 한 번만 사용하고 제거.
+  const [show, setShow] = useState(() => {
+    try {
+      if (sessionStorage.getItem('pwa-updating')) {
+        sessionStorage.removeItem('pwa-updating')
+        return false
+      }
+    } catch { /* sessionStorage 미지원 */ }
+    return true
+  })
 
   useEffect(() => {
+    if (!show) return
     const t = setTimeout(() => setShow(false), DURATION_MS)
     return () => clearTimeout(t)
-  }, [])
+  }, [show])
 
   return (
     <AnimatePresence>

@@ -3,9 +3,9 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronLeft } from 'lucide-react'
 
 // 데모 — 달리기 러너 프레임 애니메이션 (/runner-anim-demo).
-//   8프레임(1~8) 순환 = 한 러닝 사이클(팔·다리 실제 움직임). 탭할수록 speed↑ → ① 프레임 가속 ② 상체 앞으로 숙임(스프린트).
-//   안 누르면 서서히 감속 → 정지(1번 프레임). + 먼지 퍼프·속도선.
-const FRAMES = Array.from({ length: 18 }, (_, i) => `/icons/running/run/${i + 1}.png`)
+//   30프레임 순환 = 러닝 사이클(팔·다리 실제 움직임, 체커보드 배경 제거·높이 정규화). 탭할수록 speed↑
+//   → ① 프레임 가속 ② 상체 앞으로 숙임(스프린트). 안 누르면 서서히 감속 → 정지(1번). + 먼지 퍼프·속도선.
+const FRAMES = Array.from({ length: 30 }, (_, i) => `/icons/running/run/${i + 1}.png`)
 const MAX = 6
 
 function RunnerAnimDemo() {
@@ -20,7 +20,7 @@ function RunnerAnimDemo() {
   useEffect(() => {
     clearInterval(frameRef.current)
     if (speed <= 0) { setFrame(0); return }
-    const interval = Math.max(26, 80 - speed * 9)      // speed 높을수록 프레임 전환 빠름(18프레임)
+    const interval = Math.max(18, 52 - speed * 6)      // 30프레임 — speed 높을수록 프레임 전환 빠름
     frameRef.current = setInterval(() => setFrame(f => (f + 1) % FRAMES.length), interval)
     return () => clearInterval(frameRef.current)
   }, [speed])

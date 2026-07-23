@@ -22,6 +22,9 @@ export function onNeedRefresh(cb) {
 
 // 「새로고침」 클릭 — 새 SW 활성화 + 페이지 reload (updateSW 가 reload 까지 수행)
 export function applyUpdate() {
+  // 업데이트 reload 표시 — reload 후 SplashScreen 이 이 플래그를 보고 초기 스플래시를 생략한다
+  //   (이미 업데이트 스플래시=3D 새싹을 봤으므로 로딩화면 2번 노출 방지). sessionStorage 는 reload 후에도 유지.
+  try { sessionStorage.setItem('pwa-updating', '1') } catch { /* sessionStorage 미지원 */ }
   if (_updateSW) _updateSW(true)
   else window.location.reload()
 }

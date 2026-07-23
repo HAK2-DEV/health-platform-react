@@ -5,6 +5,7 @@ import WeeklyStreak from './WeeklyStreak'
 import FlameIcon from '../common/FlameIcon'
 import RunningCourseMini from './RunningCourseMini'
 import CountUp from '../common/CountUp'
+import TapRunner from './TapRunner'
 import { NavCard } from './ProgramHome'
 
 // 달리기 테마 전용 홈(대시보드) — 목업 기준 UI (2026-06-30, v2).
@@ -401,7 +402,8 @@ function RunningHome({
         {/* 좌: 제목(상단) + 기간 */}
         <div className="w-[42%] flex-shrink-0 px-4 py-3 flex flex-col justify-center">
           <div className="flex items-center gap-1.5 mb-0.5">
-            <AssetImg src={`${RUN}/runner.png`} className="w-5 h-5 object-contain" fallback={<span className="text-[15px]">🏃</span>} />
+            {/* 탭하면 달리는 러너(30프레임) — 원래 이모지(~16px)와 동일 크기. 탭할수록 가속+상체 숙임. */}
+            <TapRunner size={16} />
             <h3 className="text-[13px] font-bold text-gray-800 truncate">프로그램 진행률</h3>
           </div>
           <p className="text-[11px] text-gray-400 leading-snug">{yy(startDate)} ~ {yy(endDate)}</p>
