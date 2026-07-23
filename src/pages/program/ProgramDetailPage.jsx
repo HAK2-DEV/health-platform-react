@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect, lazy, Suspense } from 'react'
+import { useState, useMemo, useRef, useEffect, useLayoutEffect, lazy, Suspense } from 'react'
 import { useParams, useNavigate, Link, useSearchParams, useLocation } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -206,6 +206,15 @@ function ProgramDetailPage() {
       return next
     }, { replace: true })
   }
+
+  // 탭 전환 시 상단부터 시작 — activeTab 은 ?tab= 쿼리라 pathname 이 안 바뀌어 App 전역 스크롤
+  //   리셋이 안 걸림(예: 개요에서 스크롤 내린 뒤 미션 탭 진입 시 그대로 내려간 채 시작).
+  //   최초 마운트는 건너뜀(App 이 처리). 운영자 관리 패널 진입은 이후 rAF 로 그 위치로 스크롤하므로 그쪽이 이김.
+  const didMountTabRef = useRef(false)
+  useLayoutEffect(() => {
+    if (!didMountTabRef.current) { didMountTabRef.current = true; return }
+    window.scrollTo(0, 0)
+  }, [activeTab])
 
   // 전체보기 토글 시 해당 섹션 viewport 상단으로
   const missionSectionRef = useRef(null)
