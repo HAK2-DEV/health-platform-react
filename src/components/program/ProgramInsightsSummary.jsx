@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Activity, Sparkles, TrendingUp, TrendingDown, Minus, Lightbulb, ChevronRight, ChevronDown, Clock } from 'lucide-react'
+import { Activity, Sparkles, TrendingUp, TrendingDown, Minus, Lightbulb, ChevronRight, ChevronDown, Clock, HelpCircle } from 'lucide-react'
 import { formatKstDate } from '../../lib/queries'
 import { getKstHour, formatHour12, TIME_BUCKETS, bucketOfHour } from '../../lib/formatters'
+import ParticipationTrendChart from './ParticipationTrendChart'
 
 // Day 65 — 운영자 인사이트 위젯 4종 (ProgramStatsPage 상단).
 //   1) 3대 지표 (참여율/다양성/꾸준함) — 종합 점수 대신 각 bar 로 분리
@@ -52,15 +53,15 @@ function computeInsights(stats, program) {
     ? Math.round((activeMissionsCount / totalMissionsCount) * 100)
     : 0
 
-  // 꾸준함: 최근 7일 중 인증이 1건 이상 있는 날의 비율 (참여자 평균이 아니라 프로그램 전체 활동일)
+  // 이번 주 참여(주간 도달): 최근 7일 동안 1회 이상 인증한 참여자 / 전체 참여자.
+  //   "매일은 아니어도 이번 주에 살아있는 사람" 비율. 오늘 참여(일간)와 같은 분모라 짝지어 비교 가능.
   const recent7Dates = new Set()
   for (let i = 0; i < 7; i++) recent7Dates.add(getDaysAgo(i))
-  const activeDays = new Set()
+  const weeklyActiveUsers = new Set()
   for (const r of verifications) {
-    const d = formatKstDate(new Date(r.submitted_at))
-    if (recent7Dates.has(d)) activeDays.add(d)
+    if (recent7Dates.has(formatKstDate(new Date(r.submitted_at)))) weeklyActiveUsers.add(r.user_id)
   }
-  const consistency = Math.round((activeDays.size / 7) * 100)
+  const weeklyReach = participantsCount > 0 ? Math.round((weeklyActiveUsers.size / participantsCount) * 100) : 0
 
   // ─── 시간대 패턴 (KST 0-23) ────────────────
   // 전체 누적 인증의 시간대 분포 — 운영자가 미션 시간을 조정할 때의 근거
@@ -115,19 +116,41 @@ function computeInsights(stats, program) {
     const count = verifications.filter(r => formatKstDate(new Date(r.submitted_at)) === d).length
     trend7.push({ date: d, count })
   }
-  // 오늘 참여율 7일 추세 — 날짜별 (그날 인증한 참여자 수 / 전체 참여자) %. 도넛 클릭 시 선그래프.
-  const participationTrend = []
-  for (let i = 6; i >= 0; i--) {
-    const d = getDaysAgo(i)
-    const dayUsers = new Set(
-      verifications.filter(r => formatKstDate(new Date(r.submitted_at)) === d).map(r => r.user_id)
-    )
-    participationTrend.push({
-      date: d,
-      rate: participantsCount > 0 ? Math.round((dayUsers.size / participantsCount) * 100) : 0,
-      count: dayUsers.size,
-    })
+  // 시계열 (프로그램 시작일~오늘) — 참여율·인증건수 두 계열을 같은 날짜 범위로 구성.
+  //   일자별 고유참여자 집합 + 인증건수를 1회 순회로 집계 후 날짜 순회(효율적). 최대 400일 가드.
+  //   참여율=도넛 클릭 팝업 차트, 인증건수=통계 화면 인라인 차트(둘 다 인터랙티브).
+  const dayUserMap = new Map()
+  const dayVerifCount = new Map()
+  for (const r of verifications) {
+    const ds = formatKstDate(new Date(r.submitted_at))
+    if (!dayUserMap.has(ds)) dayUserMap.set(ds, new Set())
+    dayUserMap.get(ds).add(r.user_id)
+    dayVerifCount.set(ds, (dayVerifCount.get(ds) || 0) + 1)
   }
+  const rateOfDay = (ds) => {
+    const s = dayUserMap.get(ds)
+    return { date: ds, rate: participantsCount > 0 ? Math.round(((s?.size || 0) / participantsCount) * 100) : 0, count: s?.size || 0 }
+  }
+  const countOfDay = (ds) => ({ date: ds, count: dayVerifCount.get(ds) || 0 })
+  const trendDates = []
+  const todayStr = formatKstDate(new Date())
+  const startStr = program?.start_date || null
+  if (startStr && startStr <= todayStr) {
+    let cur = new Date(`${startStr}T00:00:00+09:00`)
+    const endTs = new Date(`${todayStr}T00:00:00+09:00`).getTime()
+    let guard = 0
+    while (cur.getTime() <= endTs && guard < 400) {
+      trendDates.push(formatKstDate(cur))
+      cur = new Date(cur.getTime() + DAY_MS)
+      guard++
+    }
+  }
+  if (trendDates.length === 0) {
+    // 시작일 없음/미래 → 최근 14일 폴백
+    for (let i = 13; i >= 0; i--) trendDates.push(getDaysAgo(i))
+  }
+  const participationTrend = trendDates.map(rateOfDay)
+  const verificationTrend = trendDates.map(countOfDay)
 
   // 지난주 동일 기간 vs 이번주 비교
   let last7Count = 0
@@ -301,15 +324,16 @@ function computeInsights(stats, program) {
   return {
     participationRate,
     diversity,
-    consistency,
+    weeklyReach,
     metrics: {
       todayActive,
       participants: participantsCount,
       activeMissions: activeMissionsCount,
       totalMissions: totalMissionsCount,
-      activeDays7: activeDays.size,
+      weeklyActive: weeklyActiveUsers.size,
     },
     participationTrend,
+    verificationTrend,
     trend7,
     last7Count,
     trendDelta,
@@ -351,10 +375,9 @@ function ProgramInsightsSummary({ stats, program }) {
 }
 
 // ─── 위젯 1: 프로그램 상태 (도넛 게이지 3종 + 구체 수치) ───
-//   오늘 참여 도넛 클릭 → 최근 7일 참여율 추세 선그래프 펼침.
-const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토']
-
-function DonutGauge({ pct, hex, label, num, den, unit, onClick, expanded }) {
+//   오늘 참여 도넛 클릭 → 일자별 참여율 추세 인터랙티브 차트 팝업.
+function DonutGauge({ pct, hex, label, num, den, unit, onClick, expanded, tip }) {
+  const [tipOpen, setTipOpen] = useState(false)
   const s = 74, sw = 9, r = (s - sw) / 2, c = 2 * Math.PI * r
   const off = c * (1 - Math.min(100, Math.max(0, pct)) / 100)
   const inner = (
@@ -367,47 +390,32 @@ function DonutGauge({ pct, hex, label, num, den, unit, onClick, expanded }) {
         <text x={s / 2} y={s / 2} textAnchor="middle" dominantBaseline="central" fontSize="16" fontWeight="800" fill="#111827">{pct}%</text>
       </svg>
       <span className="text-[12px] font-bold text-gray-800 inline-flex items-center gap-0.5 leading-tight text-center">
-        {label}{onClick && <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`} />}
+        {label}
+        {onClick && <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`} />}
+        {tip && !onClick && (
+          <button type="button" aria-label={`${label} 설명`}
+            onClick={(e) => { e.stopPropagation(); setTipOpen(v => !v) }}
+            className="text-gray-300 hover:text-gray-500 leading-none">
+            <HelpCircle className="w-3.5 h-3.5" />
+          </button>
+        )}
       </span>
       <span className="text-[11px] text-gray-400 tabular-nums">{num}/{den}{unit}</span>
+      {tip && tipOpen && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setTipOpen(false)} />
+          <div className="absolute bottom-full mb-1.5 left-1/2 -translate-x-1/2 z-20 w-40 rounded-lg bg-gray-900 text-white text-[11px] font-normal leading-snug px-2.5 py-2 shadow-lg text-center whitespace-pre-line">
+            {tip}
+            <span className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-gray-900" />
+          </div>
+        </>
+      )}
     </>
   )
   return onClick ? (
-    <button type="button" onClick={onClick} className="flex flex-col items-center gap-1.5 flex-1 min-w-0 py-1 rounded-xl hover:bg-gray-50 transition outline-none">{inner}</button>
+    <button type="button" onClick={onClick} className="relative flex flex-col items-center gap-1.5 flex-1 min-w-0 py-1 rounded-xl hover:bg-gray-50 transition outline-none">{inner}</button>
   ) : (
-    <div className="flex flex-col items-center gap-1.5 flex-1 min-w-0 py-1">{inner}</div>
-  )
-}
-
-// 최근 7일 참여율 선그래프 — 각 점 위에 % 값 표기(팝업용)
-function ParticipationTrend({ data }) {
-  const w = 300, h = 110, padTop = 18, padBottom = 6
-  const max = Math.max(10, ...data.map(d => d.rate))
-  const stepX = w / Math.max(1, data.length - 1)
-  const pts = data.map((d, i) => ({
-    x: i * stepX,
-    y: padTop + (1 - d.rate / max) * (h - padTop - padBottom),
-    rate: d.rate,
-  }))
-  const poly = pts.map(p => `${p.x},${p.y}`).join(' ')
-  const last = pts[pts.length - 1]
-  return (
-    <div>
-      <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ maxHeight: '120px' }}>
-        <polygon points={`0,${h} ${poly} ${w},${h}`} fill="rgba(16,185,129,0.1)" />
-        <polyline points={poly} fill="none" stroke="rgb(16 185 129)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-        {pts.map((p, i) => (
-          <g key={i}>
-            <circle cx={p.x} cy={p.y} r={i === pts.length - 1 ? 3.5 : 2.5} fill="rgb(16 185 129)" />
-            <text x={Math.max(10, Math.min(w - 10, p.x))} y={p.y - 7} textAnchor="middle" fontSize="10" fontWeight="700" fill="#4b5563">{p.rate}%</text>
-          </g>
-        ))}
-        {last && <circle cx={last.x} cy={last.y} r="6" fill="rgb(16 185 129)" fillOpacity="0.25" />}
-      </svg>
-      <div className="flex justify-between mt-1 text-[11px] text-gray-400">
-        {data.map((d, i) => <span key={i}>{DAY_LABELS[new Date(d.date).getDay()]}</span>)}
-      </div>
-    </div>
+    <div className="relative flex flex-col items-center gap-1.5 flex-1 min-w-0 py-1">{inner}</div>
   )
 }
 
@@ -424,9 +432,11 @@ function WidgetMetrics({ insights }) {
         <DonutGauge pct={insights.participationRate} hex="#10b981" label="오늘 참여"
           num={m.todayActive} den={m.participants} unit="명" onClick={() => setShowTrend(v => !v)} expanded={showTrend} />
         <DonutGauge pct={insights.diversity} hex="#0ea5e9" label="미션 활용"
-          num={m.activeMissions} den={m.totalMissions} unit="개" />
-        <DonutGauge pct={insights.consistency} hex="#f59e0b" label="이번 주 활동일"
-          num={m.activeDays7} den={7} unit="일" />
+          num={m.activeMissions} den={m.totalMissions} unit="개"
+          tip={"등록한 미션 중 인증이 한 번이라도 올라온 미션의 비율이에요.\n낮으면 아무도 안 쓰는 미션이 있다는 뜻이에요."} />
+        <DonutGauge pct={insights.weeklyReach} hex="#f59e0b" label="이번 주 참여"
+          num={m.weeklyActive} den={m.participants} unit="명"
+          tip={"최근 7일 동안 한 번이라도 인증한 참여자 비율이에요.\n매일은 아니어도 이번 주에 활동한 사람을 보여줘요."} />
       </div>
       {showTrend && (
         <div
@@ -437,10 +447,10 @@ function WidgetMetrics({ insights }) {
           <div className="w-full max-w-[360px] rounded-2xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-2 mb-0.5">
               <span className="text-base">👥</span>
-              <h3 className="text-[15px] font-bold text-gray-800">오늘 참여 · 최근 7일 추세</h3>
+              <h3 className="text-[15px] font-bold text-gray-800">일자별 참여율 추세</h3>
             </div>
             <p className="text-[12px] text-gray-400 mb-3">그날 활동한 참여자 비율(%)이에요. (전체 {insights.metrics.participants}명 기준)</p>
-            <ParticipationTrend data={insights.participationTrend || []} />
+            <ParticipationTrendChart data={insights.participationTrend || []} subField="count" subUnit="명" />
             <button
               type="button"
               onClick={() => setShowTrend(false)}
@@ -457,18 +467,7 @@ function WidgetMetrics({ insights }) {
 
 // ─── 위젯 2: 7일 추세 ────────────────────────
 function WidgetTrend({ insights }) {
-  const { trend7, last7Count, trendDelta, trendDeltaPct } = insights
-  const max = Math.max(1, ...trend7.map(d => d.count))
-  const w = 280
-  const h = 80
-  const stepX = w / Math.max(1, trend7.length - 1)
-  const points = trend7.map((d, i) => {
-    const x = i * stepX
-    const y = h - (d.count / max) * (h - 8) - 4
-    return { x, y, count: d.count, date: d.date }
-  })
-  const polylinePts = points.map(p => `${p.x},${p.y}`).join(' ')
-  const last = points[points.length - 1]
+  const { verificationTrend, last7Count, trendDelta, trendDeltaPct } = insights
 
   // 추세 화살표
   let TrendIcon = Minus
@@ -480,11 +479,14 @@ function WidgetTrend({ insights }) {
     <div className="bg-white border border-gray-100 rounded-card-lg shadow-soft p-5">
       <div className="flex items-center gap-2 mb-3">
         <Sparkles className="w-4 h-4 text-emerald-600" />
-        <h3 className="text-sm font-bold text-gray-800">최근 7일 인증 추세</h3>
-        <span className={`inline-flex items-center gap-0.5 text-xs font-semibold ml-auto ${trendCls}`}>
-          <TrendIcon className="w-3.5 h-3.5" />
-          {trendDelta >= 0 ? '+' : ''}{trendDelta}
-          {trendDeltaPct !== null && ` (${trendDeltaPct >= 0 ? '+' : ''}${trendDeltaPct}%)`}
+        <h3 className="text-sm font-bold text-gray-800">인증 추세</h3>
+        <span className="ml-auto flex items-center gap-1">
+          <span className="text-[11px] text-gray-400 font-medium">지난주 대비</span>
+          <span className={`inline-flex items-center gap-0.5 text-xs font-semibold ${trendCls}`}>
+            <TrendIcon className="w-3.5 h-3.5" />
+            {trendDelta >= 0 ? '+' : ''}{trendDelta}
+            {trendDeltaPct !== null && ` (${trendDeltaPct >= 0 ? '+' : ''}${trendDeltaPct}%)`}
+          </span>
         </span>
       </div>
       <div className="flex items-end gap-3">
@@ -492,28 +494,8 @@ function WidgetTrend({ insights }) {
           {last7Count}<span className="text-xs text-gray-500 font-medium ml-1">건/주</span>
         </p>
       </div>
-      <svg viewBox={`0 0 ${w} ${h}`} className="w-full mt-3" preserveAspectRatio="none" style={{ maxHeight: '80px' }}>
-        {/* 영역 채우기 */}
-        <polygon
-          points={`0,${h} ${polylinePts} ${w},${h}`}
-          fill="rgb(16 185 129 / 0.1)"
-        />
-        <polyline
-          points={polylinePts}
-          fill="none"
-          stroke="rgb(16 185 129)"
-          strokeWidth="2"
-          strokeLinejoin="round"
-          strokeLinecap="round"
-        />
-        {/* 마지막 점 강조 */}
-        <circle cx={last.x} cy={last.y} r="4" fill="rgb(16 185 129)" />
-        <circle cx={last.x} cy={last.y} r="6" fill="rgb(16 185 129)" fillOpacity="0.3" />
-      </svg>
-      <div className="flex justify-between mt-1 text-xs text-gray-400">
-        {trend7.map((d, i) => (
-          <span key={i}>{(['일','월','화','수','목','금','토'])[new Date(d.date).getDay()]}</span>
-        ))}
+      <div className="mt-3">
+        <ParticipationTrendChart data={verificationTrend || []} field="count" unit="건" maxCap={Infinity} height={180} />
       </div>
     </div>
   )
@@ -524,6 +506,7 @@ function WidgetTrend({ insights }) {
 // 4구간 (새벽·아침·낮·저녁/밤) 묶음으로 큰 그림도 제공.
 function WidgetHourly({ insights }) {
   const { hourly, hourlyTotal, peakHour, bucketCounts } = insights
+  const [activeHour, setActiveHour] = useState(null)
 
   if (hourlyTotal === 0) {
     return (
@@ -556,8 +539,19 @@ function WidgetHourly({ insights }) {
         </p>
       )}
 
-      {/* 24개 막대 — peak 강조 색 */}
-      <div className="flex items-end gap-[2px] h-14 mb-1">
+      {/* 24개 막대 — peak 강조 색. 꾹 누르면 해당 시각 건수 툴팁 */}
+      <div className="relative flex items-end gap-[2px] h-14 mb-1">
+        {activeHour !== null && (
+          <div
+            className="absolute bottom-full z-20 -translate-x-1/2 mb-1 pointer-events-none"
+            style={{ left: `${Math.min(90, Math.max(10, ((activeHour + 0.5) / 24) * 100))}%` }}
+          >
+            <div className="relative rounded-md bg-gray-900 text-white text-[11px] font-bold px-2 py-1 whitespace-nowrap shadow-lg">
+              {formatHour12(activeHour)} · {hourly[activeHour]}건
+              <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+            </div>
+          </div>
+        )}
         {hourly.map((count, h) => {
           const pct = maxCount > 0 ? (count / maxCount) * 100 : 0
           const isPeak = h === peakHour && count > 0
@@ -565,8 +559,12 @@ function WidgetHourly({ insights }) {
           return (
             <div
               key={h}
-              className="flex-1 flex flex-col justify-end h-full"
+              className="flex-1 flex flex-col justify-end h-full cursor-pointer"
               title={`${formatHour12(h)} · ${count}건`}
+              onPointerDown={() => setActiveHour(h)}
+              onPointerUp={() => setActiveHour(null)}
+              onPointerLeave={() => setActiveHour(cur => (cur === h ? null : cur))}
+              onPointerCancel={() => setActiveHour(null)}
             >
               <div
                 className={`w-full rounded-sm transition-all ${
@@ -575,7 +573,7 @@ function WidgetHourly({ insights }) {
                     : isPeak
                       ? 'bg-emerald-500'
                       : `${bucket.color} opacity-60`
-                }`}
+                } ${activeHour === h ? 'ring-2 ring-gray-900/30' : ''}`}
                 style={{ height: count === 0 ? '4px' : `${Math.max(8, pct)}%` }}
               />
             </div>
