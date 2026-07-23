@@ -16,7 +16,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 //   title:      버튼 tooltip
 //   breadcrumb: string[] — 뒤로가기 옆에 「A > B > C」 형태로 표시 (선택)
 //                마지막 항목이 현재 페이지 — 진하게, 나머지는 회색
-function StickyBackBar({ onClick, fallbackPath, title, breadcrumb, rightSlot }) {
+function StickyBackBar({ onClick, fallbackPath, title, breadcrumb, rightSlot, emphasizeLast }) {
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -63,7 +63,9 @@ function StickyBackBar({ onClick, fallbackPath, title, breadcrumb, rightSlot }) 
                   <span
                     className={`${isFirst ? 'truncate' : ''} ${
                       isLast
-                        ? 'text-gray-800 font-semibold'
+                        ? (emphasizeLast
+                            ? 'text-gray-900 font-extrabold text-[22px] tracking-tight leading-tight'
+                            : 'text-gray-800 font-semibold')
                         : 'text-gray-500'
                     }`}
                   >

@@ -9,7 +9,6 @@ import {
   fetchProgramStats,
   fetchProgramQuizStats,
 } from '../../lib/queries'
-import StickyBackBar from '../../components/common/StickyBackBar'
 import LoadingState from '../../components/common/LoadingState'
 import EmptyState from '../../components/common/EmptyState'
 import ProgramInsightsSummary from '../../components/program/ProgramInsightsSummary'
@@ -26,7 +25,7 @@ function ProgramStatsPage() {
   const backToOpMenu = location.state?.backToOpMenu
   const handleBack = backToOpMenu
     ? () => navigate(`/programs/${id}?opmenu=${backToOpMenu}`, { replace: true })
-    : undefined
+    : () => { location.key === 'default' ? navigate(`/programs/${id}`, { replace: true }) : navigate(-1) }
 
   const { data: program, isLoading: isProgramLoading } = useQuery({
     queryKey: queryKeys.program(id),
@@ -86,12 +85,20 @@ function ProgramStatsPage() {
 
   return (
     <div className="px-4 pt-2 pb-6 max-w-4xl mx-auto">
-      <StickyBackBar
-        onClick={handleBack}
-        fallbackPath={`/programs/${id}`}
-        title={backToOpMenu ? '운영자 메뉴로' : '프로그램으로'}
-        breadcrumb={[program.name, '통계']}
-      />
+      {/* 헤더 — 퀴즈 탭과 동일한 중앙정렬 앱바. 뒤로가기 + 「프로그램명 통계」 */}
+      <div className="sticky top-0 z-30 -mx-4 mb-2 px-2 bg-white/90 backdrop-blur-sm">
+        <div className="relative flex items-center justify-center h-12">
+          <button
+            type="button"
+            onClick={handleBack}
+            className="absolute left-1 flex items-center justify-center w-9 h-9 rounded-full hover:bg-gray-100 transition"
+            title={backToOpMenu ? '운영자 메뉴로' : '프로그램으로'}
+          >
+            <ChevronLeft className="w-5 h-5 text-gray-700" />
+          </button>
+          <h1 className="max-w-[75%] truncate text-lg font-extrabold text-gray-900">{program.name} 통계</h1>
+        </div>
+      </div>
 
       {isStatsLoading || !stats ? (
         <LoadingState />

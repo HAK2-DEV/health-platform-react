@@ -8,7 +8,8 @@ import { useRef, useEffect } from 'react'
 //     field = 값 키 ('rate' | 'count' 등)   unit = 단위 표기 ('%' | '건')
 //     maxCap = y축 상한 (참여율 100, 건수 등 무제한이면 Infinity)
 //     subField/subUnit = 툴팁·최고/최저 라벨에 괄호로 덧붙일 보조값 (예: 참여율에 '(2명)')
-export default function ParticipationTrendChart({ data, height = 200, field = 'rate', unit = '%', maxCap = 100, subField = null, subUnit = '' }) {
+//     interaction = 'pan'(기본: 드래그로 기간 이동) | 'scrub'(드래그로 손가락 위치의 날짜·값 툴팁 표시)
+export default function ParticipationTrendChart({ data, height = 200, field = 'rate', unit = '%', maxCap = 100, subField = null, subUnit = '', interaction = 'pan' }) {
   const cvRef = useRef(null)
 
   useEffect(() => {
@@ -90,31 +91,44 @@ export default function ParticipationTrendChart({ data, height = 200, field = 'r
     const idxAtX = (px) => Math.max(0, Math.min(N - 1, Math.round(start + (px - PAD.l) / ((W - PAD.l - PAD.r) / Math.max(1, count - 1)))))
     const zoomAt = (px, f) => { const sp = (W - PAD.l - PAD.r) / Math.max(1, count - 1); const focus = start + (px - PAD.l) / sp; const nc = Math.max(5, Math.min(N, Math.round(count * f))); const ratio = (focus - start) / count; count = nc; start = focus - ratio * nc; clampView(); draw() }
 
-    const onDown = (e) => { cv.setPointerCapture(e.pointerId); drag = { x: e.clientX, start, moved: false }; active = idxAtX(e.offsetX); draw() }
+    const scrub = interaction === 'scrub'
+    const onDown = (e) => {
+      cv.setPointerCapture(e.pointerId)
+      if (scrub) { active = idxAtX(e.offsetX); draw(); return }
+      drag = { x: e.clientX, start, moved: false }; active = idxAtX(e.offsetX); draw()
+    }
     const onMove = (e) => {
       if (pinch) return
+      if (scrub) { active = idxAtX(e.offsetX); draw(); return }   // 스크럽: 손가락 위치 값 표시
       if (drag) { const sp = (W - PAD.l - PAD.r) / Math.max(1, count - 1); const dd = (e.clientX - drag.x) / sp; if (Math.abs(e.clientX - drag.x) > 3) drag.moved = true; start = drag.start - dd; clampView(); active = drag.moved ? null : idxAtX(e.offsetX); draw() }
       else { active = idxAtX(e.offsetX); draw() }
     }
-    const onUp = () => { drag = null }
-    const onLeave = () => { if (!drag) { active = null; draw() } }
+    const onUp = () => { drag = null; if (scrub) { active = null; draw() } }
+    const onLeave = () => { if (scrub || !drag) { active = null; draw() } }
     const onWheel = (e) => { e.preventDefault(); zoomAt(e.offsetX, e.deltaY > 0 ? 1.15 : 0.87) }
     const tdist = (e) => { const a = e.touches[0], b = e.touches[1]; return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) }
     const onTStart = (e) => { if (e.touches.length === 2) { drag = null; pinch = { d: tdist(e), c: count } } }
     const onTMove = (e) => { if (pinch && e.touches.length === 2) { e.preventDefault(); const f = pinch.d / tdist(e); count = Math.max(5, Math.min(N, Math.round(pinch.c * f))); clampView(); draw() } }
     const onTEnd = (e) => { if (e.touches.length < 2) pinch = null }
 
-    cv.addEventListener('pointerdown', onDown); cv.addEventListener('pointermove', onMove); cv.addEventListener('pointerup', onUp); cv.addEventListener('pointerleave', onLeave)
-    cv.addEventListener('wheel', onWheel, { passive: false })
-    cv.addEventListener('touchstart', onTStart, { passive: true }); cv.addEventListener('touchmove', onTMove, { passive: false }); cv.addEventListener('touchend', onTEnd)
+    const none = interaction === 'none'   // 비대화형 프리뷰 — 이벤트 미부착(부모 버튼 클릭 통과)
+    if (!none) {
+      cv.addEventListener('pointerdown', onDown); cv.addEventListener('pointermove', onMove); cv.addEventListener('pointerup', onUp); cv.addEventListener('pointerleave', onLeave); cv.addEventListener('pointercancel', onUp)
+      cv.addEventListener('wheel', onWheel, { passive: false })
+      cv.addEventListener('touchstart', onTStart, { passive: true }); cv.addEventListener('touchmove', onTMove, { passive: false }); cv.addEventListener('touchend', onTEnd)
+    }
     const ro = new ResizeObserver(resize); ro.observe(cv)
     clampView(); resize()
     return () => {
       ro.disconnect()
-      cv.removeEventListener('pointerdown', onDown); cv.removeEventListener('pointermove', onMove); cv.removeEventListener('pointerup', onUp); cv.removeEventListener('pointerleave', onLeave)
-      cv.removeEventListener('wheel', onWheel); cv.removeEventListener('touchstart', onTStart); cv.removeEventListener('touchmove', onTMove); cv.removeEventListener('touchend', onTEnd)
+      if (!none) {
+        cv.removeEventListener('pointerdown', onDown); cv.removeEventListener('pointermove', onMove); cv.removeEventListener('pointerup', onUp); cv.removeEventListener('pointerleave', onLeave); cv.removeEventListener('pointercancel', onUp)
+        cv.removeEventListener('wheel', onWheel); cv.removeEventListener('touchstart', onTStart); cv.removeEventListener('touchmove', onTMove); cv.removeEventListener('touchend', onTEnd)
+      }
     }
-  }, [data, field, unit, maxCap, subField, subUnit])
+  }, [data, field, unit, maxCap, subField, subUnit, interaction])
 
-  return <canvas ref={cvRef} style={{ width: '100%', height: `${height}px`, display: 'block', touchAction: 'none', borderRadius: '10px', userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }} />
+  // 스크럽=세로 스크롤 페이지로 넘김(pan-y), 비대화형=auto(탭 통과), 기본(pan)=none
+  const touchAction = interaction === 'scrub' ? 'pan-y' : interaction === 'none' ? 'auto' : 'none'
+  return <canvas ref={cvRef} style={{ width: '100%', height: `${height}px`, display: 'block', touchAction, borderRadius: '10px', userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }} />
 }

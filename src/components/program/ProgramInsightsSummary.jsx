@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Activity, Sparkles, TrendingUp, TrendingDown, Minus, Lightbulb, ChevronRight, ChevronDown, Clock, HelpCircle } from 'lucide-react'
+import { TrendingUp, TrendingDown, Minus, ChevronRight, ChevronDown, HelpCircle } from 'lucide-react'
 import { formatKstDate } from '../../lib/queries'
 import { getKstHour, formatHour12, TIME_BUCKETS, bucketOfHour } from '../../lib/formatters'
 import ParticipationTrendChart from './ParticipationTrendChart'
@@ -359,85 +359,130 @@ function ProgramInsightsSummary({ stats, program }) {
   }
 
   return (
+    <div className="space-y-5 mb-5 mt-1">
+      <Reveal><WidgetHighlights insights={insights} onAction={(to) => navigate(`/programs/${programId}/stats/${to}`)} /></Reveal>
+      <Reveal><WidgetMetrics insights={insights} /></Reveal>
+      <Reveal><WidgetTrend insights={insights} /></Reveal>
+      <Reveal><WidgetHourly insights={insights} /></Reveal>
+      <Reveal><WidgetDistribution insights={insights} onSegmentClick={goToFilteredUsers} /></Reveal>
+    </div>
+  )
+}
+
+// 스크롤로 뷰포트에 들어올 때 각 카드 페이드업 (1회)
+function Reveal({ children }) {
+  return (
     <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      className="space-y-3 mb-4"
+      initial={{ opacity: 0, y: 16 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.15 }}
+      transition={{ duration: 0.4, ease: 'easeOut' }}
     >
-      <WidgetHighlights insights={insights} onAction={(to) => navigate(`/programs/${programId}/stats/${to}`)} />
-      <WidgetMetrics insights={insights} />
-      <WidgetTrend insights={insights} />
-      <WidgetHourly insights={insights} />
-      <WidgetDistribution insights={insights} onSegmentClick={goToFilteredUsers} />
+      {children}
     </motion.div>
   )
 }
 
-// ─── 위젯 1: 프로그램 상태 (도넛 게이지 3종 + 구체 수치) ───
-//   오늘 참여 도넛 클릭 → 일자별 참여율 추세 인터랙티브 차트 팝업.
-function DonutGauge({ pct, hex, label, num, den, unit, onClick, expanded, tip }) {
-  const [tipOpen, setTipOpen] = useState(false)
-  const s = 74, sw = 9, r = (s - sw) / 2, c = 2 * Math.PI * r
+// ─── 위젯 1: 프로그램 상태 ───
+//   오늘 참여(큰 박스 = 도넛 + 활동 참여자 수 + 어제 대비, 클릭 시 일자별 추세 팝업)
+//   + 이번 주 참여·미션 활용(가로 바 2박스). 색: 오늘=emerald / 이번주=amber / 미션=sky.
+
+// 오늘 참여 — 큰 도넛(라벨 내장)
+function BigDonut({ pct, hex }) {
+  const s = 108, sw = 11, r = (s - sw) / 2, c = 2 * Math.PI * r
   const off = c * (1 - Math.min(100, Math.max(0, pct)) / 100)
-  const inner = (
-    <>
-      <svg viewBox={`0 0 ${s} ${s}`} width={s} height={s} className="flex-shrink-0">
-        <circle cx={s / 2} cy={s / 2} r={r} fill="none" stroke="#eef0f0" strokeWidth={sw} />
-        <circle cx={s / 2} cy={s / 2} r={r} fill="none" stroke={hex} strokeWidth={sw} strokeLinecap="round"
-          strokeDasharray={c} strokeDashoffset={off} transform={`rotate(-90 ${s / 2} ${s / 2})`}
-          style={{ transition: 'stroke-dashoffset .6s ease' }} />
-        <text x={s / 2} y={s / 2} textAnchor="middle" dominantBaseline="central" fontSize="16" fontWeight="800" fill="#111827">{pct}%</text>
-      </svg>
-      <span className="text-[12px] font-bold text-gray-800 inline-flex items-center gap-0.5 leading-tight text-center">
-        {label}
-        {onClick && <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`} />}
-        {tip && !onClick && (
+  return (
+    <svg viewBox={`0 0 ${s} ${s}`} width={s} height={s} className="flex-shrink-0">
+      <circle cx={s / 2} cy={s / 2} r={r} fill="none" stroke="#eef0f0" strokeWidth={sw} />
+      <circle cx={s / 2} cy={s / 2} r={r} fill="none" stroke={hex} strokeWidth={sw} strokeLinecap="round"
+        strokeDasharray={c} strokeDashoffset={off} transform={`rotate(-90 ${s / 2} ${s / 2})`}
+        style={{ transition: 'stroke-dashoffset .6s ease' }} />
+      <text x={s / 2} y={s / 2 - 6} textAnchor="middle" dominantBaseline="central" fontSize="24" fontWeight="800" fill="#111827">{pct}%</text>
+      <text x={s / 2} y={s / 2 + 15} textAnchor="middle" dominantBaseline="central" fontSize="11" fontWeight="700" fill="#9ca3af">오늘 참여</text>
+    </svg>
+  )
+}
+
+// 이번 주 참여 / 미션 활용 — 가로 바 + 큰 % + 세부수치 + (?) 설명
+function BarStat({ label, pct, hex, sub, tip, tipAlign = 'left' }) {
+  const [tipOpen, setTipOpen] = useState(false)
+  const p = Math.min(100, Math.max(0, pct))
+  return (
+    <div className="relative bg-white border border-gray-100 rounded-card-lg shadow-soft p-5">
+      <div className="flex items-center gap-0.5 mb-3">
+        <span className="text-[13px] font-bold text-gray-500">{label}</span>
+        {tip && (
           <button type="button" aria-label={`${label} 설명`}
-            onClick={(e) => { e.stopPropagation(); setTipOpen(v => !v) }}
+            onClick={() => setTipOpen(v => !v)}
             className="text-gray-300 hover:text-gray-500 leading-none">
             <HelpCircle className="w-3.5 h-3.5" />
           </button>
         )}
-      </span>
-      <span className="text-[11px] text-gray-400 tabular-nums">{num}/{den}{unit}</span>
+      </div>
+      <div className="flex items-baseline gap-1.5 mb-5">
+        <span className="text-[30px] font-extrabold text-gray-900 leading-none">
+          {pct}<span className="text-lg text-gray-400 font-bold">%</span>
+        </span>
+        {sub && <span className="text-[11px] text-gray-400 tabular-nums">{sub}</span>}
+      </div>
+      <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+        <div className="h-full rounded-full" style={{ width: `${p}%`, background: hex, transition: 'width .6s ease' }} />
+      </div>
       {tip && tipOpen && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setTipOpen(false)} />
-          <div className="absolute bottom-full mb-1.5 left-1/2 -translate-x-1/2 z-20 w-40 rounded-lg bg-gray-900 text-white text-[11px] font-normal leading-snug px-2.5 py-2 shadow-lg text-center whitespace-pre-line">
+          <div className={`absolute bottom-full mb-1.5 z-20 w-44 rounded-lg bg-gray-900 text-white text-[11px] font-normal leading-snug px-2.5 py-2 shadow-lg whitespace-pre-line ${tipAlign === 'right' ? 'right-0' : 'left-0'}`}>
             {tip}
-            <span className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-gray-900" />
           </div>
         </>
       )}
-    </>
-  )
-  return onClick ? (
-    <button type="button" onClick={onClick} className="relative flex flex-col items-center gap-1.5 flex-1 min-w-0 py-1 rounded-xl hover:bg-gray-50 transition outline-none">{inner}</button>
-  ) : (
-    <div className="relative flex flex-col items-center gap-1.5 flex-1 min-w-0 py-1">{inner}</div>
+    </div>
   )
 }
 
 function WidgetMetrics({ insights }) {
   const [showTrend, setShowTrend] = useState(false)
   const m = insights.metrics
+  // 어제 대비 활동 참여자 증감 — participationTrend 끝=오늘, 그 앞=어제
+  const pt = insights.participationTrend || []
+  const yesterday = pt.length >= 2 ? pt[pt.length - 2].count : null
+  const delta = yesterday != null ? m.todayActive - yesterday : null
+  const deltaBadge = delta == null ? null
+    : delta > 0 ? { cls: 'bg-emerald-50 text-emerald-700', text: `▲ 어제보다 +${delta}명` }
+    : delta < 0 ? { cls: 'bg-orange-50 text-orange-600', text: `▼ 어제보다 ${delta}명` }
+    : { cls: 'bg-gray-100 text-gray-500', text: '어제와 같아요' }
   return (
-    <div className="bg-white border border-gray-100 rounded-card-lg shadow-soft p-5">
-      <div className="flex items-center gap-2 mb-3">
-        <Activity className="w-4 h-4 text-emerald-600" />
-        <h3 className="text-sm font-bold text-gray-800">우리 프로그램, 지금</h3>
-      </div>
-      <div className="flex justify-around gap-1">
-        <DonutGauge pct={insights.participationRate} hex="#10b981" label="오늘 참여"
-          num={m.todayActive} den={m.participants} unit="명" onClick={() => setShowTrend(v => !v)} expanded={showTrend} />
-        <DonutGauge pct={insights.diversity} hex="#0ea5e9" label="미션 활용"
-          num={m.activeMissions} den={m.totalMissions} unit="개"
-          tip={"등록한 미션 중 인증이 한 번이라도 올라온 미션의 비율이에요.\n낮으면 아무도 안 쓰는 미션이 있다는 뜻이에요."} />
-        <DonutGauge pct={insights.weeklyReach} hex="#f59e0b" label="이번 주 참여"
-          num={m.weeklyActive} den={m.participants} unit="명"
+    <div>
+      {/* 오늘 참여 — 큰 박스, 클릭 시 추세 팝업 */}
+      <button type="button" onClick={() => setShowTrend(true)}
+        className="w-full flex items-center gap-5 bg-white border border-gray-100 rounded-card-lg shadow-soft p-6 text-left transition hover:bg-gray-50/60 active:scale-[0.99]">
+        <BigDonut pct={insights.participationRate} hex="#10b981" />
+        <div className="flex-1 min-w-0">
+          <p className="text-[13px] text-gray-500 mb-1">오늘 활동한 참여자</p>
+          <p className="text-[26px] font-extrabold text-gray-900 leading-none">
+            {m.todayActive}<span className="text-[15px] font-bold text-gray-300"> / {m.participants}명</span>
+          </p>
+          {deltaBadge && (
+            <span className={`mt-2 inline-flex items-center px-2 py-0.5 rounded-full text-[12px] font-bold ${deltaBadge.cls}`}>
+              {deltaBadge.text}
+            </span>
+          )}
+          <span className="mt-1.5 flex items-center gap-0.5 text-[11px] text-gray-400">
+            터치해서 일자별 추세 보기 <ChevronRight className="w-3 h-3" />
+          </span>
+        </div>
+      </button>
+
+      {/* 이번 주 참여 / 미션 활용 — 가로 바 2박스 */}
+      <div className="grid grid-cols-2 gap-3.5 mt-4">
+        <BarStat label="이번 주 참여" pct={insights.weeklyReach} hex="#f59e0b"
+          sub={`${m.weeklyActive}/${m.participants}명`} tipAlign="left"
           tip={"최근 7일 동안 한 번이라도 인증한 참여자 비율이에요.\n매일은 아니어도 이번 주에 활동한 사람을 보여줘요."} />
+        <BarStat label="미션 활용" pct={insights.diversity} hex="#0ea5e9"
+          sub={`${m.activeMissions}/${m.totalMissions}개`} tipAlign="right"
+          tip={"등록한 미션 중 인증이 한 번이라도 올라온 미션의 비율이에요.\n낮으면 아무도 안 쓰는 미션이 있다는 뜻이에요."} />
       </div>
+
       {showTrend && (
         <div
           className="fixed inset-0 z-[70] flex items-center justify-center p-5"
@@ -465,143 +510,136 @@ function WidgetMetrics({ insights }) {
   )
 }
 
-// ─── 위젯 2: 7일 추세 ────────────────────────
+// ─── 위젯 2: 일자별 인증 추세 (제목 카드 밖 · 터치 시 팝업, 접힘 땐 지표 숨김) ───
 function WidgetTrend({ insights }) {
   const { verificationTrend, last7Count, trendDelta, trendDeltaPct } = insights
+  const [open, setOpen] = useState(false)
 
-  // 추세 화살표
   let TrendIcon = Minus
   let trendCls = 'text-gray-500'
   if (trendDelta > 0) { TrendIcon = TrendingUp; trendCls = 'text-emerald-600' }
   else if (trendDelta < 0) { TrendIcon = TrendingDown; trendCls = 'text-orange-600' }
 
   return (
-    <div className="bg-white border border-gray-100 rounded-card-lg shadow-soft p-5">
-      <div className="flex items-center gap-2 mb-3">
-        <Sparkles className="w-4 h-4 text-emerald-600" />
-        <h3 className="text-sm font-bold text-gray-800">인증 추세</h3>
-        <span className="ml-auto flex items-center gap-1">
-          <span className="text-[11px] text-gray-400 font-medium">지난주 대비</span>
-          <span className={`inline-flex items-center gap-0.5 text-xs font-semibold ${trendCls}`}>
-            <TrendIcon className="w-3.5 h-3.5" />
-            {trendDelta >= 0 ? '+' : ''}{trendDelta}
-            {trendDeltaPct !== null && ` (${trendDeltaPct >= 0 ? '+' : ''}${trendDeltaPct}%)`}
+    <>
+      {/* 접힘: 제목 카드 안 + 비대화형 프리뷰 + 힌트 (지난주 대비·건수 숨김) → 터치 시 팝업 */}
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="w-full bg-white border border-gray-100 rounded-card-lg shadow-soft p-5 overflow-hidden text-left transition hover:bg-gray-50/60 active:scale-[0.99]"
+      >
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <h3 className="text-base font-bold text-gray-900">일자별 인증 추세</h3>
+          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-500 bg-gray-50 rounded-full px-2.5 py-1 flex-shrink-0">
+            👆 터치해서 보기
           </span>
-        </span>
-      </div>
-      <div className="flex items-end gap-3">
-        <p className="text-2xl font-bold text-gray-800 leading-none">
-          {last7Count}<span className="text-xs text-gray-500 font-medium ml-1">건/주</span>
-        </p>
-      </div>
-      <div className="mt-3">
-        <ParticipationTrendChart data={verificationTrend || []} field="count" unit="건" maxCap={Infinity} height={180} />
-      </div>
-    </div>
+        </div>
+        <ParticipationTrendChart data={verificationTrend || []} field="count" unit="건" maxCap={Infinity} height={140} interaction="none" />
+      </button>
+
+      {open && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-5" style={{ background: 'rgba(15,23,42,0.45)' }} onClick={() => setOpen(false)}>
+          <div className="w-full max-w-[360px] rounded-2xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-base">📈</span>
+              <h3 className="text-[15px] font-bold text-gray-800">일자별 인증 추세</h3>
+            </div>
+            <p className="text-[12px] text-gray-500 mb-3 flex items-center gap-1.5 flex-wrap">
+              <span>이번 주 <b className="text-gray-700">{last7Count}건</b></span>
+              <span className="text-gray-300">·</span>
+              <span className="text-gray-400">지난주 대비</span>
+              <span className={`inline-flex items-center gap-0.5 font-semibold ${trendCls}`}>
+                <TrendIcon className="w-3.5 h-3.5" />
+                {trendDelta >= 0 ? '+' : ''}{trendDelta}
+                {trendDeltaPct !== null && ` (${trendDeltaPct >= 0 ? '+' : ''}${trendDeltaPct}%)`}
+              </span>
+            </p>
+            <ParticipationTrendChart data={verificationTrend || []} field="count" unit="건" maxCap={Infinity} interaction="scrub" />
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="mt-4 w-full h-10 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-sm transition"
+            >
+              닫기
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 
-// ─── 위젯 2.5: 시간대 패턴 — KST 0-23시 인증 분포 ─────────────
+// ─── 위젯 2.5: 시간대 인증 패턴 (제목 카드 안 · 4구간 큰 막대) ─────────────
 // 운영자가 「명상 시간 바꿔야겠다」 같은 미션 시간 조정 결정의 직접 근거.
-// 4구간 (새벽·아침·낮·저녁/밤) 묶음으로 큰 그림도 제공.
 function WidgetHourly({ insights }) {
-  const { hourly, hourlyTotal, peakHour, bucketCounts } = insights
-  const [activeHour, setActiveHour] = useState(null)
+  const { hourlyTotal, peakHour, bucketCounts } = insights
+  const [selBucket, setSelBucket] = useState(null)
 
   if (hourlyTotal === 0) {
     return (
       <div className="bg-white border border-gray-100 rounded-card-lg shadow-soft p-5">
-        <div className="flex items-center gap-2 mb-2">
-          <Clock className="w-4 h-4 text-emerald-600" />
-          <h3 className="text-sm font-bold text-gray-800">시간대 패턴</h3>
-        </div>
+        <h3 className="text-base font-bold text-gray-900 mb-2">시간대 인증 패턴</h3>
         <p className="text-xs text-gray-500">아직 인증 기록이 없어요</p>
       </div>
     )
   }
 
-  const maxCount = Math.max(...hourly)
   const peakBucket = peakHour !== null ? bucketOfHour(peakHour) : null
   const topBucket = [...bucketCounts].sort((a, b) => b.count - a.count)[0]
+  const maxPct = Math.max(...bucketCounts.map(b => b.pct), 1)
+  const bucketHex = { dawn: '#818cf8', morning: '#fbbf24', afternoon: '#34d399', evening: '#fb7185' }
+  const sel = selBucket ? bucketCounts.find(b => b.key === selBucket) : null
 
   return (
     <div className="bg-white border border-gray-100 rounded-card-lg shadow-soft p-5">
       <div className="flex items-center gap-2 mb-1">
-        <Clock className="w-4 h-4 text-emerald-600" />
-        <h3 className="text-sm font-bold text-gray-800">시간대 패턴</h3>
-        <span className="text-[11px] text-gray-400 ml-auto">누적 {hourlyTotal}건 · KST</span>
+        <h3 className="text-base font-bold text-gray-900">시간대 인증 패턴</h3>
       </div>
-      {peakHour !== null && (
-        <p className="text-xs text-gray-600 mb-3">
+      {/* 헤더 문구 — 선택 시 그 구간 상세, 아니면 피크 안내 (도넛 중앙과 같은 언어) */}
+      {sel ? (
+        <p className="text-xs mb-5">
+          <b className="font-bold" style={{ color: bucketHex[sel.key] }}>{sel.emoji} {sel.label}</b>
+          <span className="text-gray-400"> · </span>
+          <b className="text-gray-800">{sel.count}건</b>
+          <span className="text-gray-500"> · 전체의 {sel.pct}%</span>
+        </p>
+      ) : peakHour !== null ? (
+        <p className="text-xs text-gray-600 mb-5">
           <span className="font-semibold text-emerald-700">{formatHour12(peakHour)}</span>
           {peakBucket && <span className="text-gray-500"> ({peakBucket.emoji}{peakBucket.label})</span>}
-          {' '}에 인증이 가장 활발해요.
+          {' '}에 가장 활발해요.
         </p>
-      )}
+      ) : <div className="mb-5" />}
 
-      {/* 24개 막대 — peak 강조 색. 꾹 누르면 해당 시각 건수 툴팁 */}
-      <div className="relative flex items-end gap-[2px] h-14 mb-1 select-none" style={{ WebkitTouchCallout: 'none', touchAction: 'none' }}>
-        {activeHour !== null && (
-          <div
-            className="absolute bottom-full z-20 -translate-x-1/2 mb-1 pointer-events-none"
-            style={{ left: `${Math.min(90, Math.max(10, ((activeHour + 0.5) / 24) * 100))}%` }}
-          >
-            <div className="relative rounded-md bg-gray-900 text-white text-[11px] font-bold px-2 py-1 whitespace-nowrap shadow-lg">
-              {formatHour12(activeHour)} · {hourly[activeHour]}건
-              <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
-            </div>
-          </div>
-        )}
-        {hourly.map((count, h) => {
-          const pct = maxCount > 0 ? (count / maxCount) * 100 : 0
-          const isPeak = h === peakHour && count > 0
-          const bucket = bucketOfHour(h)
-          return (
-            <div
-              key={h}
-              className="flex-1 flex flex-col justify-end h-full cursor-pointer"
-              title={`${formatHour12(h)} · ${count}건`}
-              onPointerDown={() => setActiveHour(h)}
-              onPointerUp={() => setActiveHour(null)}
-              onPointerLeave={() => setActiveHour(cur => (cur === h ? null : cur))}
-              onPointerCancel={() => setActiveHour(null)}
-            >
-              <div
-                className={`w-full rounded-sm transition-all ${
-                  count === 0
-                    ? 'bg-gray-100'
-                    : isPeak
-                      ? 'bg-emerald-500'
-                      : `${bucket.color} opacity-60`
-                } ${activeHour === h ? 'ring-2 ring-gray-900/30' : ''}`}
-                style={{ height: count === 0 ? '4px' : `${Math.max(8, pct)}%` }}
-              />
-            </div>
-          )
-        })}
-      </div>
-      {/* 시간 ticks — 0/6/12/18/24 */}
-      <div className="relative h-3 text-xs text-gray-400 mb-3">
-        <span className="absolute left-0">0</span>
-        <span className="absolute left-1/4 -translate-x-1/2">6</span>
-        <span className="absolute left-1/2 -translate-x-1/2">12</span>
-        <span className="absolute left-3/4 -translate-x-1/2">18</span>
-        <span className="absolute right-0">24</span>
-      </div>
-
-      {/* 4구간 분포 — 시간대 비중 */}
-      <div className="grid grid-cols-4 gap-1.5">
+      {/* 4구간 큰 막대 — 누르면 선택(강조) + 나머지 흐려짐, % 라벨은 막대 위 */}
+      <div className="flex items-end gap-3">
         {bucketCounts.map(b => {
           const isTop = b.key === topBucket?.key && b.count > 0
+          const isSel = b.key === selBucket
+          const dim = selBucket != null && !isSel
+          const emphasize = isSel || (selBucket == null && isTop)
+          const barH = b.count > 0 ? Math.max(14, (b.pct / maxPct) * 80) : 4
+          const barOpacity = b.count === 0 ? 1 : dim ? 0.3 : (emphasize ? 1 : 0.7)
           return (
             <div
               key={b.key}
-              className={`text-center p-2 rounded-lg ${isTop ? 'bg-emerald-50' : 'bg-gray-50'}`}
+              onClick={() => b.count > 0 && setSelBucket(p => (p === b.key ? null : b.key))}
+              className={`flex-1 flex flex-col items-center ${b.count > 0 ? 'cursor-pointer' : ''}`}
             >
-              <p className="text-[11px] text-gray-600 mb-0.5">{b.emoji} {b.label}</p>
-              <p className={`text-sm font-bold ${isTop ? 'text-emerald-700' : 'text-gray-700'}`}>
-                {b.pct}%
-              </p>
+              {/* 막대 영역 — % 라벨을 각 막대 top 바로 위에 붙임 */}
+              <div className="w-full h-28 relative flex items-end">
+                <div
+                  className={`w-full rounded-t-lg transition-all ${b.count === 0 ? 'bg-gray-100' : b.color}`}
+                  style={{ height: `${barH}%`, opacity: barOpacity }}
+                />
+                <span
+                  className={`absolute left-0 right-0 text-center text-[15px] font-extrabold transition ${emphasize ? 'text-emerald-700' : 'text-gray-800'}`}
+                  style={{ bottom: `calc(${barH}% + 3px)`, opacity: dim ? 0.4 : 1 }}
+                >
+                  {b.pct}%
+                </span>
+              </div>
+              <span className={`mt-2 text-[11px] text-center leading-tight transition ${isSel ? 'text-gray-800 font-semibold' : dim ? 'text-gray-400' : 'text-gray-500'}`}>{b.emoji} {b.label}</span>
             </div>
           )
         })}
@@ -610,90 +648,154 @@ function WidgetHourly({ insights }) {
   )
 }
 
-// ─── 위젯 3: 참여자 상태 분포 — 범례 클릭 시 해당 그룹 사용자 목록으로 진입 ────
+// 참여자 상태 도넛 — 채워진 세그먼트(개별 클릭). 선택 시 두꺼워지고 나머지는 흐려짐.
+function StatusDonut({ segments, total, selectedKey, onSelect, size = 116 }) {
+  const cx = size / 2, cy = size / 2
+  const rOut = size / 2 - 4, rIn = rOut - 16
+  const TAU = Math.PI * 2, GAP = 0.05
+  const pt = (r, a) => `${(cx + r * Math.cos(a)).toFixed(2)} ${(cy + r * Math.sin(a)).toFixed(2)}`
+  const sector = (rI, rO, a0, a1) => {
+    const large = (a1 - a0) > Math.PI ? 1 : 0
+    return `M ${pt(rO, a0)} A ${rO} ${rO} 0 ${large} 1 ${pt(rO, a1)} L ${pt(rI, a1)} A ${rI} ${rI} 0 ${large} 0 ${pt(rI, a0)} Z`
+  }
+  const active = segments.filter(s => s.count > 0)
+  let a = -Math.PI / 2
+  return (
+    <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size} className="flex-shrink-0">
+      <circle cx={cx} cy={cy} r={(rIn + rOut) / 2} fill="none" stroke="#eef0f0" strokeWidth={rOut - rIn} />
+      {active.map(s => {
+        const frac = s.count / total
+        const full = frac >= 0.999
+        const a0 = a + (full ? 0 : GAP / 2), a1 = a + frac * TAU - (full ? 0 : GAP / 2)
+        a += frac * TAU
+        const isSel = s.key === selectedKey
+        const dim = selectedKey != null && !isSel
+        const rI = isSel ? rIn - 2 : rIn, rO = isSel ? rOut + 3 : rOut
+        const common = { onClick: () => onSelect(s.key), style: { cursor: 'pointer', opacity: dim ? 0.3 : 1, transition: 'opacity .2s ease' } }
+        return full ? (
+          <circle key={s.key} cx={cx} cy={cy} r={(rI + rO) / 2} fill="none" stroke={s.hex} strokeWidth={rO - rI} {...common} />
+        ) : (
+          <path key={s.key} d={sector(rI, rO, a0, a1)} fill={s.hex} {...common} />
+        )
+      })}
+    </svg>
+  )
+}
+
+// ─── 위젯 3: 참여자 상태 — 도넛 + 범례(클릭 시 해당 그룹 목록으로) ────
 function WidgetDistribution({ insights, onSegmentClick }) {
   const { activeCount, normalCount, dormantCount, total } = insights.distribution
+  const [tipKey, setTipKey] = useState(null)
+  const [selKey, setSelKey] = useState(null)
   if (total === 0) {
     return (
       <div className="bg-white border border-gray-100 rounded-card-lg shadow-soft p-5">
-        <h3 className="text-sm font-bold text-gray-800 mb-2">참여자 상태</h3>
+        <h3 className="text-base font-bold text-gray-900 mb-2">참여자 상태</h3>
         <p className="text-xs text-gray-500">아직 참여자가 없어요</p>
       </div>
     )
   }
   const pct = (n) => Math.round((n / total) * 100)
   const segments = [
-    { key: 'active', label: '활발 (3일 내)', count: activeCount, color: 'bg-emerald-500', hover: 'hover:bg-emerald-50', emoji: '🟢' },
-    { key: 'normal', label: '보통 (3-7일)', count: normalCount, color: 'bg-amber-400', hover: 'hover:bg-amber-50', emoji: '🟡' },
-    { key: 'dormant', label: '휴면 (7일+)', count: dormantCount, color: 'bg-red-400', hover: 'hover:bg-red-50', emoji: '🔴' },
+    { key: 'active', name: '활발', count: activeCount, hex: '#10b981', tip: '최근 3일 안에 인증한 참여자예요.' },
+    { key: 'normal', name: '보통', count: normalCount, hex: '#f59e0b', tip: '3~7일 사이에 인증한 참여자예요.' },
+    { key: 'dormant', name: '휴면', count: dormantCount, hex: '#f87171', tip: '7일 넘게 인증이 없어요 — 응원이 필요해요.' },
   ]
+  const toggleSel = (k) => setSelKey(p => (p === k ? null : k))
+  const sel = selKey ? segments.find(s => s.key === selKey && s.count > 0) : null
+  // 중앙 숫자 — 선택 시 그 조각 인원수, 아니면 총원. 자릿수 많으면 축소.
+  const shownNum = sel ? sel.count : total
+  const numCls = shownNum >= 10000 ? 'text-xs' : shownNum >= 1000 ? 'text-sm' : shownNum >= 100 ? 'text-base' : 'text-lg'
   return (
     <div className="bg-white border border-gray-100 rounded-card-lg shadow-soft p-5">
-      <div className="flex items-center gap-2 mb-3">
-        <h3 className="text-sm font-bold text-gray-800">참여자 상태</h3>
+      <div className="flex items-center gap-2 mb-4">
+        <h3 className="text-base font-bold text-gray-900">참여자 상태</h3>
         <span className="text-xs text-gray-400 ml-auto">총 {total}명</span>
       </div>
-      {/* 가로 스택 바 — 각 segment 클릭 가능 */}
-      <div className="flex h-3 rounded-full overflow-hidden bg-gray-100 mb-3">
-        {segments.map((s, i) => s.count > 0 && (
-          <button
-            key={i}
-            type="button"
-            onClick={() => onSegmentClick?.(s.key)}
-            className={`${s.color} cursor-pointer transition hover:brightness-110`}
-            style={{ width: `${(s.count / total) * 100}%` }}
-            title={`${s.label}: ${s.count}명 — 클릭해서 보기`}
-            aria-label={`${s.label} ${s.count}명 보기`}
-          />
-        ))}
-      </div>
-      {/* 범례 — 행 전체 클릭 가능 */}
-      <div className="space-y-0.5">
-        {segments.map((s, i) => (
-          <button
-            key={i}
-            type="button"
-            onClick={() => onSegmentClick?.(s.key)}
-            disabled={s.count === 0}
-            className={`w-full flex items-center justify-between text-xs px-2 py-1.5 rounded-lg transition text-left ${
-              s.count === 0 ? 'opacity-50 cursor-default' : `cursor-pointer ${s.hover}`
-            }`}
-          >
-            <span className="flex items-center gap-1.5 text-gray-600">
-              <span>{s.emoji}</span>
-              <span>{s.label}</span>
+      <div className="flex items-center gap-5">
+        {/* 도넛 (조각 클릭 → 선택). 중앙: 선택 시 인원수+이름, 아니면 총원 */}
+        <div className="relative flex-shrink-0">
+          <StatusDonut segments={segments} total={total} selectedKey={selKey} onSelect={toggleSel} />
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none leading-none">
+            <span className={`${numCls} font-extrabold whitespace-nowrap`} style={{ color: sel ? sel.hex : '#111827' }}>
+              {shownNum}<span className="text-[11px] font-bold text-gray-400 ml-0.5">명</span>
             </span>
-            <span className="flex items-center gap-1">
-              <span className="text-gray-800 font-semibold">
-                {s.count}명 <span className="text-gray-400 font-normal">({pct(s.count)}%)</span>
+            {sel && <span className="mt-1 text-[10px] font-semibold text-gray-500">{sel.name}</span>}
+          </div>
+        </div>
+        {/* 범례 — 행 클릭 시 선택(하이라이트), 화살표는 명단으로 진입, 정의는 (?) 툴팁 */}
+        <div className="flex-1 min-w-0 space-y-1">
+          {segments.map(s => (
+            <div
+              key={s.key}
+              onClick={() => s.count > 0 && toggleSel(s.key)}
+              className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg transition ${
+                s.count === 0 ? 'opacity-40' : `cursor-pointer ${selKey === s.key ? 'bg-gray-100' : 'hover:bg-gray-50'}`
+              }`}
+            >
+              <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 transition-transform ${selKey === s.key ? 'scale-125' : ''}`} style={{ background: s.hex }} />
+              <span className="text-[13px] font-semibold text-gray-700 whitespace-nowrap">{s.name}</span>
+              <span className="relative flex items-center">
+                <button
+                  type="button"
+                  aria-label={`${s.name} 설명`}
+                  onClick={(e) => { e.stopPropagation(); setTipKey(k => (k === s.key ? null : s.key)) }}
+                  className="text-gray-300 hover:text-gray-500 leading-none"
+                >
+                  <HelpCircle className="w-3.5 h-3.5" />
+                </button>
+                {tipKey === s.key && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setTipKey(null) }} />
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 z-20 rounded-lg bg-gray-900 text-white text-[11px] font-normal leading-snug px-3 py-2 shadow-lg whitespace-nowrap">
+                      {s.tip}
+                    </div>
+                  </>
+                )}
               </span>
-              {s.count > 0 && <ChevronRight className="w-3.5 h-3.5 text-gray-400" />}
-            </span>
-          </button>
-        ))}
+              <span className="ml-auto text-base font-extrabold text-gray-900 tabular-nums">{pct(s.count)}%</span>
+              {s.count > 0 && (
+                <button
+                  type="button"
+                  aria-label={`${s.name} 명단 보기`}
+                  onClick={(e) => { e.stopPropagation(); onSegmentClick?.(s.key) }}
+                  className="flex-shrink-0 -mr-1 p-0.5 rounded hover:bg-gray-200/60 text-gray-300 hover:text-gray-500"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )
 }
 
-// ─── 위젯 4: 이번 주 하이라이트 ──────────────
+// ─── 위젯 4: 이번 주 하이라이트 — 개수 배지 + 2개 초과 시 접기 ──────────────
 function WidgetHighlights({ insights, onAction }) {
+  const [showAll, setShowAll] = useState(false)
+  const items = insights.highlights || []
+  const LIMIT = 2
+  const visible = showAll ? items : items.slice(0, LIMIT)
+  const moreCount = items.length - LIMIT
   return (
     <div className="bg-white border border-gray-100 rounded-card-lg shadow-soft p-5">
       <div className="flex items-center gap-2 mb-3">
-        <Lightbulb className="w-4 h-4 text-amber-500" />
-        <h3 className="text-sm font-bold text-gray-800">이번 주 하이라이트</h3>
+        <span className="text-base">💡</span>
+        <h3 className="text-base font-bold text-gray-900">이번 주 하이라이트</h3>
+        <span className="ml-auto inline-flex items-center justify-center min-w-[22px] h-[22px] px-1.5 rounded-full bg-amber-100 text-amber-700 text-xs font-bold tabular-nums">{items.length}</span>
       </div>
       <div className="space-y-2">
-        {insights.highlights.map((h, i) => {
-          const cls = `p-2.5 rounded-xl text-xs leading-relaxed ${
+        {visible.map((h, i) => {
+          const cls = `p-3 rounded-xl text-xs leading-relaxed ${
             h.kind === 'positive' ? 'bg-emerald-50/60'
             : h.kind === 'suggestion' ? 'bg-amber-50/60'
             : 'bg-gray-50'
           }`
           const content = (
             <div className="flex gap-2 items-center">
-              <span className="flex-shrink-0 self-start">{h.emoji}</span>
+              <span className="flex-shrink-0 self-start text-sm">{h.emoji}</span>
               <p className="text-gray-700 flex-1">{h.text}</p>
               {h.action && <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />}
             </div>
@@ -712,6 +814,16 @@ function WidgetHighlights({ insights, onAction }) {
           )
         })}
       </div>
+      {moreCount > 0 && (
+        <button
+          type="button"
+          onClick={() => setShowAll(v => !v)}
+          className="mt-2.5 w-full flex items-center justify-center gap-1 text-[13px] font-bold text-gray-500 hover:text-gray-700 py-1 transition"
+        >
+          {showAll ? '접기' : `+${moreCount}개 더 보기`}
+          <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showAll ? 'rotate-180' : ''}`} />
+        </button>
+      )}
     </div>
   )
 }
