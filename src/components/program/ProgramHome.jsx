@@ -133,7 +133,8 @@ export function GoalCard({ emoji, title, value, unit, hint, editable = false, on
         <span className="w-9 h-9 rounded-full bg-emerald-50 flex items-center justify-center flex-shrink-0 text-lg">{emoji}</span>
         <div className="min-w-0 flex-1">
           <span className="text-[13px] font-bold text-gray-800">{title}</span>
-          <p className="text-[24px] font-extrabold text-emerald-600 leading-none break-all" style={{ marginTop: '15px' }}>{value}<span className="text-[12px] font-bold text-gray-400 ml-1">{unit}</span></p>
+          {/* 값 글씨를 기기 폭에 맞춰 축소(clamp) + 단위 줄바꿈 방지 → SE 등 좁은 화면에서 단위 밀림 방지 */}
+          <p className="font-extrabold text-emerald-600 leading-none whitespace-nowrap" style={{ marginTop: '15px', fontSize: 'clamp(16px, 5.8vw, 24px)' }}>{value}<span className="text-[12px] font-bold text-gray-400 ml-1">{unit}</span></p>
           <p className="text-[11px] text-gray-400" style={{ marginTop: '6px' }}>{hint}</p>
         </div>
       </div>

@@ -350,7 +350,7 @@ function RunningHome({
                   </button>
                 )}
               </div>
-              <p className="text-[24px] font-extrabold text-emerald-600 leading-none" style={{ marginTop: '15px' }}>{pace}<span className="text-[12px] font-bold text-gray-400 ml-1">/km</span></p>
+              <p className="font-extrabold text-emerald-600 leading-none whitespace-nowrap" style={{ marginTop: '15px', fontSize: 'clamp(16px, 5.8vw, 24px)' }}>{pace}<span className="text-[12px] font-bold text-gray-400 ml-1">/km</span></p>
               <p className="text-[11px] text-gray-400" style={{ marginTop: '6px' }}>편안하게 유지해요!</p>
             </div>
           </div>
