@@ -16,14 +16,17 @@ import CheerModal from '../../components/program/CheerModal'
 // 활동 상태 필터 (?filter=active|normal|dormant) — ProgramInsightsSummary 위젯 3 클릭 시 도착
 const DAY_MS = 86_400_000
 const FILTER_META = {
+  new: { label: '✨ 이번 주 신규', short: '신규 참여자', threshold: null },
   active: { label: '🟢 활발 (3일 내)', short: '활발 참여자', threshold: 3 },
   normal: { label: '🟡 보통 (3-7일)', short: '보통 참여자', threshold: 7 },
   dormant: { label: '🔴 휴면 (7일+)', short: '휴면 참여자', threshold: null },
 }
 function matchesFilter(user, filterKey) {
   if (!filterKey || !FILTER_META[filterKey]) return true
-  const lastTs = user.lastActiveAt ? new Date(user.lastActiveAt).getTime() : 0
   const now = Date.now()
+  // 신규: 최근 7일 내 가입(joinedAt) — 활동 여부와 무관
+  if (filterKey === 'new') return !!user.joinedAt && (now - new Date(user.joinedAt).getTime()) < 7 * DAY_MS
+  const lastTs = user.lastActiveAt ? new Date(user.lastActiveAt).getTime() : 0
   const days3 = now - 3 * DAY_MS
   const days7 = now - 7 * DAY_MS
   if (filterKey === 'active') return lastTs >= days3
@@ -230,7 +233,7 @@ function ProgramStatsUsersPage() {
           onClick={() => setCheerOpen(true)}
           className="w-full flex items-center justify-center gap-2 h-11 mb-4 rounded-[10px] bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold transition"
         >
-          💌 {activeFilterMeta.short} {filteredUserStats.length}명에게 응원 보내기
+          {filterKey === 'new' ? '👋' : '💌'} {activeFilterMeta.short} {filteredUserStats.length}명에게 {filterKey === 'new' ? '환영 메시지' : '응원'} 보내기
         </button>
       )}
 
@@ -409,6 +412,7 @@ function ProgramStatsUsersPage() {
           programId={id}
           targetUserIds={filteredUserStats.map(u => u.user_id)}
           groupLabel={`${activeFilterMeta.short} ${filteredUserStats.length}명`}
+          variant={filterKey === 'new' ? 'welcome' : 'cheer'}
           onClose={() => setCheerOpen(false)}
         />
       )}

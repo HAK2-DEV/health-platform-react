@@ -1,7 +1,7 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Activity, Sparkles, TrendingUp, TrendingDown, Minus, Lightbulb, ChevronRight, Clock } from 'lucide-react'
+import { Activity, Sparkles, TrendingUp, TrendingDown, Minus, Lightbulb, ChevronRight, ChevronDown, Clock } from 'lucide-react'
 import { formatKstDate } from '../../lib/queries'
 import { getKstHour, formatHour12, TIME_BUCKETS, bucketOfHour } from '../../lib/formatters'
 
@@ -115,6 +115,20 @@ function computeInsights(stats, program) {
     const count = verifications.filter(r => formatKstDate(new Date(r.submitted_at)) === d).length
     trend7.push({ date: d, count })
   }
+  // 오늘 참여율 7일 추세 — 날짜별 (그날 인증한 참여자 수 / 전체 참여자) %. 도넛 클릭 시 선그래프.
+  const participationTrend = []
+  for (let i = 6; i >= 0; i--) {
+    const d = getDaysAgo(i)
+    const dayUsers = new Set(
+      verifications.filter(r => formatKstDate(new Date(r.submitted_at)) === d).map(r => r.user_id)
+    )
+    participationTrend.push({
+      date: d,
+      rate: participantsCount > 0 ? Math.round((dayUsers.size / participantsCount) * 100) : 0,
+      count: dayUsers.size,
+    })
+  }
+
   // 지난주 동일 기간 vs 이번주 비교
   let last7Count = 0
   let prev7Count = 0
@@ -153,8 +167,10 @@ function computeInsights(stats, program) {
   const streakers = userStats.filter(u => (u.activeDays || 0) >= 5)
     .sort((a, b) => (b.activeDays || 0) - (a.activeDays || 0))
     .slice(0, 3)
-  // 신규/낮은 활동 참여자 — activeDays 0~1 인 사람 (인증 0건 포함)
-  const newComers = userStats.filter(u => (u.activeDays || 0) <= 1)
+  // 이번 주 신규 참여자 — 최근 7일 내 실제 가입(joinedAt). 활동 여부와 무관한 "합류".
+  //   (예전엔 activeDays<=1(저활동)을 신규로 잘못 셌음 → 94% 프로그램에서 "11명 합류?" 오류)
+  const weekAgoTs = Date.now() - 7 * DAY_MS
+  const newComers = userStats.filter(u => u.joinedAt && new Date(u.joinedAt).getTime() >= weekAgoTs)
   const newComersCount = newComers.length
 
   // 자동 추천 메시지 — 따뜻한 톤 (본인 정체성 반영)
@@ -164,7 +180,7 @@ function computeInsights(stats, program) {
       kind: 'positive',
       emoji: '✨',
       text: `이번 주 신규 참여자 ${newComersCount}명이 합류했어요.`,
-      action: { label: '참여자 보기', to: 'users' },
+      action: { label: '신규 참여자 보기', to: 'users?filter=new' },
     })
   }
   if (streakers.length > 0) {
@@ -250,17 +266,50 @@ function computeInsights(stats, program) {
     })
   }
   if (highlights.length === 0) {
-    highlights.push({
-      kind: 'neutral',
-      emoji: '🌿',
-      text: '프로그램이 안정적으로 운영되고 있어요. 좋은 흐름을 유지해주세요.',
-    })
+    // 빈/신규 프로그램은 "잘 되고 있어요"가 아니라 시작 안내가 맞음. 상태별로 구분.
+    const noMissions = totalMissionsCount === 0
+    const noParticipants = participantsCount === 0
+    const noActivity = verifications.length === 0
+    if (noMissions && noParticipants) {
+      highlights.push({
+        kind: 'suggestion', emoji: '🌱',
+        text: '이제 막 시작한 프로그램이에요. 미션을 추가하고 참여자를 초대하면 활동이 시작돼요.',
+      })
+    } else if (noMissions) {
+      highlights.push({
+        kind: 'suggestion', emoji: '📋',
+        text: '아직 미션이 없어요. 미션을 추가하면 참여자들이 인증을 시작할 수 있어요.',
+      })
+    } else if (noParticipants) {
+      highlights.push({
+        kind: 'suggestion', emoji: '🙌',
+        text: '아직 참여자가 없어요. 초대 코드나 공유로 참여자를 모아보세요.',
+      })
+    } else if (noActivity) {
+      highlights.push({
+        kind: 'suggestion', emoji: '⏳',
+        text: '참여자들의 첫 인증을 기다리고 있어요. 공지나 응원으로 시작을 도와보세요.',
+      })
+    } else {
+      highlights.push({
+        kind: 'neutral', emoji: '🌿',
+        text: '프로그램이 안정적으로 운영되고 있어요. 좋은 흐름을 유지해주세요.',
+      })
+    }
   }
 
   return {
     participationRate,
     diversity,
     consistency,
+    metrics: {
+      todayActive,
+      participants: participantsCount,
+      activeMissions: activeMissionsCount,
+      totalMissions: totalMissionsCount,
+      activeDays7: activeDays.size,
+    },
+    participationTrend,
     trend7,
     last7Count,
     trendDelta,
@@ -301,42 +350,107 @@ function ProgramInsightsSummary({ stats, program }) {
   )
 }
 
-// ─── 위젯 1: 3대 지표 ─────────────────────────
-function WidgetMetrics({ insights }) {
+// ─── 위젯 1: 프로그램 상태 (도넛 게이지 3종 + 구체 수치) ───
+//   오늘 참여 도넛 클릭 → 최근 7일 참여율 추세 선그래프 펼침.
+const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토']
+
+function DonutGauge({ pct, hex, label, num, den, unit, onClick, expanded }) {
+  const s = 74, sw = 9, r = (s - sw) / 2, c = 2 * Math.PI * r
+  const off = c * (1 - Math.min(100, Math.max(0, pct)) / 100)
+  const inner = (
+    <>
+      <svg viewBox={`0 0 ${s} ${s}`} width={s} height={s} className="flex-shrink-0">
+        <circle cx={s / 2} cy={s / 2} r={r} fill="none" stroke="#eef0f0" strokeWidth={sw} />
+        <circle cx={s / 2} cy={s / 2} r={r} fill="none" stroke={hex} strokeWidth={sw} strokeLinecap="round"
+          strokeDasharray={c} strokeDashoffset={off} transform={`rotate(-90 ${s / 2} ${s / 2})`}
+          style={{ transition: 'stroke-dashoffset .6s ease' }} />
+        <text x={s / 2} y={s / 2} textAnchor="middle" dominantBaseline="central" fontSize="16" fontWeight="800" fill="#111827">{pct}%</text>
+      </svg>
+      <span className="text-[12px] font-bold text-gray-800 inline-flex items-center gap-0.5 leading-tight text-center">
+        {label}{onClick && <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`} />}
+      </span>
+      <span className="text-[11px] text-gray-400 tabular-nums">{num}/{den}{unit}</span>
+    </>
+  )
+  return onClick ? (
+    <button type="button" onClick={onClick} className="flex flex-col items-center gap-1.5 flex-1 min-w-0 py-1 rounded-xl hover:bg-gray-50 transition outline-none">{inner}</button>
+  ) : (
+    <div className="flex flex-col items-center gap-1.5 flex-1 min-w-0 py-1">{inner}</div>
+  )
+}
+
+// 최근 7일 참여율 선그래프 — 각 점 위에 % 값 표기(팝업용)
+function ParticipationTrend({ data }) {
+  const w = 300, h = 110, padTop = 18, padBottom = 6
+  const max = Math.max(10, ...data.map(d => d.rate))
+  const stepX = w / Math.max(1, data.length - 1)
+  const pts = data.map((d, i) => ({
+    x: i * stepX,
+    y: padTop + (1 - d.rate / max) * (h - padTop - padBottom),
+    rate: d.rate,
+  }))
+  const poly = pts.map(p => `${p.x},${p.y}`).join(' ')
+  const last = pts[pts.length - 1]
   return (
-    <div className="bg-white border border-gray-100 rounded-card-lg shadow-soft p-5">
-      <div className="flex items-center gap-2 mb-3">
-        <Activity className="w-4 h-4 text-emerald-600" />
-        <h3 className="text-sm font-bold text-gray-800">프로그램 지표</h3>
-        <span className="text-[11px] text-gray-400 ml-auto">프로그램 유형에 맞춰 해석해주세요</span>
-      </div>
-      <div className="space-y-2.5">
-        <MetricBar label="오늘 참여율" value={insights.participationRate} color="emerald" />
-        <MetricBar label="미션 다양성" value={insights.diversity} color="sky" />
-        <MetricBar label="최근 7일 꾸준함" value={insights.consistency} color="amber" />
+    <div>
+      <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ maxHeight: '120px' }}>
+        <polygon points={`0,${h} ${poly} ${w},${h}`} fill="rgba(16,185,129,0.1)" />
+        <polyline points={poly} fill="none" stroke="rgb(16 185 129)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+        {pts.map((p, i) => (
+          <g key={i}>
+            <circle cx={p.x} cy={p.y} r={i === pts.length - 1 ? 3.5 : 2.5} fill="rgb(16 185 129)" />
+            <text x={Math.max(10, Math.min(w - 10, p.x))} y={p.y - 7} textAnchor="middle" fontSize="10" fontWeight="700" fill="#4b5563">{p.rate}%</text>
+          </g>
+        ))}
+        {last && <circle cx={last.x} cy={last.y} r="6" fill="rgb(16 185 129)" fillOpacity="0.25" />}
+      </svg>
+      <div className="flex justify-between mt-1 text-[11px] text-gray-400">
+        {data.map((d, i) => <span key={i}>{DAY_LABELS[new Date(d.date).getDay()]}</span>)}
       </div>
     </div>
   )
 }
 
-function MetricBar({ label, value, color }) {
-  const colorCls = {
-    emerald: 'bg-emerald-500',
-    sky: 'bg-sky-500',
-    amber: 'bg-amber-500',
-  }[color] || 'bg-gray-500'
+function WidgetMetrics({ insights }) {
+  const [showTrend, setShowTrend] = useState(false)
+  const m = insights.metrics
   return (
-    <div>
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-xs text-gray-600">{label}</span>
-        <span className="text-sm font-bold text-gray-800">{value}</span>
+    <div className="bg-white border border-gray-100 rounded-card-lg shadow-soft p-5">
+      <div className="flex items-center gap-2 mb-3">
+        <Activity className="w-4 h-4 text-emerald-600" />
+        <h3 className="text-sm font-bold text-gray-800">우리 프로그램, 지금</h3>
       </div>
-      <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+      <div className="flex justify-around gap-1">
+        <DonutGauge pct={insights.participationRate} hex="#10b981" label="오늘 참여"
+          num={m.todayActive} den={m.participants} unit="명" onClick={() => setShowTrend(v => !v)} expanded={showTrend} />
+        <DonutGauge pct={insights.diversity} hex="#0ea5e9" label="미션 활용"
+          num={m.activeMissions} den={m.totalMissions} unit="개" />
+        <DonutGauge pct={insights.consistency} hex="#f59e0b" label="이번 주 활동일"
+          num={m.activeDays7} den={7} unit="일" />
+      </div>
+      {showTrend && (
         <div
-          className={`h-full rounded-full transition-all ${colorCls}`}
-          style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
-        />
-      </div>
+          className="fixed inset-0 z-[70] flex items-center justify-center p-5"
+          style={{ background: 'rgba(15,23,42,0.45)' }}
+          onClick={() => setShowTrend(false)}
+        >
+          <div className="w-full max-w-[360px] rounded-2xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-2 mb-0.5">
+              <span className="text-base">👥</span>
+              <h3 className="text-[15px] font-bold text-gray-800">오늘 참여 · 최근 7일 추세</h3>
+            </div>
+            <p className="text-[12px] text-gray-400 mb-3">그날 활동한 참여자 비율(%)이에요. (전체 {insights.metrics.participants}명 기준)</p>
+            <ParticipationTrend data={insights.participationTrend || []} />
+            <button
+              type="button"
+              onClick={() => setShowTrend(false)}
+              className="mt-4 w-full h-10 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-sm transition"
+            >
+              닫기
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

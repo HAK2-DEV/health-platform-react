@@ -110,11 +110,8 @@ function ProgramStatsMissionsPage() {
     )
   }
 
-  const maxBundleCount = stats?.bundleStats?.reduce((m, b) => Math.max(m, b.totalCount), 0) || 1
-  const maxMissionCount = stats?.bundleStats?.reduce(
-    (m, b) => Math.max(m, ...b.missions.map(x => x.count)),
-    0
-  ) || 1
+  // 막대 = "전체 인증 대비 비중(%)" — 완주율 오해 방지. 옆에 수치도 명시.
+  const grandTotal = stats?.bundleStats?.reduce((s, b) => s + b.totalCount, 0) || 0
 
   // 미션별 시간대 분포 — _raw 한 번 순회해서 모든 미션의 24시간 카운트 + peak 시간 산출
   // 본인 「산책 vs 명상」 비교 의도: 동일 페이지에 미션별 sparkline 으로 한눈에 보임
@@ -177,7 +174,7 @@ function ProgramStatsMissionsPage() {
           className="space-y-3"
         >
           {stats.bundleStats.map(bundle => {
-            const bundlePercent = Math.round((bundle.totalCount / maxBundleCount) * 100)
+            const bundleShare = grandTotal > 0 ? Math.round((bundle.totalCount / grandTotal) * 100) : 0
             const isSolo = bundle.bundleTitle === null
             return (
               <div
@@ -191,13 +188,14 @@ function ProgramStatsMissionsPage() {
                     </p>
                     <span className="text-sm text-gray-700 font-semibold whitespace-nowrap">
                       {bundle.totalCount}건
+                      {grandTotal > 0 && <span className="text-[11px] text-gray-400 font-normal ml-1">· 전체 {bundleShare}%</span>}
                     </span>
                   </div>
                   {!isSolo && (
                     <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                       <div
                         className="h-full bg-emerald-500 rounded-full transition-all"
-                        style={{ width: `${bundlePercent}%` }}
+                        style={{ width: `${bundleShare}%` }}
                       />
                     </div>
                   )}
@@ -205,7 +203,7 @@ function ProgramStatsMissionsPage() {
 
                 <div className="border-t border-gray-100 bg-gray-50/40 p-3 space-y-3">
                   {bundle.missions.map(m => {
-                    const mPercent = Math.round((m.count / maxMissionCount) * 100)
+                    const mShare = grandTotal > 0 ? Math.round((m.count / grandTotal) * 100) : 0
                     const hourData = missionHourly.get(m.mission_id)
                     const peakBucket = hourData?.peakHour != null ? bucketOfHour(hourData.peakHour) : null
                     const users = missionUsers.get(m.mission_id) || []
@@ -226,6 +224,7 @@ function ProgramStatsMissionsPage() {
                             <span className="text-xs text-gray-500 whitespace-nowrap inline-flex items-center gap-1">
                               {users.length > 0 && <span className="text-gray-400">{users.length}명</span>}
                               {m.count}건
+                              {grandTotal > 0 && <span className="text-gray-400">({mShare}%)</span>}
                               {users.length > 0 && (
                                 <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                               )}
@@ -234,7 +233,7 @@ function ProgramStatsMissionsPage() {
                           <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden mb-2">
                             <div
                               className="h-full bg-emerald-300 rounded-full transition-all"
-                              style={{ width: `${mPercent}%` }}
+                              style={{ width: `${mShare}%` }}
                             />
                           </div>
                         </button>

@@ -2,20 +2,48 @@ import { useState } from 'react'
 import { supabase } from '../../supabaseClient'
 import { useToast } from '../../contexts/ToastContext'
 
-// 운영자 → 참여자 응원 보내기 모달. 단일(1명) / 일괄(그룹) 겸용.
-//   단일: props targetUserId + targetNickname → RPC send_operator_cheer (마이그 165)
-//   일괄: props targetUserIds(배열) + groupLabel → RPC send_operator_cheer_bulk (마이그 166)
+// 운영자 → 참여자 메시지 모달. 단일/일괄 겸용 + 변형(응원/환영).
+//   단일: targetUserId + targetNickname → RPC send_operator_cheer
+//   일괄: targetUserIds(배열) + groupLabel → RPC send_operator_cheer_bulk
+//   variant: 'cheer'(기본) | 'welcome' — 제목·프리셋·알림 제목이 달라짐 (마이그 167 p_title)
 //   프리셋 빠른문구 + 자유 편집. 남용방지(하루 1회/참여자)는 RPC 에서 처리.
-const PRESETS = [
-  '꾸준히 참여해줘서 고마워요! 💪',
-  '오늘도 화이팅이에요 🌱',
-  '잘 지내죠? 다시 함께해요 💌',
-  '조금만 더 힘내봐요, 응원할게요 🙌',
-]
+const VARIANTS = {
+  cheer: {
+    title: '응원 보내기',
+    desc: '격려 메시지를 보내요',
+    send: '응원 보내기',
+    bulkSend: '일괄 응원 보내기',
+    notifTitle: '💌 운영자 응원이 도착했어요',
+    done: '응원을 보냈어요 💌',
+    emoji: '💌',
+    presets: [
+      '꾸준히 참여해줘서 고마워요! 💪',
+      '오늘도 화이팅이에요 🌱',
+      '잘 지내죠? 다시 함께해요 💌',
+      '조금만 더 힘내봐요, 응원할게요 🙌',
+    ],
+  },
+  welcome: {
+    title: '환영 메시지 보내기',
+    desc: '환영 메시지를 보내요',
+    send: '환영 메시지 보내기',
+    bulkSend: '환영 메시지 보내기',
+    notifTitle: '👋 운영자 환영 메시지가 도착했어요',
+    done: '환영 메시지를 보냈어요 👋',
+    emoji: '👋',
+    presets: [
+      '우리 프로그램에 오신 걸 환영해요! 🎉',
+      '함께하게 되어 반가워요 😊',
+      '천천히 시작해봐요, 응원할게요 🌱',
+      '궁금한 건 언제든 물어보세요 🙌',
+    ],
+  },
+}
 const MAX = 200
 
-export default function CheerModal({ programId, targetUserId, targetNickname, targetUserIds, groupLabel, onClose }) {
+export default function CheerModal({ programId, targetUserId, targetNickname, targetUserIds, groupLabel, variant = 'cheer', onClose }) {
   const toast = useToast()
+  const v = VARIANTS[variant] || VARIANTS.cheer
   const isBulk = Array.isArray(targetUserIds)
   const [msg, setMsg] = useState('')
   const [sending, setSending] = useState(false)
@@ -23,7 +51,7 @@ export default function CheerModal({ programId, targetUserId, targetNickname, ta
 
   const send = async () => {
     const m = msg.trim()
-    if (!m) { setError('응원 메시지를 입력해주세요'); return }
+    if (!m) { setError('메시지를 입력해주세요'); return }
     setSending(true)
     setError(null)
 
@@ -32,6 +60,7 @@ export default function CheerModal({ programId, targetUserId, targetNickname, ta
         p_program_id: programId,
         p_target_user_ids: targetUserIds,
         p_message: m,
+        p_title: v.notifTitle,
       })
       setSending(false)
       if (err) { setError(err.message || '전송에 실패했어요'); return }
@@ -39,8 +68,8 @@ export default function CheerModal({ programId, targetUserId, targetNickname, ta
       const skipped = targetUserIds.length - sent
       toast.show(
         sent > 0
-          ? `${sent}명에게 응원을 보냈어요 💌${skipped > 0 ? ` (${skipped}명은 오늘 이미 받음)` : ''}`
-          : '오늘은 대상 모두 이미 응원을 받았어요'
+          ? `${sent}명에게 보냈어요 ${v.emoji}${skipped > 0 ? ` (${skipped}명은 오늘 이미 받음)` : ''}`
+          : '오늘은 대상 모두 이미 메시지를 받았어요'
       )
       onClose?.()
       return
@@ -50,10 +79,11 @@ export default function CheerModal({ programId, targetUserId, targetNickname, ta
       p_program_id: programId,
       p_target_user_id: targetUserId,
       p_message: m,
+      p_title: v.notifTitle,
     })
     setSending(false)
     if (err) { setError(err.message || '전송에 실패했어요'); return }
-    toast.show('응원을 보냈어요 💌')
+    toast.show(v.done)
     onClose?.()
   }
 
@@ -64,16 +94,16 @@ export default function CheerModal({ programId, targetUserId, targetNickname, ta
       onClick={() => !sending && onClose?.()}
     >
       <div className="w-full max-w-[340px] rounded-2xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-[15px] font-bold text-gray-800">💌 {isBulk ? '응원 일괄 보내기' : '응원 보내기'}</h3>
+        <h3 className="text-[15px] font-bold text-gray-800">{v.emoji} {v.title}</h3>
         <p className="text-[12px] text-gray-500 mt-0.5 mb-3">
           {isBulk
-            ? <><b className="text-gray-700">{groupLabel}</b>에게 같은 메시지를 보내요. (오늘 이미 받은 분은 제외)</>
-            : <><b className="text-gray-700">{targetNickname}</b> 님에게 격려 메시지를 보내요. (하루 1회)</>}
+            ? <><b className="text-gray-700">{groupLabel}</b>에게 같은 {v.desc.replace('를 보내요', '')}를 보내요. (오늘 이미 받은 분은 제외)</>
+            : <><b className="text-gray-700">{targetNickname}</b> 님에게 {v.desc}. (하루 1회)</>}
         </p>
 
         {/* 프리셋 빠른문구 */}
         <div className="flex flex-wrap gap-1.5 mb-3">
-          {PRESETS.map((p) => (
+          {v.presets.map((p) => (
             <button
               key={p}
               type="button"
@@ -92,7 +122,7 @@ export default function CheerModal({ programId, targetUserId, targetNickname, ta
           <textarea
             value={msg}
             onChange={(e) => { setMsg(e.target.value.slice(0, MAX)); setError(null) }}
-            placeholder="직접 응원 메시지를 적어도 좋아요"
+            placeholder="직접 메시지를 적어도 좋아요"
             rows={3}
             autoFocus
             className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-500 text-sm resize-none"
@@ -117,7 +147,7 @@ export default function CheerModal({ programId, targetUserId, targetNickname, ta
             disabled={sending || !msg.trim()}
             className="flex-[1.4] h-10 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[14px] font-bold transition disabled:opacity-50"
           >
-            {sending ? '보내는 중…' : (isBulk ? '일괄 응원 보내기' : '응원 보내기')}
+            {sending ? '보내는 중…' : (isBulk ? v.bulkSend : v.send)}
           </button>
         </div>
       </div>
