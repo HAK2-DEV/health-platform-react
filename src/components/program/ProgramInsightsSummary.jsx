@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { motion } from 'framer-motion'
 import { TrendingUp, TrendingDown, Minus, ChevronRight, ChevronDown, HelpCircle } from 'lucide-react'
 import { formatKstDate } from '../../lib/queries'
 import { getKstHour, formatHour12, TIME_BUCKETS, bucketOfHour } from '../../lib/formatters'
 import ParticipationTrendChart from './ParticipationTrendChart'
+import { Reveal, CountUp, useBarGrow, barGrowStyle, useCountUp, SPRING_EASE } from './statsAnim'
 
 // Day 65 — 운영자 인사이트 위젯 4종 (ProgramStatsPage 상단).
 //   1) 3대 지표 (참여율/다양성/꾸준함) — 종합 점수 대신 각 bar 로 분리
@@ -360,26 +360,12 @@ function ProgramInsightsSummary({ stats, program }) {
 
   return (
     <div className="space-y-5 mb-5 mt-1">
-      <Reveal><WidgetHighlights insights={insights} onAction={(to) => navigate(`/programs/${programId}/stats/${to}`)} /></Reveal>
-      <Reveal><WidgetMetrics insights={insights} /></Reveal>
-      <Reveal><WidgetTrend insights={insights} /></Reveal>
-      <Reveal><WidgetHourly insights={insights} /></Reveal>
-      <Reveal><WidgetDistribution insights={insights} onSegmentClick={goToFilteredUsers} /></Reveal>
+      <Reveal index={0}><WidgetHighlights insights={insights} onAction={(to) => navigate(`/programs/${programId}/stats/${to}`)} /></Reveal>
+      <Reveal index={1}><WidgetMetrics insights={insights} /></Reveal>
+      <Reveal index={2}><WidgetTrend insights={insights} /></Reveal>
+      <Reveal index={3}><WidgetHourly insights={insights} /></Reveal>
+      <Reveal index={4}><WidgetDistribution insights={insights} onSegmentClick={goToFilteredUsers} /></Reveal>
     </div>
-  )
-}
-
-// 스크롤로 뷰포트에 들어올 때 각 카드 페이드업 (1회)
-function Reveal({ children }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.15 }}
-      transition={{ duration: 0.4, ease: 'easeOut' }}
-    >
-      {children}
-    </motion.div>
   )
 }
 
@@ -387,17 +373,17 @@ function Reveal({ children }) {
 //   오늘 참여(큰 박스 = 도넛 + 활동 참여자 수 + 어제 대비, 클릭 시 일자별 추세 팝업)
 //   + 이번 주 참여·미션 활용(가로 바 2박스). 색: 오늘=emerald / 이번주=amber / 미션=sky.
 
-// 오늘 참여 — 큰 도넛(라벨 내장)
+// 오늘 참여 — 큰 도넛(라벨 내장). 뷰 진입 시 숫자 카운트업 + 링 그리기 동시 진행.
 function BigDonut({ pct, hex }) {
+  const [ref, n] = useCountUp(pct)
   const s = 108, sw = 11, r = (s - sw) / 2, c = 2 * Math.PI * r
-  const off = c * (1 - Math.min(100, Math.max(0, pct)) / 100)
+  const off = c * (1 - Math.min(100, Math.max(0, n)) / 100)
   return (
-    <svg viewBox={`0 0 ${s} ${s}`} width={s} height={s} className="flex-shrink-0">
+    <svg ref={ref} viewBox={`0 0 ${s} ${s}`} width={s} height={s} className="flex-shrink-0">
       <circle cx={s / 2} cy={s / 2} r={r} fill="none" stroke="#eef0f0" strokeWidth={sw} />
       <circle cx={s / 2} cy={s / 2} r={r} fill="none" stroke={hex} strokeWidth={sw} strokeLinecap="round"
-        strokeDasharray={c} strokeDashoffset={off} transform={`rotate(-90 ${s / 2} ${s / 2})`}
-        style={{ transition: 'stroke-dashoffset .6s ease' }} />
-      <text x={s / 2} y={s / 2 - 6} textAnchor="middle" dominantBaseline="central" fontSize="24" fontWeight="800" fill="#111827">{pct}%</text>
+        strokeDasharray={c} strokeDashoffset={off} transform={`rotate(-90 ${s / 2} ${s / 2})`} />
+      <text x={s / 2} y={s / 2 - 6} textAnchor="middle" dominantBaseline="central" fontSize="24" fontWeight="800" fill="#111827">{Math.round(n)}%</text>
       <text x={s / 2} y={s / 2 + 15} textAnchor="middle" dominantBaseline="central" fontSize="11" fontWeight="700" fill="#9ca3af">오늘 참여</text>
     </svg>
   )
@@ -406,9 +392,10 @@ function BigDonut({ pct, hex }) {
 // 이번 주 참여 / 미션 활용 — 가로 바 + 큰 % + 세부수치 + (?) 설명
 function BarStat({ label, pct, hex, sub, tip, tipAlign = 'left' }) {
   const [tipOpen, setTipOpen] = useState(false)
-  const p = Math.min(100, Math.max(0, pct))
+  const [ref, n] = useCountUp(pct)   // 숫자 + 바 너비 동시 굴러오름
+  const p = Math.min(100, Math.max(0, n))
   return (
-    <div className="relative bg-white border border-gray-100 rounded-card-lg shadow-soft p-5">
+    <div ref={ref} className="relative bg-white border border-gray-100 rounded-card-lg shadow-soft p-5">
       <div className="flex items-center gap-0.5 mb-3">
         <span className="text-[13px] font-bold text-gray-500">{label}</span>
         {tip && (
@@ -421,12 +408,12 @@ function BarStat({ label, pct, hex, sub, tip, tipAlign = 'left' }) {
       </div>
       <div className="flex items-baseline gap-1.5 mb-5">
         <span className="text-[30px] font-extrabold text-gray-900 leading-none">
-          {pct}<span className="text-lg text-gray-400 font-bold">%</span>
+          {Math.round(n)}<span className="text-lg text-gray-400 font-bold">%</span>
         </span>
         {sub && <span className="text-[11px] text-gray-400 tabular-nums">{sub}</span>}
       </div>
       <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
-        <div className="h-full rounded-full" style={{ width: `${p}%`, background: hex, transition: 'width .6s ease' }} />
+        <div className="h-full rounded-full" style={{ width: `${p}%`, background: hex }} />
       </div>
       {tip && tipOpen && (
         <>
@@ -460,7 +447,7 @@ function WidgetMetrics({ insights }) {
         <div className="flex-1 min-w-0">
           <p className="text-[13px] text-gray-500 mb-1">오늘 활동한 참여자</p>
           <p className="text-[26px] font-extrabold text-gray-900 leading-none">
-            {m.todayActive}<span className="text-[15px] font-bold text-gray-300"> / {m.participants}명</span>
+            <CountUp value={m.todayActive} /><span className="text-[15px] font-bold text-gray-300"> / {m.participants}명</span>
           </p>
           {deltaBadge && (
             <span className={`mt-2 inline-flex items-center px-2 py-0.5 rounded-full text-[12px] font-bold ${deltaBadge.cls}`}>
@@ -574,6 +561,7 @@ function WidgetTrend({ insights }) {
 function WidgetHourly({ insights }) {
   const { hourlyTotal, peakHour, bucketCounts } = insights
   const [selBucket, setSelBucket] = useState(null)
+  const [barsRef, grown, rmH] = useBarGrow()
 
   if (hourlyTotal === 0) {
     return (
@@ -611,9 +599,9 @@ function WidgetHourly({ insights }) {
         </p>
       ) : <div className="mb-5" />}
 
-      {/* 4구간 큰 막대 — 누르면 선택(강조) + 나머지 흐려짐, % 라벨은 막대 위 */}
-      <div className="flex items-end gap-3">
-        {bucketCounts.map(b => {
+      {/* 4구간 큰 막대 — 뷰 진입 시 scaleY 자라남(왼→오 wave), 누르면 선택 강조 + 나머지 흐림 */}
+      <div ref={barsRef} className="flex items-end gap-3">
+        {bucketCounts.map((b, i) => {
           const isTop = b.key === topBucket?.key && b.count > 0
           const isSel = b.key === selBucket
           const dim = selBucket != null && !isSel
@@ -625,16 +613,17 @@ function WidgetHourly({ insights }) {
               key={b.key}
               onClick={() => b.count > 0 && setSelBucket(p => (p === b.key ? null : b.key))}
               className={`flex-1 flex flex-col items-center ${b.count > 0 ? 'cursor-pointer' : ''}`}
+              style={{ transform: isSel ? 'scale(1.06)' : 'scale(1)', transformOrigin: 'bottom', transition: `transform .3s ${SPRING_EASE}` }}
             >
               {/* 막대 영역 — % 라벨을 각 막대 top 바로 위에 붙임 */}
               <div className="w-full h-28 relative flex items-end">
                 <div
-                  className={`w-full rounded-t-lg transition-all ${b.count === 0 ? 'bg-gray-100' : b.color}`}
-                  style={{ height: `${barH}%`, opacity: barOpacity }}
+                  className={`w-full rounded-t-lg ${b.count === 0 ? 'bg-gray-100' : b.color}`}
+                  style={{ height: `${barH}%`, opacity: barOpacity, ...barGrowStyle(grown, rmH, i) }}
                 />
                 <span
-                  className={`absolute left-0 right-0 text-center text-[15px] font-extrabold transition ${emphasize ? 'text-emerald-700' : 'text-gray-800'}`}
-                  style={{ bottom: `calc(${barH}% + 3px)`, opacity: dim ? 0.4 : 1 }}
+                  className={`absolute left-0 right-0 text-center text-[15px] font-extrabold ${emphasize ? 'text-emerald-700' : 'text-gray-800'}`}
+                  style={{ bottom: `calc(${barH}% + 3px)`, opacity: grown ? (dim ? 0.4 : 1) : 0, transition: rmH ? 'none' : `opacity .4s ease ${0.25 + i * 0.016}s` }}
                 >
                   {b.pct}%
                 </span>
@@ -670,12 +659,22 @@ function StatusDonut({ segments, total, selectedKey, onSelect, size = 116 }) {
         a += frac * TAU
         const isSel = s.key === selectedKey
         const dim = selectedKey != null && !isSel
-        const rI = isSel ? rIn - 2 : rIn, rO = isSel ? rOut + 3 : rOut
-        const common = { onClick: () => onSelect(s.key), style: { cursor: 'pointer', opacity: dim ? 0.3 : 1, transition: 'opacity .2s ease' } }
+        // 선택 시 CSS scale 스프링으로 살짝 튕겨 팝(도넛 중앙 기준 확대) + 나머지 흐림
+        const common = {
+          onClick: () => onSelect(s.key),
+          style: {
+            cursor: 'pointer',
+            opacity: dim ? 0.3 : 1,
+            transformBox: 'view-box',
+            transformOrigin: 'center',
+            transform: isSel ? 'scale(1.07)' : 'scale(1)',
+            transition: `transform .3s ${SPRING_EASE}, opacity .2s ease`,
+          },
+        }
         return full ? (
-          <circle key={s.key} cx={cx} cy={cy} r={(rI + rO) / 2} fill="none" stroke={s.hex} strokeWidth={rO - rI} {...common} />
+          <circle key={s.key} cx={cx} cy={cy} r={(rIn + rOut) / 2} fill="none" stroke={s.hex} strokeWidth={rOut - rIn} {...common} />
         ) : (
-          <path key={s.key} d={sector(rI, rO, a0, a1)} fill={s.hex} {...common} />
+          <path key={s.key} d={sector(rIn, rOut, a0, a1)} fill={s.hex} {...common} />
         )
       })}
     </svg>
@@ -733,7 +732,7 @@ function WidgetDistribution({ insights, onSegmentClick }) {
                 s.count === 0 ? 'opacity-40' : `cursor-pointer ${selKey === s.key ? 'bg-gray-100' : 'hover:bg-gray-50'}`
               }`}
             >
-              <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 transition-transform ${selKey === s.key ? 'scale-125' : ''}`} style={{ background: s.hex }} />
+              <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${selKey === s.key ? 'scale-125' : ''}`} style={{ background: s.hex, transition: `transform .3s ${SPRING_EASE}` }} />
               <span className="text-[13px] font-semibold text-gray-700 whitespace-nowrap">{s.name}</span>
               <span className="relative flex items-center">
                 <button
@@ -753,7 +752,7 @@ function WidgetDistribution({ insights, onSegmentClick }) {
                   </>
                 )}
               </span>
-              <span className="ml-auto text-base font-extrabold text-gray-900 tabular-nums">{pct(s.count)}%</span>
+              <CountUp value={pct(s.count)} suffix="%" className="ml-auto text-base font-extrabold text-gray-900 tabular-nums" />
               {s.count > 0 && (
                 <button
                   type="button"
@@ -777,8 +776,29 @@ function WidgetHighlights({ insights, onAction }) {
   const [showAll, setShowAll] = useState(false)
   const items = insights.highlights || []
   const LIMIT = 2
-  const visible = showAll ? items : items.slice(0, LIMIT)
   const moreCount = items.length - LIMIT
+  const renderItem = (h, i) => {
+    const cls = `p-3 rounded-xl text-xs leading-relaxed ${
+      h.kind === 'positive' ? 'bg-emerald-50/60'
+      : h.kind === 'suggestion' ? 'bg-amber-50/60'
+      : 'bg-gray-50'
+    }`
+    const content = (
+      <div className="flex gap-2 items-center">
+        <span className="flex-shrink-0 self-start text-sm">{h.emoji}</span>
+        <p className="text-gray-700 flex-1">{h.text}</p>
+        {h.action && <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />}
+      </div>
+    )
+    return h.action ? (
+      <button key={i} type="button" onClick={() => onAction?.(h.action.to)}
+        className={`${cls} w-full text-left cursor-pointer transition hover:brightness-95 active:brightness-90`}>
+        {content}
+      </button>
+    ) : (
+      <div key={i} className={cls}>{content}</div>
+    )
+  }
   return (
     <div className="bg-white border border-gray-100 rounded-card-lg shadow-soft p-5">
       <div className="flex items-center gap-2 mb-3">
@@ -787,42 +807,27 @@ function WidgetHighlights({ insights, onAction }) {
         <span className="ml-auto inline-flex items-center justify-center min-w-[22px] h-[22px] px-1.5 rounded-full bg-amber-100 text-amber-700 text-xs font-bold tabular-nums">{items.length}</span>
       </div>
       <div className="space-y-2">
-        {visible.map((h, i) => {
-          const cls = `p-3 rounded-xl text-xs leading-relaxed ${
-            h.kind === 'positive' ? 'bg-emerald-50/60'
-            : h.kind === 'suggestion' ? 'bg-amber-50/60'
-            : 'bg-gray-50'
-          }`
-          const content = (
-            <div className="flex gap-2 items-center">
-              <span className="flex-shrink-0 self-start text-sm">{h.emoji}</span>
-              <p className="text-gray-700 flex-1">{h.text}</p>
-              {h.action && <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />}
-            </div>
-          )
-          return h.action ? (
-            <button
-              key={i}
-              type="button"
-              onClick={() => onAction?.(h.action.to)}
-              className={`${cls} w-full text-left cursor-pointer transition hover:brightness-95 active:brightness-90`}
-            >
-              {content}
-            </button>
-          ) : (
-            <div key={i} className={cls}>{content}</div>
-          )
-        })}
+        {items.slice(0, LIMIT).map(renderItem)}
       </div>
       {moreCount > 0 && (
-        <button
-          type="button"
-          onClick={() => setShowAll(v => !v)}
-          className="mt-2.5 w-full flex items-center justify-center gap-1 text-[13px] font-bold text-gray-500 hover:text-gray-700 py-1 transition"
-        >
-          {showAll ? '접기' : `+${moreCount}개 더 보기`}
-          <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showAll ? 'rotate-180' : ''}`} />
-        </button>
+        <>
+          {/* 펼치기 — grid-rows 0fr↔1fr 로 높이 부드럽게 전환 */}
+          <div className="grid" style={{ gridTemplateRows: showAll ? '1fr' : '0fr', transition: 'grid-template-rows .35s cubic-bezier(.2,.75,.25,1)' }}>
+            <div className="overflow-hidden">
+              <div className="space-y-2 pt-2">
+                {items.slice(LIMIT).map((h, i) => renderItem(h, i + LIMIT))}
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowAll(v => !v)}
+            className="mt-2.5 w-full flex items-center justify-center gap-1 text-[13px] font-bold text-gray-500 hover:text-gray-700 py-1 transition"
+          >
+            {showAll ? '접기' : `+${moreCount}개 더 보기`}
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showAll ? 'rotate-180' : ''}`} />
+          </button>
+        </>
       )}
     </div>
   )
