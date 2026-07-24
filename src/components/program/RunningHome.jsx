@@ -7,6 +7,7 @@ import RunningCourseMini from './RunningCourseMini'
 import CountUp from '../common/CountUp'
 import TapRunner from './TapRunner'
 import { NavCard } from './ProgramHome'
+import { Reveal } from './statsAnim'
 
 // 달리기 테마 전용 홈(대시보드) — 목업 기준 UI (2026-06-30, v2).
 //   변경: 히어로에 추천페이스+주간스트릭 통합(층층이), 회복점수→칼로리, 운영자 설정 페이스, 일러스트 연결.
@@ -330,9 +331,10 @@ function RunningHome({
   return (
     <div className="-mx-[11px] px-4 pb-6 space-y-[9px]">
       {/* 1) 히어로 — 운영자 편집(텍스트/크기/볼드/색) */}
-      <RunningHeroBlock hero={hero} editable={heroEditable} onHeroChange={onHeroChange} />
+      <Reveal index={0}><RunningHeroBlock hero={hero} editable={heroEditable} onHeroChange={onHeroChange} /></Reveal>
 
       {/* 2) 추천 페이스 / 주간 스트릭 — 별도 박스 */}
+      <Reveal index={1}>
       <div className="grid grid-cols-2 gap-3">
         {/* 추천 페이스 — 아이콘 + 컬럼(제목/값/안내 들여쓰기 정렬) */}
         <div className="rounded-2xl p-3.5 bg-white border border-gray-100 shadow-soft">
@@ -364,8 +366,10 @@ function RunningHome({
           showTest={showStampTest}
         />
       </div>
+      </Reveal>
 
       {/* 2) 공지사항 */}
+      <Reveal index={2}>
       <button type="button" onClick={onNotice || (() => onOpenTab('community'))}
         className="w-full flex items-center gap-3 rounded-2xl p-3.5 bg-white border border-gray-100 shadow-soft text-left hover:bg-gray-50 transition">
         <span className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center flex-shrink-0"><Megaphone className="w-4 h-4 text-emerald-500" /></span>
@@ -375,8 +379,10 @@ function RunningHome({
         </div>
         <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
       </button>
+      </Reveal>
 
       {/* 3) 데일리 로그 — 거리/시간/연속/칼로리 */}
+      <Reveal index={3}>
       <div className="rounded-2xl p-4 bg-white border border-gray-100 shadow-soft">
         <h3 className="text-[13px] font-bold text-gray-800 mb-3">주요 기록 요약</h3>
         <div className="flex">
@@ -396,8 +402,10 @@ function RunningHome({
           ))}
         </div>
       </div>
+      </Reveal>
 
       {/* 4) 마라톤 코스 = 프로그램 진행률 — 레퍼런스: 좌 텍스트 / 우 맵(풀블리드) */}
+      <Reveal index={4}>
       <div className="rounded-2xl bg-white border border-gray-100 shadow-soft overflow-hidden flex items-stretch">
         {/* 좌: 제목(상단) + 기간 */}
         <div className="w-[42%] flex-shrink-0 px-4 py-3 flex flex-col justify-center">
@@ -415,9 +423,11 @@ function RunningHome({
           <RunningCourseMini progress={progress} showTest={showStampTest} />
         </div>
       </div>
+      </Reveal>
 
       {/* 5) 미션 / 퀴즈 / 커뮤니티 / 랭킹 — ProgramHome 카드형 메뉴와 완전 동일(NavCard 공유).
           비활성 메뉴는 박스 제거, 활성 개수에 맞춰 균등 그리드 */}
+      <Reveal index={5}>
       {(() => {
         const cards = [
           { key: 'mission', iconSrc: '/icons/feature/mission.png', iconEmoji: '📋', title: '미션', desc: '목표를 달성해요', actionLabel: '기록하기', onClick: onRecord, newCount: newMissionCount },
@@ -433,12 +443,13 @@ function RunningHome({
           </div>
         )
       })()}
+      </Reveal>
 
       {/* 강사 클래스 — 개요 진입 카드 (기능 ON 시 주입) */}
-      {classSlot}
+      {classSlot && <Reveal index={5}>{classSlot}</Reveal>}
 
       {/* 6) 하단 격려 배너 — 배경 5초 슬라이드 + 화분 고정 오버레이 */}
-      <BottomBanner />
+      <Reveal index={5}><BottomBanner /></Reveal>
       {/* 추천 페이스 편집 — 화면 중앙 모달 */}
       {editingPace && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-6" style={{ background: 'rgba(15,23,42,0.45)' }}

@@ -1186,9 +1186,11 @@ function ProgramDetailPage() {
     ? <ClassOverviewCard programId={id} onOpenAll={openClassesTab} />
     : null
 
+  const immersiveHome = usesCardHome && activeTab === 'overview' && !inManager
   return (
     <div className="px-[11px] pt-2 pb-6 max-w-4xl mx-auto">
-      {/* 상단 헤더 — 뒤로 + 제목 + 알림 + 프로필 (풀폭, 모서리 0) */}
+      {/* 상단 헤더 — 카드홈 개요(immersive)에선 숨기고 히어로 위 뒤로/설정으로 대체 */}
+      {!immersiveHome && (
       <header className="sticky top-0 z-30 -mx-[11px] -mt-2 mb-[6px] bg-white/95 backdrop-blur-sm">
         <div className="max-w-4xl mx-auto h-[44px] px-2 flex items-center justify-center relative">
           <button type="button" onClick={handleHeaderBack} className="absolute left-2 p-1.5 text-gray-600 hover:text-gray-900" aria-label="뒤로">
@@ -1255,6 +1257,7 @@ function ProgramDetailPage() {
           </div>
         </div>
       </header>
+      )}
 
       {/* 프로그램 헤더 — 모의도 디자인: 배경 사진 풀 블리드 + 우측 페이드 + 진행중 배지.
           인라인 관리자 열림(inManager) 시엔 숨김 → 집중 편집 화면.
@@ -1481,7 +1484,7 @@ function ProgramDetailPage() {
 
       {/* 인증 심사 대기 배너 — 운영자 + 검토 필요 인증 (개요·미션 탭). 탭하면 인증 검토 큐.
           진입 시 1회 강조 연출(정중앙 팝업 → 원위치). */}
-      {isOwner && pendingReviews.length > 0 && (activeTab === 'overview' || activeTab === 'missions') && (
+      {isOwner && pendingReviews.length > 0 && (activeTab === 'overview' || activeTab === 'missions') && !immersiveHome && (
         <OperatorReviewBanner
           count={pendingReviews.length}
           onClick={() => setVreviewOpen(true)}
@@ -1727,6 +1730,14 @@ function ProgramDetailPage() {
             coverImagePath={program.cover_image_path}
             categories={program.categories}
             participantCount={ranking.length}
+            journeyText={(() => {
+              if (!program.start_date) return ''
+              const s = new Date(program.start_date)
+              const dplus = Math.max(0, Math.floor((Date.now() - s.getTime()) / 86400000))
+              const tot = program.end_date ? Math.max(1, Math.round((new Date(program.end_date).getTime() - s.getTime()) / 86400000)) : null
+              return tot ? `D+${dplus} · ${tot}일 여정` : `D+${dplus}`
+            })()}
+            ownerName={program.owner_nickname || program.owner?.nickname || null}
             myRank={program.ranking_enabled !== false ? myRow?.rank : null}
             notice={homeNotice || (isOwner ? '공지를 작성해보세요' : '등록된 공지가 없어요')}
             metrics={homeMetrics}
@@ -1745,6 +1756,17 @@ function ProgramDetailPage() {
             streakRef={streakRef}
             editable={isOwner}
             onEditLayout={() => setHomeEditOpen(true)}
+            onBack={handleHeaderBack}
+            onSettings={isOwner ? () => setIsPanelOpen(true) : null}
+            pendingCount={pendingCount}
+            reviewSlot={isOwner && pendingReviews.length > 0 ? (
+              <OperatorReviewBanner
+                count={pendingReviews.length}
+                onClick={() => setVreviewOpen(true)}
+                playIntro={playReviewIntro}
+                onIntroDone={() => setPlayReviewIntro(false)}
+              />
+            ) : null}
             classSlot={classOverviewSlot}
             quizEnabled={quizEnabled && !isViewer}
             communityEnabled={communityEnabled}

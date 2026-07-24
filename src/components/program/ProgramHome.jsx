@@ -1,4 +1,4 @@
-import { useState, Fragment } from 'react'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { ChevronRight, Calendar, Activity, Award, Flame, Pencil } from 'lucide-react'
 import WeeklyStreak from './WeeklyStreak'
@@ -6,6 +6,7 @@ import ProgramHomeHero from './ProgramHomeHero'
 import FlameIcon from '../common/FlameIcon'
 import CountUp from '../common/CountUp'
 import { progressUrgency } from '../../lib/programVisuals'
+import { Reveal } from './statsAnim'
 
 // 프로그램 홈 (카드형) — 표준 프로그램 상세를 달리기(RunningHome)처럼 카드 네비로.
 //   고정 박스: 표지 히어로(최상단) + 메뉴 카드(바로 아래). 이동·숨김 불가.
@@ -179,6 +180,8 @@ function ProgramHome({
   coverImagePath = null,
   categories = [],
   participantCount = null,
+  journeyText = '',            // 히어로 여정 문구 "D+N · M일 여정"
+  ownerName = null,            // 히어로 메타 "운영 X"
   myRank = null,
   notice = '',
   metrics = [],
@@ -200,6 +203,10 @@ function ProgramHome({
   streakRef = null,           // 주간 스트릭 ref — 첫 인증 후 개요 진입 시 도장 재생용
   editable = false,           // 운영자 — 「개요 화면 편집」 박스 노출
   onEditLayout = () => {},    // 편집 화면 열기(Phase 2)
+  onBack = null,              // immersive 히어로 — 뒤로가기
+  onSettings = null,          // immersive 히어로 — 운영자 설정
+  pendingCount = 0,
+  reviewSlot = null,          // immersive — 인증 심사 대기 배너(시트 상단)
   classSlot = null,           // 강사 클래스 개요 진입 카드 (기능 ON 시 주입)
   onOpenTab = () => {},
   onRecord = () => {},
@@ -380,33 +387,48 @@ function ProgramHome({
     : visibleKeys
 
   return (
-    <div className="-mx-[11px] px-4 pb-6 space-y-[9px]">
-      {/* [고정] 편집형 히어로 — 리치 텍스트(크기·색·볼드) + 배경 사진 + 그라데이션 (달리기 방식) */}
+    <div className="-mx-[11px]" style={{ marginTop: 'calc(-0.5rem - max(env(safe-area-inset-top, 0px), 0.75rem))' }}>
+      {/* [고정] 커버 히어로 — 전체폭 252px + 상태바 밑까지 (immersive). 커버+스크림+밝은 페이드+타이틀 */}
       <ProgramHomeHero
         hero={homeHero}
         editable={editable}
         coverImagePath={coverImagePath}
         categories={categories}
         programName={programName}
+        statusLabel={statusLabel}
+        participantCount={participantCount}
+        journeyText={journeyText}
+        ownerName={ownerName}
         ownerId={ownerId}
         onHeroChange={onHeroChange}
+        onBack={onBack}
+        onSettings={onSettings}
+        pendingCount={pendingCount}
       />
 
-      {/* [커스터마이즈] 운영자 순서·숨김 반영 (메뉴·클래스 일정 포함) */}
-      {orderedKeys.map((k) => <Fragment key={k}>{BOXES[k]()}</Fragment>)}
+      {/* 콘텐츠 시트 — 히어로 위로 -22px 겹치며 26px 라운드로 시작 */}
+      <div className="relative -mt-[22px] rounded-t-[26px] px-4 pt-5 pb-6 space-y-[9px]" style={{ background: '#fdfbf7' }}>
+        {/* 인증 심사 대기 배너 (운영자) — immersive 에선 히어로 아래 시트 최상단 */}
+        {reviewSlot}
+        {/* [커스터마이즈] 운영자 순서·숨김 반영 — 진입 시 순차 페이드업 */}
+        {orderedKeys.map((k, i) => {
+          const content = BOXES[k]()
+          return content ? <Reveal key={k} index={Math.min(i, 5)}>{content}</Reveal> : null
+        })}
 
-      {/* [운영자] 개요 화면 편집 — 가장 아래·중앙·옅은 회색 */}
-      {editable && (
-        <div className="flex justify-center pt-1">
-          <button
-            type="button"
-            onClick={onEditLayout}
-            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-2xl bg-gray-100 text-gray-500 text-[13px] font-semibold hover:bg-gray-200 transition"
-          >
-            ✏️ 개요 화면 편집
-          </button>
-        </div>
-      )}
+        {/* [운영자] 개요 화면 편집 — 가장 아래·중앙·옅은 회색 */}
+        {editable && (
+          <div className="flex justify-center pt-1">
+            <button
+              type="button"
+              onClick={onEditLayout}
+              className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-2xl bg-gray-100 text-gray-500 text-[13px] font-semibold hover:bg-gray-200 transition"
+            >
+              ✏️ 개요 화면 편집
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
