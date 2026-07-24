@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
@@ -21,11 +22,13 @@ function ProgramStatsPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const userId = session?.user?.id
-  // 운영자 메뉴 「통계」로 진입한 경우 — 뒤로가기 시 프로그램이 아니라 운영자 메뉴를 다시 연다
+  // 통계에서 뒤로가기는 무조건 운영자 메뉴로 (진입 정보 없으면 root). 이땐 스크롤 저장 스킵(다음 진입 상단부터).
   const backToOpMenu = location.state?.backToOpMenu
-  const handleBack = backToOpMenu
-    ? () => navigate(`/programs/${id}?opmenu=${backToOpMenu}`, { replace: true })
-    : () => { location.key === 'default' ? navigate(`/programs/${id}`, { replace: true }) : navigate(-1) }
+  const skipScrollSaveRef = useRef(false)
+  const handleBack = () => {
+    skipScrollSaveRef.current = true
+    navigate(`/programs/${id}?opmenu=${backToOpMenu || 'root'}`, { replace: true })
+  }
 
   const { data: program, isLoading: isProgramLoading } = useQuery({
     queryKey: queryKeys.program(id),
@@ -48,6 +51,23 @@ function ProgramStatsPage() {
     queryFn: () => fetchProgramQuizStats(id),
     enabled: !!session && !!id && isOwner,
   })
+
+  // 스크롤 위치 저장·복원 — 미션별/참여 유저 등으로 갔다 뒤로 돌아올 때 이전 위치 그대로.
+  //   App 전역 scrollTo(0,0)(useLayoutEffect+rAF) 이후 double rAF 로 복원하므로 이쪽이 이김.
+  //   운영자 메뉴로 나갈 땐(skip) 저장 안 하고 지워서, 다음에 통계를 새로 열면 상단부터 시작.
+  useEffect(() => {
+    const key = `stats-scroll:${id}`
+    const saved = sessionStorage.getItem(key)
+    if (saved != null) {
+      sessionStorage.removeItem(key)
+      const y = parseInt(saved, 10)
+      if (y > 0) requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, y)))
+    }
+    return () => {
+      if (skipScrollSaveRef.current) { try { sessionStorage.removeItem(key) } catch { /* noop */ }; return }
+      try { sessionStorage.setItem(key, String(window.scrollY)) } catch { /* sessionStorage 미지원 */ }
+    }
+  }, [id])
 
   if (isProgramLoading) {
     return <LoadingState variant="page" />
@@ -92,7 +112,7 @@ function ProgramStatsPage() {
             type="button"
             onClick={handleBack}
             className="absolute left-1 flex items-center justify-center w-9 h-9 rounded-full hover:bg-gray-100 transition"
-            title={backToOpMenu ? '운영자 메뉴로' : '프로그램으로'}
+            title="운영자 메뉴로"
           >
             <ChevronLeft className="w-5 h-5 text-gray-700" />
           </button>

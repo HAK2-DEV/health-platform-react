@@ -114,6 +114,19 @@ export function formatRelativeKstDay(timestamp) {
   return targetKst.replaceAll('-', '.')
 }
 
+// 항상 상대 표기 — 오늘 / 어제 / N일 전 (30일 이상도 절대날짜로 안 바꿈)
+export function formatDaysAgoKst(timestamp) {
+  if (!timestamp) return ''
+  const todayKst = getTodayKST()
+  const targetKst = toKSTDateString(timestamp)
+  if (targetKst === todayKst) return '오늘'
+  const today = new Date(`${todayKst}T00:00:00+09:00`)
+  const target = new Date(`${targetKst}T00:00:00+09:00`)
+  const diffDays = Math.round((today - target) / (1000 * 60 * 60 * 24))
+  if (diffDays === 1) return '어제'
+  return `${diffDays}일 전`
+}
+
 // KST 오늘 ISO 요일 (1=월 ... 7=일) — 점수 트리거 033 의 EXTRACT(ISODOW) 와 동일 규약
 export function getTodayKstDow() {
   const day = new Intl.DateTimeFormat('en-US', {

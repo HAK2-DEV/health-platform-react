@@ -1,17 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { motion } from 'framer-motion'
 import { ChevronLeft, ChevronRight, Check, X, UserPlus } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
-import { formatRelativeKstDay } from '../../lib/formatters'
+import { formatRelativeKstDay, formatDaysAgoKst } from '../../lib/formatters'
 import { queryKeys, fetchProgram, fetchProgramStats } from '../../lib/queries'
 import StickyBackBar from '../../components/common/StickyBackBar'
 import LoadingState from '../../components/common/LoadingState'
 import EmptyState from '../../components/common/EmptyState'
 import UserAvatar from '../../components/common/UserAvatar'
 import CheerModal from '../../components/program/CheerModal'
+import { Reveal, CountUp } from '../../components/program/statsAnim'
 
 // 활동 상태 필터 (?filter=active|normal|dormant) — ProgramInsightsSummary 위젯 3 클릭 시 도착
 const DAY_MS = 86_400_000
@@ -35,6 +35,38 @@ function matchesFilter(user, filterKey) {
   return true
 }
 
+// 유저 활동 상태 — 마지막 활동 기준 (활발 3일 / 보통 7일 / 그 외 휴면)
+function statusOf(u) {
+  const lastTs = u.lastActiveAt ? new Date(u.lastActiveAt).getTime() : 0
+  const now = Date.now()
+  if (lastTs >= now - 3 * DAY_MS) return 'active'
+  if (lastTs >= now - 7 * DAY_MS) return 'normal'
+  return 'dormant'
+}
+const STATUS_TAG = {
+  active: { label: '활발', cls: 'bg-emerald-50 text-emerald-700', dot: '#10b981' },
+  normal: { label: '보통', cls: 'bg-amber-50 text-amber-600', dot: '#f59e0b' },
+  dormant: { label: '휴면', cls: 'bg-rose-50 text-rose-600', dot: '#f87171' },
+}
+const STATUS_TABS = [
+  { key: null, label: '전체' },
+  { key: 'active', label: '활발' },
+  { key: 'normal', label: '보통' },
+  { key: 'dormant', label: '휴면' },
+]
+
+// 상단 통계 박스 — 패딩 넉넉히(높게) + 라벨↔숫자 8px. 간격은 inline 으로 확실히 적용.
+function StatBox({ label, value, color }) {
+  return (
+    <div className="bg-white border border-gray-200 rounded-2xl" style={{ padding: '18px 14px' }}>
+      <p className="text-[10.5px] font-medium text-gray-400 truncate" style={{ lineHeight: 1, marginBottom: 8 }}>{label}</p>
+      <p className={`text-[19px] font-extrabold ${color}`} style={{ lineHeight: 1 }}>
+        <CountUp value={value} /><span className="text-[10.5px] font-bold text-gray-400 ml-0.5">명</span>
+      </p>
+    </div>
+  )
+}
+
 // 운영자 — 유저별 인증 현황 디테일
 // 라우트: /programs/:id/stats/users
 function ProgramStatsUsersPage() {
@@ -49,6 +81,7 @@ function ProgramStatsUsersPage() {
   const pendingRefs = useRef({})
   const [highlightPending, setHighlightPending] = useState(null)
   const [cheerOpen, setCheerOpen] = useState(false)   // 일괄 응원 모달
+  const [sortBy, setSortBy] = useState('count')       // 랭킹 정렬 — 'count'(인증 건수) | 'points'(포인트)
 
   const { data: program, isLoading: isProgramLoading } = useQuery({
     queryKey: queryKeys.program(id),
@@ -194,10 +227,17 @@ function ProgramStatsUsersPage() {
     )
   }
 
-  const maxUserCount = stats?.userStats?.[0]?.totalCount || 1
   const leftUserIds = new Set(leftParticipants.map(p => p.user_id))
-  const filteredUserStats = stats?.userStats?.filter(u => matchesFilter(u, filterKey) && !leftUserIds.has(u.user_id)) || []
+  const visibleUsers = (stats?.userStats || []).filter(u => !leftUserIds.has(u.user_id))
+  const filteredUserStats = visibleUsers.filter(u => matchesFilter(u, filterKey))
+  const sortedUsers = [...filteredUserStats].sort((a, b) =>
+    sortBy === 'points' ? (b.totalScore - a.totalScore) : (b.totalCount - a.totalCount))
   const activeFilterMeta = filterKey ? FILTER_META[filterKey] : null
+  // 상단 통계 박스 값
+  const totalParticipants = visibleUsers.length
+  const todayActiveCount = visibleUsers.filter(u => u.todayCount > 0).length
+  const dormantCount = visibleUsers.filter(u => statusOf(u) === 'dormant').length
+  const hasUsers = !isStatsLoading && !!stats && stats.userStats.length > 0
 
   return (
     <div className="px-4 pt-2 pb-6 max-w-4xl mx-auto">
@@ -207,26 +247,52 @@ function ProgramStatsUsersPage() {
         breadcrumb={[program.name, '통계', '참여 유저 관리']}
       />
 
-      {/* 활성 필터 칩 — 위젯 3 클릭으로 진입 시 표시 */}
-      {activeFilterMeta && (
-        <div className="mt-2 mb-4 flex items-center gap-2">
-          <span className="text-xs text-gray-500">필터:</span>
+      {/* 상단 통계 박스 3개 */}
+      {hasUsers && (
+        <Reveal index={0}>
+          <div className="grid grid-cols-3 gap-2.5 mt-2 mb-3">
+            <StatBox label="전체 참여자" value={totalParticipants} color="text-gray-900" />
+            <StatBox label="오늘 활동" value={todayActiveCount} color="text-emerald-600" />
+            <StatBox label="휴면" value={dormantCount} color="text-rose-500" />
+          </div>
+        </Reveal>
+      )}
+
+      {/* 상태 탭 — 전체 / 활발 / 보통 / 휴면 */}
+      {hasUsers && (
+        <Reveal index={1}>
+        <div className="flex gap-2 mb-4">
+          {STATUS_TABS.map(t => {
+            const isActive = (filterKey || null) === t.key
+            return (
+              <button
+                key={t.key || 'all'}
+                type="button"
+                onClick={() => (t.key ? setSearchParams({ filter: t.key }, { replace: true }) : setSearchParams({}, { replace: true }))}
+                className={`flex-1 h-9 rounded-full text-sm font-bold transition ${isActive ? 'bg-emerald-500 text-white shadow-sm' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+              >
+                {t.label}
+              </button>
+            )
+          })}
+        </div>
+        </Reveal>
+      )}
+
+      {/* 신규 필터 칩 — 탭에 없는 '이번 주 신규' 진입 시만 */}
+      {filterKey === 'new' && (
+        <div className="mb-4 flex items-center gap-2">
           <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-pill text-sm font-medium">
-            {activeFilterMeta.label}
-            <button
-              type="button"
-              onClick={() => setSearchParams({})}
-              className="p-0.5 hover:bg-emerald-100 rounded-full"
-              title="필터 해제"
-            >
+            ✨ 이번 주 신규
+            <button type="button" onClick={() => setSearchParams({}, { replace: true })} className="p-0.5 hover:bg-emerald-100 rounded-full" title="필터 해제">
               <X className="w-3 h-3" />
             </button>
           </span>
-          <span className="text-xs text-gray-400 ml-1">{filteredUserStats.length}명</span>
+          <span className="text-xs text-gray-400">{filteredUserStats.length}명</span>
         </div>
       )}
 
-      {/* 일괄 응원 — 필터로 좁힌 그룹(활발/보통/휴면) 전체에게 격려 (오늘 이미 받은 사람은 자동 제외) */}
+      {/* 일괄 응원 — 필터로 좁힌 그룹 전체에게 격려 (오늘 이미 받은 사람은 자동 제외) */}
       {activeFilterMeta && filteredUserStats.length > 0 && (
         <button
           type="button"
@@ -305,74 +371,58 @@ function ProgramStatsUsersPage() {
       ) : filteredUserStats.length === 0 ? (
         <EmptyState icon="🔍" title={`${activeFilterMeta?.label || ''} 그룹에 해당하는 참여자가 없어요`} />
       ) : (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.3 }}
-          className="grid gap-2"
-        >
-          {filteredUserStats.map((u, idx) => {
-            const percent = Math.round((u.totalCount / maxUserCount) * 100)
-            const rankBadgeClass =
-              idx === 0 ? 'bg-yellow-100 text-yellow-700'
-              : idx === 1 ? 'bg-gray-200 text-gray-700'
-              : idx === 2 ? 'bg-orange-100 text-orange-700'
-              : 'bg-gray-50 text-gray-500'
-            return (
-              <button
-                key={u.user_id}
-                type="button"
-                onClick={() => navigate(`/programs/${id}/stats/users/${u.user_id}`)}
-                className="w-full p-3 bg-white border border-gray-200 rounded-2xl hover:border-sky-300 hover:bg-sky-50/30 transition text-left"
-              >
-                {/* 헤더 — 등수 + 아바타 + 닉네임 + 총 인증 + > */}
-                <div className="flex items-center gap-2 mb-2">
-                  <span className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium flex-shrink-0 ${rankBadgeClass}`}>
-                    {idx + 1}
-                  </span>
-                  <UserAvatar avatarPath={u.avatar_path} nickname={u.nickname} size="sm" />
-                  <p className="text-sm font-medium text-gray-800 truncate flex-1 min-w-0 pr-2">
-                    {u.nickname}
-                  </p>
-                  <span className="text-sm text-gray-600 font-medium whitespace-nowrap">
-                    {u.totalCount}건
-                    {u.todayCount > 0 && (
-                      <span className="ml-1 text-xs text-emerald-600">
-                        (오늘 +{u.todayCount})
-                      </span>
-                    )}
-                  </span>
-                  <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                </div>
-
-                {/* 진행 막대 */}
-                <div className="h-2 bg-gray-100 rounded-full overflow-hidden ml-8 mb-2">
-                  <div
-                    className="h-full bg-sky-400 rounded-full transition-all"
-                    style={{ width: `${percent}%` }}
-                  />
-                </div>
-
-                {/* 추가 지표 — 점수 / 활동 일수 / 마지막 활동 */}
-                <div className="ml-8 flex items-center gap-3 text-[11px] text-gray-500 flex-wrap">
-                  <span>
-                    💎 <span className="text-gray-700 font-medium">{u.totalScore}P</span>
-                  </span>
-                  <span className="text-gray-300">·</span>
-                  <span>
-                    🔥 <span className="text-gray-700 font-medium">{u.activeDays}일</span> 활동
-                  </span>
-                  <span className="text-gray-300">·</span>
-                  <span>
-                    🕒 <span className={`font-medium ${u.lastActiveAt ? 'text-gray-700' : 'text-rose-500'}`}>
-                      {u.lastActiveAt ? formatRelativeKstDay(u.lastActiveAt) : '활동 없음'}
-                    </span>
-                  </span>
-                </div>
-              </button>
-            )
-          })}
-        </motion.div>
+        <>
+          <div className="flex items-center justify-between px-1 mb-2">
+            <h3 className="text-base font-bold text-gray-900">참여 순위</h3>
+            <div className="flex items-center gap-1 text-xs">
+              {[{ k: 'count', l: '인증 건수' }, { k: 'points', l: '포인트' }].map(o => (
+                <button
+                  key={o.k}
+                  type="button"
+                  onClick={() => setSortBy(o.k)}
+                  className={`px-2.5 py-1 rounded-full font-semibold transition ${sortBy === o.k ? 'bg-emerald-500 text-white' : 'text-gray-400 hover:text-gray-600'}`}
+                >
+                  {o.l}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="grid gap-2.5">
+            {sortedUsers.map((u, idx) => {
+              const tag = STATUS_TAG[statusOf(u)]
+              const rankCls = idx === 0 ? 'text-orange-500' : idx === 1 ? 'text-gray-400' : idx === 2 ? 'text-amber-500' : 'text-gray-300'
+              return (
+                <Reveal key={u.user_id} index={Math.min(idx, 5)}>
+                <button
+                  type="button"
+                  onClick={() => navigate(`/programs/${id}/stats/users/${u.user_id}`)}
+                  className="w-full flex items-center gap-3 p-3.5 bg-white border border-gray-200 rounded-2xl hover:border-sky-300 hover:bg-sky-50/30 transition active:scale-[0.98] text-left"
+                >
+                  <span className={`w-5 text-center text-base font-extrabold flex-shrink-0 ${rankCls}`}>{idx + 1}</span>
+                  <UserAvatar avatarPath={u.avatar_path} nickname={u.nickname} size="md" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-sm font-bold text-gray-800 truncate">{u.nickname}</p>
+                      <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded flex-shrink-0 ${tag.cls}`}>{tag.label}</span>
+                    </div>
+                    <p className="text-[11px] text-gray-400 mt-2 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: tag.dot }} />
+                      <span className={u.lastActiveAt ? '' : 'text-rose-400'}>{u.lastActiveAt ? formatDaysAgoKst(u.lastActiveAt) : '활동 없음'}</span>
+                      <span className="text-gray-300">·</span>
+                      활동 {u.activeDays}일
+                    </p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-base font-extrabold text-gray-900 leading-none">{u.totalCount}<span className="text-[11px] font-bold text-gray-400 ml-0.5">건</span></p>
+                    <p className="text-[11px] font-semibold text-gray-400 mt-2">{u.totalScore}P</p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
+                </button>
+                </Reveal>
+              )
+            })}
+          </div>
+        </>
       )}
 
       {/* 내보낸 참여자 — 재참여 허용 */}
