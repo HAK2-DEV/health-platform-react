@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { createReport } from '../../lib/queries'
+import { createReport, REPORT_REASON_PRESETS } from '../../lib/queries'
 
 // 신고 모달 — 사유(선택) 입력 후 신고. (한줄 설명 모달과 동일 오버레이 스타일)
 //   props: isOpen, onClose, programId, targetType('post'|'verification'), targetId, onReported
@@ -34,7 +34,16 @@ function ReportModal({ isOpen, onClose, programId, targetType, targetId, onRepor
         ) : (
           <>
             <h4 className="text-[15px] font-bold text-gray-800 mb-1">🚩 신고</h4>
-            <p className="text-[12px] text-gray-500 mb-2.5">신고 사유를 적어주세요 (선택). 누적되면 자동으로 가려집니다.</p>
+            <p className="text-[12px] text-gray-500 mb-2">신고 사유를 골라주세요 (선택). 누적되면 자동으로 가려집니다.</p>
+            {/* 기본 사유 프리셋 — 탭하면 사유 채움(다시 탭하면 해제) */}
+            <div className="flex flex-wrap gap-1.5 mb-2.5">
+              {REPORT_REASON_PRESETS.map(p => (
+                <button key={p} type="button" onClick={() => setReason(r => (r === p ? '' : p))}
+                  className={`px-2.5 py-1 rounded-full text-[12px] font-semibold border transition ${reason === p ? 'bg-amber-500 border-amber-500 text-white' : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'}`}>
+                  {p}
+                </button>
+              ))}
+            </div>
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { TrendingUp, TrendingDown, Minus, ChevronRight, ChevronDown, HelpCircle } from 'lucide-react'
+import { TrendingUp, TrendingDown, Minus, ChevronRight, ChevronDown } from 'lucide-react'
 import { formatKstDate } from '../../lib/queries'
 import { getKstHour, formatHour12, TIME_BUCKETS, bucketOfHour } from '../../lib/formatters'
 import ParticipationTrendChart from './ParticipationTrendChart'
@@ -202,6 +202,7 @@ function computeInsights(stats, program) {
     highlights.push({
       kind: 'positive',
       emoji: '✨',
+      chip: `신규 ${newComersCount}명 합류`,
       text: `이번 주 신규 참여자 ${newComersCount}명이 합류했어요.`,
       action: { label: '신규 참여자 보기', to: 'users?filter=new' },
     })
@@ -211,6 +212,7 @@ function computeInsights(stats, program) {
     highlights.push({
       kind: 'positive',
       emoji: '🔥',
+      chip: `꾸준한 참여자 ${streakers.length}명`,
       text: `${names} 님이 꾸준히 참여 중이에요. 응원 한마디 전해보시는 건 어떠세요?`,
       action: { label: '활발 참여자 보기', to: 'users?filter=active' },
     })
@@ -219,6 +221,7 @@ function computeInsights(stats, program) {
     highlights.push({
       kind: 'positive',
       emoji: '📈',
+      chip: `${topMission.title} 활발`,
       text: `「${topMission.title}」 인증이 활발해요 (${topMission.count}건). 비슷한 미션을 추가하시면 효과적일 수 있어요.`,
       action: { label: '미션별 현황 보기', to: 'missions' },
     })
@@ -228,6 +231,7 @@ function computeInsights(stats, program) {
     highlights.push({
       kind: 'suggestion',
       emoji: '🌱',
+      chip: `저조 미션 ${zeroMissions.length}개`,
       text: `${sample}${zeroMissions.length > 2 ? ` 외 ${zeroMissions.length - 2}건` : ''} 참여도가 낮습니다. 적절한 조치를 권고드립니다.`,
       action: { label: '미션별 현황 보기', to: 'missions' },
     })
@@ -239,6 +243,7 @@ function computeInsights(stats, program) {
       highlights.push({
         kind: 'suggestion',
         emoji: '⏰',
+        chip: `${topBucket.label} 편중`,
         text: `${topBucket.emoji} ${topBucket.label} 시간대 인증이 ${topBucket.pct}%로 가장 많아요. 미션 알림이나 새 미션 시간을 이 구간 직전으로 맞춰보세요.`,
       })
     }
@@ -255,6 +260,7 @@ function computeInsights(stats, program) {
       highlights.push({
         kind: 'positive',
         emoji: '🎯',
+        chip: `피크 ${formatHour12(m.peakHour)}`,
         text: `「${m.title}」은 ${peakBucket.emoji} ${formatHour12(m.peakHour)} 즈음에 ${pct}% 인증이 몰려있어요. 같은 시간대를 활용하는 새 미션을 추가하시면 효과적일 수 있어요.`,
         action: { label: '미션별 현황 보기', to: 'missions' },
       })
@@ -273,6 +279,7 @@ function computeInsights(stats, program) {
           highlights.push({
             kind: 'suggestion',
             emoji: '💡',
+            chip: `${zeroInBundle.title} 시간대 조정`,
             text: `「${zeroInBundle.title}」은 아직 인증이 없는데, 같은 묶음의 「${topInBundle.title}」은 ${peakBucket.emoji} ${peakBucket.label}에 활발해요. 시간대를 ${peakBucket.label}로 옮겨보시면 어떠세요?`,
           })
           break  // 묶음당 하이라이트 1개로 제한 — 메시지 폭주 방지
@@ -284,6 +291,7 @@ function computeInsights(stats, program) {
     highlights.push({
       kind: 'suggestion',
       emoji: '💌',
+      chip: `휴면 ${dormantCount}명 챙기기`,
       text: `휴면 참여자 ${dormantCount}명이 있어요. 응원 메시지나 새 미션 추가를 권해드려요.`,
       action: { label: '휴면 참여자 보기', to: 'users?filter=dormant' },
     })
@@ -295,27 +303,27 @@ function computeInsights(stats, program) {
     const noActivity = verifications.length === 0
     if (noMissions && noParticipants) {
       highlights.push({
-        kind: 'suggestion', emoji: '🌱',
+        kind: 'suggestion', emoji: '🌱', chip: '시작 준비하기',
         text: '이제 막 시작한 프로그램이에요. 미션을 추가하고 참여자를 초대하면 활동이 시작돼요.',
       })
     } else if (noMissions) {
       highlights.push({
-        kind: 'suggestion', emoji: '📋',
+        kind: 'suggestion', emoji: '📋', chip: '미션 추가하기',
         text: '아직 미션이 없어요. 미션을 추가하면 참여자들이 인증을 시작할 수 있어요.',
       })
     } else if (noParticipants) {
       highlights.push({
-        kind: 'suggestion', emoji: '🙌',
+        kind: 'suggestion', emoji: '🙌', chip: '참여자 모으기',
         text: '아직 참여자가 없어요. 초대 코드나 공유로 참여자를 모아보세요.',
       })
     } else if (noActivity) {
       highlights.push({
-        kind: 'suggestion', emoji: '⏳',
+        kind: 'suggestion', emoji: '⏳', chip: '첫 인증 대기 중',
         text: '참여자들의 첫 인증을 기다리고 있어요. 공지나 응원으로 시작을 도와보세요.',
       })
     } else {
       highlights.push({
-        kind: 'neutral', emoji: '🌿',
+        kind: 'neutral', emoji: '🌿', chip: '안정 운영 중',
         text: '프로그램이 안정적으로 운영되고 있어요. 좋은 흐름을 유지해주세요.',
       })
     }
@@ -383,37 +391,37 @@ function BigDonut({ pct, hex }) {
       <circle cx={s / 2} cy={s / 2} r={r} fill="none" stroke="#eef0f0" strokeWidth={sw} />
       <circle cx={s / 2} cy={s / 2} r={r} fill="none" stroke={hex} strokeWidth={sw} strokeLinecap="round"
         strokeDasharray={c} strokeDashoffset={off} transform={`rotate(-90 ${s / 2} ${s / 2})`} />
-      <text x={s / 2} y={s / 2 - 6} textAnchor="middle" dominantBaseline="central" fontSize="24" fontWeight="800" fill="#111827">{Math.round(n)}%</text>
-      <text x={s / 2} y={s / 2 + 15} textAnchor="middle" dominantBaseline="central" fontSize="11" fontWeight="700" fill="#9ca3af">오늘 참여</text>
+      <text x={s / 2} y={s / 2 - 6} textAnchor="middle" dominantBaseline="central" fontSize="24" fontWeight="800" fill="#23282b">{Math.round(n)}%</text>
+      <text x={s / 2} y={s / 2 + 15} textAnchor="middle" dominantBaseline="central" fontSize="11" fontWeight="700" fill="#6a736d">오늘 참여</text>
     </svg>
   )
 }
 
-// 이번 주 참여 / 미션 활용 — 가로 바 + 큰 % + 세부수치 + (?) 설명
-function BarStat({ label, pct, hex, sub, tip, tipAlign = 'left' }) {
+// 이번 주 참여 / 미션 활용 — 세로 스택용 박스(하드라인·단일 emerald 바). 세로 중앙 정렬로 오늘참여 박스와 높이 맞춤.
+function BarStat({ label, pct, sub, tip, tipAlign = 'left' }) {
   const [tipOpen, setTipOpen] = useState(false)
   const [ref, n] = useCountUp(pct)   // 숫자 + 바 너비 동시 굴러오름
   const p = Math.min(100, Math.max(0, n))
   return (
-    <div ref={ref} className="relative bg-white border border-gray-100 rounded-card-lg shadow-soft p-5">
-      <div className="flex items-center gap-0.5 mb-3">
-        <span className="text-[13px] font-bold text-gray-500">{label}</span>
+    <div ref={ref} className="relative bg-white rounded-card-lg flex-1 flex flex-col justify-center"
+      style={{ border: '1px solid #e6e9e6', padding: 14 }}>
+      <div className="flex items-center gap-1">
+        <span style={{ fontSize: 11.5, fontWeight: 600, color: '#6a736d' }}>{label}</span>
         {tip && (
           <button type="button" aria-label={`${label} 설명`}
             onClick={() => setTipOpen(v => !v)}
-            className="text-gray-300 hover:text-gray-500 leading-none">
-            <HelpCircle className="w-3.5 h-3.5" />
-          </button>
+            className="inline-flex items-center justify-center flex-shrink-0"
+            style={{ width: 14, height: 14, borderRadius: '50%', background: '#eef1ee', color: '#4b544f', fontSize: 9, fontWeight: 700 }}>?</button>
         )}
       </div>
-      <div className="flex items-baseline gap-1.5 mb-5">
-        <span className="text-[30px] font-extrabold text-gray-900 leading-none">
-          {Math.round(n)}<span className="text-lg text-gray-400 font-bold">%</span>
+      <div className="flex items-baseline" style={{ marginTop: 12, lineHeight: 1 }}>
+        <span style={{ fontSize: 26, fontWeight: 700, color: '#23282b' }}>
+          {Math.round(n)}<span style={{ fontSize: 12, color: '#6a736d', fontWeight: 700 }}>%</span>
         </span>
-        {sub && <span className="text-[11px] text-gray-400 tabular-nums">{sub}</span>}
+        {sub && <span className="tabular-nums" style={{ fontSize: 11, color: '#6a736d', marginLeft: 6 }}>{sub}</span>}
       </div>
-      <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
-        <div className="h-full rounded-full" style={{ width: `${p}%`, background: hex }} />
+      <div style={{ height: 6, borderRadius: 999, background: '#e4e7e4', overflow: 'hidden', marginTop: 13 }}>
+        <div style={{ height: '100%', borderRadius: 999, width: `${p}%`, background: '#12a26b' }} />
       </div>
       {tip && tipOpen && (
         <>
@@ -440,34 +448,31 @@ function WidgetMetrics({ insights }) {
     : { cls: 'bg-gray-100 text-gray-500', text: '어제와 같아요' }
   return (
     <div>
-      {/* 오늘 참여 — 큰 박스, 클릭 시 추세 팝업 */}
-      <button type="button" onClick={() => setShowTrend(true)}
-        className="w-full flex items-center gap-5 bg-white border border-gray-100 rounded-card-lg shadow-soft p-6 text-left transition hover:bg-gray-50/60 active:scale-[0.99]">
-        <BigDonut pct={insights.participationRate} hex="#10b981" />
-        <div className="flex-1 min-w-0">
-          <p className="text-[13px] text-gray-500 mb-1">오늘 활동한 참여자</p>
-          <p className="text-[26px] font-extrabold text-gray-900 leading-none">
-            <CountUp value={m.todayActive} /><span className="text-[15px] font-bold text-gray-300"> / {m.participants}명</span>
+      {/* 오늘 참여(좌 · 클릭 시 추세 팝업) | 이번 주 참여·미션 활용(우 스택) */}
+      <div className="flex items-stretch" style={{ gap: 11 }}>
+        <button type="button" onClick={() => setShowTrend(true)}
+          className="bg-white rounded-card-lg flex flex-col items-center text-center transition hover:bg-gray-50/60 active:scale-[0.99]"
+          style={{ border: '1px solid #e6e9e6', padding: '16px 14px', flex: '1.05' }}>
+          <BigDonut pct={insights.participationRate} hex="#12a26b" />
+          <p style={{ fontSize: 23, fontWeight: 700, color: '#23282b', marginTop: 12 }}>
+            <CountUp value={m.todayActive} /><span style={{ fontSize: 13, color: '#6a736d', fontWeight: 700 }}> / {m.participants}명</span>
           </p>
           {deltaBadge && (
-            <span className={`mt-2 inline-flex items-center px-2 py-0.5 rounded-full text-[12px] font-bold ${deltaBadge.cls}`}>
+            <span className={`inline-flex items-center ${deltaBadge.cls}`}
+              style={{ marginTop: 10, fontSize: 11.5, fontWeight: 700, padding: '4px 10px', borderRadius: 999 }}>
               {deltaBadge.text}
             </span>
           )}
-          <span className="mt-1.5 flex items-center gap-0.5 text-[11px] text-gray-400">
-            터치해서 일자별 추세 보기 <ChevronRight className="w-3 h-3" />
-          </span>
-        </div>
-      </button>
+        </button>
 
-      {/* 이번 주 참여 / 미션 활용 — 가로 바 2박스 */}
-      <div className="grid grid-cols-2 gap-3.5 mt-4">
-        <BarStat label="이번 주 참여" pct={insights.weeklyReach} hex="#f59e0b"
-          sub={`${m.weeklyActive}/${m.participants}명`} tipAlign="left"
-          tip={"최근 7일 동안 한 번이라도 인증한 참여자 비율이에요.\n매일은 아니어도 이번 주에 활동한 사람을 보여줘요."} />
-        <BarStat label="미션 활용" pct={insights.diversity} hex="#0ea5e9"
-          sub={`${m.activeMissions}/${m.totalMissions}개`} tipAlign="right"
-          tip={"등록한 미션 중 인증이 한 번이라도 올라온 미션의 비율이에요.\n낮으면 아무도 안 쓰는 미션이 있다는 뜻이에요."} />
+        <div className="flex flex-col" style={{ flex: 1, gap: 11 }}>
+          <BarStat label="이번 주 참여" pct={insights.weeklyReach}
+            sub={`${m.weeklyActive}/${m.participants}명`} tipAlign="right"
+            tip={"최근 7일 동안 한 번이라도 인증한 참여자 비율이에요.\n매일은 아니어도 이번 주에 활동한 사람을 보여줘요."} />
+          <BarStat label="미션 활용" pct={insights.diversity}
+            sub={`${m.activeMissions}/${m.totalMissions}개`} tipAlign="right"
+            tip={"등록한 미션 중 인증이 한 번이라도 올라온 미션의 비율이에요.\n낮으면 아무도 안 쓰는 미션이 있다는 뜻이에요."} />
+        </div>
       </div>
 
       {showTrend && (
@@ -558,77 +563,56 @@ function WidgetTrend({ insights }) {
 
 // ─── 위젯 2.5: 시간대 인증 패턴 (제목 카드 안 · 4구간 큰 막대) ─────────────
 // 운영자가 「명상 시간 바꿔야겠다」 같은 미션 시간 조정 결정의 직접 근거.
+// 컴팩트(2열 좌측) — 막대 위 건수 + emerald 농도로 피크 강조(피크=진한 emerald, 활발=emerald, 비피크=그레이).
 function WidgetHourly({ insights }) {
-  const { hourlyTotal, peakHour, bucketCounts } = insights
-  const [selBucket, setSelBucket] = useState(null)
+  const { hourlyTotal, bucketCounts } = insights
   const [barsRef, grown, rmH] = useBarGrow()
+  const [selKey, setSelKey] = useState(null)
 
   if (hourlyTotal === 0) {
     return (
-      <div className="bg-white border border-gray-100 rounded-card-lg shadow-soft p-5">
-        <h3 className="text-base font-bold text-gray-900 mb-2">시간대 인증 패턴</h3>
-        <p className="text-xs text-gray-500">아직 인증 기록이 없어요</p>
+      <div className="bg-white rounded-card-lg" style={{ border: '1px solid #e6e9e6', padding: '18px 16px' }}>
+        <h3 style={{ fontSize: 16, fontWeight: 700, color: '#23282b' }}>시간대</h3>
+        <p style={{ fontSize: 12, color: '#6a736d', marginTop: 8 }}>아직 인증 기록이 없어요</p>
       </div>
     )
   }
 
-  const peakBucket = peakHour !== null ? bucketOfHour(peakHour) : null
-  const topBucket = [...bucketCounts].sort((a, b) => b.count - a.count)[0]
-  const maxPct = Math.max(...bucketCounts.map(b => b.pct), 1)
-  const bucketHex = { dawn: '#818cf8', morning: '#fbbf24', afternoon: '#34d399', evening: '#fb7185' }
-  const sel = selBucket ? bucketCounts.find(b => b.key === selBucket) : null
+  const maxCount = Math.max(...bucketCounts.map(b => b.count), 1)
+  const topKey = [...bucketCounts].sort((a, b) => b.count - a.count)[0]?.key
 
   return (
-    <div className="bg-white border border-gray-100 rounded-card-lg shadow-soft p-5">
-      <div className="flex items-center gap-2 mb-1">
-        <h3 className="text-base font-bold text-gray-900">시간대 인증 패턴</h3>
-      </div>
-      {/* 헤더 문구 — 선택 시 그 구간 상세, 아니면 피크 안내 (도넛 중앙과 같은 언어) */}
-      {sel ? (
-        <p className="text-xs mb-5">
-          <b className="font-bold" style={{ color: bucketHex[sel.key] }}>{sel.emoji} {sel.label}</b>
-          <span className="text-gray-400"> · </span>
-          <b className="text-gray-800">{sel.count}건</b>
-          <span className="text-gray-500"> · 전체의 {sel.pct}%</span>
-        </p>
-      ) : peakHour !== null ? (
-        <p className="text-xs text-gray-600 mb-5">
-          <span className="font-semibold text-emerald-700">{formatHour12(peakHour)}</span>
-          {peakBucket && <span className="text-gray-500"> ({peakBucket.emoji}{peakBucket.label})</span>}
-          {' '}에 가장 활발해요.
-        </p>
-      ) : <div className="mb-5" />}
-
-      {/* 4구간 큰 막대 — 뷰 진입 시 scaleY 자라남(왼→오 wave), 누르면 선택 강조 + 나머지 흐림 */}
-      <div ref={barsRef} className="flex items-end gap-3">
+    <div className="bg-white rounded-card-lg" style={{ border: '1px solid #e6e9e6', padding: '18px 16px' }}>
+      <h3 style={{ fontSize: 16, fontWeight: 700, color: '#23282b' }}>시간대</h3>
+      <div ref={barsRef} className="flex items-end" style={{ gap: 14, marginTop: 18 }}>
         {bucketCounts.map((b, i) => {
-          const isTop = b.key === topBucket?.key && b.count > 0
-          const isSel = b.key === selBucket
-          const dim = selBucket != null && !isSel
-          const emphasize = isSel || (selBucket == null && isTop)
-          const barH = b.count > 0 ? Math.max(14, (b.pct / maxPct) * 80) : 4
-          const barOpacity = b.count === 0 ? 1 : dim ? 0.3 : (emphasize ? 1 : 0.7)
+          const ratio = b.count / maxCount
+          const isMax = b.key === topKey && b.count > 0
+          const strong = b.count > 0 && (isMax || ratio >= 0.65)
+          const barColor = b.count === 0 ? '#e2e6e3' : isMax ? '#059669' : strong ? '#10b981' : '#e2e6e3'
+          const numColor = b.count === 0 ? '#6a736d' : isMax ? '#059669' : strong ? '#10b981' : '#6a736d'
+          const labColor = isMax ? '#23282b' : strong ? '#4b544f' : '#6a736d'
+          const labWeight = isMax ? 700 : strong ? 600 : 400
+          // 막대 높이는 고정 트랙(108px) 대비 비율 → 값이 클수록 확실히 높게
+          const barH = b.count > 0 ? Math.max(10, ratio * 100) : 4
+          const isSel = b.key === selKey
           return (
-            <div
-              key={b.key}
-              onClick={() => b.count > 0 && setSelBucket(p => (p === b.key ? null : b.key))}
+            <div key={b.key}
+              onClick={() => b.count > 0 && setSelKey(p => (p === b.key ? null : b.key))}
               className={`flex-1 flex flex-col items-center ${b.count > 0 ? 'cursor-pointer' : ''}`}
-              style={{ transform: isSel ? 'scale(1.06)' : 'scale(1)', transformOrigin: 'bottom', transition: `transform .3s ${SPRING_EASE}` }}
-            >
-              {/* 막대 영역 — % 라벨을 각 막대 top 바로 위에 붙임 */}
-              <div className="w-full h-28 relative flex items-end">
-                <div
-                  className={`w-full rounded-t-lg ${b.count === 0 ? 'bg-gray-100' : b.color}`}
-                  style={{ height: `${barH}%`, opacity: barOpacity, ...barGrowStyle(grown, rmH, i) }}
-                />
-                <span
-                  className={`absolute left-0 right-0 text-center text-[15px] font-extrabold ${emphasize ? 'text-emerald-700' : 'text-gray-800'}`}
-                  style={{ bottom: `calc(${barH}% + 3px)`, opacity: grown ? (dim ? 0.4 : 1) : 0, transition: rmH ? 'none' : `opacity .4s ease ${0.25 + i * 0.016}s` }}
-                >
-                  {b.pct}%
-                </span>
+              style={{ transformOrigin: 'bottom', transform: isSel ? 'scale(1.06)' : 'scale(1)', transition: `transform .3s ${SPRING_EASE}` }}>
+              {/* 고정 높이 트랙 — 막대는 트랙 대비 %, 숫자는 각 막대 top 바로 위에 절대배치 */}
+              <div className="w-full relative flex items-end" style={{ height: 108 }}>
+                <div className="w-full" style={{ height: `${barH}%`, borderRadius: '9px 9px 0 0', background: barColor, ...barGrowStyle(grown, rmH, i) }} />
+                <div className="absolute left-0 right-0 flex justify-center"
+                  style={{ bottom: `calc(${barH}% + 5px)`, lineHeight: 1, opacity: grown ? 1 : 0, transition: rmH ? 'none' : `opacity .4s ease ${0.2 + i * 0.05}s` }}>
+                  {/* 탭하면 % → 건수로 토글 */}
+                  <span className="tabular-nums" style={{ fontSize: 15, fontWeight: 800, color: numColor, whiteSpace: 'nowrap' }}>
+                    {isSel && b.count > 0 ? `${b.count}건` : `${b.pct}%`}
+                  </span>
+                </div>
               </div>
-              <span className={`mt-2 text-[11px] text-center leading-tight transition ${isSel ? 'text-gray-800 font-semibold' : dim ? 'text-gray-400' : 'text-gray-500'}`}>{b.emoji} {b.label}</span>
+              <span style={{ marginTop: 9, fontSize: 12, lineHeight: 1.3, color: labColor, fontWeight: labWeight, whiteSpace: 'nowrap' }}>{b.label.split('/')[0]}</span>
             </div>
           )
         })}
@@ -637,134 +621,129 @@ function WidgetHourly({ insights }) {
   )
 }
 
-// 참여자 상태 도넛 — 채워진 세그먼트(개별 클릭). 선택 시 두꺼워지고 나머지는 흐려짐.
-function StatusDonut({ segments, total, selectedKey, onSelect, size = 116 }) {
-  const cx = size / 2, cy = size / 2
-  const rOut = size / 2 - 4, rIn = rOut - 16
-  const TAU = Math.PI * 2, GAP = 0.05
-  const pt = (r, a) => `${(cx + r * Math.cos(a)).toFixed(2)} ${(cy + r * Math.sin(a)).toFixed(2)}`
-  const sector = (rI, rO, a0, a1) => {
-    const large = (a1 - a0) > Math.PI ? 1 : 0
-    return `M ${pt(rO, a0)} A ${rO} ${rO} 0 ${large} 1 ${pt(rO, a1)} L ${pt(rI, a1)} A ${rI} ${rI} 0 ${large} 0 ${pt(rI, a0)} Z`
-  }
+// 컴팩트 참여자 상태 도넛 — emerald 참여도 그라데이션(활발=emerald, 보통=연한 emerald, 휴면=그레이).
+//   조각 클릭 시 해당 그룹 명단으로 진입. 중앙엔 전체 인원.
+export function StatusDonut({ segments, total, selectedKey, onSelect, size = 72 }) {
+  const C = 2 * Math.PI * 46          // viewBox 120 기준 도넛 둘레
+  const GAP = 3                        // 조각 사이 간격(호 길이)
   const active = segments.filter(s => s.count > 0)
-  let a = -Math.PI / 2
+  let cum = 0
+  const sel = selectedKey ? segments.find(s => s.key === selectedKey && s.count > 0) : null
+  const centerNum = sel ? sel.count : total
+  const numSize = centerNum >= 1000 ? 14 : centerNum >= 100 ? 18 : 20
   return (
-    <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size} className="flex-shrink-0">
-      <circle cx={cx} cy={cy} r={(rIn + rOut) / 2} fill="none" stroke="#eef0f0" strokeWidth={rOut - rIn} />
+    <svg viewBox="0 0 120 120" width={size} height={size} className="flex-shrink-0">
+      <circle cx="60" cy="60" r="46" fill="none" stroke="#eef0ef" strokeWidth="15" />
       {active.map(s => {
-        const frac = s.count / total
-        const full = frac >= 0.999
-        const a0 = a + (full ? 0 : GAP / 2), a1 = a + frac * TAU - (full ? 0 : GAP / 2)
-        a += frac * TAU
+        const raw = (s.count / total) * C
+        const len = Math.max(0, raw - (active.length > 1 ? GAP : 0))
+        const off = -cum
+        cum += raw
         const isSel = s.key === selectedKey
         const dim = selectedKey != null && !isSel
-        // 선택 시 CSS scale 스프링으로 살짝 튕겨 팝(도넛 중앙 기준 확대) + 나머지 흐림
-        const common = {
-          onClick: () => onSelect(s.key),
-          style: {
-            cursor: 'pointer',
-            opacity: dim ? 0.3 : 1,
-            transformBox: 'view-box',
-            transformOrigin: 'center',
-            transform: isSel ? 'scale(1.07)' : 'scale(1)',
-            transition: `transform .3s ${SPRING_EASE}, opacity .2s ease`,
-          },
-        }
-        return full ? (
-          <circle key={s.key} cx={cx} cy={cy} r={(rIn + rOut) / 2} fill="none" stroke={s.hex} strokeWidth={rOut - rIn} {...common} />
-        ) : (
-          <path key={s.key} d={sector(rIn, rOut, a0, a1)} fill={s.hex} {...common} />
+        // 선택 시 그 조각만 도넛 중앙 기준으로 살짝 팝(스프링) + 나머지 흐림. (rotate 를 style 로 옮겨 scale 과 함께 적용)
+        return (
+          <circle key={s.key} cx="60" cy="60" r="46" fill="none" stroke={s.hex} strokeWidth="15"
+            strokeDasharray={`${len} ${C}`} strokeDashoffset={off}
+            onClick={() => onSelect?.(s.key)}
+            style={{
+              cursor: 'pointer',
+              opacity: dim ? 0.35 : 1,
+              transformBox: 'view-box',
+              transformOrigin: 'center',
+              transform: isSel ? 'rotate(-90deg) scale(1.08)' : 'rotate(-90deg)',
+              transition: `transform .3s ${SPRING_EASE}, opacity .2s ease`,
+            }} />
         )
       })}
+      <text x="60" y="55" textAnchor="middle" dominantBaseline="central" fontSize={numSize} fontWeight="800" fill="#23282b">{centerNum}</text>
+      <text x="60" y="72" textAnchor="middle" dominantBaseline="central" fontSize="10" fontWeight="700" fill="#6a736d">{sel ? sel.name : '참여자'}</text>
     </svg>
   )
 }
 
-// ─── 위젯 3: 참여자 상태 — 도넛 + 범례(클릭 시 해당 그룹 목록으로) ────
+// ─── 위젯 3: 참여자 상태 — 도넛(좌) + 범례(우, 행 탭 → 해당 그룹 명단) ────
 function WidgetDistribution({ insights, onSegmentClick }) {
   const { activeCount, normalCount, dormantCount, total } = insights.distribution
-  const [tipKey, setTipKey] = useState(null)
+  const [tipOpen, setTipOpen] = useState(false)
   const [selKey, setSelKey] = useState(null)
   if (total === 0) {
     return (
-      <div className="bg-white border border-gray-100 rounded-card-lg shadow-soft p-5">
-        <h3 className="text-base font-bold text-gray-900 mb-2">참여자 상태</h3>
-        <p className="text-xs text-gray-500">아직 참여자가 없어요</p>
+      <div className="bg-white rounded-card-lg" style={{ border: '1px solid #e6e9e6', padding: '18px 16px' }}>
+        <h3 style={{ fontSize: 16, fontWeight: 700, color: '#23282b' }}>참여자 상태</h3>
+        <p style={{ fontSize: 12, color: '#6a736d', marginTop: 8 }}>아직 참여자가 없어요</p>
       </div>
     )
   }
   const pct = (n) => Math.round((n / total) * 100)
   const segments = [
-    { key: 'active', name: '활발', count: activeCount, hex: '#10b981', tip: '최근 3일 안에 인증한 참여자예요.' },
-    { key: 'normal', name: '보통', count: normalCount, hex: '#f59e0b', tip: '3~7일 사이에 인증한 참여자예요.' },
-    { key: 'dormant', name: '휴면', count: dormantCount, hex: '#f87171', tip: '7일 넘게 인증이 없어요 — 응원이 필요해요.' },
+    { key: 'active', name: '활발', count: activeCount, hex: '#10b981' },
+    { key: 'normal', name: '보통', count: normalCount, hex: '#6ee7b7' },
+    { key: 'dormant', name: '휴면', count: dormantCount, hex: '#c3cac5' },
   ]
-  const toggleSel = (k) => setSelKey(p => (p === k ? null : k))
-  const sel = selKey ? segments.find(s => s.key === selKey && s.count > 0) : null
-  // 중앙 숫자 — 선택 시 그 조각 인원수, 아니면 총원. 자릿수 많으면 축소.
-  const shownNum = sel ? sel.count : total
-  const numCls = shownNum >= 10000 ? 'text-xs' : shownNum >= 1000 ? 'text-sm' : shownNum >= 100 ? 'text-base' : 'text-lg'
   return (
-    <div className="bg-white border border-gray-100 rounded-card-lg shadow-soft p-5">
-      <div className="flex items-center gap-2 mb-4">
-        <h3 className="text-base font-bold text-gray-900">참여자 상태</h3>
-        <span className="text-xs text-gray-400 ml-auto">총 {total}명</span>
-      </div>
-      <div className="flex items-center gap-5">
-        {/* 도넛 (조각 클릭 → 선택). 중앙: 선택 시 인원수+이름, 아니면 총원 */}
-        <div className="relative flex-shrink-0">
-          <StatusDonut segments={segments} total={total} selectedKey={selKey} onSelect={toggleSel} />
-          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none leading-none">
-            <span className={`${numCls} font-extrabold whitespace-nowrap`} style={{ color: sel ? sel.hex : '#111827' }}>
-              {shownNum}<span className="text-[11px] font-bold text-gray-400 ml-0.5">명</span>
-            </span>
-            {sel && <span className="mt-1 text-[10px] font-semibold text-gray-500">{sel.name}</span>}
-          </div>
-        </div>
-        {/* 범례 — 행 클릭 시 선택(하이라이트), 화살표는 명단으로 진입, 정의는 (?) 툴팁 */}
-        <div className="flex-1 min-w-0 space-y-1">
-          {segments.map(s => (
-            <div
-              key={s.key}
-              onClick={() => s.count > 0 && toggleSel(s.key)}
-              className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg transition ${
-                s.count === 0 ? 'opacity-40' : `cursor-pointer ${selKey === s.key ? 'bg-gray-100' : 'hover:bg-gray-50'}`
-              }`}
-            >
-              <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${selKey === s.key ? 'scale-125' : ''}`} style={{ background: s.hex, transition: `transform .3s ${SPRING_EASE}` }} />
-              <span className="text-[13px] font-semibold text-gray-700 whitespace-nowrap">{s.name}</span>
-              <span className="relative flex items-center">
-                <button
-                  type="button"
-                  aria-label={`${s.name} 설명`}
-                  onClick={(e) => { e.stopPropagation(); setTipKey(k => (k === s.key ? null : s.key)) }}
-                  className="text-gray-300 hover:text-gray-500 leading-none"
-                >
-                  <HelpCircle className="w-3.5 h-3.5" />
-                </button>
-                {tipKey === s.key && (
-                  <>
-                    <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setTipKey(null) }} />
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 z-20 rounded-lg bg-gray-900 text-white text-[11px] font-normal leading-snug px-3 py-2 shadow-lg whitespace-nowrap">
-                      {s.tip}
-                    </div>
-                  </>
-                )}
-              </span>
-              <CountUp value={pct(s.count)} suffix="%" className="ml-auto text-base font-extrabold text-gray-900 tabular-nums" />
-              {s.count > 0 && (
-                <button
-                  type="button"
-                  aria-label={`${s.name} 명단 보기`}
-                  onClick={(e) => { e.stopPropagation(); onSegmentClick?.(s.key) }}
-                  className="flex-shrink-0 -mr-1 p-0.5 rounded hover:bg-gray-200/60 text-gray-300 hover:text-gray-500"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              )}
+    <div className="bg-white rounded-card-lg" style={{ border: '1px solid #e6e9e6', padding: '18px 16px' }}>
+      <div className="flex items-center relative" style={{ gap: 6 }}>
+        <h3 style={{ fontSize: 16, fontWeight: 700, color: '#23282b' }}>참여자 상태</h3>
+        <button type="button" aria-label="참여자 상태 설명" onClick={() => setTipOpen(v => !v)}
+          className="inline-flex items-center justify-center flex-shrink-0"
+          style={{ width: 15, height: 15, borderRadius: '50%', background: '#eef1ee', color: '#4b544f', fontSize: 9.5, fontWeight: 700 }}>?</button>
+        {tipOpen && (
+          <>
+            <div className="fixed inset-0 z-10" onClick={() => setTipOpen(false)} />
+            <div className="absolute z-20 rounded-lg shadow-lg"
+              style={{ bottom: '100%', left: 0, marginBottom: 6, width: 172, background: '#23282b', padding: '10px 11px' }}>
+              {[
+                { hex: '#10b981', name: '활발', desc: '최근 3일 이내 인증' },
+                { hex: '#6ee7b7', name: '보통', desc: '3~7일 사이 인증' },
+                { hex: '#c3cac5', name: '휴면', desc: '7일 이상 인증 없음' },
+              ].map((d, i) => (
+                <div key={d.name} className="flex items-center" style={{ gap: 7, marginTop: i === 0 ? 0 : 7 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: d.hex, flexShrink: 0 }} />
+                  <span style={{ fontSize: 11, color: '#fff', fontWeight: 700 }}>{d.name}</span>
+                  <span style={{ fontSize: 11, color: '#cbd0cc' }}>{d.desc}</span>
+                </div>
+              ))}
             </div>
-          ))}
+          </>
+        )}
+      </div>
+      <div className="flex items-center" style={{ gap: 20, marginTop: 16 }}>
+        <StatusDonut segments={segments} total={total} selectedKey={selKey}
+          onSelect={(k) => setSelKey(p => (p === k ? null : k))} size={122} />
+        <div className="flex flex-col" style={{ marginLeft: 'auto' }}>
+          {segments.map((s) => {
+            const isSel = s.key === selKey
+            const disabled = s.count === 0
+            return (
+              // 행 탭 → 선택(회색 박스로 체크 + 도넛 스프링 + %↔건수). 오른쪽 > 버튼 → 해당 그룹 명단 이동.
+              <div
+                key={s.key}
+                onClick={() => !disabled && setSelKey(p => (p === s.key ? null : s.key))}
+                className="flex items-center"
+                style={{
+                  gap: 8, padding: '8px 10px', borderRadius: 12, whiteSpace: 'nowrap',
+                  background: isSel ? '#f1f3f2' : 'transparent', transition: 'background .2s ease',
+                  cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.5 : 1,
+                }}
+              >
+                <span style={{ width: 10, height: 10, borderRadius: '50%', background: s.hex, flexShrink: 0, transform: isSel ? 'scale(1.3)' : 'scale(1)', transition: `transform .3s ${SPRING_EASE}` }} />
+                <span style={{ fontSize: 13, fontWeight: 600, color: '#4b544f' }}>{s.name}</span>
+                {/* 값: 선택 시 % → 건수(N명). 색은 대비 위해 항상 짙은 회색(색 구분은 점이 담당) */}
+                <span className="tabular-nums" style={{ fontSize: 15, fontWeight: 800, color: '#23282b' }}>
+                  {isSel ? `${s.count}명` : `${pct(s.count)}%`}
+                </span>
+                {!disabled && (
+                  <button type="button" aria-label={`${s.name} 명단 보기`}
+                    onClick={(e) => { e.stopPropagation(); onSegmentClick?.(s.key) }}
+                    className="flex items-center justify-center flex-shrink-0"
+                    style={{ marginLeft: 2, padding: 2, borderRadius: 6, color: '#9aa39d' }}>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            )
+          })}
         </div>
       </div>
     </div>
@@ -772,63 +751,65 @@ function WidgetDistribution({ insights, onSegmentClick }) {
 }
 
 // ─── 위젯 4: 이번 주 하이라이트 — 개수 배지 + 2개 초과 시 접기 ──────────────
+// 하이라이트 — 접힘=한 줄 요약(칩), 탭 시 전체 목록 펼침. 카드=하드라인, 칩=중립색, 항목=구분선 그룹화.
 function WidgetHighlights({ insights, onAction }) {
-  const [showAll, setShowAll] = useState(false)
+  const [open, setOpen] = useState(false)
   const items = insights.highlights || []
-  const LIMIT = 2
-  const moreCount = items.length - LIMIT
-  const renderItem = (h, i) => {
-    const cls = `p-3 rounded-xl text-xs leading-relaxed ${
-      h.kind === 'positive' ? 'bg-emerald-50/60'
-      : h.kind === 'suggestion' ? 'bg-amber-50/60'
-      : 'bg-gray-50'
-    }`
-    const content = (
-      <div className="flex gap-2 items-center">
-        <span className="flex-shrink-0 self-start text-sm">{h.emoji}</span>
-        <p className="text-gray-700 flex-1">{h.text}</p>
-        {h.action && <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />}
-      </div>
-    )
-    return h.action ? (
-      <button key={i} type="button" onClick={() => onAction?.(h.action.to)}
-        className={`${cls} w-full text-left cursor-pointer transition hover:brightness-95 active:brightness-90`}>
-        {content}
-      </button>
-    ) : (
-      <div key={i} className={cls}>{content}</div>
-    )
-  }
+  if (items.length === 0) return null
+  const CHIPS = 2
+  const chipItems = items.slice(0, CHIPS)
+  const moreCount = Math.max(0, items.length - CHIPS)
+
   return (
-    <div className="bg-white border border-gray-100 rounded-card-lg shadow-soft p-5">
-      <div className="flex items-center gap-2 mb-3">
-        <span className="text-base">💡</span>
-        <h3 className="text-base font-bold text-gray-900">이번 주 하이라이트</h3>
-        <span className="ml-auto inline-flex items-center justify-center min-w-[22px] h-[22px] px-1.5 rounded-full bg-amber-100 text-amber-700 text-xs font-bold tabular-nums">{items.length}</span>
-      </div>
-      <div className="space-y-2">
-        {items.slice(0, LIMIT).map(renderItem)}
-      </div>
-      {moreCount > 0 && (
-        <>
-          {/* 펼치기 — grid-rows 0fr↔1fr 로 높이 부드럽게 전환 */}
-          <div className="grid" style={{ gridTemplateRows: showAll ? '1fr' : '0fr', transition: 'grid-template-rows .35s cubic-bezier(.2,.75,.25,1)' }}>
-            <div className="overflow-hidden">
-              <div className="space-y-2 pt-2">
-                {items.slice(LIMIT).map((h, i) => renderItem(h, i + LIMIT))}
-              </div>
-            </div>
+    <div className="bg-white rounded-card-lg" style={{ border: '1px solid #e6e9e6' }}>
+      {/* 접힘 한 줄 — 탭 시 펼침 */}
+      <button type="button" onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center text-left" style={{ gap: 7, padding: '13px 14px' }}>
+        <span className="flex-shrink-0" style={{ fontSize: 15 }}>💡</span>
+        {open ? (
+          <span className="flex-1" style={{ fontSize: 14, fontWeight: 700, color: '#23282b' }}>이번 주 하이라이트</span>
+        ) : (
+          <span className="flex-1 flex items-center min-w-0 overflow-hidden" style={{ gap: 6 }}>
+            {chipItems.map((h, i) => (
+              <span key={i} className="flex-shrink-0 whitespace-nowrap"
+                style={{ fontSize: 11.5, fontWeight: 600, padding: '4px 9px', borderRadius: 999, background: '#eef1ee', color: '#4b544f' }}>
+                {h.chip || h.text}
+              </span>
+            ))}
+          </span>
+        )}
+        <span className="flex-shrink-0 flex items-center" style={{ gap: 3, fontSize: 12, fontWeight: 700, color: '#6a736d' }}>
+          {!open && moreCount > 0 && <span className="tabular-nums">+{moreCount}</span>}
+          <ChevronDown className="w-3.5 h-3.5" style={{ transition: 'transform .25s', transform: open ? 'rotate(180deg)' : 'none' }} />
+        </span>
+      </button>
+
+      {/* 펼침 — 전체 목록(grid-rows 0fr↔1fr 로 높이 전환) */}
+      <div className="grid" style={{ gridTemplateRows: open ? '1fr' : '0fr', transition: 'grid-template-rows .32s cubic-bezier(.2,.75,.25,1)' }}>
+        <div className="overflow-hidden">
+          <div style={{ padding: '2px 6px 8px' }}>
+            {items.map((h, i) => {
+              const rowStyle = {
+                display: 'flex', gap: 10, alignItems: 'flex-start', width: '100%',
+                padding: '11px 8px', fontSize: 12.5, lineHeight: 1.5, textAlign: 'left',
+                borderTop: i === 0 ? 'none' : '1px solid #e6e9e6',
+              }
+              const inner = (
+                <>
+                  <span className="flex-shrink-0" style={{ lineHeight: 1.5 }}>{h.emoji}</span>
+                  <span className="flex-1" style={{ color: '#4b544f' }}>{h.text}</span>
+                  {h.action && <ChevronRight className="w-4 h-4 flex-shrink-0" style={{ color: '#6a736d' }} />}
+                </>
+              )
+              return h.action ? (
+                <button key={i} type="button" onClick={() => onAction?.(h.action.to)} style={rowStyle}>{inner}</button>
+              ) : (
+                <div key={i} style={rowStyle}>{inner}</div>
+              )
+            })}
           </div>
-          <button
-            type="button"
-            onClick={() => setShowAll(v => !v)}
-            className="mt-2.5 w-full flex items-center justify-center gap-1 text-[13px] font-bold text-gray-500 hover:text-gray-700 py-1 transition"
-          >
-            {showAll ? '접기' : `+${moreCount}개 더 보기`}
-            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showAll ? 'rotate-180' : ''}`} />
-          </button>
-        </>
-      )}
+        </div>
+      </div>
     </div>
   )
 }

@@ -2,15 +2,18 @@ import { useMemo, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronLeft, ChevronDown, ChevronRight, Trophy, Target, TrendingUp, MessageSquare, Flag, Copy } from 'lucide-react'
+import { ChevronLeft, ChevronDown, ChevronRight, Trophy, MessageSquare, Copy } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
-import { queryKeys, fetchProgram, fetchProgramStats, formatKstDate } from '../../lib/queries'
+import { queryKeys, fetchProgram, fetchProgramStats, fetchProgramOperatorLoad, fetchProgramQuizStats, fetchProgramCommunityStats, fetchProgramReports, REPORT_REASON_PRESETS, formatKstDate } from '../../lib/queries'
 import { formatKoreanDate } from '../../lib/formatters'
 import StickyBackBar from '../../components/common/StickyBackBar'
 import LoadingState from '../../components/common/LoadingState'
 import CountUp from '../../components/common/CountUp'
 import CloneProgramModal from '../../components/program/CloneProgramModal'
 import { Icon3D } from '../../components/program/ProgramHome'
+import ParticipationTrendChart from '../../components/program/ParticipationTrendChart'
+import { Reveal } from '../../components/program/statsAnim'
+import { StatusDonut } from '../../components/program/ProgramInsightsSummary'
 
 // 운영자 종료 리포트 — 프로그램이 끝난 뒤 "최종 성적표" 한 장.
 //   본인 결정 (2026-06-27): 운영자 경험 먼저. A1(리포트 먼저, 복제는 후속) + B(고정 3구간) + C(종료 진입 시).
@@ -23,6 +26,38 @@ const DAY_MS = 86_400_000
 //   완주  — 활동일 ≥ 프로그램 기간의 50%
 //   참여  — 활동일 ≥ 1 (완주 미만)
 //   휴면  — 활동일 0 (참여만 하고 인증 없음)
+// ─── 핵심 진단 — 퍼널의 '가장 큰 이탈' 구간을 병목으로 보고 1문장 진단 + 처방. ───
+//   작은 표본이라 단정 금지: '경향 + 실험 제안' 톤. **…** 는 굵게 표시 마커.
+function buildDiagnosis({ funnel, bottleneck, totalParticipants }) {
+  const N = totalParticipants
+  if (N === 0) return { tone: 'neutral', text: '아직 참여자가 없어요. 참여자를 초대하면 여정 분석이 시작돼요.' }
+  const c = (k) => funnel.find(f => f.key === k)?.count ?? 0
+  const first = c('first'), ret = c('return'), done = c('done')
+  if (!bottleneck) {
+    return { tone: 'positive', text: '참여자 대부분이 큰 이탈 없이 여정을 이어갔어요. 이번 구성을 다음 기수에도 유지해보세요.' }
+  }
+  if (bottleneck.toKey === 'first') {
+    return {
+      tone: 'warn',
+      text: `**${N}명**이 참여했지만 **${bottleneck.lost}명**은 첫 인증까지 오지 않았어요. 시작 자체가 병목이었어요.`,
+      fix: '첫 미션을 더 쉽게 만들거나, 시작 안내·리마인드를 보내보세요.',
+    }
+  }
+  if (bottleneck.toKey === 'return') {
+    return {
+      tone: 'warn',
+      text: `**${first}명**이 첫 인증까지 왔지만, 다시 돌아온 사람은 **${ret}명**이에요. 시작은 됐고 재참여가 병목이었어요.`,
+      fix: '다음 날 리마인드 알림이나 미션 난이도 조정을 시험해보세요.',
+    }
+  }
+  // done
+  return {
+    tone: 'warn',
+    text: `**${ret}명**이 다시 참여했지만 완주까지는 **${done}명**이 이어졌어요. 중반 이후가 병목이었어요.`,
+    fix: '기간을 조금 줄이거나, 중반에 응원·보상을 넣어보세요.',
+  }
+}
+
 function computeReport(stats, program) {
   if (!stats || !program) return null
   const userStats = stats.userStats || []
@@ -59,6 +94,17 @@ function computeReport(stats, program) {
   const maxMissionCount = topMissions[0]?.count || 1
   const zeroMissions = allMissions.filter(m => m.count === 0)
 
+  // ─── 미션 성과 — 미션별 참여자 수(raw 의 mission_id×user_id distinct) + 참여율. 참여율 내림차순(0건은 뒤). ───
+  const missionUsers = {}
+  for (const r of raw) {
+    if (!r.mission_id) continue
+    ;(missionUsers[r.mission_id] ||= new Set()).add(r.user_id)
+  }
+  const missionPerf = allMissions.map(m => {
+    const users = missionUsers[m.mission_id]?.size || 0
+    return { mission_id: m.mission_id, title: m.title, count: m.count, users, rate: totalParticipants > 0 ? Math.round((users / totalParticipants) * 100) : 0 }
+  }).sort((a, b) => (b.rate - a.rate) || (b.count - a.count))
+
   // ─── 우수 참여자 Top 5 (인증 1건 이상) ───
   const topUsers = userStats.filter(u => (u.totalCount || 0) > 0).slice(0, 5)
 
@@ -81,6 +127,31 @@ function computeReport(stats, program) {
   const trendMax = Math.max(1, ...trend.map(t => t.count))
   const peakDay = trend.reduce((best, t) => (t.count > (best?.count ?? -1) ? t : best), null)
 
+  // ─── 참여 여정 퍼널 — 기존 activeDays 로 계산(새 쿼리 없음). ───
+  //   가입은 분모(항상 100%) — 의미는 단계 사이 '이탈'에 있음.
+  //   완주 단계는 threshold≥2 일 때만(threshold=1 이면 첫인증과 같아져 단조감소가 깨짐).
+  const activated = userStats.filter(u => (u.activeDays || 0) >= 1).length   // 첫 인증까지 옴
+  const returned = userStats.filter(u => (u.activeDays || 0) >= 2).length    // 다시 돌아옴(재참여)
+  const funnel = [
+    { key: 'join', label: '프로그램 가입', count: totalParticipants, base: true },
+    { key: 'first', label: '첫 인증 완료', count: activated },
+    { key: 'return', label: '이틀 이상 인증', count: returned },
+  ]
+  if (threshold && threshold >= 2) funnel.push({ key: 'done', label: `완주 (${threshold}일+)`, count: completedUsers.length })
+  // 평균 유지일 — 전체 참여자의 활동일 평균(하단 요약용)
+  const avgActiveDays = totalParticipants > 0
+    ? userStats.reduce((s, u) => s + (u.activeDays || 0), 0) / totalParticipants
+    : 0
+  // 단계 사이 이탈 + 가장 큰 이탈(병목) — 절대 이탈수 최대, 동률이면 이탈률 높은 쪽
+  const steps = []
+  for (let i = 1; i < funnel.length; i++) {
+    const from = funnel[i - 1], to = funnel[i]
+    steps.push({ toKey: to.key, lost: from.count - to.count, fromCount: from.count })
+  }
+  const bottleneck = steps.filter(s => s.lost > 0)
+    .sort((a, b) => (b.lost - a.lost) || ((b.lost / (b.fromCount || 1)) - (a.lost / (a.fromCount || 1))))[0] || null
+  const diagnosis = buildDiagnosis({ funnel, bottleneck, totalParticipants })
+
   return {
     programDays, threshold,
     totalParticipants,
@@ -89,6 +160,8 @@ function computeReport(stats, program) {
     topMissions, maxMissionCount, zeroMissions,
     topUsers,
     trend, trendMax, peakDay,
+    funnel, steps, bottleneck, diagnosis, avgActiveDays,
+    missionPerf,
   }
 }
 
@@ -108,6 +181,33 @@ function ProgramEndReportPage() {
   const { data: stats, isLoading: isStatsLoading } = useQuery({
     queryKey: queryKeys.programStats(id),
     queryFn: () => fetchProgramStats(id),
+    enabled: !!session && !!id && isOwner,
+  })
+
+  const { data: opLoad } = useQuery({
+    queryKey: ['program', id, 'operatorLoad'],
+    queryFn: () => fetchProgramOperatorLoad(id, program.owner_id),
+    enabled: !!session && !!id && isOwner && !!program?.owner_id,
+  })
+
+  // 퀴즈 성과 — 퀴즈가 있는 프로그램만 (퀴즈 미활성이면 빈 배열 → 채널 숨김)
+  const { data: quizStats = [] } = useQuery({
+    queryKey: queryKeys.programQuizStats(id),
+    queryFn: () => fetchProgramQuizStats(id),
+    enabled: !!session && !!id && isOwner,
+  })
+
+  // 커뮤니티 성과 — 커뮤니티(feed) 활성 프로그램만
+  const { data: community } = useQuery({
+    queryKey: ['program', id, 'communityStats'],
+    queryFn: () => fetchProgramCommunityStats(id, program.owner_id),
+    enabled: !!session && !!id && isOwner && !!program?.feed_enabled && !!program?.owner_id,
+  })
+
+  // 신고 · 제재 — 대상별 신고 그룹(숨김/삭제 상태 포함). 신고 관리 패널과 캐시 공유(['reports', id]).
+  const { data: reportGroups = [] } = useQuery({
+    queryKey: ['reports', id],
+    queryFn: () => fetchProgramReports(id),
     enabled: !!session && !!id && isOwner,
   })
 
@@ -145,10 +245,8 @@ function ProgramEndReportPage() {
           {/* ─── 히어로 — 흰 배경 + 3D 아이콘(본인 결정 2026-07-14).
                주의: App.css 의 전역 `p { margin: 0 }` 이 unlayered 라 <p> 에는 마진 유틸이
                무시된다 → 간격은 전부 flex 의 gap 으로 준다. */}
-          <motion.div
-            initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}
-            className="rounded-card-lg bg-white border border-gray-100 p-6 shadow-elevated flex flex-col items-center gap-3"
-          >
+          <Reveal index={0}>
+          <div className="rounded-card-lg bg-white border border-[#e6e9e6] p-6 flex flex-col items-center gap-3">
             <div className="flex flex-col items-center gap-1.5">
               <Icon3D src="/icons/feature/mission.png" emoji="🏁" className="w-16 h-16" />
               <h1 className="text-xl font-extrabold text-gray-900 leading-tight text-center">프로그램이 끝났어요</h1>
@@ -177,9 +275,14 @@ function ProgramEndReportPage() {
                 </>
               ) : null}
             </div>
-          </motion.div>
+          </div>
+          </Reveal>
+
+          {/* ─── 핵심 진단 — 왜 이렇게 됐나 + 처방 (퍼널 파생) ─── */}
+          <Reveal index={1}><DiagnosisCard diagnosis={report.diagnosis} /></Reveal>
 
           {/* ─── 핵심 3지표 ─── */}
+          <Reveal index={2}>
           <div className="grid grid-cols-3 gap-3">
             {/* 참여자 → 참여자 명단 / 누적 인증 → 미션별 인증 현황(유저 내역 포함) */}
             <StatTile src="/icons/report/participants.png" emoji="👥" label="참여자" value={report.totalParticipants} unit="명"
@@ -188,21 +291,26 @@ function ProgramEndReportPage() {
               onClick={() => navigate(`/programs/${id}/stats/missions`)} />
             <StatTile src="/icons/report/completion.png" emoji="🏆" label="완주율" value={report.completionRate ?? 0} unit={report.completionRate == null ? '' : '%'} dim={report.completionRate == null} />
           </div>
+          </Reveal>
 
-          {/* ─── 완주 분포 ─── */}
-          <CompletionCard report={report} />
+          {/* ─── 참여 여정 (퍼널) — 어디서 빠졌나 ─── */}
+          <Reveal index={3}><JourneyCard report={report} /></Reveal>
 
-          {/* ─── 전체 기간 인증 추이 ─── */}
-          {report.trend.length > 1 && <TrendCard report={report} />}
+          {/* ─── 영역별 평가 (미션·퀴즈·커뮤니티 — 활성 채널만) · 참여 여정 다음.
+               미션 채널 상세 안에 완주 분포·전체 기간 인증 추이 포함(모두 미션 인증 기준) ─── */}
+          <Reveal index={4}><ChannelEvaluation report={report} quizStats={quizStats} community={community} program={program} /></Reveal>
 
-          {/* ─── 베스트 미션 ─── */}
-          {report.topMissions.length > 0 && <MissionsCard report={report} />}
+          {/* ─── 신고 · 제재 (영역별 평가 다음) ─── */}
+          <Reveal index={5}><ModerationCard groups={reportGroups} programDays={report.programDays} programId={id} navigate={navigate} /></Reveal>
 
           {/* ─── 우수 참여자 ─── */}
-          {report.topUsers.length > 0 && <TopUsersCard users={report.topUsers} />}
+          {report.topUsers.length > 0 && <Reveal index={6}><TopUsersCard users={report.topUsers} /></Reveal>}
+
+          {/* ─── 운영 부하 (있는 데이터만 · 정산은 보류) ─── */}
+          <Reveal index={7}><OperatorLoadCard load={opLoad} /></Reveal>
 
           {/* ─── 다음 액션 ─── */}
-          <NextActionsCard programId={id} feedEnabled={!!program.feed_enabled} navigate={navigate} onClone={() => setCloneOpen(true)} />
+          <Reveal index={8}><NextActionsCard programId={id} feedEnabled={!!program.feed_enabled} navigate={navigate} onClone={() => setCloneOpen(true)} /></Reveal>
         </div>
       )}
       <CloneProgramModal isOpen={cloneOpen} onClose={() => setCloneOpen(false)} program={program} />
@@ -217,8 +325,8 @@ function StatTile({ src, emoji, label, value, unit, dim, onClick }) {
   return (
     <Tag
       {...(onClick ? { type: 'button', onClick } : {})}
-      className={`w-full bg-white border border-gray-100 rounded-card-lg shadow-soft p-4 flex flex-col items-center gap-1.5 text-center${
-        onClick ? ' hover:border-emerald-200 hover:shadow-elevated active:scale-[0.98] transition' : ''
+      className={`w-full bg-white border border-[#e6e9e6] rounded-card-lg p-4 flex flex-col items-center gap-1.5 text-center${
+        onClick ? ' hover:border-emerald-300 active:scale-[0.98] transition' : ''
       }`}
     >
       <Icon3D src={src} emoji={emoji} className="w-10 h-10" />
@@ -235,146 +343,309 @@ function StatTile({ src, emoji, label, value, unit, dim, onClick }) {
   )
 }
 
-// ─── 완주 분포 (스택바 + 범례 + 탭하면 실제 명단) ───
-function CompletionCard({ report }) {
-  const { completedUsers, participatedUsers, dormantUsers, totalParticipants, threshold } = report
-  // 완주자를 바로 보여주려 기본 펼침 (완주자 없으면 닫힘)
-  const [open, setOpen] = useState(completedUsers.length > 0 ? 'c' : null)
-  const total = totalParticipants || 1
-  const segs = [
-    { key: 'c', label: '완주', users: completedUsers, color: 'bg-emerald-500', dot: '🟢', desc: threshold ? `${threshold}일 이상 활동` : '기준 활동' },
-    { key: 'p', label: '참여', users: participatedUsers, color: 'bg-amber-400', dot: '🟡', desc: '1일 이상 인증' },
-    { key: 'd', label: '휴면', users: dormantUsers, color: 'bg-gray-300', dot: '⚪', desc: '인증 없음' },
+// **…** 마커를 굵게 렌더 (진단 문구의 핵심 수치 강조)
+function RichText({ text }) {
+  return text.split('**').map((seg, i) => (i % 2 ? <b key={i} style={{ color: '#23282b', fontWeight: 800 }}>{seg}</b> : <span key={i}>{seg}</span>))
+}
+
+// ─── 핵심 진단 — 통계 하이라이트와 같은 결의 상단 callout(왜 이렇게 됐나 + 처방) ───
+function DiagnosisCard({ diagnosis }) {
+  if (!diagnosis) return null
+  const warn = diagnosis.tone === 'warn'
+  return (
+    <div className="bg-white border border-[#e6e9e6] rounded-card-lg p-5">
+      <div className="flex items-center gap-2 mb-2.5">
+        <span className="inline-flex items-center justify-center w-5 h-5 rounded-full flex-shrink-0"
+          style={{ background: warn ? '#fef3c7' : '#e7f4ec', color: warn ? '#b45309' : '#0f7a52', fontSize: 12, fontWeight: 800 }}>
+          {warn ? '!' : '✓'}
+        </span>
+        <h3 className="text-base font-bold text-gray-900">핵심 진단</h3>
+      </div>
+      <p className="text-[13.5px] leading-relaxed" style={{ color: '#4b544f' }}><RichText text={diagnosis.text} /></p>
+      {diagnosis.fix && (
+        <div className="mt-3 flex items-start gap-2 rounded-xl px-3 py-2.5" style={{ background: '#f1f6f3' }}>
+          <span className="flex-shrink-0" style={{ fontSize: 13, lineHeight: 1.5 }}>💡</span>
+          <p className="text-[13px] leading-relaxed" style={{ color: '#0f5c3f' }}><b>이렇게 해보세요</b> — {diagnosis.fix}</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── 참여 여정 (퍼널) — 라벨+인원·%(우) / 풀폭 막대 / 막대 사이 가운데 ▼이탈 / 하단 요약 3지표 ───
+function JourneyCard({ report }) {
+  const { funnel, steps, bottleneck, avgActiveDays } = report
+  const base = funnel[0]?.count || 1
+  const notStarted = steps[0]?.lost ?? 0                          // 가입→첫인증 이탈 = 시작 안 함
+  const bnLabel = { first: '시작', return: '2일차', done: '중반' }[bottleneck?.toKey] || '없음'
+  const summary = [
+    ['최대 이탈 구간', bnLabel],
+    ['평균 유지', `${avgActiveDays.toFixed(1)}일`],
+    ['시작 안 함', `${notStarted}명`],
   ]
   return (
-    <div className="bg-white border border-gray-100 rounded-card-lg shadow-soft p-5">
-      <div className="flex items-center gap-2 mb-3">
-        <Flag className="w-4 h-4 text-emerald-600" />
-        <h3 className="text-sm font-bold text-gray-800">완주 분포</h3>
-        <span className="text-xs text-gray-400 ml-auto">총 {totalParticipants}명 · 탭해서 명단 보기</span>
+    <div>
+      {/* 제목은 카드 밖 섹션 헤더로 */}
+      <div className="flex items-center gap-2 mb-3 px-1">
+        <h3 className="text-base font-bold text-gray-900">참여 여정</h3>
+        <span className="text-[11px] text-gray-400 ml-auto">어디서 멈췄나</span>
       </div>
-      <div className="flex h-3 rounded-full overflow-hidden bg-gray-100 mb-3">
-        {segs.map(s => s.users.length > 0 && (
-          <div key={s.key} className={s.color} style={{ width: `${(s.users.length / total) * 100}%` }} title={`${s.label} ${s.users.length}명`} />
-        ))}
-      </div>
-      <div className="space-y-0.5">
-        {segs.map(s => {
-          const count = s.users.length
-          const isOpen = open === s.key
+      <div className="bg-white border border-[#e6e9e6] rounded-card-lg p-5">
+      <div className="flex flex-col gap-3.5">
+        {funnel.map((f, i) => {
+          const w = base > 0 ? (f.count / base) * 100 : 0
+          const pct = Math.round(w)
+          const out = i < funnel.length - 1 ? steps[i] : null      // 이 단계 → 다음 단계 이탈
+          const isBn = bottleneck && out && bottleneck.toKey === funnel[i + 1]?.key
           return (
-            <div key={s.key}>
-              <button
-                type="button"
-                onClick={() => setOpen(isOpen ? null : s.key)}
-                disabled={count === 0}
-                className={`w-full flex items-center justify-between text-xs px-2 py-2 rounded-lg transition text-left ${count === 0 ? 'opacity-50 cursor-default' : 'hover:bg-gray-50 cursor-pointer'}`}
-              >
-                <span className="flex items-center gap-1.5 text-gray-600">
-                  <span>{s.dot}</span><span className="font-medium text-gray-700">{s.label}</span>
-                  <span className="text-gray-400">· {s.desc}</span>
+            <div key={f.key} className="flex items-stretch gap-2.5">
+              {/* 메인: 라벨 + 인원(우) / 막대 — 막대 끝이 '명' 아래까지 */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span style={{ fontSize: 13.5, fontWeight: 700, color: '#23282b' }}>{f.label}</span>
+                  <b style={{ fontSize: 15, fontWeight: 800, color: '#23282b' }}>{f.count}명</b>
+                </div>
+                <div style={{ height: 8, borderRadius: 999, background: '#eef0ef', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', borderRadius: 999, width: `${Math.max(w, f.count > 0 ? 4 : 0)}%`, background: '#10b981', transition: 'width .5s cubic-bezier(.2,.75,.25,1)' }} />
+                </div>
+              </div>
+              {/* 우측 열 — %(위, 인원 라인) + ▼이탈(아래, 막대 라인 · %와 세로 정렬) */}
+              <div className="flex flex-col items-end justify-between flex-shrink-0" style={{ width: 42 }}>
+                <span className="tabular-nums" style={{ fontSize: 11.5, color: '#9aa39d', lineHeight: 1 }}>{pct}%</span>
+                <span className="tabular-nums" style={{ fontSize: 11, fontWeight: isBn ? 700 : 600, lineHeight: 1, color: out ? (out.lost > 0 ? (isBn ? '#b45309' : '#8a8079') : '#c3cac5') : 'transparent' }}>
+                  {out ? (out.lost > 0 ? `▼ ${out.lost}명` : '—') : ''}
                 </span>
-                <span className="flex items-center gap-1 text-gray-800 font-semibold">
-                  {count}명 <span className="text-gray-400 font-normal">({Math.round((count / total) * 100)}%)</span>
-                  {count > 0 && <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />}
-                </span>
-              </button>
-              <AnimatePresence initial={false}>
-                {isOpen && count > 0 && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.2 }} className="overflow-hidden"
-                  >
-                    <ul className="max-h-56 overflow-y-auto px-2 pt-1 pb-2 space-y-1">
-                      {s.users.map((u, i) => (
-                        <li key={u.user_id} className="flex items-center gap-2 text-xs">
-                          <span className="w-5 text-right text-gray-400 flex-shrink-0">{i + 1}</span>
-                          <span className="flex-1 min-w-0 truncate text-gray-800 font-medium">{u.nickname}</span>
-                          <span className="text-gray-500 flex-shrink-0">활동 <b className="text-gray-700">{u.activeDays}</b>일</span>
-                          <span className="text-gray-400 flex-shrink-0">· 인증 {u.totalCount}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              </div>
             </div>
           )
         })}
       </div>
+
+      {/* 하단 요약 3지표 — 가운데 정렬 + 세로 구분선 */}
+      <div className="grid grid-cols-3 mt-4 pt-4" style={{ borderTop: '1px solid #eef0ef' }}>
+        {summary.map(([l, v], idx) => (
+          <div key={l} className="flex flex-col items-center gap-1 text-center" style={{ borderLeft: idx > 0 ? '1px solid #eef0ef' : 'none' }}>
+            <span style={{ fontSize: 10.5, color: '#8a8079' }}>{l}</span>
+            <span style={{ fontSize: 15, fontWeight: 800, color: '#23282b' }}>{v}</span>
+          </div>
+        ))}
+      </div>
+      </div>
     </div>
   )
 }
 
-// ─── 전체 기간 인증 추이 (일자별 막대 — 전 기간, 길면 가로 스크롤) ───
-function TrendCard({ report }) {
-  const { trend, trendMax, peakDay } = report
-  const sum = trend.reduce((s, t) => s + t.count, 0)
-  const avg = (sum / trend.length).toFixed(1)
+// ─── 미션 완주 분포(본문) — 도넛(통계 「참여자 상태」와 통일) + 범례 탭 → 실제 명단. 카드 없이 미션 상세 안 서브섹션으로. ───
+function CompletionBody({ report }) {
+  const { completedUsers, participatedUsers, dormantUsers, totalParticipants, threshold } = report
+  const [open, setOpen] = useState(completedUsers.length > 0 ? 'c' : null)
+  const total = totalParticipants || 0
+  const pct = (n) => (total > 0 ? Math.round((n / total) * 100) : 0)
+  // 참여도 emerald 그라데이션 — 참여자 상태 위젯과 동일 (완주=진한 / 참여=연한 / 휴면=그레이)
+  const segs = [
+    { key: 'c', label: '완주', users: completedUsers, hex: '#10b981', desc: threshold ? `${threshold}일+ 활동` : '기준 활동' },
+    { key: 'p', label: '참여', users: participatedUsers, hex: '#6ee7b7', desc: '1일+ 인증' },
+    { key: 'd', label: '휴면', users: dormantUsers, hex: '#c3cac5', desc: '인증 없음' },
+  ]
+  const donutSegs = segs.map(s => ({ key: s.key, name: s.label, count: s.users.length, hex: s.hex }))
+  const openSeg = segs.find(s => s.key === open && s.users.length > 0)
+  const toggle = (k) => { const seg = segs.find(s => s.key === k); if (seg && seg.users.length > 0) setOpen(p => (p === k ? null : k)) }
   return (
-    <div className="bg-white border border-gray-100 rounded-card-lg shadow-soft p-5">
-      <div className="flex items-center gap-2 mb-1">
-        <TrendingUp className="w-4 h-4 text-emerald-600" />
-        <h3 className="text-sm font-bold text-gray-800">전체 기간 인증 추이</h3>
-        <span className="text-[11px] text-gray-400 ml-auto">전체 {trend.length}일 · 하루 평균 {avg}건</span>
-      </div>
-      {peakDay && peakDay.count > 0 && (
-        <p className="text-xs text-gray-600 mb-3">
-          <span className="font-semibold text-emerald-700">{formatKoreanDate(peakDay.date)}</span> 에 가장 활발했어요 ({peakDay.count}건)
-        </p>
-      )}
-      {/* 전 기간 — flex-1 로 짧으면 꽉 차고, 길면 막대 최소폭 유지하며 가로 스크롤 */}
-      <div className="overflow-x-auto -mx-1 px-1 scrollbar-hide">
-        <div className="flex items-end gap-[2px] h-20 min-w-full">
-          {trend.map((t, i) => {
-            const pct = trendMax > 0 ? (t.count / trendMax) * 100 : 0
-            const isPeak = peakDay && t.date === peakDay.date && t.count > 0
+    <>
+      {/* 도넛(좌) + 범례(우, 탭하면 명단 펼침) — 통계 참여자 상태와 같은 도넛 재사용 */}
+      <div className="flex items-center" style={{ gap: 20 }}>
+        <StatusDonut segments={donutSegs} total={total || 1} selectedKey={open} onSelect={toggle} size={112} />
+        <div className="flex-1 min-w-0 flex flex-col">
+          {segs.map(s => {
+            const count = s.users.length
+            const isOpen = open === s.key
+            const disabled = count === 0
             return (
-              <div key={i} className="flex-1 min-w-[7px] flex flex-col justify-end h-full" title={`${formatKoreanDate(t.date)} · ${t.count}건`}>
-                <div
-                  className={`w-full rounded-sm transition-all ${t.count === 0 ? 'bg-gray-100' : isPeak ? 'bg-emerald-500' : 'bg-emerald-300'}`}
-                  style={{ height: t.count === 0 ? '3px' : `${Math.max(6, pct)}%` }}
-                />
-              </div>
+              <button key={s.key} type="button" disabled={disabled} onClick={() => toggle(s.key)}
+                className="flex items-center text-left"
+                style={{ gap: 8, padding: '8px 8px', borderRadius: 10, background: isOpen ? '#f1f3f2' : 'transparent', opacity: disabled ? 0.5 : 1, transition: 'background .2s' }}>
+                <span style={{ width: 10, height: 10, borderRadius: '50%', background: s.hex, flexShrink: 0 }} />
+                <span style={{ fontSize: 13, fontWeight: 600, color: '#4b544f' }}>{s.label}</span>
+                <b className="tabular-nums" style={{ marginLeft: 'auto', fontSize: 14, fontWeight: 800, color: '#23282b' }}>{count}명</b>
+                <span className="tabular-nums" style={{ fontSize: 11, color: '#9aa39d', width: 30, textAlign: 'right' }}>{pct(count)}%</span>
+                {!disabled && <ChevronDown className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#c3cac5', transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }} />}
+              </button>
             )
           })}
         </div>
       </div>
-      <div className="flex justify-between mt-1.5 text-[11px] text-gray-400">
-        <span>{formatKoreanDate(trend[0].date)} 시작</span>
-        <span>{formatKoreanDate(trend[trend.length - 1].date)} 종료</span>
-      </div>
+
+      {/* 선택한 버킷의 실제 명단 */}
+      <AnimatePresence initial={false}>
+        {openSeg && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
+            <div className="mt-3 pt-3" style={{ borderTop: '1px solid #eef0ef' }}>
+              <p className="text-[11px] text-gray-400 mb-2">
+                <span style={{ color: '#4b544f', fontWeight: 700 }}>{openSeg.label}</span> · {openSeg.desc} · {openSeg.users.length}명
+              </p>
+              <ul className="max-h-56 overflow-y-auto space-y-1">
+                {openSeg.users.map((u, i) => (
+                  <li key={u.user_id} className="flex items-center gap-2 text-xs">
+                    <span className="w-5 text-right text-gray-400 flex-shrink-0">{i + 1}</span>
+                    <span className="flex-1 min-w-0 truncate text-gray-800 font-medium">{u.nickname}</span>
+                    <span className="text-gray-500 flex-shrink-0">활동 <b className="text-gray-700">{u.activeDays}</b>일</span>
+                    <span className="text-gray-400 flex-shrink-0">· 인증 {u.totalCount}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  )
+}
+
+// 등급 배지 — 채널 도달률(0~100)로. 우수/보통/미흡/없음.
+function gradeInfo(rate) {
+  if (rate >= 70) return { label: '우수', bg: '#dcefe4', fg: '#0f7a52' }
+  if (rate >= 40) return { label: '보통', bg: '#e7f4ec', fg: '#2f8f66' }
+  if (rate > 0) return { label: '미흡', bg: '#efece7', fg: '#8a8079' }
+  return { label: '없음', bg: '#efece7', fg: '#a39a8f' }
+}
+
+// 진단 노트 — "진단" 태그 + 현상 기술(판단 없이 팩트만). 각 채널 상세 하단.
+function DiagnosisNote({ text }) {
+  return (
+    <div className="mt-4 flex items-start gap-2 rounded-xl px-3 py-2.5" style={{ background: '#faf6f0' }}>
+      <span className="flex-shrink-0" style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 7px', borderRadius: 999, background: '#efe6da', color: '#a1795a' }}>진단</span>
+      <p className="text-[12.5px] leading-relaxed" style={{ color: '#6a5f52' }}>{text}</p>
     </div>
   )
 }
 
-// ─── 베스트 / 아쉬운 미션 ───
-function MissionsCard({ report }) {
-  const { topMissions, maxMissionCount, zeroMissions } = report
-  return (
-    <div className="bg-white border border-gray-100 rounded-card-lg shadow-soft p-5">
-      <div className="flex items-center gap-2 mb-3">
-        <Target className="w-4 h-4 text-emerald-600" />
-        <h3 className="text-sm font-bold text-gray-800">가장 사랑받은 미션</h3>
+// ─── 미션 상세 — 미션별 참여율 막대 + 유지/삭제 후보 배지. 기본 3개, 나머지는 펼치기. ───
+function MissionsCard({ report, diagnosis }) {
+  const { missionPerf, totalParticipants, trend, peakDay } = report
+  const [showAll, setShowAll] = useState(false)
+  const LIMIT = 3
+  const moreCount = missionPerf.length - LIMIT
+  const trendAvg = trend.length ? (trend.reduce((s, t) => s + t.count, 0) / trend.length).toFixed(1) : '0'
+  // 상단 통계 — 전체 인증 / 인증한 사람 / 1인당 인증
+  const totalV = report.totalVerifications
+  const missionReach = report.funnel.find(f => f.key === 'first')?.count || 0     // 인증한 사람(≥1일 인증)
+  const reachRate = totalParticipants ? Math.round((missionReach / totalParticipants) * 100) : 0
+  const dayAvg = report.programDays ? Math.round(totalV / report.programDays) : null
+  const perUser = missionReach > 0 ? (totalV / missionReach).toFixed(1) : '0'
+  const statBoxes = [
+    { l: '전체 인증', v: totalV.toLocaleString(), u: '건', s: dayAvg != null ? `하루 평균 ${dayAvg}건` : `미션 ${missionPerf.length}개` },
+    { l: '인증한 사람', v: `${missionReach}`, u: '명', s: `${totalParticipants}명 중 ${reachRate}%` },
+    { l: '1인당 인증', v: perUser, u: '건', s: '인증자 기준' },
+  ]
+  // 가장 많이 인증된 미션(건수 최다)
+  const topMission = missionPerf.reduce((best, m) => (m.count > (best?.count ?? 0) ? m : best), null)
+
+  const renderMission = (m) => {
+    const keep = m.count > 0
+    return (
+      <div key={m.mission_id}>
+        {/* 제목 + 유지/삭제 후보 배지 */}
+        <div className="flex items-start justify-between gap-2 mb-1">
+          <span className="min-w-0 truncate" style={{ fontSize: 13.5, fontWeight: 700, color: '#23282b' }}>{m.title}</span>
+          <span className="flex-shrink-0" style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: keep ? '#e7f4ec' : '#efece7', color: keep ? '#0f7a52' : '#8a8079' }}>
+            {keep ? '유지' : '삭제 후보'}
+          </span>
+        </div>
+        {/* 건수 · 참여 인원 */}
+        <p style={{ fontSize: 11.5, color: '#9aa39d', marginBottom: 8 }}>
+          {m.count}건 · {m.count > 0 ? `참여 ${m.users}/${totalParticipants}명` : '아무도 인증하지 않음'}
+        </p>
+        {/* 참여율 막대 + % */}
+        <div className="flex items-center gap-3">
+          <div className="flex-1" style={{ height: 8, borderRadius: 999, background: '#eef0ef', overflow: 'hidden' }}>
+            <div style={{ height: '100%', borderRadius: 999, width: `${m.rate}%`, background: '#10b981', transition: 'width .5s cubic-bezier(.2,.75,.25,1)' }} />
+          </div>
+          <span className="tabular-nums flex-shrink-0" style={{ fontSize: 13, fontWeight: 800, color: m.count > 0 ? '#23282b' : '#c3cac5', width: 34, textAlign: 'right' }}>{m.rate}%</span>
+        </div>
       </div>
-      <div className="space-y-2.5">
-        {topMissions.map((m, i) => (
-          <div key={m.mission_id}>
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-gray-700 truncate pr-2">{['🥇', '🥈', '🥉'][i]} {m.title}</span>
-              <span className="text-xs font-bold text-gray-800 flex-shrink-0">{m.count}건</span>
+    )
+  }
+
+  return (
+    <div className="bg-white border border-[#e6e9e6] rounded-card-lg p-5">
+      <div className="flex items-baseline gap-2 mb-4">
+        <h3 className="text-base font-bold text-gray-900">미션 <b className="font-extrabold">{missionPerf.length}</b>개</h3>
+        <span className="text-[11px] text-gray-400 ml-auto">{report.programDays ? `${report.programDays}일` : ''}</span>
+      </div>
+
+      {/* 상단 통계 3칸 — 세로 구분선 */}
+      <div className="grid grid-cols-3 mb-5 pb-5" style={{ borderBottom: '1px solid #eef0ef' }}>
+        {statBoxes.map((b, i) => (
+          <div key={b.l} style={{ paddingLeft: i > 0 ? 14 : 0, borderLeft: i > 0 ? '1px solid #eef0ef' : 'none' }}>
+            <div style={{ fontSize: 10.5, color: '#8a8079', marginBottom: 6 }}>{b.l}</div>
+            <div style={{ fontSize: 19, fontWeight: 800, color: '#23282b', lineHeight: 1 }}>
+              {b.v}<span style={{ fontSize: 11, color: '#9aa39d', fontWeight: 700 }}>{b.u}</span>
             </div>
-            <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-              <div className="h-full rounded-full bg-emerald-400" style={{ width: `${(m.count / maxMissionCount) * 100}%` }} />
-            </div>
+            <div style={{ fontSize: 10, color: '#9aa39d', marginTop: 6 }}>{b.s}</div>
           </div>
         ))}
       </div>
-      {zeroMissions.length > 0 && (
-        <p className="text-[11px] text-gray-500 mt-3 pt-3 border-t border-gray-100">
-          🌱 아쉽게 인증이 없던 미션 {zeroMissions.length}개 — 다음 기수엔 시간대·난이도를 조정해보세요
-        </p>
+
+      <div className="flex flex-col gap-4">
+        {missionPerf.slice(0, LIMIT).map(renderMission)}
+      </div>
+      {/* 나머지 미션 — grid-rows 0fr↔1fr 로 부드럽게 펼침 */}
+      {moreCount > 0 && (
+        <div className="grid" style={{ gridTemplateRows: showAll ? '1fr' : '0fr', transition: 'grid-template-rows .35s cubic-bezier(.2,.75,.25,1)' }}>
+          <div className="overflow-hidden">
+            <div className="flex flex-col gap-4 pt-4">
+              {missionPerf.slice(LIMIT).map(renderMission)}
+            </div>
+          </div>
+        </div>
       )}
+
+      {/* 가장 많이 인증된 미션 — 미션 목록 바로 아래(접기 버튼 앞). 3D 미션 아이콘(축소) */}
+      {topMission && topMission.count > 0 && (
+        <div className="mt-4 pt-4 flex items-center gap-3" style={{ borderTop: '1px solid #eef0ef' }}>
+          <Icon3D src="/icons/feature/mission.png" emoji="📋" className="w-11 h-11 flex-shrink-0" />
+          <div className="min-w-0">
+            <p style={{ fontSize: 11, color: '#8a8079' }}>가장 많이 인증된 미션</p>
+            <p className="truncate" style={{ fontSize: 15, fontWeight: 800, color: '#23282b', margin: '1px 0' }}>{topMission.title}</p>
+            <p style={{ fontSize: 11.5, color: '#9aa39d' }}>{topMission.count.toLocaleString()}건 · {topMission.users}명</p>
+          </div>
+        </div>
+      )}
+
+      {moreCount > 0 && (
+        <button type="button" onClick={() => setShowAll(v => !v)}
+          className="mt-3 w-full flex items-center justify-center gap-1 text-[13px] font-bold text-gray-500 hover:text-gray-700 py-1 transition">
+          {showAll ? '접기' : `+${moreCount}개 더 보기`}
+          <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showAll ? 'rotate-180' : ''}`} />
+        </button>
+      )}
+
+      {/* 완주 분포 — 미션 인증 기준(activeDays). 미션 영역 안 서브섹션 */}
+      <div className="mt-5 pt-4" style={{ borderTop: '1px solid #eef0ef' }}>
+        <div className="flex items-center gap-2 mb-3">
+          <h4 style={{ fontSize: 13.5, fontWeight: 700, color: '#23282b' }}>완주 분포</h4>
+          <span className="text-[11px] text-gray-400 ml-auto">총 {totalParticipants}명 · 탭해서 명단</span>
+        </div>
+        <CompletionBody report={report} />
+      </div>
+
+      {/* 전체 기간 인증 추이 — 미션(인증) 활동이므로 미션 상세 안에 */}
+      {trend.length > 1 && (
+        <div className="mt-5 pt-4" style={{ borderTop: '1px solid #eef0ef' }}>
+          <div className="flex items-center gap-2 mb-1">
+            <h4 style={{ fontSize: 13.5, fontWeight: 700, color: '#23282b' }}>전체 기간 인증 추이</h4>
+            <span className="text-[11px] text-gray-400 ml-auto">하루 평균 {trendAvg}건</span>
+          </div>
+          {peakDay && peakDay.count > 0 && (
+            <p className="text-xs text-gray-600 mb-3">
+              <span className="font-semibold text-emerald-700">{formatKoreanDate(peakDay.date)}</span> 에 가장 활발했어요 ({peakDay.count}건)
+            </p>
+          )}
+          <ParticipationTrendChart data={trend} field="count" unit="건" maxCap={Infinity} interaction="scrub" />
+        </div>
+      )}
+
+      {diagnosis && <DiagnosisNote text={diagnosis} />}
     </div>
   )
 }
@@ -383,10 +654,10 @@ function MissionsCard({ report }) {
 const MEDALS = ['🥇', '🥈', '🥉']
 function TopUsersCard({ users }) {
   return (
-    <div className="bg-white border border-gray-100 rounded-card-lg shadow-soft p-5">
+    <div className="bg-white border border-[#e6e9e6] rounded-card-lg p-5">
       <div className="flex items-center gap-2 mb-3">
         <Trophy className="w-4 h-4 text-amber-500" />
-        <h3 className="text-sm font-bold text-gray-800">우수 참여자</h3>
+        <h3 className="text-base font-bold text-gray-900">우수 참여자</h3>
         <span className="text-[11px] text-gray-400 ml-auto">감사 인사를 전해보세요</span>
       </div>
       <div className="space-y-1">
@@ -406,11 +677,419 @@ function TopUsersCard({ users }) {
   )
 }
 
+// ─── 퀴즈 상세 — 상단 통계 3칸 + 퀴즈별 참여율/정답률(양호·하락) + 가장 많이 틀린 문항. ───
+function QuizPerformanceCard({ quizzes, total, diagnosis }) {
+  const [showAll, setShowAll] = useState(false)
+  const LIMIT = 3
+  const sorted = [...quizzes].sort((a, b) => (b.participationRate - a.participationRate) || (b.submissionCount - a.submissionCount))
+  const moreCount = sorted.length - LIMIT
+
+  // 상단 집계
+  const quizCount = quizzes.length
+  const totalQuestions = quizzes.reduce((s, q) => s + (q.questionCount || 0), 0)
+  const totalSubs = quizzes.reduce((s, q) => s + q.submissionCount, 0)
+  const possible = quizCount * (total || 0)
+  const avgSubmitRate = possible > 0 ? Math.round((totalSubs / possible) * 100) : 0
+  const totalGraded = quizzes.reduce((s, q) => s + (q.gradedCount || 0), 0)
+  const totalCorrect = quizzes.reduce((s, q) => s + (q.correctCount || 0), 0)
+  const overallCorrect = totalGraded > 0 ? Math.round((totalCorrect / totalGraded) * 100) : null
+  const avgScore = totalSubs > 0 ? Math.round(quizzes.reduce((s, q) => s + q.avgScore * q.submissionCount, 0) / totalSubs) : 0
+  const avgMax = totalSubs > 0 ? Math.round(quizzes.reduce((s, q) => s + q.totalPoints * q.submissionCount, 0) / totalSubs) : 0
+  const statBoxes = [
+    { l: '평균 제출률', v: `${avgSubmitRate}`, u: '%', s: `${totalSubs} / ${possible} 응답` },
+    { l: '전체 정답률', v: overallCorrect != null ? `${overallCorrect}` : '-', u: overallCorrect != null ? '%' : '', s: `${totalCorrect}문항 정답` },
+    { l: '평균 점수', v: `${avgScore}`, u: '점', s: `${avgMax}점 만점` },
+  ]
+  // 가장 많이 틀린 문항 (정답률 최저, 응답 있는 문항 중)
+  const hardest = quizzes.flatMap(q => q.questionStats || [])
+    .filter(q => q.total > 0 && q.correctRate != null)
+    .sort((a, b) => (a.correctRate - b.correctRate) || (b.total - a.total))[0] || null
+
+  const renderQuiz = (q) => {
+    const good = q.submissionCount > 0 && q.participationRate >= 50
+    const badge = q.submissionCount === 0 ? '없음' : q.participationRate >= 50 ? '양호' : '하락'
+    return (
+      <div key={q.id}>
+        <div className="flex items-start justify-between gap-2 mb-1">
+          <span className="min-w-0 truncate" style={{ fontSize: 13.5, fontWeight: 700, color: '#23282b' }}>{q.title}</span>
+          <span className="flex-shrink-0" style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: good ? '#e7f4ec' : '#efece7', color: good ? '#0f7a52' : '#8a8079' }}>{badge}</span>
+        </div>
+        <p style={{ fontSize: 11.5, color: '#9aa39d', marginBottom: 8 }}>
+          {q.submissionCount > 0
+            ? `제출 ${q.submissionCount}/${total}명 · 정답률 ${q.correctRate == null ? '채점 전' : `${q.correctRate}%`}`
+            : '아무도 풀지 않음'}
+        </p>
+        <div className="flex items-center gap-3">
+          <div className="flex-1" style={{ height: 8, borderRadius: 999, background: '#eef0ef', overflow: 'hidden' }}>
+            <div style={{ height: '100%', borderRadius: 999, width: `${q.participationRate}%`, background: '#10b981', transition: 'width .5s cubic-bezier(.2,.75,.25,1)' }} />
+          </div>
+          <span className="tabular-nums flex-shrink-0" style={{ fontSize: 13, fontWeight: 800, color: q.submissionCount > 0 ? '#23282b' : '#c3cac5', width: 34, textAlign: 'right' }}>{q.participationRate}%</span>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="bg-white border border-[#e6e9e6] rounded-card-lg p-5">
+      <div className="flex items-baseline gap-2 mb-4">
+        <h3 className="text-base font-bold text-gray-900">퀴즈 <b className="font-extrabold">{quizCount}</b>개 · {totalQuestions}문항</h3>
+        <span className="text-[11px] text-gray-400 ml-auto">제출 {totalSubs}건{overallCorrect != null ? ` · 정답률 ${overallCorrect}%` : ''}</span>
+      </div>
+
+      {/* 상단 통계 3칸 — 세로 구분선 */}
+      <div className="grid grid-cols-3 mb-5 pb-5" style={{ borderBottom: '1px solid #eef0ef' }}>
+        {statBoxes.map((b, i) => (
+          <div key={b.l} style={{ paddingLeft: i > 0 ? 14 : 0, borderLeft: i > 0 ? '1px solid #eef0ef' : 'none' }}>
+            <div style={{ fontSize: 10.5, color: '#8a8079', marginBottom: 6 }}>{b.l}</div>
+            <div style={{ fontSize: 19, fontWeight: 800, color: '#23282b', lineHeight: 1 }}>{b.v}<span style={{ fontSize: 11, color: '#9aa39d', fontWeight: 700 }}>{b.u}</span></div>
+            <div style={{ fontSize: 10, color: '#9aa39d', marginTop: 6 }}>{b.s}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex flex-col gap-4">
+        {sorted.slice(0, LIMIT).map(renderQuiz)}
+      </div>
+      {moreCount > 0 && (
+        <div className="grid" style={{ gridTemplateRows: showAll ? '1fr' : '0fr', transition: 'grid-template-rows .35s cubic-bezier(.2,.75,.25,1)' }}>
+          <div className="overflow-hidden">
+            <div className="flex flex-col gap-4 pt-4">
+              {sorted.slice(LIMIT).map(renderQuiz)}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 가장 많이 틀린 문항 — 퀴즈 3D 아이콘(축소) */}
+      {hardest && (
+        <div className="mt-4 pt-4 flex items-center gap-3" style={{ borderTop: '1px solid #eef0ef' }}>
+          <Icon3D src="/icons/feature/quiz.png" emoji="❓" className="w-11 h-11 flex-shrink-0" />
+          <div className="min-w-0">
+            <p style={{ fontSize: 11, color: '#8a8079' }}>가장 많이 틀린 문항</p>
+            <p className="truncate" style={{ fontSize: 15, fontWeight: 800, color: '#23282b', margin: '1px 0' }}>{hardest.text}</p>
+            <p style={{ fontSize: 11.5, color: '#9aa39d' }}>정답 {hardest.correctRate}% · {hardest.total}명 응답</p>
+          </div>
+        </div>
+      )}
+
+      {moreCount > 0 && (
+        <button type="button" onClick={() => setShowAll(v => !v)}
+          className="mt-3 w-full flex items-center justify-center gap-1 text-[13px] font-bold text-gray-500 hover:text-gray-700 py-1 transition">
+          {showAll ? '접기' : `+${moreCount}개 더 보기`}
+          <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showAll ? 'rotate-180' : ''}`} />
+        </button>
+      )}
+      {diagnosis && <DiagnosisNote text={diagnosis} />}
+    </div>
+  )
+}
+
+// ─── 커뮤니티 상세 — 상단 통계 3칸(글·댓글·신고) + 활동별 참여자(글/댓글/좋아요/미참여) + 반응 최다 글. ───
+function CommunityCard({ community, total, neverCount, programDays, diagnosis }) {
+  const c = community || { participantPosts: 0, operatorPosts: 0, totalComments: 0, totalLikes: 0, posterCount: 0, commenterCount: 0, likerCount: 0, reportCount: 0, reportResolved: 0, topPost: null }
+  const rate = (n) => (total > 0 ? Math.round((n / total) * 100) : 0)
+  const dayAvg = programDays ? (c.participantPosts / programDays).toFixed(1) : null
+  const perPoster = c.posterCount > 0 ? (c.participantPosts / c.posterCount).toFixed(1) : '0'
+  const perPost = c.participantPosts > 0 ? (c.totalComments / c.participantPosts).toFixed(1) : '0'
+
+  const statBoxes = [
+    { l: '참여자 글', v: c.participantPosts.toLocaleString(), u: '건', s: '운영자 공지 별도' },
+    { l: '댓글', v: c.totalComments.toLocaleString(), u: '개', s: `글당 ${perPost}개` },
+    { l: '신고', v: `${c.reportCount}`, u: '건', s: c.reportCount === 0 ? '없음' : c.reportResolved >= c.reportCount ? '전건 처리 완료' : `${c.reportCount - c.reportResolved}건 미처리` },
+  ]
+
+  // 활동별 참여자 — 마지막 '미참여'는 역방향(이탈)
+  const engGrade = (r) => (r >= 80 ? { t: '높음', on: true } : r >= 50 ? { t: '양호', on: true } : { t: '낮음', on: false })
+  const rows = [
+    { key: 'posters', label: '글을 쓴 사람', sub: `${c.posterCount}명 · 1인당 평균 ${perPoster}건`, r: rate(c.posterCount), badge: engGrade(rate(c.posterCount)) },
+    { key: 'commenters', label: '댓글을 단 사람', sub: `${c.commenterCount}명 · 댓글 ${c.totalComments}개`, r: rate(c.commenterCount), badge: engGrade(rate(c.commenterCount)) },
+    { key: 'likers', label: '좋아요를 누른 사람', sub: `${c.likerCount}명 · 좋아요 ${c.totalLikes}회`, r: rate(c.likerCount), badge: engGrade(rate(c.likerCount)) },
+    { key: 'never', label: '한 번도 들어오지 않은 사람', sub: `${neverCount}명 · 첫 인증도 없음`, r: rate(neverCount), badge: { t: '이탈', on: false }, warn: true },
+  ]
+
+  return (
+    <div className="bg-white border border-[#e6e9e6] rounded-card-lg p-5">
+      <div className="flex items-baseline gap-2 mb-4">
+        <h3 className="text-base font-bold text-gray-900">커뮤니티 활동</h3>
+        <span className="text-[11px] text-gray-400 ml-auto">{programDays ? `${programDays}일` : ''}{dayAvg != null ? ` · 하루 평균 ${dayAvg}건` : ''}</span>
+      </div>
+
+      {/* 상단 통계 3칸 — 세로 구분선 */}
+      <div className="grid grid-cols-3 mb-5 pb-5" style={{ borderBottom: '1px solid #eef0ef' }}>
+        {statBoxes.map((b, i) => (
+          <div key={b.l} style={{ paddingLeft: i > 0 ? 14 : 0, borderLeft: i > 0 ? '1px solid #eef0ef' : 'none' }}>
+            <div style={{ fontSize: 10.5, color: '#8a8079', marginBottom: 6 }}>{b.l}</div>
+            <div style={{ fontSize: 19, fontWeight: 800, color: '#23282b', lineHeight: 1 }}>{b.v}<span style={{ fontSize: 11, color: '#9aa39d', fontWeight: 700 }}>{b.u}</span></div>
+            <div style={{ fontSize: 10, color: '#9aa39d', marginTop: 6 }}>{b.s}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* 활동별 참여자 */}
+      <div className="flex flex-col gap-4">
+        {rows.map(r => (
+          <div key={r.key}>
+            <div className="flex items-start justify-between gap-2 mb-1">
+              <span style={{ fontSize: 13.5, fontWeight: 700, color: '#23282b' }}>{r.label}</span>
+              <span className="flex-shrink-0" style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: r.badge.on ? '#e7f4ec' : '#efece7', color: r.badge.on ? '#0f7a52' : '#8a8079' }}>{r.badge.t}</span>
+            </div>
+            <p style={{ fontSize: 11.5, color: '#9aa39d', marginBottom: 8 }}>{r.sub}</p>
+            <div className="flex items-center gap-3">
+              <div className="flex-1" style={{ height: 8, borderRadius: 999, background: '#eef0ef', overflow: 'hidden' }}>
+                <div style={{ height: '100%', borderRadius: 999, width: `${r.r}%`, background: r.warn ? '#c3cac5' : '#10b981', transition: 'width .5s cubic-bezier(.2,.75,.25,1)' }} />
+              </div>
+              <span className="tabular-nums flex-shrink-0" style={{ fontSize: 13, fontWeight: 800, color: '#23282b', width: 40, textAlign: 'right' }}>{r.r}%</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* 반응이 가장 많았던 글 — 커뮤니티 3D 아이콘(축소) */}
+      {c.topPost && (
+        <div className="mt-4 pt-4 flex items-center gap-3" style={{ borderTop: '1px solid #eef0ef' }}>
+          <Icon3D src="/icons/feature/community.png" emoji="💬" className="w-11 h-11 flex-shrink-0" />
+          <div className="min-w-0">
+            <p style={{ fontSize: 11, color: '#8a8079' }}>반응이 가장 많았던 글</p>
+            <p className="truncate" style={{ fontSize: 15, fontWeight: 800, color: '#23282b', margin: '1px 0' }}>{c.topPost.title}</p>
+            <p style={{ fontSize: 11.5, color: '#9aa39d' }}>좋아요 {c.topPost.likes} · 댓글 {c.topPost.comments}</p>
+          </div>
+        </div>
+      )}
+
+      {diagnosis && <DiagnosisNote text={diagnosis} />}
+    </div>
+  )
+}
+
+// ─── 영역별 평가 — 미션·퀴즈·커뮤니티(활성화된 채널만) 스코어카드 + 선택 채널 상세 ───
+function ChannelEvaluation({ report, quizStats, community, program }) {
+  const total = report.totalParticipants || 0
+  // 미션 도달 = 인증 1건 이상 참여자(= 퍼널 첫인증)
+  const missionReach = report.funnel.find(f => f.key === 'first')?.count || 0
+  const missionRate = total ? Math.round((missionReach / total) * 100) : 0
+  const activeMissions = report.missionPerf.filter(m => m.count > 0).length
+  // 퀴즈 도달 = 응답한 고유 참여자
+  const quizSubmitters = new Set(quizStats.flatMap(q => q.submitterIds || []))
+  const quizReach = quizSubmitters.size
+  const quizRate = total ? Math.round((quizReach / total) * 100) : 0
+  const quizGraded = quizStats.reduce((s, q) => s + (q.gradedCount || 0), 0)
+  const quizCorrect = quizStats.reduce((s, q) => s + (q.correctCount || 0), 0)
+  const quizCorrectRate = quizGraded > 0 ? Math.round((quizCorrect / quizGraded) * 100) : null
+  // 커뮤니티 도달 = 글·댓글·좋아요 중 하나라도 한 고유 참여자
+  const commReach = community?.activeCount || 0
+  const commRate = total ? Math.round((commReach / total) * 100) : 0
+  // 한 번도 안 들어온 사람 = 인증도 없고(휴면) 커뮤니티 활동도 없는 참여자
+  const commActiveSet = new Set(community?.activeUserIds || [])
+  const neverCount = (report.dormantUsers || []).filter(u => !commActiveSet.has(u.user_id)).length
+
+  const channels = []
+  if (report.missionPerf.length > 0) channels.push({ key: 'mission', label: '미션', head: report.totalVerifications.toLocaleString(), headUnit: '건', sub: `참여 ${missionRate}%`, rate: missionRate })
+  if (quizStats.length > 0) channels.push({ key: 'quiz', label: '퀴즈', head: `${quizRate}%`, sub: '참여율', rate: quizRate })
+  if (program.feed_enabled) channels.push({ key: 'community', label: '커뮤니티', head: `${community?.participantPosts ?? 0}`, headUnit: '건', sub: '전체 글', rate: commRate })
+
+  const [sel, setSel] = useState(channels[0]?.key)
+  if (channels.length === 0) return null
+
+  // 팩트 진단 — 판단 없이 현상만
+  const factMission = `미션 ${report.missionPerf.length}개 중 ${activeMissions}개에 인증이 있었고, 참여자 ${total}명 중 ${missionReach}명이 인증했어요.`
+  const factQuiz = quizReach === 0
+    ? `참여자 ${total}명 중 아무도 퀴즈에 응답하지 않았어요.`
+    : `참여자 ${total}명 중 ${quizReach}명이 응답했고, 채점된 답안 ${quizGraded}개 중 ${quizCorrect}개가 정답이었어요${quizCorrectRate != null ? ` (정답률 ${quizCorrectRate}%)` : ''}.`
+  const factComm = `참여자 ${total}명 중 ${commReach}명이 글·댓글·좋아요로 참여했어요. 글 ${community?.participantPosts ?? 0}개, 댓글 ${community?.totalComments ?? 0}개, 좋아요 ${community?.totalLikes ?? 0}회가 올라왔어요.`
+
+  return (
+    <div className="space-y-3">
+      {/* 스코어카드 — 제목은 카드 밖 섹션 헤더, 채널 탭만 카드로 */}
+      <div>
+        <div className="flex items-center gap-2 mb-3 px-1">
+          <h3 className="text-base font-bold text-gray-900">영역별 평가</h3>
+          <span className="text-[11px] text-gray-400 ml-auto">무엇이 작동했나</span>
+        </div>
+        <div className="grid" style={{ gridTemplateColumns: `repeat(${channels.length}, minmax(0,1fr))`, gap: 10 }}>
+          {channels.map(ch => {
+            const g = gradeInfo(ch.rate)
+            const on = sel === ch.key
+            return (
+              <button key={ch.key} type="button" onClick={() => setSel(ch.key)}
+                className="flex flex-col items-start text-left rounded-xl"
+                style={{ padding: '12px 11px', border: on ? '2px solid #10b981' : '1px solid #e6e9e6', background: on ? '#f6fbf8' : '#fff', transition: 'border-color .15s, background .15s' }}>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: on ? '#10b981' : '#c3cac5' }} />
+                  <span style={{ fontSize: 12, fontWeight: 700, color: on ? '#23282b' : '#6a736d' }}>{ch.label}</span>
+                </div>
+                <div style={{ lineHeight: 1 }}>
+                  <span style={{ fontSize: 22, fontWeight: 800, color: ch.rate > 0 ? '#23282b' : '#b6bdb8' }}>{ch.head}</span>
+                  {ch.headUnit && <span style={{ fontSize: 12, fontWeight: 700, color: '#9aa39d' }}>{ch.headUnit}</span>}
+                </div>
+                <span style={{ fontSize: 10.5, color: '#9aa39d', marginTop: 4 }}>{ch.sub}</span>
+                <span style={{ marginTop: 8, fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: g.bg, color: g.fg }}>{g.label}</span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* 선택 채널 상세 */}
+      {sel === 'mission' && <MissionsCard report={report} diagnosis={factMission} />}
+      {sel === 'quiz' && <QuizPerformanceCard quizzes={quizStats} total={total} diagnosis={factQuiz} />}
+      {sel === 'community' && <CommunityCard community={community} total={total} neverCount={neverCount} programDays={report.programDays} diagnosis={factComm} />}
+    </div>
+  )
+}
+
+// ─── 신고 · 제재 — 접수/제재/미처리 + 사유별 분류(기본 프리셋 3종 + 기타). ───
+//   프리셋과 일치하는 신고를 사유별로 묶음. 액션은 시스템 추적값(숨김/삭제/처리)만.
+function ModerationCard({ groups, programDays, programId, navigate }) {
+  const reporters = groups.flatMap(g => g.reporters)
+  const total = reporters.length
+  const unresolvedReports = reporters.filter(r => !r.resolved).length
+  const acted = groups.filter(g => g.hidden || g.deleted).length
+  let sum = 0, n = 0
+  for (const r of reporters) {
+    if (r.resolved && r.resolved_at) {
+      const dt = (new Date(r.resolved_at) - new Date(r.created_at)) / 3_600_000
+      if (dt >= 0) { sum += dt; n += 1 }
+    }
+  }
+  const avgH = n > 0 ? sum / n : null
+  const fmtH = (h) => (h == null ? '-' : h < 1 ? `${Math.max(1, Math.round(h * 60))}분` : `${Math.round(h)}시간`)
+
+  const Flag = () => (
+    <span className="inline-flex items-center justify-center flex-shrink-0" style={{ width: 26, height: 26, borderRadius: 9, background: '#fdece0', fontSize: 13 }}>🚩</span>
+  )
+
+  // 빈 상태 — 깨끗하게 운영됨(긍정)
+  if (total === 0) {
+    return (
+      <div className="bg-white border border-[#e6e9e6] rounded-card-lg p-5 flex items-center gap-3">
+        <Flag />
+        <div>
+          <h3 className="text-base font-bold text-gray-900 leading-tight">신고 · 제재</h3>
+          <p style={{ fontSize: 12, color: '#6a736d', marginTop: 3 }}>접수된 신고가 없어요. 깨끗하게 운영됐어요.</p>
+        </div>
+      </div>
+    )
+  }
+
+  const statBoxes = [
+    { l: '접수', v: `${total}`, u: '건', s: '전체 신고' },
+    { l: '제재', v: `${acted}`, u: '건', s: '숨김·삭제' },
+    { l: '미처리', v: `${unresolvedReports}`, u: '건', s: unresolvedReports === 0 ? '없음' : '처리 대기' },
+  ]
+  // 사유별 분류 — 프리셋 3종 항상 표시(+ 기타는 있을 때). 대표 대상·미처리 집계.
+  const groupByKey = new Map(groups.map(g => [`${g.targetType}:${g.targetId}`, g]))
+  const OTHER = '기타'
+  const catAgg = {}
+  const ensureCat = (k) => (catAgg[k] ||= { count: 0, unresolved: 0, targetReports: {} })
+  for (const g of groups) {
+    const tkey = `${g.targetType}:${g.targetId}`
+    for (const r of g.reporters) {
+      const cat = REPORT_REASON_PRESETS.includes(r.reason) ? r.reason : OTHER
+      const c = ensureCat(cat)
+      c.count += 1
+      if (!r.resolved) c.unresolved += 1
+      c.targetReports[tkey] = (c.targetReports[tkey] || 0) + 1
+    }
+  }
+  const desc = (g) => (g.targetType === 'verification'
+    ? `미션 「${g.target?.missions?.title || '삭제된 미션'}」 인증`
+    : `커뮤니티 글${g.target?.title ? ` 「${g.target.title}」` : ''}`)
+  const catList = [...REPORT_REASON_PRESETS, ...(catAgg[OTHER] ? [OTHER] : [])].map(cat => {
+    const c = catAgg[cat] || { count: 0, unresolved: 0, targetReports: {} }
+    const tkeys = Object.keys(c.targetReports).sort((a, b) => c.targetReports[b] - c.targetReports[a])
+    return { cat, count: c.count, unresolved: c.unresolved, targetCount: tkeys.length, rep: tkeys[0] ? groupByKey.get(tkeys[0]) : null }
+  })
+  const renderCat = ({ cat, count, unresolved, targetCount, rep }) => {
+    const badge = count === 0 ? { t: '해당 없음', warn: false }
+      : unresolved > 0 ? { t: '미처리', warn: true }
+      : { t: '처리 완료', warn: false }
+    return (
+      <div key={cat} className="flex items-center gap-3">
+        <span className="flex-shrink-0 inline-flex items-center justify-center" style={{ width: 22, height: 22, borderRadius: '50%', background: count > 0 ? '#f1f3f2' : '#f6f7f6', fontSize: 11, fontWeight: 800, color: count > 0 ? '#6a736d' : '#c3cac5' }}>{count}</span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate" style={{ fontSize: 13.5, fontWeight: 700, color: count > 0 ? '#23282b' : '#9aa39d' }}>{cat}</p>
+          <p className="truncate" style={{ fontSize: 11.5, color: '#9aa39d' }}>
+            {count > 0 ? `${desc(rep)}${targetCount > 1 ? ` 외 ${targetCount - 1}건` : ''} · ${count}명 신고` : '접수 없음'}
+          </p>
+        </div>
+        <span className="flex-shrink-0" style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: badge.warn ? '#fef3c7' : '#eef0ef', color: badge.warn ? '#b45309' : (count > 0 ? '#6a736d' : '#a39a8f') }}>{badge.t}</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="bg-white border border-[#e6e9e6] rounded-card-lg p-5">
+      <div className="flex items-center gap-2.5 mb-4">
+        <Flag />
+        <div className="min-w-0">
+          <h3 className="text-base font-bold text-gray-900 leading-tight">신고 · 제재</h3>
+          <p style={{ fontSize: 11, color: '#9aa39d', marginTop: 2 }}>{programDays ? `${programDays}일간 ` : ''}접수 {total}건{avgH != null ? ` · 평균 처리 ${fmtH(avgH)}` : ''}</p>
+        </div>
+        <span className="ml-auto flex-shrink-0" style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: unresolvedReports === 0 ? '#e7f4ec' : '#fef3c7', color: unresolvedReports === 0 ? '#0f7a52' : '#b45309' }}>
+          {unresolvedReports === 0 ? '전건 처리' : `${unresolvedReports}건 미처리`}
+        </span>
+      </div>
+
+      {/* 3칸 통계 */}
+      <div className="grid grid-cols-3 mb-5 pb-5" style={{ borderBottom: '1px solid #eef0ef' }}>
+        {statBoxes.map((b, i) => (
+          <div key={b.l} style={{ paddingLeft: i > 0 ? 14 : 0, borderLeft: i > 0 ? '1px solid #eef0ef' : 'none' }}>
+            <div style={{ fontSize: 10.5, color: '#8a8079', marginBottom: 6 }}>{b.l}</div>
+            <div style={{ fontSize: 19, fontWeight: 800, color: '#23282b', lineHeight: 1 }}>{b.v}<span style={{ fontSize: 11, color: '#9aa39d', fontWeight: 700 }}>{b.u}</span></div>
+            <div style={{ fontSize: 10, color: '#9aa39d', marginTop: 6 }}>{b.s}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* 사유별 분류 (기본 프리셋 3종 + 기타) */}
+      <div className="flex flex-col gap-4">
+        {catList.map(renderCat)}
+      </div>
+
+      {/* 전체 보기 → 신고·숨김 관리 */}
+      <button type="button" onClick={() => navigate(`/programs/${programId}?opmenu=reports`)}
+        className="mt-4 pt-4 w-full flex items-center justify-center gap-1 text-[12.5px] font-semibold text-gray-500 hover:text-gray-700 transition" style={{ borderTop: '1px solid #eef0ef' }}>
+        신고 · 숨김 관리에서 전체 보기 <ChevronRight className="w-4 h-4" />
+      </button>
+    </div>
+  )
+}
+
+// ─── 운영 부하 — 운영자가 들인 수작업(심사·응답·글·댓글). "다음 기수엔 줄일 것" 판단용(있는 데이터만). ───
+function OperatorLoadCard({ load }) {
+  const fmtHours = (h) => (h == null ? ['-', ''] : h < 1 ? [String(Math.max(1, Math.round(h * 60))), '분'] : [String(Math.round(h)), '시간'])
+  const [rv, ru] = fmtHours(load?.avgResponseHours)
+  const rows = [
+    { label: '심사 처리', value: load ? String(load.reviewCount) : '-', unit: load ? '건' : '' },
+    { label: '평균 응답', value: load ? rv : '-', unit: load ? ru : '' },
+    { label: '커뮤니티 글', value: load ? String(load.postCount) : '-', unit: load ? '개' : '' },
+    { label: '응원 댓글', value: load ? String(load.commentCount) : '-', unit: load ? '개' : '' },
+  ]
+  return (
+    <div className="bg-white border border-[#e6e9e6] rounded-card-lg p-5">
+      <div className="flex items-center gap-2 mb-4">
+        <h3 className="text-base font-bold text-gray-900">운영 부하</h3>
+        <span className="text-[11px] text-gray-400 ml-auto">다음 기수엔 줄일 것</span>
+      </div>
+      <div className="flex flex-col gap-3">
+        {rows.map(r => (
+          <div key={r.label} className="flex items-center justify-between">
+            <span style={{ fontSize: 13, color: '#6a736d' }}>{r.label}</span>
+            <span style={{ fontSize: 11, color: '#9aa39d' }}>
+              <b style={{ fontSize: 16, fontWeight: 800, color: '#23282b' }}>{r.value}</b>{r.unit}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ─── 다음 액션 ───
 function NextActionsCard({ programId, feedEnabled, navigate, onClone }) {
   return (
-    <div className="bg-white border border-gray-100 rounded-card-lg shadow-soft p-5">
-      <h3 className="text-sm font-bold text-gray-800 mb-1">수고하셨어요! 다음은?</h3>
+    <div className="bg-white border border-[#e6e9e6] rounded-card-lg p-5">
+      <h3 className="text-base font-bold text-gray-900 mb-1">수고하셨어요! 다음은?</h3>
       <p className="text-[12px] text-gray-500 mb-3">이 프로그램을 이어가거나, 참여자에게 인사를 전해보세요.</p>
       <div className="space-y-2">
         {/* 다음 기수 열기 — 같은 구성으로 새 프로그램 (운영자 리텐션 핵심) */}

@@ -1703,6 +1703,9 @@ export const fetchCommunityPendingPosts = async (programId) => {
   return data || []
 }
 
+// 신고 사유 기본 프리셋 — 신고 모달 빠른 선택 + 종료 리포트 사유별 분류에 공유.
+export const REPORT_REASON_PRESETS = ['부적절한 인증 사진', '커뮤니티 비방', '광고 및 도배']
+
 // 신고 (100) — targetType: 'post' | 'verification'. 누적 시 트리거가 자동 숨김.
 export const createReport = async ({ programId, targetType, targetId, reason }) => {
   const { data: { session } } = await supabase.auth.getSession()
@@ -1719,7 +1722,7 @@ export const createReport = async ({ programId, targetType, targetId, reason }) 
 export const fetchProgramReports = async (programId) => {
   const { data: reports, error } = await supabase
     .from('reports')
-    .select('id, target_type, target_id, reason, created_at, resolved, reporter:users!reporter_id(id, nickname, avatar_path)')
+    .select('id, target_type, target_id, reason, created_at, resolved, resolved_at, reporter:users!reporter_id(id, nickname, avatar_path)')
     .eq('program_id', programId)
     .order('created_at', { ascending: false })
   if (error) throw error
@@ -1771,6 +1774,7 @@ export const fetchProgramReports = async (programId) => {
       reason: r.reason || null,
       created_at: r.created_at,
       resolved: !!r.resolved,
+      resolved_at: r.resolved_at || null,
     })
   }
   // 미처리(처리 대기) 먼저, 그 안에서 최근 신고 순
@@ -2052,8 +2056,8 @@ export const fetchProgramQuizStats = async (programId) => {
     .from('quizzes')
     .select(`
       id, title, start_at, due_at, reveal_answers, created_at,
-      quiz_questions(id, point),
-      quiz_submissions(id, total_score, status, quiz_answers(is_correct))
+      quiz_questions(id, point, question_text),
+      quiz_submissions(id, user_id, total_score, status, quiz_answers(question_id, is_correct))
     `)
     .eq('program_id', programId)
     .order('created_at', { ascending: false })
@@ -2088,20 +2092,39 @@ export const fetchProgramQuizStats = async (programId) => {
     }
     const correctRate = totalGraded > 0 ? Math.round((correctCount / totalGraded) * 100) : null
 
+    // 문항별 통계 — 가장 많이 틀린 문항 산출용 (question_id 기준 정답/응답 집계)
+    const qMap = {}
+    for (const qq of (q.quiz_questions || [])) qMap[qq.id] = { text: qq.question_text, total: 0, correct: 0 }
+    for (const sub of subs) {
+      for (const a of (sub.quiz_answers || [])) {
+        if (a.is_correct === null) continue
+        const rec = qMap[a.question_id]; if (!rec) continue
+        rec.total += 1; if (a.is_correct === true) rec.correct += 1
+      }
+    }
+    const questionStats = Object.values(qMap).map(r => ({
+      text: r.text, total: r.total, correct: r.correct,
+      correctRate: r.total > 0 ? Math.round((r.correct / r.total) * 100) : null,
+    }))
+
     return {
       id: q.id,
       title: q.title,
+      questionStats,
       start_at: q.start_at,
       due_at: q.due_at,
       created_at: q.created_at,
       questionCount: q.quiz_questions?.length || 0,
       totalPoints: (q.quiz_questions || []).reduce((s, qq) => s + (qq.point || 0), 0),
       submissionCount,
+      submitterIds: [...new Set(subs.map(s => s.user_id).filter(Boolean))],   // 채널 참여율 union 용
       participantCount: participantCount || 0,
       participationRate: participantCount ? Math.round((submissionCount / participantCount) * 100) : 0,
       avgScore,
       pendingCount,
       correctRate,
+      correctCount,     // 전체 정답률 집계용
+      gradedCount: totalGraded,
     }
   })
 }
@@ -2591,6 +2614,97 @@ export const fetchProgramStats = async (programId) => {
     // Day 65 — ProgramInsightsSummary 위젯이 시계열·분포 계산용으로 사용.
     // 원본 verification rows (id/mission_id/user_id/submitted_at + missions JOIN).
     _raw: rows,
+  }
+}
+
+// 종료 리포트 「운영 부하」 — 운영자가 이 프로그램에 들인 수작업 집계 (있는 데이터만, 새 개념 아님).
+//   심사 처리 = 심사 완료(APPROVED/REJECTED, reviewed_at 존재) 건수 + 평균 응답(submitted→reviewed 시간).
+//   커뮤니티 글 = 운영자 자유게시판 글 수. 응원 댓글 = 운영자 피드+게시판 댓글 수.
+export async function fetchProgramOperatorLoad(programId, ownerId) {
+  const [revRes, postRes, feedCmtRes, boardCmtRes] = await Promise.all([
+    supabase.from('verifications')
+      .select('submitted_at, reviewed_at, missions!inner(program_id)')
+      .eq('missions.program_id', programId)
+      .in('status', ['APPROVED', 'REJECTED'])
+      .not('reviewed_at', 'is', null),
+    supabase.from('community_posts')
+      .select('id', { count: 'exact', head: true })
+      .eq('author_id', ownerId).eq('program_id', programId),
+    supabase.from('post_comments')
+      .select('id, verifications!inner(missions!inner(program_id))', { count: 'exact', head: true })
+      .eq('user_id', ownerId).eq('verifications.missions.program_id', programId),
+    supabase.from('community_post_comments')
+      .select('id, community_posts!inner(program_id)', { count: 'exact', head: true })
+      .eq('user_id', ownerId).eq('community_posts.program_id', programId),
+  ])
+  if (revRes.error) throw revRes.error
+  const revs = revRes.data || []
+  let sum = 0, n = 0
+  for (const r of revs) {
+    const dt = (new Date(r.reviewed_at) - new Date(r.submitted_at)) / 3_600_000
+    if (dt >= 0) { sum += dt; n += 1 }
+  }
+  return {
+    reviewCount: revs.length,
+    avgResponseHours: n > 0 ? sum / n : null,
+    postCount: postRes.count || 0,
+    commentCount: (feedCmtRes.count || 0) + (boardCmtRes.count || 0),
+  }
+}
+
+// 종료 리포트 「커뮤니티 활동」 — 참여자 커뮤니티 활동 종합 집계 (운영자/참여자 구분).
+//   글=자유게시판 글, 댓글=자유게시판+인증피드, 좋아요=커뮤글+인증피드, 신고=reports.
+//   반응 최다 글·활동별 고유 참여자 수도 계산. (있는 데이터 읽기 — 마이그레이션 없음)
+export async function fetchProgramCommunityStats(programId, ownerId) {
+  const [postsRes, boardCmtRes, feedCmtRes, cpLikeRes, feedLikeRes, reportsRes] = await Promise.all([
+    supabase.from('community_posts').select('id, author_id, title').eq('program_id', programId),
+    supabase.from('community_post_comments').select('user_id, post_id, community_posts!inner(program_id)').eq('community_posts.program_id', programId),
+    supabase.from('post_comments').select('user_id, verifications!inner(missions!inner(program_id))').eq('verifications.missions.program_id', programId),
+    supabase.from('community_post_likes').select('user_id, post_id, community_posts!inner(program_id)').eq('community_posts.program_id', programId),
+    supabase.from('post_likes').select('user_id, verifications!inner(missions!inner(program_id))').eq('verifications.missions.program_id', programId),
+    supabase.from('reports').select('resolved').eq('program_id', programId),
+  ])
+  if (postsRes.error) throw postsRes.error
+  const posts = postsRes.data || []
+  const boardCmt = boardCmtRes.data || []
+  const feedCmt = feedCmtRes.data || []
+  const cpLikes = cpLikeRes.data || []
+  const feedLikes = feedLikeRes.data || []
+  const reports = reportsRes.data || []
+  const isP = (id) => id && id !== ownerId          // 참여자(운영자 제외)
+
+  const pPosts = posts.filter(p => isP(p.author_id))
+  const comments = [...boardCmt, ...feedCmt].filter(c => isP(c.user_id))
+  const likes = [...cpLikes, ...feedLikes].filter(l => isP(l.user_id))
+  const posterSet = new Set(pPosts.map(p => p.author_id))
+  const commenterSet = new Set(comments.map(c => c.user_id))
+  const likerSet = new Set(likes.map(l => l.user_id))
+  const activeSet = new Set([...posterSet, ...commenterSet, ...likerSet])
+
+  // 반응이 가장 많았던 글 — 좋아요+댓글 최다(전체 글 대상)
+  const likeByPost = {}, cmtByPost = {}
+  for (const l of cpLikes) likeByPost[l.post_id] = (likeByPost[l.post_id] || 0) + 1
+  for (const c of boardCmt) cmtByPost[c.post_id] = (cmtByPost[c.post_id] || 0) + 1
+  let topPost = null
+  for (const p of posts) {
+    const lk = likeByPost[p.id] || 0, cm = cmtByPost[p.id] || 0
+    if (!topPost || (lk + cm) > topPost.react) topPost = { title: p.title || '(제목 없는 글)', likes: lk, comments: cm, react: lk + cm }
+  }
+  if (topPost && topPost.react === 0) topPost = null
+
+  return {
+    participantPosts: pPosts.length,
+    operatorPosts: posts.length - pPosts.length,
+    totalComments: comments.length,
+    totalLikes: likes.length,
+    posterCount: posterSet.size,        // 글 쓴 참여자
+    commenterCount: commenterSet.size,  // 댓글 단 참여자
+    likerCount: likerSet.size,          // 좋아요 누른 참여자
+    activeCount: activeSet.size,        // 글·댓글·좋아요 중 하나라도 한 참여자(채널 도달)
+    activeUserIds: [...activeSet],      // '한 번도 안 들어온 사람' 계산용
+    reportCount: reports.length,
+    reportResolved: reports.filter(r => r.resolved).length,
+    topPost,
   }
 }
 
