@@ -2,9 +2,10 @@ import { useMemo, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronLeft, ChevronDown, ChevronRight, Trophy, MessageSquare, Copy } from 'lucide-react'
+import { ChevronLeft, ChevronDown, ChevronRight, Trophy, MessageSquare, Copy, Download } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
-import { queryKeys, fetchProgram, fetchProgramStats, fetchProgramOperatorLoad, fetchProgramQuizStats, fetchProgramCommunityStats, fetchProgramReports, REPORT_REASON_PRESETS, formatKstDate } from '../../lib/queries'
+import { queryKeys, fetchProgram, fetchProgramStats, fetchProgramOperatorLoad, fetchProgramQuizStats, fetchProgramCommunityStats, fetchProgramReports, fetchEndReportPerUser, fetchProgramScoreBreakdown, fetchProgramTeamRanking, fetchProgramDistanceByUser, fetchProgramScoreLedger, REPORT_REASON_PRESETS, formatKstDate } from '../../lib/queries'
+import { PROGRAM_THEME } from '../../lib/constants'
 import { formatKoreanDate } from '../../lib/formatters'
 import StickyBackBar from '../../components/common/StickyBackBar'
 import LoadingState from '../../components/common/LoadingState'
@@ -14,6 +15,7 @@ import { Icon3D } from '../../components/program/ProgramHome'
 import ParticipationTrendChart from '../../components/program/ParticipationTrendChart'
 import { Reveal } from '../../components/program/statsAnim'
 import { StatusDonut } from '../../components/program/ProgramInsightsSummary'
+import { exportEndReportXlsx } from '../../lib/reportExport'
 
 // 운영자 종료 리포트 — 프로그램이 끝난 뒤 "최종 성적표" 한 장.
 //   본인 결정 (2026-06-27): 운영자 경험 먼저. A1(리포트 먼저, 복제는 후속) + B(고정 3구간) + C(종료 진입 시).
@@ -211,6 +213,21 @@ function ProgramEndReportPage() {
     enabled: !!session && !!id && isOwner,
   })
 
+  // 참여자 개인별 딥 데이터(퀴즈·커뮤니티) — 시상 보드 + 엑셀 내보내기 공용.
+  const { data: perUser } = useQuery({
+    queryKey: ['program', id, 'perUserDeep'],
+    queryFn: () => fetchEndReportPerUser(id),
+    enabled: !!session && !!id && isOwner,
+  })
+
+  // 달리기 프로그램 — 참여자별 누적 거리(km) → 거리왕·거리 랭킹
+  const isRunning = program?.theme === PROGRAM_THEME.RUNNING
+  const { data: distanceByUser } = useQuery({
+    queryKey: ['program', id, 'distanceByUser'],
+    queryFn: () => fetchProgramDistanceByUser(id),
+    enabled: !!session && !!id && isOwner && isRunning,
+  })
+
   const report = useMemo(() => computeReport(stats, program), [stats, program])
   const [cloneOpen, setCloneOpen] = useState(false)
 
@@ -303,14 +320,25 @@ function ProgramEndReportPage() {
           {/* ─── 신고 · 제재 (영역별 평가 다음) ─── */}
           <Reveal index={5}><ModerationCard groups={reportGroups} programDays={report.programDays} programId={id} navigate={navigate} /></Reveal>
 
-          {/* ─── 우수 참여자 ─── */}
-          {report.topUsers.length > 0 && <Reveal index={6}><TopUsersCard users={report.topUsers} /></Reveal>}
+          {/* ─── 시상 · 랭킹 (부문별 + 무결성 검증) ─── */}
+          <Reveal index={6}><AwardsCard report={report} perUser={perUser} raw={stats?._raw || []} reportGroups={reportGroups} hasQuiz={quizStats.length > 0} hasCommunity={!!program.feed_enabled} distanceByUser={isRunning ? distanceByUser : null} /></Reveal>
 
           {/* ─── 운영 부하 (있는 데이터만 · 정산은 보류) ─── */}
           <Reveal index={7}><OperatorLoadCard load={opLoad} /></Reveal>
 
           {/* ─── 다음 액션 ─── */}
-          <Reveal index={8}><NextActionsCard programId={id} feedEnabled={!!program.feed_enabled} navigate={navigate} onClone={() => setCloneOpen(true)} /></Reveal>
+          <Reveal index={8}><NextActionsCard programId={id} feedEnabled={!!program.feed_enabled} navigate={navigate} onClone={() => setCloneOpen(true)}
+            onThanks={() => navigate(`/programs/${id}?tab=community`, { state: { composeThanks: buildThanksDraft(program, report) } })}
+            onExport={async () => {
+              const [pu, scoreBreakdown, teamRanking, distance, scoreLedger] = await Promise.all([
+                perUser || fetchEndReportPerUser(id),
+                fetchProgramScoreBreakdown(id),
+                fetchProgramTeamRanking(id).catch(() => []),   // 팀 미사용/오류 시 빈 배열
+                isRunning ? (distanceByUser || fetchProgramDistanceByUser(id)) : null,
+                fetchProgramScoreLedger(id),
+              ])
+              await exportEndReportXlsx({ program, report, quizStats, community, perUser: pu, raw: stats?._raw || [], scoreBreakdown, teamRanking, distanceByUser: distance, reportGroups, scoreLedger })
+            }} /></Reveal>
         </div>
       )}
       <CloneProgramModal isOpen={cloneOpen} onClose={() => setCloneOpen(false)} program={program} />
@@ -650,29 +678,116 @@ function MissionsCard({ report, diagnosis }) {
   )
 }
 
-// ─── 우수 참여자 Top 5 ───
+// ─── 시상 · 랭킹 — 부문별 1~3위 + 완주자(참가상) + 무결성 검증(⚠️ 신고·인증 몰림) ───
 const MEDALS = ['🥇', '🥈', '🥉']
-function TopUsersCard({ users }) {
+function AwardsCard({ report, perUser, raw = [], reportGroups = [], hasQuiz, hasCommunity, distanceByUser = null }) {
+  const roster = [
+    ...report.completedUsers.map(u => ({ ...u })),
+    ...report.participatedUsers.map(u => ({ ...u })),
+    ...report.dormantUsers.map(u => ({ ...u })),
+  ]
+
+  // ── 무결성: 신고당한 작성자 + 인증 몰림(한 날 70%+ · 총 5건+) ──
+  const reportedIds = new Set()
+  for (const g of reportGroups) {
+    const aid = g.targetType === 'post' ? g.target?.author?.id : g.target?.user?.id
+    if (aid) reportedIds.add(aid)
+  }
+  const dayByUser = {}
+  for (const r of raw) {
+    if (!r.user_id) continue
+    const d = formatKstDate(new Date(r.submitted_at))
+    const u = (dayByUser[r.user_id] ||= { total: 0, max: 0, days: {} })
+    u.total += 1
+    u.days[d] = (u.days[d] || 0) + 1
+    if (u.days[d] > u.max) u.max = u.days[d]
+  }
+  const flagsFor = (uid) => {
+    const f = []
+    if (reportedIds.has(uid)) f.push('신고')
+    const d = dayByUser[uid]
+    if (d && d.total >= 5 && d.max / d.total >= 0.7) f.push('몰아서 인증')
+    return f
+  }
+
+  const q = (uid) => perUser?.quizByUser?.[uid]
+  const cm = (uid) => perUser?.communityByUser?.[uid]
+  const dist = (uid) => distanceByUser?.[uid] || 0
+  const cats = []
+  // 달리기: 누적 거리왕을 맨 앞에
+  if (distanceByUser) cats.push({ key: 'dist', icon: '🏃', title: '거리왕', crit: '누적 거리', pool: roster.filter(u => dist(u.user_id) > 0), metric: u => dist(u.user_id), label: u => `${dist(u.user_id).toFixed(1)}km`, tie: (a, b) => b.totalCount - a.totalCount })
+  cats.push(
+    { key: 'verif', icon: '🔥', title: '인증왕', crit: '총 인증 수', pool: roster.filter(u => u.totalCount > 0), metric: u => u.totalCount, label: u => `${u.totalCount}건`, tie: (a, b) => b.activeDays - a.activeDays },
+    { key: 'streak', icon: '📅', title: '개근왕', crit: '활동한 일수', pool: roster.filter(u => u.activeDays > 0), metric: u => u.activeDays, label: u => `${u.activeDays}일`, tie: (a, b) => b.totalCount - a.totalCount },
+  )
+  if (hasQuiz) cats.push({ key: 'quiz', icon: '🧠', title: '퀴즈왕', crit: '퀴즈 정답률', pool: roster.filter(u => q(u.user_id)?.correctRate != null), metric: u => q(u.user_id).correctRate, label: u => `${q(u.user_id).correctRate}% · ${q(u.user_id).quizCount}개`, tie: (a, b) => q(b.user_id).quizCount - q(a.user_id).quizCount })
+  if (hasCommunity) cats.push({ key: 'comm', icon: '💬', title: '커뮤니티 MVP', crit: '글 + 댓글', pool: roster.filter(u => { const x = cm(u.user_id); return x && (x.posts + x.comments) > 0 }), metric: u => { const x = cm(u.user_id); return x.posts + x.comments }, label: u => { const x = cm(u.user_id); return `글 ${x.posts} · 댓글 ${x.comments}` }, tie: (a, b) => cm(b.user_id).posts - cm(a.user_id).posts })
+
+  const topOf = (cat) => [...cat.pool].sort((a, b) => cat.metric(b) - cat.metric(a) || cat.tie(a, b) || (a.nickname || '').localeCompare(b.nickname || '')).slice(0, 3)
+  const anyFlag = cats.some(cat => topOf(cat).some(u => flagsFor(u.user_id).length > 0))
+
   return (
     <div className="bg-white border border-[#e6e9e6] rounded-card-lg p-5">
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-2 mb-1">
         <Trophy className="w-4 h-4 text-amber-500" />
-        <h3 className="text-base font-bold text-gray-900">우수 참여자</h3>
-        <span className="text-[11px] text-gray-400 ml-auto">감사 인사를 전해보세요</span>
+        <h3 className="text-base font-bold text-gray-900">시상 · 랭킹</h3>
+        <span className="text-[11px] text-gray-400 ml-auto">상품 지급 기준</span>
       </div>
-      <div className="space-y-1">
-        {users.map((u, i) => (
-          <div key={u.user_id} className="flex items-center gap-3 px-1 py-1.5">
-            <span className="w-6 text-center text-sm flex-shrink-0">{MEDALS[i] || <span className="text-gray-400 font-bold">{i + 1}</span>}</span>
-            <span className="flex-1 min-w-0 text-sm font-medium text-gray-800 truncate">{u.nickname}</span>
-            <span className="flex items-center gap-2.5 text-[11px] text-gray-500 flex-shrink-0">
-              <span>인증 <b className="text-gray-700">{u.totalCount}</b></span>
-              <span>활동 <b className="text-gray-700">{u.activeDays}</b>일</span>
-              <span className="text-emerald-700 font-semibold">{u.totalScore}P</span>
-            </span>
-          </div>
-        ))}
+      <p className="text-[11.5px] text-gray-500 mb-4">부문별 1~3위와 완주자예요. 동점은 괄호 기준으로 갈랐어요.</p>
+
+      {/* 완주자(참가상) */}
+      <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 mb-4" style={{ background: '#f1f6f3' }}>
+        <span style={{ fontSize: 17 }}>🎗️</span>
+        <div className="flex-1 min-w-0">
+          <p style={{ fontSize: 13, fontWeight: 700, color: '#0f5c3f' }}>완주자 {report.completedUsers.length}명 · 참가상 대상</p>
+          <p style={{ fontSize: 11, color: '#4b7a63' }}>{report.threshold ? `${report.threshold}일 이상 활동` : '기준 활동'} 달성</p>
+        </div>
       </div>
+
+      {/* 부문별 랭킹 */}
+      <div className="flex flex-col">
+        {cats.map((cat, ci) => {
+          const top = topOf(cat)
+          return (
+            <div key={cat.key} className={ci > 0 ? 'mt-4 pt-4' : ''} style={ci > 0 ? { borderTop: '1px solid #eef0ef' } : undefined}>
+              <div className="flex items-baseline gap-1.5 mb-2">
+                <span style={{ fontSize: 14 }}>{cat.icon}</span>
+                <span style={{ fontSize: 13.5, fontWeight: 700, color: '#23282b' }}>{cat.title}</span>
+                <span className="ml-auto" style={{ fontSize: 10.5, color: '#9aa39d' }}>{cat.crit}</span>
+              </div>
+              {top.length === 0 ? (
+                <p style={{ fontSize: 12, color: '#c3cac5', paddingLeft: 2 }}>아직 없음</p>
+              ) : (
+                <div className="flex flex-col gap-1.5">
+                  {top.map((u, i) => {
+                    const flags = flagsFor(u.user_id)
+                    return (
+                      <div key={u.user_id} className="flex items-center gap-2.5">
+                        <span className="flex-shrink-0 text-center" style={{ width: 22, fontSize: 14 }}>{MEDALS[i]}</span>
+                        <span className="min-w-0 truncate" style={{ fontSize: 13.5, fontWeight: 600, color: '#23282b' }}>{u.nickname}</span>
+                        {flags.length > 0 && (
+                          <span className="flex-shrink-0" style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 999, background: '#fef3c7', color: '#b45309' }}>⚠️ {flags.join('·')}</span>
+                        )}
+                        <span className="tabular-nums ml-auto flex-shrink-0" style={{ fontSize: 12, fontWeight: 700, color: '#4b544f' }}>{cat.label(u)}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* 무결성 안내 */}
+      {anyFlag && (
+        <div className="mt-4 flex items-start gap-2 rounded-xl px-3 py-2.5" style={{ background: '#fff7ed' }}>
+          <span className="flex-shrink-0" style={{ fontSize: 12 }}>⚠️</span>
+          <p className="text-[11.5px] leading-relaxed" style={{ color: '#9a6a2f' }}>
+            <b>표시된 참여자는 상 지급 전에 확인해보세요.</b> 신고 이력이 있거나 인증이 특정일에 몰려 있어요 — 부정이 아닐 수도 있으니 내역을 한 번 살펴보시길 권해요.
+          </p>
+        </div>
+      )}
     </div>
   )
 }
@@ -1085,8 +1200,29 @@ function OperatorLoadCard({ load }) {
   )
 }
 
+// 감사 인사 초안 — 커뮤니티 글쓰기에 미리 채울 마무리 공지 (운영자가 다듬어 게시).
+function buildThanksDraft(program, report) {
+  const done = report.completedUsers.length
+  const days = report.programDays
+  const body = [
+    `${program.name}가 오늘로 마무리됐어요.`,
+    '',
+    `${days ? `${days}일 동안 ` : ''}함께해주신 ${report.totalParticipants}명, 끝까지 완주하신 ${done}명 모두 정말 고생 많으셨어요! 👏`,
+    `함께 쌓은 누적 인증만 ${report.totalVerifications}건이었어요.`,
+    '',
+    '작은 실천이 모여 큰 변화가 됐습니다. 함께해주셔서 진심으로 감사합니다 🙏',
+  ].join('\n')
+  return { title: `${program.name} 마무리 인사 🎉`, body }
+}
+
 // ─── 다음 액션 ───
-function NextActionsCard({ programId, feedEnabled, navigate, onClone }) {
+function NextActionsCard({ programId, feedEnabled, navigate, onClone, onExport, onThanks }) {
+  const [exporting, setExporting] = useState(false)
+  const handleExport = async () => {
+    if (exporting) return
+    setExporting(true)
+    try { await onExport() } catch { alert('리포트 내보내기에 실패했어요. 잠시 후 다시 시도해주세요.') } finally { setExporting(false) }
+  }
   return (
     <div className="bg-white border border-[#e6e9e6] rounded-card-lg p-5">
       <h3 className="text-base font-bold text-gray-900 mb-1">수고하셨어요! 다음은?</h3>
@@ -1110,7 +1246,7 @@ function NextActionsCard({ programId, feedEnabled, navigate, onClone }) {
         {feedEnabled && (
           <button
             type="button"
-            onClick={() => navigate(`/programs/${programId}?tab=community`)}
+            onClick={onThanks}
             className="w-full flex items-center gap-3 p-3 rounded-xl bg-emerald-50 hover:bg-emerald-100/70 transition text-left"
           >
             <span className="w-9 h-9 rounded-full bg-emerald-500 text-white flex items-center justify-center flex-shrink-0">
@@ -1118,10 +1254,25 @@ function NextActionsCard({ programId, feedEnabled, navigate, onClone }) {
             </span>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold text-gray-800">감사 인사 남기기</p>
-              <p className="text-[11px] text-gray-500">커뮤니티에 마무리 공지를 올려요</p>
+              <p className="text-[11px] text-gray-500">마무리 공지 초안을 채워 글쓰기로 바로 이동해요</p>
             </div>
           </button>
         )}
+        {/* 리포트 내보내기 — 다중 시트 엑셀(.xlsx) 다운로드 */}
+        <button
+          type="button"
+          onClick={handleExport}
+          disabled={exporting}
+          className="w-full flex items-center gap-3 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition text-left disabled:opacity-60"
+        >
+          <span className="w-9 h-9 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center flex-shrink-0">
+            <Download className="w-5 h-5" />
+          </span>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-gray-800">{exporting ? '내보내는 중…' : '리포트 내보내기 (엑셀)'}</p>
+            <p className="text-[11px] text-gray-500">요약·참여자(개인별)·미션·퀴즈 시트로 저장해요</p>
+          </div>
+        </button>
       </div>
     </div>
   )

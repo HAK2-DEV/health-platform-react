@@ -94,7 +94,6 @@ import {
   fetchProgramMissions,
   fetchProgramScores,
   fetchProgramRanking,
-  fetchProgramTeamRanking,
   fetchMyRecentScoreSeries,
   fetchTodayCounts,
   fetchTodaySmokingStats,
@@ -268,17 +267,6 @@ function ProgramDetailPage() {
   const teamEnabled = !!program?.team_enabled
   const [rankScope, setRankScope] = useState(searchParams.get('team') ? 'team' : 'individual')
   const effRankScope = teamEnabled ? rankScope : 'individual'
-
-  // 개요 "내 팀" 요약 카드용 — 전체 기간 팀 랭킹에서 내 팀 찾기
-  const { data: teamRankingAll = [] } = useQuery({
-    queryKey: queryKeys.programTeamRanking(id, 'all'),
-    queryFn: () => fetchProgramTeamRanking(id, null),
-    enabled: !!id && teamEnabled,
-  })
-  const myTeamCard = useMemo(
-    () => teamRankingAll.find(t => (t.members || []).some(m => m.user_id === userId)) || null,
-    [teamRankingAll, userId],
-  )
 
   // 추세 sparkline — 「본인 14일 점수 추세」기능 비활성화 (2026-06-21, 랭킹 UI 정리).
   //   표시·fetch 모두 중단. (재도입 시 !!program?.trend_enabled 로 복구)
@@ -541,6 +529,18 @@ function ProgramDetailPage() {
   }, [focusPostId]) // eslint-disable-line react-hooks/exhaustive-deps
   const [isPostModalOpen, setIsPostModalOpen] = useState(false)         // 게시판 글쓰기 모달
   const [editingPost, setEditingPost] = useState(null)                 // 수정 중인 게시글 (null=새 글)
+  const [composeDraft, setComposeDraft] = useState(null)               // 새 글 초안 (종료 리포트 감사 인사 등)
+
+  // 종료 리포트 「감사 인사」 등에서 초안과 함께 진입 → 커뮤니티 탭 + 글쓰기 모달 자동 오픈
+  useEffect(() => {
+    const draft = location.state?.composeThanks
+    if (!draft) return
+    setComposeDraft(draft)
+    setEditingPost(null)
+    setActiveTab('community')
+    setIsPostModalOpen(true)
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: {} })  // 뒤로/새로고침 시 재오픈 방지
+  }, [location.state]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // 게시판 글 (인증/전체 외 게시판) — 선택 칩 기준
   const { data: communityPosts = [], isLoading: isCommunityLoading } = useQuery({
@@ -1144,9 +1144,16 @@ function ProgramDetailPage() {
     : (hdrPublished && !hdrUpcoming) ? 'border border-emerald-400 text-emerald-600 bg-white' : 'border border-amber-400 text-amber-600 bg-white'
 
   // 커뮤니티 게시판 칩 — 운영자 설정(community_settings.boards) 순서대로. 미설정 시 기본 4종.
+  //   폴백에도 권한(writePerm/commentPerm)을 명시 — 공지는 기본 '읽기전용'이라 참여자 글쓰기·댓글 차단
+  //   (CommunityManagePanel 의 DEFAULT_BOARDS 와 일치). 이게 없으면 공지가 'free' 로 잡혀 참여자가 공지에 글을 쓸 수 있었음.
   const communityBoards = (program.community_settings?.boards?.length
     ? program.community_settings.boards
-    : [{ id: 'all', name: '전체' }, { id: 'notice', name: '공지' }, { id: 'cert', name: '인증' }, { id: 'free', name: '자유' }])
+    : [
+        { id: 'all', name: '전체' },
+        { id: 'notice', name: '공지', writePerm: 'readonly', commentPerm: 'readonly' },
+        { id: 'cert', name: '인증', writePerm: 'approval' },
+        { id: 'free', name: '자유' },
+      ])
   const BOARD_ICON = { cheer: '💛', notice: '📢', cert: '📷', free: '💬' }
   // 금연: 응원 콜라주 전용 「응원」 칩 (가상 보드 — 글 작성/피드 아님). 순서: 전체 다음(2번째).
   const cheerChipOn = program.theme === PROGRAM_THEME.QUIT_SMOKING
@@ -1591,43 +1598,6 @@ function ProgramDetailPage() {
             ) : (
               <p className="text-[13px] text-gray-400">✏️ 운영자 메뉴에서 공지를 작성해보세요</p>
             )}
-          </button>
-        )
-      })()}
-
-      {/* 내 팀 요약 카드 — 팀 기능 + 내가 팀에 속해 있을 때만 */}
-      {teamEnabled && myTeamCard && (() => {
-        const t = myTeamCard
-        const scoreMode = program?.team_score_mode || 'sum'
-        const total = (t.total_score || 0).toLocaleString()
-        const avg = Number(t.avg_score || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })
-        return (
-          <button
-            type="button"
-            onClick={() => { setRankScope('team'); setActiveTab('ranking') }}
-            className="w-full text-left bg-white rounded-2xl shadow-elevated p-4 mb-[9px] transition active:scale-[0.99] border border-violet-100"
-          >
-            <div className="flex items-center gap-3">
-              <span className="text-2xl flex-shrink-0">{t.emoji || '👥'}</span>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-bold text-violet-800 truncate">{t.team_name}</p>
-                  <span className="flex-shrink-0 text-xs font-bold text-violet-600">
-                    {t.is_active ? `팀 랭킹 ${t.rank}위` : '모집중'}
-                  </span>
-                </div>
-                <p className="text-[13px] text-gray-600 mt-0.5">
-                  {scoreMode === 'average'
-                    ? <>인당 <span className="font-bold">{avg}</span> · 합계 {total}</>
-                    : <>합계 <span className="font-bold">{total}</span> · 인당 {avg}</>}
-                </p>
-                <p className="text-[11px] text-gray-400 mt-0.5 truncate">
-                  👤 {t.member_count}/{t.capacity}명
-                  {(t.members || []).length > 0 && ` · ${(t.members).slice(0, 3).map(m => m.nickname).join(', ')}`}
-                </p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-violet-300 flex-shrink-0" />
-            </div>
           </button>
         )
       })()}
@@ -2405,7 +2375,7 @@ function ProgramDetailPage() {
       {/* ─── 클래스 일정 — 전체 목록 ↔ 상세(?class=) ───────────────────── */}
       {activeTab === 'classes' && (() => {
         const selClass = searchParams.get('class')
-        if (selClass) return <ClassDetail sessionId={selClass} programId={id} userId={userId} isOwner={isOwner} attendanceMode={program.class_attendance_mode} checkinBeforeMin={program.class_checkin_before_min ?? 30} />
+        if (selClass) return <ClassDetail sessionId={selClass} programId={id} userId={userId} isOwner={isOwner} attendanceMode={program.class_attendance_mode} checkinBeforeMin={program.class_checkin_before_min ?? 30} programEnded={progressUrgency(calcProgress(program.start_date, program.end_date)).urgency === 'ended'} />
         return <ClassScheduleList programId={id} userId={userId}
           onOpenSession={(sid) => setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('class', sid); return n })} />
       })()}
@@ -2627,11 +2597,12 @@ function ProgramDetailPage() {
         {/* 커뮤니티 게시판 글쓰기 */}
         <CommunityPostModal
           isOpen={isPostModalOpen}
-          onClose={() => { setIsPostModalOpen(false); setEditingPost(null) }}
+          onClose={() => { setIsPostModalOpen(false); setEditingPost(null); setComposeDraft(null) }}
           program={program}
           boards={writableBoards}
           defaultBoardId={writableBoards.some(b => b.id === communityBoard) ? communityBoard : writableBoards[0]?.id}
           editPost={editingPost}
+          draft={composeDraft}
         />
         {/* 운영자 통합 검토함 — 모든 게시판 검토 대기 글 승인/거절 */}
         <CommunityReviewModal

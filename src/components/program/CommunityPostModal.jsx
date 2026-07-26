@@ -10,7 +10,8 @@ import { thumbPathOf } from '../../lib/signedUrls'
 
 // 커뮤니티 게시판 글쓰기/수정 모달.
 //   props: isOpen, onClose, program, boards(작성 가능 게시판), defaultBoardId, editPost(있으면 수정 모드)
-function CommunityPostModal({ isOpen, onClose, program, boards = [], defaultBoardId, editPost = null }) {
+//          draft({title, body}) — 새 글 작성 시 초안 미리 채움 (종료 리포트 「감사 인사」 등)
+function CommunityPostModal({ isOpen, onClose, program, boards = [], defaultBoardId, editPost = null, draft = null }) {
   const queryClient = useQueryClient()
   const isEdit = !!editPost
   const [boardId, setBoardId] = useState('')
@@ -40,7 +41,7 @@ function CommunityPostModal({ isOpen, onClose, program, boards = [], defaultBoar
       } else setExistingUrl(null)
     } else {
       setBoardId(defaultBoardId || boards[0]?.id || '')
-      setTitle(''); setBody(''); setExistingUrl(null)
+      setTitle(draft?.title || ''); setBody(draft?.body || ''); setExistingUrl(null)
     }
   }, [isOpen]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -116,58 +117,62 @@ function CommunityPostModal({ isOpen, onClose, program, boards = [], defaultBoar
 
   return (
     <>
-    <Modal isOpen={isOpen} onClose={onClose}>
-      <div className="p-5 space-y-3">
-        <h2 className="text-lg font-bold text-gray-800">{isEdit ? '✏️ 글 수정' : '✏️ 글쓰기'}</h2>
-
-        <div>
-          <label className="block text-[12px] font-medium text-gray-500 mb-1">게시판</label>
-          <select value={boardId} onChange={(e) => setBoardId(e.target.value)}
-            className="w-full px-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500">
-            {boards.length === 0 && <option value="">작성 가능한 게시판이 없어요</option>}
-            {boards.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-          </select>
-        </div>
-
-        <div>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={30} placeholder="제목 (선택)"
-            className="w-full px-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500" />
-          <p className="text-[11px] text-gray-400 text-right mt-0.5">{title.length}/30</p>
-        </div>
-
-        <div>
-          <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={6} maxLength={500} placeholder="내용을 입력하세요 (최대 500자)"
-            className="w-full px-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500 resize-none leading-relaxed" />
-          <p className="text-[11px] text-gray-400 text-right mt-0.5">{body.length}/500</p>
-        </div>
-
-        {shownImage ? (
-          <div className="relative">
-            <img src={shownImage} alt="" className="w-full max-h-60 object-contain rounded-lg bg-gray-50" />
-            <div className="absolute top-2 right-2 flex gap-1.5">
-              {cropSrc && (
-                <button type="button" onClick={() => setIsCropOpen(true)}
-                  className="h-7 px-2.5 rounded-full bg-black/60 text-white text-xs font-medium flex items-center gap-1"><Crop className="w-3 h-3" /> 편집</button>
-              )}
-              <button type="button" onClick={removeImage}
-                className="w-7 h-7 rounded-full bg-black/60 text-white flex items-center justify-center"><X className="w-4 h-4" /></button>
-            </div>
+    <Modal isOpen={isOpen} onClose={onClose} fill>
+      <div className="flex-1 min-h-0 flex flex-col px-5 pt-1 pb-4">
+        {/* 헤더 — 고정 */}
+        <div className="flex-shrink-0 space-y-3">
+          <h2 className="text-lg font-bold text-gray-800">{isEdit ? '✏️ 글 수정' : '✏️ 글쓰기'}</h2>
+          <div>
+            <label className="block text-[12px] font-medium text-gray-500 mb-1">게시판</label>
+            <select value={boardId} onChange={(e) => setBoardId(e.target.value)}
+              className="w-full px-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500">
+              {boards.length === 0 && <option value="">작성 가능한 게시판이 없어요</option>}
+              {boards.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
           </div>
-        ) : (
-          <label className="flex items-center justify-center gap-1.5 h-11 rounded-lg border-2 border-dashed border-gray-300 text-gray-500 text-sm font-medium cursor-pointer hover:border-emerald-400 hover:text-emerald-600 transition">
-            <ImageIcon className="w-4 h-4" /> 사진 추가 (선택)
-            <input type="file" accept="image/*" onChange={onPick} className="hidden" />
-          </label>
-        )}
+          <div>
+            <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={30} placeholder="제목 (선택)"
+              className="w-full px-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500" />
+          </div>
+        </div>
 
-        {error && <p className="p-2 bg-red-50 text-red-600 text-xs rounded text-center">{error}</p>}
+        {/* 본문 — 남는 공간을 채움 */}
+        <div className="flex-1 min-h-0 flex flex-col mt-3">
+          <textarea value={body} onChange={(e) => setBody(e.target.value)} maxLength={500} placeholder="내용을 입력하세요 (최대 500자)"
+            className="flex-1 min-h-[100px] w-full px-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500 resize-none leading-relaxed" />
+          <p className="text-[11px] text-gray-400 text-right mt-0.5 flex-shrink-0">{body.length}/500</p>
+        </div>
 
-        <div className="flex gap-2 pt-1">
-          <button type="button" onClick={onClose} className="flex-1 h-11 rounded-xl border border-gray-200 text-gray-600 text-sm font-bold hover:bg-gray-50 transition">취소</button>
-          <button type="button" onClick={submit} disabled={mutation.isPending || boards.length === 0}
-            className="flex-[1.6] h-11 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold transition disabled:opacity-50">
-            {mutation.isPending ? '저장 중...' : (isEdit ? '수정' : '게시')}
-          </button>
+        {/* 푸터 — 하단 고정 (사진·게시 버튼) */}
+        <div className="flex-shrink-0 pt-3 space-y-2.5">
+          {shownImage ? (
+            <div className="relative">
+              <img src={shownImage} alt="" className="w-full max-h-40 object-contain rounded-lg bg-gray-50" />
+              <div className="absolute top-2 right-2 flex gap-1.5">
+                {cropSrc && (
+                  <button type="button" onClick={() => setIsCropOpen(true)}
+                    className="h-7 px-2.5 rounded-full bg-black/60 text-white text-xs font-medium flex items-center gap-1"><Crop className="w-3 h-3" /> 편집</button>
+                )}
+                <button type="button" onClick={removeImage}
+                  className="w-7 h-7 rounded-full bg-black/60 text-white flex items-center justify-center"><X className="w-4 h-4" /></button>
+              </div>
+            </div>
+          ) : (
+            <label className="flex items-center justify-center gap-1.5 h-11 rounded-lg border-2 border-dashed border-gray-300 text-gray-500 text-sm font-medium cursor-pointer hover:border-emerald-400 hover:text-emerald-600 transition">
+              <ImageIcon className="w-4 h-4" /> 사진 추가 (선택)
+              <input type="file" accept="image/*" onChange={onPick} className="hidden" />
+            </label>
+          )}
+
+          {error && <p className="p-2 bg-red-50 text-red-600 text-xs rounded text-center">{error}</p>}
+
+          <div className="flex gap-2">
+            <button type="button" onClick={onClose} className="flex-1 h-11 rounded-xl border border-gray-200 text-gray-600 text-sm font-bold hover:bg-gray-50 transition">취소</button>
+            <button type="button" onClick={submit} disabled={mutation.isPending || boards.length === 0}
+              className="flex-[1.6] h-11 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold transition disabled:opacity-50">
+              {mutation.isPending ? '저장 중...' : (isEdit ? '수정' : '게시')}
+            </button>
+          </div>
         </div>
       </div>
     </Modal>

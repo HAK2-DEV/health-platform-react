@@ -13,7 +13,8 @@ let _ignoreNextPop = false
 // props:
 //   isOpen / onClose — 기본
 //   onPrev / onNext — 좌우 화살표 버튼 클릭 시 호출. undefined 면 해당 버튼 숨김 (첫/마지막).
-function Modal({ isOpen, onClose, children, onPrev, onNext }) {
+//   fill — true 면 고정 높이 flex 컬럼(본문 채움·푸터 하단 고정용). 내부에서 스크롤 처리.
+function Modal({ isOpen, onClose, children, onPrev, onNext, fill = false }) {
   // 상단 핸들에서만 drag 시작 — 본문 스크롤과 충돌 방지
   const dragControls = useDragControls()
 
@@ -110,11 +111,11 @@ function Modal({ isOpen, onClose, children, onPrev, onNext }) {
           {/* 모달 본체. drag y 는 핸들에서만 시작 (dragListener=false) — 본문 스크롤과 충돌 X.
               좌우 스와이프는 브라우저 swipe-to-navigate 와 충돌이 잦아 제거 → fade 버튼으로 대체. */}
           <motion.div
-            className="
-              relative bg-white shadow-xl overflow-y-auto overscroll-contain
-              w-full max-h-[90vh] rounded-t-2xl
-              sm:max-w-md sm:max-h-[85vh] sm:rounded-lg
-            "
+            className={`relative bg-white shadow-xl overscroll-contain w-full rounded-t-2xl sm:max-w-md sm:rounded-lg ${
+              fill
+                ? 'h-[88vh] sm:h-[85vh] flex flex-col overflow-hidden'
+                : 'max-h-[85vh] sm:max-h-[85vh] overflow-y-auto'
+            }`}
             onClick={(e) => e.stopPropagation()}
             onTouchStart={onTouchStart}
             onTouchEnd={onTouchEnd}
@@ -140,7 +141,7 @@ function Modal({ isOpen, onClose, children, onPrev, onNext }) {
           >
             {/* 모바일 손잡이 — 여기서만 drag y 시작 → 본문 스크롤과 분리 */}
             <div
-              className="sm:hidden flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing"
+              className="sm:hidden flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing flex-shrink-0"
               style={{ touchAction: 'none' }}
               onPointerDown={(e) => dragControls.start(e)}
             >
@@ -148,7 +149,7 @@ function Modal({ isOpen, onClose, children, onPrev, onNext }) {
             </div>
 
             {/* 닫기: 모바일은 손잡이 슬라이드 다운, 데스크톱은 배경 클릭 + ESC (X 버튼 제거) */}
-            {children}
+            {fill ? <div className="flex-1 min-h-0 flex flex-col">{children}</div> : children}
           </motion.div>
 
           {/* 좌우 화살표 제거 — 가로 스와이프(onTouchStart/End)로 이전/다음 이동 */}

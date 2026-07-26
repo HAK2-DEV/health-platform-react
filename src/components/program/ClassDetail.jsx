@@ -24,7 +24,7 @@ const WD = ['일', '월', '화', '수', '목', '금', '토']
 const dLabel = (iso) => { const d = new Date(iso); return `${d.getMonth() + 1}/${d.getDate()}(${WD[d.getDay()]})` }
 const tLabel = (iso) => { const d = new Date(iso); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` }
 
-export default function ClassDetail({ sessionId, programId, userId, isOwner = false, attendanceMode = 'operator_roll', checkinBeforeMin = 30 }) {
+export default function ClassDetail({ sessionId, programId, userId, isOwner = false, attendanceMode = 'operator_roll', checkinBeforeMin = 30, programEnded = false }) {
   const qc = useQueryClient()
   const { data: s, isLoading } = useQuery({ queryKey: ['session', sessionId], queryFn: () => fetchSession(sessionId), enabled: !!sessionId })
   const { data: myRegs = {} } = useQuery({
@@ -38,7 +38,12 @@ export default function ClassDetail({ sessionId, programId, userId, isOwner = fa
     qc.invalidateQueries({ queryKey: ['sessions', programId] })
     qc.invalidateQueries({ queryKey: ['my-registrations', programId, userId] })
   }
-  const mReg = useMutation({ mutationFn: () => registerSession({ sessionId, userId }), onSuccess: invalidate })
+  const mReg = useMutation({
+    mutationFn: () => registerSession({ sessionId, userId }),
+    onSuccess: () => { setRegErr(null); invalidate() },
+    // 서버 정원 강제(마이그 170) — 방금 정원이 찬 경우(레이스) 안내 + 목록 새로고침
+    onError: (e) => { setRegErr(/SESSION_FULL|capacity/.test(e?.message || '') ? '방금 정원이 다 찼어요. 다른 참가자가 먼저 신청했습니다.' : '신청에 실패했어요. 잠시 후 다시 시도해주세요.'); invalidate() },
+  })
   const mCancel = useMutation({ mutationFn: () => cancelSessionRegistration({ sessionId, userId }), onSuccess: invalidate })
   const mSelfAtt = useMutation({
     mutationFn: () => requestSelfAttendance({ sessionId, userId }),
@@ -46,6 +51,7 @@ export default function ClassDetail({ sessionId, programId, userId, isOwner = fa
   })
   const [code, setCode] = useState('')
   const [codeErr, setCodeErr] = useState(null)
+  const [regErr, setRegErr] = useState(null)
   const [rosterOpen, setRosterOpen] = useState(false)
   const [heroEditOpen, setHeroEditOpen] = useState(false)
   const mCover = useMutation({
@@ -77,6 +83,8 @@ export default function ClassDetail({ sessionId, programId, userId, isOwner = fa
   const nowMs = Date.now()
   const openMs = startMs - (checkinBeforeMin || 30) * 60000
   const closeMs = endMs + 3 * 3600000
+  const attended = myAtt === 'confirmed'                       // 출석 확정 후 → 취소 불가
+  const signupClosed = nowMs > endMs || programEnded           // 세션 종료·프로그램 종료 후 → 취소 불가
   const registered = !isRsvp || mine        // open 클래스는 신청 불필요
   const attMsg = !registered ? '신청한 참가자만 출석할 수 있어요'
     : nowMs < openMs ? `출석은 시작 ${checkinBeforeMin || 30}분 전부터 가능해요`
@@ -144,10 +152,16 @@ export default function ClassDetail({ sessionId, programId, userId, isOwner = fa
       ) : !isRsvp ? (
         <div className="w-full h-12 rounded-2xl bg-emerald-50 text-emerald-600 font-bold flex items-center justify-center">자유 참여 · 신청 없이 참석하세요</div>
       ) : mine ? (
-        <button type="button" onClick={() => mCancel.mutate()} disabled={busy}
-          className="w-full h-12 rounded-2xl bg-emerald-50 text-emerald-600 font-bold border border-emerald-200 disabled:opacity-50 flex items-center justify-center gap-2">
-          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : null}신청 취소 (신청됨 ✓)
-        </button>
+        attended ? (
+          <div className="w-full h-12 rounded-2xl bg-emerald-50 text-emerald-600 font-bold flex items-center justify-center gap-1.5"><Check className="w-4 h-4" />출석 완료</div>
+        ) : signupClosed ? (
+          <div className="w-full h-12 rounded-2xl bg-gray-100 text-gray-500 font-bold flex items-center justify-center gap-1.5"><Check className="w-4 h-4 text-emerald-500" />신청됨 · {programEnded ? '종료된 프로그램' : '종료된 클래스'}</div>
+        ) : (
+          <button type="button" onClick={() => mCancel.mutate()} disabled={busy}
+            className="w-full h-12 rounded-2xl bg-emerald-50 text-emerald-600 font-bold border border-emerald-200 disabled:opacity-50 flex items-center justify-center gap-2">
+            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : null}신청 취소 (신청됨 ✓)
+          </button>
+        )
       ) : full ? (
         <div className="w-full h-12 rounded-2xl bg-gray-100 text-gray-400 font-bold flex items-center justify-center">정원 마감</div>
       ) : (
@@ -156,6 +170,7 @@ export default function ClassDetail({ sessionId, programId, userId, isOwner = fa
           {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : null}신청하기
         </button>
       )}
+      {regErr && <p className="text-[12px] text-red-500 font-semibold text-center mt-1.5 break-keep">{regErr}</p>}
 
       {/* 자가출석(self_approve) — 당일 참가자, 신청·시간창 게이팅 */}
       {!isOwner && attendanceMode === 'self_approve' && isClassDay && (

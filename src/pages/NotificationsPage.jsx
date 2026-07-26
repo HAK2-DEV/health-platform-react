@@ -304,10 +304,10 @@ function NotificationCard({ n, onClick, onDelete, deletePending }) {
       role="button"
       tabIndex={0}
       layout
-      initial={{ opacity: 0, scale: 0.96 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.96, height: 0 }}
-      transition={{ duration: 0.25, ease: 'easeOut' }}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, height: 0 }}
+      transition={{ duration: 0.38, ease: [0.2, 0.75, 0.25, 1] }}
       onClick={() => onClick(n)}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {

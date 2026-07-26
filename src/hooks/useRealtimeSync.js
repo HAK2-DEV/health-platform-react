@@ -55,10 +55,26 @@ export function useRealtimeSync() {
       )
       .subscribe()
 
+    // 클래스 세션 변경(신청 인원·정원 마감 등) → 세션 목록·상세 무효화 (마이그 171).
+    //   다른 참가자가 마지막 자리를 신청하면 registered_count(159) 가 바뀌고,
+    //   이 이벤트로 내 화면의 신청 버튼이 즉시 「정원 마감」으로 갱신된다.
+    const sessChannel = supabase
+      .channel('rt-sessions')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'sessions' },
+        () => debounce('sessions', () => {
+          queryClient.invalidateQueries({ queryKey: ['sessions'] })
+          queryClient.invalidateQueries({ queryKey: ['session'] })
+        }, 150),   // 정원 마감 체감을 위해 짧게 디바운스
+      )
+      .subscribe()
+
     return () => {
       Object.values(timersMap).forEach(clearTimeout)
       supabase.removeChannel(partChannel)
       supabase.removeChannel(progChannel)
+      supabase.removeChannel(sessChannel)
     }
   }, [userId, queryClient])
 }

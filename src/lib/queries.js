@@ -717,6 +717,20 @@ export const fetchMyRegistrations = async ({ programId, userId }) => {
   ;(data || []).forEach(r => { map[r.session_id] = r.status })
   return map
 }
+
+// 내 출석 맵 — 프로그램 내 세션별 본인 출석 상태 { sessionId: 'confirmed'|'pending'|'rejected' }.
+//   「지난 클래스」에서 참가/출석 여부 표시용. RLS(session_att_own_read)로 본인 행만.
+export const fetchMyAttendanceMap = async ({ programId, userId }) => {
+  if (!programId || !userId) return {}
+  const { data, error } = await supabase
+    .from('session_attendance')
+    .select('session_id, status, sessions!inner(program_id)')
+    .eq('user_id', userId).eq('sessions.program_id', programId)
+  if (error) throw error
+  const map = {}
+  ;(data || []).forEach(r => { map[r.session_id] = r.status })
+  return map
+}
 // 클래스 신청 / 취소 (RSVP) — RLS: 본인 행 + 활성 참가자
 export const registerSession = async ({ sessionId, userId }) => {
   const { error } = await supabase.from('session_registrations')
@@ -1735,14 +1749,14 @@ export const fetchProgramReports = async (programId) => {
   if (postIds.length) {
     const { data } = await supabase
       .from('community_posts')
-      .select('id, title, body, status, board_id, image_path, author:users(nickname)')
+      .select('id, title, body, status, board_id, image_path, author:users(id, nickname)')
       .in('id', postIds)
     for (const p of (data || [])) postMap[p.id] = p
   }
   if (verIds.length) {
     const { data } = await supabase
       .from('verifications')
-      .select('id, note, image_path, feed_visible, mission_id, missions(title), user:users(nickname)')
+      .select('id, note, image_path, feed_visible, mission_id, missions(title), user:users(id, nickname)')
       .in('id', verIds)
     for (const v of (data || [])) verMap[v.id] = v
   }
@@ -2706,6 +2720,106 @@ export async function fetchProgramCommunityStats(programId, ownerId) {
     reportResolved: reports.filter(r => r.resolved).length,
     topPost,
   }
+}
+
+// 종료 리포트 엑셀 — 점수 원장 상세(누가·언제·어디서 몇 점). 미션/퀴즈 출처 + 닉네임.
+export async function fetchProgramScoreLedger(programId) {
+  const { data, error } = await supabase
+    .from('score_ledgers')
+    .select('point, reason, created_at, verifications(missions(title)), quiz_submissions(quizzes(title)), user:users(nickname)')
+    .eq('program_id', programId)
+    .order('created_at', { ascending: true })
+  if (error) throw error
+  return (data || []).map(r => ({
+    nickname: r.user?.nickname || '(알 수 없음)',
+    point: r.point || 0,
+    source: r.verifications ? '미션' : r.quiz_submissions ? '퀴즈' : '기타',
+    item: r.verifications?.missions?.title || r.quiz_submissions?.quizzes?.title || '',
+    reason: r.reason || '',
+    created_at: r.created_at,
+  }))
+}
+
+// 종료 리포트(달리기) — 참여자별 누적 거리(km) 집계.
+//   미션 metrics 에 단위 km 지표가 있으면 metric_values[key] 합산, 없으면 레거시 numeric_value(=거리) 합산.
+//   승인+심사대기 인증 대상. 반환: { user_id: totalKm }
+export async function fetchProgramDistanceByUser(programId) {
+  const { data, error } = await supabase
+    .from('verifications')
+    .select('user_id, numeric_value, metric_values, missions!inner(program_id, metrics)')
+    .eq('missions.program_id', programId)
+    .in('status', ['APPROVED', 'PENDING_REVIEW'])
+  if (error) throw error
+  const byUser = {}
+  for (const v of (data || [])) {
+    if (!v.user_id) continue
+    let km = 0
+    const metrics = Array.isArray(v.missions?.metrics) ? v.missions.metrics : []
+    const kmKeys = metrics.filter(m => String(m.unit || '').toLowerCase() === 'km').map(m => m.key)
+    if (kmKeys.length && v.metric_values) {
+      for (const k of kmKeys) { const val = Number(v.metric_values[k]); if (!isNaN(val)) km += val }
+    } else if (v.numeric_value != null) {
+      km += Number(v.numeric_value) || 0   // 러닝 레거시 단일 numeric = 거리(km)
+    }
+    byUser[v.user_id] = (byUser[v.user_id] || 0) + km
+  }
+  return byUser
+}
+
+// 종료 리포트 랭킹 — 참여자별 점수 출처 분해 (미션=verification_id / 퀴즈=quiz_submission_id / 기타).
+export async function fetchProgramScoreBreakdown(programId) {
+  const { data, error } = await supabase
+    .from('score_ledgers')
+    .select('user_id, point, verification_id, quiz_submission_id')
+    .eq('program_id', programId)
+  if (error) throw error
+  const byUser = {}
+  for (const l of (data || [])) {
+    if (!l.user_id) continue
+    const u = (byUser[l.user_id] ||= { missionPts: 0, quizPts: 0, otherPts: 0, total: 0 })
+    const p = l.point || 0
+    if (l.verification_id) u.missionPts += p
+    else if (l.quiz_submission_id) u.quizPts += p
+    else u.otherPts += p
+    u.total += p
+  }
+  return byUser
+}
+
+// 종료 리포트 딥 엑셀 — 참여자 개인별 퀴즈·커뮤니티 집계 (미션은 stats._raw 재사용).
+//   quizByUser: {user_id: {quizCount, quizTitles, correctRate}} / communityByUser: {user_id: {posts, comments}}
+export async function fetchEndReportPerUser(programId) {
+  const [quizRes, postsRes, boardCmtRes, feedCmtRes] = await Promise.all([
+    supabase.from('quiz_submissions')
+      .select('user_id, quizzes!inner(program_id, title), quiz_answers(is_correct)')
+      .eq('quizzes.program_id', programId),
+    supabase.from('community_posts').select('author_id').eq('program_id', programId),
+    supabase.from('community_post_comments').select('user_id, community_posts!inner(program_id)').eq('community_posts.program_id', programId),
+    supabase.from('post_comments').select('user_id, verifications!inner(missions!inner(program_id))').eq('verifications.missions.program_id', programId),
+  ])
+  if (quizRes.error) throw quizRes.error
+  // 퀴즈 — 유저별 참여 퀴즈 종류 + 정답/채점 답안
+  const qAgg = {}
+  for (const s of (quizRes.data || [])) {
+    if (!s.user_id) continue
+    const u = (qAgg[s.user_id] ||= { titles: new Set(), correct: 0, graded: 0 })
+    u.titles.add(s.quizzes?.title || '(퀴즈)')
+    for (const a of (s.quiz_answers || [])) {
+      if (a.is_correct === null) continue
+      u.graded += 1; if (a.is_correct === true) u.correct += 1
+    }
+  }
+  const quizByUser = {}
+  for (const [uid, v] of Object.entries(qAgg)) {
+    quizByUser[uid] = { quizCount: v.titles.size, quizTitles: [...v.titles], correctRate: v.graded > 0 ? Math.round((v.correct / v.graded) * 100) : null }
+  }
+  // 커뮤니티 — 유저별 글/댓글 수(자유게시판+인증피드)
+  const communityByUser = {}
+  const ensure = (uid) => (communityByUser[uid] ||= { posts: 0, comments: 0 })
+  for (const p of (postsRes.data || [])) if (p.author_id) ensure(p.author_id).posts += 1
+  for (const c of [...(boardCmtRes.data || []), ...(feedCmtRes.data || [])]) if (c.user_id) ensure(c.user_id).comments += 1
+
+  return { quizByUser, communityByUser }
 }
 
 // 다음 기수 열기 — 프로그램 복제 (2026-06-28 본인 결정).
