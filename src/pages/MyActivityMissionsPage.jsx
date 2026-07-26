@@ -64,7 +64,6 @@ function MyActivityMissionsPage() {
       <StickyBackBar fallbackPath="/profile/activity" title="활동으로" />
 
       <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-4">
-        <p className="text-xs text-gray-500 mb-1">{program?.name}</p>
         <h1 className="flex items-center gap-2 text-2xl font-medium text-gray-800">
           <img src="/icons/mypage/missions.png" alt="" aria-hidden="true" className="w-8 h-8 object-contain" /> 미션별 분포
         </h1>

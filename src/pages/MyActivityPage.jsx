@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
@@ -9,6 +9,7 @@ import {
   queryKeys,
   fetchActivePrograms,
   fetchMyActivity,
+  fetchProgram,
   formatKstDate,
 } from '../lib/queries'
 import { formatRelativeKstDay, getTodayKST } from '../lib/formatters'
@@ -44,25 +45,51 @@ function MyActivityPage() {
     enabled: !!selectedProgramId && !!userId,
   })
 
-  // 14일 활동 — 운영자 페이지와 동일 패턴
+  // 퀴즈·클래스 카드 노출 판단 — 선택 프로그램의 기능 유무
+  const { data: selProgram } = useQuery({
+    queryKey: queryKeys.program(selectedProgramId),
+    queryFn: () => fetchProgram(selectedProgramId),
+    enabled: !!selectedProgramId,
+  })
+  const { data: hasQuiz = false } = useQuery({
+    queryKey: ['myActivity', 'hasQuiz', selectedProgramId],
+    queryFn: async () => {
+      const { count, error } = await supabase.from('quizzes').select('id', { count: 'exact', head: true }).eq('program_id', selectedProgramId)
+      if (error) throw error
+      return (count || 0) > 0
+    },
+    enabled: !!selectedProgramId,
+  })
+
+  // 14일 활동 — 미션 인증 + 퀴즈 제출 + 클래스 출석(확정), 타입별 분해까지
   const recent14Days = useMemo(() => {
-    if (!activity?.verifications) return []
+    const events = activity?.activityEvents
+    if (!events) return []
     const todayKst = getTodayKST()
-    const counts = new Map()
-    for (const v of activity.verifications) {
-      const date = formatKstDate(new Date(v.submitted_at))
-      counts.set(date, (counts.get(date) || 0) + 1)
+    const byDay = new Map()
+    for (const e of events) {
+      const date = formatKstDate(new Date(e.ts))
+      if (!byDay.has(date)) byDay.set(date, { mission: 0, quiz: 0, class: 0 })
+      const b = byDay.get(date)
+      if (e.type in b) b[e.type] += 1
     }
     const result = []
     const today = new Date(`${todayKst}T00:00:00+09:00`)
     for (let i = 13; i >= 0; i--) {
       const d = new Date(today.getTime() - i * 24 * 60 * 60 * 1000)
       const dateStr = formatKstDate(d)
-      result.push({ date: dateStr, count: counts.get(dateStr) || 0 })
+      const b = byDay.get(dateStr) || { mission: 0, quiz: 0, class: 0 }
+      result.push({ date: dateStr, mission: b.mission, quiz: b.quiz, class: b.class, count: b.mission + b.quiz + b.class })
     }
     return result
   }, [activity])
   const maxDayCount = recent14Days.reduce((m, d) => Math.max(m, d.count), 0) || 1
+
+  // 막대 롱프레스 툴팁 — 모바일 롱프레스 부작용(콜아웃·선택·컨텍스트메뉴)은 CSS/이벤트로 차단
+  const [tipIdx, setTipIdx] = useState(null)
+  const pressTimer = useRef(null)
+  const startPress = (i) => { clearTimeout(pressTimer.current); pressTimer.current = setTimeout(() => setTipIdx(i), 250) }
+  const endPress = () => { clearTimeout(pressTimer.current); setTipIdx(null) }
 
   // 마지막 활동 시각 (가장 최근 verification)
   const lastActiveAt = activity?.verifications?.[0]?.submitted_at || null
@@ -156,20 +183,34 @@ function MyActivityPage() {
           </motion.div>
 
           {/* 14일 활동 */}
-          <h2 className="flex items-center gap-1.5 text-lg font-semibold text-gray-800" style={{ marginBottom: '9px' }}><img src="/icons/mypage/calendar.png" alt="" aria-hidden="true" className="w-5 h-5 object-contain" /> 최근 14일 활동</h2>
+          <h2 className="flex items-center gap-1.5 text-lg font-semibold text-gray-800" style={{ marginBottom: '2px' }}><img src="/icons/mypage/calendar.png" alt="" aria-hidden="true" className="w-5 h-5 object-contain" /> 최근 14일 활동</h2>
+          <p className="text-[12px] text-gray-400 mb-2 pl-0.5">미션 인증 · 퀴즈 제출 · 클래스 출석을 모두 합산했어요</p>
           <div className="bg-white border border-gray-200 rounded-2xl p-4" style={{ marginBottom: '9px' }}>
-            <div className="flex items-end gap-1 h-20">
-              {recent14Days.map(d => {
+            <div
+              className="flex items-end gap-1 h-20 select-none"
+              style={{ WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }}
+              onContextMenu={(e) => e.preventDefault()}
+            >
+              {recent14Days.map((d, i) => {
                 const h = d.count === 0 ? 4 : Math.round((d.count / maxDayCount) * 76) + 4
                 return (
-                  <div
-                    key={d.date}
-                    className="flex-1 flex flex-col items-center gap-0.5"
-                    title={`${d.date.replaceAll('-', '.')} — ${d.count}건`}
-                  >
+                  <div key={d.date} className="flex-1 flex flex-col items-center gap-0.5 relative">
+                    {tipIdx === i && (
+                      <div className="absolute -top-1 left-1/2 -translate-x-1/2 -translate-y-full z-20 whitespace-nowrap rounded-lg bg-gray-900 text-white px-2.5 py-1.5 text-[11px] leading-relaxed shadow-lg pointer-events-none">
+                        <p className="font-bold">{d.date.replaceAll('-', '.')} · 총 {d.count}건</p>
+                        <p className="text-gray-200">미션 {d.mission} · 퀴즈 {d.quiz} · 클래스 {d.class}</p>
+                        <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+                      </div>
+                    )}
                     <div
-                      className={`w-full rounded-sm transition-all ${d.count === 0 ? 'bg-gray-100' : 'bg-sky-400'}`}
-                      style={{ height: `${h}px` }}
+                      className={`w-full rounded-sm transition-all cursor-pointer ${d.count === 0 ? 'bg-gray-100' : (tipIdx === i ? 'bg-sky-500' : 'bg-sky-400')}`}
+                      style={{ height: `${h}px`, touchAction: 'pan-y' }}
+                      onMouseEnter={() => setTipIdx(i)}
+                      onMouseLeave={() => setTipIdx(null)}
+                      onTouchStart={() => startPress(i)}
+                      onTouchEnd={endPress}
+                      onTouchMove={endPress}
+                      onTouchCancel={endPress}
                     />
                   </div>
                 )
@@ -214,6 +255,36 @@ function MyActivityPage() {
               </div>
               <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
             </button>
+
+            {hasQuiz && (
+              <button
+                type="button"
+                onClick={() => navigate(`/profile/activity/${selectedProgramId}/quizzes`)}
+                className="w-full flex items-center gap-4 p-5 bg-white border border-gray-200 rounded-2xl hover:bg-gray-50 hover:border-emerald-300 transition text-left"
+              >
+                <img src="/icons/feature/quiz.png" alt="" aria-hidden="true" className="w-12 h-12 flex-shrink-0 object-contain" />
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-medium text-gray-800 mb-0.5">퀴즈 기록</h3>
+                  <p className="text-xs text-gray-500">내가 푼 퀴즈 · 점수 · 문항별 정답</p>
+                </div>
+                <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
+              </button>
+            )}
+
+            {selProgram?.class_feature_enabled && (
+              <button
+                type="button"
+                onClick={() => navigate(`/profile/activity/${selectedProgramId}/classes`)}
+                className="w-full flex items-center gap-4 p-5 bg-white border border-gray-200 rounded-2xl hover:bg-gray-50 hover:border-teal-300 transition text-left"
+              >
+                <img src="/icons/feature/attendance.png" alt="" aria-hidden="true" className="w-12 h-12 flex-shrink-0 object-contain" />
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-medium text-gray-800 mb-0.5">클래스 기록</h3>
+                  <p className="text-xs text-gray-500">신청 · 출석 내역 · 적립 포인트</p>
+                </div>
+                <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
+              </button>
+            )}
 
             <button
               type="button"

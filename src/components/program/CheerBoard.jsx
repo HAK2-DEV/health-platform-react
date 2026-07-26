@@ -119,7 +119,7 @@ function CheerBoard({ program, isOwner, userId }) {
             <>
               <p className="text-[13px] font-bold text-gray-800 leading-snug break-words line-clamp-2">{top.content}</p>
               <div className="flex items-center gap-1.5 mt-1.5">
-                <UserAvatar avatarPath={top.user?.avatar_path} nickname={top.user?.nickname} size="sm" />
+                <UserAvatar avatarPath={top.user?.avatar_path} nickname={top.user?.nickname} size="sm" viewable />
                 <span className="text-[11px] font-semibold text-gray-600 truncate">{top.user?.nickname || '익명'}</span>
                 <span className="ml-auto flex items-center gap-0.5 text-[12px] font-bold text-rose-500">
                   <Heart className="w-3 h-3 fill-current" /> {top.likeCount}
@@ -154,7 +154,7 @@ function CheerBoard({ program, isOwner, userId }) {
             <ul className="space-y-1">
               {recent.map(c => (
                 <li key={c.id} className="flex items-center gap-1.5">
-                  <UserAvatar avatarPath={c.user?.avatar_path} nickname={c.user?.nickname} size="sm" />
+                  <UserAvatar avatarPath={c.user?.avatar_path} nickname={c.user?.nickname} size="sm" viewable />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1">
                       <span className="text-[12px] font-bold text-gray-700 truncate">{c.user?.nickname || '익명'}</span>

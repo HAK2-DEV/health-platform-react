@@ -36,3 +36,17 @@ export function initSentry() {
 export function captureException(error) {
   if (error) Sentry.captureException(error)
 }
+
+// 대규모 유저 목록 경고 — 한 화면에 유저(아바타)가 임계 이상 렌더되면 관리자에게 1회 알림.
+//   신호: 아바타 이미지가 많아 앱이 느려질 수 있음 → 아바타 썸네일/Supabase 이미지 변환(유료 플랜) 검토.
+//   세션당 컨텍스트별 1회만(스팸 방지). DSN 미설정이면 dev 콘솔만.
+const _scaleWarned = new Set()
+export function warnLargeUserList(context, count, threshold = 200) {
+  if (!count || count < threshold || _scaleWarned.has(context)) return
+  _scaleWarned.add(context)
+  const msg = `대규모 유저 목록: ${context} ${count}명(임계 ${threshold}) — 아바타 이미지 과다로 지연 우려. 썸네일/이미지 변환(유료 플랜) 검토 권장.`
+  if (import.meta.env.DEV) console.warn('[scale]', msg)
+  try {
+    Sentry.captureMessage(msg, { level: 'warning', tags: { kind: 'scale_warning', context }, extra: { count, threshold } })
+  } catch { /* DSN 미설정 등 — no-op */ }
+}

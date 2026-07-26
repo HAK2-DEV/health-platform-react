@@ -1,6 +1,7 @@
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, ChevronDown } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { queryKeys, fetchProgram, fetchProgramStats, fetchUserScoreBreakdown } from '../../lib/queries'
 import StickyBackBar from '../../components/common/StickyBackBar'
@@ -14,6 +15,7 @@ function ProgramStatsUserPointsPage() {
   const navigate = useNavigate()
   const { session } = useAuth()
   const myUserId = session?.user?.id
+  const [expand, setExpand] = useState(null)   // 'quiz' | 'other' | null — 인라인 펼침
 
   // 미션 행 클릭 → 그 미션의 인증 기록 상세로 이동
   // scored=1: 점수의 '요인'만 보여주면 되므로 승인된 인증만 (거절/대기 제외)
@@ -63,7 +65,7 @@ function ProgramStatsUserPointsPage() {
       <StickyBackBar fallbackPath={`/programs/${id}/stats/users/${targetUserId}`} title="돌아가기" />
 
       <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
-        <p className="text-xs text-gray-500 mb-1">{program.name} · {userInfo?.nickname || '(유저)'}</p>
+        <p className="text-xs text-gray-500 mb-1">{userInfo?.nickname || '(유저)'}</p>
         <h1 className="text-2xl font-medium text-gray-800 flex items-center gap-2">💎 점수 요인</h1>
         <p className="text-sm text-gray-500 mt-2">누적 <b className="text-emerald-700">{total}P</b> 가 어디서 왔는지 미션별로 보여줘요.</p>
       </div>
@@ -88,21 +90,37 @@ function ProgramStatsUserPointsPage() {
             </button>
           ))}
           {quiz.point !== 0 && (
-            <div className="flex items-center gap-3 p-4">
+            <button type="button" onClick={() => navigate(`/programs/${id}/stats/users/${targetUserId}/quizzes`)}
+              className="w-full flex items-center gap-3 p-4 text-left hover:bg-gray-50 transition active:bg-gray-100">
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-bold text-gray-800">📝 퀴즈</p>
-                <p className="text-[12px] text-gray-400 mt-0.5">{quiz.count}회</p>
+                <p className="text-[12px] text-gray-400 mt-0.5">{quiz.count}회 · 자세히 보기</p>
               </div>
               <span className="text-base font-bold text-emerald-600 flex-shrink-0">+{quiz.point}P</span>
-            </div>
+              <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
+            </button>
           )}
           {other.point !== 0 && (
-            <div className="flex items-center gap-3 p-4">
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-gray-800">기타</p>
-                <p className="text-[12px] text-gray-400 mt-0.5">{other.count}건</p>
-              </div>
-              <span className="text-base font-bold text-emerald-600 flex-shrink-0">{other.point > 0 ? '+' : ''}{other.point}P</span>
+            <div>
+              <button type="button" onClick={() => setExpand(e => e === 'other' ? null : 'other')}
+                className="w-full flex items-center gap-3 p-4 text-left hover:bg-gray-50 transition active:bg-gray-100">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-gray-800">기타</p>
+                  <p className="text-[12px] text-gray-400 mt-0.5">{other.count}건 · 자세히 보기</p>
+                </div>
+                <span className="text-base font-bold text-emerald-600 flex-shrink-0">{other.point > 0 ? '+' : ''}{other.point}P</span>
+                <ChevronDown className={`w-4 h-4 text-gray-300 flex-shrink-0 transition-transform ${expand === 'other' ? 'rotate-180' : ''}`} />
+              </button>
+              {expand === 'other' && (other.items || []).length > 0 && (
+                <div className="bg-gray-50/60 px-4 pb-3 pt-0.5">
+                  {other.items.map((o, i) => (
+                    <div key={i} className="flex items-center gap-3 py-2 pl-3 border-l-2 border-emerald-100">
+                      <p className="flex-1 min-w-0 text-[13px] text-gray-700 truncate">{o.reason}</p>
+                      <span className="text-[13px] font-bold text-emerald-600 flex-shrink-0">{o.point > 0 ? '+' : ''}{o.point}P</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

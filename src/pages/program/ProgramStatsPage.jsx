@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { ChevronLeft, ChevronRight, Target, Users, FileText } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import {
   queryKeys,
@@ -141,12 +141,10 @@ function ProgramStatsPage() {
             onClick={() => navigate(`/programs/${id}/stats/missions`)}
             className="w-full flex items-center gap-4 p-5 bg-white border border-gray-200 rounded-2xl hover:bg-gray-50 hover:border-emerald-300 transition text-left"
           >
-            <div className="w-12 h-12 flex-shrink-0 bg-emerald-100 rounded-xl flex items-center justify-center">
-              <Target className="w-6 h-6 text-emerald-600" />
-            </div>
+            <img src="/icons/feature/mission.png" alt="" aria-hidden="true" className="w-12 h-12 flex-shrink-0 object-contain" />
             <div className="flex-1 min-w-0">
               <h3 className="font-medium text-gray-800 mb-0.5">
-                🎯 미션별 인증 현황
+                미션별 인증 현황
               </h3>
               <p className="text-xs text-gray-500">
                 {missionTotalCount === 0
@@ -163,12 +161,10 @@ function ProgramStatsPage() {
             onClick={() => navigate(`/programs/${id}/stats/users`)}
             className="w-full flex items-center gap-4 p-5 bg-white border border-gray-200 rounded-2xl hover:bg-gray-50 hover:border-sky-300 transition text-left"
           >
-            <div className="w-12 h-12 flex-shrink-0 bg-sky-100 rounded-xl flex items-center justify-center">
-              <Users className="w-6 h-6 text-sky-600" />
-            </div>
+            <img src="/icons/feature/community.png" alt="" aria-hidden="true" className="w-12 h-12 flex-shrink-0 object-contain" />
             <div className="flex-1 min-w-0">
               <h3 className="font-medium text-gray-800 mb-0.5">
-                👥 참여 유저 관리
+                참여 유저 관리
               </h3>
               <p className="text-xs text-gray-500">
                 {userCount === 0
@@ -187,12 +183,10 @@ function ProgramStatsPage() {
             onClick={() => navigate(`/programs/${id}/stats/quizzes`)}
             className="w-full flex items-center gap-4 p-5 bg-white border border-gray-200 rounded-2xl hover:bg-gray-50 hover:border-violet-300 transition text-left"
           >
-            <div className="w-12 h-12 flex-shrink-0 bg-violet-100 rounded-xl flex items-center justify-center">
-              <FileText className="w-6 h-6 text-violet-600" />
-            </div>
+            <img src="/icons/feature/quiz.png" alt="" aria-hidden="true" className="w-12 h-12 flex-shrink-0 object-contain" />
             <div className="flex-1 min-w-0">
               <h3 className="font-medium text-gray-800 mb-0.5">
-                📝 퀴즈 현황
+                퀴즈 현황
               </h3>
               <p className="text-xs text-gray-500">
                 {(() => {

@@ -39,6 +39,17 @@ function ProgramStatsUserDetailPage() {
     enabled: !!session && !!id && isOwner,
   })
 
+  // 퀴즈 카드 노출 판단 — 프로그램에 퀴즈가 있으면 표시 (클래스 카드는 class_feature_enabled 로 판단)
+  const { data: programQuizCount = 0 } = useQuery({
+    queryKey: ['stats', 'programQuizCount', id],
+    queryFn: async () => {
+      const { count, error } = await supabase.from('quizzes').select('id', { count: 'exact', head: true }).eq('program_id', id)
+      if (error) throw error
+      return count || 0
+    },
+    enabled: !!session && !!id && isOwner,
+  })
+
   // 14일 차트용 — verifications 의 submitted_at 만 필요
   //   status 필터 없음: APPROVED + PENDING_REVIEW + REJECTED 모두 "활동"으로 카운트
   //   (사용자가 제출한 자체가 활동. 승인 여부와 별개로 참여도 가시화)
@@ -396,6 +407,40 @@ function ProgramStatsUserDetailPage() {
           <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
         </button>
       </motion.div>
+
+      {/* 퀴즈 · 클래스 기록 — 프로그램에 해당 기능이 있을 때만 */}
+      {(programQuizCount > 0 || program?.class_feature_enabled) && (
+        <div className="grid grid-cols-1" style={{ gap: '9px', marginTop: '9px' }}>
+          {programQuizCount > 0 && (
+            <button
+              type="button"
+              onClick={() => navigate(`/programs/${id}/stats/users/${targetUserId}/quizzes`)}
+              className="w-full flex items-center gap-4 p-5 bg-white border border-gray-200 rounded-[10px] hover:bg-gray-50 hover:border-emerald-300 transition text-left"
+            >
+              <img src="/icons/feature/quiz.png" alt="" aria-hidden="true" className="w-12 h-12 flex-shrink-0 object-contain" />
+              <div className="flex-1 min-w-0">
+                <h3 className="font-medium text-gray-800 mb-0.5">퀴즈 기록</h3>
+                <p className="text-xs text-gray-500">응시한 퀴즈 · 점수 · 정답률</p>
+              </div>
+              <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
+            </button>
+          )}
+          {program?.class_feature_enabled && (
+            <button
+              type="button"
+              onClick={() => navigate(`/programs/${id}/stats/users/${targetUserId}/classes`)}
+              className="w-full flex items-center gap-4 p-5 bg-white border border-gray-200 rounded-[10px] hover:bg-gray-50 hover:border-teal-300 transition text-left"
+            >
+              <img src="/icons/feature/attendance.png" alt="" aria-hidden="true" className="w-12 h-12 flex-shrink-0 object-contain" />
+              <div className="flex-1 min-w-0">
+                <h3 className="font-medium text-gray-800 mb-0.5">클래스 기록</h3>
+                <p className="text-xs text-gray-500">신청 · 출석 내역 · 적립 포인트</p>
+              </div>
+              <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
+            </button>
+          )}
+        </div>
+      )}
 
       {/* 커뮤니티 활동 — 작성한 게시글 / 댓글 (클릭 시 새 페이지) */}
       <div className="grid grid-cols-1" style={{ gap: '9px', marginTop: '9px' }}>

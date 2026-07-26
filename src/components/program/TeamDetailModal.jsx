@@ -88,7 +88,7 @@ function TeamDetailModal({ team, userId, isOpen, onClose, onChanged }) {
             const isMe = m.user_id === userId
             return (
               <div key={m.user_id} className="flex items-center gap-3 py-2.5">
-                <UserAvatar avatarPath={m.avatar_path} nickname={m.nickname} size="md" />
+                <UserAvatar avatarPath={m.avatar_path} nickname={m.nickname} size="md" viewable />
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-gray-800 truncate">
                     {m.nickname}

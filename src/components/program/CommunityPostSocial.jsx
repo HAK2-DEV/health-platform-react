@@ -131,7 +131,7 @@ function CommunityPostSocial({ postId, programId, myUserId, isOwner, canReact, c
     return (
       <div key={c.id} ref={(el) => { rowRefs.current[c.id] = el }}
         className={`flex items-start gap-2 rounded-lg transition-all duration-500 ${isHi ? 'bg-amber-100 ring-2 ring-amber-300 p-1.5 -m-1.5' : ''}`}>
-        <UserAvatar avatarPath={c.user?.avatar_path} nickname={c.user?.nickname} size="sm" />
+        <UserAvatar avatarPath={c.user?.avatar_path} nickname={c.user?.nickname} size="sm" viewable />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
             <span className="text-[12px] font-bold text-gray-800 truncate">{c.user?.nickname || '익명'}</span>

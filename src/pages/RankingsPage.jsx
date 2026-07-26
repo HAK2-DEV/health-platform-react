@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { warnLargeUserList } from '../lib/sentry'
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { MapPin, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react'
@@ -160,6 +161,8 @@ function RankingsPage() {
     queryFn: () => fetchProgramRanking(selectedProgramId, periodStart),
     enabled: !!selectedProgramId && isRankingTrack && effScope === 'individual',
   })
+  // 대규모 참여자(아바타 과다) 시 관리자에게 1회 경고 — 이미지 최적화/유료 플랜 검토 신호
+  useEffect(() => { warnLargeUserList('global-ranking', ranking.length) }, [ranking.length])
 
   const myRow = ranking.find(r => r.user_id === userId)
   const hasPodium = ranking.length >= 3
@@ -327,7 +330,7 @@ function RankingsPage() {
                         className={`flex items-center gap-3 px-4 py-3 transition-all ${isMe ? 'bg-emerald-50/60 cursor-pointer hover:bg-emerald-100/60' : ''}`}
                       >
                         <span className="w-6 text-center text-base font-bold text-gray-500 flex-shrink-0">{row.rank}</span>
-                        <UserAvatar avatarPath={row.avatar_path} nickname={row.nickname} size="md" />
+                        <UserAvatar avatarPath={row.avatar_path} nickname={row.nickname} size="md" viewable />
                         <span className={`flex-1 min-w-0 font-bold truncate ${isMe ? 'text-emerald-800' : 'text-gray-800'}`}>
                           {row.nickname}
                           {isMe && <span className="ml-1.5 text-xs text-emerald-600 font-medium">(나)</span>}
@@ -485,7 +488,7 @@ function Podium({ top3, userId }) {
 
         {/* 아바타 */}
         <div className={`relative z-10 rounded-full ring-2 ${PODIUM_RING[place]} p-0.5 bg-white`}>
-          <UserAvatar avatarPath={row.avatar_path} nickname={row.nickname} size={isFirst ? 'lg' : 'md'} />
+          <UserAvatar avatarPath={row.avatar_path} nickname={row.nickname} size={isFirst ? 'lg' : 'md'} viewable />
         </div>
 
         <p className={`relative z-10 mt-1.5 text-[13px] font-bold truncate w-full text-center ${isMe ? 'text-emerald-800' : 'text-gray-800'}`}>

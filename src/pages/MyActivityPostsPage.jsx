@@ -62,7 +62,6 @@ function MyActivityPostsPage() {
       <StickyBackBar fallbackPath="/profile/activity" title="활동으로" />
 
       <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
-        <p className="text-xs text-gray-500 mb-1">{program.name}</p>
         <h1 className="text-2xl font-medium text-gray-800 flex items-center gap-2">
           <img src="/icons/mypage/posts.png" alt="" aria-hidden="true" className="w-8 h-8 object-contain" /> 내가 쓴 게시글
         </h1>

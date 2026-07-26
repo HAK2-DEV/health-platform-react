@@ -339,6 +339,7 @@ function FeedContent({ program, layout: layoutProp = null, targetVerificationId 
                   avatarPath={post.user?.avatar_path}
                   nickname={post.user?.nickname}
                   size="md"
+                  viewable
                 />
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm text-gray-800 truncate">
@@ -708,7 +709,7 @@ function CommentsSection({ verificationId, programId, myUserId, isProgramOwner, 
         ref={(el) => { refs.current[c.id] = el }}
         className={`flex items-start gap-2 text-sm rounded-lg p-1.5 -mx-1.5 transition-all duration-500 ${isHi ? 'bg-amber-100 ring-2 ring-amber-300' : ''}`}
       >
-        <UserAvatar avatarPath={c.user?.avatar_path} nickname={c.user?.nickname} size="sm" className="mt-0.5" />
+        <UserAvatar avatarPath={c.user?.avatar_path} nickname={c.user?.nickname} size="sm" className="mt-0.5" viewable />
         <div className="flex-1 min-w-0">
           {isEditing ? (
             <div className="flex items-center gap-1.5">

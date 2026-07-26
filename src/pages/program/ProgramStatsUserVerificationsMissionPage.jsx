@@ -141,7 +141,7 @@ function ProgramStatsUserVerificationsMissionPage() {
       <StickyBackBar fallbackPath={backPath} title={backTitle} />
 
       <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
-        <p className="text-xs text-gray-500 mb-1">{program.name} · {userInfo?.nickname || '(유저)'}</p>
+        <p className="text-xs text-gray-500 mb-1">{userInfo?.nickname || '(유저)'}</p>
         <h1 className="text-2xl font-medium text-gray-800">
           {missionTitle}
         </h1>

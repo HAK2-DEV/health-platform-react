@@ -66,7 +66,7 @@ export default function AttendanceRosterModal({ session, confirmedBy = null, att
               const on = r.attStatus === 'confirmed'
               return (
                 <li key={r.user_id} className="flex items-center gap-2.5 py-2.5">
-                  <UserAvatar avatarPath={r.avatar_path} nickname={r.nickname} size="sm" />
+                  <UserAvatar avatarPath={r.avatar_path} nickname={r.nickname} size="sm" viewable />
                   <span className="flex-1 min-w-0 text-[14px] font-medium text-gray-800 truncate">{r.nickname}</span>
                   {r.attStatus === 'pending' && <span className="text-[11px] font-bold text-amber-600 bg-amber-50 rounded-full px-2 py-0.5 flex-shrink-0">신청</span>}
                   {attendanceMode === 'venue_code' ? (

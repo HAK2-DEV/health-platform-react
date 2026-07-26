@@ -67,7 +67,6 @@ function MyActivityVerificationsPage() {
       />
 
       <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-4">
-        <p className="text-xs text-gray-500 mb-1">{program?.name}</p>
         <h1 className="flex items-center gap-2 text-2xl font-medium text-gray-800">
           <img src="/icons/mypage/records.png" alt="" aria-hidden="true" className="w-8 h-8 object-contain" /> 인증 기록
         </h1>

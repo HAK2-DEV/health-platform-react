@@ -87,7 +87,7 @@ function ProgramStatsUserVerificationsPage() {
       <StickyBackBar fallbackPath={`/programs/${id}/stats/users/${targetUserId}`} title="돌아가기" />
 
       <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
-        <p className="text-xs text-gray-500 mb-1">{program.name} · {userInfo?.nickname || '(유저)'}</p>
+        <p className="text-xs text-gray-500 mb-1">{userInfo?.nickname || '(유저)'}</p>
         <h1 className="text-2xl font-medium text-gray-800 flex items-center gap-2">
           📝 인증 기록
         </h1>

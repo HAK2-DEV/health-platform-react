@@ -57,7 +57,6 @@ function MyActivityVerificationsBundlePage() {
       <StickyBackBar fallbackPath={`/profile/activity/${programId}/verifications`} title="인증 기록으로" />
 
       <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-4">
-        <p className="text-xs text-gray-500 mb-1">{program?.name}</p>
         <h1 className="text-2xl font-medium text-gray-800">
           {isSolo ? '🔹 단독 미션' : `📦 ${bundleTitle}`}
         </h1>

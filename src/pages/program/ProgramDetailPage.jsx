@@ -38,6 +38,7 @@ import Modal from '../../components/common/Modal'
 import DeleteProgramModal from '../../components/program/DeleteProgramModal'
 import OperatorReviewBanner from '../../components/program/OperatorReviewBanner'
 import { markSeen, countNew } from '../../lib/newContent'
+import { warnLargeUserList } from '../../lib/sentry'
 import UserAvatar from '../../components/common/UserAvatar'
 import ProfileButton from '../../components/common/ProfileButton'
 import NotificationBell from '../../components/common/NotificationBell'
@@ -261,6 +262,8 @@ function ProgramDetailPage() {
     queryFn: () => fetchProgramRanking(id, periodStart),
     enabled: !!session && !!id,
   })
+  // 대규모 참여자(아바타 과다) 시 관리자에게 1회 경고 — 이미지 최적화/유료 플랜 검토 신호
+  useEffect(() => { warnLargeUserList('program-ranking', ranking.length) }, [ranking.length])
 
   // 팀 기능 — 켜진 프로그램만 개인/팀 토글 노출. 비활성이면 강제 개인 뷰.
   //   알림 딥링크(?team=1)로 들어오면 팀 탭으로 시작.
@@ -2506,7 +2509,7 @@ function ProgramDetailPage() {
                         `}>
                           {row.rank}
                         </span>
-                        <UserAvatar avatarPath={row.avatar_path} nickname={row.nickname} size="md" />
+                        <UserAvatar avatarPath={row.avatar_path} nickname={row.nickname} size="md" viewable />
                         <span className={`font-medium truncate ${isMe ? 'text-emerald-800' : 'text-gray-800'}`}>
                           {row.nickname}
                           {isMe && <span className="ml-1 text-xs text-emerald-600">(나)</span>}

@@ -1918,6 +1918,12 @@ export const fetchMyActivity = async (programId, userId) => {
     .eq('program_id', programId)
   if (sErr) throw sErr
 
+  // 활동 그래프용 — 미션 인증 + 퀴즈 제출 + 클래스 출석(확정) 날짜 합산 (본인 RLS)
+  const [quizAct, classAct] = await Promise.all([
+    supabase.from('quiz_submissions').select('submitted_at, quiz:quizzes!inner(program_id)').eq('user_id', userId).eq('quiz.program_id', programId),
+    supabase.from('session_attendance').select('sessions!inner(program_id, starts_at)').eq('user_id', userId).eq('status', 'confirmed').eq('sessions.program_id', programId),
+  ])
+
   const rows = verifs || []
   const totalCount = rows.length
   const approvedCount = rows.filter(v => v.status === 'APPROVED').length
@@ -1949,11 +1955,19 @@ export const fetchMyActivity = async (programId, userId) => {
   }
   const missionStats = Array.from(missionMap.values()).sort((a, b) => b.count - a.count)
 
+  // 활동 이벤트(타입별) = 미션 인증 제출 + 퀴즈 제출 + 클래스 출석(확정)
+  const activityEvents = [
+    ...rows.map(v => ({ ts: v.submitted_at, type: 'mission' })),
+    ...((quizAct.data || []).map(q => ({ ts: q.submitted_at, type: 'quiz' }))),
+    ...((classAct.data || []).map(a => a.sessions?.starts_at).filter(Boolean).map(ts => ({ ts, type: 'class' }))),
+  ]
+
   return {
     verifications: rows,
     totalCount, approvedCount, pendingCount, rejectedCount,
     totalScore, activeDays,
     missionStats,
+    activityEvents,
   }
 }
 
@@ -2439,6 +2453,8 @@ export const fetchUserScoreBreakdown = async (programId, userId) => {
     .eq('user_id', userId)
   if (error) throw error
   const missionMap = {}
+  const quizMap = {}
+  const otherItems = []
   let quizPoint = 0, quizCount = 0, otherPoint = 0, otherCount = 0, total = 0
   for (const r of (data || [])) {
     const p = r.point || 0
@@ -2451,12 +2467,67 @@ export const fetchUserScoreBreakdown = async (programId, userId) => {
       missionMap[mid].count += 1
     } else if (r.quiz_submission_id) {
       quizPoint += p; quizCount += 1
+      const q = r.quiz_submissions?.quizzes
+      const qid = q?.id || `sub:${r.quiz_submission_id}`
+      if (!quizMap[qid]) quizMap[qid] = { id: qid, title: q?.title || '(삭제된 퀴즈)', point: 0, count: 0 }
+      quizMap[qid].point += p; quizMap[qid].count += 1
     } else {
       otherPoint += p; otherCount += 1
+      otherItems.push({ reason: r.reason || '기타', point: p })
     }
   }
   const missions = Object.values(missionMap).sort((a, b) => b.point - a.point)
-  return { missions, quiz: { point: quizPoint, count: quizCount }, other: { point: otherPoint, count: otherCount }, total }
+  const quizItems = Object.values(quizMap).sort((a, b) => b.point - a.point)
+  return {
+    missions,
+    quiz: { point: quizPoint, count: quizCount, items: quizItems },
+    other: { point: otherPoint, count: otherCount, items: otherItems },
+    total,
+  }
+}
+
+// 한 유저의 퀴즈 상세 — 제출한 퀴즈별 점수·정답 + 문항별 답안(딥드릴).
+//   RPC get_user_quiz_review(172): owner 또는 본인만. quiz_questions 는 참가자 직접 SELECT 불가라
+//   RPC 로만 문항 텍스트 노출. 정답·해설은 owner 이거나 reveal_answers=true 일 때만 채워짐.
+export async function fetchUserQuizDetail(programId, userId) {
+  if (!programId || !userId) return []
+  const { data, error } = await supabase.rpc('get_user_quiz_review', { p_program_id: programId, p_user_id: userId })
+  if (error) throw error
+  return (data || []).map(s => {
+    const answers = s.answers || []
+    return {
+      id: s.id, title: s.title || '(삭제된 퀴즈)', submitted_at: s.submitted_at,
+      total_score: s.total_score || 0, status: s.status,
+      correct: answers.filter(a => a.isCorrect === true).length,
+      answered: answers.length,
+      reveal: s.reveal,
+      answers,
+    }
+  })
+}
+
+// 한 유저의 클래스 상세 — 신청·출석한 세션별 내역 (참여자 상세 드릴다운). owner RLS.
+export async function fetchUserClassDetail(programId, userId) {
+  const [sessRes, regRes, attRes] = await Promise.all([
+    supabase.from('sessions').select('id, title, category, starts_at, ends_at, place_name, points, signup_mode, instructor:instructors(name)').eq('program_id', programId).order('starts_at', { ascending: false }),
+    supabase.from('session_registrations').select('session_id, status, sessions!inner(program_id)').eq('user_id', userId).eq('sessions.program_id', programId),
+    supabase.from('session_attendance').select('session_id, status, method, sessions!inner(program_id)').eq('user_id', userId).eq('sessions.program_id', programId),
+  ])
+  if (sessRes.error) throw sessRes.error
+  if (regRes.error) throw regRes.error
+  if (attRes.error) throw attRes.error
+  const regBy = {}; for (const r of (regRes.data || [])) regBy[r.session_id] = r.status
+  const attBy = {}; for (const a of (attRes.data || [])) attBy[a.session_id] = { status: a.status, method: a.method }
+  return (sessRes.data || [])
+    .filter(s => regBy[s.id] || attBy[s.id])   // 신청 or 출석 이력 있는 세션만
+    .map(s => ({
+      id: s.id, title: s.title, category: s.category, starts_at: s.starts_at, ends_at: s.ends_at,
+      place_name: s.place_name, points: s.points || 0, signup_mode: s.signup_mode,
+      instructor: s.instructor?.name || null,
+      reg: regBy[s.id] || null,
+      att: attBy[s.id] || null,
+      earned: (attBy[s.id]?.status === 'confirmed') ? (s.points || 0) : 0,
+    }))
 }
 
 export const fetchProgramStats = async (programId) => {

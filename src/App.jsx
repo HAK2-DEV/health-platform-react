@@ -5,6 +5,7 @@ import './App.css'
 import ProtectedRoute from './components/ProtectedRoute'
 import LoadingState from './components/common/LoadingState'
 import { ToastProvider } from './contexts/ToastContext'
+import { AvatarViewerProvider } from './contexts/AvatarViewerContext'
 import PwaUpdatePrompt from './components/common/PwaUpdatePrompt'
 import SplashScreen from './components/common/SplashScreen'
 import BottomTabBar from './components/common/BottomTabBar'
@@ -33,6 +34,8 @@ const ProgramStatsUserMissionsPage = lazy(() => import('./pages/program/ProgramS
 const ProgramStatsUserVerificationsPage = lazy(() => import('./pages/program/ProgramStatsUserVerificationsPage'))
 const ProgramStatsUserPostsPage = lazy(() => import('./pages/program/ProgramStatsUserPostsPage'))
 const ProgramStatsUserPointsPage = lazy(() => import('./pages/program/ProgramStatsUserPointsPage'))
+const ProgramStatsUserQuizzesPage = lazy(() => import('./pages/program/ProgramStatsUserQuizzesPage'))
+const ProgramStatsUserClassesPage = lazy(() => import('./pages/program/ProgramStatsUserClassesPage'))
 const ProgramStatsUserCommentsPage = lazy(() => import('./pages/program/ProgramStatsUserCommentsPage'))
 const ProgramStatsUserVerificationsBundlePage = lazy(() => import('./pages/program/ProgramStatsUserVerificationsBundlePage'))
 const ProgramStatsUserVerificationsMissionPage = lazy(() => import('./pages/program/ProgramStatsUserVerificationsMissionPage'))
@@ -59,6 +62,8 @@ const MyActivityVerificationsPage = lazy(() => import('./pages/MyActivityVerific
 const MyActivityVerificationsBundlePage = lazy(() => import('./pages/MyActivityVerificationsBundlePage'))
 const MyActivityPostsPage = lazy(() => import('./pages/MyActivityPostsPage'))
 const MyActivityCommentsPage = lazy(() => import('./pages/MyActivityCommentsPage'))
+const MyActivityQuizzesPage = lazy(() => import('./pages/MyActivityQuizzesPage'))
+const MyActivityClassesPage = lazy(() => import('./pages/MyActivityClassesPage'))
 const JoinByCodePage = lazy(() => import('./pages/JoinByCodePage'))
 const AuthCallbackPage = lazy(() => import('./pages/AuthCallbackPage'))
 const NotificationSettingsPage = lazy(() => import('./pages/NotificationSettingsPage'))
@@ -177,6 +182,12 @@ function AppShell() {
             <Route path="/programs/:id/stats/users/:userId/points" element={
               <ProtectedRoute><ProgramStatsUserPointsPage /></ProtectedRoute>
             } />
+            <Route path="/programs/:id/stats/users/:userId/quizzes" element={
+              <ProtectedRoute><ProgramStatsUserQuizzesPage /></ProtectedRoute>
+            } />
+            <Route path="/programs/:id/stats/users/:userId/classes" element={
+              <ProtectedRoute><ProgramStatsUserClassesPage /></ProtectedRoute>
+            } />
             <Route path="/programs/:id/stats/users/:userId/comments" element={
               <ProtectedRoute><ProgramStatsUserCommentsPage /></ProtectedRoute>
             } />
@@ -275,6 +286,12 @@ function AppShell() {
             <Route path="/profile/activity/:programId/comments" element={
               <ProtectedRoute><MyActivityCommentsPage /></ProtectedRoute>
             } />
+            <Route path="/profile/activity/:programId/quizzes" element={
+              <ProtectedRoute><MyActivityQuizzesPage /></ProtectedRoute>
+            } />
+            <Route path="/profile/activity/:programId/classes" element={
+              <ProtectedRoute><MyActivityClassesPage /></ProtectedRoute>
+            } />
             <Route path="/join" element={<JoinByCodePage />} />
             {/* 약관/정책 — 공개 페이지 (비로그인도 접근 가능) */}
             <Route path="/privacy" element={<PrivacyPolicyPage />} />
@@ -302,7 +319,9 @@ function AppShell() {
 function App() {
   return (
     <ToastProvider>
-      <AppShell />
+      <AvatarViewerProvider>
+        <AppShell />
+      </AvatarViewerProvider>
       {/* 콜드 스타트 스플래시 — 약 1.5초 노출 후 페이드아웃 (라우터 무관 최상위 오버레이) */}
       <SplashScreen />
     </ToastProvider>

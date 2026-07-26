@@ -45,6 +45,7 @@ function PodiumTop3({ top3, userId }) {
           nickname={row.nickname}
           size={place === 1 ? 'lg' : 'md'}
           className="mb-1.5"
+          viewable
         />
         {isMe && (
           <span className="px-2 py-0.5 bg-emerald-500 text-white text-xs font-semibold rounded-pill mb-0.5">나</span>
