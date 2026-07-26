@@ -211,19 +211,26 @@ function NotificationsPage() {
             <p className="text-sm text-gray-500">선택한 필터의 알림이 없어요</p>
           </div>
         ) : (
-          <motion.div layout className="space-y-4">
-            <AnimatePresence initial={false}>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={filter}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.22, ease: [0.2, 0.75, 0.25, 1] }}
+              className="space-y-4"
+            >
               {grouped.today.length > 0 && (
-                <TimeGroup key="today" label="오늘" items={grouped.today} onClick={handleClick} onDelete={handleDelete} deletePending={deleteMutation.isPending} />
+                <TimeGroup label="오늘" items={grouped.today} onClick={handleClick} onDelete={handleDelete} deletePending={deleteMutation.isPending} />
               )}
               {grouped.week.length > 0 && (
-                <TimeGroup key="week" label="이번 주" items={grouped.week} onClick={handleClick} onDelete={handleDelete} deletePending={deleteMutation.isPending} />
+                <TimeGroup label="이번 주" items={grouped.week} onClick={handleClick} onDelete={handleDelete} deletePending={deleteMutation.isPending} />
               )}
               {grouped.older.length > 0 && (
-                <TimeGroup key="older" label="이전 알림" items={grouped.older} onClick={handleClick} onDelete={handleDelete} deletePending={deleteMutation.isPending} />
+                <TimeGroup label="이전 알림" items={grouped.older} onClick={handleClick} onDelete={handleDelete} deletePending={deleteMutation.isPending} />
               )}
-            </AnimatePresence>
-          </motion.div>
+            </motion.div>
+          </AnimatePresence>
         )}
       </div>
 
@@ -268,30 +275,23 @@ function NotificationsPage() {
 // 시간 그룹 (오늘/이번 주/이전) — 헤더 + 알림 카드 리스트
 function TimeGroup({ label, items, onClick, onDelete, deletePending }) {
   return (
-    <motion.div
-      layout
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-    >
+    <div>
       <h3 className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 mb-2 ml-1">
         <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
         {label}
       </h3>
       <div className="space-y-2">
-        <AnimatePresence initial={false}>
-          {items.map(n => (
-            <NotificationCard
-              key={n.id}
-              n={n}
-              onClick={onClick}
-              onDelete={onDelete}
-              deletePending={deletePending}
-            />
-          ))}
-        </AnimatePresence>
+        {items.map(n => (
+          <NotificationCard
+            key={n.id}
+            n={n}
+            onClick={onClick}
+            onDelete={onDelete}
+            deletePending={deletePending}
+          />
+        ))}
       </div>
-    </motion.div>
+    </div>
   )
 }
 
@@ -300,14 +300,9 @@ function NotificationCard({ n, onClick, onDelete, deletePending }) {
   const meta = TYPE_META[n.type] || DEFAULT_META
   const Icon = meta.icon
   return (
-    <motion.div
+    <div
       role="button"
       tabIndex={0}
-      layout
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, height: 0 }}
-      transition={{ duration: 0.38, ease: [0.2, 0.75, 0.25, 1] }}
       onClick={() => onClick(n)}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -351,7 +346,7 @@ function NotificationCard({ n, onClick, onDelete, deletePending }) {
       >
         <Trash2 className="w-4 h-4" />
       </button>
-    </motion.div>
+    </div>
   )
 }
 
