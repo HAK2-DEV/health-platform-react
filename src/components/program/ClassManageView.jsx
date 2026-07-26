@@ -274,7 +274,7 @@ export default function ClassManageView({
             {instructors.map(i => (
               <div key={i.id} className="flex items-center gap-3 rounded-xl bg-white border border-gray-100 shadow-soft p-3">
                 {instrPhotoUrl(i.photo_path)
-                  ? <img src={instrPhotoUrl(i.photo_path)} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+                  ? <img src={instrPhotoUrl(i.photo_path)} alt="" loading="lazy" decoding="async" className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
                   : <span className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 font-bold flex items-center justify-center flex-shrink-0">{(i.name || '?')[0]}</span>}
                 <div className="min-w-0 flex-1">
                   <p className="text-[14px] font-bold text-gray-900 truncate">{i.name}</p>
