@@ -18,10 +18,17 @@ export function markSeen(programId, kind) {
 // items: [{ created_at }] → 기준 시각 이후 생성된 개수.
 //   기준 = localStorage lastSeen(탭 열면 갱신) 우선, 없으면 fallbackSince(보통 참여 시각 joined_at).
 //   → 상세를 한 번도 안 열어도 「참여 후 추가된 콘텐츠」를 new 로 표시.
+//   비교는 타임스탬프(ms)로 — DB('+00:00')·markSeen('Z') 포맷 차이/초미만 경계에서도 정확.
 export function countNew(items, programId, kind, fallbackSince = null) {
   const since = getLastSeen(programId, kind) || fallbackSince
   if (!since) return 0
+  const sinceMs = new Date(since).getTime()
+  if (Number.isNaN(sinceMs)) return 0
   let n = 0
-  for (const it of items || []) if (it?.created_at && it.created_at > since) n++
+  for (const it of items || []) {
+    if (!it?.created_at) continue
+    const t = new Date(it.created_at).getTime()
+    if (!Number.isNaN(t) && t > sinceMs) n++
+  }
   return n
 }

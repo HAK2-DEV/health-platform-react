@@ -669,9 +669,9 @@ export const fetchInstructors = async (programId) => {
   if (error) throw error
   return data || []
 }
-export const createInstructor = async ({ programId, name, specialty, bio, photoPath = null }) => {
+export const createInstructor = async ({ programId, name, specialty, bio, photo_path = null }) => {
   const { data, error } = await supabase.from('instructors')
-    .insert({ program_id: programId, name, specialty, bio, photo_path: photoPath })
+    .insert({ program_id: programId, name, specialty, bio, photo_path })
     .select().single()
   if (error) throw error
   return data
@@ -2764,6 +2764,86 @@ export async function fetchProgramDistanceByUser(programId) {
     byUser[v.user_id] = (byUser[v.user_id] || 0) + km
   }
   return byUser
+}
+
+// 종료 리포트 「클래스 결과」 — 세션·출석 집계 (클래스 기능 프로그램만). owner RLS 로 조회.
+//   반환: { sessionCount, totalRegistered, totalConfirmed, uniqueAttendees, pointsGranted,
+//           instructorCount, attendanceRate(신청 대비, 없으면 null), sessions:[{...세션별}] }
+export async function fetchProgramClassStats(programId) {
+  const [sessRes, attRes] = await Promise.all([
+    supabase.from('sessions')
+      .select('id, title, category, starts_at, capacity, points, signup_mode, registered_count, instructor:instructors(name)')
+      .eq('program_id', programId).order('starts_at', { ascending: true }),
+    supabase.from('session_attendance')
+      .select('session_id, user_id, sessions!inner(program_id)')
+      .eq('sessions.program_id', programId).eq('status', 'confirmed'),
+  ])
+  if (sessRes.error) throw sessRes.error
+  if (attRes.error) throw attRes.error
+  const sessions = sessRes.data || []
+  const att = attRes.data || []
+  const confBySession = {}
+  const attendees = new Set()
+  for (const a of att) {
+    confBySession[a.session_id] = (confBySession[a.session_id] || 0) + 1
+    if (a.user_id) attendees.add(a.user_id)
+  }
+  let totalRegistered = 0, totalConfirmed = 0, pointsGranted = 0
+  const perSession = sessions.map(s => {
+    const confirmed = confBySession[s.id] || 0
+    totalRegistered += s.registered_count || 0
+    totalConfirmed += confirmed
+    pointsGranted += confirmed * (s.points || 0)
+    return {
+      id: s.id, title: s.title, category: s.category, starts_at: s.starts_at,
+      capacity: s.capacity, points: s.points || 0, signup_mode: s.signup_mode,
+      registered: s.registered_count || 0, confirmed, instructor: s.instructor?.name || null,
+    }
+  })
+  const instructors = new Set(sessions.map(s => s.instructor?.name).filter(Boolean))
+  return {
+    sessionCount: sessions.length,
+    totalRegistered, totalConfirmed,
+    uniqueAttendees: attendees.size,
+    pointsGranted,
+    instructorCount: instructors.size,
+    attendanceRate: totalRegistered > 0 ? Math.round((totalConfirmed / totalRegistered) * 100) : null,
+    sessions: perSession,
+  }
+}
+
+// 종료 리포트 엑셀 「클래스별 출석」 — 세션별 신청·출석 명단(닉네임·시각·방식). owner RLS.
+//   반환: [{ ...세션, instructor, participants:[{ nickname, reg:{status,created_at}|null, att:{status,method,created_at}|null }] }]
+export async function fetchProgramClassRoster(programId) {
+  const [sessRes, regRes, attRes] = await Promise.all([
+    supabase.from('sessions')
+      .select('id, title, category, starts_at, ends_at, place_name, capacity, points, signup_mode, instructor:instructors(name)')
+      .eq('program_id', programId).order('starts_at', { ascending: true }),
+    supabase.from('session_registrations')
+      .select('session_id, status, created_at, user:users(nickname), sessions!inner(program_id)')
+      .eq('sessions.program_id', programId),
+    supabase.from('session_attendance')
+      .select('session_id, status, method, created_at, user:users!user_id(nickname), sessions!inner(program_id)')
+      .eq('sessions.program_id', programId),
+  ])
+  if (sessRes.error) throw sessRes.error
+  if (regRes.error) throw regRes.error
+  if (attRes.error) throw attRes.error
+  const sessions = sessRes.data || []
+  const bySession = {}
+  for (const s of sessions) bySession[s.id] = {}
+  const ensure = (sid, nick) => {
+    const g = bySession[sid]; if (!g) return null
+    return (g[nick] ||= { nickname: nick, reg: null, att: null })
+  }
+  for (const r of (regRes.data || [])) { const u = ensure(r.session_id, r.user?.nickname || '(탈퇴)'); if (u) u.reg = { status: r.status, created_at: r.created_at } }
+  for (const a of (attRes.data || [])) { const u = ensure(a.session_id, a.user?.nickname || '(탈퇴)'); if (u) u.att = { status: a.status, method: a.method, created_at: a.created_at } }
+  return sessions.map(s => ({
+    id: s.id, title: s.title, category: s.category, starts_at: s.starts_at, ends_at: s.ends_at,
+    place_name: s.place_name, capacity: s.capacity, points: s.points || 0, signup_mode: s.signup_mode,
+    instructor: s.instructor?.name || null,
+    participants: Object.values(bySession[s.id]).sort((a, b) => a.nickname.localeCompare(b.nickname, 'ko')),
+  }))
 }
 
 // 종료 리포트 랭킹 — 참여자별 점수 출처 분해 (미션=verification_id / 퀴즈=quiz_submission_id / 기타).

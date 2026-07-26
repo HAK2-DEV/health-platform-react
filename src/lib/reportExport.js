@@ -3,13 +3,19 @@
 //   SheetJS(xlsx)는 동적 import → 내보내기 클릭 시에만 로드(코드 스플릿).
 import { formatKstDate } from './queries'
 import { getKstHour, TIME_BUCKETS, bucketOfHour } from './formatters'
+import { catOf } from './classCategories'
 
 function sanitizeName(name) {
   return (name || 'report').replace(/[\\/:*?"<>|]/g, ' ').trim().slice(0, 40) || 'report'
 }
 const fmtMD = (ds) => { const p = String(ds || '').split('-'); return p.length === 3 ? `${+p[1]}/${+p[2]}` : ds }
+// KST 날짜+시간 "M/D HH:MM" (없으면 '-')
+const kstDT = (iso) => { if (!iso) return '-'; const d = new Date(new Date(iso).getTime() + 9 * 3600e3); return `${d.getUTCMonth() + 1}/${d.getUTCDate()} ${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}` }
+const kstT = (iso) => { if (!iso) return ''; const d = new Date(new Date(iso).getTime() + 9 * 3600e3); return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}` }
+const ATT_LABEL = { confirmed: '출석', pending: '승인대기', rejected: '미인정' }
+const METHOD_LABEL = { operator_roll: '운영자 호명', venue_code: '현장 코드', self_approve: '자가출석' }
 
-export async function exportEndReportXlsx({ program, report, quizStats = [], community = null, perUser = null, raw = [], scoreBreakdown = {}, teamRanking = [], distanceByUser = null, reportGroups = [], scoreLedger = [] }) {
+export async function exportEndReportXlsx({ program, report, quizStats = [], community = null, perUser = null, raw = [], scoreBreakdown = {}, teamRanking = [], distanceByUser = null, reportGroups = [], scoreLedger = [], classRoster = [] }) {
   const XLSX = await import('xlsx')
   const wb = XLSX.utils.book_new()
   const hasDist = !!distanceByUser
@@ -223,6 +229,37 @@ export async function exportEndReportXlsx({ program, report, quizStats = [], com
     ])
     wsL['!cols'] = [{ wch: 11 }, { wch: 14 }, { wch: 7 }, { wch: 7 }, { wch: 24 }, { wch: 20 }]
     XLSX.utils.book_append_sheet(wb, wsL, '점수 내역')
+  }
+
+  // ── 시트: 클래스별 출석 (세션별 신청·출석 명단 — 누가·언제·어떻게) ──
+  if (classRoster && classRoster.length) {
+    const head = ['클래스', '종목', '일시', '장소', '강사', '정원', '신청방식', '참가자', '신청', '신청시각', '출석', '출석방식', '출석시각', '지급P']
+    const rows = []
+    for (const s of classRoster) {
+      const when = kstDT(s.starts_at) + (s.ends_at ? `~${kstT(s.ends_at)}` : '')
+      const catL = catOf(s.category)?.label || s.category || ''
+      const signup = s.signup_mode === 'rsvp' ? '사전신청' : '자유참여'
+      const base = [s.title, catL, when, s.place_name || '', s.instructor || '', s.capacity ?? '', signup]
+      if (!s.participants.length) {
+        rows.push([...base, '(참가자 없음)', '', '', '', '', '', 0])
+        continue
+      }
+      for (const p of s.participants) {
+        const regTxt = p.reg ? (p.reg.status === 'registered' ? '신청' : '취소') : '미신청'
+        const attTxt = p.att ? (ATT_LABEL[p.att.status] || p.att.status) : '미출석'
+        const attended = p.att?.status === 'confirmed'
+        rows.push([
+          ...base, p.nickname,
+          regTxt, p.reg ? kstDT(p.reg.created_at) : '',
+          attTxt, p.att ? (METHOD_LABEL[p.att.method] || p.att.method || '') : '',
+          p.att ? kstDT(p.att.created_at) : '',
+          attended ? (s.points || 0) : 0,
+        ])
+      }
+    }
+    const wsC = XLSX.utils.aoa_to_sheet([head, ...rows])
+    wsC['!cols'] = [{ wch: 18 }, { wch: 8 }, { wch: 13 }, { wch: 12 }, { wch: 10 }, { wch: 6 }, { wch: 9 }, { wch: 12 }, { wch: 7 }, { wch: 12 }, { wch: 8 }, { wch: 11 }, { wch: 12 }, { wch: 7 }]
+    XLSX.utils.book_append_sheet(wb, wsC, '클래스별 출석')
   }
 
   XLSX.writeFile(wb, `${sanitizeName(program.name)}_종료리포트.xlsx`)

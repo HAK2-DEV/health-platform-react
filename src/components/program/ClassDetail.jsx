@@ -114,7 +114,9 @@ export default function ClassDetail({ sessionId, programId, userId, isOwner = fa
       {/* 강사 카드 */}
       {s.instructor && (
         <div className="rounded-2xl bg-white border border-gray-100 shadow-soft p-4 flex items-center gap-3">
-          <span className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-700 text-lg font-bold flex items-center justify-center flex-shrink-0">{(s.instructor.name || '?')[0]}</span>
+          {s.instructor.photo_path
+            ? <img src={supabase.storage.from('program-covers').getPublicUrl(s.instructor.photo_path).data?.publicUrl} alt="" className="w-12 h-12 rounded-full object-cover flex-shrink-0" />
+            : <span className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-700 text-lg font-bold flex items-center justify-center flex-shrink-0">{(s.instructor.name || '?')[0]}</span>}
           <div className="min-w-0">
             <p className="text-[15px] font-bold text-gray-900">{s.instructor.name} 강사</p>
             {s.instructor.specialty && <p className="text-[12px] text-gray-500">{s.instructor.specialty}</p>}

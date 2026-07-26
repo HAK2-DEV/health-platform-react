@@ -4,7 +4,8 @@ import { useQuery } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronLeft, ChevronDown, ChevronRight, Trophy, MessageSquare, Copy, Download } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
-import { queryKeys, fetchProgram, fetchProgramStats, fetchProgramOperatorLoad, fetchProgramQuizStats, fetchProgramCommunityStats, fetchProgramReports, fetchEndReportPerUser, fetchProgramScoreBreakdown, fetchProgramTeamRanking, fetchProgramDistanceByUser, fetchProgramScoreLedger, REPORT_REASON_PRESETS, formatKstDate } from '../../lib/queries'
+import { queryKeys, fetchProgram, fetchProgramStats, fetchProgramOperatorLoad, fetchProgramQuizStats, fetchProgramCommunityStats, fetchProgramReports, fetchEndReportPerUser, fetchProgramScoreBreakdown, fetchProgramTeamRanking, fetchProgramDistanceByUser, fetchProgramClassStats, fetchProgramClassRoster, fetchProgramScoreLedger, REPORT_REASON_PRESETS, formatKstDate } from '../../lib/queries'
+import { catOf } from '../../lib/classCategories'
 import { PROGRAM_THEME } from '../../lib/constants'
 import { formatKoreanDate } from '../../lib/formatters'
 import StickyBackBar from '../../components/common/StickyBackBar'
@@ -228,6 +229,13 @@ function ProgramEndReportPage() {
     enabled: !!session && !!id && isOwner && isRunning,
   })
 
+  // 클래스 결과 — 클래스(강사 세션) 기능 활성 프로그램만
+  const { data: classStats } = useQuery({
+    queryKey: ['program', id, 'classStats'],
+    queryFn: () => fetchProgramClassStats(id),
+    enabled: !!session && !!id && isOwner && !!program?.class_feature_enabled,
+  })
+
   const report = useMemo(() => computeReport(stats, program), [stats, program])
   const [cloneOpen, setCloneOpen] = useState(false)
 
@@ -318,26 +326,29 @@ function ProgramEndReportPage() {
           <Reveal index={4}><ChannelEvaluation report={report} quizStats={quizStats} community={community} program={program} /></Reveal>
 
           {/* ─── 신고 · 제재 (영역별 평가 다음) ─── */}
-          <Reveal index={5}><ModerationCard groups={reportGroups} programDays={report.programDays} programId={id} navigate={navigate} /></Reveal>
+          {classStats?.sessionCount > 0 && <Reveal index={5}><ClassResultsCard stats={classStats} /></Reveal>}
+
+          <Reveal index={6}><ModerationCard groups={reportGroups} programDays={report.programDays} programId={id} navigate={navigate} /></Reveal>
 
           {/* ─── 시상 · 랭킹 (부문별 + 무결성 검증) ─── */}
-          <Reveal index={6}><AwardsCard report={report} perUser={perUser} raw={stats?._raw || []} reportGroups={reportGroups} hasQuiz={quizStats.length > 0} hasCommunity={!!program.feed_enabled} distanceByUser={isRunning ? distanceByUser : null} /></Reveal>
+          <Reveal index={7}><AwardsCard report={report} perUser={perUser} raw={stats?._raw || []} reportGroups={reportGroups} hasQuiz={quizStats.length > 0} hasCommunity={!!program.feed_enabled} distanceByUser={isRunning ? distanceByUser : null} /></Reveal>
 
           {/* ─── 운영 부하 (있는 데이터만 · 정산은 보류) ─── */}
-          <Reveal index={7}><OperatorLoadCard load={opLoad} /></Reveal>
+          <Reveal index={8}><OperatorLoadCard load={opLoad} /></Reveal>
 
           {/* ─── 다음 액션 ─── */}
-          <Reveal index={8}><NextActionsCard programId={id} feedEnabled={!!program.feed_enabled} navigate={navigate} onClone={() => setCloneOpen(true)}
+          <Reveal index={9}><NextActionsCard programId={id} feedEnabled={!!program.feed_enabled} navigate={navigate} onClone={() => setCloneOpen(true)}
             onThanks={() => navigate(`/programs/${id}?tab=community`, { state: { composeThanks: buildThanksDraft(program, report) } })}
             onExport={async () => {
-              const [pu, scoreBreakdown, teamRanking, distance, scoreLedger] = await Promise.all([
+              const [pu, scoreBreakdown, teamRanking, distance, scoreLedger, classRoster] = await Promise.all([
                 perUser || fetchEndReportPerUser(id),
                 fetchProgramScoreBreakdown(id),
                 fetchProgramTeamRanking(id).catch(() => []),   // 팀 미사용/오류 시 빈 배열
                 isRunning ? (distanceByUser || fetchProgramDistanceByUser(id)) : null,
                 fetchProgramScoreLedger(id),
+                program?.class_feature_enabled ? fetchProgramClassRoster(id).catch(() => []) : [],
               ])
-              await exportEndReportXlsx({ program, report, quizStats, community, perUser: pu, raw: stats?._raw || [], scoreBreakdown, teamRanking, distanceByUser: distance, reportGroups, scoreLedger })
+              await exportEndReportXlsx({ program, report, quizStats, community, perUser: pu, raw: stats?._raw || [], scoreBreakdown, teamRanking, distanceByUser: distance, reportGroups, scoreLedger, classRoster })
             }} /></Reveal>
         </div>
       )}
@@ -1054,6 +1065,73 @@ function ChannelEvaluation({ report, quizStats, community, program }) {
 
 // ─── 신고 · 제재 — 접수/제재/미처리 + 사유별 분류(기본 프리셋 3종 + 기타). ───
 //   프리셋과 일치하는 신고를 사유별로 묶음. 액션은 시스템 추적값(숨김/삭제/처리)만.
+// ─── 클래스 결과 — 강사 세션 출석 집계 (클래스 기능 프로그램만, 신고·제재 바로 위) ───
+function ClassResultsCard({ stats }) {
+  const [expanded, setExpanded] = useState(false)
+  const { sessionCount, totalConfirmed, totalRegistered, uniqueAttendees, pointsGranted, attendanceRate, instructorCount, sessions } = stats
+  const statBoxes = [
+    { l: '클래스', v: `${sessionCount}`, u: '개', s: instructorCount ? `강사 ${instructorCount}명` : '세션' },
+    { l: '출석', v: `${totalConfirmed}`, u: '건', s: `${uniqueAttendees}명 참여` },
+    { l: '출석률', v: attendanceRate != null ? `${attendanceRate}` : '-', u: attendanceRate != null ? '%' : '', s: totalRegistered ? `신청 ${totalRegistered}건` : '자유 참여' },
+  ]
+  const dLabel = (iso) => { const d = new Date(iso); return `${d.getMonth() + 1}/${d.getDate()}` }
+  const shown = expanded ? sessions : sessions.slice(0, 4)
+  const rest = sessions.length - shown.length
+
+  return (
+    <div className="bg-white border border-[#e6e9e6] rounded-card-lg p-5">
+      <div className="flex items-center gap-2.5 mb-4">
+        <Icon3D src="/icons/feature/attendance.png" emoji="🧘" className="w-8 h-8" />
+        <div className="min-w-0">
+          <h3 className="text-base font-bold text-gray-900 leading-tight">클래스 결과</h3>
+          <p style={{ fontSize: 11, color: '#9aa39d', marginTop: 2 }}>{sessionCount}개 클래스 · 출석 {totalConfirmed}건</p>
+        </div>
+        {pointsGranted > 0 && (
+          <span className="ml-auto flex-shrink-0" style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: '#e7f4ec', color: '#0f7a52' }}>+{pointsGranted.toLocaleString()}P 지급</span>
+        )}
+      </div>
+
+      {/* 3칸 통계 */}
+      <div className="grid grid-cols-3 mb-5 pb-5" style={{ borderBottom: '1px solid #eef0ef' }}>
+        {statBoxes.map((b, i) => (
+          <div key={b.l} style={{ paddingLeft: i > 0 ? 14 : 0, borderLeft: i > 0 ? '1px solid #eef0ef' : 'none' }}>
+            <div style={{ fontSize: 10.5, color: '#8a8079', marginBottom: 6 }}>{b.l}</div>
+            <div style={{ fontSize: 19, fontWeight: 800, color: '#23282b', lineHeight: 1 }}>{b.v}<span style={{ fontSize: 11, color: '#9aa39d', fontWeight: 700 }}>{b.u}</span></div>
+            <div style={{ fontSize: 10, color: '#9aa39d', marginTop: 6 }}>{b.s}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* 세션별 출석 */}
+      <div className="flex flex-col gap-3.5">
+        {shown.map(s => {
+          const c = catOf(s.category)
+          const rate = s.registered > 0 ? Math.round(s.confirmed / s.registered * 100) : null
+          return (
+            <div key={s.id} className="flex items-center gap-3">
+              {c.icon
+                ? <Icon3D src={c.icon} emoji={c.emoji} className="w-[26px] h-[26px]" />
+                : <span className="flex-shrink-0 inline-flex items-center justify-center" style={{ width: 26, height: 26, borderRadius: 9, background: '#f1f3f2', fontSize: 13 }}>{c.emoji || '📘'}</span>}
+              <div className="min-w-0 flex-1">
+                <p className="truncate" style={{ fontSize: 13.5, fontWeight: 700, color: '#23282b' }}>{s.title}</p>
+                <p className="truncate" style={{ fontSize: 11.5, color: '#9aa39d' }}>{dLabel(s.starts_at)} · {s.signup_mode === 'rsvp' ? `신청 ${s.registered} · ` : '자유참여 · '}출석 {s.confirmed}{s.instructor ? ` · ${s.instructor} 강사` : ''}</p>
+              </div>
+              <span className="flex-shrink-0" style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: '#eef0ef', color: '#6a736d' }}>{rate != null ? `${rate}%` : `${s.confirmed}명`}</span>
+            </div>
+          )
+        })}
+      </div>
+
+      {sessions.length > 4 && (
+        <button type="button" onClick={() => setExpanded(v => !v)}
+          className="mt-4 pt-4 w-full flex items-center justify-center gap-1 text-[12.5px] font-semibold text-gray-500 hover:text-gray-700 transition" style={{ borderTop: '1px solid #eef0ef' }}>
+          {expanded ? '접기' : `클래스 ${rest}개 더 보기`} <ChevronDown className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+        </button>
+      )}
+    </div>
+  )
+}
+
 function ModerationCard({ groups, programDays, programId, navigate }) {
   const reporters = groups.flatMap(g => g.reporters)
   const total = reporters.length

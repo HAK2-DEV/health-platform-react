@@ -1,7 +1,12 @@
-import { useState } from 'react'
-import { Plus, Calendar, MapPin, Users, Pencil, Trash2, X, ChevronDown, ChevronUp } from 'lucide-react'
+import { useState, useRef } from 'react'
+import { Plus, Calendar, MapPin, Users, Pencil, Trash2, X, ChevronDown, ChevronUp, Camera, Loader2 } from 'lucide-react'
 import { CLASS_CAT_LIST, catOf } from '../../lib/classCategories'
 import ConfirmModal from '../common/ConfirmModal'
+import ImageCropModal from '../common/ImageCropModal'
+import { supabase } from '../../supabaseClient'
+
+// 강사 프로필 사진 공개 URL (program-covers 공개 버킷)
+const instrPhotoUrl = (path) => path ? supabase.storage.from('program-covers').getPublicUrl(path).data?.publicUrl : null
 
 // 운영자 「클래스 관리」 — 프레젠테이션 뷰(데모/실배선 공용).
 //   props: instructors, sessions, handlers, busy. 폼 상태는 내부 로컬.
@@ -51,13 +56,95 @@ function InstructorForm({ initial, onSave, onClose, busy }) {
   const [name, setName] = useState(initial?.name || '')
   const [specialty, setSpecialty] = useState(initial?.specialty || '')
   const [bio, setBio] = useState(initial?.bio || '')
-  const save = () => { if (!name.trim()) return; onSave({ name: name.trim(), specialty: specialty.trim() || null, bio: bio.trim() || null }) }
+  const [photoPath, setPhotoPath] = useState(initial?.photo_path || null)
+  const [cropSrc, setCropSrc] = useState(null)
+  const [uploading, setUploading] = useState(false)
+  const fileRef = useRef(null)
+  const photoUrl = instrPhotoUrl(photoPath)
+
+  const [photoErr, setPhotoErr] = useState(null)
+  const uploadedRef = useRef(null)   // 이번 세션 임시 업로드 파일(저장 전 교체·취소 시 정리)
+
+  const onPick = (e) => {
+    const f = e.target.files?.[0]; e.target.value = ''
+    if (!f) return
+    if (!f.type.startsWith('image/')) { setPhotoErr('이미지 파일만 올릴 수 있어요'); return }
+    if (f.size > 10 * 1024 * 1024) { setPhotoErr('파일 크기는 10MB 이하여야 해요'); return }
+    setPhotoErr(null)
+    setCropSrc(prev => { if (prev) URL.revokeObjectURL(prev); return URL.createObjectURL(f) })
+  }
+  const closeCrop = () => setCropSrc(prev => { if (prev) URL.revokeObjectURL(prev); return null })
+  const onCropDone = async (blob) => {
+    setUploading(true); setPhotoErr(null)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      const newPath = `${user?.id}/instructor-${Date.now()}.jpg`
+      const { error } = await supabase.storage.from('program-covers').upload(newPath, blob, { contentType: 'image/jpeg', upsert: false })
+      if (error) throw error
+      // 이번 세션에 올렸던 이전 임시 파일만 정리 (초기 DB 파일은 저장 전이라 보존)
+      if (uploadedRef.current && uploadedRef.current !== newPath) supabase.storage.from('program-covers').remove([uploadedRef.current]).catch(() => {})
+      uploadedRef.current = newPath
+      setPhotoPath(newPath)
+    } catch (err) { console.error('강사 사진 업로드 실패:', err); setPhotoErr('사진 업로드에 실패했어요') }
+    finally { setUploading(false); closeCrop() }
+  }
+  const removePhoto = () => {
+    if (uploadedRef.current) { supabase.storage.from('program-covers').remove([uploadedRef.current]).catch(() => {}); uploadedRef.current = null }
+    setPhotoPath(null)
+  }
+  // 아바타 탭 — 사진 있으면 현재 사진을 크롭 모달로 편집(원격→blob), 없으면 파일 선택
+  const [adjustLoading, setAdjustLoading] = useState(false)
+  const handleAvatarTap = async () => {
+    if (!photoPath) { fileRef.current?.click(); return }
+    setAdjustLoading(true); setPhotoErr(null)
+    try {
+      const res = await fetch(`${photoUrl}?t=${Date.now()}`)   // 캐시버스터 → 신선한 CORS 응답
+      if (!res.ok) throw new Error('불러오기 실패')
+      const blob = await res.blob()
+      setCropSrc(prev => { if (prev) URL.revokeObjectURL(prev); return URL.createObjectURL(blob) })
+    } catch (e) { console.error('사진 편집용 로드 실패:', e); setPhotoErr('사진을 불러오지 못했어요') }
+    finally { setAdjustLoading(false) }
+  }
+  const save = () => { if (!name.trim()) return; onSave({ name: name.trim(), specialty: specialty.trim() || null, bio: bio.trim() || null, photo_path: photoPath }) }
+
   return (
     <Overlay onClose={onClose} title={initial ? '강사 수정' : '강사 추가'}>
+      {/* 프로필 사진 — 마이페이지 아바타와 동일: 탭하면 현재 사진 편집(변경/삭제) 모달 */}
+      <div className="flex flex-col items-center gap-1.5 mb-1">
+        <div className="relative">
+          <button type="button" onClick={handleAvatarTap} disabled={uploading || adjustLoading}
+            className="block rounded-full focus:outline-none focus:ring-2 focus:ring-emerald-400 disabled:opacity-70"
+            aria-label={photoPath ? '프로필 사진 편집' : '프로필 사진 추가'} title={photoPath ? '편집' : '사진 추가'}>
+            <div className="w-20 h-20 rounded-full overflow-hidden bg-emerald-100 flex items-center justify-center ring-2 ring-white shadow-sm">
+              {photoUrl
+                ? <img src={photoUrl} alt="" className="w-full h-full object-cover" />
+                : <span className="text-2xl font-bold text-emerald-700">{(name || '?')[0]}</span>}
+            </div>
+          </button>
+          {(uploading || adjustLoading) && <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center pointer-events-none"><Loader2 className="w-6 h-6 text-white animate-spin" /></div>}
+          <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading || adjustLoading}
+            className="absolute -bottom-1 -right-1 w-8 h-8 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white rounded-full shadow-md flex items-center justify-center transition disabled:opacity-50" title="프로필 사진 변경">
+            <Camera className="w-3.5 h-3.5" />
+          </button>
+          <input ref={fileRef} type="file" accept="image/*" onChange={onPick} className="hidden" />
+        </div>
+        {photoPath && !uploading && !adjustLoading && (
+          <button type="button" onClick={removePhoto} className="text-[11px] text-gray-400 hover:text-red-500 transition">사진 삭제</button>
+        )}
+        {photoErr && <p className="text-[11px] text-red-500">{photoErr}</p>}
+      </div>
       <Field label="이름 *"><input className={inputCls} value={name} onChange={e => setName(e.target.value)} placeholder="예: 김서연" /></Field>
       <Field label="전문 · 경력"><input className={inputCls} value={specialty} onChange={e => setSpecialty(e.target.value)} placeholder="예: 요가 지도자 · 8년" /></Field>
       <Field label="소개"><textarea className={`${inputCls} h-20 py-2 resize-none`} value={bio} onChange={e => setBio(e.target.value)} placeholder="강사 소개를 적어주세요" /></Field>
-      <FormButtons onClose={onClose} onSave={save} busy={busy} disabled={!name.trim()} />
+      <FormButtons onClose={onClose} onSave={save} busy={busy || uploading} disabled={!name.trim()} />
+      {cropSrc && (
+        <ImageCropModal isOpen imageSrc={cropSrc} onClose={closeCrop} onComplete={onCropDone}
+          aspect={1} cropShape="round" outputWidth={512} outputHeight={512}
+          title="프로필 사진 편집" description="원 안에서 드래그하고 확대·축소해 위치를 맞춰주세요"
+          isUploading={uploading}
+          onPickNew={() => fileRef.current?.click()}
+          onDelete={photoPath ? () => { closeCrop(); removePhoto() } : undefined} />
+      )}
     </Overlay>
   )
 }
@@ -186,7 +273,9 @@ export default function ClassManageView({
           <div className="space-y-2">
             {instructors.map(i => (
               <div key={i.id} className="flex items-center gap-3 rounded-xl bg-white border border-gray-100 shadow-soft p-3">
-                <span className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 font-bold flex items-center justify-center flex-shrink-0">{(i.name || '?')[0]}</span>
+                {instrPhotoUrl(i.photo_path)
+                  ? <img src={instrPhotoUrl(i.photo_path)} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+                  : <span className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 font-bold flex items-center justify-center flex-shrink-0">{(i.name || '?')[0]}</span>}
                 <div className="min-w-0 flex-1">
                   <p className="text-[14px] font-bold text-gray-900 truncate">{i.name}</p>
                   <p className="text-[12px] text-gray-500 truncate">{i.specialty || '전문 미입력'}</p>
