@@ -38,6 +38,8 @@ import Modal from '../../components/common/Modal'
 import DeleteProgramModal from '../../components/program/DeleteProgramModal'
 import OperatorReviewBanner from '../../components/program/OperatorReviewBanner'
 import EndReportBanner from '../../components/program/EndReportBanner'
+import ActivationNudge from '../../components/program/ActivationNudge'
+import { useToast } from '../../contexts/ToastContext'
 import { markSeen, countNew, getLastSeen } from '../../lib/newContent'
 import { warnLargeUserList } from '../../lib/sentry'
 import UserAvatar from '../../components/common/UserAvatar'
@@ -90,6 +92,7 @@ const OverviewEditModal = lazy(() => import('../../components/program/OverviewEd
 const ProgramDetailModal = lazy(() => import('../../components/program/ProgramDetailModal'))
 const ParticipantApprovalModal = lazy(() => import('../../components/program/ParticipantApprovalModal'))
 const InviteModal = lazy(() => import('../../components/program/InviteModal'))
+const CheerModal = lazy(() => import('../../components/program/CheerModal'))
 import {
   queryKeys,
   fetchProgram,
@@ -105,6 +108,7 @@ import {
   fetchCommunityPosts,
   fetchCommunityPendingPosts,
   fetchPendingReviews,
+  fetchActivationState,
   fetchProgramOverview,
   fetchUnresolvedReportCount,
   fetchMyMetricSummary,
@@ -592,6 +596,31 @@ function ProgramDetailPage() {
     queryFn: () => fetchPendingReviews(id),
     enabled: !!session && !!id && !!program && isOwner,
   })
+  // 활성화 넛지 — 운영자·발행·종료전 프로그램의 활성화 상태(참여자/첫인증)로 개요 상단 넛지.
+  const activationEnabled = !!session && !!id && !!program && isOwner
+    && program?.status === 'PUBLISHED'
+    && progressUrgency(calcProgress(program?.start_date, program?.end_date)).urgency !== 'ended'
+  const { data: activationState } = useQuery({
+    queryKey: ['activationState', id],
+    queryFn: () => fetchActivationState(id),
+    enabled: activationEnabled,
+  })
+  const toast = useToast()
+  const [cheerOpen, setCheerOpen] = useState(false)
+  // 넛지 초대 액션 — 초대코드형이면 InviteModal, 공개형이면 링크 공유/복사.
+  const handleActivationInvite = async () => {
+    if (program?.join_type === 'INVITE_CODE' && program?.invite_code) { setIsInviteOpen(true); return }
+    const url = `${window.location.origin}/programs/${id}`
+    try {
+      if (navigator.share) await navigator.share({ title: program?.name || '프로그램', url })
+      else { await navigator.clipboard.writeText(url); toast.show('프로그램 링크를 복사했어요') }
+    } catch { /* 공유 취소 등 무시 */ }
+  }
+  // 활성화 넛지 배너 — 조건 만족 시 렌더(재사용). 슬롯/페이지레벨 공통.
+  const activationNudgeEl = activationEnabled && activationState ? (
+    <ActivationNudge state={activationState} onInvite={handleActivationInvite} onCheer={() => setCheerOpen(true)} />
+  ) : null
+
   // 운영자 메뉴 「신고 관리」 배지 — 미처리 신고가 있는 콘텐츠 수
   const { data: unresolvedReportCount = 0 } = useQuery({
     queryKey: ['reportsUnresolvedCount', id],
@@ -1538,6 +1567,9 @@ function ProgramDetailPage() {
         )
       })()}
 
+      {/* 활성화 넛지 — 개요 최상단(운영자·개요탭·비관리·비immersive). immersive 는 슬롯 주입. */}
+      {activeTab === 'overview' && !immersiveHome && !inManager && activationNudgeEl}
+
       {/* 종료 리포트 진입 — 운영자 + 프로그램 종료 (개요 최상단, 인트로 연출). immersive 는 슬롯으로 주입.
           관리 폼(inManager)에선 immersiveHome 이 false 가 되므로 !inManager 로 제외. */}
       {isOwner && activeTab === 'overview' && !immersiveHome && !inManager
@@ -1806,6 +1838,7 @@ function ProgramDetailPage() {
                 onIntroDone={() => setPlayEndReportIntro(false)}
               />
             ) : null}
+            activationSlot={activationNudgeEl}
             classSlot={classOverviewSlot}
             quizEnabled={quizEnabled && !isViewer}
             communityEnabled={communityEnabled}
@@ -2701,6 +2734,15 @@ function ProgramDetailPage() {
             code={program.invite_code}
             isOpen={true}
             onClose={() => setIsInviteOpen(false)}
+          />
+        )}
+        {cheerOpen && activationState?.participantIds?.length > 0 && (
+          <CheerModal
+            programId={id}
+            targetUserIds={activationState.participantIds}
+            groupLabel="참여자 전원"
+            variant="cheer"
+            onClose={() => setCheerOpen(false)}
           />
         )}
       </Suspense>

@@ -380,6 +380,28 @@ export const fetchProgramRejected = async (programId) => {
 // 「오늘의 운영」 참여 승인 탭 — 전체 ACTIVE 참여자(공개 프로그램 자동 참가 포함), 최신 참가순.
 //   승인 대기(PENDING)와 별개로, 승인 없이 바로 참가한 사람도 보여주기 위함.
 //   호출측에서 joined_at 로 「오늘 참가」를 파생. (참여자 수백↑ 되면 서버측 페이지네이션 전환)
+// 활성화 넛지용 가벼운 상태 — 활성 참여자 수·ID + 미션/인증 존재 여부.
+//   첫 프로그램 사망 방지: 참여자 0 / 참여했는데 첫 인증 0 을 개요 상단에서 감지해 넛지.
+export const fetchActivationState = async (programId) => {
+  if (!programId) return { participantCount: 0, participantIds: [], hasMission: false, hasActivity: false }
+  const [partRes, misRes] = await Promise.all([
+    supabase.from('program_participants').select('user_id').eq('program_id', programId).eq('status', 'ACTIVE'),
+    supabase.from('missions').select('id').eq('program_id', programId),
+  ])
+  if (partRes.error) throw partRes.error
+  if (misRes.error) throw misRes.error
+  const participantIds = (partRes.data || []).map(p => p.user_id)
+  const missionIds = (misRes.data || []).map(m => m.id)
+  let hasActivity = false
+  if (missionIds.length) {
+    const { count, error } = await supabase.from('verifications')
+      .select('id', { count: 'exact', head: true }).in('mission_id', missionIds)
+    if (error) throw error
+    hasActivity = (count || 0) > 0
+  }
+  return { participantCount: participantIds.length, participantIds, hasMission: missionIds.length > 0, hasActivity }
+}
+
 export const fetchProgramParticipants = async (programId) => {
   if (!programId) return []
   const { data, error } = await supabase
