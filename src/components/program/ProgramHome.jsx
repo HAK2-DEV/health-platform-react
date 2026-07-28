@@ -211,6 +211,7 @@ function ProgramHome({
   onOpenTab = () => {},
   onRecord = () => {},
   onNotice = null,
+  noticeUnread = false,       // 새 공지 미열람 → 공지 아이콘에 빨간 점(콩닥)
   newMissionCount = 0,        // 새 미션 개수 (NEW 배지)
   newQuizCount = 0,           // 새 퀴즈 개수
 }) {
@@ -230,7 +231,10 @@ function ProgramHome({
         onClick={onNotice || (() => onOpenTab('community'))}
         className="w-full flex items-center gap-3 rounded-2xl p-3.5 bg-white border border-gray-100 shadow-soft text-left hover:bg-gray-50 transition"
       >
-        <span className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center flex-shrink-0 text-[15px]">📢</span>
+        <span className="relative inline-flex flex-shrink-0">
+          <Icon3D src="/icons/feature/notice.png" emoji="📢" className="w-8 h-8" />
+          {noticeUnread && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-white notice-dot-pulse" />}
+        </span>
         <div className="flex-1 min-w-0">
           <p className="text-[13px] font-bold text-gray-800">공지사항</p>
           <p className="text-[12px] text-gray-500 truncate">{notice || '등록된 공지가 없어요'}</p>

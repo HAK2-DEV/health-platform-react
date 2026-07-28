@@ -17,7 +17,7 @@ import ReportsManageSection from '../../components/program/ReportsManageSection'
 // 「오늘의 운영」 상세 — 단일 4탭 (/programs/:id/operator-today?tab=review|join|report|rate).
 //   대시보드 「오늘의 운영 현황」 타일 클릭 시 진입. 선택 프로그램 기준.
 //   인증심사·참여승인은 인라인 처리(승인/거절), 신고처리는 ReportsManageSection 재사용, 참여율은 오늘 인증/미인증 명단.
-const ICON = { review: '/icons/operator/review.png', join: '/icons/operator/approve.png', report: '/icons/operator/report.png', rate: '/icons/operator/rate.png' }
+const ICON = { review: '/icons/operator/review.png', join: '/icons/operator/approve.png', report: '/icons/operator/report-flag.png', rate: '/icons/operator/rate.png' }
 const TAB_KEYS = ['review', 'join', 'report', 'rate']
 const TABS = [
   { key: 'review', label: '인증 심사', accent: 'bg-emerald-50 text-emerald-700' },

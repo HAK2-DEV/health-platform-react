@@ -4,6 +4,7 @@ import { Calendar, MapPin, Users, Loader2, Check, Pencil, X } from 'lucide-react
 import { supabase } from '../../supabaseClient'
 import { fetchSession, fetchMyRegistrations, registerSession, cancelSessionRegistration, fetchMyAttendance, requestSelfAttendance, checkInWithCode, updateSession, formatKstDate } from '../../lib/queries'
 import { catOf } from '../../lib/classCategories'
+import { useAvatarViewer } from '../../contexts/AvatarViewerContext'
 import AttendanceRosterModal from './AttendanceRosterModal'
 import CoverImageUploader from '../common/CoverImageUploader'
 
@@ -24,8 +25,47 @@ const WD = ['일', '월', '화', '수', '목', '금', '토']
 const dLabel = (iso) => { const d = new Date(iso); return `${d.getMonth() + 1}/${d.getDate()}(${WD[d.getDay()]})` }
 const tLabel = (iso) => { const d = new Date(iso); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` }
 
+// 정원 충족도 → 색·문구. 찰수록 여유(초록)→모집중(주황)→곧 마감(빨강) 으로 긴박감을 준다.
+//   임계: 10% 미만 아주 여유 / 50%~ 모집중 / 80%~ 곧 마감 / 가득 마감.
+function capacityTier(joined, capacity) {
+  const pct = capacity > 0 ? joined / capacity : 0
+  if (capacity > 0 && joined >= capacity) return { pct: 1, color: '#ef4444', label: '마감됐어요', cls: 'text-red-600' }
+  if (pct >= 0.8) return { pct, color: '#ef4444', label: '곧 마감돼요', cls: 'text-red-600' }
+  if (pct >= 0.5) return { pct, color: '#f59e0b', label: '모집 중', cls: 'text-amber-600' }
+  if (pct >= 0.1) return { pct, color: '#10b981', label: '여유 있어요', cls: 'text-emerald-600' }
+  return { pct, color: '#34d399', label: '여유 있어요', cls: 'text-emerald-600' }  // 10% 미만 (연한 초록)
+}
+
+// 정원 링 — 미션/퀴즈 제출 링(대시보드 RankRing)과 동일한 SVG 원주 기법.
+function CapacityBlock({ joined, capacity, points }) {
+  const R = 26, C = 2 * Math.PI * R
+  const t = capacityTier(joined, capacity)
+  const shown = Math.max(t.pct, joined > 0 ? 0.04 : 0)   // 1명이라도 있으면 최소 호(arc) 보이게
+  return (
+    <div className="flex items-center gap-3">
+      <div className="relative w-16 h-16 flex-shrink-0">
+        <svg viewBox="0 0 64 64" className="w-full h-full -rotate-90">
+          <circle cx="32" cy="32" r={R} fill="none" stroke="#eef1ee" strokeWidth="6" />
+          <circle cx="32" cy="32" r={R} fill="none" stroke={t.color} strokeWidth="6" strokeLinecap="round"
+            strokeDasharray={C} strokeDashoffset={C * (1 - shown)}
+            style={{ transition: 'stroke-dashoffset .6s ease, stroke .3s ease' }} />
+        </svg>
+        <div className="absolute inset-0 flex items-center justify-center leading-none">
+          <span className="text-[14px] font-extrabold text-gray-900">{joined}<span className="text-[10px] text-gray-400 font-bold">/{capacity}</span></span>
+        </div>
+      </div>
+      <div className="min-w-0">
+        <p className="text-[13px] font-bold text-gray-800">정원 {joined}/{capacity}명</p>
+        <p className={`text-[12.5px] font-bold ${t.cls}`}>{t.label}</p>
+        <p className="text-[11px] text-gray-400">사전 신청{points ? ` · 출석 +${points}P` : ''}</p>
+      </div>
+    </div>
+  )
+}
+
 export default function ClassDetail({ sessionId, programId, userId, isOwner = false, attendanceMode = 'operator_roll', checkinBeforeMin = 30, programEnded = false }) {
   const qc = useQueryClient()
+  const { open: openAvatar } = useAvatarViewer()
   const { data: s, isLoading } = useQuery({ queryKey: ['session', sessionId], queryFn: () => fetchSession(sessionId), enabled: !!sessionId })
   const { data: myRegs = {} } = useQuery({
     queryKey: ['my-registrations', programId, userId], queryFn: () => fetchMyRegistrations({ programId, userId }), enabled: !!programId && !!userId,
@@ -115,7 +155,15 @@ export default function ClassDetail({ sessionId, programId, userId, isOwner = fa
       {s.instructor && (
         <div className="rounded-2xl bg-white border border-gray-100 shadow-soft p-4 flex items-center gap-3">
           {s.instructor.photo_path
-            ? <img src={supabase.storage.from('program-covers').getPublicUrl(s.instructor.photo_path).data?.publicUrl} alt="" loading="lazy" decoding="async" className="w-12 h-12 rounded-full object-cover flex-shrink-0" />
+            ? (() => {
+                const photoUrl = supabase.storage.from('program-covers').getPublicUrl(s.instructor.photo_path).data?.publicUrl
+                return (
+                  <button type="button" onClick={() => openAvatar({ url: photoUrl, nickname: `${s.instructor.name || ''} 강사`.trim() })}
+                    className="flex-shrink-0 rounded-full focus:outline-none focus:ring-2 focus:ring-emerald-300" aria-label="강사 사진 크게 보기">
+                    <img src={photoUrl} alt="" loading="lazy" decoding="async" className="w-12 h-12 rounded-full object-cover" />
+                  </button>
+                )
+              })()
             : <span className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-700 text-lg font-bold flex items-center justify-center flex-shrink-0">{(s.instructor.name || '?')[0]}</span>}
           <div className="min-w-0">
             <p className="text-[15px] font-bold text-gray-900">{s.instructor.name} 강사</p>
@@ -132,9 +180,13 @@ export default function ClassDetail({ sessionId, programId, userId, isOwner = fa
         {(s.place_name || s.place_address) && (
           <p className="flex items-center gap-2 text-[13px] text-gray-700"><MapPin className="w-4 h-4 text-emerald-500 flex-shrink-0" />{[s.place_name, s.place_address].filter(Boolean).join(' · ')}</p>
         )}
-        <p className="flex items-center gap-2 text-[13px] text-gray-700"><Users className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-          {isRsvp ? `정원 ${s.joined ?? 0}/${s.capacity ?? '∞'}명 · 사전 신청` : '자유 참여'}{s.points ? ` · 출석 +${s.points}P` : ''}
-        </p>
+        {isRsvp && s.capacity ? (
+          <CapacityBlock joined={s.joined ?? 0} capacity={s.capacity} points={s.points} />
+        ) : (
+          <p className="flex items-center gap-2 text-[13px] text-gray-700"><Users className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+            {isRsvp ? '정원 무제한 · 사전 신청' : '자유 참여'}{s.points ? ` · 출석 +${s.points}P` : ''}
+          </p>
+        )}
       </div>
 
       {/* 안내 */}

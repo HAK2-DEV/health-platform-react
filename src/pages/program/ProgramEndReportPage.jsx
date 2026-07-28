@@ -680,7 +680,7 @@ function MissionsCard({ report, diagnosis }) {
               <span className="font-semibold text-emerald-700">{formatKoreanDate(peakDay.date)}</span> 에 가장 활발했어요 ({peakDay.count}건)
             </p>
           )}
-          <ParticipationTrendChart data={trend} field="count" unit="건" maxCap={Infinity} interaction="scrub" />
+          <ParticipationTrendChart data={trend} field="count" unit="건" maxCap={Infinity} interaction="tap" />
         </div>
       )}
 
@@ -1148,7 +1148,7 @@ function ModerationCard({ groups, programDays, programId, navigate }) {
   const fmtH = (h) => (h == null ? '-' : h < 1 ? `${Math.max(1, Math.round(h * 60))}분` : `${Math.round(h)}시간`)
 
   const Flag = () => (
-    <span className="inline-flex items-center justify-center flex-shrink-0" style={{ width: 26, height: 26, borderRadius: 9, background: '#fdece0', fontSize: 13 }}>🚩</span>
+    <img src="/icons/operator/report-flag.png" alt="" aria-hidden="true" className="flex-shrink-0 object-contain" style={{ width: 26, height: 26 }} />
   )
 
   // 빈 상태 — 깨끗하게 운영됨(긍정)

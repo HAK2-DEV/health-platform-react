@@ -92,6 +92,7 @@ export default function ParticipationTrendChart({ data, height = 200, field = 'r
     const zoomAt = (px, f) => { const sp = (W - PAD.l - PAD.r) / Math.max(1, count - 1); const focus = start + (px - PAD.l) / sp; const nc = Math.max(5, Math.min(N, Math.round(count * f))); const ratio = (focus - start) / count; count = nc; start = focus - ratio * nc; clampView(); draw() }
 
     const scrub = interaction === 'scrub'
+    const tap = interaction === 'tap'   // 탭하면 그 지점 툴팁 고정(누르고 있을 필요 없음). 다시 탭하면 이동.
     const onDown = (e) => {
       cv.setPointerCapture(e.pointerId)
       if (scrub) { active = idxAtX(e.offsetX); draw(); return }
@@ -104,7 +105,8 @@ export default function ParticipationTrendChart({ data, height = 200, field = 'r
       else { active = idxAtX(e.offsetX); draw() }
     }
     const onUp = () => { drag = null; if (scrub) { active = null; draw() } }
-    const onLeave = () => { if (scrub || !drag) { active = null; draw() } }
+    // tap 모드: 탭한 값 툴팁을 pointer leave 에도 유지(고정). scrub/pan 은 종전대로.
+    const onLeave = () => { if (scrub || (!drag && !tap)) { active = null; draw() } }
     const onWheel = (e) => { e.preventDefault(); zoomAt(e.offsetX, e.deltaY > 0 ? 1.15 : 0.87) }
     const tdist = (e) => { const a = e.touches[0], b = e.touches[1]; return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) }
     const onTStart = (e) => { if (e.touches.length === 2) { drag = null; pinch = { d: tdist(e), c: count } } }
@@ -128,7 +130,7 @@ export default function ParticipationTrendChart({ data, height = 200, field = 'r
     }
   }, [data, field, unit, maxCap, subField, subUnit, interaction])
 
-  // 스크럽=세로 스크롤 페이지로 넘김(pan-y), 비대화형=auto(탭 통과), 기본(pan)=none
-  const touchAction = interaction === 'scrub' ? 'pan-y' : interaction === 'none' ? 'auto' : 'none'
+  // 스크럽/탭=세로 스크롤 허용(pan-y), 비대화형=auto(탭 통과), 기본(pan)=none
+  const touchAction = (interaction === 'scrub' || interaction === 'tap') ? 'pan-y' : interaction === 'none' ? 'auto' : 'none'
   return <canvas ref={cvRef} style={{ width: '100%', height: `${height}px`, display: 'block', touchAction, borderRadius: '10px', userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }} />
 }

@@ -95,7 +95,7 @@ function ProgramStatsUserCommentsPage() {
 
       <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
         <p className="text-xs text-gray-500 mb-1">{userInfo?.nickname || '(유저)'}</p>
-        <h1 className="text-2xl font-medium text-gray-800 flex items-center gap-2">💬 작성한 댓글</h1>
+        <h1 className="text-2xl font-medium text-gray-800 flex items-center gap-2"><img src="/icons/mypage/comments.png" alt="" aria-hidden="true" className="w-7 h-7 object-contain" /> 작성한 댓글</h1>
       </div>
 
       {allComments.length === 0 ? (

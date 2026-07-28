@@ -476,22 +476,25 @@ export const fetchMyTodayActivity = async (userId) => {
 export const fetchProgramsContentTimes = async (programIds, userId = null) => {
   const ids = (programIds || []).filter(Boolean)
   if (!ids.length) return {}
-  const [mRes, qRes, partRes] = await Promise.all([
+  const [mRes, qRes, sRes, partRes] = await Promise.all([
     supabase.from('missions').select('id, program_id, created_at').in('program_id', ids),
     supabase.from('quizzes').select('id, program_id, created_at').in('program_id', ids),
+    supabase.from('sessions').select('id, program_id, created_at').in('program_id', ids),  // 클래스 NEW 용
     userId
       ? supabase.from('program_participants').select('program_id, joined_at').eq('user_id', userId).in('program_id', ids)
       : Promise.resolve({ data: [], error: null }),
   ])
   if (mRes.error) throw mRes.error
   if (qRes.error) throw qRes.error
+  // 클래스는 보조 정보 — RLS/미설정 등으로 실패해도 미션/퀴즈 NEW 는 유지(조용히 스킵)
   const joinedMap = {}
   for (const p of partRes.data || []) joinedMap[p.program_id] = p.joined_at
   const out = {}
-  const bucket = (pid) => (out[pid] || (out[pid] = { missions: [], quizzes: [], joinedAt: joinedMap[pid] || null }))
+  const bucket = (pid) => (out[pid] || (out[pid] = { missions: [], quizzes: [], classes: [], joinedAt: joinedMap[pid] || null }))
   for (const pid of ids) bucket(pid)
   for (const m of mRes.data || []) bucket(m.program_id).missions.push(m)
   for (const q of qRes.data || []) bucket(q.program_id).quizzes.push(q)
+  if (!sRes.error) for (const s of sRes.data || []) bucket(s.program_id).classes.push(s)
   return out
 }
 
@@ -1733,6 +1736,17 @@ export const createReport = async ({ programId, targetType, targetId, reason }) 
 // 운영자 신고 관리 — 프로그램의 모든 신고를 대상별로 묶어, 신고자(닉네임)·사유·횟수 +
 //   대상 콘텐츠 현재 상태까지 한 번에. 신고자 신원은 운영자에게만(RLS: owner SELECT).
 //   반환: [{ targetType, targetId, target, deleted, hidden, reporters:[{id,nickname,avatar_path,reason,created_at}], latestAt }]
+// 신고자별 오신고(기각) 이력 — 운영자 전용. 상습 허위신고자 식별용.
+//   RPC 미적용(구버전) 이거나 권한 오류면 조용히 빈 맵 → 칩만 안 뜨고 나머지는 정상.
+//   반환: { [reporterId]: { total, dismissed } }
+export const fetchReporterReportStats = async (programId) => {
+  const { data, error } = await supabase.rpc('get_reporter_report_stats', { p_program_id: programId })
+  if (error || !Array.isArray(data)) return {}
+  const map = {}
+  for (const r of data) map[r.reporter_id] = { total: r.total || 0, dismissed: r.dismissed || 0 }
+  return map
+}
+
 export const fetchProgramReports = async (programId) => {
   const { data: reports, error } = await supabase
     .from('reports')
@@ -1756,7 +1770,7 @@ export const fetchProgramReports = async (programId) => {
   if (verIds.length) {
     const { data } = await supabase
       .from('verifications')
-      .select('id, note, image_path, feed_visible, mission_id, missions(title), user:users(id, nickname)')
+      .select('id, note, image_path, feed_visible, mission_id, missions(title), user:users!user_id(id, nickname)')
       .in('id', verIds)
     for (const v of (data || [])) verMap[v.id] = v
   }
@@ -1783,6 +1797,7 @@ export const fetchProgramReports = async (programId) => {
     if (!r.resolved) g.unresolved += 1
     g.reporters.push({
       id: r.id,
+      userId: r.reporter?.id || null,
       nickname: r.reporter?.nickname || '(알 수 없음)',
       avatar_path: r.reporter?.avatar_path || null,
       reason: r.reason || null,
@@ -2175,6 +2190,23 @@ export const rejectVerification = async ({ id, reason, reviewerId }) => {
   const { error } = await supabase.from('verifications')
     .update({ status: 'REJECTED', reviewed_at: new Date().toISOString(), reviewer_id: reviewerId, rejection_reason: reason })
     .eq('id', id)
+  if (error) throw error
+}
+
+// 일괄 심사 — 그리드 검토(예외만 골라내기)용. 한 번의 UPDATE(.in)로 여러 건 처리 →
+//   행마다 grant_score(승인)/notify_on_verification_review 트리거가 각각 발화한다.
+export const approveVerifications = async ({ ids, reviewerId }) => {
+  if (!ids?.length) return
+  const { error } = await supabase.from('verifications')
+    .update({ status: 'APPROVED', reviewed_at: new Date().toISOString(), reviewer_id: reviewerId })
+    .in('id', ids)
+  if (error) throw error
+}
+export const rejectVerifications = async ({ ids, reason, reviewerId }) => {
+  if (!ids?.length) return
+  const { error } = await supabase.from('verifications')
+    .update({ status: 'REJECTED', reviewed_at: new Date().toISOString(), reviewer_id: reviewerId, rejection_reason: reason })
+    .in('id', ids)
   if (error) throw error
 }
 
@@ -2843,7 +2875,7 @@ export async function fetchProgramDistanceByUser(programId) {
 export async function fetchProgramClassStats(programId) {
   const [sessRes, attRes] = await Promise.all([
     supabase.from('sessions')
-      .select('id, title, category, starts_at, capacity, points, signup_mode, registered_count, instructor:instructors(name)')
+      .select('id, title, category, starts_at, created_at, capacity, points, signup_mode, registered_count, instructor:instructors(name)')
       .eq('program_id', programId).order('starts_at', { ascending: true }),
     supabase.from('session_attendance')
       .select('session_id, user_id, sessions!inner(program_id)')
@@ -2866,7 +2898,7 @@ export async function fetchProgramClassStats(programId) {
     totalConfirmed += confirmed
     pointsGranted += confirmed * (s.points || 0)
     return {
-      id: s.id, title: s.title, category: s.category, starts_at: s.starts_at,
+      id: s.id, title: s.title, category: s.category, starts_at: s.starts_at, created_at: s.created_at,
       capacity: s.capacity, points: s.points || 0, signup_mode: s.signup_mode,
       registered: s.registered_count || 0, confirmed, instructor: s.instructor?.name || null,
     }

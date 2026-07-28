@@ -9,6 +9,7 @@ import {
   fetchProgram,
   fetchProgramStats,
   fetchProgramQuizStats,
+  fetchProgramClassStats,
 } from '../../lib/queries'
 import LoadingState from '../../components/common/LoadingState'
 import EmptyState from '../../components/common/EmptyState'
@@ -50,6 +51,14 @@ function ProgramStatsPage() {
     queryKey: queryKeys.programQuizStats(id),
     queryFn: () => fetchProgramQuizStats(id),
     enabled: !!session && !!id && isOwner,
+  })
+
+  // 클래스 요약 — 클래스 기능 ON 일 때만. 카드 미리보기 + 디테일 페이지 공유 캐시
+  const classEnabled = !!program?.class_feature_enabled
+  const { data: classStats } = useQuery({
+    queryKey: ['program-class-stats', id],
+    queryFn: () => fetchProgramClassStats(id),
+    enabled: !!session && !!id && isOwner && classEnabled,
   })
 
   // 스크롤 위치 저장·복원 — 미션별/참여 유저 등으로 갔다 뒤로 돌아올 때 이전 위치 그대로.
@@ -199,6 +208,28 @@ function ProgramStatsPage() {
             </div>
             <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
           </button>
+
+          {/* 클래스 카드 — 클래스 기능 ON 일 때만 */}
+          {classEnabled && (
+            <button
+              type="button"
+              onClick={() => navigate(`/programs/${id}/stats/classes`)}
+              className="w-full flex items-center gap-4 p-5 bg-white border border-gray-200 rounded-2xl hover:bg-gray-50 hover:border-amber-300 transition text-left"
+            >
+              <img src="/icons/feature/attendance.png" alt="" aria-hidden="true" className="w-12 h-12 flex-shrink-0 object-contain" />
+              <div className="flex-1 min-w-0">
+                <h3 className="font-medium text-gray-800 mb-0.5">
+                  클래스 현황
+                </h3>
+                <p className="text-xs text-gray-500">
+                  {!classStats || classStats.sessionCount === 0
+                    ? '아직 등록된 클래스가 없어요'
+                    : `클래스 ${classStats.sessionCount}개 · 출석 ${classStats.totalConfirmed}건${classStats.attendanceRate != null ? ` · 출석률 ${classStats.attendanceRate}%` : ''}`}
+                </p>
+              </div>
+              <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
+            </button>
+          )}
         </motion.div>
         </>
       )}

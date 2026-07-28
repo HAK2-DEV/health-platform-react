@@ -8,8 +8,9 @@ function ReportModal({ isOpen, onClose, programId, targetType, targetId, onRepor
   const [reason, setReason] = useState('')
   const [error, setError] = useState(null)
   const [done, setDone] = useState(false)
+  const [showHelp, setShowHelp] = useState(false)
 
-  useEffect(() => { if (isOpen) { setReason(''); setError(null); setDone(false) } }, [isOpen])
+  useEffect(() => { if (isOpen) { setReason(''); setError(null); setDone(false); setShowHelp(false) } }, [isOpen])
 
   const mutation = useMutation({
     mutationFn: () => createReport({ programId, targetType, targetId, reason: reason.trim() || null }),
@@ -33,7 +34,25 @@ function ReportModal({ isOpen, onClose, programId, targetType, targetId, onRepor
           </div>
         ) : (
           <>
-            <h4 className="text-[15px] font-bold text-gray-800 mb-1">🚩 신고</h4>
+            <div className="flex items-center gap-1 mb-1">
+              <h4 className="text-[15px] font-bold text-gray-800">🚩 신고</h4>
+              <span className="relative inline-flex">
+                <button type="button" aria-label="신고가 어떻게 처리되는지 설명"
+                  onClick={() => setShowHelp(v => !v)}
+                  className="inline-flex items-center justify-center flex-shrink-0"
+                  style={{ width: 15, height: 15, borderRadius: '50%', background: '#eef1ee', color: '#4b544f', fontSize: 10, fontWeight: 700 }}>?</button>
+                {showHelp && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setShowHelp(false)} />
+                    <div className="absolute bottom-full left-0 mb-2 z-20 w-60 rounded-lg bg-gray-900 text-white text-[11.5px] font-normal leading-relaxed px-3.5 py-3 shadow-lg divide-y divide-white/10">
+                      <p className="pb-2.5"><b>여러 명이 신고해야 가려져요.</b><br />한 명만으로는 안 숨겨져요.</p>
+                      <p className="py-2.5"><b>삭제가 아니에요.</b><br />잠깐 가려졌다가 괜찮으면 다시 보여요.</p>
+                      <p className="pt-2.5"><b>신고한 사람은 비밀이에요.</b><br />운영자만 볼 수 있어요.</p>
+                    </div>
+                  </>
+                )}
+              </span>
+            </div>
             <p className="text-[12px] text-gray-500 mb-2">신고 사유를 골라주세요 (선택). 누적되면 자동으로 가려집니다.</p>
             {/* 기본 사유 프리셋 — 탭하면 사유 채움(다시 탭하면 해제) */}
             <div className="flex flex-wrap gap-1.5 mb-2.5">

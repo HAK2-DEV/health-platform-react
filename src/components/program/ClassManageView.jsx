@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { Plus, Calendar, MapPin, Users, Pencil, Trash2, X, ChevronDown, ChevronUp, Camera, Loader2 } from 'lucide-react'
+import { Plus, Calendar, MapPin, Users, Pencil, Trash2, Copy, X, ChevronDown, ChevronUp, Camera, Loader2 } from 'lucide-react'
 import { CLASS_CAT_LIST, catOf } from '../../lib/classCategories'
 import ConfirmModal from '../common/ConfirmModal'
 import ImageCropModal from '../common/ImageCropModal'
@@ -153,7 +153,7 @@ function InstructorForm({ initial, onSave, onClose, busy }) {
 const pad2 = (n) => String(n).padStart(2, '0')
 const toDateInput = (iso) => { if (!iso) return ''; const d = new Date(iso); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}` }
 const toTimeInput = (iso) => { if (!iso) return ''; const d = new Date(iso); return `${pad2(d.getHours())}:${pad2(d.getMinutes())}` }
-function SessionForm({ instructors, initial, onSave, onClose, busy }) {
+function SessionForm({ instructors, initial, isEdit = false, onSave, onClose, busy }) {
   const [title, setTitle] = useState(initial?.title || '')
   const [category, setCategory] = useState(initial?.category || 'yoga')
   const [instructorId, setInstructorId] = useState(initial?.instructor_id ?? instructors[0]?.id ?? '')
@@ -182,7 +182,7 @@ function SessionForm({ instructors, initial, onSave, onClose, busy }) {
     })
   }
   return (
-    <Overlay onClose={onClose} title={initial ? '클래스 수정' : '클래스 추가'} wide>
+    <Overlay onClose={onClose} title={isEdit ? '클래스 수정' : (initial ? '클래스 복사' : '클래스 추가')} wide>
       <Field label="클래스 제목 *"><input className={inputCls} value={title} onChange={e => setTitle(e.target.value)} placeholder="예: 하타 요가 · 코어 안정화" /></Field>
       <div className="grid grid-cols-2 gap-2">
         <Field label="종목">
@@ -310,8 +310,9 @@ export default function ClassManageView({
                   <div className="flex items-center gap-2 mb-1.5">
                     <span className={`inline-flex items-center gap-1 pl-1 pr-2 h-6 rounded-lg text-[11px] font-bold ${c.pill}`}>{c.icon ? <img src={c.icon} alt="" aria-hidden="true" className="w-4 h-4 object-contain" /> : c.emoji} {c.label}</span>
                     <span className="text-[11px] text-gray-400">{s.signup_mode === 'rsvp' ? '사전 신청' : '자유 참여'}</span>
-                    <button type="button" onClick={() => setSessForm(s)} className="ml-auto p-1 text-gray-300 hover:text-emerald-600"><Pencil className="w-4 h-4" /></button>
-                    <button type="button" onClick={() => setConfirm({ kind: 'sess', id: s.id, name: s.title })} className="p-1 text-gray-300 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                    <button type="button" onClick={() => setSessForm(s)} className="ml-auto p-1 text-gray-300 hover:text-emerald-600" title="수정"><Pencil className="w-4 h-4" /></button>
+                    <button type="button" onClick={() => setSessForm({ ...s, id: undefined, _copy: true, title: `${s.title} (사본)` })} className="p-1 text-gray-300 hover:text-emerald-600" title="복사"><Copy className="w-4 h-4" /></button>
+                    <button type="button" onClick={() => setConfirm({ kind: 'sess', id: s.id, name: s.title })} className="p-1 text-gray-300 hover:text-red-500" title="삭제"><Trash2 className="w-4 h-4" /></button>
                   </div>
                   <p className="text-[15px] font-bold text-gray-900 mb-1.5">{s.title}</p>
                   <div className="space-y-1 text-[12px] text-gray-500">
@@ -347,12 +348,13 @@ export default function ClassManageView({
       {sessForm && (
         <SessionForm
           instructors={instructors}
-          initial={sessForm.id ? sessForm : null}
+          initial={(sessForm.id || sessForm._copy) ? sessForm : null}
+          isEdit={!!sessForm.id}
           busy={busy}
           onClose={() => setSessForm(null)}
           onSave={(payload) => {
             if (sessForm.id) onUpdateSession?.(sessForm.id, payload)
-            else onCreateSession?.(payload)
+            else onCreateSession?.(payload)   // 복사(_copy)는 id 없음 → 새 클래스로 생성
             setSessForm(null)
           }}
         />

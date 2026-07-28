@@ -7,7 +7,7 @@ import RunningCourseMini from './RunningCourseMini'
 import CountUp from '../common/CountUp'
 import { Reveal } from './statsAnim'
 import TapRunner from './TapRunner'
-import { NavCard } from './ProgramHome'
+import { NavCard, Icon3D } from './ProgramHome'
 
 // 달리기 테마 전용 홈(대시보드) — 목업 기준 UI (2026-06-30, v2).
 //   변경: 히어로에 추천페이스+주간스트릭 통합(층층이), 회복점수→칼로리, 운영자 설정 페이스, 일러스트 연결.
@@ -304,6 +304,7 @@ function RunningHome({
   newMissionCount = 0,           // 새 미션/퀴즈 NEW 배지
   newQuizCount = 0,
   onNotice = null,               // 공지 클릭 동작(미지정 시 커뮤니티 탭으로)
+  noticeUnread = false,          // 새 공지 미열람 → 공지 아이콘에 빨간 점(콩닥)
   classSlot = null,              // 강사 클래스 개요 진입 카드 (기능 ON 시 주입)
   quizEnabled = true,            // 마법사 「퀴즈」 토글
   communityEnabled = true,       // 마법사 「커뮤니티」 토글
@@ -372,7 +373,10 @@ function RunningHome({
       <Reveal index={2}>
       <button type="button" onClick={onNotice || (() => onOpenTab('community'))}
         className="w-full flex items-center gap-3 rounded-2xl p-3.5 bg-white border border-gray-100 shadow-soft text-left hover:bg-gray-50 transition">
-        <span className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center flex-shrink-0"><Megaphone className="w-4 h-4 text-emerald-500" /></span>
+        <span className="relative inline-flex flex-shrink-0">
+          <Icon3D src="/icons/feature/notice.png" emoji="📢" className="w-8 h-8" />
+          {noticeUnread && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-white notice-dot-pulse" />}
+        </span>
         <div className="flex-1 min-w-0">
           <p className="text-[13px] font-bold text-gray-800">공지사항</p>
           <p className="text-[12px] text-gray-500 truncate">{notice}</p>

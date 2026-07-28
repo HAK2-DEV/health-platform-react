@@ -51,9 +51,10 @@ const CHIP_COLORS = [
   'bg-rose-50 text-rose-700',
 ]
 const REPORT_OPTIONS = [
+  { key: '2', label: '신고 2회', desc: '서로 다른 2명 신고 시 (권장)' },
+  { key: '3', label: '신고 3회', desc: '3명 누적 시 숨김' },
+  { key: '5', label: '신고 5회', desc: '5명 누적 시 숨김' },
   { key: 'auto', label: '즉시 숨김', desc: '신고 1회로 바로 숨김' },
-  { key: '3', label: '신고 3회', desc: '3회 누적 시 숨김' },
-  { key: '5', label: '신고 5회', desc: '5회 누적 시 숨김' },
 ]
 
 function LayoutPreview({ type }) {
@@ -255,7 +256,7 @@ const CommunityManagePanel = forwardRef(function CommunityManagePanel({ program,
   const [noticeEnabled, setNoticeEnabled] = useState(true)
   const [reactionAuto, setReactionAuto] = useState(true)
   const [previewCard, setPreviewCard] = useState(true)
-  const [reportPolicy, setReportPolicy] = useState('auto')
+  const [reportPolicy, setReportPolicy] = useState('2')
 
   useEffect(() => {
     if (!program) return
@@ -266,7 +267,7 @@ const CommunityManagePanel = forwardRef(function CommunityManagePanel({ program,
     setNoticeEnabled(s.noticeEnabled !== false)
     setReactionAuto(s.reactionAuto !== false)
     setPreviewCard(s.previewCard !== false)
-    setReportPolicy(s.reportPolicy || 'auto')
+    setReportPolicy(s.reportPolicy || '2')
   }, [program])
 
   const [boardToDelete, setBoardToDelete] = useState(null)  // 게시판 삭제 확인 (board id)
@@ -484,7 +485,7 @@ const CommunityManagePanel = forwardRef(function CommunityManagePanel({ program,
           <h3 className="flex items-center gap-1.5 text-[15px] font-bold text-gray-800">{numBadge(4)} 신고 / 숨김 정책</h3>
           <div className="flex items-center gap-1.5">
             <span className="text-[11px] text-gray-500">자동 숨김</span>
-            <Toggle on={reportPolicy !== 'off'} onClick={() => setReportPolicy(p => p === 'off' ? 'auto' : 'off')} />
+            <Toggle on={reportPolicy !== 'off'} onClick={() => setReportPolicy(p => p === 'off' ? '2' : 'off')} />
           </div>
         </div>
         {reportPolicy === 'off' ? (
@@ -492,7 +493,7 @@ const CommunityManagePanel = forwardRef(function CommunityManagePanel({ program,
             신고가 쌓여도 자동으로 숨기지 않아요. 운영자가 「가려진 글 · 신고 관리」에서 직접 확인하고 처리합니다.
           </p>
         ) : (
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             {REPORT_OPTIONS.map(o => {
               const on = reportPolicy === o.key
               return (

@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Trash2, Check, Heart, Sprout, Hand, MessageCircle, Settings, Bell, FileText, Ban, Flag, Users } from 'lucide-react'
+import { Trash2, Check, Heart, Sprout, Hand, MessageCircle, Settings, Bell, FileText, Ban, Flag, Users, EyeOff } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../supabaseClient'
 import { formatRelativeKstDay, getTodayKST, toKSTDateString } from '../lib/formatters'
@@ -38,6 +38,7 @@ const TYPE_META = {
   INQUIRY_RECEIVED:       { cat: 'request', tone: 'sky',     icon: MessageCircle, iconCls: '' },
   INQUIRY_ANSWERED:       { cat: 'comment', tone: 'sky',     icon: MessageCircle, iconCls: '' },
   OPERATOR_CHEER:         { cat: 'like',    tone: 'pink',    icon: Heart,         iconCls: 'fill-current' },
+  CONTENT_HIDDEN:         { cat: 'verify',  tone: 'red',     icon: EyeOff,        iconCls: '' },
 }
 const DEFAULT_META = { cat: 'verify', tone: 'slate', icon: Bell, iconCls: '' }
 

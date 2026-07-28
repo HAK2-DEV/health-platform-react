@@ -8,6 +8,7 @@ function RejectReasonModal({
   title = '게시글을 거절할까요?',
   description,
   placeholder = '예: 게시판 주제와 맞지 않아요.',
+  presets = [],
 }) {
   const [reason, setReason] = useState('')
   useEffect(() => { if (isOpen) setReason('') }, [isOpen])
@@ -28,6 +29,16 @@ function RejectReasonModal({
           <label className="text-[12px] font-semibold text-gray-500">거절 사유 <span className="text-gray-400 font-normal">(작성자에게 전달)</span></label>
           <span className="text-[11px] text-gray-400">{reason.length}/100</span>
         </div>
+        {presets.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {presets.map(p => (
+              <button key={p} type="button" onClick={() => setReason(r => (r === p ? '' : p))}
+                className={`px-2.5 py-1 rounded-full text-[12px] font-semibold border transition ${reason === p ? 'bg-red-500 border-red-500 text-white' : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'}`}>
+                {p}
+              </button>
+            ))}
+          </div>
+        )}
         <textarea
           value={reason}
           onChange={(e) => setReason(e.target.value)}

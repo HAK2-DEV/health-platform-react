@@ -4,6 +4,7 @@ import { supabase } from '../supabaseClient'
 
 // 전역 프로필 사진 뷰어 — 어디서든 useAvatarViewer().open({ avatarPath, nickname }) 로 크게 보기.
 //   UserAvatar 의 viewable 옵션이 이 컨텍스트를 호출한다. 모달은 앱 루트에 1개만(포털처럼 최상위).
+//   avatarPath(=profile-avatars 버킷) 대신 url 을 직접 넘길 수도 있다(예: 강사 사진은 program-covers 버킷).
 const AvatarViewerContext = createContext(null)
 
 export function useAvatarViewer() {
@@ -24,9 +25,10 @@ export function AvatarViewerProvider({ children }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [view, close])
 
-  const url = view?.avatarPath
-    ? supabase.storage.from('profile-avatars').getPublicUrl(view.avatarPath).data?.publicUrl
-    : null
+  const url = view?.url
+    || (view?.avatarPath
+      ? supabase.storage.from('profile-avatars').getPublicUrl(view.avatarPath).data?.publicUrl
+      : null)
   const initial = (view?.nickname || '?').trim().charAt(0).toUpperCase() || '?'
 
   return (

@@ -40,6 +40,7 @@ const ProgramStatsUserCommentsPage = lazy(() => import('./pages/program/ProgramS
 const ProgramStatsUserVerificationsBundlePage = lazy(() => import('./pages/program/ProgramStatsUserVerificationsBundlePage'))
 const ProgramStatsUserVerificationsMissionPage = lazy(() => import('./pages/program/ProgramStatsUserVerificationsMissionPage'))
 const ProgramStatsQuizzesPage = lazy(() => import('./pages/program/ProgramStatsQuizzesPage'))
+const ProgramStatsClassesPage = lazy(() => import('./pages/program/ProgramStatsClassesPage'))
 const ProgramReviewsPage = lazy(() => import('./pages/program/ProgramReviewsPage'))
 const ProgramReviewsBundlePage = lazy(() => import('./pages/program/ProgramReviewsBundlePage'))
 const ProgramReviewsMissionPage = lazy(() => import('./pages/program/ProgramReviewsMissionPage'))
@@ -75,6 +76,7 @@ const OperatorGuidePage = lazy(() => import('./pages/OperatorGuidePage'))
 const SupportPage = lazy(() => import('./pages/SupportPage'))
 const OperatorTodayPage = lazy(() => import('./pages/program/OperatorTodayPage'))
 const RunnerAnimDemo = lazy(() => import('./pages/RunnerAnimDemo'))
+const NoticeAnimDemo = lazy(() => import('./pages/NoticeAnimDemo'))
 const UpdateDemoPage = lazy(() => import('./pages/UpdateDemoPage'))
 
 // 가입 승인 알림(/programs/:id/participants) → 프로그램 상세 + 승인 심사 모달 자동 오픈
@@ -200,6 +202,9 @@ function AppShell() {
             <Route path="/programs/:id/stats/quizzes" element={
               <ProtectedRoute><ProgramStatsQuizzesPage /></ProtectedRoute>
             } />
+            <Route path="/programs/:id/stats/classes" element={
+              <ProtectedRoute><ProgramStatsClassesPage /></ProtectedRoute>
+            } />
             <Route path="/programs/:id/reviews" element={
               <ProtectedRoute><ProgramReviewsPage /></ProtectedRoute>
             } />
@@ -261,6 +266,7 @@ function AppShell() {
               <ProtectedRoute><OperatorTodayPage /></ProtectedRoute>
             } />
             <Route path="/runner-anim-demo" element={<RunnerAnimDemo />} />
+            <Route path="/notice-anim-demo" element={<NoticeAnimDemo />} />
             <Route path="/update-demo" element={<UpdateDemoPage />} />
             <Route path="/support" element={
               <ProtectedRoute><SupportPage /></ProtectedRoute>

@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ChevronRight } from 'lucide-react'
 import { fetchSessions, formatKstDate } from '../../lib/queries'
 import { catOf } from '../../lib/classCategories'
+import { countNew } from '../../lib/newContent'
 
 // 개요 진입 카드 — 다가오는 클래스 2건 미리보기 + 「전체 보기」. class_feature_enabled 일 때만.
 //   card-home 카드와 폭 맞춤(w-[398px] mx-auto). 다가오는 일정 없으면 안내 1줄.
@@ -9,7 +10,7 @@ const WD = ['일', '월', '화', '수', '목', '금', '토']
 const dLabel = (iso) => { const d = new Date(iso); return `${d.getMonth() + 1}/${d.getDate()}(${WD[d.getDay()]})` }
 const tLabel = (iso) => { const d = new Date(iso); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` }
 
-export default function ClassOverviewCard({ programId, onOpenAll = () => {} }) {
+export default function ClassOverviewCard({ programId, joinedAt = null, onOpenAll = () => {} }) {
   const { data: sessions = [] } = useQuery({
     queryKey: ['sessions', programId], queryFn: () => fetchSessions(programId), enabled: !!programId,
   })
@@ -19,12 +20,15 @@ export default function ClassOverviewCard({ programId, onOpenAll = () => {} }) {
   const weekEnd = Date.now() + 7 * 24 * 3600 * 1000
   const thisWeek = upcoming.filter(s => new Date(s.starts_at).getTime() <= weekEnd).length
   const preview = upcoming.slice(0, 2)
+  // 새 클래스 — 마지막 열람(없으면 참여 시각) 이후 생성분. 클래스 목록 열면(markSeen) 사라짐.
+  const newCount = countNew(sessions, programId, 'classes', joinedAt)
 
   return (
     <div className="rounded-2xl bg-white border border-gray-100 shadow-soft p-4 mb-[9px] mx-auto w-[398px] max-w-full">
       <button type="button" onClick={onOpenAll} className="w-full flex items-center gap-2 mb-3 text-left">
         <img src="/icons/feature/attendance.png" alt="" aria-hidden="true" className="w-6 h-6 object-contain" />
         <h3 className="text-sm font-bold text-gray-800">클래스 일정</h3>
+        {newCount > 0 && <span className="px-1.5 py-[1px] rounded-full bg-red-500 text-white text-[9px] font-extrabold tracking-wide">NEW</span>}
         {thisWeek > 0 && <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 rounded-full px-2 py-0.5">이번 주 {thisWeek}</span>}
         <span className="ml-auto inline-flex items-center text-[12px] text-gray-400">전체 보기 <ChevronRight className="w-4 h-4" /></span>
       </button>

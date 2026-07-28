@@ -117,3 +117,14 @@ html, body {
   scrollbar-width: none;      /* Firefox */
   &::-webkit-scrollbar { display: none; }   /* Chrome/Safari/삼성인터넷 */
 }
+
+/* 공지 미열람 배지 — 새 공지가 등록되면 조회 전까지 빨간 점이 콩닥콩닥(주목).
+   공지 열람(markSeen) 시 배지 자체가 사라진다. reduce 설정이면 정지(점만 표시). */
+@keyframes notice-dot-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%      { transform: scale(1.4); opacity: 0.65; }
+}
+.notice-dot-pulse { animation: notice-dot-pulse 1.1s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .notice-dot-pulse { animation: none; }
+}

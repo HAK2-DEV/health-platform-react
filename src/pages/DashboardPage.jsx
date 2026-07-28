@@ -10,6 +10,7 @@ import ProgramBrowseModal from '../components/program/ProgramBrowseModal'
 import WelcomeOperatorModal from '../components/program/WelcomeOperatorModal'
 import ProgramCover from '../components/common/ProgramCover'
 import { countNew } from '../lib/newContent'
+import { Reveal } from '../components/program/statsAnim'
 import CountUp from '../components/common/CountUp'
 import LoadingState from '../components/common/LoadingState'
 import EmptyState from '../components/common/EmptyState'
@@ -45,8 +46,8 @@ const CalendarSolid = ({ className }) => (
 //   표지가 우측에서 흘러나오고 좌측은 흰 그라데이션으로 덮어 글자 가독성 확보.
 //   상태별 변형 — 진행중: 진행률 막대 / 준비중(시작 전): 진행률 0% 는 무의미하므로 기간 날짜.
 //   지표는 참여자·남은 기간 2개만 (오늘 참여율·누적 인증은 프로그램 통계에서).
-export function ProgramSlideCard({ program, participants, onClick, active = false, newMission = 0, newQuiz = 0 }) {
-  const newTotal = newMission + newQuiz
+export function ProgramSlideCard({ program, participants, onClick, active = false, newMission = 0, newQuiz = 0, newClass = 0 }) {
+  const newTotal = newMission + newQuiz + newClass
   const progress = calcProgress(program.start_date, program.end_date)
   const urg = progressUrgency(progress)
   const todayKst = new Intl.DateTimeFormat('en-CA', {
@@ -114,7 +115,7 @@ export function ProgramSlideCard({ program, participants, onClick, active = fals
           <h3 className="text-[17px] font-extrabold text-gray-900 truncate leading-tight mt-1.5">{program.name}</h3>
           {newTotal > 0 && (
             <p className="text-[10px] font-bold text-red-500 mt-0.5 truncate">
-              {[newMission > 0 && `새 미션 ${newMission}`, newQuiz > 0 && `새 퀴즈 ${newQuiz}`].filter(Boolean).join(' · ')}
+              {[newMission > 0 && `새 미션 ${newMission}`, newQuiz > 0 && `새 퀴즈 ${newQuiz}`, newClass > 0 && `새 클래스 ${newClass}`].filter(Boolean).join(' · ')}
             </p>
           )}
         </div>
@@ -377,11 +378,12 @@ function DashboardPage() {
   })
   const newCountsFor = (pid) => {
     const t = contentTimes?.[pid]
-    if (!t) return { mission: 0, quiz: 0 }
+    if (!t) return { mission: 0, quiz: 0, class: 0 }
     // 기준: localStorage lastSeen(탭 열면 갱신) 없으면 참여시각 → 참여 후 추가분이 new
     return {
       mission: countNew(t.missions, pid, 'missions', t.joinedAt),
       quiz: countNew(t.quizzes, pid, 'quizzes', t.joinedAt),
+      class: countNew(t.classes, pid, 'classes', t.joinedAt),
     }
   }
 
@@ -566,7 +568,7 @@ function DashboardPage() {
         {/* ─── 프로그램 — 토글 + 카드 캐러셀 (2026-07-16 목업).
              좌우 스와이프 = 현재 모드의 프로그램 넘기기(본인 결정). 모드 전환은 토글 전담.
              흰 SectionCard 로 감싸면 카드 속 카드가 되어, 헤더만 두고 카드는 배경 위에 띄움. ─── */}
-        <section>
+        <Reveal index={0}><section>
           <div className="flex items-center justify-between gap-2 mb-3">
             <div className="flex items-center gap-2 min-w-0">
               <h2 className="text-base font-bold text-gray-800 flex-shrink-0">프로그램</h2>
@@ -618,6 +620,7 @@ function DashboardPage() {
                       }}
                       newMission={newCountsFor(p.id).mission}
                       newQuiz={newCountsFor(p.id).quiz}
+                      newClass={newCountsFor(p.id).class}
                     />
                   </div>
                 ))}
@@ -632,10 +635,10 @@ function DashboardPage() {
             </>
           )}
           </ModeSlide>
-        </section>
+        </section></Reveal>
 
         {/* ─── 오늘의 활동 요약 / 운영 현황 — 모드별 4타일. 흰 카드 없이 페이지에 직접. ─── */}
-        <section>
+        <Reveal index={1}><section>
           <h2 className="text-base font-bold text-gray-800 mb-3">{showOperator ? '오늘의 운영 현황' : '오늘의 활동 요약'}</h2>
           <ModeSlide mode={effectiveMode} dir={modeDir}>
           <div className="grid grid-cols-4 gap-2.5">
@@ -666,11 +669,11 @@ function DashboardPage() {
             })}
           </div>
           </ModeSlide>
-        </section>
+        </section></Reveal>
 
         {/* ─── 내 점수 및 랭킹 — 제목 카드 밖으로(프로그램·활동요약과 통일). 박스 안: 트로피(좌) + 점수·랭킹(우).
              pt-1(4px): 본인 요청으로 이 섹션만 살짝 더 내림(space-y 마진과 충돌 없게 padding 사용) ─── */}
-        <section className="pt-1">
+        <Reveal index={2}><section className="pt-1">
           <div className="flex items-center justify-between gap-2 mb-3">
             <h2 className="text-base font-bold text-gray-800">내 점수 및 랭킹</h2>
             <button type="button" onClick={() => navigate('/rankings')} className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700">
@@ -699,7 +702,7 @@ function DashboardPage() {
             </div>
             </ModeSlide>
           </div>
-        </section>
+        </section></Reveal>
         </div>
         </>)}
 

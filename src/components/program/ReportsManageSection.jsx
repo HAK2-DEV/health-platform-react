@@ -1,7 +1,9 @@
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Flag, EyeOff, Eye, Check, ChevronRight } from 'lucide-react'
-import { fetchProgramReports, setCommunityPostStatus, setVerificationFeedVisible, resolveReports } from '../../lib/queries'
+import { Flag, EyeOff, Eye, Check, ChevronRight, X } from 'lucide-react'
+import { fetchProgramReports, fetchReporterReportStats, setCommunityPostStatus, setVerificationFeedVisible, resolveReports } from '../../lib/queries'
+import { getSignedUrls } from '../../lib/signedUrls'
 import { formatRelativeKstDay } from '../../lib/formatters'
 import UserAvatar from '../common/UserAvatar'
 import LoadingState from '../common/LoadingState'
@@ -17,6 +19,13 @@ function ReportsManageSection({ programId, onNavigate, returnTo = null }) {
   const { data: groups = [], isLoading } = useQuery({
     queryKey: ['reports', programId],
     queryFn: () => fetchProgramReports(programId),
+    enabled: !!programId,
+  })
+
+  // 신고자별 오신고 이력 (운영자 전용) — 상습 허위신고자 식별용
+  const { data: reporterStats = {} } = useQuery({
+    queryKey: ['reporterStats', programId],
+    queryFn: () => fetchReporterReportStats(programId),
     enabled: !!programId,
   })
 
@@ -46,17 +55,33 @@ function ReportsManageSection({ programId, onNavigate, returnTo = null }) {
     onError: (e) => alert(`처리 실패: ${e.message}`),
   })
 
+  // 인증 보기 — 신고된 인증은 대개 숨김(feed_visible=false)이라 피드에 안 뜬다.
+  //   피드로 보내면 목록만 보이므로, 운영자 권한으로 가져온 데이터(이미지·메모)를
+  //   패널 안 모달로 바로 띄워 판단하게 한다. ("부적절한 인증 사진" 판단엔 이미지가 핵심)
+  const [viewVer, setViewVer] = useState(null)   // 인증 뷰어 모달 대상 group
+  const [verUrl, setVerUrl] = useState(null)      // 인증 이미지 signed URL
+  useEffect(() => {
+    const path = viewVer?.target?.image_path
+    if (!path) { setVerUrl(null); return }
+    let cancelled = false
+    setVerUrl(null)
+    getSignedUrls('verification-images', [path]).then(byPath => {
+      if (!cancelled) setVerUrl(byPath[path] || null)
+    })
+    return () => { cancelled = true }
+  }, [viewVer])
+
   const goTo = (g) => {
     if (g.deleted) return
-    onNavigate?.()
-    // 상세를 닫으면(모달 backdrop) returnTo 로 복귀 — 오늘의 운영에서 진입 시 신고 처리 탭으로.
-    const closeParam = returnTo ? `&closeTo=${encodeURIComponent(returnTo)}` : ''
-    if (g.targetType === 'post') {
-      const board = g.target?.board_id || 'all'
-      navigate(`/programs/${programId}?tab=community&board=${board}&post=${g.targetId}${closeParam}`)
-    } else {
-      navigate(`/programs/${programId}/feed?v=${g.targetId}`)
+    if (g.targetType === 'verification') {
+      setViewVer(g)   // 인증 → 패널 내 모달(숨김이어도 확실히 보임)
+      return
     }
+    onNavigate?.()
+    // 게시글 상세를 닫으면(모달 backdrop) returnTo 로 복귀 — 오늘의 운영에서 진입 시 신고 처리 탭으로.
+    const closeParam = returnTo ? `&closeTo=${encodeURIComponent(returnTo)}` : ''
+    const board = g.target?.board_id || 'all'
+    navigate(`/programs/${programId}?tab=community&board=${board}&post=${g.targetId}${closeParam}`)
   }
 
   const previewOf = (g) => {
@@ -128,10 +153,16 @@ function ReportsManageSection({ programId, onNavigate, returnTo = null }) {
                     <div key={rp.id} className={`space-y-1.5 ${i > 0 ? 'pt-1.5 border-t border-gray-50' : ''}`}>
                       <div className="flex gap-2 text-[12.5px]">
                         <span className="w-[52px] flex-shrink-0 text-gray-400 font-semibold">신고자</span>
-                        <span className="min-w-0 flex items-center gap-1.5">
+                        <span className="min-w-0 flex items-center gap-1.5 flex-wrap">
                           <UserAvatar avatarPath={rp.avatar_path} nickname={rp.nickname} size="sm" />
                           <span className="text-gray-700 font-medium truncate">{rp.nickname}</span>
                           <span className="text-[10px] text-gray-400 flex-shrink-0">{formatRelativeKstDay(rp.created_at)}</span>
+                          {rp.userId && reporterStats[rp.userId]?.dismissed > 0 && (
+                            <span className="px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600 text-[10px] font-bold flex-shrink-0"
+                              title="이 신고자가 낸 신고 중 운영자가 인용하지 않은(노출 유지·복구) 건수예요. 상습 오신고 참고용.">
+                              ⚠️ 지난 오신고 {reporterStats[rp.userId].dismissed}건
+                            </span>
+                          )}
                         </span>
                       </div>
                       <div className="flex gap-2 text-[12.5px]">
@@ -178,6 +209,70 @@ function ReportsManageSection({ programId, onNavigate, returnTo = null }) {
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* 인증 뷰어 — 신고된 인증(숨김 포함)을 이미지와 함께 바로 확인 + 조치 */}
+      {viewVer && (
+        <div className="fixed inset-0 z-[80] bg-black/50 flex items-center justify-center p-4"
+          onClick={() => setViewVer(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-md max-h-[85vh] overflow-y-auto"
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 sticky top-0 bg-white">
+              <h3 className="text-[15px] font-bold text-gray-800 flex items-center gap-1.5">
+                <img src="/icons/operator/report-flag.png" alt="" aria-hidden="true" className="w-5 h-5 object-contain" />
+                신고된 인증
+              </h3>
+              <button type="button" onClick={() => setViewVer(null)} className="p-1 -mr-1 text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              <div className="flex items-center gap-2 text-[13px]">
+                <span className="text-gray-400 font-semibold">인증</span>
+                <span className="font-bold text-gray-800">{viewVer.target?.missions?.title || '인증'}</span>
+                <span className="ml-auto text-gray-500">{viewVer.target?.user?.nickname || '(작성자)'}</span>
+              </div>
+              {viewVer.target?.image_path ? (
+                verUrl ? (
+                  <img src={verUrl} alt="인증 사진" className="w-full rounded-xl bg-gray-100 object-contain max-h-[55vh]" />
+                ) : (
+                  <div className="w-full aspect-square rounded-xl bg-gray-100 animate-pulse" />
+                )
+              ) : (
+                <p className="text-[12px] text-gray-400 bg-gray-50 rounded-xl p-4 text-center">사진 없는 인증</p>
+              )}
+              {viewVer.target?.note && (
+                <p className="text-[13px] text-gray-700 whitespace-pre-wrap break-words leading-relaxed">{viewVer.target.note}</p>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2 px-4 py-3 border-t border-gray-100 sticky bottom-0 bg-white">
+              {viewVer.hidden ? (
+                <button type="button" disabled={toggleMutation.isPending}
+                  onClick={() => { toggleMutation.mutate({ targetType: 'verification', targetId: viewVer.targetId, hide: false }); setViewVer(null) }}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white text-[12px] font-bold transition disabled:opacity-50">
+                  <Eye className="w-3.5 h-3.5" /> 다시 노출
+                </button>
+              ) : (
+                <button type="button" disabled={toggleMutation.isPending}
+                  onClick={() => { toggleMutation.mutate({ targetType: 'verification', targetId: viewVer.targetId, hide: true }); setViewVer(null) }}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-red-500 hover:bg-red-600 text-white text-[12px] font-bold transition disabled:opacity-50">
+                  <EyeOff className="w-3.5 h-3.5" /> 가리기
+                </button>
+              )}
+              {viewVer.unresolved > 0 && (
+                <button type="button" disabled={resolveMutation.isPending}
+                  onClick={() => { resolveMutation.mutate({ targetType: 'verification', targetId: viewVer.targetId }); setViewVer(null) }}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full border border-gray-200 text-gray-600 text-[12px] font-bold hover:bg-gray-50 transition disabled:opacity-50">
+                  <Check className="w-3.5 h-3.5" /> 처리 완료
+                </button>
+              )}
+              <button type="button" onClick={() => setViewVer(null)}
+                className="ml-auto px-3 py-1.5 rounded-full border border-gray-200 text-gray-500 text-[12px] font-bold hover:bg-gray-50 transition">
+                닫기
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

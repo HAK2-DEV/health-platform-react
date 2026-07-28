@@ -60,6 +60,7 @@ function MyActivityPage() {
     },
     enabled: !!selectedProgramId,
   })
+  const classEnabled = !!selProgram?.class_feature_enabled   // 클래스 기능 켜진 프로그램만 클래스 항목 표시
 
   // 14일 활동 — 미션 인증 + 퀴즈 제출 + 클래스 출석(확정), 타입별 분해까지
   const recent14Days = useMemo(() => {
@@ -184,7 +185,7 @@ function MyActivityPage() {
 
           {/* 14일 활동 */}
           <h2 className="flex items-center gap-1.5 text-lg font-semibold text-gray-800" style={{ marginBottom: '2px' }}><img src="/icons/mypage/calendar.png" alt="" aria-hidden="true" className="w-5 h-5 object-contain" /> 최근 14일 활동</h2>
-          <p className="text-[12px] text-gray-400 mb-2 pl-0.5">미션 인증 · 퀴즈 제출 · 클래스 출석을 모두 합산했어요</p>
+          <p className="text-[12px] text-gray-400 mb-2 pl-0.5">{['미션 인증', hasQuiz && '퀴즈 제출', classEnabled && '클래스 출석'].filter(Boolean).join(' · ')}을 합산했어요</p>
           <div className="bg-white border border-gray-200 rounded-2xl p-4" style={{ marginBottom: '9px' }}>
             <div
               className="flex items-end gap-1 h-20 select-none"
@@ -198,7 +199,7 @@ function MyActivityPage() {
                     {tipIdx === i && (
                       <div className="absolute -top-1 left-1/2 -translate-x-1/2 -translate-y-full z-20 whitespace-nowrap rounded-lg bg-gray-900 text-white px-2.5 py-1.5 text-[11px] leading-relaxed shadow-lg pointer-events-none">
                         <p className="font-bold">{d.date.replaceAll('-', '.')} · 총 {d.count}건</p>
-                        <p className="text-gray-200">미션 {d.mission} · 퀴즈 {d.quiz} · 클래스 {d.class}</p>
+                        <p className="text-gray-200">{[`미션 ${d.mission}`, hasQuiz && `퀴즈 ${d.quiz}`, classEnabled && `클래스 ${d.class}`].filter(Boolean).join(' · ')}</p>
                         <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
                       </div>
                     )}

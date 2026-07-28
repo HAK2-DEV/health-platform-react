@@ -487,7 +487,7 @@ function WidgetMetrics({ insights }) {
               <h3 className="text-[15px] font-bold text-gray-800">일자별 참여율 추세</h3>
             </div>
             <p className="text-[12px] text-gray-400 mb-3">그날 활동한 참여자 비율(%)이에요. (전체 {insights.metrics.participants}명 기준)</p>
-            <ParticipationTrendChart data={insights.participationTrend || []} subField="count" subUnit="명" />
+            <ParticipationTrendChart data={insights.participationTrend || []} subField="count" subUnit="명" interaction="tap" />
             <button
               type="button"
               onClick={() => setShowTrend(false)}
@@ -546,7 +546,7 @@ function WidgetTrend({ insights }) {
                 {trendDeltaPct !== null && ` (${trendDeltaPct >= 0 ? '+' : ''}${trendDeltaPct}%)`}
               </span>
             </p>
-            <ParticipationTrendChart data={verificationTrend || []} field="count" unit="건" maxCap={Infinity} interaction="scrub" />
+            <ParticipationTrendChart data={verificationTrend || []} field="count" unit="건" maxCap={Infinity} interaction="tap" />
             <button
               type="button"
               onClick={() => setOpen(false)}

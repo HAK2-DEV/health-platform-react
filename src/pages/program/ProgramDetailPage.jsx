@@ -37,7 +37,7 @@ import StickyBackBar from '../../components/common/StickyBackBar'
 import Modal from '../../components/common/Modal'
 import DeleteProgramModal from '../../components/program/DeleteProgramModal'
 import OperatorReviewBanner from '../../components/program/OperatorReviewBanner'
-import { markSeen, countNew } from '../../lib/newContent'
+import { markSeen, countNew, getLastSeen } from '../../lib/newContent'
 import { warnLargeUserList } from '../../lib/sentry'
 import UserAvatar from '../../components/common/UserAvatar'
 import ProfileButton from '../../components/common/ProfileButton'
@@ -59,7 +59,7 @@ import ClassOverviewCard from '../../components/program/ClassOverviewCard'
 import ClassScheduleList from '../../components/program/ClassScheduleList'
 import ClassDetail from '../../components/program/ClassDetail'
 import HiddenPostsSection from '../../components/program/HiddenPostsSection'
-import VerificationReviewModal from '../../components/program/VerificationReviewModal'
+import VerificationGridReview from '../../components/program/VerificationGridReview'
 import MarkdownView from '../../components/common/MarkdownView'
 import ConfirmModal from '../../components/common/ConfirmModal'
 import RankingSettingsModal from '../../components/program/RankingSettingsModal'
@@ -499,6 +499,7 @@ function ProgramDetailPage() {
   const [panelView, setPanelView] = useState('root')   // 운영자 메뉴 시트 단계: root | settings | menubar
   const [isRankingOpen, setIsRankingOpen] = useState(false)  // 랭킹 설정 모달
   const [noticeModalOpen, setNoticeModalOpen] = useState(false)  // 공지사항(개요 글) 중앙 모달
+  const noticeMarkedRef = useRef(false)                          // 이번 진입에서 공지 열람 처리했는지(미열람 배지 즉시 해제)
   const closePanel = () => { setIsPanelOpen(false); setPanelView('root') }
   const handleRankingClose = () => { setIsRankingOpen(false); setPanelView('menubar'); setIsPanelOpen(true) }
   const [homeEditOpen, setHomeEditOpen] = useState(false)  // 카드홈 레이아웃 편집기 (운영자)
@@ -706,8 +707,20 @@ function ProgramDetailPage() {
   }
 
   // 클래스 관리 — 전체화면 오버레이(탭 무관). 닫으면 운영자 메뉴 복귀(afterManagerClose).
+  //   단, 통계 「클래스 현황」에서 진입(?opmenu=classes)한 경우엔 닫을 때 통계로 복귀.
+  const classFromStatsRef = useRef(false)
   const openClassManage = () => setClassManageOpen(true)
-  const closeClassManage = () => { setClassManageOpen(false); afterManagerClose() }
+  const closeClassManage = () => {
+    setClassManageOpen(false)
+    if (classFromStatsRef.current) {
+      classFromStatsRef.current = false
+      // 진입 시 통계 위에 program 을 push 했으므로, pop(-1) 하면 클래스 현황으로 복귀.
+      //   (replace 로 새로 넣으면 클래스 현황이 history 에 중복돼 뒤로가기가 2번 필요해짐)
+      navigate(-1)
+    } else {
+      afterManagerClose()
+    }
+  }
 
   // 미션 관리자 — 동일 패턴 (열 때 상단 스크롤, 닫을 때 복원, 미리보기 토글)
   useEffect(() => {
@@ -819,8 +832,13 @@ function ProgramDetailPage() {
   useEffect(() => {
     const om = searchParams.get('opmenu')
     if (!om) return
-    setPanelView(['root', 'settings', 'menubar', 'reports'].includes(om) ? om : 'root')
-    setIsPanelOpen(true)
+    if (om === 'classes') {
+      classFromStatsRef.current = true   // 통계 「클래스 현황」 진입 → 닫을 때 통계로 복귀
+      openClassManage()   // 통계 등에서 「클래스 관리」 직행 딥링크 → 전체화면 오버레이 바로 오픈
+    } else {
+      setPanelView(['root', 'settings', 'menubar', 'reports'].includes(om) ? om : 'root')
+      setIsPanelOpen(true)
+    }
     setSearchParams(prev => { const n = new URLSearchParams(prev); n.delete('opmenu'); return n }, { replace: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams])
@@ -873,6 +891,10 @@ function ProgramDetailPage() {
   useEffect(() => {
     const open = overviewManageOpen || missionManageOpen || communityManageOpen || classManageOpen
     if (!open || import.meta.env.DEV) return
+    // 통계 「클래스 현황」에서 진입한 클래스 관리는 dummy push 생략 →
+    //   하드웨어/브라우저 뒤로가기가 통계 라우트(/stats/classes)로 자연 복귀한다.
+    if (classManageOpen && classFromStatsRef.current
+        && !overviewManageOpen && !missionManageOpen && !communityManageOpen) return
     let viaPop = false
     window.history.pushState({ __mgr: true }, '')
     const onPop = () => {
@@ -1187,13 +1209,26 @@ function ProgramDetailPage() {
   // 공지 배너 — 공지 사용 ON + 최신 노출 공지 존재 + 공지 탭이 아닐 때
   const noticeEnabled = program.community_settings?.noticeEnabled !== false
   const latestNotice = noticePosts.find(p => p.status === 'visible') || null
+  // 새 공지 미열람 — 최신 공지 작성 시각 > 마지막 열람(없으면 참여 시각). 공지 열람 시 markSeen 으로 해제.
+  //   noticeMarkedRef: 이번 마운트에서 열람 처리했으면 즉시 배지 끔(탭 전환 전 깜빡임 방지).
+  const noticeUnread = !noticeMarkedRef.current && !!latestNotice?.created_at && (() => {
+    const base = getLastSeen(id, 'notice') || myPart?.joined_at
+    return !!base && new Date(latestNotice.created_at).getTime() > new Date(base).getTime()
+  })()
+  const openNoticeBoard = () => {
+    markSeen(id, 'notice')
+    noticeMarkedRef.current = true
+    setNewSeenTick(t => t + 1)
+    setCommunityBoard('notice')
+    setActiveTab('community')
+  }
   // 강사 클래스 개요 진입 카드 — 기능 ON 시 각 카드홈의 편집버튼 위 슬롯으로 주입
   const openClassesTab = () => {
     if (searchParams.get('class')) setSearchParams(prev => { const n = new URLSearchParams(prev); n.delete('class'); return n }, { replace: true })
     setActiveTab('classes')
   }
   const classOverviewSlot = program.class_feature_enabled
-    ? <ClassOverviewCard programId={id} onOpenAll={openClassesTab} />
+    ? <ClassOverviewCard programId={id} joinedAt={myPart?.joined_at} onOpenAll={openClassesTab} />
     : null
 
   const immersiveHome = usesCardHome && activeTab === 'overview' && !inManager
@@ -1560,7 +1595,8 @@ function ProgramDetailPage() {
             newMissionCount={newMissionCount}
             newQuizCount={newQuizCount}
             onOpenTab={(key) => setActiveTab(key)}
-            onNotice={() => { setCommunityBoard('notice'); setActiveTab('community') }}
+            onNotice={openNoticeBoard}
+            noticeUnread={noticeUnread}
           />
         )
       })()}
@@ -1654,7 +1690,8 @@ function ProgramDetailPage() {
               queryClient.invalidateQueries({ queryKey: queryKeys.program(id) })
             }}
             onOpenTab={(key) => setActiveTab(key)}
-            onNotice={() => { setCommunityBoard('notice'); setActiveTab('community') }}
+            onNotice={openNoticeBoard}
+            noticeUnread={noticeUnread}
             onRecord={() => setActiveTab('missions')}
             newMissionCount={newMissionCount}
             newQuizCount={newQuizCount}
@@ -1748,7 +1785,8 @@ function ProgramDetailPage() {
             onRecord={() => setActiveTab('missions')}
             newMissionCount={newMissionCount}
             newQuizCount={newQuizCount}
-            onNotice={() => { setCommunityBoard('notice'); setActiveTab('community') }}
+            onNotice={openNoticeBoard}
+            noticeUnread={noticeUnread}
           />
         )
       })()}
@@ -2379,7 +2417,7 @@ function ProgramDetailPage() {
       {activeTab === 'classes' && (() => {
         const selClass = searchParams.get('class')
         if (selClass) return <ClassDetail sessionId={selClass} programId={id} userId={userId} isOwner={isOwner} attendanceMode={program.class_attendance_mode} checkinBeforeMin={program.class_checkin_before_min ?? 30} programEnded={progressUrgency(calcProgress(program.start_date, program.end_date)).urgency === 'ended'} />
-        return <ClassScheduleList programId={id} userId={userId}
+        return <ClassScheduleList programId={id} userId={userId} joinedAt={myPart?.joined_at}
           onOpenSession={(sid) => setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('class', sid); return n })} />
       })()}
 
@@ -2615,8 +2653,8 @@ function ProgramDetailPage() {
           posts={pendingPosts}
           boards={communityBoards}
         />
-        {/* 운영자 인증 검토 큐 — 검토 필요 인증 한 건씩 승인/거절 */}
-        <VerificationReviewModal
+        {/* 운영자 인증 검토 — 그리드(예외만 골라내기) + 나머지 일괄 승인. 대량 처리 최적화 */}
+        <VerificationGridReview
           isOpen={vreviewOpen}
           onClose={() => setVreviewOpen(false)}
           programId={id}
@@ -2682,7 +2720,7 @@ function ProgramDetailPage() {
                   <PanelMenuBox icon="🛠️" title="내 프로그램 설정" desc="프로그램 · 메뉴바(개요~랭킹)" chevron onClick={() => setPanelView('settings')} />
                   <PanelMenuBox icon="📊" title="통계" desc="참여·인증·미션별 현황" onClick={() => { closePanel(); navigate(`/programs/${id}/stats`, { state: { backToOpMenu: 'root' } }) }} />
                   {communityEnabled && (
-                    <PanelMenuBox icon="🚩" title="신고 · 숨김 관리" desc="신고된 글·인증 · 가려진 인증 관리" chevron badge={unresolvedReportCount || undefined} onClick={() => setPanelView('reports')} />
+                    <PanelMenuBox iconSrc="/icons/operator/report-flag.png" icon="🚩" title="신고 · 숨김 관리" desc="신고된 글·인증 · 가려진 인증 관리" chevron badge={unresolvedReportCount || undefined} onClick={() => setPanelView('reports')} />
                   )}
                   {canInvite && (
                     <PanelMenuBox icon="🎟️" title="초대하기" desc="링크로 참여자 초대" onClick={() => { closePanel(); setIsInviteOpen(true) }} />
@@ -2748,7 +2786,7 @@ function ProgramDetailPage() {
                   <button type="button" onClick={() => setPanelView('root')} className="p-1 -ml-1 text-gray-500 hover:text-gray-800" aria-label="뒤로">
                     <ChevronLeft className="w-5 h-5" />
                   </button>
-                  <h2 className="text-lg font-bold text-gray-800">🚩 신고 · 숨김 관리</h2>
+                  <h2 className="text-lg font-bold text-gray-800 flex items-center gap-1.5"><img src="/icons/operator/report-flag.png" alt="" aria-hidden="true" className="w-6 h-6 object-contain" />신고 · 숨김 관리</h2>
                 </div>
                 <ReportsManageSection programId={id} onNavigate={closePanel} />
                 {program.feed_enabled && (

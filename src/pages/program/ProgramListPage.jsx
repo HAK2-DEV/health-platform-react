@@ -13,6 +13,7 @@ import EmptyState from '../../components/common/EmptyState'
 import ProgramDetailModal from '../../components/program/ProgramDetailModal'
 import ProgramBrowseModal from '../../components/program/ProgramBrowseModal'
 import ParticipationTipsSheet from '../../components/program/ParticipationTipsSheet'
+import { Reveal } from '../../components/program/statsAnim'
 import ConfirmModal from '../../components/common/ConfirmModal'
 import NotificationBell from '../../components/common/NotificationBell'
 import {
@@ -355,7 +356,8 @@ function ProgramListPage() {
   }, [activePrograms, lastActivity])
 
   return (
-    <div className="min-h-screen bg-white">
+    <motion.div className="min-h-screen bg-white"
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.28, ease: 'easeOut' }}>
       {/* 상단 헤더 — 프로그램 + 알림 (대표 아이콘은 대시보드에만) */}
       <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm">
         <div className="max-w-4xl mx-auto h-[46px] px-4 flex items-center justify-center relative">
@@ -400,8 +402,10 @@ function ProgramListPage() {
                 action={{ label: '둘러보기', onClick: () => setTab('browse') }} variant="mint" size="lg" />
             ) : (
               <div className="space-y-[11px]">
-                {sortedActive.map(p => (
-                  <ProgramCard key={p.id} program={p} ctaLabel="계속하기" onClick={() => navigate(`/programs/${p.id}`)} />
+                {sortedActive.map((p, i) => (
+                  <Reveal key={p.id} index={Math.min(i, 8)}>
+                    <ProgramCard program={p} ctaLabel="계속하기" onClick={() => navigate(`/programs/${p.id}`)} />
+                  </Reveal>
                 ))}
               </div>
             )}
@@ -438,14 +442,15 @@ function ProgramListPage() {
                 action={{ label: '프로그램 생성하기', onClick: () => navigate('/programs/new') }} variant="mint" size="lg" />
             ) : (
               <div className="space-y-[11px]">
-                {myPrograms.map(p => (
-                  <ProgramCard
-                    key={p.id}
-                    program={p}
-                    ctaLabel={p.status === 'DRAFT' ? '완성하기' : '관리'}
-                    onClick={() => p.status === 'DRAFT' ? navigate(`/programs/new?id=${p.id}`) : navigate(`/programs/${p.id}`)}
-                    onDelete={p.status === 'DRAFT' ? () => handleDeleteDraft(p) : undefined}
-                  />
+                {myPrograms.map((p, i) => (
+                  <Reveal key={p.id} index={Math.min(i, 8)}>
+                    <ProgramCard
+                      program={p}
+                      ctaLabel={p.status === 'DRAFT' ? '완성하기' : '관리'}
+                      onClick={() => p.status === 'DRAFT' ? navigate(`/programs/new?id=${p.id}`) : navigate(`/programs/${p.id}`)}
+                      onDelete={p.status === 'DRAFT' ? () => handleDeleteDraft(p) : undefined}
+                    />
+                  </Reveal>
                 ))}
               </div>
             )}
@@ -545,13 +550,14 @@ function ProgramListPage() {
               <EmptyState icon="🔍" title={catFilter === 'ALL' ? '아직 둘러볼 공개 프로그램이 없어요' : <span className="text-[18px] whitespace-nowrap">이 카테고리엔 아직 프로그램이 없어요</span>} variant="mint" size="lg" />
             ) : (
               <div className="grid grid-cols-2 gap-3">
-                {filteredPublic.map(p => (
-                  <BrowseCard
-                    key={p.id}
-                    program={p}
-                    count={publicCounts[p.id]}
-                    onClick={() => setSelectedPublicId(p.id)}
-                  />
+                {filteredPublic.map((p, i) => (
+                  <Reveal key={p.id} index={Math.min(i, 8)}>
+                    <BrowseCard
+                      program={p}
+                      count={publicCounts[p.id]}
+                      onClick={() => setSelectedPublicId(p.id)}
+                    />
+                  </Reveal>
                 ))}
               </div>
             )}
@@ -595,7 +601,7 @@ function ProgramListPage() {
         danger
         busy={deleteDraftMutation.isPending}
       />
-    </div>
+    </motion.div>
   )
 }
 

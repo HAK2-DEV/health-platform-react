@@ -196,6 +196,7 @@ function ProgramStatsUserDetailPage() {
   }, [userVerifications])
 
   const maxDayCount = recent14Days.reduce((m, d) => Math.max(m, d.count), 0) || 1
+  const [tipIdx, setTipIdx] = useState(null)   // 14일 차트 — 탭하면 그 막대 툴팁 고정(다시 탭하면 닫힘)
 
   // 게시판 id → 이름 (운영자 설정). 미설정/삭제 게시판이면 id 표시.
   const boardName = (bid) => {
@@ -342,18 +343,23 @@ function ProgramStatsUserDetailPage() {
       {/* 최근 14일 활동 */}
       <h2 className="flex items-center gap-1.5 text-lg font-semibold text-gray-800" style={{ marginBottom: '9px' }}><img src="/icons/mypage/calendar.png" alt="" aria-hidden="true" className="w-5 h-5 object-contain" /> 최근 14일 활동</h2>
       <div className="bg-white border border-gray-200 rounded-[10px] p-4" style={{ marginBottom: '9px' }}>
-        <div className="flex items-end gap-1 h-20">
-          {recent14Days.map(d => {
+        <div className="flex items-end gap-1 h-20 select-none" style={{ WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }} onContextMenu={(e) => e.preventDefault()}>
+          {recent14Days.map((d, i) => {
             const h = d.count === 0 ? 4 : Math.round((d.count / maxDayCount) * 76) + 4
             return (
-              <div
-                key={d.date}
-                className="flex-1 flex flex-col items-center gap-0.5"
-                title={`${d.date.replaceAll('-', '.')} — ${d.count}건`}
-              >
-                <div
-                  className={`w-full rounded-sm transition-all ${d.count === 0 ? 'bg-gray-100' : 'bg-sky-400'}`}
-                  style={{ height: `${h}px` }}
+              <div key={d.date} className="flex-1 flex flex-col items-center gap-0.5 relative">
+                {tipIdx === i && (
+                  <div className="absolute -top-1 left-1/2 -translate-x-1/2 -translate-y-full z-20 whitespace-nowrap rounded-lg bg-gray-900 text-white px-2.5 py-1.5 text-[11px] leading-relaxed shadow-lg pointer-events-none">
+                    <p className="font-bold">{d.date.replaceAll('-', '.')} · 인증 {d.count}건</p>
+                    <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setTipIdx(v => (v === i ? null : i))}
+                  aria-label={`${d.date} 인증 ${d.count}건`}
+                  className={`w-full rounded-sm transition-all cursor-pointer ${d.count === 0 ? 'bg-gray-100' : (tipIdx === i ? 'bg-sky-500' : 'bg-sky-400')}`}
+                  style={{ height: `${h}px`, touchAction: 'pan-y' }}
                 />
               </div>
             )

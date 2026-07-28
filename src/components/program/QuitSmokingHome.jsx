@@ -6,7 +6,7 @@ import ProgramHomeHero from './ProgramHomeHero'
 import WeeklyStreak from './WeeklyStreak'
 import FlameIcon from '../common/FlameIcon'
 import CountUp from '../common/CountUp'
-import { NavCard, GoalCard } from './ProgramHome'
+import { NavCard, GoalCard, Icon3D } from './ProgramHome'
 import { progressUrgency } from '../../lib/programVisuals'
 
 // 금연 테마 전용 카드형 홈 (탭 바 없이 카드 네비) — 달리기 RunningHome 방식.
@@ -33,7 +33,7 @@ function QuitSmokingHome({
   // 레이아웃 편집(운영자)
   boxOrder = null, hiddenBoxes = [], onEditLayout = () => {},
   quizEnabled = true, communityEnabled = true, changeEnabled = true,
-  onRecord = () => {}, onOpenTab = () => {}, onNotice = null,
+  onRecord = () => {}, onOpenTab = () => {}, onNotice = null, noticeUnread = false,
   newMissionCount = 0, newQuizCount = 0,
 }) {
   const showEditHero = variant === 'extras'
@@ -61,7 +61,10 @@ function QuitSmokingHome({
     notice: () => (
       <button type="button" onClick={onNotice || (() => onOpenTab('community'))}
         className="w-full flex items-center gap-3 rounded-2xl p-3.5 bg-white border border-gray-100 shadow-soft text-left hover:bg-gray-50 transition">
-        <span className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center flex-shrink-0 text-[15px]">📢</span>
+        <span className="relative inline-flex flex-shrink-0">
+          <Icon3D src="/icons/feature/notice.png" emoji="📢" className="w-8 h-8" />
+          {noticeUnread && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-white notice-dot-pulse" />}
+        </span>
         <div className="flex-1 min-w-0">
           <p className="text-[13px] font-bold text-gray-800">공지사항</p>
           <p className="text-[12px] text-gray-500 truncate">{notice || '등록된 공지가 없어요'}</p>

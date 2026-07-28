@@ -12,6 +12,7 @@ import BackButton from '../components/common/BackButton'
 import NotificationBell from '../components/common/NotificationBell'
 import IconBox from '../components/common/IconBox'
 import CountUp from '../components/common/CountUp'
+import { Reveal } from '../components/program/statsAnim'
 import FitText from '../components/common/FitText'
 import ImageCropModal from '../components/common/ImageCropModal'
 import ConfirmModal from '../components/common/ConfirmModal'
@@ -298,6 +299,7 @@ function ProfilePage() {
       <div className="w-full max-w-md mx-auto px-4 pt-[9px] pb-6 space-y-[9px]">
 
       {/* 프로필 카드 — 366×200, r10 (우측 잎 일러스트) */}
+      <Reveal index={0}>
       <div className="relative w-[366px] max-w-full mx-auto h-[200px] overflow-hidden rounded-[10px] bg-[#eef7f1] border border-emerald-100/60">
         <img
           src="/illustrations/mypage-banner.jpg"
@@ -430,14 +432,15 @@ function ProfilePage() {
           </div>
         )}
       </div>
+      </Reveal>
 
       {/* 메뉴 카드 */}
-      <ProfileMenuItem
+      <Reveal index={1}><ProfileMenuItem
         tone="emerald"
         icon={<Activity className="w-5 h-5" />}
         title="내 기록"
         onClick={() => navigate('/profile/activity')}
-      />
+      /></Reveal>
       {/* 운영자 가이드 — UI 대폭 변경으로 내용 갱신 필요, 임시 숨김 (2026-06-22).
           개편 후 복구 예정. 라우트(/operator-guide)와 OperatorGuidePage 는 유지. */}
       {/* <ProfileMenuItem
@@ -447,44 +450,44 @@ function ProfilePage() {
         description="프로그램·미션·퀴즈… 운영자가 할 수 있는 모든 것"
         onClick={() => navigate('/operator-guide')}
       /> */}
-      <ProfileMenuItem
+      <Reveal index={2}><ProfileMenuItem
         tone="violet"
         icon={<Bell className="w-5 h-5" />}
         title="알림 설정"
         onClick={() => navigate('/profile/notifications-settings')}
-      />
-      <ProfileMenuItem
+      /></Reveal>
+      <Reveal index={3}><ProfileMenuItem
         tone="sky"
         icon={<Shield className="w-5 h-5" />}
         title="계정 설정"
         onClick={() => navigate('/profile/account-settings')}
-      />
-      <ProfileMenuItem
+      /></Reveal>
+      <Reveal index={4}><ProfileMenuItem
         tone="emerald"
         icon={<MessageCircle className="w-5 h-5" />}
         title="문의하기"
         onClick={() => navigate('/support')}
-      />
+      /></Reveal>
       {/* 관리자 전용 — 화면 체류 분석 (UI/UX 개선용) */}
       {isAdmin && (
-        <ProfileMenuItem
+        <Reveal index={5}><ProfileMenuItem
           tone="violet"
           icon={<BarChart3 className="w-5 h-5" />}
           title="화면 체류 분석"
           description="관리자 전용 · 화면별 평균 체류·방문수"
           onClick={() => navigate('/admin/screen-stats')}
-        />
+        /></Reveal>
       )}
 
       {/* 로그아웃 — 소프트 레드 (참고 사진) */}
-      <button
+      <Reveal index={6}><button
         type="button"
         onClick={handleLogout}
         className="w-full mt-3 flex items-center justify-center gap-2 px-4 py-3.5 bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 font-semibold rounded-[10px] transition shadow-soft"
       >
         <LogOut className="w-4 h-4" />
         로그아웃
-      </button>
+      </button></Reveal>
 
       {/* 공개 페이지 링크 — 푸터 */}
       <div className="mt-6 pt-4 border-t border-gray-100 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] text-gray-400">
