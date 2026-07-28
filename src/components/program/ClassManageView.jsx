@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { Plus, Calendar, MapPin, Users, Pencil, Trash2, Copy, X, ChevronDown, ChevronUp, Camera, Loader2 } from 'lucide-react'
 import { CLASS_CAT_LIST, catOf } from '../../lib/classCategories'
 import ConfirmModal from '../common/ConfirmModal'
@@ -221,6 +222,7 @@ function SessionForm({ instructors, initial, isEdit = false, onSave, onClose, bu
 }
 
 function Overlay({ title, children, onClose, wide }) {
+  useBodyScrollLock(true)  // 마운트=열림 → iOS 배경 스크롤 방지
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/45" onClick={onClose}>
       <div className={`w-full ${wide ? 'max-w-md' : 'max-w-xs'} max-h-[88vh] overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl`} onClick={e => e.stopPropagation()}>

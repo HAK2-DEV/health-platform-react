@@ -1,4 +1,5 @@
 import { useState, useEffect, forwardRef, useImperativeHandle } from 'react'
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { supabase } from '../../supabaseClient'
 import { Check, Heart, MessageCircle, Plus, X, ChevronUp, ChevronDown, MoreVertical, Trash2, LayoutGrid } from 'lucide-react'
 import ConfirmModal from '../common/ConfirmModal'
@@ -289,6 +290,7 @@ const CommunityManagePanel = forwardRef(function CommunityManagePanel({ program,
   const [menuOpenId, setMenuOpenId] = useState(null)  // ⋮ 메뉴
   const [layoutModal, setLayoutModal] = useState(null)  // 게시판별 레이아웃 선택 { boardId }
   const [nameModal, setNameModal] = useState(null)    // 게시판 이름 입력 모달 { mode:'add'|'rename', boardId, value }
+  useBodyScrollLock(!!layoutModal || !!nameModal)  // 레이아웃/이름 오버레이 — iOS 배경 스크롤 방지
   const confirmName = () => {
     const v = (nameModal?.value || '').trim().slice(0, 8)
     if (!v) { setNameModal(null); return }

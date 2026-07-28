@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { useMutation, useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { Heart, MessageCircle, BarChart3, Send, Trash2, Pencil, Flag, CornerDownRight } from 'lucide-react'
@@ -179,6 +180,7 @@ function FeedContent({ program, layout: layoutProp = null, targetVerificationId 
   //   게시판별 override(104+) 가 있으면 우선, 없으면 프로그램 전체 레이아웃.
   const layout = layoutProp || program.community_layout || 'feed'
   const showFull = layout === 'feed' || !!focusedId
+  useBodyScrollLock(!!focusedId && layout !== 'feed')  // 그리드/매거진 풀뷰 오버레이 — iOS 배경 스크롤 방지
   const visiblePosts = focusedId ? posts.filter(p => p.id === focusedId) : posts
 
   // 리스트형 — 썸네일(좌) + 텍스트(우), 균일 가로 행

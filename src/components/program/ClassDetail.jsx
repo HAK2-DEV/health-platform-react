@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Calendar, MapPin, Users, Loader2, Check, Pencil, X } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
@@ -94,6 +95,7 @@ export default function ClassDetail({ sessionId, programId, userId, isOwner = fa
   const [regErr, setRegErr] = useState(null)
   const [rosterOpen, setRosterOpen] = useState(false)
   const [heroEditOpen, setHeroEditOpen] = useState(false)
+  useBodyScrollLock(heroEditOpen)  // 히어로 편집 오버레이 — iOS 배경 스크롤 방지
   const mCover = useMutation({
     mutationFn: (coverPath) => updateSession(sessionId, { cover_path: coverPath }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['session', sessionId] }); qc.invalidateQueries({ queryKey: ['sessions', programId] }) },

@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Sprout, Droplets, Sun, Book, Info } from 'lucide-react'
 import {
@@ -36,6 +37,7 @@ const GRID_COLS = 4
 
 function GardenPanel({ participation, activeDays, totalCount, programDays, onPlantSeed, onUpdateGarden }) {
   const [selectedCell, setSelectedCell] = useState(null)  // [row, col] — 정보 모달용
+  useBodyScrollLock(!!selectedCell)  // 칸 정보 오버레이 — iOS 배경 스크롤 방지
   // 본인 비전 (Day 65) — 식물 클릭 시 물·햇빛 주는 모션. 본인 결정 「자동 부여 + 모션 시각화」.
   const [careCell, setCareCell] = useState(null)         // [row, col] — 모션 중인 셀
   const careTimer = useRef(null)

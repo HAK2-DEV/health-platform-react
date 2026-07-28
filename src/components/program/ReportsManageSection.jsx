@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Flag, EyeOff, Eye, Check, ChevronRight, X } from 'lucide-react'
@@ -59,6 +60,7 @@ function ReportsManageSection({ programId, onNavigate, returnTo = null }) {
   //   피드로 보내면 목록만 보이므로, 운영자 권한으로 가져온 데이터(이미지·메모)를
   //   패널 안 모달로 바로 띄워 판단하게 한다. ("부적절한 인증 사진" 판단엔 이미지가 핵심)
   const [viewVer, setViewVer] = useState(null)   // 인증 뷰어 모달 대상 group
+  useBodyScrollLock(!!viewVer)  // 인증 뷰어 오버레이 — iOS 배경 스크롤 방지
   const [verUrl, setVerUrl] = useState(null)      // 인증 이미지 signed URL
   useEffect(() => {
     const path = viewVer?.target?.image_path

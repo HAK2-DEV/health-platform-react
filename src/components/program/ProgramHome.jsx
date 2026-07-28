@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { motion } from 'framer-motion'
 import { ChevronRight, Calendar, Activity, Award, Flame, Pencil } from 'lucide-react'
 import WeeklyStreak from './WeeklyStreak'
@@ -114,6 +115,7 @@ function GoalField({ label, value, onChange, placeholder, cls = '' }) {
 // 요약 지표 좌측 「목표 카드」 — 운영자가 제목·내용·단위·힌트 편집 (달리기 추천 페이스 카드 구조).
 export function GoalCard({ emoji, title, value, unit, hint, editable = false, onSave = null }) {
   const [editing, setEditing] = useState(false)
+  useBodyScrollLock(editing)  // 목표 카드 편집 오버레이 — iOS 배경 스크롤 방지
   const [draft, setDraft] = useState({ emoji, title, value, unit, hint })
   const set = (k, v) => setDraft((d) => ({ ...d, [k]: v }))
   const open = () => { setDraft({ emoji, title, value, unit, hint }); setEditing(true) }
