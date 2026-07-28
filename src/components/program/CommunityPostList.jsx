@@ -11,6 +11,7 @@ import ReportModal from '../common/ReportModal'
 import ConfirmModal from '../common/ConfirmModal'
 import CommunityPostSocial from './CommunityPostSocial'
 import RejectReasonModal from './RejectReasonModal'
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 
 // 게시판 글 목록 — 작성자/내용/이미지(signed URL) + 본인·운영자 삭제·고정.
 //   layout: feed(기본 카드) / list(가로 행) / grid(2열) / magazine(대1+소2+중1 반복).
@@ -88,6 +89,12 @@ function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId,
     }
     setDetailPost(null)
   }
+
+  // 수정 진입 — 상세 팝업이 열려 있으면 먼저 닫고 글쓰기/수정 모달을 연다.
+  //   (카드에서 눌렀을 땐 detailPost 가 이미 null 이라 무해)
+  const handleEdit = (p) => { setDetailPost(null); onEdit?.(p) }
+
+  useBodyScrollLock(!!detailPost)  // 상세 팝업 열렸을 때 iOS 배경 스크롤 방지
 
   const invalidatePosts = () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.communityPosts(programId, boardId) })
@@ -239,7 +246,7 @@ function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId,
             className={`p-1 transition ${light ? lc : 'text-gray-400 hover:text-amber-600'}`} title="신고"><Flag className="w-4 h-4" /></button>
         )}
         {p.author_id === myUserId && onEdit && (
-          <button type="button" onClick={() => onEdit(p)}
+          <button type="button" onClick={() => handleEdit(p)}
             className={`p-1 transition ${light ? lc : 'text-gray-400 hover:text-emerald-600'}`} title="수정"><Pencil className="w-4 h-4" /></button>
         )}
         {canDelete && (

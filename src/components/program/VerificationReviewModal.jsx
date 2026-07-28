@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { X, ClipboardCheck, Check, Flag } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
@@ -11,6 +12,7 @@ import RejectReasonModal from './RejectReasonModal'
 //   보고 승인/거절(사유 입력). 대기열: 항상 reviews[0], 처리하면 빠지며 다음으로.
 //   거절은 인증을 삭제하지 않고 REJECTED + 사유 기록(점수 제외) → 기존 트리거가 제출자에게 결과 알림.
 function VerificationReviewModal({ isOpen, onClose, programId, reviews = [], reviewerId }) {
+  useBodyScrollLock(isOpen)  // iOS 배경 스크롤 방지
   const qc = useQueryClient()
   const [imageUrl, setImageUrl] = useState(null)
   const [rejectOpen, setRejectOpen] = useState(false)

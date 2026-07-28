@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X } from 'lucide-react'
@@ -11,6 +12,7 @@ import { Icon3D } from './ProgramHome'
 const DAY_MS = 86_400_000
 
 function ProgramCompletionCelebration({ isOpen, onClose, program, activeDays = 0, totalCount = 0, streak = 0, points = 0 }) {
+  useBodyScrollLock(isOpen)  // iOS 배경 스크롤 방지
   const navigate = useNavigate()
   const programDays = useMemo(() => {
     if (!program?.start_date || !program?.end_date) return null

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X } from 'lucide-react'
 
@@ -12,6 +13,7 @@ const SLIDES = [
 ]
 
 function WelcomeOperatorModal({ isOpen, onClose }) {
+  useBodyScrollLock(isOpen)  // iOS 배경 스크롤 방지
   const [i, setI] = useState(0)
   if (!isOpen) return null
   const last = i === SLIDES.length - 1

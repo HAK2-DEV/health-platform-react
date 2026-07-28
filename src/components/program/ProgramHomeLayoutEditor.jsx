@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { motion } from 'framer-motion'
 import { ChevronUp, ChevronDown, Minus, Plus, X } from 'lucide-react'
 import { HOME_BOX_ORDER, HOME_BOX_LABELS } from './ProgramHome'
@@ -33,6 +34,7 @@ function BoxShape({ boxKey, menuLabels, labels = HOME_BOX_LABELS }) {
 //   부모가 open 시에만 마운트(조건부 렌더) → 열 때마다 현재 값으로 초기화.
 function ProgramHomeLayoutEditor({ currentOrder, currentHidden, menuLabels, saving, onClose, onSave,
   boxKeys = HOME_BOX_ORDER, boxLabels = HOME_BOX_LABELS, nonHideable = ['menu'] }) {
+  useBodyScrollLock(true)  // 마운트=열림(전체화면 편집기) → iOS 배경 스크롤 방지
   const allKeys = boxKeys
   const [visible, setVisible] = useState(() => {
     const hiddenArr = (currentHidden || []).filter((k) => allKeys.includes(k))

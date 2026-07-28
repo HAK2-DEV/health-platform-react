@@ -1,7 +1,10 @@
 // 팀 초대 수락 모달 — 화면 중앙 카드. 알림 클릭 시 자동으로 뜸.
 //   props: invite({ teamName, emoji, leaderNickname, memberCount, capacity }),
 //          isOpen, error, onAccept, onDecline, onClose, busy
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
+
 function TeamInviteAcceptModal({ invite, isOpen, error, onAccept, onDecline, onClose, busy = false }) {
+  useBodyScrollLock(isOpen)  // iOS 배경 스크롤 방지
   if (!isOpen || !invite) return null
   return (
     <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-5" onClick={onClose}>

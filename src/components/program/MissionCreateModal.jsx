@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, Fragment } from 'react'
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { supabase } from '../../supabaseClient'
 import { Image as ImageIcon, BarChart3, MessageSquare, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Plus, X, Check } from 'lucide-react'
 import MissionIconPicker from './MissionIconPicker'
@@ -13,6 +14,7 @@ import { toKSTDateString } from '../../lib/formatters'
 // editMission prop 있으면 수정 모드 (UPDATE), 없으면 생성 모드 (INSERT)
 // onBack: 라이브러리에서 「직접 만들기」로 진입한 경우 — 라이브러리로 돌아가기 (생성 모드만)
 function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, onBack }) {
+  useBodyScrollLock(isOpen)  // iOS 배경 스크롤 방지
   const isEditMode = !!editMission
 
   const [title, setTitle] = useState('')
@@ -537,6 +539,8 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
                 </button>
               </div>
             </div>
+
+            
           )}
           {/* 하루 최대 */}
           <div className="mb-4">

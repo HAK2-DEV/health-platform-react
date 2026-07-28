@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -19,6 +20,7 @@ function addDays(dateStr, days) {
 }
 
 function CloneProgramModal({ isOpen, onClose, program }) {
+  useBodyScrollLock(isOpen)  // iOS 배경 스크롤 방지
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { session } = useAuth()

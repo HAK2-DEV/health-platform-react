@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { AlertTriangle, ChevronLeft } from 'lucide-react'
 
 // 프로그램 삭제 — 2단계 확인 (운영자 전용, 호출부에서 isOwner 가드).
@@ -7,6 +8,7 @@ import { AlertTriangle, ChevronLeft } from 'lucide-react'
 // 화면 중앙 카드 오버레이 (ConfirmModal 과 동일 스타일).
 // props: isOpen, programTitle, onClose, onConfirm, busy
 function DeleteProgramModal({ isOpen, programTitle = '', onClose, onConfirm, busy = false }) {
+  useBodyScrollLock(isOpen)  // iOS 배경 스크롤 방지
   const [step, setStep] = useState(1)
   const [typed, setTyped] = useState('')
 

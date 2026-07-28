@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { motion, AnimatePresence, useDragControls } from 'framer-motion'
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 
 // 스와이프 다운 임계값 — 모달 닫기용. 좌우 스와이프는 브라우저 swipe-to-navigate
 // 와 충돌이 잦아 본인 결정으로 제거. 대신 좌·우 fade 버튼으로 대체 (Day 65).
@@ -46,16 +47,8 @@ function Modal({ isOpen, onClose, children, onPrev, onNext, fill = false }) {
     return () => document.removeEventListener('keydown', handleEsc)
   }, [isOpen, onClose])
 
-  // body 스크롤 잠금 — 모달 열렸을 때 뒤 페이지 스크롤 차단 (Day 65 본인 결정)
-  //   모바일에서 모달 안 스크롤이 부모(body)로 전파되는 scroll chaining 문제 해결
-  useEffect(() => {
-    if (!isOpen) return
-    const originalOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = originalOverflow
-    }
-  }, [isOpen])
+  // body 스크롤 잠금 (iOS 대응, 중첩 안전) — 공용 훅. [[useBodyScrollLock]]
+  useBodyScrollLock(isOpen)
 
   // 하드웨어/브라우저 뒤로가기 = 모달 닫기 (네이티브 안드로이드 뒤로 UX).
   //   열릴 때 history 더미(고유 key) push → 뒤로가기(popstate) 시 onClose.

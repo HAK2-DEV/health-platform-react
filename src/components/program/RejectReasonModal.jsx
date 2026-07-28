@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { Ban } from 'lucide-react'
 
 // 거절 사유 입력 — 중앙 카드. onSubmit(reason) → 호출측이 처리. 사유는 작성자에게 알림으로 전달.
@@ -12,6 +13,7 @@ function RejectReasonModal({
 }) {
   const [reason, setReason] = useState('')
   useEffect(() => { if (isOpen) setReason('') }, [isOpen])
+  useBodyScrollLock(isOpen)  // iOS 배경 스크롤 방지
   if (!isOpen) return null
   const defaultDesc = (postLabel ? '“' + postLabel + '” 글을 거절해요. ' : '이 글을 거절해요. ')
     + '거절하면 글이 삭제되고 작성자에게 사유가 전달돼요.'

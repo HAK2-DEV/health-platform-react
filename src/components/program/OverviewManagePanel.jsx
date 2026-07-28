@@ -1,4 +1,5 @@
 import { useState, useEffect, forwardRef, useImperativeHandle } from 'react'
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { supabase } from '../../supabaseClient'
 import { CATEGORY, CATEGORY_LIST, PROGRAM, PROGRAM_THEME } from '../../lib/constants'
 import { isUpcomingByStartDate } from '../../lib/formatters'
@@ -27,6 +28,7 @@ const OverviewManagePanel = forwardRef(function OverviewManagePanel({ program, p
   const [progressEnabled, setProgressEnabled] = useState(true) // 「나의 진행 현황」 카드 표시 (마이그 145)
   const [coverImagePath, setCoverImagePath] = useState(null)  // 배너/썸네일 표지
   const [descModalOpen, setDescModalOpen] = useState(false)  // 한줄 설명 — 넓게 입력 모달
+  useBodyScrollLock(descModalOpen)  // 설명 입력 오버레이 — iOS 배경 스크롤 방지
 
   useEffect(() => {
     if (!program) return

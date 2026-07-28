@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { createReport, REPORT_REASON_PRESETS } from '../../lib/queries'
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 
 // 신고 모달 — 사유(선택) 입력 후 신고. (한줄 설명 모달과 동일 오버레이 스타일)
 //   props: isOpen, onClose, programId, targetType('post'|'verification'), targetId, onReported
@@ -11,6 +12,7 @@ function ReportModal({ isOpen, onClose, programId, targetType, targetId, onRepor
   const [showHelp, setShowHelp] = useState(false)
 
   useEffect(() => { if (isOpen) { setReason(''); setError(null); setDone(false); setShowHelp(false) } }, [isOpen])
+  useBodyScrollLock(isOpen)  // iOS 배경 스크롤 방지
 
   const mutation = useMutation({
     mutationFn: () => createReport({ programId, targetType, targetId, reason: reason.trim() || null }),

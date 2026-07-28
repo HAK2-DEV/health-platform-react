@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { supabase } from '../../supabaseClient'
 import { useToast } from '../../contexts/ToastContext'
 
@@ -42,6 +43,7 @@ const VARIANTS = {
 const MAX = 200
 
 export default function CheerModal({ programId, targetUserId, targetNickname, targetUserIds, groupLabel, variant = 'cheer', onClose }) {
+  useBodyScrollLock(true)  // 마운트=열림 → iOS 배경 스크롤 방지
   const toast = useToast()
   const v = VARIANTS[variant] || VARIANTS.cheer
   const isBulk = Array.isArray(targetUserIds)

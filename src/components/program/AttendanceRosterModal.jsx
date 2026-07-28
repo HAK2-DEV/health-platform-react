@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { X, Loader2, Check } from 'lucide-react'
 import { fetchSessionRoster, setSessionAttendance, fetchSessionCode, setSessionCode } from '../../lib/queries'
@@ -32,6 +33,7 @@ function CodeEditor({ sessionId }) {
 }
 
 export default function AttendanceRosterModal({ session, confirmedBy = null, attendanceMode = 'operator_roll', onClose }) {
+  useBodyScrollLock(true)  // 마운트=열림 → iOS 배경 스크롤 방지
   const qc = useQueryClient()
   const { data: roster = [], isLoading } = useQuery({
     queryKey: ['roster', session.id], queryFn: () => fetchSessionRoster(session.id), enabled: !!session.id,
