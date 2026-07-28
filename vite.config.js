@@ -51,6 +51,8 @@ export default defineConfig({
       },
       workbox: {
         cleanupOutdatedCaches: true,
+        // Web Push 핸들러(push/notificationclick) 를 생성 SW 에 병합 — public/push-sw.js
+        importScripts: ['/push-sw.js'],
         // skipWaiting/clientsClaim 은 의도적으로 끔 — prompt 모드에서 새 SW 가 '대기'해야
         //   onNeedRefresh(배너)가 발생. 새로고침 클릭 시 updateSW(true)가 skipWaiting 수행.
         // Supabase API / 이미지 등은 SW 캐시에서 제외 — 항상 최신

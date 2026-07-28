@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Heart, MessageCircle, Sprout, Hand, Loader2, Check } from 'lucide-react'
+import { Heart, MessageCircle, Sprout, Hand, Loader2, Check, Bell } from 'lucide-react'
+import { pushSupported, getPushState, subscribeToPush, unsubscribeFromPush } from '../lib/push'
+import { useToast } from '../contexts/ToastContext'
+import { supabase } from '../supabaseClient'
 import { useAuth } from '../hooks/useAuth'
 import {
   queryKeys,
@@ -102,6 +105,9 @@ function NotificationSettingsPage() {
           <p className="text-sm text-gray-500 mt-1.5">받고 싶지 않은 알림은 끌 수 있어요</p>
         </div>
 
+        {/* 폰 푸시 (Web Push) — 앱을 닫아도 폰으로 알림 */}
+        <PushToggleCard />
+
         {isLoading || !local ? (
           <LoadingState />
         ) : (
@@ -135,9 +141,74 @@ function NotificationSettingsPage() {
         </div>
 
         <p className="mt-6 text-[11px] text-gray-400 leading-relaxed text-center px-4">
-          ⓘ 알림은 앱 안의 🔔 알림 탭에서만 전달돼요. 푸시/이메일 알림은 추후 추가 예정.
+          ⓘ 위 항목별 설정은 앱 안 🔔 알림에 적용돼요. 「폰 푸시」를 켜면 앱을 닫아도 폰으로 알림이 옵니다.
         </p>
       </div>
+    </div>
+  )
+}
+
+// 폰 푸시(Web Push) 토글 — 권한 요청 + 구독 저장/해제. 브라우저·기기 지원 여부에 따라 안내.
+function PushToggleCard() {
+  const toast = useToast()
+  const [state, setState] = useState('loading')  // loading|unsupported|denied|nokey|subscribed|unsubscribed
+  const [busy, setBusy] = useState(false)
+  const [testing, setTesting] = useState(false)
+  useEffect(() => {
+    if (!pushSupported()) { setState('unsupported'); return }
+    getPushState().then(setState).catch(() => setState('unsupported'))
+  }, [])
+  const on = state === 'subscribed'
+  const disabled = busy || ['loading', 'unsupported', 'denied', 'nokey'].includes(state)
+  const toggle = async () => {
+    if (disabled) return
+    setBusy(true)
+    try {
+      if (on) { await unsubscribeFromPush(); setState('unsubscribed'); toast.show('폰 푸시를 껐어요') }
+      else { await subscribeToPush(); setState('subscribed'); toast.show('폰 푸시를 켰어요 · 앱을 닫아도 알림이 와요') }
+    } catch (e) {
+      toast.show(e.message || '설정에 실패했어요')
+      getPushState().then(setState).catch(() => {})
+    } finally { setBusy(false) }
+  }
+  const sendTest = async () => {
+    if (testing) return
+    setTesting(true)
+    try {
+      const { error } = await supabase.rpc('send_test_push')
+      if (error) throw error
+      toast.show('테스트 푸시를 보냈어요 · 잠시 후 폰을 확인해 보세요')
+    } catch (e) {
+      toast.show(e.message || '테스트 발송에 실패했어요')
+    } finally { setTesting(false) }
+  }
+  const hint = state === 'unsupported' ? '이 브라우저·기기는 푸시를 지원하지 않아요. (iPhone은 홈 화면에 앱을 추가하면 가능해요)'
+    : state === 'denied' ? '차단됨 — 브라우저 설정에서 이 사이트의 알림을 허용해 주세요.'
+    : state === 'nokey' ? '푸시 기능을 준비 중이에요. 곧 켤 수 있어요.'
+    : on ? '앱을 닫아도 폰으로 알림이 와요.' : '켜면 앱을 닫아도 폰으로 알림을 받아요.'
+  return (
+    <div className="bg-white border border-gray-100 rounded-card-lg shadow-soft p-4 mb-4">
+      <div className="flex items-center gap-3">
+        <IconBox tone="emerald"><Bell className="w-5 h-5" /></IconBox>
+        <div className="flex-1 min-w-0">
+          <p className="font-bold text-gray-800">폰 푸시 알림</p>
+          <p className="text-[12px] text-gray-500 mt-0.5 leading-relaxed break-keep">{hint}</p>
+        </div>
+        <button type="button" role="switch" aria-checked={on} onClick={toggle} disabled={disabled}
+          className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full transition disabled:opacity-40 ${on ? 'bg-emerald-500' : 'bg-gray-200'}`}>
+          <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition mt-0.5 ${on ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+        </button>
+      </div>
+
+      {on && (
+        <div className="mt-3 pt-3 border-t border-gray-100 flex justify-end">
+          <button type="button" onClick={sendTest} disabled={testing}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600 disabled:opacity-50">
+            {testing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Bell className="w-3.5 h-3.5" />}
+            테스트 푸시 보내기
+          </button>
+        </div>
+      )}
     </div>
   )
 }
