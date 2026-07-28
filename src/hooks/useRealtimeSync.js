@@ -85,12 +85,42 @@ export function useRealtimeSync() {
       )
       .subscribe()
 
+    // 커뮤니티 소셜(댓글·좋아요·댓글좋아요) 변경 → 소셜 캐시 무효화 (마이그 182).
+    //   다른 참여자의 댓글/좋아요가 화면에 즉시 반영된다. RLS 존중(같은 프로그램 멤버).
+    const communitySocialChannel = supabase
+      .channel('rt-community-social')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'community_post_comments' },
+        () => debounce('community-social', () => {
+          queryClient.invalidateQueries({ queryKey: ['community-post-social'] })
+          queryClient.invalidateQueries({ queryKey: ['community-posts'] })  // 목록 댓글 수
+        }),
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'community_post_likes' },
+        () => debounce('community-social', () => {
+          queryClient.invalidateQueries({ queryKey: ['community-post-social'] })
+          queryClient.invalidateQueries({ queryKey: ['community-posts'] })  // 목록 좋아요 수
+        }),
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'community_post_comment_likes' },
+        () => debounce('community-clike', () => {
+          queryClient.invalidateQueries({ queryKey: ['community-comment-likes'] })
+        }),
+      )
+      .subscribe()
+
     return () => {
       Object.values(timersMap).forEach(clearTimeout)
       supabase.removeChannel(partChannel)
       supabase.removeChannel(progChannel)
       supabase.removeChannel(sessChannel)
       supabase.removeChannel(communityChannel)
+      supabase.removeChannel(communitySocialChannel)
     }
   }, [userId, queryClient])
 }
