@@ -143,7 +143,14 @@ function ProgramHomeHero({
         outputHeight={Math.round(1170 / HERO_ASPECT)}
         minZoom={0.3}
         title="커버 사진 편집"
-        description="히어로에 보일 영역을 맞춰주세요 (드래그·확대)"
+        description="개요 화면 맨 위에 보일 영역을 맞춰주세요 (드래그·확대)"
+        cropOverlay={
+          <>
+            {/* 실제 개요와 동일 비율의 상단 스크림(70/252) + 하단 밝은 페이드(200/252) */}
+            <div className="absolute inset-x-0 top-0" style={{ height: `${(70 / HERO_H) * 100}%`, background: 'linear-gradient(180deg,rgba(24,21,16,.42),rgba(24,21,16,0))' }} />
+            <div className="absolute inset-x-0 bottom-0" style={{ height: `${(200 / HERO_H) * 100}%`, background: `linear-gradient(180deg,${SHEET_BG}00,${SHEET_BG} 46%)` }} />
+          </>
+        }
       />
     </>
   )

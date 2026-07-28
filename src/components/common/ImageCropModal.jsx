@@ -31,6 +31,7 @@ function ImageCropModal({
   minZoom = 0.3,  // 1 미만 허용 → 작은 이미지도 여백 두고 축소 배치 가능
   onPickNew,   // 주면 「변경」(다른 사진 선택) 버튼 노출
   onDelete,    // 주면 「삭제」 버튼 노출
+  cropOverlay, // 주면 크롭 영역(저장될 사각형)에 정확히 겹쳐 렌더 — 실제 표시 미리보기(페이드 등). pointer-events-none.
 }) {
   const [crop, setCrop] = useState({ x: 0, y: 0 })
   const [zoom, setZoom] = useState(1)
@@ -125,6 +126,21 @@ function ImageCropModal({
               restrictPosition={false}
               zoomWithScroll
             />
+          )}
+          {/* 저장될 크롭 사각형에 정확히 겹치는 미리보기 오버레이(페이드 등).
+              컨테이너가 정사각형이므로 activeAspect 로 크롭 사각형 위치를 계산.
+              aspect>=1 → 폭 100%·높이 1/a, 세로 중앙 / aspect<1 → 높이 100%·폭 a, 가로 중앙. */}
+          {cropOverlay && imageSrc && (
+            <div
+              className="absolute pointer-events-none z-10"
+              style={
+                activeAspect >= 1
+                  ? { left: 0, right: 0, top: `${((1 - 1 / activeAspect) / 2) * 100}%`, height: `${(1 / activeAspect) * 100}%` }
+                  : { top: 0, bottom: 0, left: `${((1 - activeAspect) / 2) * 100}%`, width: `${activeAspect * 100}%` }
+              }
+            >
+              {cropOverlay}
+            </div>
           )}
         </div>
 

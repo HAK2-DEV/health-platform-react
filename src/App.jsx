@@ -79,6 +79,7 @@ const RunnerAnimDemo = lazy(() => import('./pages/RunnerAnimDemo'))
 const NoticeAnimDemo = lazy(() => import('./pages/NoticeAnimDemo'))
 const TrophyAnimDemo = lazy(() => import('./pages/TrophyAnimDemo'))
 const UpdateDemoPage = lazy(() => import('./pages/UpdateDemoPage'))
+const CommentSheetDemo = lazy(() => import('./pages/CommentSheetDemo'))
 
 // 가입 승인 알림(/programs/:id/participants) → 프로그램 상세 + 승인 심사 모달 자동 오픈
 function ApprovalsRedirect() {
@@ -270,6 +271,7 @@ function AppShell() {
             <Route path="/notice-anim-demo" element={<NoticeAnimDemo />} />
             <Route path="/trophy-anim-demo" element={<TrophyAnimDemo />} />
             <Route path="/update-demo" element={<UpdateDemoPage />} />
+            <Route path="/comment-sheet-demo" element={<CommentSheetDemo />} />
             <Route path="/support" element={
               <ProtectedRoute><SupportPage /></ProtectedRoute>
             } />

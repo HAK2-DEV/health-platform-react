@@ -35,12 +35,18 @@ window.addEventListener('vite:preloadError', () => {
 // Service Worker 등록 — prompt 전략
 //   새 배포 감지 → 새 SW 대기 → onNeedRefresh 발생 → PwaUpdatePrompt 배너 노출.
 //   사용자가 「새로고침」 누르면 브랜드 스플래시 뒤 updateSW(true)로 skipWaiting+reload.
-//   오래 켜둔 세션도 1시간마다 update() 로 새 배포 확인. 청크404 는 vite:preloadError 자가복구.
+//   오래 켜둔 세션도 15분마다 + 앱이 다시 포커스될 때 update() 로 새 배포 확인 → 기기 간
+//   배너 노출 시점 편차 축소. 청크404 는 vite:preloadError 자가복구.
 const updateSW = registerSW({
   immediate: true,
   onNeedRefresh() { notifyNeedRefresh() },
   onRegisteredSW(_swUrl, registration) {
-    if (registration) setInterval(() => { registration.update() }, 60 * 60_000)
+    if (!registration) return
+    setInterval(() => { registration.update() }, 15 * 60_000)   // 15분 주기
+    // 앱으로 돌아오는 순간 확인 → 사용자가 배너를 볼 자연스러운 시점에 즉시 감지
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') registration.update()
+    })
   },
 })
 setUpdateSW(updateSW)

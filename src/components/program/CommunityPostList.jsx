@@ -402,10 +402,12 @@ function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId,
       {layout === 'grid' && <div className="grid grid-cols-2 gap-3">{posts.map(renderSmall)}</div>}
       {layout === 'magazine' && buildMagazine()}
 
-      {/* 상세(글 펼치기) — 화면 중앙 카드 (삭제 확인과 동일 스타일) */}
-      {detailPost && (
-        <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-5" style={{ touchAction: 'pan-y' }} onClick={closeDetail}>
-          <div className="w-full max-w-md max-h-[85vh] overflow-y-auto overflow-x-hidden overscroll-contain bg-white rounded-2xl p-5 shadow-xl" style={{ touchAction: 'pan-y' }} onClick={(e) => e.stopPropagation()}>
+      {/* 상세(글 펼치기) — 화면 중앙 카드. 댓글 많아도 팝업 높이 고정(85vh), 입력창만 하단 고정(B안) */}
+      {detailPost && (() => {
+        const social = canReact && detailPost.status !== 'pending'
+        // 글 본문 — 스크롤 영역 상단(사진 포함 전부 스크롤됨)
+        const postContent = (
+          <>
             {detailPost.pinned_at && <div className="mb-2"><PinPill /></div>}
             <div className="flex items-center gap-2.5 mb-3">
               <UserAvatar avatarPath={detailPost.author?.avatar_path} nickname={detailPost.author?.nickname} size="md" viewable />
@@ -426,9 +428,16 @@ function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId,
             )}
             <HiddenBanner p={detailPost} />
             <PendingActions p={detailPost} />
-            {/* 좋아요 · 댓글 — 반응 허용 + 참여자/운영자일 때. 알림 진입 시 이 영역으로 스크롤 */}
-            {canReact && detailPost.status !== 'pending' && (
-              <div ref={commentsAnchorRef} style={{ scrollMarginTop: '8px' }}>
+          </>
+        )
+        return (
+          <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-5" style={{ touchAction: 'pan-y' }} onClick={closeDetail}>
+            <div
+              className={`w-full max-w-md max-h-[85vh] bg-white rounded-2xl shadow-xl flex flex-col ${social ? 'overflow-hidden' : 'overflow-y-auto overflow-x-hidden overscroll-contain p-5'}`}
+              style={{ touchAction: 'pan-y' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {social ? (
                 <CommunityPostSocial
                   postId={detailPost.id}
                   programId={programId}
@@ -437,12 +446,17 @@ function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId,
                   canReact={canReact}
                   canComment={canComment}
                   targetCommentId={commentTarget}
+                  stickyComposer
+                  header={postContent}
+                  commentsRef={commentsAnchorRef}
                 />
-              </div>
-            )}
+              ) : (
+                postContent
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       <ReportModal
         isOpen={reportId != null}

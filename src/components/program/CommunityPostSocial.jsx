@@ -11,7 +11,9 @@ import UserAvatar from '../common/UserAvatar'
 
 // 커뮤니티 글 좋아요/댓글 (105) + 1단계 답글(118) — 상세(글 펼치기) 하단에 표시.
 //   canReact: 좋아요 가능. canComment: 댓글/답글 입력 가능.
-function CommunityPostSocial({ postId, programId, myUserId, isOwner, canReact, canComment, targetCommentId = null }) {
+// stickyComposer: true 면 [본문(header)+댓글목록=스크롤] / [입력창=하단 고정] 레이아웃.
+//   header: 스크롤 영역 맨 위에 넣을 글 본문(작성자·제목·본문·사진 등). 부모가 넘김.
+function CommunityPostSocial({ postId, programId, myUserId, isOwner, canReact, canComment, targetCommentId = null, stickyComposer = false, header = null, commentsRef = null }) {
   const qc = useQueryClient()
   const [text, setText] = useState('')
   const [replyTo, setReplyTo] = useState(null)        // { id(최상위 댓글), nickname }
@@ -166,8 +168,9 @@ function CommunityPostSocial({ postId, programId, myUserId, isOwner, canReact, c
     )
   }
 
-  return (
-    <div className="mt-4 pt-3 border-t border-gray-100">
+  // 좋아요 + 댓글 목록 (스크롤되는 부분)
+  const listNode = (
+    <>
       {/* 좋아요 + 댓글 수 */}
       <div className="flex items-center gap-4 mb-3">
         <button type="button" onClick={() => canReact && likeMut.mutate()} disabled={!canReact || likeMut.isPending}
@@ -209,33 +212,60 @@ function CommunityPostSocial({ postId, programId, myUserId, isOwner, canReact, c
           })}
         </div>
       )}
+    </>
+  )
 
-      {/* 댓글/답글 입력 */}
-      {canComment && (
-        <div className="mt-3">
-          {replyTo && (
-            <div className="flex items-center gap-1.5 mb-1.5 px-1 text-[11px] text-emerald-600">
-              <CornerDownRight className="w-3 h-3" /> <b className="font-semibold">{replyTo.nickname}</b>님에게 답글
-              <button type="button" onClick={cancelReply} className="ml-1 text-gray-400 hover:text-gray-600">취소</button>
-            </div>
-          )}
-          <div className="flex items-center gap-2">
-            <input
-              ref={inputRef}
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit() } }}
-              maxLength={500}
-              placeholder={replyTo ? '답글 달기...' : '댓글 달기...'}
-              className="flex-1 min-w-0 h-10 px-3.5 rounded-full border border-gray-200 text-sm outline-none focus:border-emerald-400"
-            />
-            <button type="button" onClick={submit} disabled={!text.trim() || addMut.isPending}
-              className="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center hover:bg-emerald-600 transition disabled:opacity-40 flex-shrink-0" title="등록">
-              <Send className="w-4 h-4" />
-            </button>
-          </div>
+  // 댓글/답글 입력 (sticky 모드에선 하단 고정 바 안에, 아니면 목록 아래)
+  const composerNode = canComment && (
+    <>
+      {replyTo && (
+        <div className="flex items-center gap-1.5 mb-1.5 px-1 text-[11px] text-emerald-600">
+          <CornerDownRight className="w-3 h-3" /> <b className="font-semibold">{replyTo.nickname}</b>님에게 답글
+          <button type="button" onClick={cancelReply} className="ml-1 text-gray-400 hover:text-gray-600">취소</button>
         </div>
       )}
+      <div className="flex items-center gap-2">
+        <input
+          ref={inputRef}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit() } }}
+          maxLength={500}
+          placeholder={replyTo ? '답글 달기...' : '댓글 달기...'}
+          className="flex-1 min-w-0 h-10 px-3.5 rounded-full border border-gray-300 bg-gray-50 text-sm text-gray-800 placeholder:text-gray-400 outline-none transition focus:border-emerald-400 focus:bg-white"
+        />
+        <button type="button" onClick={submit} disabled={!text.trim() || addMut.isPending}
+          className="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center hover:bg-emerald-600 transition disabled:opacity-40 flex-shrink-0" title="등록">
+          <Send className="w-4 h-4" />
+        </button>
+      </div>
+    </>
+  )
+
+  // B안 — 입력창만 하단 고정, 본문(header)+좋아요+댓글목록은 함께 스크롤
+  if (stickyComposer) {
+    return (
+      <div className="flex flex-col min-h-0 flex-1">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain px-5 pt-5" style={{ touchAction: 'pan-y' }}>
+          {header}
+          <div ref={commentsRef} style={{ scrollMarginTop: '8px' }} className="mt-4 pt-3 border-t border-gray-100">
+            {listNode}
+          </div>
+        </div>
+        {composerNode && (
+          <div className="flex-shrink-0 px-5 py-3 border-t border-gray-100 bg-white">
+            {composerNode}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // 기존(인라인) — 목록 아래 입력창
+  return (
+    <div className="mt-4 pt-3 border-t border-gray-100">
+      {listNode}
+      {composerNode && <div className="mt-3">{composerNode}</div>}
     </div>
   )
 }

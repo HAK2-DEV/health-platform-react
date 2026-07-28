@@ -691,6 +691,17 @@ function CommentsSection({ verificationId, programId, myUserId, isProgramOwner, 
     return () => clearTimeout(t)
   }, [comments, targetCommentId, repliesOpen])
 
+  // 댓글 아이콘으로 방금 연 경우 — 입력창이 화면에 들어오도록 살짝 스크롤.
+  //   (딥링크 targetCommentId 는 위 타겟 스크롤이 담당하므로 제외)
+  useEffect(() => {
+    if (targetCommentId) return
+    const t = setTimeout(() => {
+      inputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 120)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // 댓글/답글 한 줄 렌더 (컴포넌트 아닌 함수 — 입력 리렌더 시 행 리마운트 방지)
   //   topId: 답글이 귀속될 최상위 댓글 id. isReply: 답글 행 여부.
   const renderComment = (c, isReply, topId) => {
@@ -836,7 +847,7 @@ function CommentsSection({ verificationId, programId, myUserId, isProgramOwner, 
           placeholder={replyTo ? '답글 달기...' : '댓글 달기...'}
           maxLength={200}
           disabled={addMutation.isPending}
-          className="flex-1 px-3 py-1.5 text-sm bg-gray-50 rounded-full focus:outline-none focus:bg-white focus:ring-1 focus:ring-emerald-400 disabled:opacity-50"
+          className="flex-1 px-3.5 h-10 text-sm border border-gray-300 bg-gray-50 rounded-full text-gray-800 placeholder:text-gray-400 outline-none transition focus:border-emerald-400 focus:bg-white disabled:opacity-50"
         />
         <button type="button" onClick={submit} disabled={addMutation.isPending || !input.trim()}
           className="p-2 text-emerald-500 hover:bg-emerald-50 rounded-full transition disabled:opacity-40" title="댓글 작성">
