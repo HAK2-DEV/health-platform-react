@@ -22,14 +22,14 @@ const TOGGLES = [
   {
     key: 'like_enabled',
     label: '좋아요 알림',
-    description: '내 인증에 다른 참여자가 좋아요를 누르면 알림',
+    description: '내 인증·게시글에 다른 참여자가 좋아요를 누르면 알림',
     tone: 'pink',
     icon: <Heart className="w-5 h-5 fill-current" />,
   },
   {
     key: 'comment_enabled',
     label: '댓글 알림',
-    description: '내 인증에 댓글이 달리면 알림',
+    description: '내 인증·게시글에 댓글이 달리면 알림',
     tone: 'violet',
     icon: <MessageCircle className="w-5 h-5" />,
   },

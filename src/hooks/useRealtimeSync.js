@@ -70,11 +70,27 @@ export function useRealtimeSync() {
       )
       .subscribe()
 
+    // 커뮤니티 글 변경(새 글·수정·삭제) → 게시판 목록·운영자 검토 대기 무효화 (마이그 181).
+    //   다른 참여자가 글을 쓰면 화면을 켜둔 사용자의 목록에 즉시 나타난다.
+    //   RLS 존중 → 같은 프로그램 멤버/운영자에게만 이벤트가 배달됨.
+    const communityChannel = supabase
+      .channel('rt-community')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'community_posts' },
+        () => debounce('community', () => {
+          queryClient.invalidateQueries({ queryKey: ['community-posts'] })
+          queryClient.invalidateQueries({ queryKey: ['community-pending'] })
+        }),
+      )
+      .subscribe()
+
     return () => {
       Object.values(timersMap).forEach(clearTimeout)
       supabase.removeChannel(partChannel)
       supabase.removeChannel(progChannel)
       supabase.removeChannel(sessChannel)
+      supabase.removeChannel(communityChannel)
     }
   }, [userId, queryClient])
 }
