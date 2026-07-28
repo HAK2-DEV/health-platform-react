@@ -207,6 +207,7 @@ function ProgramHome({
   onSettings = null,          // immersive 히어로 — 운영자 설정
   pendingCount = 0,
   reviewSlot = null,          // immersive — 인증 심사 대기 배너(시트 상단)
+  endReportSlot = null,       // immersive — 종료 리포트 배너(시트 최상단)
   classSlot = null,           // 강사 클래스 개요 진입 카드 (기능 ON 시 주입)
   onOpenTab = () => {},
   onRecord = () => {},
@@ -412,7 +413,8 @@ function ProgramHome({
 
       {/* 콘텐츠 시트 — 히어로 위로 -22px 겹치며 26px 라운드로 시작 */}
       <div className="relative -mt-[22px] rounded-t-[26px] px-4 pt-5 pb-6 space-y-[9px]" style={{ background: '#fdfbf7' }}>
-        {/* 인증 심사 대기 배너 (운영자) — immersive 에선 히어로 아래 시트 최상단 */}
+        {/* 종료 리포트 / 인증 심사 배너 (운영자) — immersive 에선 히어로 아래 시트 최상단 */}
+        {endReportSlot}
         {reviewSlot}
         {/* [커스터마이즈] 운영자 순서·숨김 반영 — 진입 시 순차 페이드업 */}
         {orderedKeys.map((k, i) => {

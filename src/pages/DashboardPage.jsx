@@ -14,6 +14,7 @@ import { Reveal } from '../components/program/statsAnim'
 import CountUp from '../components/common/CountUp'
 import LoadingState from '../components/common/LoadingState'
 import EmptyState from '../components/common/EmptyState'
+import RankTrophyAnim from '../components/common/RankTrophyAnim'
 import { calcProgress, progressUrgency } from '../lib/programVisuals'
 import {
   queryKeys,
@@ -685,7 +686,7 @@ function DashboardPage() {
             <div className="flex items-center gap-3">
               {/* 트로피 3D 아이콘(본인 제공 2026-07-19) — 좌측 */}
               {/* 박스 높이는 고정, 트로피만 시각적으로 크게 — 아이콘 여백을 넘겨 살짝 오버플로우 */}
-              <img src="/icons/reward/trophy.png" alt="" aria-hidden="true" className="w-[104px] h-[104px] object-contain flex-shrink-0 -my-3 -ml-[5px]" />
+              <RankTrophyAnim className="flex-shrink-0 -my-3 -ml-[5px]" />
               {/* 점수·랭킹 — 아이콘이 좌측을 차지하므로 우측으로 이동 */}
               <div className="flex-1 flex items-center justify-around gap-3">
                 <div className="text-center">

@@ -37,6 +37,7 @@ import StickyBackBar from '../../components/common/StickyBackBar'
 import Modal from '../../components/common/Modal'
 import DeleteProgramModal from '../../components/program/DeleteProgramModal'
 import OperatorReviewBanner from '../../components/program/OperatorReviewBanner'
+import EndReportBanner from '../../components/program/EndReportBanner'
 import { markSeen, countNew, getLastSeen } from '../../lib/newContent'
 import { warnLargeUserList } from '../../lib/sentry'
 import UserAvatar from '../../components/common/UserAvatar'
@@ -614,6 +615,16 @@ function ProgramDetailPage() {
       setPlayReviewIntro(true)
     }
   }, [isOwner, pendingReviews.length])
+  // 종료 리포트 배너 강조 연출 — 운영자 + 프로그램 종료 첫 감지 시 1회.
+  const endReportIntroPlayedRef = useRef(false)
+  const [playEndReportIntro, setPlayEndReportIntro] = useState(false)
+  useEffect(() => {
+    const ended = program && progressUrgency(calcProgress(program.start_date, program.end_date)).urgency === 'ended'
+    if (!endReportIntroPlayedRef.current && isOwner && ended) {
+      endReportIntroPlayedRef.current = true
+      setPlayEndReportIntro(true)
+    }
+  }, [isOwner, program])
   useEffect(() => {
     if (searchParams.get('vreview') === '1') {
       setVreviewOpen(true)
@@ -1527,9 +1538,20 @@ function ProgramDetailPage() {
         )
       })()}
 
+      {/* 종료 리포트 진입 — 운영자 + 프로그램 종료 (개요 최상단, 인트로 연출). immersive 는 슬롯으로 주입.
+          관리 폼(inManager)에선 immersiveHome 이 false 가 되므로 !inManager 로 제외. */}
+      {isOwner && activeTab === 'overview' && !immersiveHome && !inManager
+        && progressUrgency(calcProgress(program.start_date, program.end_date)).urgency === 'ended' && (
+        <EndReportBanner
+          onClick={() => navigate(`/programs/${id}/report`)}
+          playIntro={playEndReportIntro}
+          onIntroDone={() => setPlayEndReportIntro(false)}
+        />
+      )}
+
       {/* 인증 심사 대기 배너 — 운영자 + 검토 필요 인증 (개요·미션 탭). 탭하면 인증 검토 큐.
           진입 시 1회 강조 연출(정중앙 팝업 → 원위치). */}
-      {isOwner && pendingReviews.length > 0 && (activeTab === 'overview' || activeTab === 'missions') && !immersiveHome && (
+      {isOwner && pendingReviews.length > 0 && (activeTab === 'overview' || activeTab === 'missions') && !immersiveHome && !inManager && (
         <OperatorReviewBanner
           count={pendingReviews.length}
           onClick={() => setVreviewOpen(true)}
@@ -1777,6 +1799,13 @@ function ProgramDetailPage() {
                 onIntroDone={() => setPlayReviewIntro(false)}
               />
             ) : null}
+            endReportSlot={isOwner && progressUrgency(calcProgress(program.start_date, program.end_date)).urgency === 'ended' ? (
+              <EndReportBanner
+                onClick={() => navigate(`/programs/${id}/report`)}
+                playIntro={playEndReportIntro}
+                onIntroDone={() => setPlayEndReportIntro(false)}
+              />
+            ) : null}
             classSlot={classOverviewSlot}
             quizEnabled={quizEnabled && !isViewer}
             communityEnabled={communityEnabled}
@@ -1906,22 +1935,6 @@ function ProgramDetailPage() {
           </div>
         )
       })()}
-
-      {/* 종료 리포트 진입 — 운영자 + 프로그램 종료 시 (최종 성적표) */}
-      {isOwner && progressUrgency(calcProgress(program.start_date, program.end_date)).urgency === 'ended' && (
-        <button
-          type="button"
-          onClick={() => navigate(`/programs/${id}/report`)}
-          className="w-full flex items-center gap-3 p-3.5 mb-[9px] rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-left shadow-elevated active:scale-[0.99] transition"
-        >
-          <span className="flex-shrink-0 w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-xl">🏁</span>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold leading-tight">프로그램이 종료되었어요</p>
-            <p className="text-[12px] text-white/85 leading-snug mt-0.5">최종 성적표 — 종료 리포트 보기</p>
-          </div>
-          <ChevronRight className="w-5 h-5 flex-shrink-0 text-white/90" />
-        </button>
-      )}
 
       {/* 완주 요약 재진입 — 참여자 + 프로그램 종료 시 */}
       {!isOwner && isActiveParticipant && progressUrgency(calcProgress(program.start_date, program.end_date)).urgency === 'ended' && (
