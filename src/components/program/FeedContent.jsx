@@ -169,6 +169,10 @@ function FeedContent({ program, layout: layoutProp = null, targetVerificationId 
   // 운영자 여부 — 피드 게시물에 점수 제외/피드 가리기 액션 노출 (OperatorVerificationActions)
   const isProgramOwner = program.owner_id === myUserId
 
+  // 커뮤니티 레이아웃 — 훅(useBodyScrollLock)은 아래 early return 보다 위에 있어야 함(hooks 규칙).
+  const layout = layoutProp || program.community_layout || 'feed'
+  useBodyScrollLock(!!focusedId && layout !== 'feed')  // 그리드/매거진 풀뷰 오버레이 — iOS 배경 스크롤 방지
+
   if (isPostsLoading) {
     return <LoadingState text="피드 불러오는 중..." />
   }
@@ -177,10 +181,8 @@ function FeedContent({ program, layout: layoutProp = null, targetVerificationId 
   }
 
   // 커뮤니티 레이아웃 (093) — list(기본) / grid / magazine. 카드 탭 시 focusedId 풀뷰.
-  //   게시판별 override(104+) 가 있으면 우선, 없으면 프로그램 전체 레이아웃.
-  const layout = layoutProp || program.community_layout || 'feed'
+  //   layout 은 위(early return 앞)에서 이미 계산됨.
   const showFull = layout === 'feed' || !!focusedId
-  useBodyScrollLock(!!focusedId && layout !== 'feed')  // 그리드/매거진 풀뷰 오버레이 — iOS 배경 스크롤 방지
   const visiblePosts = focusedId ? posts.filter(p => p.id === focusedId) : posts
 
   // 리스트형 — 썸네일(좌) + 텍스트(우), 균일 가로 행
