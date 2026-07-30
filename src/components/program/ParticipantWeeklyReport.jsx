@@ -56,7 +56,7 @@ export default function ParticipantWeeklyReport({ programId, userId, classEnable
         <button type="button" onClick={openFromBanner}
           className="mb-3 w-full flex items-center gap-2.5 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-left hover:bg-emerald-100/60 transition">
           <Lightbulb className="w-5 h-5 text-emerald-500 flex-shrink-0" />
-          <span className="flex-1 text-[13px] font-bold text-gray-700">이번 주 내 기록이 도착했어요 · 보기</span>
+          <span className="flex-1 text-[13px] font-bold text-gray-700">이번 주 내 기록이 도착했어요</span>
           <ChevronRight className="w-4 h-4 text-emerald-500 flex-shrink-0" />
         </button>
       )}
