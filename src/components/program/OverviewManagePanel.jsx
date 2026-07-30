@@ -21,9 +21,6 @@ const OverviewManagePanel = forwardRef(function OverviewManagePanel({ program, p
   const [maxParticipants, setMaxParticipants] = useState('')
   const [isPublic, setIsPublic] = useState(false)
   const [previewEnabled, setPreviewEnabled] = useState(false)
-  const [overviewContent, setOverviewContent] = useState('')
-  const [overviewTitle, setOverviewTitle] = useState('')
-  const [noticeEnabled, setNoticeEnabled] = useState(true)  // 공지사항(안내) 카드 사용 (마이그 138)
   const [savingSubtract, setSavingSubtract] = useState(true) // 금연 「오늘 절약」 흡연 차감 (마이그 139)
   const [progressEnabled, setProgressEnabled] = useState(true) // 「나의 진행 현황」 카드 표시 (마이그 145)
   const [coverImagePath, setCoverImagePath] = useState(null)  // 배너/썸네일 표지
@@ -32,7 +29,6 @@ const OverviewManagePanel = forwardRef(function OverviewManagePanel({ program, p
 
   useEffect(() => {
     if (!program) return
-    setOverviewTitle(program.overview_title || '')
     setCoverImagePath(program.cover_image_path || null)
     setName(program.name || '')
     setDescription(program.description || '')
@@ -41,8 +37,6 @@ const OverviewManagePanel = forwardRef(function OverviewManagePanel({ program, p
     setMaxParticipants(program.max_participants ?? '')
     setIsPublic(!!program.is_public)
     setPreviewEnabled(!!program.preview_enabled)
-    setOverviewContent(program.overview_content || '')
-    setNoticeEnabled(program.overview_notice_enabled !== false)
     setSavingSubtract(program.saving_subtract_smoking !== false)
     setProgressEnabled(program.overview_progress_enabled !== false)
   }, [program])
@@ -71,12 +65,8 @@ const OverviewManagePanel = forwardRef(function OverviewManagePanel({ program, p
         is_public: isPublic,
         preview_enabled: previewEnabled,
         cover_image_path: coverImagePath,
-        overview_content: overviewContent,
       }
-      // overview_title 컬럼(마이그레이션 091)이 적용된 경우에만 저장에 포함 → 적용 전에도 저장 안 깨짐
-      if (program && 'overview_title' in program) payload.overview_title = overviewTitle.trim() || null
-      // overview_notice_enabled 컬럼(마이그 138)이 적용된 경우에만 포함 (적용 전 저장 안 깨짐)
-      if (program && 'overview_notice_enabled' in program) payload.overview_notice_enabled = noticeEnabled
+      // 안내(overview_content/title/notice_enabled)는 편집 UI 제거 → 저장에서 제외(기존 값 보존).
       // saving_subtract_smoking 컬럼(마이그 139)이 적용된 경우에만 포함
       if (program && 'saving_subtract_smoking' in program) payload.saving_subtract_smoking = savingSubtract
       // overview_progress_enabled 컬럼(마이그 145)이 적용된 경우에만 포함
@@ -89,7 +79,7 @@ const OverviewManagePanel = forwardRef(function OverviewManagePanel({ program, p
       onSaved?.()
       return null
     },
-  }), [name, description, category, endDate, maxParticipants, isPublic, previewEnabled, coverImagePath, overviewTitle, overviewContent, noticeEnabled, savingSubtract, progressEnabled, program, onSaved])
+  }), [name, description, category, endDate, maxParticipants, isPublic, previewEnabled, coverImagePath, savingSubtract, progressEnabled, program, onSaved])
 
   const numBadge = (n) => <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500 text-white text-[11px] font-bold">{n}</span>
   const headCls = 'flex items-center gap-1.5 text-[15px] font-bold text-gray-800 mb-3'
@@ -227,40 +217,12 @@ const OverviewManagePanel = forwardRef(function OverviewManagePanel({ program, p
         </section>
       )}
 
-      {/* 4) 안내 (개요 글 = 미리보기의 「📝 안내」와 동일 overview_content) */}
-      <section className="bg-white border border-gray-100 rounded-2xl shadow-soft p-4">
-        <h3 className={headCls}>{numBadge(4)} 📝 안내 <span className="text-[11px] font-normal text-gray-400 ml-1">참여자에게 보이는 소개·공지</span></h3>
-        {/* 공지사항(안내) 사용 토글 — 끄면 개요 상단 공지 카드 미노출 (마이그 138) */}
-        <div className="flex items-center gap-3 mb-3 pb-3 border-b border-gray-100">
-          <div className="flex-1 min-w-0">
-            <p className="text-[13px] font-medium text-gray-800">📢 공지사항 사용</p>
-            <p className="text-[11px] text-gray-500">끄면 개요 상단 공지 카드가 안 보여요. 필요할 때만 켜세요.</p>
-          </div>
-          <Toggle on={noticeEnabled} onClick={() => setNoticeEnabled(v => !v)} />
-        </div>
-        <div className={noticeEnabled ? '' : 'opacity-50 pointer-events-none'}>
-        {/* 제목 — 참여자 화면의 「📝 OOO」 헤더 문구 (비우면 '안내') */}
-        <div className="flex items-center gap-2 mb-2">
-          <span className={labelCls}>🏷️ 제목</span>
-          <input value={overviewTitle} onChange={(e) => setOverviewTitle(e.target.value)} maxLength={20} placeholder="안내" className={fieldCls} style={fieldStyle} />
-        </div>
-        <textarea
-          value={overviewContent}
-          onChange={(e) => setOverviewContent(e.target.value)}
-          onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-          rows={12}
-          maxLength={500}
-          placeholder="프로그램 소개·목표·공지를 자유롭게 작성하세요."
-          style={fieldStyle}
-          className="w-full min-h-[320px] px-3 py-2.5 text-[13px] border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-400 resize-none leading-relaxed"
-        />
-        <p className="text-[11px] text-gray-400 text-right mt-0.5">{overviewContent.length}/500</p>
-        </div>
-      </section>
+      {/* 안내(개요 공지) 섹션 제거 — 공지·소개는 커뮤니티 공지 기능으로 일원화 (본인 결정 2026-07-30).
+          overview_content/overview_title/overview_notice_enabled 컬럼은 유지(기존 데이터 보존), 편집 UI만 삭제. */}
 
-      {/* 5) 배너 / 썸네일 (대표 사진) — 변경/삭제. 저장 시 cover_image_path 반영 */}
+      {/* 4) 배너 / 썸네일 (대표 사진) — 변경/삭제. 저장 시 cover_image_path 반영 */}
       <section className="bg-white border border-gray-100 rounded-2xl shadow-soft p-4">
-        <h3 className={headCls}>{numBadge(5)} 🖼️ 배너 / 썸네일</h3>
+        <h3 className={headCls}>{numBadge(4)} 🖼️ 배너 / 썸네일</h3>
         <CoverImageUploader
           ownerId={program.owner_id}
           imagePath={coverImagePath}

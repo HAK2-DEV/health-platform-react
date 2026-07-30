@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link, useSearchParams, useLocation } from 'reac
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../../hooks/useAuth'
-import { ChevronLeft, Plus, ChevronRight, Users, Trophy, Pencil, Calendar, Activity, Award, Flame, Check, Settings, X } from 'lucide-react'
+import { ChevronLeft, Plus, ChevronRight, Users, Trophy, Pencil, Calendar, Activity, Award, Flame, Check, Settings } from 'lucide-react'
 import DoorIcon from '../../components/common/DoorIcon'
 import { supabase } from '../../supabaseClient'
 import { CATEGORY, PROGRAM_THEME } from '../../lib/constants'
@@ -507,7 +507,6 @@ function ProgramDetailPage() {
   const [notifyFlagsLocal, setNotifyFlagsLocal] = useState({})  // 새 소식 알림 유형별 보내기(낙관적)
   const [panelView, setPanelView] = useState('root')   // 운영자 메뉴 시트 단계: root | settings | menubar
   const [isRankingOpen, setIsRankingOpen] = useState(false)  // 랭킹 설정 모달
-  const [noticeModalOpen, setNoticeModalOpen] = useState(false)  // 공지사항(개요 글) 중앙 모달
   const noticeMarkedRef = useRef(false)                          // 이번 진입에서 공지 열람 처리했는지(미열람 배지 즉시 해제)
   const closePanel = () => { setIsPanelOpen(false); setPanelView('root') }
   const handleRankingClose = () => { setIsRankingOpen(false); setPanelView('menubar'); setIsPanelOpen(true) }
@@ -1707,37 +1706,30 @@ function ProgramDetailPage() {
         <QuitSmokingTip />
       )}
 
-      {/* 📢 공지사항 (개요 글) — 맨 위. 운영자가 끄면(overview_notice_enabled=false) 미노출 (마이그 138). 러닝은 RunningHome 내부 공지로 대체 */}
-      {!cardHome && program.overview_notice_enabled !== false && (program.overview_content?.trim() || isOwner) && (() => {
-        const raw = program.overview_content?.trim() || ''
-        // 마크다운 기호 제거한 한 줄 미리보기
-        const preview = raw
-          .replace(/!\[.*?\]\(.*?\)/g, '')
-          .replace(/\[(.*?)\]\(.*?\)/g, '$1')
-          .replace(/[#>*_`~]/g, '')
-          .replace(/\s+/g, ' ')
-          .trim()
-        const hasContent = !!raw
-        const title = program.overview_title?.trim() || '공지사항'
-        return (
-          <button
-            type="button"
-            disabled={!hasContent}
-            onClick={() => setNoticeModalOpen(true)}
-            className="w-full text-left bg-white rounded-2xl shadow-elevated p-4 mb-[9px] transition active:scale-[0.99] disabled:cursor-default"
-          >
-            <div className="flex items-center justify-between gap-2 mb-1">
-              <h3 className="text-sm font-bold text-gray-800 truncate">📢 {title}</h3>
-              {hasContent && <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />}
-            </div>
-            {hasContent ? (
-              <p className="text-[13px] text-gray-500 leading-relaxed line-clamp-2 break-words">{preview}</p>
-            ) : (
-              <p className="text-[13px] text-gray-400">✏️ 운영자 메뉴에서 공지를 작성해보세요</p>
-            )}
-          </button>
-        )
-      })()}
+      {/* 📢 공지사항 — 커뮤니티 공지 게시판과 단일 소스로 통일. 클릭 시 커뮤니티 공지로 이동
+          (별도 overview_content/읽기 팝업 제거 — 공지는 커뮤니티에서 작성·관리). 러닝/카드홈은 각 홈 내부 공지. */}
+      {!cardHome && communityEnabled && program.overview_notice_enabled !== false && (latestNotice || isOwner) && (
+        <button
+          type="button"
+          onClick={openNoticeBoard}
+          className="w-full text-left bg-white rounded-2xl shadow-elevated p-4 mb-[9px] transition active:scale-[0.99]"
+        >
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <h3 className="text-sm font-bold text-gray-800 truncate flex items-center gap-1.5">
+              📢 공지사항
+              {noticeUnread && <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" />}
+            </h3>
+            <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
+          </div>
+          {latestNotice ? (
+            <p className="text-[13px] text-gray-500 leading-relaxed line-clamp-2 break-words">
+              {latestNotice.title?.trim() || latestNotice.body?.trim() || '공지'}
+            </p>
+          ) : (
+            <p className="text-[13px] text-gray-400">✏️ 커뮤니티 공지 게시판에 공지를 작성해보세요</p>
+          )}
+        </button>
+      )}
 
       {/* 달리기 테마 — 전용 대시보드(RunningHome). 마라톤 코스·데일리 로그·미션/퀴즈/커뮤니티 진입 통합 */}
       {program.theme === PROGRAM_THEME.RUNNING && (() => {
@@ -2987,28 +2979,6 @@ function ProgramDetailPage() {
         />
       )}
 
-      {/* 📢 공지사항 중앙 모달 — 컴팩트 카드 클릭 시 전체 내용 */}
-      {noticeModalOpen && (
-        <div
-          className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/40"
-          onClick={() => setNoticeModalOpen(false)}
-        >
-          <div
-            className="w-full max-w-md max-h-[80vh] flex flex-col bg-white rounded-2xl shadow-xl overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between gap-2 px-5 py-3.5 border-b border-gray-100 flex-shrink-0">
-              <h2 className="text-[16px] font-bold text-gray-800 truncate">📢 {program.overview_title?.trim() || '공지사항'}</h2>
-              <button type="button" onClick={() => setNoticeModalOpen(false)} className="p-1 text-gray-400 hover:text-gray-700" aria-label="닫기">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-5">
-              <MarkdownView content={program.overview_content} />
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

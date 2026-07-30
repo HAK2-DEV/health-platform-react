@@ -32,6 +32,7 @@ function ProgramNewPage() {
   const [showChooser, setShowChooser] = useState(!draftId)  // 마법사 전 「직접 만들기 vs 라이브러리」 선택화면
   const [creatingKey, setCreatingKey] = useState(null)      // 라이브러리 프리셋 생성 중 key
   const [step1AtEnd, setStep1AtEnd] = useState(false)   // 2단계에서 이전 → 1단계 마지막 서브스텝부터
+  const [step2AtEnd, setStep2AtEnd] = useState(false)   // 3단계에서 이전 → 2단계 마지막 서브스텝부터
   const [step3AtEnd, setStep3AtEnd] = useState(false)   // 4단계에서 이전 → 3단계 마지막 서브스텝부터
 
   // 베타 한도 검사 — 새 생성(draftId 없음)일 때만. DRAFT 재진입은 검사 안 함
@@ -178,6 +179,7 @@ function ProgramNewPage() {
   const handlePrev = () => {
     // 다음 단계 → 이전 단계로 돌아갈 땐 그 단계의 마지막 서브스텝부터 보이게
     if (currentStep === 2) setStep1AtEnd(true)
+    if (currentStep === 3) setStep2AtEnd(true)
     if (currentStep === 4) setStep3AtEnd(true)
     setCurrentStep(currentStep - 1)
   }
@@ -273,6 +275,7 @@ function ProgramNewPage() {
           onNext={handleNext}
           onSave={handleSave}
           onPrev={handlePrev}
+          enterAtEnd={step2AtEnd}
         />
       )}
 
