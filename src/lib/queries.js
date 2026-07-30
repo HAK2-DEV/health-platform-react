@@ -1267,6 +1267,10 @@ const NOTIF_PREF_COLUMN = {
   REVIEW_REJECTED: 'verify_enabled',
   VERIFICATION_SUBMITTED: 'verify_enabled',
   PARTICIPANT_JOINED: 'request_enabled',
+  NEW_MISSION: 'content_enabled',
+  NEW_QUIZ: 'content_enabled',
+  NEW_CLASS: 'content_enabled',
+  NEW_NOTICE: 'content_enabled',
 }
 
 // 현재 사용자가 OFF 한 알림 type 목록 — 조회·카운트에서 제외용.

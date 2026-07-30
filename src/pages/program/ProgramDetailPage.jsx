@@ -504,6 +504,7 @@ function ProgramDetailPage() {
   }, [])
   const [isInviteOpen, setIsInviteOpen] = useState(false)
   const [isPanelOpen, setIsPanelOpen] = useState(false)
+  const [notifyContentLocal, setNotifyContentLocal] = useState(null)  // 새 소식 알림 보내기(낙관적)
   const [panelView, setPanelView] = useState('root')   // 운영자 메뉴 시트 단계: root | settings | menubar
   const [isRankingOpen, setIsRankingOpen] = useState(false)  // 랭킹 설정 모달
   const [noticeModalOpen, setNoticeModalOpen] = useState(false)  // 공지사항(개요 글) 중앙 모달
@@ -2831,6 +2832,30 @@ function ProgramDetailPage() {
                 <div className="grid grid-cols-1 gap-2.5">
                   <PanelMenuBox icon="📋" title="프로그램 설정" desc="이름·기간·카테고리·공개 + 퀴즈/커뮤니티 사용" onClick={() => { closePanel(); editReturnViewRef.current = 'settings'; setIsEditOpen(true) }} />
                   <PanelMenuBox icon="🗂️" title="메뉴바 설정" desc="개요·미션·퀴즈·커뮤니티·랭킹" chevron onClick={() => setPanelView('menubar')} />
+                  {/* 새 소식 알림 보내기 — 새 미션·퀴즈·클래스·공지 시 참여자 알림 (기본 ON) */}
+                  {(() => {
+                    const notifyOn = notifyContentLocal ?? (program.notify_new_content !== false)
+                    const toggleNotify = async () => {
+                      const v = !notifyOn
+                      setNotifyContentLocal(v)
+                      const { error } = await supabase.from('programs').update({ notify_new_content: v }).eq('id', id)
+                      if (error) { setNotifyContentLocal(!v); toast.show('저장에 실패했어요'); return }
+                      queryClient.invalidateQueries({ queryKey: queryKeys.program(id) })
+                    }
+                    return (
+                      <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-white border border-gray-100">
+                        <span className="text-xl flex-shrink-0">🔔</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[14px] font-bold text-gray-800">새 소식 알림 보내기</p>
+                          <p className="text-[11.5px] text-gray-500 mt-0.5 break-keep">새 미션·퀴즈·클래스·공지를 올리면 참여자에게 알림</p>
+                        </div>
+                        <button type="button" role="switch" aria-checked={notifyOn} onClick={toggleNotify}
+                          className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full transition ${notifyOn ? 'bg-emerald-500' : 'bg-gray-200'}`}>
+                          <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition mt-0.5 ${notifyOn ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+                        </button>
+                      </div>
+                    )
+                  })()}
                 </div>
               </>
             )}

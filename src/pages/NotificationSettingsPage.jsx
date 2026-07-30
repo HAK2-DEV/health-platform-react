@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Heart, MessageCircle, Sprout, Hand, Loader2, Check, Bell } from 'lucide-react'
+import { Heart, MessageCircle, Sprout, Hand, Loader2, Check, Bell, Megaphone } from 'lucide-react'
 import { pushSupported, getPushState, subscribeToPush, unsubscribeFromPush } from '../lib/push'
 import { useToast } from '../contexts/ToastContext'
 import { supabase } from '../supabaseClient'
@@ -46,6 +46,13 @@ const TOGGLES = [
     description: '(운영자만) 승인 필요한 프로그램에 가입 요청이 오면 알림',
     tone: 'amber',
     icon: <Hand className="w-5 h-5" />,
+  },
+  {
+    key: 'content_enabled',
+    label: '새 소식 알림',
+    description: '참여 중인 프로그램에 새 미션·퀴즈·클래스·공지가 올라오면 알림',
+    tone: 'sky',
+    icon: <Megaphone className="w-5 h-5" />,
   },
 ]
 
