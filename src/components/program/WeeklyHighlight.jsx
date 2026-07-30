@@ -12,17 +12,23 @@ function weekKey() {
 }
 const seenKey = (pid) => `whl-seen:${pid}`
 
+// 개발(dev)에선 열람 처리 없이 항상 노출 — 테스트 편의. 프로덕션은 주 1회(열람 시 사라짐).
+const DEV = import.meta.env.DEV
+
 export default function WeeklyHighlight({ programId, onOpen, show = true }) {
   const [seen, setSeen] = useState(true)
   useEffect(() => {
+    if (DEV) { setSeen(false); return }
     try { setSeen(localStorage.getItem(seenKey(programId)) === weekKey()) } catch { setSeen(true) }
   }, [programId])
 
   if (!show || seen) return null
 
   const handle = () => {
-    try { localStorage.setItem(seenKey(programId), weekKey()) } catch { /* 무시 */ }
-    setSeen(true)
+    if (!DEV) {
+      try { localStorage.setItem(seenKey(programId), weekKey()) } catch { /* 무시 */ }
+      setSeen(true)
+    }
     onOpen?.()
   }
 
