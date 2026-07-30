@@ -100,12 +100,14 @@ export default function ParticipantWeeklyReport({ programId, userId, classEnable
                   </div>
                 </div>
                 {/* 지난 주 포인트 */}
-                <div className="rounded-xl bg-emerald-50 px-3 py-2.5">
-                  <div className="flex items-center gap-1">
-                    <Icon3D src="/icons/feature/point.png" emoji="⭐" className="w-5 h-5" />
+                <div className="rounded-xl bg-emerald-50 px-3 py-2.5 flex flex-col">
+                  <div className="flex items-center gap-1.5">
+                    <Icon3D src="/icons/feature/point.png" emoji="⭐" className="w-7 h-7" />
                     <span className="text-[11px] font-semibold text-emerald-700/80">지난 주 포인트</span>
                   </div>
-                  <p className="text-[17px] font-extrabold text-emerald-700 leading-tight mt-0.5">+{data.weekPoints}<span className="text-[11px] font-bold">P</span></p>
+                  <div className="flex-1 flex items-center">
+                    <p className="text-[26px] font-extrabold text-emerald-700 leading-none">+{data.weekPoints}<span className="text-[14px] font-bold">P</span></p>
+                  </div>
                 </div>
               </div>
 
@@ -122,7 +124,7 @@ export default function ParticipantWeeklyReport({ programId, userId, classEnable
               <p className="text-[12.5px] text-gray-600 leading-relaxed bg-gray-50 rounded-lg px-3 py-2.5 break-keep">{encourage(data)}</p>
 
               {placement === 'overview' && (
-                <p className="mt-3 text-[11.5px] font-semibold text-gray-500 text-center">마이페이지 → 내 기록에서 다시 볼 수 있어요</p>
+                <p className="mt-5 text-[11.5px] font-semibold text-gray-500 text-center">마이페이지 → 내 기록에서 다시 볼 수 있어요</p>
               )}
               <button type="button" onClick={() => setOpen(false)}
                 className="mt-2.5 w-full h-11 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[14px] font-bold transition">
