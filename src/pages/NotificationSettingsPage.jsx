@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Heart, MessageCircle, Sprout, Hand, Loader2, Check, Bell, Megaphone } from 'lucide-react'
+import { Heart, MessageCircle, Sprout, Hand, Loader2, Check, Bell, Megaphone, ChevronDown } from 'lucide-react'
 import { pushSupported, getPushState, subscribeToPush, unsubscribeFromPush } from '../lib/push'
 import { useToast } from '../contexts/ToastContext'
 import { supabase } from '../supabaseClient'
@@ -47,13 +47,14 @@ const TOGGLES = [
     tone: 'amber',
     icon: <Hand className="w-5 h-5" />,
   },
-  {
-    key: 'content_enabled',
-    label: '새 소식 알림',
-    description: '참여 중인 프로그램에 새 미션·퀴즈·클래스·공지가 올라오면 알림',
-    tone: 'sky',
-    icon: <Megaphone className="w-5 h-5" />,
-  },
+]
+
+// 새 소식 알림 — 마스터 + 유형별(미션/퀴즈/클래스/공지) 펼침 서브토글
+const CONTENT_SUBS = [
+  { key: 'content_mission_enabled', label: '새 미션' },
+  { key: 'content_quiz_enabled', label: '새 퀴즈' },
+  { key: 'content_class_enabled', label: '새 클래스' },
+  { key: 'content_notice_enabled', label: '새 공지' },
 ]
 
 function NotificationSettingsPage() {
@@ -131,6 +132,7 @@ function NotificationSettingsPage() {
                 onChange={() => handleToggle(t.key)}
               />
             ))}
+            <ContentNotifSection local={local} onToggle={handleToggle} disabled={updateMutation.isPending} />
           </div>
         )}
 
@@ -150,6 +152,48 @@ function NotificationSettingsPage() {
         <p className="mt-6 text-[11px] text-gray-400 leading-relaxed text-center px-4">
           ⓘ 위 항목별 설정은 앱 안 🔔 알림에 적용돼요. 「폰 푸시」를 켜면 앱을 닫아도 폰으로 알림이 옵니다.
         </p>
+      </div>
+    </div>
+  )
+}
+
+// 공용 스위치 (일반/작은)
+function Switch({ on, disabled, onClick, small }) {
+  return (
+    <button type="button" role="switch" aria-checked={on} onClick={onClick} disabled={disabled}
+      className={`relative inline-flex flex-shrink-0 rounded-full transition disabled:opacity-40 ${small ? 'h-5 w-9' : 'h-6 w-11'} ${on ? 'bg-emerald-500' : 'bg-gray-200'}`}>
+      <span className={`inline-block transform rounded-full bg-white shadow-sm transition mt-0.5 ${small ? 'h-4 w-4' : 'h-5 w-5'} ${on ? (small ? 'translate-x-[18px]' : 'translate-x-[22px]') : 'translate-x-0.5'}`} />
+    </button>
+  )
+}
+
+// 새 소식 알림 — 마스터 토글 + 눌러서 유형별(미션/퀴즈/클래스/공지) 펼침 조절
+function ContentNotifSection({ local, onToggle, disabled }) {
+  const [open, setOpen] = useState(false)
+  const master = !!local.content_enabled
+  return (
+    <div>
+      <div className="flex items-center gap-3 p-4">
+        <IconBox tone="sky"><Megaphone className="w-5 h-5" /></IconBox>
+        <button type="button" onClick={() => setOpen(v => !v)} className="flex-1 min-w-0 text-left">
+          <p className="font-bold text-gray-800 flex items-center gap-1">
+            새 소식 알림 <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+          </p>
+          <p className="text-[12px] text-gray-500 mt-0.5">새 미션·퀴즈·클래스·공지 알림 · 눌러서 유형별 설정</p>
+        </button>
+        <Switch on={master} disabled={disabled} onClick={() => onToggle('content_enabled')} />
+      </div>
+      <div className="grid transition-[grid-template-rows] duration-300 ease-out" style={{ gridTemplateRows: open ? '1fr' : '0fr' }}>
+        <div className="overflow-hidden">
+          <div className="pl-[68px] pr-4 pb-3.5 space-y-3">
+            {CONTENT_SUBS.map(s => (
+              <div key={s.key} className="flex items-center gap-2">
+                <span className={`flex-1 text-[13px] ${master ? 'text-gray-700' : 'text-gray-300'}`}>{s.label}</span>
+                <Switch on={master && !!local[s.key]} disabled={disabled || !master} onClick={() => onToggle(s.key)} small />
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   )

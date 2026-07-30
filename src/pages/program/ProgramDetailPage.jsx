@@ -504,7 +504,7 @@ function ProgramDetailPage() {
   }, [])
   const [isInviteOpen, setIsInviteOpen] = useState(false)
   const [isPanelOpen, setIsPanelOpen] = useState(false)
-  const [notifyContentLocal, setNotifyContentLocal] = useState(null)  // 새 소식 알림 보내기(낙관적)
+  const [notifyFlagsLocal, setNotifyFlagsLocal] = useState({})  // 새 소식 알림 유형별 보내기(낙관적)
   const [panelView, setPanelView] = useState('root')   // 운영자 메뉴 시트 단계: root | settings | menubar
   const [isRankingOpen, setIsRankingOpen] = useState(false)  // 랭킹 설정 모달
   const [noticeModalOpen, setNoticeModalOpen] = useState(false)  // 공지사항(개요 글) 중앙 모달
@@ -2803,6 +2803,7 @@ function ProgramDetailPage() {
                 <h2 className="text-lg font-bold text-gray-800 mb-4">⚙️ 운영자 메뉴</h2>
                 <div className="grid grid-cols-1 gap-2.5">
                   <PanelMenuBox icon="🛠️" title="내 프로그램 설정" desc="프로그램 · 메뉴바(개요~랭킹)" chevron onClick={() => setPanelView('settings')} />
+                  <PanelMenuBox icon="🔔" title="알림" desc="새 소식 알림(미션·퀴즈·클래스·공지) 보내기" chevron onClick={() => setPanelView('notifications')} />
                   <PanelMenuBox icon="📊" title="통계" desc="참여·인증·미션별 현황" onClick={() => { closePanel(); navigate(`/programs/${id}/stats`, { state: { backToOpMenu: 'root' } }) }} />
                   {communityEnabled && (
                     <PanelMenuBox iconSrc="/icons/operator/report-flag.png" icon="🚩" title="신고 · 숨김 관리" desc="신고된 글·인증 · 가려진 인증 관리" chevron badge={unresolvedReportCount || undefined} onClick={() => setPanelView('reports')} />
@@ -2832,30 +2833,45 @@ function ProgramDetailPage() {
                 <div className="grid grid-cols-1 gap-2.5">
                   <PanelMenuBox icon="📋" title="프로그램 설정" desc="이름·기간·카테고리·공개 + 퀴즈/커뮤니티 사용" onClick={() => { closePanel(); editReturnViewRef.current = 'settings'; setIsEditOpen(true) }} />
                   <PanelMenuBox icon="🗂️" title="메뉴바 설정" desc="개요·미션·퀴즈·커뮤니티·랭킹" chevron onClick={() => setPanelView('menubar')} />
-                  {/* 새 소식 알림 보내기 — 새 미션·퀴즈·클래스·공지 시 참여자 알림 (기본 ON) */}
-                  {(() => {
-                    const notifyOn = notifyContentLocal ?? (program.notify_new_content !== false)
-                    const toggleNotify = async () => {
-                      const v = !notifyOn
-                      setNotifyContentLocal(v)
-                      const { error } = await supabase.from('programs').update({ notify_new_content: v }).eq('id', id)
-                      if (error) { setNotifyContentLocal(!v); toast.show('저장에 실패했어요'); return }
+                </div>
+              </>
+            )}
+
+            {panelView === 'notifications' && (
+              <>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <button type="button" onClick={() => setPanelView('root')} className="p-1 -ml-1 text-gray-500 hover:text-gray-800" aria-label="뒤로">
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <h2 className="text-lg font-bold text-gray-800">🔔 새 소식 알림</h2>
+                </div>
+                <p className="text-[12px] text-gray-500 mb-4 pl-1 break-keep">새 콘텐츠를 올리면 참여자에게 알림을 보내요. 유형별로 켜고 끌 수 있어요.</p>
+                <div className="bg-white border border-gray-100 rounded-2xl divide-y divide-gray-100">
+                  {[
+                    { col: 'notify_new_mission', emoji: '🌱', label: '새 미션', show: true },
+                    { col: 'notify_new_quiz', emoji: '❓', label: '새 퀴즈', show: quizEnabled },
+                    { col: 'notify_new_class', emoji: '📅', label: '새 클래스', show: program.class_feature_enabled },
+                    { col: 'notify_new_notice', emoji: '📢', label: '새 공지', show: communityEnabled },
+                  ].filter(x => x.show).map(({ col, emoji, label }) => {
+                    const on = notifyFlagsLocal[col] ?? (program[col] !== false)
+                    const toggle = async () => {
+                      const v = !on
+                      setNotifyFlagsLocal(s => ({ ...s, [col]: v }))
+                      const { error } = await supabase.from('programs').update({ [col]: v }).eq('id', id)
+                      if (error) { setNotifyFlagsLocal(s => ({ ...s, [col]: !v })); toast.show('저장에 실패했어요'); return }
                       queryClient.invalidateQueries({ queryKey: queryKeys.program(id) })
                     }
                     return (
-                      <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-white border border-gray-100">
-                        <span className="text-xl flex-shrink-0">🔔</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[14px] font-bold text-gray-800">새 소식 알림 보내기</p>
-                          <p className="text-[11.5px] text-gray-500 mt-0.5 break-keep">새 미션·퀴즈·클래스·공지를 올리면 참여자에게 알림</p>
-                        </div>
-                        <button type="button" role="switch" aria-checked={notifyOn} onClick={toggleNotify}
-                          className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full transition ${notifyOn ? 'bg-emerald-500' : 'bg-gray-200'}`}>
-                          <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition mt-0.5 ${notifyOn ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+                      <div key={col} className="flex items-center gap-3 px-3.5 py-3">
+                        <span className="text-lg flex-shrink-0">{emoji}</span>
+                        <span className="flex-1 text-[14px] font-semibold text-gray-800">{label}</span>
+                        <button type="button" role="switch" aria-checked={on} onClick={toggle}
+                          className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full transition ${on ? 'bg-emerald-500' : 'bg-gray-200'}`}>
+                          <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition mt-0.5 ${on ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
                         </button>
                       </div>
                     )
-                  })()}
+                  })}
                 </div>
               </>
             )}
