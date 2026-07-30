@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Lightbulb, ChevronRight } from 'lucide-react'
+import { Lightbulb, ChevronRight, Check } from 'lucide-react'
 import Modal from '../common/Modal'
 import { Icon3D } from './ProgramHome'
 import { fetchMyWeeklyReport } from '../../lib/queries'
@@ -80,16 +80,30 @@ export default function ParticipantWeeklyReport({ programId, userId, classEnable
             <p className="text-sm text-gray-400 py-8 text-center">불러오는 중…</p>
           ) : (
             <>
-              {/* 스트릭 + 포인트 */}
-              <div className="grid grid-cols-2 gap-2.5 mb-3">
-                <div className="rounded-xl bg-orange-50 px-3 py-2.5">
-                  <p className="text-[11px] text-orange-700/80 font-semibold">🔥 연속</p>
-                  <p className="text-[19px] font-extrabold text-orange-600 leading-tight">{data.streak}<span className="text-[12px] font-bold">일</span></p>
+              {/* 연속 + 주간 스트릭(요일 도장) */}
+              <div className="rounded-xl bg-orange-50 px-3.5 py-3 mb-2.5">
+                <div className="flex items-center gap-1.5">
+                  <Icon3D src="/icons/feature/streak.png" emoji="🔥" className="w-6 h-6" />
+                  <span className="text-[12px] font-semibold text-orange-700/80">연속</span>
+                  <span className="text-[18px] font-extrabold text-orange-600 leading-none ml-0.5">{data.streak}<span className="text-[11px] font-bold">일</span></span>
                 </div>
-                <div className="rounded-xl bg-emerald-50 px-3 py-2.5">
-                  <p className="text-[11px] text-emerald-700/80 font-semibold">이번 주 포인트</p>
-                  <p className="text-[19px] font-extrabold text-emerald-700 leading-tight">+{data.weekPoints}<span className="text-[12px] font-bold">P</span></p>
+                <div className="flex items-center justify-between gap-1 mt-2.5">
+                  {data.weekDays.map((d, i) => (
+                    <div key={i} className="flex flex-col items-center gap-1">
+                      <span className={`w-6 h-6 rounded-full flex items-center justify-center ${d.done ? 'bg-orange-500 text-white' : d.today ? 'bg-white ring-1 ring-orange-300' : 'bg-orange-100'}`}>
+                        {d.done && <Check className="w-3.5 h-3.5" />}
+                      </span>
+                      <span className={`text-[10px] ${d.today ? 'font-bold text-orange-600' : 'text-orange-700/50'}`}>{d.label}</span>
+                    </div>
+                  ))}
                 </div>
+              </div>
+
+              {/* 이번 주 포인트 */}
+              <div className="rounded-xl bg-emerald-50 px-3.5 py-3 mb-3 flex items-center gap-2">
+                <Icon3D src="/icons/feature/point.png" emoji="⭐" className="w-6 h-6" />
+                <span className="flex-1 text-[12px] font-semibold text-emerald-700/80">이번 주 포인트</span>
+                <span className="text-[18px] font-extrabold text-emerald-700 leading-none">+{data.weekPoints}<span className="text-[11px] font-bold">P</span></span>
               </div>
 
               {/* 카테고리 집계 */}
