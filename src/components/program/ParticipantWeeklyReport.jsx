@@ -5,19 +5,19 @@ import Modal from '../common/Modal'
 import { Icon3D } from './ProgramHome'
 import { fetchMyWeeklyReport } from '../../lib/queries'
 
-// 참여자 「이번 주 나의 기록」 — 개요 상단 배너 → 모달. 주 1회(열람 시 사라짐), dev 는 항상 노출.
-//   집계: 미션 인증·퀴즈·커뮤니티 글·댓글·(클래스 출석) + 연속 스트릭 + 이번 주 포인트 + 격려.
-//   props: programId, userId, classEnabled
+// 참여자 「지난 주 나의 기록」 — 개요 상단 배너 → 모달. 주 1회(열람 시 사라짐), dev 는 항상 노출.
+//   완료된 지난 주(월~일) 집계: 미션·퀴즈·커뮤니티 글·댓글·(클래스) + 활동 일수(요일 도장) + 획득 포인트.
+//   톤: 지난 주 회고 + 이번 주 응원. props: programId, userId, classEnabled, placement('overview'|'mypage')
 const DEV = import.meta.env.DEV
 function weekKey() { const d = new Date(); const day = (d.getDay() + 6) % 7; d.setDate(d.getDate() - day); return d.toISOString().slice(0, 10) }
 const seenKey = (pid) => `pwr-seen:${pid}`
 
 function encourage(d) {
-  const acted = (d.missionCount + d.quizCount + d.postCount + d.commentCount + d.classCount) > 0
-  if (!acted) return '이번 주는 잠깐 쉬어갔네요. 내일 가볍게 다시 시작해봐요 🌱'
-  if (d.streak >= 3) return `${d.streak}일 연속 이어가고 있어요 🔥 이 흐름 좋아요!`
-  if (d.missionCount > 0) return `이번 주 ${d.missionCount}번 인증했어요. 꾸준함이 쌓이고 있어요 👍`
-  return '조금씩이라도 함께하고 있어요, 응원해요 💪'
+  const acted = d.missionCount + d.quizCount + d.postCount + d.commentCount + d.classCount
+  if (acted === 0) return '지난 주는 잠깐 쉬어갔네요. 이번 주 가볍게 다시 시작해봐요 🌱'
+  if (d.activeDays >= 5) return `지난 주 ${d.activeDays}일이나 함께했어요 🔥 이번 주도 화이팅!`
+  if (d.missionCount > 0) return `지난 주 ${d.missionCount}번 인증했어요 👍 이번 주도 힘내요!`
+  return '지난 주도 함께해줘서 고마워요. 이번 주도 응원해요 💪'
 }
 
 function Row({ src, emoji, label, n, unit }) {
@@ -44,7 +44,6 @@ export default function ParticipantWeeklyReport({ programId, userId, classEnable
     enabled: open && !!userId && !!programId,
   })
 
-  // 개요: 이번 주 미열람 배너(열람 시 사라짐). 마이페이지: 상시 「이번 주 기록 보기」 진입.
   const openFromBanner = () => {
     if (!DEV) { try { localStorage.setItem(seenKey(programId), weekKey()) } catch { /* 무시 */ } ; setSeen(true) }
     setOpen(true)
@@ -56,7 +55,7 @@ export default function ParticipantWeeklyReport({ programId, userId, classEnable
         <button type="button" onClick={openFromBanner}
           className="mb-3 w-full flex items-center gap-2.5 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-left hover:bg-emerald-100/60 transition">
           <Lightbulb className="w-5 h-5 text-emerald-500 flex-shrink-0" />
-          <span className="flex-1 text-[13px] font-bold text-gray-700">이번 주 내 기록이 도착했어요</span>
+          <span className="flex-1 text-[13px] font-bold text-gray-700">지난 주 리포트가 도착했어요</span>
           <ChevronRight className="w-4 h-4 text-emerald-500 flex-shrink-0" />
         </button>
       )}
@@ -64,7 +63,7 @@ export default function ParticipantWeeklyReport({ programId, userId, classEnable
         <button type="button" onClick={() => setOpen(true)}
           className="mb-3 w-full flex items-center gap-2.5 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-left hover:bg-emerald-100/60 transition">
           <Lightbulb className="w-5 h-5 text-emerald-500 flex-shrink-0" />
-          <span className="flex-1 text-[13px] font-bold text-gray-700">이번 주 기록 보기</span>
+          <span className="flex-1 text-[13px] font-bold text-gray-700">지난 주 기록 보기</span>
           <ChevronRight className="w-4 h-4 text-emerald-500 flex-shrink-0" />
         </button>
       )}
@@ -73,36 +72,40 @@ export default function ParticipantWeeklyReport({ programId, userId, classEnable
         <div className="p-5">
           <div className="flex items-center gap-2 mb-3">
             <Lightbulb className="w-5 h-5 text-amber-500" />
-            <h2 className="text-lg font-bold text-gray-800">이번 주 나의 기록</h2>
+            <h2 className="text-lg font-bold text-gray-800">지난 주 나의 기록</h2>
           </div>
 
           {!data ? (
             <p className="text-sm text-gray-400 py-8 text-center">불러오는 중…</p>
           ) : (
             <>
-              {/* 연속 + 주간 스트릭(요일 도장) */}
-              <div className="rounded-xl bg-orange-50 px-3.5 py-3 mb-2.5">
-                <div className="flex items-center gap-1.5">
-                  <Icon3D src="/icons/feature/streak.png" emoji="🔥" className="w-6 h-6" />
-                  <span className="text-[12px] font-semibold text-orange-700/80">연속</span>
-                  <span className="text-[18px] font-extrabold text-orange-600 leading-none ml-0.5">{data.streak}<span className="text-[11px] font-bold">일</span></span>
+              {/* 지난 주 활동 — 개요 주간 스트릭 카드풍(컴팩트) */}
+              <div className="rounded-2xl bg-white border border-gray-100 shadow-soft p-3 mb-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center flex-shrink-0">
+                    <Icon3D src="/icons/feature/streak.png" emoji="🔥" className="w-5 h-5" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-bold text-gray-800">지난 주 활동</p>
+                    <p className="text-[11px] text-gray-500 mt-0.5">7일 중 <b className="text-orange-600">{data.activeDays}일</b> 함께했어요</p>
+                  </div>
                 </div>
                 <div className="flex items-center justify-between gap-1 mt-2.5">
                   {data.weekDays.map((d, i) => (
                     <div key={i} className="flex flex-col items-center gap-1">
-                      <span className={`w-6 h-6 rounded-full flex items-center justify-center ${d.done ? 'bg-orange-500 text-white' : d.today ? 'bg-white ring-1 ring-orange-300' : 'bg-orange-100'}`}>
-                        {d.done && <Check className="w-3.5 h-3.5" />}
+                      <span className={`w-[26px] h-[26px] rounded-full flex items-center justify-center ${d.done ? 'bg-emerald-500 text-white' : 'bg-gray-100 text-gray-300'}`}>
+                        <Check className="w-3.5 h-3.5" />
                       </span>
-                      <span className={`text-[10px] ${d.today ? 'font-bold text-orange-600' : 'text-orange-700/50'}`}>{d.label}</span>
+                      <span className="text-[10px] text-gray-400">{d.label}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* 이번 주 포인트 */}
+              {/* 지난 주 획득 포인트 */}
               <div className="rounded-xl bg-emerald-50 px-3.5 py-3 mb-3 flex items-center gap-2">
                 <Icon3D src="/icons/feature/point.png" emoji="⭐" className="w-6 h-6" />
-                <span className="flex-1 text-[12px] font-semibold text-emerald-700/80">이번 주 포인트</span>
+                <span className="flex-1 text-[12px] font-semibold text-emerald-700/80">지난 주 획득 포인트</span>
                 <span className="text-[18px] font-extrabold text-emerald-700 leading-none">+{data.weekPoints}<span className="text-[11px] font-bold">P</span></span>
               </div>
 
@@ -115,7 +118,7 @@ export default function ParticipantWeeklyReport({ programId, userId, classEnable
                 {classEnabled && <Row src="/icons/feature/attendance.png" emoji="📅" label="클래스 출석" n={data.classCount} unit="회" />}
               </div>
 
-              {/* 격려 */}
+              {/* 격려 (지난 주 회고 + 이번 주 응원) */}
               <p className="text-[12.5px] text-gray-600 leading-relaxed bg-gray-50 rounded-lg px-3 py-2.5 break-keep">{encourage(data)}</p>
 
               {placement === 'overview' && (

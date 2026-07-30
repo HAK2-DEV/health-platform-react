@@ -2008,34 +2008,47 @@ export const fetchMyActivity = async (programId, userId) => {
   }
 }
 
-// 참여자 「이번 주 나의 기록」 리포트 — 최근 7일 카테고리 집계 + 연속 스트릭 + 이번 주 포인트.
-//   본인 데이터만(RLS). count/head 로 가볍게. 실패한 쿼리는 0 으로 처리(Promise.all 은 reject 안 함).
+// 참여자 「지난 주 나의 기록」 리포트 — 완료된 지난 주(월~일) 카테고리 집계 + 활동 일수 + 획득 포인트.
+//   본인 데이터만(RLS). 미션은 날짜까지(요일 도장·활동일 계산), 나머지는 count/head 로 가볍게.
 export const fetchMyWeeklyReport = async (programId, userId) => {
-  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-  const [mission, quiz, post, comment, cls, ledgerRes, overview] = await Promise.all([
-    supabase.from('verifications').select('id, missions!inner(program_id)', { count: 'exact', head: true })
-      .eq('user_id', userId).eq('status', 'APPROVED').eq('missions.program_id', programId).gte('submitted_at', since),
+  // KST 기준 이번 주 월요일 00:00 → 지난 주 월요일 00:00 ~ 이번 주 월요일 00:00 (지난 주 전체)
+  const todayKst = formatKstDate(new Date())
+  const base = new Date(`${todayKst}T00:00:00+09:00`)
+  const dow = (base.getDay() + 6) % 7 // 월=0
+  const thisMon = new Date(base); thisMon.setDate(base.getDate() - dow)
+  const lastMon = new Date(thisMon); lastMon.setDate(thisMon.getDate() - 7)
+  const sinceISO = lastMon.toISOString()
+  const untilISO = thisMon.toISOString()
+
+  const [verifRes, quiz, post, comment, cls, ledgerRes] = await Promise.all([
+    supabase.from('verifications').select('submitted_at, missions!inner(program_id)')
+      .eq('user_id', userId).eq('status', 'APPROVED').eq('missions.program_id', programId).gte('submitted_at', sinceISO).lt('submitted_at', untilISO),
     supabase.from('quiz_submissions').select('id, quiz:quizzes!inner(program_id)', { count: 'exact', head: true })
-      .eq('user_id', userId).eq('quiz.program_id', programId).gte('submitted_at', since),
+      .eq('user_id', userId).eq('quiz.program_id', programId).gte('submitted_at', sinceISO).lt('submitted_at', untilISO),
     supabase.from('community_posts').select('id', { count: 'exact', head: true })
-      .eq('author_id', userId).eq('program_id', programId).gte('created_at', since),
+      .eq('author_id', userId).eq('program_id', programId).gte('created_at', sinceISO).lt('created_at', untilISO),
     supabase.from('community_post_comments').select('id, community_posts!inner(program_id)', { count: 'exact', head: true })
-      .eq('user_id', userId).eq('community_posts.program_id', programId).gte('created_at', since),
+      .eq('user_id', userId).eq('community_posts.program_id', programId).gte('created_at', sinceISO).lt('created_at', untilISO),
     supabase.from('session_attendance').select('id, sessions!inner(program_id, starts_at)', { count: 'exact', head: true })
-      .eq('user_id', userId).eq('status', 'confirmed').eq('sessions.program_id', programId).gte('sessions.starts_at', since),
-    supabase.from('score_ledgers').select('point').eq('user_id', userId).eq('program_id', programId).gte('created_at', since),
-    fetchProgramOverview(programId, userId),
+      .eq('user_id', userId).eq('status', 'confirmed').eq('sessions.program_id', programId).gte('sessions.starts_at', sinceISO).lt('sessions.starts_at', untilISO),
+    supabase.from('score_ledgers').select('point').eq('user_id', userId).eq('program_id', programId).gte('created_at', sinceISO).lt('created_at', untilISO),
   ])
-  const weekPoints = (ledgerRes.data || []).reduce((s, l) => s + (l.point || 0), 0)
+
+  const verifRows = verifRes.data || []
+  const doneDates = new Set(verifRows.map(v => formatKstDate(new Date(v.submitted_at))))
+  const weekLabels = ['월', '화', '수', '목', '금', '토', '일']
+  const weekDays = []
+  for (let i = 0; i < 7; i++) { const d = new Date(lastMon); d.setDate(lastMon.getDate() + i); weekDays.push({ label: weekLabels[i], done: doneDates.has(formatKstDate(d)) }) }
+
   return {
-    missionCount: mission.count || 0,
+    missionCount: verifRows.length,
     quizCount: quiz.count || 0,
     postCount: post.count || 0,
     commentCount: comment.count || 0,
     classCount: cls.count || 0,
-    weekPoints,
-    streak: overview?.streak || 0,
-    weekDays: overview?.weekDays || [],
+    weekPoints: (ledgerRes.data || []).reduce((s, l) => s + (l.point || 0), 0),
+    activeDays: doneDates.size,
+    weekDays,
   }
 }
 
