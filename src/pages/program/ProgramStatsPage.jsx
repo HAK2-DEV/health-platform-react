@@ -137,7 +137,9 @@ function ProgramStatsPage() {
       ) : (
         <>
         {/* Day 65 — 운영자 인사이트 위젯 4종 (상단). 본인 정체성 (전문성+따뜻함) 반영 */}
-        <ProgramInsightsSummary stats={stats} program={program} />
+        {/* 개요 「이번 주 리포트」 배너에서 진입(?report=1) 시 하이라이트 자동 펼침+스크롤 */}
+        <ProgramInsightsSummary stats={stats} program={program}
+          openHighlights={new URLSearchParams(location.search).get('report') === '1'} />
 
         {/* 챙기면 좋은 참여자 + 응원 — 하이라이트(진단) 바로 아래 실행 섹션 */}
         <CarePeopleSection stats={stats} onCheerUser={setCheerUser} />

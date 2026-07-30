@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useRef, useEffect } from 'react'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { useNavigate, useParams } from 'react-router-dom'
 import { TrendingUp, TrendingDown, Minus, ChevronRight, ChevronDown } from 'lucide-react'
@@ -356,7 +356,7 @@ function computeInsights(stats, program) {
   }
 }
 
-function ProgramInsightsSummary({ stats, program }) {
+function ProgramInsightsSummary({ stats, program, openHighlights = false }) {
   const { id: programId } = useParams()
   const navigate = useNavigate()
   const insights = useMemo(() => computeInsights(stats, program), [stats, program])
@@ -369,7 +369,7 @@ function ProgramInsightsSummary({ stats, program }) {
 
   return (
     <div className="space-y-5 mb-5 mt-1">
-      <Reveal index={0}><WidgetHighlights insights={insights} onAction={(to) => navigate(`/programs/${programId}/stats/${to}`)} /></Reveal>
+      <Reveal index={0}><WidgetHighlights insights={insights} autoOpen={openHighlights} onAction={(to) => navigate(`/programs/${programId}/stats/${to}`)} /></Reveal>
       <Reveal index={1}><WidgetMetrics insights={insights} /></Reveal>
       <Reveal index={2}><WidgetTrend insights={insights} /></Reveal>
       <Reveal index={3}><WidgetHourly insights={insights} /></Reveal>
@@ -755,16 +755,26 @@ function WidgetDistribution({ insights, onSegmentClick }) {
 
 // ─── 위젯 4: 이번 주 하이라이트 — 개수 배지 + 2개 초과 시 접기 ──────────────
 // 하이라이트 — 접힘=한 줄 요약(칩), 탭 시 전체 목록 펼침. 카드=하드라인, 칩=중립색, 항목=구분선 그룹화.
-function WidgetHighlights({ insights, onAction }) {
-  const [open, setOpen] = useState(false)
+function WidgetHighlights({ insights, onAction, autoOpen = false }) {
+  const [open, setOpen] = useState(autoOpen)
+  const [glow, setGlow] = useState(false)
+  const rootRef = useRef(null)
   const items = insights.highlights || []
+  // 개요 「이번 주 리포트」 배너로 진입 시 — 펼친 채로 스크롤 + 잠깐 강조
+  useEffect(() => {
+    if (!autoOpen) return
+    setOpen(true)
+    const t1 = setTimeout(() => { rootRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); setGlow(true) }, 250)
+    const t2 = setTimeout(() => setGlow(false), 2200)
+    return () => { clearTimeout(t1); clearTimeout(t2) }
+  }, [autoOpen])
   if (items.length === 0) return null
   const CHIPS = 2
   const chipItems = items.slice(0, CHIPS)
   const moreCount = Math.max(0, items.length - CHIPS)
 
   return (
-    <div className="bg-white rounded-card-lg" style={{ border: '1px solid #e6e9e6' }}>
+    <div ref={rootRef} className="bg-white rounded-card-lg transition-shadow" style={{ border: '1px solid #e6e9e6', boxShadow: glow ? '0 0 0 3px rgba(245,158,11,0.35)' : 'none', scrollMarginTop: 64 }}>
       {/* 접힘 한 줄 — 탭 시 펼침 */}
       <button type="button" onClick={() => setOpen(v => !v)}
         className="w-full flex items-center text-left" style={{ gap: 7, padding: '13px 14px' }}>
