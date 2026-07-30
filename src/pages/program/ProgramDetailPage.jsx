@@ -1769,7 +1769,6 @@ function ProgramDetailPage() {
             newMissionCount={newMissionCount}
             newQuizCount={newQuizCount}
             classSlot={classOverviewSlot}
-            bannerSlot={weeklyHighlightEl}
           />
         )
       })()}
