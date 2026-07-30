@@ -79,34 +79,34 @@ export default function ParticipantWeeklyReport({ programId, userId, classEnable
             <p className="text-sm text-gray-400 py-8 text-center">불러오는 중…</p>
           ) : (
             <>
-              {/* 지난 주 활동 — 개요 주간 스트릭 카드풍(컴팩트) */}
-              <div className="rounded-2xl bg-white border border-gray-100 shadow-soft p-3 mb-2.5">
-                <div className="flex items-center gap-2">
-                  <span className="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center flex-shrink-0">
+              {/* 지난 주 활동 + 포인트 — 개요처럼 한 줄에 2개 */}
+              <div className="grid grid-cols-2 gap-2.5 mb-3 items-stretch">
+                {/* 지난 주 활동 (요일 도장) */}
+                <div className="rounded-xl bg-orange-50 px-3 py-2.5">
+                  <div className="flex items-center gap-1">
                     <Icon3D src="/icons/feature/streak.png" emoji="🔥" className="w-5 h-5" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-[13px] font-bold text-gray-800">지난 주 활동</p>
-                    <p className="text-[11px] text-gray-500 mt-0.5">7일 중 <b className="text-orange-600">{data.activeDays}일</b> 함께했어요</p>
+                    <span className="text-[11px] font-semibold text-orange-700/80">지난 주 활동</span>
+                  </div>
+                  <p className="text-[17px] font-extrabold text-orange-600 leading-tight mt-0.5">{data.activeDays}<span className="text-[11px] font-bold">일</span><span className="text-[10px] font-bold text-orange-400 ml-0.5">/7</span></p>
+                  <div className="flex items-center justify-between gap-0.5 mt-1.5">
+                    {data.weekDays.map((d, i) => (
+                      <div key={i} className="flex flex-col items-center gap-0.5">
+                        <span className={`w-4 h-4 rounded-full flex items-center justify-center ${d.done ? 'bg-emerald-500 text-white' : 'bg-white text-gray-300 ring-1 ring-gray-200'}`}>
+                          <Check className="w-2.5 h-2.5" />
+                        </span>
+                        <span className="text-[8px] text-gray-400 leading-none">{d.label}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
-                <div className="flex items-center justify-between gap-1 mt-2.5">
-                  {data.weekDays.map((d, i) => (
-                    <div key={i} className="flex flex-col items-center gap-1">
-                      <span className={`w-[26px] h-[26px] rounded-full flex items-center justify-center ${d.done ? 'bg-emerald-500 text-white' : 'bg-gray-100 text-gray-300'}`}>
-                        <Check className="w-3.5 h-3.5" />
-                      </span>
-                      <span className="text-[10px] text-gray-400">{d.label}</span>
-                    </div>
-                  ))}
+                {/* 지난 주 포인트 */}
+                <div className="rounded-xl bg-emerald-50 px-3 py-2.5">
+                  <div className="flex items-center gap-1">
+                    <Icon3D src="/icons/feature/point.png" emoji="⭐" className="w-5 h-5" />
+                    <span className="text-[11px] font-semibold text-emerald-700/80">지난 주 포인트</span>
+                  </div>
+                  <p className="text-[17px] font-extrabold text-emerald-700 leading-tight mt-0.5">+{data.weekPoints}<span className="text-[11px] font-bold">P</span></p>
                 </div>
-              </div>
-
-              {/* 지난 주 획득 포인트 */}
-              <div className="rounded-xl bg-emerald-50 px-3.5 py-3 mb-3 flex items-center gap-2">
-                <Icon3D src="/icons/feature/point.png" emoji="⭐" className="w-6 h-6" />
-                <span className="flex-1 text-[12px] font-semibold text-emerald-700/80">지난 주 획득 포인트</span>
-                <span className="text-[18px] font-extrabold text-emerald-700 leading-none">+{data.weekPoints}<span className="text-[11px] font-bold">P</span></span>
               </div>
 
               {/* 카테고리 집계 */}
