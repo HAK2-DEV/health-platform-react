@@ -30,7 +30,7 @@ function Row({ src, emoji, label, n, unit }) {
   )
 }
 
-export default function ParticipantWeeklyReport({ programId, userId, classEnabled = false }) {
+export default function ParticipantWeeklyReport({ programId, userId, classEnabled = false, placement = 'overview' }) {
   const [open, setOpen] = useState(false)
   const [seen, setSeen] = useState(true)
   useEffect(() => {
@@ -44,18 +44,27 @@ export default function ParticipantWeeklyReport({ programId, userId, classEnable
     enabled: open && !!userId && !!programId,
   })
 
-  const openReport = () => {
+  // 개요: 이번 주 미열람 배너(열람 시 사라짐). 마이페이지: 상시 「이번 주 기록 보기」 진입.
+  const openFromBanner = () => {
     if (!DEV) { try { localStorage.setItem(seenKey(programId), weekKey()) } catch { /* 무시 */ } ; setSeen(true) }
     setOpen(true)
   }
 
   return (
     <>
-      {!seen && (
-        <button type="button" onClick={openReport}
+      {placement === 'overview' && !seen && (
+        <button type="button" onClick={openFromBanner}
           className="mb-3 w-full flex items-center gap-2.5 p-3 rounded-xl bg-amber-50 border border-amber-200 text-left hover:bg-amber-100/60 transition">
           <Lightbulb className="w-5 h-5 text-amber-500 flex-shrink-0" />
           <span className="flex-1 text-[13px] font-bold text-gray-700">이번 주 내 기록이 도착했어요 · 보기</span>
+          <ChevronRight className="w-4 h-4 text-amber-500 flex-shrink-0" />
+        </button>
+      )}
+      {placement === 'mypage' && (
+        <button type="button" onClick={() => setOpen(true)}
+          className="mb-3 w-full flex items-center gap-2.5 p-3 rounded-xl bg-amber-50 border border-amber-200 text-left hover:bg-amber-100/60 transition">
+          <Lightbulb className="w-5 h-5 text-amber-500 flex-shrink-0" />
+          <span className="flex-1 text-[13px] font-bold text-gray-700">이번 주 기록 보기</span>
           <ChevronRight className="w-4 h-4 text-amber-500 flex-shrink-0" />
         </button>
       )}
@@ -88,18 +97,20 @@ export default function ParticipantWeeklyReport({ programId, userId, classEnable
                 <Row src="/icons/feature/mission.png" emoji="🌱" label="미션 인증" n={data.missionCount} unit="건" />
                 <Row src="/icons/feature/quiz.png" emoji="❓" label="퀴즈 참여" n={data.quizCount} unit="개" />
                 <Row src="/icons/feature/community.png" emoji="💬" label="커뮤니티 글" n={data.postCount} unit="개" />
-                <Row src="/icons/activity/comment.png" emoji="✍️" label="댓글" n={data.commentCount} unit="개" />
+                <Row src="/icons/mypage/comments.png" emoji="✍️" label="댓글" n={data.commentCount} unit="개" />
                 {classEnabled && <Row src="/icons/feature/attendance.png" emoji="📅" label="클래스 출석" n={data.classCount} unit="회" />}
               </div>
 
               {/* 격려 */}
               <p className="text-[12.5px] text-gray-600 leading-relaxed bg-gray-50 rounded-lg px-3 py-2.5 break-keep">{encourage(data)}</p>
 
+              {placement === 'overview' && (
+                <p className="mt-3 text-[11.5px] font-semibold text-gray-500 text-center">마이페이지 → 내 기록에서 다시 볼 수 있어요</p>
+              )}
               <button type="button" onClick={() => setOpen(false)}
-                className="mt-4 w-full h-11 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[14px] font-bold transition">
+                className="mt-2.5 w-full h-11 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[14px] font-bold transition">
                 확인
               </button>
-              <p className="mt-2.5 text-[11px] text-gray-400 text-center">마이페이지 → 내 기록에서 다시 볼 수 있어요</p>
             </>
           )}
         </div>

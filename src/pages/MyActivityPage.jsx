@@ -14,6 +14,7 @@ import {
 } from '../lib/queries'
 import { formatRelativeKstDay, getTodayKST } from '../lib/formatters'
 import StickyBackBar from '../components/common/StickyBackBar'
+import ParticipantWeeklyReport from '../components/program/ParticipantWeeklyReport'
 import LoadingState from '../components/common/LoadingState'
 import EmptyState from '../components/common/EmptyState'
 
@@ -144,6 +145,12 @@ function MyActivityPage() {
           )
         })}
       </div>
+
+      {/* 이번 주 기록 다시 보기 — 개요 배너에서 안내한 재열람 진입 */}
+      {selectedProgramId && (
+        <ParticipantWeeklyReport placement="mypage" programId={selectedProgramId} userId={userId}
+          classEnabled={!!selProgram?.class_feature_enabled} />
+      )}
 
       {isActivityLoading || !activity ? (
         <LoadingState />
