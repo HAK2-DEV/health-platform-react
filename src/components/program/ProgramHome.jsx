@@ -211,6 +211,7 @@ function ProgramHome({
   reviewSlot = null,          // immersive — 인증 심사 대기 배너(시트 상단)
   endReportSlot = null,       // immersive — 종료 리포트 배너(시트 최상단)
   activationSlot = null,      // immersive — 활성화 넛지(시트 최상단)
+  weeklySlot = null,          // immersive — 주간 하이라이트 카드(운영자)
   classSlot = null,           // 강사 클래스 개요 진입 카드 (기능 ON 시 주입)
   onOpenTab = () => {},
   onRecord = () => {},
@@ -420,6 +421,7 @@ function ProgramHome({
         {activationSlot}
         {endReportSlot}
         {reviewSlot}
+        {weeklySlot}
         {/* [커스터마이즈] 운영자 순서·숨김 반영 — 진입 시 순차 페이드업 */}
         {orderedKeys.map((k, i) => {
           const content = BOXES[k]()

@@ -40,6 +40,7 @@ import DeleteProgramModal from '../../components/program/DeleteProgramModal'
 import OperatorReviewBanner from '../../components/program/OperatorReviewBanner'
 import EndReportBanner from '../../components/program/EndReportBanner'
 import ActivationNudge from '../../components/program/ActivationNudge'
+import WeeklyHighlightCard from '../../components/program/WeeklyHighlightCard'
 import { useToast } from '../../contexts/ToastContext'
 import { markSeen, countNew, getLastSeen } from '../../lib/newContent'
 import { warnLargeUserList } from '../../lib/sentry'
@@ -110,6 +111,7 @@ import {
   fetchCommunityPendingPosts,
   fetchPendingReviews,
   fetchActivationState,
+  fetchProgramStats,
   fetchProgramOverview,
   fetchUnresolvedReportCount,
   fetchMyMetricSummary,
@@ -615,6 +617,24 @@ function ProgramDetailPage() {
   })
   const toast = useToast()
   const [cheerOpen, setCheerOpen] = useState(false)
+  const [cheerUser, setCheerUser] = useState(null)  // 주간 카드 「응원」 단건 대상
+
+  // 주간 하이라이트 — 운영자·발행·진행중일 때 통계(programStats, 스탯 페이지와 캐시 공유) 재사용.
+  const weeklyEnabled = isOwner && !!program && program?.status === 'PUBLISHED'
+    && progressUrgency(calcProgress(program?.start_date, program?.end_date)).urgency !== 'ended'
+  const { data: weeklyStats } = useQuery({
+    queryKey: queryKeys.programStats(id),
+    queryFn: () => fetchProgramStats(id),
+    enabled: !!session && !!id && weeklyEnabled,
+  })
+  const weeklyHighlightEl = weeklyEnabled && weeklyStats ? (
+    <WeeklyHighlightCard
+      stats={weeklyStats}
+      pendingCount={pendingReviews.length}
+      onReview={() => setVreviewOpen(true)}
+      onCheerUser={(u) => setCheerUser(u)}
+    />
+  ) : null
   // 넛지 초대 액션 — 초대코드형이면 InviteModal, 공개형이면 링크 공유/복사.
   const handleActivationInvite = async () => {
     if (program?.join_type === 'INVITE_CODE' && program?.invite_code) { setIsInviteOpen(true); return }
@@ -1577,6 +1597,7 @@ function ProgramDetailPage() {
 
       {/* 활성화 넛지 — 개요 최상단(운영자·개요탭·비관리·비immersive). immersive 는 슬롯 주입. */}
       {activeTab === 'overview' && !immersiveHome && !inManager && activationNudgeEl}
+      {activeTab === 'overview' && !immersiveHome && !inManager && weeklyHighlightEl}
 
       {/* 종료 리포트 진입 — 운영자 + 프로그램 종료 (개요 최상단, 인트로 연출). immersive 는 슬롯으로 주입.
           관리 폼(inManager)에선 immersiveHome 이 false 가 되므로 !inManager 로 제외. */}
@@ -1851,6 +1872,7 @@ function ProgramDetailPage() {
               />
             ) : null}
             activationSlot={activationNudgeEl}
+            weeklySlot={weeklyHighlightEl}
             classSlot={classOverviewSlot}
             quizEnabled={quizEnabled && !isViewer}
             communityEnabled={communityEnabled}
@@ -2755,6 +2777,15 @@ function ProgramDetailPage() {
             groupLabel="참여자 전원"
             variant="cheer"
             onClose={() => setCheerOpen(false)}
+          />
+        )}
+        {cheerUser && (
+          <CheerModal
+            programId={id}
+            targetUserId={cheerUser.user_id}
+            targetNickname={cheerUser.nickname}
+            variant="cheer"
+            onClose={() => setCheerUser(null)}
           />
         )}
       </Suspense>
