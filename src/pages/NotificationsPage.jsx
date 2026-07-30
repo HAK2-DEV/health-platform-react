@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Trash2, Check, Heart, Sprout, Hand, MessageCircle, Settings, Bell, FileText, Ban, Flag, Users, EyeOff } from 'lucide-react'
+import { Trash2, Check, Heart, Sprout, Hand, MessageCircle, Settings, Bell, FileText, Ban, Flag, Users, EyeOff, Megaphone, HelpCircle, Calendar } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../supabaseClient'
 import { formatRelativeKstDay, getTodayKST, toKSTDateString } from '../lib/formatters'
@@ -39,6 +39,10 @@ const TYPE_META = {
   INQUIRY_ANSWERED:       { cat: 'comment', tone: 'sky',     icon: MessageCircle, iconCls: '' },
   OPERATOR_CHEER:         { cat: 'like',    tone: 'pink',    icon: Heart,         iconCls: 'fill-current' },
   CONTENT_HIDDEN:         { cat: 'verify',  tone: 'red',     icon: EyeOff,        iconCls: '' },
+  NEW_MISSION:            { cat: 'content', tone: 'sky',     icon: Sprout,        iconCls: '' },
+  NEW_QUIZ:               { cat: 'content', tone: 'sky',     icon: HelpCircle,    iconCls: '' },
+  NEW_CLASS:              { cat: 'content', tone: 'sky',     icon: Calendar,      iconCls: '' },
+  NEW_NOTICE:             { cat: 'content', tone: 'sky',     icon: Megaphone,     iconCls: '' },
 }
 const DEFAULT_META = { cat: 'verify', tone: 'slate', icon: Bell, iconCls: '' }
 
@@ -48,6 +52,7 @@ const FILTER_OPTIONS = [
   { value: 'verify',  label: '인증',   icon: <Sprout className="w-3.5 h-3.5 text-emerald-500" /> },
   { value: 'request', label: '요청',   icon: <Hand className="w-3.5 h-3.5 text-amber-500" /> },
   { value: 'comment', label: '댓글',   icon: <MessageCircle className="w-3.5 h-3.5 text-violet-500" /> },
+  { value: 'content', label: '새 소식', icon: <Megaphone className="w-3.5 h-3.5 text-sky-500" /> },
 ]
 
 // 알림 1개 → 카테고리 키
