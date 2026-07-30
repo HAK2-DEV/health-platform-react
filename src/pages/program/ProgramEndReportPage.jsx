@@ -9,6 +9,9 @@ import { catOf } from '../../lib/classCategories'
 import { PROGRAM_THEME } from '../../lib/constants'
 import { formatKoreanDate } from '../../lib/formatters'
 import StickyBackBar from '../../components/common/StickyBackBar'
+import Modal from '../../components/common/Modal'
+import ReportsManageSection from '../../components/program/ReportsManageSection'
+import HiddenPostsSection from '../../components/program/HiddenPostsSection'
 import LoadingState from '../../components/common/LoadingState'
 import CountUp from '../../components/common/CountUp'
 import CloneProgramModal from '../../components/program/CloneProgramModal'
@@ -328,7 +331,7 @@ function ProgramEndReportPage() {
           {/* ─── 신고 · 제재 (영역별 평가 다음) ─── */}
           {classStats?.sessionCount > 0 && <Reveal index={5}><ClassResultsCard stats={classStats} /></Reveal>}
 
-          <Reveal index={6}><ModerationCard groups={reportGroups} programDays={report.programDays} programId={id} navigate={navigate} /></Reveal>
+          <Reveal index={6}><ModerationCard groups={reportGroups} programDays={report.programDays} programId={id} program={program} /></Reveal>
 
           {/* ─── 시상 · 랭킹 (부문별 + 무결성 검증) ─── */}
           <Reveal index={7}><AwardsCard report={report} perUser={perUser} raw={stats?._raw || []} reportGroups={reportGroups} hasQuiz={quizStats.length > 0} hasCommunity={!!program.feed_enabled} distanceByUser={isRunning ? distanceByUser : null} /></Reveal>
@@ -1132,7 +1135,10 @@ function ClassResultsCard({ stats }) {
   )
 }
 
-function ModerationCard({ groups, programDays, programId, navigate }) {
+function ModerationCard({ groups, programDays, programId, program }) {
+  // 「전체 보기」는 라우트 이동 없이 종료 리포트 위에 신고·숨김 관리 모달을 띄운다
+  //   (예전엔 ?opmenu=reports 로 프로그램 페이지로 이동 → 배경/뒤로가기 꼬임. 이제 이 페이지 위 모달).
+  const [reportsOpen, setReportsOpen] = useState(false)
   const reporters = groups.flatMap(g => g.reporters)
   const total = reporters.length
   const unresolvedReports = reporters.filter(r => !r.resolved).length
@@ -1239,11 +1245,31 @@ function ModerationCard({ groups, programDays, programId, navigate }) {
         {catList.map(renderCat)}
       </div>
 
-      {/* 전체 보기 → 신고·숨김 관리 */}
-      <button type="button" onClick={() => navigate(`/programs/${programId}?opmenu=reports`)}
+      {/* 전체 보기 → 신고·숨김 관리 (이 페이지 위 모달) */}
+      <button type="button" onClick={() => setReportsOpen(true)}
         className="mt-4 pt-4 w-full flex items-center justify-center gap-1 text-[12.5px] font-semibold text-gray-500 hover:text-gray-700 transition" style={{ borderTop: '1px solid #eef0ef' }}>
         신고 · 숨김 관리에서 전체 보기 <ChevronRight className="w-4 h-4" />
       </button>
+
+      {/* 신고·숨김 관리 모달 — 종료 리포트 위에서 바로 관리. 닫으면(뒤로/배경 탭) 종료 리포트로 복귀. */}
+      <Modal isOpen={reportsOpen} onClose={() => setReportsOpen(false)}>
+        <div className="p-5">
+          <div className="flex items-center gap-1.5 mb-4">
+            <button type="button" onClick={() => setReportsOpen(false)} className="p-1 -ml-1 text-gray-500 hover:text-gray-800" aria-label="뒤로">
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <h2 className="text-lg font-bold text-gray-800 flex items-center gap-1.5">
+              <img src="/icons/operator/report-flag.png" alt="" aria-hidden="true" className="w-6 h-6 object-contain" />신고 · 숨김 관리
+            </h2>
+          </div>
+          <ReportsManageSection programId={programId} onNavigate={() => setReportsOpen(false)} returnTo={`/programs/${programId}/report`} />
+          {program?.feed_enabled && (
+            <div className="mt-6 pt-5 border-t border-gray-100">
+              <HiddenPostsSection programId={programId} feedEnabled={!!program.feed_enabled} />
+            </div>
+          )}
+        </div>
+      </Modal>
     </div>
   )
 }

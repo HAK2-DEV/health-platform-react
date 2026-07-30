@@ -455,7 +455,9 @@ function DashboardPage() {
 
   // 첫 인증 넛지 — 참여자(운영 모드 아님)인데 대표 프로그램에 승인된 인증이 0건(활성화 전).
   //   featuredOverview 로딩 중엔 undefined → 조건 false 라 깜빡임 없음.
+  //   종료된 프로그램에선 "첫 인증하라"는 넛지가 무의미(이미 끝남) → ended 제외.
   const firstVerifyNudge = !isColdStart && !showOperator && !!featured && featuredOverview?.totalCount === 0
+    && progressUrgency(calcProgress(featured.start_date, featured.end_date)).urgency !== 'ended'
 
   // 오늘의 활동 (값 / 소프트 캡 → 막대 비율)
   // 오늘의 활동 요약 — 파스텔 타일(2026-07-19 목업) + 원 없는 2D 아이콘(본인 제공).

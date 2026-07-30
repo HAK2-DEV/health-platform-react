@@ -688,6 +688,22 @@ function ProgramDetailPage() {
   }, [])
   const [quizLibOpen, setQuizLibOpen] = useState(false)                // 퀴즈 라이브러리 모달
   const [completionOpen, setCompletionOpen] = useState(false)          // 참여자 완주 축하 (종료 시)
+  // 완주 요약 재진입 배너 — 참여자 + 프로그램 종료 시. 개요 상단(슬롯/페이지레벨 공통).
+  const completionBannerEl = (!isOwner && isActiveParticipant && !!program
+    && progressUrgency(calcProgress(program.start_date, program.end_date)).urgency === 'ended') ? (
+    <button
+      type="button"
+      onClick={() => setCompletionOpen(true)}
+      className="w-full flex items-center gap-3 p-3.5 mb-[9px] rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-left shadow-elevated active:scale-[0.99] transition"
+    >
+      <span className="flex-shrink-0 w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-xl">🎉</span>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-bold leading-tight">프로그램을 마쳤어요</p>
+        <p className="text-[12px] text-white/85 leading-snug mt-0.5">내 완주 요약 다시 보기</p>
+      </div>
+      <ChevronRight className="w-5 h-5 flex-shrink-0 text-white/90" />
+    </button>
+  ) : null
   // 라이브러리에서 생성폼 진입 시 ?quizlib= 저장 → 폼에서 뒤로가기로 복귀하면 모달 재오픈 (PostsManagePage 패턴)
   const isQuizLibOpen = quizLibOpen || !!searchParams.get('quizlib')
   const closeQuizLib = () => {
@@ -1594,6 +1610,7 @@ function ProgramDetailPage() {
       {activeTab === 'overview' && !immersiveHome && !inManager && activationNudgeEl}
       {activeTab === 'overview' && !immersiveHome && !inManager && weeklyHighlightEl}
       {activeTab === 'overview' && !immersiveHome && !inManager && participantReportEl}
+      {activeTab === 'overview' && !immersiveHome && !inManager && completionBannerEl}
 
       {/* 종료 리포트 진입 — 운영자 + 프로그램 종료 (개요 최상단, 인트로 연출). immersive 는 슬롯으로 주입.
           관리 폼(inManager)에선 immersiveHome 이 false 가 되므로 !inManager 로 제외. */}
@@ -1868,7 +1885,7 @@ function ProgramDetailPage() {
               />
             ) : null}
             activationSlot={activationNudgeEl}
-            weeklySlot={weeklyHighlightEl || participantReportEl}
+            weeklySlot={weeklyHighlightEl || participantReportEl || completionBannerEl}
             classSlot={classOverviewSlot}
             quizEnabled={quizEnabled && !isViewer}
             communityEnabled={communityEnabled}
@@ -1999,21 +2016,7 @@ function ProgramDetailPage() {
         )
       })()}
 
-      {/* 완주 요약 재진입 — 참여자 + 프로그램 종료 시 */}
-      {!isOwner && isActiveParticipant && progressUrgency(calcProgress(program.start_date, program.end_date)).urgency === 'ended' && (
-        <button
-          type="button"
-          onClick={() => setCompletionOpen(true)}
-          className="w-full flex items-center gap-3 p-3.5 mb-[9px] rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-left shadow-elevated active:scale-[0.99] transition"
-        >
-          <span className="flex-shrink-0 w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-xl">🎉</span>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold leading-tight">프로그램을 마쳤어요</p>
-            <p className="text-[12px] text-white/85 leading-snug mt-0.5">내 완주 요약 다시 보기</p>
-          </div>
-          <ChevronRight className="w-5 h-5 flex-shrink-0 text-white/90" />
-        </button>
-      )}
+      {/* 완주 요약 재진입 배너는 개요 최상단으로 이동(상단 배너 영역 / immersive 슬롯). */}
 
       {/* 📝 안내(개요 글)은 상단 📢 공지사항 컴팩트 카드로 이동 (클릭 시 중앙 모달) */}
 
