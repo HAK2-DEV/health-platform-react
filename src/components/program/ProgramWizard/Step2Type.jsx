@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronDown, ChevronUp, ChevronRight, Heart, MessageCircle, Circle, X, Calendar, Users, Check } from 'lucide-react'
 import { MISSION_LIBRARY } from '../../../lib/missionLibrary'
@@ -91,10 +91,10 @@ function FeedDemo() {
   const slide = { initial: { opacity: 0, x: 24 }, animate: { opacity: 1, x: 0 }, exit: { opacity: 0, x: -24 }, transition: { duration: 0.28, ease: 'easeOut' } }
 
   return (
-    <div className="min-h-[198px]">
+    <div className="h-[224px] overflow-hidden">
       <AnimatePresence mode="wait">
         {phase === 0 ? (
-          <motion.div key="entry" {...slide} className="min-h-[190px] flex items-center justify-center">
+          <motion.div key="entry" {...slide} className="h-full flex items-center justify-center">
             <NavCardSample iconSrc="/icons/feature/community.png" title="커뮤니티" desc="함께 응원해요" actionLabel="바로가기" />
           </motion.div>
         ) : (
@@ -144,10 +144,10 @@ function RankDemo() {
   ].sort((x, y) => y.score - x.score).map((r, i) => ({ ...r, rank: i + 1 }))
   const slide = { initial: { opacity: 0, x: 24 }, animate: { opacity: 1, x: 0 }, exit: { opacity: 0, x: -24 }, transition: { duration: 0.28, ease: 'easeOut' } }
   return (
-    <div className="min-h-[256px]">
+    <div className="h-[264px] overflow-hidden">
       <AnimatePresence mode="wait">
         {phase === 0 ? (
-          <motion.div key="entry" {...slide} className="min-h-[256px] flex items-center justify-center">
+          <motion.div key="entry" {...slide} className="h-full flex items-center justify-center">
             <NavCardSample iconSrc="/icons/reward/ranking.png" title="랭킹" desc="순위를 확인해요" actionLabel="확인하기" />
           </motion.div>
         ) : (
@@ -222,10 +222,10 @@ function PodiumDemo() {
     { rank: 5, nick: '유진', score: 180, me: false },
   ]
   return (
-    <div className="min-h-[288px]">
+    <div className="h-[300px] overflow-hidden">
       <AnimatePresence mode="wait">
         {phase === 0 ? (
-          <motion.div key="entry" {...slide} className="min-h-[288px] flex items-center justify-center">
+          <motion.div key="entry" {...slide} className="h-full flex items-center justify-center">
             <NavCardSample iconSrc="/icons/reward/ranking.png" title="랭킹" desc="순위를 확인해요" actionLabel="확인하기" />
           </motion.div>
         ) : (
@@ -298,10 +298,10 @@ function QuizDemo() {
   const slide = { initial: { opacity: 0, x: 24 }, animate: { opacity: 1, x: 0 }, exit: { opacity: 0, x: -24 }, transition: { duration: 0.28, ease: 'easeOut' } }
 
   return (
-    <div className="min-h-[184px]">
+    <div className="h-[236px] overflow-hidden">
       <AnimatePresence mode="wait">
         {scene === 'entry' && (
-          <motion.div key="entry" {...slide} className="min-h-[184px] flex items-center justify-center">
+          <motion.div key="entry" {...slide} className="h-full flex items-center justify-center">
             <NavCardSample iconSrc="/icons/feature/quiz.png" title="퀴즈" desc="건강 지식을 배워요" actionLabel="풀어보기" />
           </motion.div>
         )}
@@ -364,7 +364,7 @@ function ClassDemo() {
   const slide = { initial: { opacity: 0, x: 24 }, animate: { opacity: 1, x: 0 }, exit: { opacity: 0, x: -24 }, transition: { duration: 0.28, ease: 'easeOut' } }
 
   return (
-    <div className="min-h-[190px]">
+    <div className="h-[208px] overflow-hidden">
       <AnimatePresence mode="wait">
         {phase === 0 ? (
           <motion.div key="list" {...slide} className="rounded-2xl bg-white border border-gray-100 shadow-soft p-4">
@@ -428,7 +428,7 @@ function TeamDemo() {
     { rank: 3, nick: '서연', score: 250 },
   ]
   return (
-    <div className="min-h-[244px]">
+    <div className="h-[252px] overflow-hidden">
       {/* 개인/팀 토글 */}
       <div className="flex justify-end mb-3">
         <div className="flex gap-1 p-1 bg-gray-100 rounded-pill">
@@ -584,6 +584,7 @@ function Step2Type({ initialData, onNext, onSave, onPrev, enterAtEnd = false }) 
   const [checkinBeforeMin, setCheckinBeforeMin] = useState(initialData?.class_checkin_before_min ?? 30)
 
   const [missionPreviewOpen, setMissionPreviewOpen] = useState(false)
+  const classAnchorRef = useRef(null)  // 「네, 클래스가 있어요」 → 이 버튼을 화면 상단으로 스크롤
 
   // 범위형 최소 변경 시 최대가 더 작아지지 않게 보정
   const handleMinChange = (v) => {
@@ -719,6 +720,11 @@ function Step2Type({ initialData, onNext, onSave, onPrev, enterAtEnd = false }) 
                 <FeedDemo />
               </Preview>
               <YesNo value={communityEnabled} onChange={setCommunityEnabled} />
+              {communityEnabled && (
+                <p className="text-[13px] text-gray-500 leading-relaxed break-keep" style={{ marginTop: '12px' }}>
+                  💡 댓글을 달면 점수를 줘서 참여를 유도할 수도 있어요 — 발행 후 「커뮤니티 설정」에서 켤 수 있어요.
+                </p>
+              )}
             </>)}
 
             {/* ── 순위(랭킹) ── */}
@@ -836,7 +842,13 @@ function Step2Type({ initialData, onNext, onSave, onPrev, enterAtEnd = false }) 
               <Preview>
                 <ClassDemo />
               </Preview>
-              <YesNo value={classEnabled} onChange={setClassEnabled} yesLabel="네, 클래스가 있어요" noLabel="아니요, 없어요" />
+              <div ref={classAnchorRef} style={{ scrollMarginTop: '12px' }}>
+                <YesNo value={classEnabled} onChange={(v) => {
+                  setClassEnabled(v)
+                  // 「네」 선택 시 출석 방식이 아래로 펼쳐지므로, 이 버튼을 화면 상단으로 스크롤
+                  if (v) requestAnimationFrame(() => requestAnimationFrame(() => classAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })))
+                }} yesLabel="네, 클래스가 있어요" noLabel="아니요, 없어요" />
+              </div>
 
               {classEnabled && (
                 <div className="rounded-[10px] border-2 border-emerald-200 bg-emerald-50/40 p-4" style={{ marginTop: '9px' }}>

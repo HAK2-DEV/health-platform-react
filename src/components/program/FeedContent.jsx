@@ -6,7 +6,8 @@ import { Heart, MessageCircle, BarChart3, Send, Trash2, Pencil, Flag, CornerDown
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
 import { formatRelativeKstDay } from '../../lib/formatters'
-import { queryKeys, fetchFeedPosts, fetchPostComments, fetchCommentLikes, toggleCommentLike, FEED_PAGE_SIZE, formatKstDate, updateVerificationNote } from '../../lib/queries'
+import { queryKeys, fetchFeedPosts, fetchPostComments, fetchCommentLikes, toggleCommentLike, FEED_PAGE_SIZE, formatKstDate, updateVerificationNote, fetchLatestCommentAward, fetchCommentAwards } from '../../lib/queries'
+import { useToast } from '../../contexts/ToastContext'
 import { getCachedSignedUrls, getSignedUrls, thumbPathOf } from '../../lib/signedUrls'
 import OperatorVerificationActions from './OperatorVerificationActions'
 import UserAvatar from '../../components/common/UserAvatar'
@@ -628,6 +629,14 @@ function CommentsSection({ verificationId, programId, myUserId, isProgramOwner, 
     onSettled: () => queryClient.invalidateQueries({ queryKey: likeKey }),
   })
 
+  const toast = useToast()
+  const lastAwardAtRef = useRef(null)  // 직전 댓글점수 적립 시각 — 새 적립만 토스트
+  // 점수 인정된 댓글 → 배지 (마이그 189). RLS: 참여자=본인, 운영자=전체
+  const { data: awardMap = {} } = useQuery({
+    queryKey: ['comment-awards', programId, myUserId],
+    queryFn: () => fetchCommentAwards(programId),
+    enabled: !!programId && !!myUserId,
+  })
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.postComments(verificationId) })
     queryClient.invalidateQueries({ queryKey: queryKeys.feedPosts(programId) })  // 댓글 수 갱신
@@ -638,10 +647,19 @@ function CommentsSection({ verificationId, programId, myUserId, isProgramOwner, 
         .insert({ verification_id: verificationId, user_id: myUserId, content: content.trim(), parent_id: parentId || null })
       if (error) throw error
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       if (replyTo?.id) setRepliesOpen(prev => new Set(prev).add(replyTo.id))
       setInput(''); setReplyTo(null); invalidate()
       queryClient.invalidateQueries({ queryKey: ['home-stats'] })  // 대시보드 「오늘의 활동」 댓글 활동 즉시 갱신
+      // 댓글 활동 점수(마이그 187) — 이번에 새로 적립된 경우만 토스트
+      try {
+        const a = await fetchLatestCommentAward(programId, myUserId)
+        if (a && a.created_at !== lastAwardAtRef.current && Date.now() - new Date(a.created_at).getTime() < 12000) {
+          toast.show(`댓글 활동 +${a.point}P 획득!`)
+        }
+        lastAwardAtRef.current = a?.created_at ?? lastAwardAtRef.current
+        queryClient.invalidateQueries({ queryKey: ['comment-awards', programId, myUserId] })  // 점수 배지 갱신
+      } catch { /* 무시 */ }
     },
     onError: (err) => alert(`댓글 작성에 실패했습니다: ${err.message}`),
   })
@@ -748,7 +766,12 @@ function CommentsSection({ verificationId, programId, myUserId, isProgramOwner, 
             </div>
           ) : (
             <>
-              <p className="text-[12px] font-bold text-gray-800 leading-tight">{c.user?.nickname || '(?)'}</p>
+              <div className="flex items-center gap-1.5">
+                <p className="text-[12px] font-bold text-gray-800 leading-tight">{c.user?.nickname || '(?)'}</p>
+                {awardMap[c.id] && (
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-bold flex-shrink-0" title="댓글 활동 점수">+{awardMap[c.id]}P</span>
+                )}
+              </div>
               <p className={`text-gray-700 whitespace-pre-wrap break-words mt-0.5 ${clamped ? 'line-clamp-2' : ''}`}>
                 {c.content}
                 {isEdited && <span className="text-[11px] text-gray-400 ml-1">(수정됨)</span>}

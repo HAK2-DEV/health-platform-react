@@ -4,8 +4,9 @@ import { Heart, MessageCircle, Trash2, Send, CornerDownRight } from 'lucide-reac
 import {
   fetchCommunityPostSocial, toggleCommunityPostLike,
   addCommunityPostComment, deleteCommunityPostComment,
-  fetchCommentLikes, toggleCommentLike, queryKeys,
+  fetchCommentLikes, toggleCommentLike, queryKeys, fetchLatestCommentAward, fetchCommentAwards,
 } from '../../lib/queries'
+import { useToast } from '../../contexts/ToastContext'
 import { formatRelativeKstDay } from '../../lib/formatters'
 import UserAvatar from '../common/UserAvatar'
 
@@ -38,6 +39,12 @@ function CommunityPostSocial({ postId, programId, myUserId, isOwner, canReact, c
     return m
   }, [comments])
 
+  // 점수 인정된 댓글 → 배지 (마이그 189). RLS: 참여자=본인, 운영자=전체
+  const { data: awardMap = {} } = useQuery({
+    queryKey: ['comment-awards', programId, myUserId],
+    queryFn: () => fetchCommentAwards(programId),
+    enabled: !!programId && !!myUserId,
+  })
   // 게시판 댓글 좋아요 (답글 포함, 142)
   const commentIds = useMemo(() => comments.map(c => c.id), [comments])
   const cLikeKey = ['community-comment-likes', postId]
@@ -92,12 +99,23 @@ function CommunityPostSocial({ postId, programId, myUserId, isOwner, canReact, c
     onSuccess: invalidate,
     onError: (e) => alert(`좋아요 처리 실패: ${e.message}`),
   })
+  const toast = useToast()
+  const lastAwardAtRef = useRef(null)  // 직전 댓글점수 적립 시각 — 새 적립만 토스트
   const addMut = useMutation({
     mutationFn: () => addCommunityPostComment({ postId, content: text.trim(), parentId: replyTo?.id || null }),
-    onSuccess: () => {
+    onSuccess: async () => {
       if (replyTo?.id) setExpanded(prev => new Set(prev).add(replyTo.id))
       setText(''); setReplyTo(null); invalidate()
       qc.invalidateQueries({ queryKey: ['home-stats'] })  // 대시보드 「오늘의 활동」 댓글 활동 즉시 갱신
+      // 댓글 활동 점수(마이그 187) — 이번에 새로 적립된 경우만 토스트
+      try {
+        const a = await fetchLatestCommentAward(programId, myUserId)
+        if (a && a.created_at !== lastAwardAtRef.current && Date.now() - new Date(a.created_at).getTime() < 12000) {
+          toast.show(`댓글 활동 +${a.point}P 획득!`)
+        }
+        lastAwardAtRef.current = a?.created_at ?? lastAwardAtRef.current
+        qc.invalidateQueries({ queryKey: ['comment-awards', programId, myUserId] })  // 점수 배지 갱신
+      } catch { /* 무시 */ }
     },
     onError: (e) => alert(`댓글 등록 실패: ${e.message}`),
   })
@@ -138,6 +156,9 @@ function CommunityPostSocial({ postId, programId, myUserId, isOwner, canReact, c
           <div className="flex items-center gap-1.5">
             <span className="text-[12px] font-bold text-gray-800 truncate">{c.user?.nickname || '익명'}</span>
             <span className="text-[10px] text-gray-400 flex-shrink-0">{formatRelativeKstDay(c.created_at)}</span>
+            {awardMap[c.id] && (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-bold flex-shrink-0" title="댓글 활동 점수">+{awardMap[c.id]}P</span>
+            )}
             {canDel && (
               <button type="button" onClick={() => delMut.mutate(c.id)} disabled={delMut.isPending}
                 className="ml-auto p-0.5 text-gray-300 hover:text-red-500 transition disabled:opacity-50" title="삭제"><Trash2 className="w-3.5 h-3.5" /></button>

@@ -869,6 +869,38 @@ export const fetchProgram = async (programId) => {
   return data
 }
 
+// 점수 인정된 댓글 → { [commentId]: point } 맵. (score_ledgers.comment_ref_id, 마이그 189)
+//   user 필터 없이 조회 → RLS 가 역할별로 스코프: 참여자는 본인 적립만, 운영자는 프로그램 전체.
+//   인증글·게시판 댓글 공통(comment id 는 전역 UUID).
+export const fetchCommentAwards = async (programId) => {
+  if (!programId) return {}
+  const { data } = await supabase
+    .from('score_ledgers')
+    .select('comment_ref_id, point')
+    .eq('program_id', programId)
+    .eq('reason', 'comment_daily')
+    .not('comment_ref_id', 'is', null)
+  const map = {}
+  for (const r of data || []) map[r.comment_ref_id] = r.point
+  return map
+}
+
+// 「댓글 활동 점수」 최신 적립 1건 { point, created_at } 반환(없으면 null).
+//   댓글 insert 성공 직후 호출. 호출부가 직전 created_at(ref)와 비교해 "이번에 새로 생긴 적립"만 토스트
+//   → 하루 한도 도달 후 다시 댓글 달아도 이전 적립을 오탐하지 않음(서버 시각끼리 비교라 시계 오차도 무관).
+export const fetchLatestCommentAward = async (programId, userId) => {
+  if (!programId || !userId) return null
+  const { data } = await supabase
+    .from('score_ledgers')
+    .select('point, created_at')
+    .eq('program_id', programId)
+    .eq('user_id', userId)
+    .eq('reason', 'comment_daily')
+    .order('created_at', { ascending: false })
+    .limit(1)
+  return data?.[0] || null
+}
+
 export const fetchMission = async (missionId) => {
   const { data, error } = await supabase
     .from('missions')

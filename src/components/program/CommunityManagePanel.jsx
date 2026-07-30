@@ -258,6 +258,10 @@ const CommunityManagePanel = forwardRef(function CommunityManagePanel({ program,
   const [reactionAuto, setReactionAuto] = useState(true)
   const [previewCard, setPreviewCard] = useState(true)
   const [reportPolicy, setReportPolicy] = useState('2')
+  // 댓글 활동 점수 (마이그 187 — programs 전용 컬럼). 기본 OFF.
+  const [commentPointsEnabled, setCommentPointsEnabled] = useState(false)
+  const [commentPoints, setCommentPoints] = useState(2)
+  const [commentDailyLimit, setCommentDailyLimit] = useState(1)
 
   useEffect(() => {
     if (!program) return
@@ -269,6 +273,9 @@ const CommunityManagePanel = forwardRef(function CommunityManagePanel({ program,
     setReactionAuto(s.reactionAuto !== false)
     setPreviewCard(s.previewCard !== false)
     setReportPolicy(s.reportPolicy || '2')
+    setCommentPointsEnabled(!!program.comment_points_enabled)
+    setCommentPoints(program.comment_points ?? 2)
+    setCommentDailyLimit(program.comment_points_daily_limit ?? 1)
   }, [program])
 
   const [boardToDelete, setBoardToDelete] = useState(null)  // 게시판 삭제 확인 (board id)
@@ -310,12 +317,18 @@ const CommunityManagePanel = forwardRef(function CommunityManagePanel({ program,
       } else if (program && !Object.prototype.hasOwnProperty.call(program, 'community_layout')) {
         return '커뮤니티 컬럼(마이그레이션 094/095)이 아직 적용되지 않았어요'
       }
+      // 댓글 활동 점수 — 전용 컬럼(마이그 187)이 적용된 경우에만 포함
+      if (program && Object.prototype.hasOwnProperty.call(program, 'comment_points_enabled')) {
+        payload.comment_points_enabled = commentPointsEnabled
+        payload.comment_points = Math.max(1, Math.min(100, Math.round(Number(commentPoints)) || 1))
+        payload.comment_points_daily_limit = Math.max(1, Math.min(10, Math.round(Number(commentDailyLimit)) || 1))
+      }
       const { error } = await supabase.from('programs').update(payload).eq('id', program.id)
       if (error) return error.message
       onSaved?.()
       return null
     },
-  }), [layout, boards, postApproval, noticeEnabled, reactionAuto, previewCard, reportPolicy, program, onSaved])
+  }), [layout, boards, postApproval, noticeEnabled, reactionAuto, previewCard, reportPolicy, commentPointsEnabled, commentPoints, commentDailyLimit, program, onSaved])
 
   const selLayout = LAYOUTS.find(l => l.key === layout) || LAYOUTS[0]
 
@@ -481,10 +494,52 @@ const CommunityManagePanel = forwardRef(function CommunityManagePanel({ program,
         </div>
       </section>
 
-      {/* 4) 신고/숨김 정책 — 자동 숨김 토글(off=직접 관리). off 면 임계값 버튼 숨김 */}
+      {/* 4) 댓글 활동 점수 (마이그 187) — 소통 유도. 기본 OFF */}
+      <section className="bg-white border border-gray-100 rounded-2xl shadow-soft p-4">
+        <div className="flex items-start gap-3">
+          <div className="flex-1 min-w-0">
+            <h3 className="flex items-center gap-1.5 text-[15px] font-bold text-gray-800">{numBadge(4)} 댓글 활동 점수</h3>
+            <p className="text-[11px] text-gray-500 mt-1 break-keep">다른 참여자의 글·인증에 댓글을 달면 점수를 줘서 소통을 유도해요.</p>
+          </div>
+          <Toggle on={commentPointsEnabled} onClick={() => setCommentPointsEnabled(v => !v)} />
+        </div>
+        {commentPointsEnabled && (
+          <div className="mt-3.5 space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-medium text-gray-800">댓글 1개당 점수</p>
+              </div>
+              <div className="flex items-center gap-1">
+                <input type="number" min={1} max={100} value={commentPoints}
+                  onChange={(e) => setCommentPoints(e.target.value === '' ? '' : Number(e.target.value))}
+                  className="w-16 px-2 py-1.5 text-[13px] text-right border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-400" />
+                <span className="text-[13px] text-gray-500">P</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-medium text-gray-800">하루 인정 개수</p>
+                <p className="text-[11px] text-gray-500">이 개수까지만 하루에 점수를 줘요</p>
+              </div>
+              <div className="flex items-center gap-1">
+                <input type="number" min={1} max={10} value={commentDailyLimit}
+                  onChange={(e) => setCommentDailyLimit(e.target.value === '' ? '' : Number(e.target.value))}
+                  className="w-16 px-2 py-1.5 text-[13px] text-right border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-400" />
+                <span className="text-[13px] text-gray-500">개</span>
+              </div>
+            </div>
+            <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 space-y-1.5">
+              <p className="text-[11px] text-amber-800 font-bold break-keep">📢 공지 게시판 댓글은 점수에서 제외돼요.</p>
+              <p className="text-[11px] text-amber-700 leading-relaxed break-keep">참여자끼리 소통을 유도하는 게 목적이라, 공지에 단 댓글은 점수를 주지 않아요. 본인 글에 단 댓글과 공백 제외 3글자 미만도 제외돼요.</p>
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* 5) 신고/숨김 정책 — 자동 숨김 토글(off=직접 관리). off 면 임계값 버튼 숨김 */}
       <section className="bg-white border border-gray-100 rounded-2xl shadow-soft p-4">
         <div className="flex items-center justify-between mb-2.5">
-          <h3 className="flex items-center gap-1.5 text-[15px] font-bold text-gray-800">{numBadge(4)} 신고 / 숨김 정책</h3>
+          <h3 className="flex items-center gap-1.5 text-[15px] font-bold text-gray-800">{numBadge(5)} 신고 / 숨김 정책</h3>
           <div className="flex items-center gap-1.5">
             <span className="text-[11px] text-gray-500">자동 숨김</span>
             <Toggle on={reportPolicy !== 'off'} onClick={() => setReportPolicy(p => p === 'off' ? '2' : 'off')} />
@@ -510,9 +565,9 @@ const CommunityManagePanel = forwardRef(function CommunityManagePanel({ program,
         )}
       </section>
 
-      {/* 5) 미리보기 — 예시 게시글로 실제 참여자 화면 미리보기 */}
+      {/* 6) 미리보기 — 예시 게시글로 실제 참여자 화면 미리보기 */}
       <section className="bg-white border border-gray-100 rounded-2xl shadow-soft p-4">
-        <h3 className={headCls}>{numBadge(5)} 미리보기</h3>
+        <h3 className={headCls}>{numBadge(6)} 미리보기</h3>
         <div className="flex items-baseline gap-2 mb-2">
           <p className="text-[13px] font-bold text-gray-800">{selLayout.label}</p>
           <p className="text-[11px] text-gray-500">{selLayout.desc}</p>
