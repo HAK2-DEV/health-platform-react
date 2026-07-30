@@ -2843,16 +2843,17 @@ function ProgramDetailPage() {
                   <button type="button" onClick={() => setPanelView('root')} className="p-1 -ml-1 text-gray-500 hover:text-gray-800" aria-label="뒤로">
                     <ChevronLeft className="w-5 h-5" />
                   </button>
-                  <h2 className="text-lg font-bold text-gray-800">🔔 새 소식 알림</h2>
+                  <Icon3D src="/icons/feature/bell.png" emoji="🔔" className="w-6 h-6" />
+                  <h2 className="text-lg font-bold text-gray-800">새 소식 알림</h2>
                 </div>
                 <p className="text-[12px] text-gray-500 mb-4 pl-1 break-keep">새 콘텐츠를 올리면 참여자에게 알림을 보내요. 유형별로 켜고 끌 수 있어요.</p>
                 <div className="bg-white border border-gray-100 rounded-2xl divide-y divide-gray-100">
                   {[
-                    { col: 'notify_new_mission', emoji: '🌱', label: '새 미션', show: true },
-                    { col: 'notify_new_quiz', emoji: '❓', label: '새 퀴즈', show: quizEnabled },
-                    { col: 'notify_new_class', emoji: '📅', label: '새 클래스', show: program.class_feature_enabled },
-                    { col: 'notify_new_notice', emoji: '📢', label: '새 공지', show: communityEnabled },
-                  ].filter(x => x.show).map(({ col, emoji, label }) => {
+                    { col: 'notify_new_mission', src: '/icons/feature/mission.png', emoji: '🌱', label: '새 미션', show: true },
+                    { col: 'notify_new_quiz', src: '/icons/feature/quiz.png', emoji: '❓', label: '새 퀴즈', show: quizEnabled },
+                    { col: 'notify_new_class', src: '/icons/feature/attendance.png', emoji: '📅', label: '새 클래스', show: program.class_feature_enabled },
+                    { col: 'notify_new_notice', src: '/icons/feature/notice.png', emoji: '📢', label: '새 공지', show: communityEnabled },
+                  ].filter(x => x.show).map(({ col, src, emoji, label }) => {
                     const on = notifyFlagsLocal[col] ?? (program[col] !== false)
                     const toggle = async () => {
                       const v = !on
@@ -2863,7 +2864,7 @@ function ProgramDetailPage() {
                     }
                     return (
                       <div key={col} className="flex items-center gap-3 px-3.5 py-3">
-                        <span className="text-lg flex-shrink-0">{emoji}</span>
+                        <Icon3D src={src} emoji={emoji} className="w-6 h-6 flex-shrink-0" />
                         <span className="flex-1 text-[14px] font-semibold text-gray-800">{label}</span>
                         <button type="button" role="switch" aria-checked={on} onClick={toggle}
                           className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full transition ${on ? 'bg-emerald-500' : 'bg-gray-200'}`}>
