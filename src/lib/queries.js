@@ -2008,6 +2008,37 @@ export const fetchMyActivity = async (programId, userId) => {
   }
 }
 
+// 참여자 「이번 주 나의 기록」 리포트 — 최근 7일 카테고리 집계 + 연속 스트릭 + 이번 주 포인트.
+//   본인 데이터만(RLS). count/head 로 가볍게. 실패한 쿼리는 0 으로 처리(Promise.all 은 reject 안 함).
+export const fetchMyWeeklyReport = async (programId, userId) => {
+  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  const [mission, quiz, post, comment, cls, ledgerRes, overview] = await Promise.all([
+    supabase.from('verifications').select('id, missions!inner(program_id)', { count: 'exact', head: true })
+      .eq('user_id', userId).eq('status', 'APPROVED').eq('missions.program_id', programId).gte('submitted_at', since),
+    supabase.from('quiz_submissions').select('id, quiz:quizzes!inner(program_id)', { count: 'exact', head: true })
+      .eq('user_id', userId).eq('quiz.program_id', programId).gte('submitted_at', since),
+    supabase.from('community_posts').select('id', { count: 'exact', head: true })
+      .eq('author_id', userId).eq('program_id', programId).gte('created_at', since),
+    supabase.from('community_post_comments').select('id, community_posts!inner(program_id)', { count: 'exact', head: true })
+      .eq('user_id', userId).eq('community_posts.program_id', programId).gte('created_at', since),
+    supabase.from('session_attendance').select('id, sessions!inner(program_id, starts_at)', { count: 'exact', head: true })
+      .eq('user_id', userId).eq('status', 'confirmed').eq('sessions.program_id', programId).gte('sessions.starts_at', since),
+    supabase.from('score_ledgers').select('point').eq('user_id', userId).eq('program_id', programId).gte('created_at', since),
+    fetchProgramOverview(programId, userId),
+  ])
+  const weekPoints = (ledgerRes.data || []).reduce((s, l) => s + (l.point || 0), 0)
+  return {
+    missionCount: mission.count || 0,
+    quizCount: quiz.count || 0,
+    postCount: post.count || 0,
+    commentCount: comment.count || 0,
+    classCount: cls.count || 0,
+    weekPoints,
+    streak: overview?.streak || 0,
+    weekDays: overview?.weekDays || [],
+  }
+}
+
 // 본인 인증 카드 — 한 묶음 내, 페이지네이션 (이미지/소감 포함 무거운 필드)
 //   bundleParam: 'solo' (단독 미션) 또는 bundle_title (encoded 되기 전 원본)
 //   참여자 많아도 본인 묶음당 fetch 양만큼만 부담

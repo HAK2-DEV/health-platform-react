@@ -41,6 +41,7 @@ import OperatorReviewBanner from '../../components/program/OperatorReviewBanner'
 import EndReportBanner from '../../components/program/EndReportBanner'
 import ActivationNudge from '../../components/program/ActivationNudge'
 import WeeklyHighlight from '../../components/program/WeeklyHighlight'
+import ParticipantWeeklyReport from '../../components/program/ParticipantWeeklyReport'
 import { useToast } from '../../contexts/ToastContext'
 import { markSeen, countNew, getLastSeen } from '../../lib/newContent'
 import { warnLargeUserList } from '../../lib/sentry'
@@ -622,6 +623,11 @@ function ProgramDetailPage() {
     && progressUrgency(calcProgress(program?.start_date, program?.end_date)).urgency !== 'ended'
   const weeklyHighlightEl = weeklyEnabled ? (
     <WeeklyHighlight programId={id} onOpen={() => navigate(`/programs/${id}/stats?report=1`)} />
+  ) : null
+  // 참여자 주간 리포트 — 참여중·발행·진행중일 때 개요 상단 배너 → 모달(이번 주 나의 기록).
+  const participantReportEl = (!isOwner && isActiveParticipant && program?.status === 'PUBLISHED'
+    && progressUrgency(calcProgress(program?.start_date, program?.end_date)).urgency !== 'ended') ? (
+    <ParticipantWeeklyReport programId={id} userId={userId} classEnabled={!!program?.class_feature_enabled} />
   ) : null
   // 넛지 초대 액션 — 초대코드형이면 InviteModal, 공개형이면 링크 공유/복사.
   const handleActivationInvite = async () => {
@@ -1586,6 +1592,7 @@ function ProgramDetailPage() {
       {/* 활성화 넛지 — 개요 최상단(운영자·개요탭·비관리·비immersive). immersive 는 슬롯 주입. */}
       {activeTab === 'overview' && !immersiveHome && !inManager && activationNudgeEl}
       {activeTab === 'overview' && !immersiveHome && !inManager && weeklyHighlightEl}
+      {activeTab === 'overview' && !immersiveHome && !inManager && participantReportEl}
 
       {/* 종료 리포트 진입 — 운영자 + 프로그램 종료 (개요 최상단, 인트로 연출). immersive 는 슬롯으로 주입.
           관리 폼(inManager)에선 immersiveHome 이 false 가 되므로 !inManager 로 제외. */}
@@ -1860,7 +1867,7 @@ function ProgramDetailPage() {
               />
             ) : null}
             activationSlot={activationNudgeEl}
-            weeklySlot={weeklyHighlightEl}
+            weeklySlot={weeklyHighlightEl || participantReportEl}
             classSlot={classOverviewSlot}
             quizEnabled={quizEnabled && !isViewer}
             communityEnabled={communityEnabled}
