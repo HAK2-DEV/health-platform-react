@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Lightbulb, ChevronRight, Check } from 'lucide-react'
+import { Lightbulb, ChevronRight, Check, Info } from 'lucide-react'
 import Modal from '../common/Modal'
 import { Icon3D } from './ProgramHome'
 import { fetchMyWeeklyReport } from '../../lib/queries'
@@ -33,6 +33,7 @@ function Row({ src, emoji, label, n, unit }) {
 export default function ParticipantWeeklyReport({ programId, userId, classEnabled = false, placement = 'overview' }) {
   const [open, setOpen] = useState(false)
   const [seen, setSeen] = useState(true)
+  const [tipOpen, setTipOpen] = useState(false)
   useEffect(() => {
     if (DEV) { setSeen(false); return }
     try { setSeen(localStorage.getItem(seenKey(programId)) === weekKey()) } catch { setSeen(true) }
@@ -70,9 +71,22 @@ export default function ParticipantWeeklyReport({ programId, userId, classEnable
 
       <Modal isOpen={open} onClose={() => setOpen(false)}>
         <div className="p-5">
-          <div className="flex items-center gap-2 mb-3">
+          <div className="relative flex items-center gap-2 mb-3">
             <Lightbulb className="w-5 h-5 text-amber-500" />
             <h2 className="text-lg font-bold text-gray-800">지난 주 나의 기록</h2>
+            {placement === 'overview' && (
+              <button type="button" onClick={() => setTipOpen(v => !v)} className="text-gray-300 hover:text-gray-500 transition" aria-label="안내">
+                <Info className="w-4 h-4" />
+              </button>
+            )}
+            {tipOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setTipOpen(false)} />
+                <div className="absolute z-20 top-full left-0 mt-1.5 w-max max-w-[240px] px-3 py-2 rounded-lg bg-gray-800 text-white text-[11.5px] leading-relaxed shadow-lg">
+                  마이페이지 → 내 기록에서 다시 볼 수 있어요
+                </div>
+              </>
+            )}
           </div>
 
           {!data ? (
@@ -123,11 +137,8 @@ export default function ParticipantWeeklyReport({ programId, userId, classEnable
               {/* 격려 (지난 주 회고 + 이번 주 응원) */}
               <p className="text-[12.5px] text-gray-600 leading-relaxed bg-gray-50 rounded-lg px-3 py-2.5 break-keep">{encourage(data)}</p>
 
-              {placement === 'overview' && (
-                <p className="mt-5 text-[11.5px] font-semibold text-gray-500 text-center">마이페이지 → 내 기록에서 다시 볼 수 있어요</p>
-              )}
               <button type="button" onClick={() => setOpen(false)}
-                className="mt-2.5 w-full h-11 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[14px] font-bold transition">
+                className="mt-4 w-full h-11 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[14px] font-bold transition">
                 확인
               </button>
             </>
