@@ -29,6 +29,7 @@ import MetricSummaryCard from '../../components/program/MetricSummaryCard'
 import ProgramHome, { HOME_BOX_ORDER, HOME_BOX_LABELS, Icon3D } from '../../components/program/ProgramHome'
 import ProgramHomeLayoutEditor from '../../components/program/ProgramHomeLayoutEditor'
 import { resolveMissionIcon } from '../../lib/missionIcons'
+import { getSignedUrls, thumbPathOf } from '../../lib/signedUrls'
 import ProgramChangeTab from '../../components/program/ProgramChangeTab'
 import PodiumTop3 from '../../components/program/PodiumTop3'
 import TeamRankingPanel from '../../components/program/TeamRankingPanel'
@@ -596,6 +597,13 @@ function ProgramDetailPage() {
     queryFn: () => fetchPendingReviews(id),
     enabled: !!session && !!id && !!program && isOwner,
   })
+  // 심사 대기 사진 미리 준비 — 배너가 뜬 시점에 썸네일 signed URL 을 캐시에 채워둠 →
+  //   운영자가 그리드 열면 즉시 표시(모달 열 때야 서명받아 5초씩 걸리던 지연 제거).
+  useEffect(() => {
+    const paths = pendingReviews.filter(r => r.v_image_path).map(r => thumbPathOf(r.v_image_path))
+    if (paths.length) getSignedUrls('verification-images', paths).catch(() => {})
+  }, [pendingReviews])
+
   // 활성화 넛지 — 운영자·발행·종료전 프로그램의 활성화 상태(참여자/첫인증)로 개요 상단 넛지.
   const activationEnabled = !!session && !!id && !!program && isOwner
     && program?.status === 'PUBLISHED'
@@ -1578,6 +1586,7 @@ function ProgramDetailPage() {
           onClick={() => navigate(`/programs/${id}/report`)}
           playIntro={playEndReportIntro}
           onIntroDone={() => setPlayEndReportIntro(false)}
+          centerOffset={pendingReviews.length > 0 ? -46 : 0}  // 심사 배너와 겹칠 때 위로
         />
       )}
 
@@ -1589,6 +1598,7 @@ function ProgramDetailPage() {
           onClick={() => setVreviewOpen(true)}
           playIntro={playReviewIntro}
           onIntroDone={() => setPlayReviewIntro(false)}
+          centerOffset={activeTab === 'overview' && progressUrgency(calcProgress(program.start_date, program.end_date)).urgency === 'ended' ? 46 : 0}  // 종료 리포트와 겹칠 때 아래로
         />
       )}
 
@@ -1829,6 +1839,7 @@ function ProgramDetailPage() {
                 onClick={() => setVreviewOpen(true)}
                 playIntro={playReviewIntro}
                 onIntroDone={() => setPlayReviewIntro(false)}
+                centerOffset={progressUrgency(calcProgress(program.start_date, program.end_date)).urgency === 'ended' ? 46 : 0}
               />
             ) : null}
             endReportSlot={isOwner && progressUrgency(calcProgress(program.start_date, program.end_date)).urgency === 'ended' ? (
@@ -1836,6 +1847,7 @@ function ProgramDetailPage() {
                 onClick={() => navigate(`/programs/${id}/report`)}
                 playIntro={playEndReportIntro}
                 onIntroDone={() => setPlayEndReportIntro(false)}
+                centerOffset={pendingReviews.length > 0 ? -46 : 0}
               />
             ) : null}
             activationSlot={activationNudgeEl}

@@ -3,7 +3,7 @@ import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { X, Check, ClipboardCheck, ChevronLeft, ChevronRight, Ban, RotateCcw, Circle, PauseCircle } from 'lucide-react'
 import { approveVerifications, rejectVerifications, queryKeys } from '../../lib/queries'
-import { getSignedUrls } from '../../lib/signedUrls'
+import { getSignedUrls, thumbPathOf } from '../../lib/signedUrls'
 import { formatRelativeKstDay } from '../../lib/formatters'
 import UserAvatar from '../common/UserAvatar'
 import RejectReasonModal from './RejectReasonModal'
@@ -35,7 +35,8 @@ export default function VerificationGridReview({ isOpen, onClose, programId, rev
   const [rejectIds, setRejectIds] = useState(() => new Set())
   const [heldIds, setHeldIds] = useState(() => new Set())   // 보류(선택 취소) — 승인·거절 어디에도 안 들어가고 PENDING 유지
   const [inspectId, setInspectId] = useState(null)     // 확대 검사 중인 v_id
-  const [thumbs, setThumbs] = useState({})             // v_id -> signed URL
+  const [thumbs, setThumbs] = useState({})             // v_id -> 썸네일 signed URL (그리드용, 빠름)
+  const [fulls, setFulls] = useState({})               // v_id -> 원본 signed URL (확대 보기 + 썸네일 폴백)
   const [reasonOpen, setReasonOpen] = useState(false)  // 마무리 시 거절 사유 입력
 
   // 열릴 때 표시 초기화 + 배경 스크롤 잠금
@@ -52,14 +53,21 @@ export default function VerificationGridReview({ isOpen, onClose, programId, rev
   // 사진 썸네일 일괄 서명
   useEffect(() => {
     if (!isOpen) return
-    const paths = reviews.filter(r => r.v_image_path).map(r => r.v_image_path)
-    if (!paths.length) { setThumbs({}); return }
+    const withImg = reviews.filter(r => r.v_image_path)
+    if (!withImg.length) { setThumbs({}); setFulls({}); return }
     let cancelled = false
-    getSignedUrls('verification-images', paths).then(byPath => {
+    // 그리드는 가벼운 썸네일(_thumb)로 즉시 표시, 확대 보기는 원본. 둘 다 서명(URL 생성은 가벼움).
+    getSignedUrls('verification-images', withImg.map(r => thumbPathOf(r.v_image_path))).then(byPath => {
       if (cancelled) return
       const m = {}
-      for (const r of reviews) if (r.v_image_path && byPath[r.v_image_path]) m[r.v_id] = byPath[r.v_image_path]
+      for (const r of withImg) { const u = byPath[thumbPathOf(r.v_image_path)]; if (u) m[r.v_id] = u }
       setThumbs(m)
+    })
+    getSignedUrls('verification-images', withImg.map(r => r.v_image_path)).then(byPath => {
+      if (cancelled) return
+      const m = {}
+      for (const r of withImg) { const u = byPath[r.v_image_path]; if (u) m[r.v_id] = u }
+      setFulls(m)
     })
     return () => { cancelled = true }
   }, [isOpen, reviews])
@@ -175,13 +183,15 @@ export default function VerificationGridReview({ isOpen, onClose, programId, rev
                         const held = heldIds.has(r.v_id) && !marked
                         const dim = marked ? 'opacity-40' : held ? 'opacity-60' : ''
                         const border = marked ? 'border-red-400' : held ? 'border-gray-300' : 'border-emerald-400 ring-1 ring-emerald-200'
-                        const url = thumbs[r.v_id]
+                        const url = thumbs[r.v_id] || fulls[r.v_id]
                         return (
                           <div key={r.v_id} onClick={() => setInspectId(r.v_id)}
                             className={`relative aspect-square rounded-xl overflow-hidden cursor-pointer bg-gray-100 border-2 transition ${border}`}>
                             {r.v_image_path ? (
                               url
-                                ? <img src={url} alt="" loading="lazy" decoding="async" className={`w-full h-full object-cover transition ${dim}`} />
+                                ? <img src={url} alt="" loading="lazy" decoding="async"
+                                    onError={(e) => { const f = fulls[r.v_id]; if (f && e.currentTarget.src !== f) e.currentTarget.src = f }}
+                                    className={`w-full h-full object-cover transition ${dim}`} />
                                 : <div className="w-full h-full animate-pulse bg-gray-200" />
                             ) : (
                               <div className={`w-full h-full p-2 flex flex-col justify-center text-center ${dim}`}>
@@ -252,8 +262,8 @@ export default function VerificationGridReview({ isOpen, onClose, programId, rev
             {inspectIndex > 0 && (
               <button type="button" onClick={() => gotoInspect(-1)} className="absolute left-2 z-10 w-9 h-9 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center"><ChevronLeft className="w-5 h-5" /></button>
             )}
-            {inspect.v_image_path && thumbs[inspect.v_id]
-              ? <img src={thumbs[inspect.v_id]} alt="" className="max-w-full max-h-full object-contain rounded-lg" />
+            {inspect.v_image_path && (fulls[inspect.v_id] || thumbs[inspect.v_id])
+              ? <img src={fulls[inspect.v_id] || thumbs[inspect.v_id]} alt="" className="max-w-full max-h-full object-contain rounded-lg" />
               : inspect.v_image_path
                 ? <div className="w-64 h-64 rounded-lg bg-white/10 animate-pulse" />
                 : <div className="text-white/70 text-sm">사진 없는 인증</div>}

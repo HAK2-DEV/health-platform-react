@@ -18,7 +18,8 @@ function BannerInner({ count }) {
   )
 }
 
-function OperatorReviewBanner({ count, onClick, playIntro = false, onIntroDone }) {
+// centerOffset: 정중앙 팝업 y 오프셋(px). 종료 리포트 배너와 둘 다 뜰 때 아래(+)로 벌려 겹침 방지.
+function OperatorReviewBanner({ count, onClick, playIntro = false, onIntroDone, centerOffset = 0 }) {
   const [phase, setPhase] = useState('done')  // center → settle → done
   const [rect, setRect] = useState(null)
   const slotRef = useRef(null)
@@ -42,7 +43,7 @@ function OperatorReviewBanner({ count, onClick, playIntro = false, onIntroDone }
     return () => clearTimeout(t)
   }, [phase])
 
-  const centerTop = typeof window !== 'undefined' ? window.innerHeight * 0.42 : 360
+  const centerTop = (typeof window !== 'undefined' ? window.innerHeight * 0.42 : 360) + centerOffset
   const animating = phase !== 'done' && rect
 
   return (
