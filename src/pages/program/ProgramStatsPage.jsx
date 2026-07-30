@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState, lazy, Suspense } from 'react'
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
@@ -14,7 +14,8 @@ import {
 import LoadingState from '../../components/common/LoadingState'
 import EmptyState from '../../components/common/EmptyState'
 import ProgramInsightsSummary from '../../components/program/ProgramInsightsSummary'
-import WeeklyHighlight from '../../components/program/WeeklyHighlight'
+import CarePeopleSection from '../../components/program/CarePeopleSection'
+const CheerModal = lazy(() => import('../../components/program/CheerModal'))
 
 // 운영자 통계 메인 — 미션별 / 유저별 두 디테일 페이지로의 진입 카드 2장
 // 라우트: /programs/:id/stats
@@ -24,6 +25,7 @@ function ProgramStatsPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const userId = session?.user?.id
+  const [cheerUser, setCheerUser] = useState(null)  // 챙길 참여자 「응원」 단건 대상
   // 통계에서 뒤로가기는 무조건 운영자 메뉴로 (진입 정보 없으면 root). 이땐 스크롤 저장 스킵(다음 진입 상단부터).
   const backToOpMenu = location.state?.backToOpMenu
   const skipScrollSaveRef = useRef(false)
@@ -134,11 +136,11 @@ function ProgramStatsPage() {
         <LoadingState />
       ) : (
         <>
-        {/* 이번 주 하이라이트 — 개요 배너를 다 본 뒤 여기서 다시 봄(활발/휴면/응원) */}
-        <WeeklyHighlight placement="stats" stats={stats} programId={id} />
-
         {/* Day 65 — 운영자 인사이트 위젯 4종 (상단). 본인 정체성 (전문성+따뜻함) 반영 */}
         <ProgramInsightsSummary stats={stats} program={program} />
+
+        {/* 챙기면 좋은 참여자 + 응원 — 하이라이트(진단) 바로 아래 실행 섹션 */}
+        <CarePeopleSection stats={stats} onCheerUser={setCheerUser} />
 
         {/* 「자세히 보기」 드릴다운 카드 3종 (기존) */}
         <p className="text-xs text-gray-500 font-medium px-1 mb-2">자세히 보기</p>
@@ -236,6 +238,18 @@ function ProgramStatsPage() {
           )}
         </motion.div>
         </>
+      )}
+
+      {cheerUser && (
+        <Suspense fallback={null}>
+          <CheerModal
+            programId={id}
+            targetUserId={cheerUser.user_id}
+            targetNickname={cheerUser.nickname}
+            variant="cheer"
+            onClose={() => setCheerUser(null)}
+          />
+        </Suspense>
       )}
     </div>
   )

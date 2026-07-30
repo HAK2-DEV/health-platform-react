@@ -111,7 +111,6 @@ import {
   fetchCommunityPendingPosts,
   fetchPendingReviews,
   fetchActivationState,
-  fetchProgramStats,
   fetchProgramOverview,
   fetchUnresolvedReportCount,
   fetchMyMetricSummary,
@@ -618,22 +617,11 @@ function ProgramDetailPage() {
   const toast = useToast()
   const [cheerOpen, setCheerOpen] = useState(false)
 
-  // 주간 하이라이트 — 운영자·발행·진행중일 때 통계(programStats, 스탯 페이지와 캐시 공유) 재사용.
+  // 주간 리포트 넛지 — 운영자·발행·진행중·참여자 있을 때 개요 상단 배너 → 탭하면 통계로.
   const weeklyEnabled = isOwner && !!program && program?.status === 'PUBLISHED'
     && progressUrgency(calcProgress(program?.start_date, program?.end_date)).urgency !== 'ended'
-  const { data: weeklyStats } = useQuery({
-    queryKey: queryKeys.programStats(id),
-    queryFn: () => fetchProgramStats(id),
-    enabled: !!session && !!id && weeklyEnabled,
-  })
-  const weeklyHighlightEl = weeklyEnabled && weeklyStats ? (
-    <WeeklyHighlight
-      placement="overview"
-      stats={weeklyStats}
-      programId={id}
-      pendingCount={pendingReviews.length}
-      onReview={() => setVreviewOpen(true)}
-    />
+  const weeklyHighlightEl = weeklyEnabled ? (
+    <WeeklyHighlight programId={id} show={ranking.length > 0} onOpen={() => navigate(`/programs/${id}/stats`)} />
   ) : null
   // 넛지 초대 액션 — 초대코드형이면 InviteModal, 공개형이면 링크 공유/복사.
   const handleActivationInvite = async () => {
