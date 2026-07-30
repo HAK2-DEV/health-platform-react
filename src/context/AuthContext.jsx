@@ -1,6 +1,7 @@
 import { createContext, useState, useEffect, useCallback, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../supabaseClient";
+import { pushSupported, subscribeToPush } from "../lib/push";
 
 export const AuthContext = createContext(null)
 
@@ -28,6 +29,11 @@ export function AuthProvider({children}) {
                 if (newUserId !== prevUserIdRef.current) {
                     queryClient.clear()
                     prevUserIdRef.current = newUserId
+                    // 로그인/계정전환 — 이 기기 알림 권한이 이미 허용돼 있으면 현재 사용자로 푸시 구독 재등록.
+                    //   (endpoint upsert → 이전 계정 구독이 현재 계정으로 재할당. 권한 없으면 아무것도 안 함/프롬프트 X)
+                    if (newUserId && pushSupported() && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+                        subscribeToPush().catch(() => {})
+                    }
                 }
                 setSession(session)
             }

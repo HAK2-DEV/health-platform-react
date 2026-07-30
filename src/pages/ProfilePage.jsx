@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { LogOut, Camera, Pencil, X, Loader2, BarChart3, ChevronRight, Bell, Shield, BookOpen, MessageCircle, Activity } from 'lucide-react'
 import { supabase } from '../supabaseClient'
+import { unsubscribeFromPush } from '../lib/push'
 import { useAuth } from '../hooks/useAuth'
 import { useNicknameCheck } from '../hooks/useNicknameCheck'
 import { NICKNAME } from '../lib/constants'
@@ -277,7 +278,9 @@ function ProfilePage() {
     else fileInputRef.current?.click()
   }
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // 로그아웃 전에 이 기기 푸시 구독 해제 — 로그아웃한 계정의 알림이 이 기기로 계속 가지 않도록.
+    try { await unsubscribeFromPush() } catch { /* 무시 */ }
     supabase.auth.signOut()
   }
 

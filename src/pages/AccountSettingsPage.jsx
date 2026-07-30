@@ -5,6 +5,7 @@ import { Lock, Trash2, AlertTriangle, Loader2, Mail } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../supabaseClient'
 import { deleteMyAccount } from '../lib/queries'
+import { unsubscribeFromPush } from '../lib/push'
 import StickyBackBar from '../components/common/StickyBackBar'
 import Modal from '../components/common/Modal'
 
@@ -186,7 +187,8 @@ function DeleteAccountCard({ nickname, onComplete }) {
   const deleteMutation = useMutation({
     mutationFn: deleteMyAccount,
     onSuccess: async () => {
-      // 세션 종료 후 /login 으로
+      // 이 기기 푸시 구독 해제(브라우저) + 세션 종료 후 /login 으로 (DB 구독행은 계정 CASCADE 로 삭제됨)
+      try { await unsubscribeFromPush() } catch { /* 무시 */ }
       await supabase.auth.signOut()
       onComplete()
     },
