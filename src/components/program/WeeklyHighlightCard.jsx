@@ -63,10 +63,11 @@ function Person({ u, sub, action }) {
   )
 }
 
-export default function WeeklyHighlightCard({ stats, pendingCount = 0, onReview, onCheerUser }) {
+export default function WeeklyHighlightCard({ stats, pendingCount = 0, onReview, onCheerUser, plain = false }) {
   const hi = useMemo(() => computeWeekly(stats), [stats])
   if (!hi) return null
   const { week, delta, activeThisWeek, reach, activeTop, atRisk, range } = hi
+  const shell = plain ? '' : 'mb-3 bg-white border border-gray-100 rounded-2xl shadow-soft p-4'
 
   const line = week === 0
     ? '이번 주 인증이 아직 없어요 — 응원이나 새 미션으로 불씨를 살려보세요.'
@@ -75,7 +76,7 @@ export default function WeeklyHighlightCard({ stats, pendingCount = 0, onReview,
         : '지난주와 비슷한 페이스예요.'
 
   return (
-    <div className="mb-3 bg-white border border-gray-100 rounded-2xl shadow-soft p-4">
+    <div className={shell}>
       {/* 헤더 */}
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-[15px] font-bold text-gray-800">📈 이번 주</h3>

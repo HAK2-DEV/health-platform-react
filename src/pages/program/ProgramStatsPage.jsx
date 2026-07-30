@@ -14,6 +14,7 @@ import {
 import LoadingState from '../../components/common/LoadingState'
 import EmptyState from '../../components/common/EmptyState'
 import ProgramInsightsSummary from '../../components/program/ProgramInsightsSummary'
+import WeeklyHighlight from '../../components/program/WeeklyHighlight'
 
 // 운영자 통계 메인 — 미션별 / 유저별 두 디테일 페이지로의 진입 카드 2장
 // 라우트: /programs/:id/stats
@@ -133,6 +134,9 @@ function ProgramStatsPage() {
         <LoadingState />
       ) : (
         <>
+        {/* 이번 주 하이라이트 — 개요 배너를 다 본 뒤 여기서 다시 봄(활발/휴면/응원) */}
+        <WeeklyHighlight placement="stats" stats={stats} programId={id} />
+
         {/* Day 65 — 운영자 인사이트 위젯 4종 (상단). 본인 정체성 (전문성+따뜻함) 반영 */}
         <ProgramInsightsSummary stats={stats} program={program} />
 

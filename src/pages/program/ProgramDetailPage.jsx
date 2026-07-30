@@ -40,7 +40,7 @@ import DeleteProgramModal from '../../components/program/DeleteProgramModal'
 import OperatorReviewBanner from '../../components/program/OperatorReviewBanner'
 import EndReportBanner from '../../components/program/EndReportBanner'
 import ActivationNudge from '../../components/program/ActivationNudge'
-import WeeklyHighlightCard from '../../components/program/WeeklyHighlightCard'
+import WeeklyHighlight from '../../components/program/WeeklyHighlight'
 import { useToast } from '../../contexts/ToastContext'
 import { markSeen, countNew, getLastSeen } from '../../lib/newContent'
 import { warnLargeUserList } from '../../lib/sentry'
@@ -617,7 +617,6 @@ function ProgramDetailPage() {
   })
   const toast = useToast()
   const [cheerOpen, setCheerOpen] = useState(false)
-  const [cheerUser, setCheerUser] = useState(null)  // 주간 카드 「응원」 단건 대상
 
   // 주간 하이라이트 — 운영자·발행·진행중일 때 통계(programStats, 스탯 페이지와 캐시 공유) 재사용.
   const weeklyEnabled = isOwner && !!program && program?.status === 'PUBLISHED'
@@ -628,11 +627,12 @@ function ProgramDetailPage() {
     enabled: !!session && !!id && weeklyEnabled,
   })
   const weeklyHighlightEl = weeklyEnabled && weeklyStats ? (
-    <WeeklyHighlightCard
+    <WeeklyHighlight
+      placement="overview"
       stats={weeklyStats}
+      programId={id}
       pendingCount={pendingReviews.length}
       onReview={() => setVreviewOpen(true)}
-      onCheerUser={(u) => setCheerUser(u)}
     />
   ) : null
   // 넛지 초대 액션 — 초대코드형이면 InviteModal, 공개형이면 링크 공유/복사.
@@ -2777,15 +2777,6 @@ function ProgramDetailPage() {
             groupLabel="참여자 전원"
             variant="cheer"
             onClose={() => setCheerOpen(false)}
-          />
-        )}
-        {cheerUser && (
-          <CheerModal
-            programId={id}
-            targetUserId={cheerUser.user_id}
-            targetNickname={cheerUser.nickname}
-            variant="cheer"
-            onClose={() => setCheerUser(null)}
           />
         )}
       </Suspense>
