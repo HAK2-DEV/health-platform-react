@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Lightbulb, ChevronRight } from 'lucide-react'
 import Modal from '../common/Modal'
+import { Icon3D } from './ProgramHome'
 import { fetchMyWeeklyReport } from '../../lib/queries'
 
 // 참여자 「이번 주 나의 기록」 — 개요 상단 배너 → 모달. 주 1회(열람 시 사라짐), dev 는 항상 노출.
@@ -19,10 +20,10 @@ function encourage(d) {
   return '조금씩이라도 함께하고 있어요, 응원해요 💪'
 }
 
-function Row({ emoji, label, n, unit }) {
+function Row({ src, emoji, label, n, unit }) {
   return (
     <div className="flex items-center gap-2.5 px-3 py-2.5">
-      <span className="text-[15px]">{emoji}</span>
+      <Icon3D src={src} emoji={emoji} className="w-6 h-6 flex-shrink-0" />
       <span className="flex-1 text-[13px] text-gray-600">{label}</span>
       <span className={`text-[14px] font-extrabold tabular-nums ${n > 0 ? 'text-gray-800' : 'text-gray-300'}`}>{n}<span className="text-[11px] font-bold text-gray-400 ml-0.5">{unit}</span></span>
     </div>
@@ -84,11 +85,11 @@ export default function ParticipantWeeklyReport({ programId, userId, classEnable
 
               {/* 카테고리 집계 */}
               <div className="rounded-xl border border-gray-100 divide-y divide-gray-100 mb-3">
-                <Row emoji="🌱" label="미션 인증" n={data.missionCount} unit="건" />
-                <Row emoji="❓" label="퀴즈 참여" n={data.quizCount} unit="개" />
-                <Row emoji="💬" label="커뮤니티 글" n={data.postCount} unit="개" />
-                <Row emoji="✍️" label="댓글" n={data.commentCount} unit="개" />
-                {classEnabled && <Row emoji="📅" label="클래스 출석" n={data.classCount} unit="회" />}
+                <Row src="/icons/feature/mission.png" emoji="🌱" label="미션 인증" n={data.missionCount} unit="건" />
+                <Row src="/icons/feature/quiz.png" emoji="❓" label="퀴즈 참여" n={data.quizCount} unit="개" />
+                <Row src="/icons/feature/community.png" emoji="💬" label="커뮤니티 글" n={data.postCount} unit="개" />
+                <Row src="/icons/activity/comment.png" emoji="✍️" label="댓글" n={data.commentCount} unit="개" />
+                {classEnabled && <Row src="/icons/feature/attendance.png" emoji="📅" label="클래스 출석" n={data.classCount} unit="회" />}
               </div>
 
               {/* 격려 */}
@@ -98,6 +99,7 @@ export default function ParticipantWeeklyReport({ programId, userId, classEnable
                 className="mt-4 w-full h-11 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[14px] font-bold transition">
                 확인
               </button>
+              <p className="mt-2.5 text-[11px] text-gray-400 text-center">마이페이지 → 내 기록에서 다시 볼 수 있어요</p>
             </>
           )}
         </div>
