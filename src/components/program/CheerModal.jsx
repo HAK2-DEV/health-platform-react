@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { supabase } from '../../supabaseClient'
 import { useToast } from '../../contexts/ToastContext'
@@ -50,6 +50,17 @@ export default function CheerModal({ programId, targetUserId, targetNickname, ta
   const [msg, setMsg] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState(null)
+  // 키보드가 올라오면 보이는 영역(visualViewport) 기준으로 모달을 가운데 정렬 → 상단 잘림 방지.
+  const [vv, setVv] = useState({ top: 0, height: null })
+  useEffect(() => {
+    const win = window.visualViewport
+    if (!win) return
+    const update = () => setVv({ top: win.offsetTop, height: win.height })
+    update()
+    win.addEventListener('resize', update)
+    win.addEventListener('scroll', update)
+    return () => { win.removeEventListener('resize', update); win.removeEventListener('scroll', update) }
+  }, [])
 
   const send = async () => {
     const m = msg.trim()
@@ -91,11 +102,14 @@ export default function CheerModal({ programId, targetUserId, targetNickname, ta
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-center justify-center p-5"
+      className="fixed inset-0 z-[70]"
       style={{ background: 'rgba(15,23,42,0.45)' }}
       onClick={() => !sending && onClose?.()}
     >
-      <div className="w-full max-w-[340px] rounded-2xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      {/* 보이는 영역(키보드 위) 기준 가운데 정렬 — 내용이 길면 카드 내부 스크롤 */}
+      <div className="absolute left-0 right-0 flex items-center justify-center p-4"
+        style={{ top: vv.top, height: vv.height ?? '100%' }}>
+        <div className="w-full max-w-[340px] max-h-full overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <h3 className="text-[15px] font-bold text-gray-800">{v.emoji} {v.title}</h3>
         <p className="text-[12px] text-gray-500 mt-0.5 mb-3">
           {isBulk
@@ -151,6 +165,7 @@ export default function CheerModal({ programId, targetUserId, targetNickname, ta
           >
             {sending ? '보내는 중…' : (isBulk ? v.bulkSend : v.send)}
           </button>
+        </div>
         </div>
       </div>
     </div>
