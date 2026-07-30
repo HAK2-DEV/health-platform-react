@@ -34,10 +34,10 @@ export default function WeeklyHighlight({ programId, onOpen, show = true }) {
 
   return (
     <button type="button" onClick={handle}
-      className="mb-3 w-full flex items-center gap-2.5 p-3 rounded-xl bg-amber-50 border border-amber-200 text-left hover:bg-amber-100/60 transition">
-      <Lightbulb className="w-5 h-5 text-amber-500 flex-shrink-0" />
+      className="mb-3 w-full flex items-center gap-2.5 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-left hover:bg-emerald-100/60 transition">
+      <Lightbulb className="w-5 h-5 text-emerald-500 flex-shrink-0" />
       <span className="flex-1 text-[13px] font-bold text-gray-700">이번 주 리포트가 도착했어요 · 보기</span>
-      <ChevronRight className="w-4 h-4 text-amber-500 flex-shrink-0" />
+      <ChevronRight className="w-4 h-4 text-emerald-500 flex-shrink-0" />
     </button>
   )
 }
