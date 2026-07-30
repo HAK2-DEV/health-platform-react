@@ -82,7 +82,7 @@ export default function ParticipantWeeklyReport({ programId, userId, classEnable
             {tipOpen && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setTipOpen(false)} />
-                <div className="absolute z-20 top-full left-0 mt-1.5 w-max max-w-[240px] px-3 py-2 rounded-lg bg-gray-800 text-white text-[11.5px] leading-relaxed shadow-lg">
+                <div className="absolute z-20 bottom-full left-0 mb-1.5 w-max max-w-[240px] px-3 py-2 rounded-lg bg-gray-800 text-white text-[11.5px] leading-relaxed shadow-lg">
                   마이페이지 → 내 기록에서 다시 볼 수 있어요
                 </div>
               </>
