@@ -621,7 +621,7 @@ function ProgramDetailPage() {
   const weeklyEnabled = isOwner && !!program && program?.status === 'PUBLISHED'
     && progressUrgency(calcProgress(program?.start_date, program?.end_date)).urgency !== 'ended'
   const weeklyHighlightEl = weeklyEnabled ? (
-    <WeeklyHighlight programId={id} show={ranking.length > 0} onOpen={() => navigate(`/programs/${id}/stats`)} />
+    <WeeklyHighlight programId={id} onOpen={() => navigate(`/programs/${id}/stats`)} />
   ) : null
   // 넛지 초대 액션 — 초대코드형이면 InviteModal, 공개형이면 링크 공유/복사.
   const handleActivationInvite = async () => {
