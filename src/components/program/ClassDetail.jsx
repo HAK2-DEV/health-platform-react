@@ -144,7 +144,7 @@ export default function ClassDetail({ sessionId, programId, userId, isOwner = fa
             <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/10 to-transparent" />
           </>
         )}
-        {isOwner && (
+        {isOwner && !programEnded && (
           <button type="button" onClick={() => setHeroEditOpen(true)}
             className="absolute top-2.5 right-2.5 z-10 w-8 h-8 rounded-full bg-white/90 shadow flex items-center justify-center text-gray-500 hover:text-emerald-600 transition" aria-label="대표 사진 편집">
             <Pencil className="w-4 h-4" />
