@@ -882,7 +882,7 @@ function ProgramDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['rankings'] })
       setQuizToDelete(null)
     },
-    onError: (e) => { console.error('퀴즈 삭제 실패:', e); alert(`퀴즈 삭제에 실패했습니다: ${e.message}`) },
+    onError: (e) => { console.error('퀴즈 삭제 실패:', e); toast.show(/program_ended|종료된 프로그램/.test(e?.message || '') ? '종료된 프로그램은 조회만 가능해요' : `퀴즈 삭제에 실패했어요: ${e.message}`) },
   })
   const [quizToDelete, setQuizToDelete] = useState(null)
   const handleQuizDelete = (q) => setQuizToDelete(q)
@@ -2154,7 +2154,7 @@ function ProgramDetailPage() {
                   mission: m,
                   todayCounts,
                   isOwner,
-                  showOwnerActions: isOwner,
+                  showOwnerActions: isOwner && !isEnded,   // 종료 프로그램은 수정/삭제 숨김
                   isDeletePending: deleteMissionMutation.isPending,
                   onDelete: handleMissionDelete,
                   onEdit: (mission) => { setEditingMission(mission); setIsMissionCreateOpen(true) },
@@ -2322,7 +2322,7 @@ function ProgramDetailPage() {
                     index={qi}
                     programId={id}
                     quizPreview={quizPreview}
-                    isOwner={isOwner}
+                    isOwner={isOwner && !isEnded}
                     onEdit={(q) => navigate(`/programs/${id}/posts/quiz/${q.id}/edit`)}
                     onDelete={handleQuizDelete}
                   />

@@ -17,6 +17,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
 import MissionCard from '../../components/program/MissionCard'
 import MissionCreateModal from '../../components/program/MissionCreateModal'
+import { calcProgress, progressUrgency } from '../../lib/programVisuals'
 import StickyBackBar from '../../components/common/StickyBackBar'
 import EmptyState from '../../components/common/EmptyState'
 import LoadingState from '../../components/common/LoadingState'
@@ -61,6 +62,8 @@ function BundleDetailPage() {
 
   const bundleMissions = missions.filter(m => m.bundle_title === bundleTitle)
   const isOwner = program?.owner_id === userId
+  // 종료 프로그램은 조회 전용 — 운영자 수정/삭제 숨김
+  const isEnded = !!program && progressUrgency(calcProgress(program.start_date, program.end_date)).urgency === 'ended'
 
   const [missionToDelete, setMissionToDelete] = useState(null)
   const handleMissionDelete = (mission) => setMissionToDelete(mission)
@@ -162,7 +165,7 @@ function BundleDetailPage() {
             key={m.id}
             mission={m}
             todayCounts={todayCounts}
-            isOwner={isOwner}
+            isOwner={isOwner && !isEnded}
             isDeletePending={deleteMissionMutation.isPending}
             onDelete={handleMissionDelete}
             onEdit={handleMissionEdit}
