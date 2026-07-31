@@ -490,6 +490,8 @@ function ProgramDetailPage() {
   // 열람 모드 — 미리보기 허용(preview_enabled) 프로그램의 비참여자. 보기만, 쓰기 차단.
   //   is_public(검색 노출)과 무관 — 내부 열람은 preview_enabled 가 결정.
   const isViewer = !!program && !isOwner && !isActiveParticipant && program.preview_enabled && program.status === 'PUBLISHED'
+  // 종료된 프로그램 — 관리자 외 조회 전용(DB 마이그 190 강제). 클라도 쓰기 UI 숨김.
+  const isEnded = !!program && progressUrgency(calcProgress(program.start_date, program.end_date)).urgency === 'ended'
   const [joinOpen, setJoinOpen] = useState(false)
   const [isApprovalsOpen, setIsApprovalsOpen] = useState(false)
   // 가입 승인 요청 알림(?approvals=1)으로 진입하면 「참여 승인 심사」 모달 자동 오픈 (최초 1회)
@@ -1276,7 +1278,7 @@ function ProgramDetailPage() {
   const activeBoardLayout = activeBoardObj?.layout || program.community_layout || 'feed'
   // 좋아요/댓글 가능 여부 — 「반응 허용」 + 참여자/운영자(둘러보기 제외). 댓글은 commentPerm 도 따름.
   const reactionsEnabled = program.community_settings?.reactionAuto !== false
-  const canReact = reactionsEnabled && (isOwner || isActiveParticipant)
+  const canReact = reactionsEnabled && (isOwner || isActiveParticipant) && !isEnded
   const canComment = canReact && (activeBoardObj?.commentPerm || 'free') !== 'readonly'
   // 작성 가능 게시판 — 전체/인증 제외, 참여자는 읽기전용 제외(운영자는 전부)
   const writableBoards = communityBoards.filter(b => {
@@ -1610,6 +1612,13 @@ function ProgramDetailPage() {
       {activeTab === 'overview' && !immersiveHome && !inManager && weeklyHighlightEl}
       {activeTab === 'overview' && !immersiveHome && !inManager && participantReportEl}
       {activeTab === 'overview' && !immersiveHome && !inManager && completionBannerEl}
+      {/* 종료 프로그램 — 조회 전용 안내 (관리자 외 쓰기 잠김, 마이그 190) */}
+      {activeTab === 'overview' && !immersiveHome && !inManager && isEnded && (
+        <div className="flex items-center gap-2 p-3 mb-[9px] rounded-2xl bg-gray-100 border border-gray-200">
+          <span className="text-base flex-shrink-0">🏁</span>
+          <p className="text-[12px] text-gray-600 font-medium break-keep">종료된 프로그램이에요 — 지금부터는 <span className="font-bold">조회만</span> 가능해요. (수정·작성·좋아요는 잠겨요)</p>
+        </div>
+      )}
 
       {/* 종료 리포트 진입 — 운영자 + 프로그램 종료 (개요 최상단, 인트로 연출). immersive 는 슬롯으로 주입.
           관리 폼(inManager)에선 immersiveHome 이 false 가 되므로 !inManager 로 제외. */}
@@ -1625,7 +1634,7 @@ function ProgramDetailPage() {
 
       {/* 인증 심사 대기 배너 — 운영자 + 검토 필요 인증 (개요·미션 탭). 탭하면 인증 검토 큐.
           진입 시 1회 강조 연출(정중앙 팝업 → 원위치). */}
-      {isOwner && pendingReviews.length > 0 && (activeTab === 'overview' || activeTab === 'missions') && !immersiveHome && !inManager && (
+      {isOwner && !isEnded && pendingReviews.length > 0 && (activeTab === 'overview' || activeTab === 'missions') && !immersiveHome && !inManager && (
         <OperatorReviewBanner
           count={pendingReviews.length}
           onClick={() => setVreviewOpen(true)}
@@ -1680,7 +1689,7 @@ function ProgramDetailPage() {
             homeGoal={program.home_goal}
             onGoalChange={(cfg) => homeGoalMutation.mutate(cfg)}
             ownerId={program.owner_id}
-            editable={isOwner}
+            editable={isOwner && !isEnded}
             streakRef={streakRef}
             boxOrder={program.home_layout?.order || null}
             hiddenBoxes={program.home_layout?.hidden || []}
@@ -1766,14 +1775,14 @@ function ProgramDetailPage() {
             communityEnabled={communityEnabled}
             rankingEnabled={program.ranking_enabled !== false}
             streakRef={streakRef}
-            paceEditable={isOwner}
+            paceEditable={isOwner && !isEnded}
             onPaceChange={async (v) => {
               const { error } = await supabase.from('programs').update({ run_pace: v }).eq('id', id)
               if (error) { alert('추천 페이스 저장에 실패했어요.'); return }
               queryClient.invalidateQueries({ queryKey: queryKeys.program(id) })
             }}
             hero={program.run_hero || null}
-            heroEditable={isOwner}
+            heroEditable={isOwner && !isEnded}
             onHeroChange={async (cfg) => {
               const { error } = await supabase.from('programs').update({ run_hero: cfg }).eq('id', id)
               if (error) { alert('히어로 저장에 실패했어요.'); return }
@@ -1854,12 +1863,12 @@ function ProgramDetailPage() {
             onGoalChange={(cfg) => homeGoalMutation.mutate(cfg)}
             ownerId={program.owner_id}
             streakRef={streakRef}
-            editable={isOwner}
+            editable={isOwner && !isEnded}
             onEditLayout={() => setHomeEditOpen(true)}
             onBack={handleHeaderBack}
             onSettings={isOwner ? () => setIsPanelOpen(true) : null}
             pendingCount={pendingCount}
-            reviewSlot={isOwner && pendingReviews.length > 0 ? (
+            reviewSlot={isOwner && !isEnded && pendingReviews.length > 0 ? (
               <OperatorReviewBanner
                 count={pendingReviews.length}
                 onClick={() => setVreviewOpen(true)}
@@ -2423,7 +2432,7 @@ function ProgramDetailPage() {
           )}
           {boardHasFeed ? (
             <Suspense fallback={<LoadingState text="피드 불러오는 중..." />}>
-              <FeedContent program={program} layout={activeBoardLayout} readOnly={isViewer} />
+              <FeedContent program={program} layout={activeBoardLayout} readOnly={isViewer || isEnded} />
             </Suspense>
           ) : isCommunityLoading ? (
             <LoadingState text="게시글 불러오는 중..." />
@@ -2441,7 +2450,7 @@ function ProgramDetailPage() {
 
           {/* 글쓰기 — 지금 보고 있는 게시판이 '내가 쓸 수 있는' 보드일 때만 (열람자 제외).
               예: 참여자가 공지(readonly) 칩에선 글쓰기 바가 안 뜸 → 혼란 방지 */}
-          {!isViewer && writableBoards.some(b => b.id === communityBoard) && (
+          {!isViewer && !isEnded && writableBoards.some(b => b.id === communityBoard) && (
             <div className="sticky bottom-0 -mx-[11px] px-[11px] pt-3 pb-3 bg-gradient-to-t from-white via-white/95 to-transparent z-20">
               <button type="button"
                 onClick={() => { setEditingPost(null); setIsPostModalOpen(true) }}
@@ -2796,17 +2805,27 @@ function ProgramDetailPage() {
             {panelView === 'root' && (
               <>
                 <h2 className="text-lg font-bold text-gray-800 mb-4">⚙️ 운영자 메뉴</h2>
+                {isEnded && (
+                  <div className="flex items-center gap-2 p-3 mb-3 rounded-xl bg-gray-100 border border-gray-200">
+                    <span className="text-base flex-shrink-0">🏁</span>
+                    <p className="text-[12px] text-gray-600 break-keep">종료된 프로그램은 <span className="font-bold">조회만</span> 가능해요 — 편집 항목은 숨겼어요. (통계·신고 관리·삭제는 그대로)</p>
+                  </div>
+                )}
                 <div className="grid grid-cols-1 gap-2.5">
-                  <PanelMenuBox icon="🛠️" title="내 프로그램 설정" desc="프로그램 · 메뉴바(개요~랭킹)" chevron onClick={() => setPanelView('settings')} />
-                  <PanelMenuBox icon="🔔" title="알림" desc="새 소식 알림(미션·퀴즈·클래스·공지) 보내기" chevron onClick={() => setPanelView('notifications')} />
+                  {!isEnded && (
+                    <PanelMenuBox icon="🛠️" title="내 프로그램 설정" desc="프로그램 · 메뉴바(개요~랭킹)" chevron onClick={() => setPanelView('settings')} />
+                  )}
+                  {!isEnded && (
+                    <PanelMenuBox icon="🔔" title="알림" desc="새 소식 알림(미션·퀴즈·클래스·공지) 보내기" chevron onClick={() => setPanelView('notifications')} />
+                  )}
                   <PanelMenuBox icon="📊" title="통계" desc="참여·인증·미션별 현황" onClick={() => { closePanel(); navigate(`/programs/${id}/stats`, { state: { backToOpMenu: 'root' } }) }} />
                   {communityEnabled && (
                     <PanelMenuBox iconSrc="/icons/operator/report-flag.png" icon="🚩" title="신고 · 숨김 관리" desc="신고된 글·인증 · 가려진 인증 관리" chevron badge={unresolvedReportCount || undefined} onClick={() => setPanelView('reports')} />
                   )}
-                  {canInvite && (
+                  {canInvite && !isEnded && (
                     <PanelMenuBox icon="🎟️" title="초대하기" desc="링크로 참여자 초대" onClick={() => { closePanel(); setIsInviteOpen(true) }} />
                   )}
-                  {pendingCount > 0 && (
+                  {pendingCount > 0 && !isEnded && (
                     <PanelMenuBox icon="🙋" title="참여 승인 심사" desc="신청자 답변 확인 · 승인/거절" badge={pendingCount} onClick={() => { closePanel(); setIsApprovalsOpen(true) }} />
                   )}
                 </div>

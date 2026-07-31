@@ -500,8 +500,8 @@ function FeedContent({ program, layout: layoutProp = null, targetVerificationId 
               </button>
               </>)}
 
-              {/* 운영자 전용 — 점수 제외 / 피드 가리기 */}
-              {isProgramOwner && (
+              {/* 운영자 전용 — 점수 제외 / 피드 가리기 (종료 프로그램 readOnly 시 숨김) */}
+              {isProgramOwner && !readOnly && (
                 <OperatorVerificationActions
                   verification={{ id: post.id, status: 'APPROVED', feed_visible: true, nickname: post.user?.nickname }}
                   programId={id}
