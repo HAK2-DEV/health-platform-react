@@ -11,6 +11,8 @@ import { useToast } from '../../contexts/ToastContext'
 import { getCachedSignedUrls, getSignedUrls, thumbPathOf } from '../../lib/signedUrls'
 import OperatorVerificationActions from './OperatorVerificationActions'
 import UserAvatar from '../../components/common/UserAvatar'
+import ConfirmModal from '../../components/common/ConfirmModal'
+import { calcProgress, progressUrgency } from '../../lib/programVisuals'
 import EmptyState from '../../components/common/EmptyState'
 import LoadingState from '../../components/common/LoadingState'
 import ReportModal from '../common/ReportModal'
@@ -24,6 +26,7 @@ import ReportModal from '../common/ReportModal'
 //   targetCommentId: 알림 ?c= 자동 스크롤 (위와 동일)
 function FeedContent({ program, layout: layoutProp = null, targetVerificationId = null, targetCommentId = null, readOnly = false }) {
   const id = program.id
+  const endedProgram = !!program && progressUrgency(calcProgress(program.start_date, program.end_date)).urgency === 'ended'
   // 반응(좋아요·댓글) 허용 — 커뮤니티 ③ 토글(community_settings.reactionAuto). 기본 허용.
   const reactionsEnabled = program.community_settings?.reactionAuto !== false
   const { session } = useAuth()
@@ -521,6 +524,7 @@ function FeedContent({ program, layout: layoutProp = null, targetVerificationId 
                 isProgramOwner={isProgramOwner}
                 targetCommentId={targetCommentId}
                 readOnly={readOnly}
+                ended={endedProgram}
               />
             )}
 
@@ -568,7 +572,7 @@ const isLongComment = (content) => !!content && (content.length > 60 || content.
 
 // 한 게시물의 댓글 — 펼칠 때만 마운트되어 그 게시물 댓글을 lazy fetch + 입력.
 //   댓글 추가/삭제 시 자기 쿼리 + 피드(댓글 수) 무효화. 알림 ?c= 딥링크는 자체 스크롤·하이라이트.
-function CommentsSection({ verificationId, programId, myUserId, isProgramOwner, targetCommentId, readOnly = false }) {
+function CommentsSection({ verificationId, programId, myUserId, isProgramOwner, targetCommentId, readOnly = false, ended = false }) {
   const queryClient = useQueryClient()
   const [input, setInput] = useState('')
   const [expanded, setExpanded] = useState(() => new Set())
@@ -682,7 +686,8 @@ function CommentsSection({ verificationId, programId, myUserId, isProgramOwner, 
     onError: (err) => alert(`댓글 수정에 실패했습니다: ${err.message}`),
   })
   const submit = () => { const c = input.trim(); if (c) addMutation.mutate({ content: c, parentId: replyTo?.id || null }) }
-  const handleDelete = (cid) => { if (window.confirm('이 댓글을 삭제할까요?')) deleteMutation.mutate(cid) }
+  const [commentToDelete, setCommentToDelete] = useState(null)  // 댓글 삭제 확인 모달
+  const handleDelete = (cid) => setCommentToDelete(cid)
   const startEdit = (c) => { setEditingId(c.id); setEditText(c.content) }
   const cancelEdit = () => { setEditingId(null); setEditText('') }
   const saveEdit = (cid) => { const c = editText.trim(); if (c) updateMutation.mutate({ commentId: cid, content: c }) }
@@ -853,9 +858,9 @@ function CommentsSection({ verificationId, programId, myUserId, isProgramOwner, 
         </div>
       )}
 
-      {/* 댓글 입력 — 열람 모드(비참여자)에서는 안내로 대체 */}
+      {/* 댓글 입력 — 열람 모드(비참여자)/종료 프로그램에서는 안내로 대체 */}
       {readOnly ? (
-        <p className="px-4 py-3 text-xs text-gray-400 text-center">참여하면 댓글을 남길 수 있어요</p>
+        <p className="px-4 py-3 text-xs text-gray-400 text-center">{ended ? '종료된 프로그램이에요 · 조회만 가능해요' : '참여하면 댓글을 남길 수 있어요'}</p>
       ) : (
       <div className="px-4 py-3">
         {replyTo && (
@@ -883,6 +888,16 @@ function CommentsSection({ verificationId, programId, myUserId, isProgramOwner, 
         </div>
       </div>
       )}
+
+      <ConfirmModal
+        isOpen={commentToDelete != null}
+        onClose={() => setCommentToDelete(null)}
+        onConfirm={() => { const cid = commentToDelete; setCommentToDelete(null); deleteMutation.mutate(cid) }}
+        title="이 댓글을 삭제할까요?"
+        confirmLabel="삭제"
+        danger
+        busy={deleteMutation.isPending}
+      />
     </div>
   )
 }

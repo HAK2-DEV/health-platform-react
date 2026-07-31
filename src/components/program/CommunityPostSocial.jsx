@@ -9,6 +9,7 @@ import {
 import { useToast } from '../../contexts/ToastContext'
 import { formatRelativeKstDay } from '../../lib/formatters'
 import UserAvatar from '../common/UserAvatar'
+import ConfirmModal from '../common/ConfirmModal'
 
 // 커뮤니티 글 좋아요/댓글 (105) + 1단계 답글(118) — 상세(글 펼치기) 하단에 표시.
 //   canReact: 좋아요 가능. canComment: 댓글/답글 입력 가능.
@@ -20,6 +21,7 @@ function CommunityPostSocial({ postId, programId, myUserId, isOwner, canReact, c
   const [replyTo, setReplyTo] = useState(null)        // { id(최상위 댓글), nickname }
   const [expanded, setExpanded] = useState(() => new Set())  // 답글 펼친 댓글 id
   const [highlight, setHighlight] = useState(null)    // 알림 ?c= 하이라이트 댓글 id
+  const [commentToDelete, setCommentToDelete] = useState(null)  // 댓글 삭제 확인 모달
   const inputRef = useRef(null)
   const rowRefs = useRef({})
 
@@ -160,7 +162,7 @@ function CommunityPostSocial({ postId, programId, myUserId, isOwner, canReact, c
               <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-bold flex-shrink-0" title="댓글 활동 점수">+{awardMap[c.id]}P</span>
             )}
             {canDel && (
-              <button type="button" onClick={() => delMut.mutate(c.id)} disabled={delMut.isPending}
+              <button type="button" onClick={() => setCommentToDelete(c.id)} disabled={delMut.isPending}
                 className="ml-auto p-0.5 text-gray-300 hover:text-red-500 transition disabled:opacity-50" title="삭제"><Trash2 className="w-3.5 h-3.5" /></button>
             )}
           </div>
@@ -233,6 +235,16 @@ function CommunityPostSocial({ postId, programId, myUserId, isOwner, canReact, c
           })}
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={commentToDelete != null}
+        onClose={() => setCommentToDelete(null)}
+        onConfirm={() => { const cid = commentToDelete; setCommentToDelete(null); delMut.mutate(cid) }}
+        title="이 댓글을 삭제할까요?"
+        confirmLabel="삭제"
+        danger
+        busy={delMut.isPending}
+      />
     </>
   )
 
