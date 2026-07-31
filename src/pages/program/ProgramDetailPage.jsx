@@ -2778,6 +2778,7 @@ function ProgramDetailPage() {
         {isInviteOpen && program.invite_code && (
           <InviteModal
             code={program.invite_code}
+            program={program}
             isOpen={true}
             onClose={() => setIsInviteOpen(false)}
           />
