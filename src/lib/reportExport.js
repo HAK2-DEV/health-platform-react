@@ -262,5 +262,32 @@ export async function exportEndReportXlsx({ program, report, quizStats = [], com
     XLSX.utils.book_append_sheet(wb, wsC, '클래스별 출석')
   }
 
-  XLSX.writeFile(wb, `${sanitizeName(program.name)}_종료리포트.xlsx`)
+  await saveWorkbook(wb, `${sanitizeName(program.name)}_종료리포트.xlsx`)
+}
+
+// 워크북 저장 — 모바일은 공유 시트로 파일 내보내기(파일앱·카톡·메일 저장),
+//   데스크톱/미지원은 blob 다운로드. iOS 사파리·인앱 브라우저의 다운로드 제약 회피.
+async function saveWorkbook(wb, filename) {
+  const arr = XLSX.write(wb, { type: 'array', bookType: 'xlsx' })
+  const blob = new Blob([arr], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+  // 1) 파일 공유(navigator.share files) — 모바일에서 안정적
+  try {
+    const file = new File([blob], filename, { type: blob.type })
+    if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: filename })
+      return
+    }
+  } catch (e) {
+    if (e?.name === 'AbortError') return   // 사용자가 공유 시트 취소 — 조용히 종료
+    // 그 외 오류는 아래 다운로드로 폴백
+  }
+  // 2) blob 다운로드 (데스크톱 등)
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
