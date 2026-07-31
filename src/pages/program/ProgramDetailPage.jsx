@@ -516,7 +516,7 @@ function ProgramDetailPage() {
   const [overviewManageOpen, setOverviewManageOpen] = useState(false)  // 개요 관리자 인라인 패널
   const [missionManageOpen, setMissionManageOpen] = useState(false)    // 미션 관리자 작업 페이지
   const [missionPreview, setMissionPreview] = useState(false)
-  const quizManageOpen = searchParams.get('panel') === 'quiz'          // 퀴즈 관리자 — URL 유지(새 퀴즈/편집 후 뒤로가기 복원)
+  const quizManageOpen = !isEnded && searchParams.get('panel') === 'quiz'  // 퀴즈 관리자 — URL 유지. 종료 프로그램은 조회전용이라 강제 off
   const [quizPreview, setQuizPreview] = useState(false)
   const [communityManageOpen, setCommunityManageOpen] = useState(false) // 커뮤니티 관리자 작업 페이지
   const [classManageOpen, setClassManageOpen] = useState(false)         // 클래스 관리 오버레이(운영자)
@@ -776,6 +776,7 @@ function ProgramDetailPage() {
     }
   }
   const openOverviewManage = () => {
+    if (isEnded) return   // 종료 프로그램은 조회 전용
     preOpenScrollRef.current = window.scrollY
     setOverviewManageOpen(true)
   }
@@ -789,7 +790,7 @@ function ProgramDetailPage() {
   // 클래스 관리 — 전체화면 오버레이(탭 무관). 닫으면 운영자 메뉴 복귀(afterManagerClose).
   //   단, 통계 「클래스 현황」에서 진입(?opmenu=classes)한 경우엔 닫을 때 통계로 복귀.
   const classFromStatsRef = useRef(false)
-  const openClassManage = () => setClassManageOpen(true)
+  const openClassManage = () => { if (isEnded) return; setClassManageOpen(true) }
   const closeClassManage = () => {
     setClassManageOpen(false)
     if (classFromStatsRef.current) {
@@ -808,6 +809,7 @@ function ProgramDetailPage() {
     else setMissionPreview(false)
   }, [missionManageOpen])
   const openMissionManage = () => {
+    if (isEnded) return   // 종료 프로그램은 조회 전용
     preOpenScrollRef.current = window.scrollY
     setMissionManageOpen(true)
   }
@@ -832,6 +834,7 @@ function ProgramDetailPage() {
     else setQuizPreview(false)
   }, [quizManageOpen])
   const openQuizManage = () => {
+    if (isEnded) return   // 종료 프로그램은 조회 전용
     preOpenScrollRef.current = window.scrollY
     setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('tab', 'quizzes'); n.set('panel', 'quiz'); return n }, { replace: true })
   }
@@ -949,7 +952,7 @@ function ProgramDetailPage() {
   useEffect(() => {
     if (communityManageOpen) requestAnimationFrame(() => requestAnimationFrame(() => opPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })))
   }, [communityManageOpen])
-  const openCommunityManage = () => { preOpenScrollRef.current = window.scrollY; setCommunityManageOpen(true) }
+  const openCommunityManage = () => { if (isEnded) return; preOpenScrollRef.current = window.scrollY; setCommunityManageOpen(true) }
   const closeCommunityManage = () => {
     setCommunityManageOpen(false)
     afterManagerClose()
@@ -1103,7 +1106,9 @@ function ProgramDetailPage() {
     },
     onError: (err) => {
       console.error('미션 삭제 실패:', err)
-      alert(`미션 삭제에 실패했습니다: ${err.message}`)
+      toast.show(/program_ended|종료된 프로그램/.test(err?.message || '')
+        ? '종료된 프로그램은 조회만 가능해요'
+        : `미션 삭제에 실패했어요: ${err.message}`)
     },
   })
 
@@ -1335,22 +1340,22 @@ function ProgramDetailPage() {
           <div className="absolute right-2 flex items-center gap-0.5">
             {runningSub ? (
               // 달리기 서브화면 — 톱니 숨김. 미션/퀴즈 탭은 운영자에게 + (추가), 참여자는 없음
-              (activeTab === 'missions' && isOwner && !missionManageOpen) ? (
+              (activeTab === 'missions' && isOwner && !isEnded && !missionManageOpen) ? (
                 <button type="button" onClick={() => setIsLibraryOpen(true)} title="미션 추가" aria-label="미션 추가"
                   className="w-8 h-8 flex items-center justify-center rounded-lg text-emerald-600 hover:bg-emerald-50 transition">
                   <Plus className="w-5 h-5" strokeWidth={2.5} />
                 </button>
-              ) : (activeTab === 'quizzes' && isOwner && !quizManageOpen && !quizPreview) ? (
+              ) : (activeTab === 'quizzes' && isOwner && !isEnded && !quizManageOpen && !quizPreview) ? (
                 <button type="button" onClick={() => setQuizLibOpen(true)} title="퀴즈 추가" aria-label="퀴즈 추가"
                   className="w-8 h-8 flex items-center justify-center rounded-lg text-emerald-600 hover:bg-emerald-50 transition">
                   <Plus className="w-5 h-5" strokeWidth={2.5} />
                 </button>
-              ) : (activeTab === 'community' && isOwner && !communityManageOpen) ? (
+              ) : (activeTab === 'community' && isOwner && !isEnded && !communityManageOpen) ? (
                 <button type="button" onClick={openCommunityManage} title="응원·커뮤니티 관리" aria-label="응원·커뮤니티 관리"
                   className="w-8 h-8 flex items-center justify-center rounded-lg text-emerald-600 hover:bg-emerald-50 transition">
                   <Plus className="w-5 h-5" strokeWidth={2.5} />
                 </button>
-              ) : (activeTab === 'classes' && isOwner && !classManageOpen && !searchParams.get('class')) ? (
+              ) : (activeTab === 'classes' && isOwner && !isEnded && !classManageOpen && !searchParams.get('class')) ? (
                 <button type="button" onClick={openClassManage} title="클래스 관리" aria-label="클래스 관리"
                   className="w-8 h-8 flex items-center justify-center rounded-lg text-emerald-600 hover:bg-emerald-50 transition">
                   <Plus className="w-5 h-5" strokeWidth={2.5} />
