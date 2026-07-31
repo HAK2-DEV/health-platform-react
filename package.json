@@ -27,6 +27,7 @@
     "@tanstack/react-query": "^5.100.11",
     "@tanstack/react-query-devtools": "^5.100.11",
     "browser-image-compression": "^2.0.2",
+    "exceljs": "^4.4.0",
     "framer-motion": "^12.39.0",
     "lucide-react": "^1.16.0",
     "react": "^19.2.6",
@@ -36,8 +37,7 @@
     "react-router-dom": "^7.15.1",
     "remark-breaks": "^4.0.0",
     "remark-gfm": "^4.0.1",
-    "tailwindcss": "^4.3.0",
-    "xlsx": "^0.18.5"
+    "tailwindcss": "^4.3.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
