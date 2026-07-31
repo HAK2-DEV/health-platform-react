@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronLeft, ChevronDown, ChevronRight, Trophy, MessageSquare, Copy, Download } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
-import { queryKeys, fetchProgram, fetchProgramStats, fetchProgramOperatorLoad, fetchProgramQuizStats, fetchProgramCommunityStats, fetchProgramReports, fetchEndReportPerUser, fetchProgramScoreBreakdown, fetchProgramTeamRanking, fetchProgramDistanceByUser, fetchProgramClassStats, fetchProgramClassRoster, fetchProgramScoreLedger, REPORT_REASON_PRESETS, formatKstDate } from '../../lib/queries'
+import { queryKeys, fetchProgram, fetchProgramStats, fetchProgramOperatorLoad, fetchProgramQuizStats, fetchProgramCommunityStats, fetchProgramReports, fetchEndReportPerUser, fetchProgramScoreBreakdown, fetchProgramTeamRanking, fetchProgramDistanceByUser, fetchProgramMetricsByUser, fetchProgramClassStats, fetchProgramClassRoster, fetchProgramScoreLedger, REPORT_REASON_PRESETS, formatKstDate } from '../../lib/queries'
 import { catOf } from '../../lib/classCategories'
 import { PROGRAM_THEME } from '../../lib/constants'
 import { formatKoreanDate } from '../../lib/formatters'
@@ -343,15 +343,16 @@ function ProgramEndReportPage() {
           <Reveal index={9}><NextActionsCard programId={id} feedEnabled={!!program.feed_enabled} navigate={navigate} onClone={() => setCloneOpen(true)}
             onThanks={() => navigate(`/programs/${id}?tab=community`, { state: { composeThanks: buildThanksDraft(program, report) } })}
             onExport={async () => {
-              const [pu, scoreBreakdown, teamRanking, distance, scoreLedger, classRoster] = await Promise.all([
+              const [pu, scoreBreakdown, teamRanking, distance, metricsByUser, scoreLedger, classRoster] = await Promise.all([
                 perUser || fetchEndReportPerUser(id),
                 fetchProgramScoreBreakdown(id),
                 fetchProgramTeamRanking(id).catch(() => []),   // 팀 미사용/오류 시 빈 배열
                 isRunning ? (distanceByUser || fetchProgramDistanceByUser(id)) : null,
+                fetchProgramMetricsByUser(id).catch(() => null),   // 주요 기록 지표 전량(거리·시간·칼로리·달성 등)
                 fetchProgramScoreLedger(id),
                 program?.class_feature_enabled ? fetchProgramClassRoster(id).catch(() => []) : [],
               ])
-              await exportEndReportXlsx({ program, report, quizStats, community, perUser: pu, raw: stats?._raw || [], scoreBreakdown, teamRanking, distanceByUser: distance, reportGroups, scoreLedger, classRoster })
+              await exportEndReportXlsx({ program, report, quizStats, community, perUser: pu, raw: stats?._raw || [], scoreBreakdown, teamRanking, distanceByUser: distance, metricsByUser, reportGroups, scoreLedger, classRoster })
             }} /></Reveal>
         </div>
       )}
@@ -1325,7 +1326,7 @@ function NextActionsCard({ programId, feedEnabled, navigate, onClone, onExport, 
   const handleExport = async () => {
     if (exporting) return
     setExporting(true)
-    try { await onExport() } catch { alert('리포트 내보내기에 실패했어요. 잠시 후 다시 시도해주세요.') } finally { setExporting(false) }
+    try { await onExport() } catch (e) { console.error('[리포트 내보내기 실패]', e); alert('리포트 내보내기에 실패했어요. 잠시 후 다시 시도해주세요.') } finally { setExporting(false) }
   }
   return (
     <div className="bg-white border border-[#e6e9e6] rounded-card-lg p-5">

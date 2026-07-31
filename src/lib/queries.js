@@ -2999,6 +2999,38 @@ export async function fetchProgramDistanceByUser(programId) {
   return byUser
 }
 
+// 종료 리포트 — 참여자별 「주요 기록」 지표 전량 집계 (거리·시간·칼로리·달성 등).
+//   미션 metrics(key/label/unit)의 각 지표를 metric_values 로 합산. 레거시 numeric_value 는 첫 지표에.
+//   승인+심사대기 인증 대상. 반환: { byUser: { userId: { key: total } }, metrics: [{ key, label, unit }] }
+export async function fetchProgramMetricsByUser(programId) {
+  const { data, error } = await supabase
+    .from('verifications')
+    .select('user_id, numeric_value, metric_values, missions!inner(program_id, metrics)')
+    .eq('missions.program_id', programId)
+    .in('status', ['APPROVED', 'PENDING_REVIEW'])
+  if (error) throw error
+  const byUser = {}
+  const defs = {}   // key → { key, label, unit }
+  for (const v of (data || [])) {
+    if (!v.user_id) continue
+    const metrics = Array.isArray(v.missions?.metrics) ? v.missions.metrics : []
+    for (const m of metrics) {
+      if (m?.key && !defs[m.key]) defs[m.key] = { key: m.key, label: m.label || m.key, unit: m.unit || '' }
+    }
+    const u = (byUser[v.user_id] ||= {})
+    if (metrics.length && v.metric_values) {
+      for (const m of metrics) {
+        const val = Number(v.metric_values?.[m.key])
+        if (!isNaN(val)) u[m.key] = (u[m.key] || 0) + val
+      }
+    } else if (metrics.length && v.numeric_value != null) {
+      const k = metrics[0].key   // 레거시 단일 numeric → 첫 지표(보통 거리)
+      u[k] = (u[k] || 0) + (Number(v.numeric_value) || 0)
+    }
+  }
+  return { byUser, metrics: Object.values(defs) }
+}
+
 // 종료 리포트 「클래스 결과」 — 세션·출석 집계 (클래스 기능 프로그램만). owner RLS 로 조회.
 //   반환: { sessionCount, totalRegistered, totalConfirmed, uniqueAttendees, pointsGranted,
 //           instructorCount, attendanceRate(신청 대비, 없으면 null), sessions:[{...세션별}] }

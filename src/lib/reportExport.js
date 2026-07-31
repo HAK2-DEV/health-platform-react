@@ -15,11 +15,21 @@ const kstT = (iso) => { if (!iso) return ''; const d = new Date(new Date(iso).ge
 const ATT_LABEL = { confirmed: '출석', pending: '승인대기', rejected: '미인정' }
 const METHOD_LABEL = { operator_roll: '운영자 호명', venue_code: '현장 코드', self_approve: '자가출석' }
 
-export async function exportEndReportXlsx({ program, report, quizStats = [], community = null, perUser = null, raw = [], scoreBreakdown = {}, teamRanking = [], distanceByUser = null, reportGroups = [], scoreLedger = [], classRoster = [] }) {
+export async function exportEndReportXlsx({ program, report, quizStats = [], community = null, perUser = null, raw = [], scoreBreakdown = {}, teamRanking = [], distanceByUser = null, metricsByUser = null, reportGroups = [], scoreLedger = [], classRoster = [] }) {
   const XLSX = await import('xlsx')
   const wb = XLSX.utils.book_new()
   const hasDist = !!distanceByUser
   const km = (uid) => (hasDist ? Math.round((distanceByUser[uid] || 0) * 10) / 10 : null)
+  // 주요 기록 지표(거리·시간·칼로리·달성 등) per-user. 있으면 참여자 시트에서 거리 대신 전량 컬럼.
+  const metricDefs = (metricsByUser?.metrics) || []
+  const mBy = metricsByUser?.byUser || {}
+  const useMetrics = metricDefs.length > 0
+  const metricHead = metricDefs.map(m => `${m.label}${m.unit ? `(${m.unit})` : ''}`)
+  const mVal = (uid, key) => Math.round((Number(mBy[uid]?.[key]) || 0) * 10) / 10
+  // 지표가 있으면 전 지표 컬럼, 없으면(레거시) 거리 단일 컬럼으로 폴백.
+  const extraHead = useMetrics ? metricHead : (hasDist ? ['누적 거리(km)'] : [])
+  const extraRow = (uid) => useMetrics ? metricDefs.map(m => mVal(uid, m.key)) : (hasDist ? [km(uid)] : [])
+  const extraCols = useMetrics ? metricDefs.map(() => ({ wch: 12 })) : (hasDist ? [{ wch: 12 }] : [])
 
   const roster = [
     ...report.completedUsers.map(u => [u, '완주']),
@@ -43,6 +53,14 @@ export async function exportEndReportXlsx({ program, report, quizStats = [], com
     ['참여 여정'],
     ...report.funnel.map(f => [f.label, f.count]),
   ]
+  if (useMetrics) {
+    summary.push([], ['주요 기록 요약 (전체 합계)'],
+      ...metricDefs.map(m => {
+        let total = 0
+        for (const uid in mBy) total += Number(mBy[uid]?.[m.key]) || 0
+        return [`${m.label}${m.unit ? `(${m.unit})` : ''}`, Math.round(total * 10) / 10]
+      }))
+  }
   if (community) {
     summary.push([], ['커뮤니티'],
       ['참여자 글', community.participantPosts ?? 0],
@@ -64,12 +82,12 @@ export async function exportEndReportXlsx({ program, report, quizStats = [], com
   let rk = 0, prev = null, seen = 0
   for (const r of rankRows) { seen += 1; if (r.total !== prev) { rk = seen; prev = r.total } r.rank = rk }
   const hasOther = rankRows.some(r => r.otherPts > 0)
-  const rHeader = ['순위', '닉네임', '상태', '총점', '미션 점수', '퀴즈 점수', ...(hasOther ? ['기타 점수'] : []), ...(hasDist ? ['누적 거리(km)'] : []), '활동일', '인증 수']
+  const rHeader = ['순위', '닉네임', '상태', '총점', '미션 점수', '퀴즈 점수', ...(hasOther ? ['기타 점수'] : []), ...extraHead, '활동일', '인증 수']
   const wsR = XLSX.utils.aoa_to_sheet([
     rHeader,
-    ...rankRows.map(r => [r.rank, r.u.nickname, r.status, r.total, r.missionPts, r.quizPts, ...(hasOther ? [r.otherPts] : []), ...(hasDist ? [km(r.u.user_id)] : []), r.u.activeDays, r.u.totalCount]),
+    ...rankRows.map(r => [r.rank, r.u.nickname, r.status, r.total, r.missionPts, r.quizPts, ...(hasOther ? [r.otherPts] : []), ...extraRow(r.u.user_id), r.u.activeDays, r.u.totalCount]),
   ])
-  wsR['!cols'] = [{ wch: 6 }, { wch: 14 }, { wch: 6 }, { wch: 7 }, { wch: 9 }, { wch: 9 }, ...(hasOther ? [{ wch: 9 }] : []), ...(hasDist ? [{ wch: 12 }] : []), { wch: 7 }, { wch: 7 }]
+  wsR['!cols'] = [{ wch: 6 }, { wch: 14 }, { wch: 6 }, { wch: 7 }, { wch: 9 }, { wch: 9 }, ...(hasOther ? [{ wch: 9 }] : []), ...extraCols, { wch: 7 }, { wch: 7 }]
   XLSX.utils.book_append_sheet(wb, wsR, '랭킹')
 
   // ── 시트: 팀 랭킹 (팀이 있을 때) ── 팀 점수 = 멤버 점수 집계(get_team_ranking)
@@ -98,15 +116,15 @@ export async function exportEndReportXlsx({ program, report, quizStats = [], com
     m.titles.add(r.missions?.title || '(미션)')
     m.verifs += 1
   }
-  const pHeader = ['닉네임', '상태', '활동일', '총 인증', ...(hasDist ? ['누적 거리(km)'] : []), '미션 종류', '제출 미션', '참여 퀴즈', '퀴즈 정답률(%)', '커뮤니티 글', '댓글', '점수']
+  const pHeader = ['닉네임', '상태', '활동일', '총 인증', ...extraHead, '미션 종류', '제출 미션', '참여 퀴즈', '퀴즈 정답률(%)', '커뮤니티 글', '댓글', '점수']
   const pRows = roster.map(([u, status]) => {
     const mi = missionByUser[u.user_id] || { titles: new Set(), verifs: 0 }
     const qz = perUser?.quizByUser?.[u.user_id] || { quizCount: 0, correctRate: null }
     const cmu = perUser?.communityByUser?.[u.user_id] || { posts: 0, comments: 0 }
-    return [u.nickname, status, u.activeDays, u.totalCount, ...(hasDist ? [km(u.user_id)] : []), mi.titles.size, [...mi.titles].join(', '), qz.quizCount, qz.correctRate ?? '', cmu.posts, cmu.comments, u.totalScore]
+    return [u.nickname, status, u.activeDays, u.totalCount, ...extraRow(u.user_id), mi.titles.size, [...mi.titles].join(', '), qz.quizCount, qz.correctRate ?? '', cmu.posts, cmu.comments, u.totalScore]
   })
   const wsP = XLSX.utils.aoa_to_sheet([pHeader, ...pRows])
-  wsP['!cols'] = [{ wch: 14 }, { wch: 6 }, { wch: 7 }, { wch: 7 }, ...(hasDist ? [{ wch: 12 }] : []), { wch: 8 }, { wch: 36 }, { wch: 9 }, { wch: 13 }, { wch: 11 }, { wch: 7 }, { wch: 7 }]
+  wsP['!cols'] = [{ wch: 14 }, { wch: 6 }, { wch: 7 }, { wch: 7 }, ...extraCols, { wch: 8 }, { wch: 36 }, { wch: 9 }, { wch: 13 }, { wch: 11 }, { wch: 7 }, { wch: 7 }]
   XLSX.utils.book_append_sheet(wb, wsP, '참여자')
 
   // ── 시트 3: 미션별 ──
@@ -262,12 +280,12 @@ export async function exportEndReportXlsx({ program, report, quizStats = [], com
     XLSX.utils.book_append_sheet(wb, wsC, '클래스별 출석')
   }
 
-  await saveWorkbook(wb, `${sanitizeName(program.name)}_종료리포트.xlsx`)
+  await saveWorkbook(XLSX, wb, `${sanitizeName(program.name)}_종료리포트.xlsx`)
 }
 
 // 워크북 저장 — 모바일은 공유 시트로 파일 내보내기(파일앱·카톡·메일 저장),
 //   데스크톱/미지원은 blob 다운로드. iOS 사파리·인앱 브라우저의 다운로드 제약 회피.
-async function saveWorkbook(wb, filename) {
+async function saveWorkbook(XLSX, wb, filename) {
   const arr = XLSX.write(wb, { type: 'array', bookType: 'xlsx' })
   const blob = new Blob([arr], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
   // 1) 파일 공유(navigator.share files) — 모바일에서 안정적
