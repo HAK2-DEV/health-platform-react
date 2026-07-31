@@ -1141,6 +1141,34 @@ export const fetchProgramTeamRanking = async (programId, periodStart = null) => 
   return data || []
 }
 
+// 완주 리포트 부가 지표 — 받은 응원(RPC) + 내 최종 등수 + 팀 최종 순위.
+//   { rank, totalRanked, teamRank, teamTotal, cheers }. 랭킹/팀 꺼진 프로그램은 해당 값 null/0.
+export const fetchCompletionExtras = async (programId, userId, { rankingEnabled = true, teamEnabled = false } = {}) => {
+  const out = { rank: null, totalRanked: 0, teamRank: null, teamTotal: 0, cheers: 0 }
+  if (!programId || !userId) return out
+  try {
+    const { data: cheers } = await supabase.rpc('get_received_cheers', { p_program: programId, p_user: userId })
+    out.cheers = cheers || 0
+  } catch { /* 무시 */ }
+  if (rankingEnabled) {
+    try {
+      const ranking = await fetchProgramRanking(programId)
+      const me = (ranking || []).find(r => r.user_id === userId)
+      out.rank = me?.rank ?? null
+      out.totalRanked = (ranking || []).length
+    } catch { /* 무시 */ }
+  }
+  if (teamEnabled) {
+    try {
+      const teams = await fetchProgramTeamRanking(programId)
+      const myTeam = (teams || []).find(t => (t.members || []).some(mm => mm.user_id === userId))
+      if (myTeam && myTeam.is_active) out.teamRank = myTeam.rank
+      out.teamTotal = (teams || []).filter(t => t.is_active).length
+    } catch { /* 무시 */ }
+  }
+  return out
+}
+
 // 팀 생성 (128) — 원자적 RPC. 팀장 자동 합류. 반환: 새 team_id.
 // 규칙 위반(이미 팀 소속, 정원 범위 등)은 RPC가 한글 메시지로 throw.
 export const createTeam = async (programId, name, emoji, capacity) => {

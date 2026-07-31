@@ -11,7 +11,11 @@ import { Icon3D } from './ProgramHome'
 //   props: isOpen, onClose, program, activeDays, totalCount, streak, points
 const DAY_MS = 86_400_000
 
-function ProgramCompletionCelebration({ isOpen, onClose, program, activeDays = 0, totalCount = 0, streak = 0, points = 0 }) {
+function ProgramCompletionCelebration({
+  isOpen, onClose, program, activeDays = 0, totalCount = 0, streak = 0, points = 0,
+  cheers = 0, rank = null, totalRanked = 0, teamRank = null, teamTotal = 0,
+  rankingEnabled = true, teamEnabled = false,
+}) {
   useBodyScrollLock(isOpen)  // iOS 배경 스크롤 방지
   const navigate = useNavigate()
   const programDays = useMemo(() => {
@@ -27,13 +31,19 @@ function ProgramCompletionCelebration({ isOpen, onClose, program, activeDays = 0
   const completed = threshold ? activeDays >= threshold : activeDays > 0
   const rate = programDays ? Math.min(100, Math.round((activeDays / programDays) * 100)) : null
 
-  // 3D 아이콘(폴백=이모지) — 앱 전반 아이콘 톤과 통일
+  // 3D 아이콘(폴백=이모지) — 앱 전반 아이콘 톤과 통일. 기본 4개 + 완주율·받은 응원 + (등수·팀순위 조건부)
   const stats = [
     { src: '/icons/feature/attendance.png', emoji: '📅', label: '활동일', value: activeDays, unit: programDays ? `/${programDays}일` : '일' },
     { src: '/icons/feature/mission.png', emoji: '📋', label: '인증', value: totalCount, unit: '건' },
     { src: '/icons/feature/streak.png', emoji: '🔥', label: '최고 연속', value: streak, unit: '일' },
     { src: '/icons/feature/point.png', emoji: '⭐', label: '획득 점수', value: points, unit: 'P' },
   ]
+  if (rate != null) stats.push({ src: '/icons/feature/stats.png', emoji: '📈', label: '완주율', value: rate, unit: '%' })
+  stats.push({ src: '/icons/feature/community.png', emoji: '❤️', label: '받은 응원', value: cheers, unit: '개' })
+  if (rankingEnabled && rank != null)
+    stats.push({ src: '/icons/reward/ranking.png', emoji: '🏆', label: '내 등수', value: rank, unit: totalRanked ? `/${totalRanked}등` : '등' })
+  if (teamEnabled && teamRank != null)
+    stats.push({ src: '/icons/reward/ranking.png', emoji: '👥', label: '팀 순위', value: teamRank, unit: teamTotal ? `/${teamTotal}팀` : '위' })
 
   return (
     <AnimatePresence>
@@ -42,7 +52,7 @@ function ProgramCompletionCelebration({ isOpen, onClose, program, activeDays = 0
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}
       >
         <motion.div
-          className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-elevated"
+          className="bg-white rounded-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto shadow-elevated"
           initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0 }}
           transition={{ type: 'spring', damping: 22, stiffness: 260 }} onClick={(e) => e.stopPropagation()}
         >

@@ -102,6 +102,7 @@ import {
   fetchProgramMissions,
   fetchProgramScores,
   fetchProgramRanking,
+  fetchCompletionExtras,
   fetchMyRecentScoreSeries,
   fetchTodayCounts,
   fetchTodaySmokingStats,
@@ -689,6 +690,12 @@ function ProgramDetailPage() {
   }, [])
   const [quizLibOpen, setQuizLibOpen] = useState(false)                // 퀴즈 라이브러리 모달
   const [completionOpen, setCompletionOpen] = useState(false)          // 참여자 완주 축하 (종료 시)
+  // 완주 리포트 부가 지표 — 받은 응원 + 내 등수 + 팀 순위 (종료 참여자일 때만)
+  const { data: completionExtras } = useQuery({
+    queryKey: ['completionExtras', id, userId],
+    queryFn: () => fetchCompletionExtras(id, userId, { rankingEnabled: program?.ranking_enabled !== false, teamEnabled: !!program?.team_enabled }),
+    enabled: !!id && !!userId && !isOwner && isActiveParticipant && isEnded,
+  })
   // 완주 요약 재진입 배너 — 참여자 + 프로그램 종료 시. 개요 상단(슬롯/페이지레벨 공통).
   const completionBannerEl = (!isOwner && isActiveParticipant && !!program
     && progressUrgency(calcProgress(program.start_date, program.end_date)).urgency === 'ended') ? (
@@ -2990,6 +2997,13 @@ function ProgramDetailPage() {
         totalCount={overviewData?.totalCount || 0}
         streak={overviewData?.streak || 0}
         points={scores?.total || 0}
+        cheers={completionExtras?.cheers ?? 0}
+        rank={completionExtras?.rank ?? null}
+        totalRanked={completionExtras?.totalRanked ?? 0}
+        teamRank={completionExtras?.teamRank ?? null}
+        teamTotal={completionExtras?.teamTotal ?? 0}
+        rankingEnabled={program.ranking_enabled !== false}
+        teamEnabled={!!program.team_enabled}
       />
 
       {/* 프로그램 삭제 — 운영자 전용 2단계 확인 (제목 입력 + 최종 확인) */}
