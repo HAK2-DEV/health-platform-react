@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { CheckCircle2, XCircle, Loader2, Search, Calendar, Users, Crown, Lock } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
+import { supabase } from '../supabaseClient'
 import { queryKeys, lookupInviteProgram, joinByInviteCode, fetchProgramJoinInfo, invalidateParticipation } from '../lib/queries'
 import ProgramCover from '../components/common/ProgramCover'
 import UserAvatar from '../components/common/UserAvatar'
@@ -29,8 +30,14 @@ const REASON_MESSAGES = {
 }
 
 function JoinByCodePage() {
-  const { session } = useAuth()
+  const { session, nickname } = useAuth()
   const navigate = useNavigate()
+  // 초대 링크가 카톡 등 인앱 브라우저에 남은 남의 세션으로 열릴 수 있어, 현재 계정을 알리고 전환 제공.
+  const handleSwitchAccount = async () => {
+    sessionStorage.setItem('post_auth_redirect', window.location.pathname + window.location.search)
+    try { await supabase.auth.signOut() } catch { /* 무시 */ }
+    navigate('/login')
+  }
   const queryClient = useQueryClient()
   const [searchParams] = useSearchParams()
 
@@ -140,9 +147,19 @@ function JoinByCodePage() {
     <div className="px-4 pt-2 pb-6 max-w-md mx-auto">
       <StickyBackBar fallbackPath="/dashboard" title="이전 페이지로" />
       <h1 className="text-2xl font-medium text-gray-800 mb-1 mt-2">🎟️ 초대 코드 참여</h1>
-      <p className="text-sm text-gray-500 mb-6">
+      <p className="text-sm text-gray-500 mb-4">
         프로그램 운영자가 알려준 코드를 입력해주세요.
       </p>
+
+      {/* 현재 로그인 계정 안내 — 카톡 등 인앱 브라우저에 남의 세션이 남아 있을 수 있어 혼동 방지 */}
+      <div className="flex items-center gap-2.5 mb-6 p-3 rounded-2xl bg-amber-50 border border-amber-200">
+        <UserAvatar nickname={nickname} size="sm" />
+        <p className="flex-1 min-w-0 text-[12px] text-amber-800 leading-snug break-keep">
+          현재 <b className="font-bold">{nickname || '이 계정'}</b>님으로 로그인돼 있어요.<br />본인이 아니면 로그아웃하고 다시 로그인하세요.
+        </p>
+        <button type="button" onClick={handleSwitchAccount}
+          className="flex-shrink-0 px-3 py-1.5 rounded-full bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition">로그아웃</button>
+      </div>
 
       {/* 코드 입력 폼 — 미리보기 전(idle, looking_up, error) 또는 가입 후 미노출 */}
       {(status === 'idle' || status === 'looking_up' || status === 'error') && (
