@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -18,6 +18,7 @@ function ProgramCompletionCelebration({
 }) {
   useBodyScrollLock(isOpen)  // iOS 배경 스크롤 방지
   const navigate = useNavigate()
+  const [tipOpen, setTipOpen] = useState(null)  // 지표 툴팁(라벨) — 열린 지표 label
   const programDays = useMemo(() => {
     if (!program?.start_date || !program?.end_date) return null
     const s = new Date(`${program.start_date}T00:00:00+09:00`)
@@ -39,7 +40,7 @@ function ProgramCompletionCelebration({
     { src: '/icons/feature/point.png', emoji: '⭐', label: '획득 점수', value: points, unit: 'P' },
   ]
   if (rate != null) stats.push({ src: '/icons/feature/stats.png', emoji: '📈', label: '완주율', value: rate, unit: '%' })
-  stats.push({ src: '/icons/feature/community.png', emoji: '❤️', label: '받은 응원', value: cheers, unit: '개' })
+  stats.push({ src: '/icons/feature/community.png', emoji: '❤️', label: '받은 응원', value: cheers, unit: '개', tip: '내 글·인증이 받은 좋아요 + 댓글이에요' })
   if (rankingEnabled && rank != null)
     stats.push({ src: '/icons/reward/ranking.png', emoji: '🏆', label: '내 등수', value: rank, unit: totalRanked ? `/${totalRanked}등` : '등' })
   if (teamEnabled && teamRank != null)
@@ -98,7 +99,22 @@ function ProgramCompletionCelebration({
                   <p className="text-lg font-extrabold text-gray-900 leading-none">
                     {s.value}<span className="text-xs text-gray-500 font-bold ml-0.5">{s.unit}</span>
                   </p>
-                  <p className="text-[11px] text-gray-500 mt-1">{s.label}</p>
+                  {s.tip ? (
+                    <div className="relative flex items-center justify-center gap-1 mt-1">
+                      <p className="text-[11px] text-gray-500">{s.label}</p>
+                      <button type="button" aria-label={`${s.label} 설명`}
+                        onClick={(e) => { e.stopPropagation(); setTipOpen(o => (o === s.label ? null : s.label)) }}
+                        className="w-3.5 h-3.5 rounded-full bg-gray-300 text-white text-[9px] font-bold flex items-center justify-center leading-none flex-shrink-0">i</button>
+                      {tipOpen === s.label && (
+                        <div className="absolute bottom-full mb-1.5 left-1/2 -translate-x-1/2 w-40 bg-gray-800 text-white text-[11px] leading-snug rounded-lg px-2.5 py-1.5 shadow-lg z-20 text-center break-keep">
+                          {s.tip}
+                          <span className="absolute top-full left-1/2 -translate-x-1/2 -mt-px border-4 border-transparent border-t-gray-800" />
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-gray-500 mt-1">{s.label}</p>
+                  )}
                 </div>
               ))}
             </div>
