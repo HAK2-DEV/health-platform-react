@@ -3031,6 +3031,71 @@ export async function fetchProgramMetricsByUser(programId) {
   return { byUser, metrics: Object.values(defs) }
 }
 
+// 퀴즈 답 표기 — MULTIPLE 은 보기 인덱스 → 보기 텍스트, 그 외는 원문(QuizSolvePage.displayAnswer 와 동일).
+function displayQuizAnswer(q, raw) {
+  if (raw == null || raw === '') return '(무응답)'
+  if (q?.type === 'MULTIPLE') return q.options?.[Number(raw)] ?? raw
+  return raw
+}
+
+// 종료 리포트 「참여자 퀴즈 답변」 상세 — 참여자 × 퀴즈 문항별 (내 답/정답/정오). owner RLS.
+//   반환: [{ user_id, submitted_at, quizTitle, order, question, myAnswer, correctAnswer, isCorrect }]
+export async function fetchProgramQuizAnswersDetail(programId) {
+  const { data, error } = await supabase
+    .from('quiz_submissions')
+    .select('user_id, submitted_at, quizzes!inner(program_id, title, quiz_questions(id, type, question_text, options, correct_answer, order_index)), quiz_answers(question_id, answer, is_correct)')
+    .eq('quizzes.program_id', programId)
+    .order('submitted_at', { ascending: true })
+  if (error) throw error
+  const rows = []
+  for (const s of (data || [])) {
+    const quiz = s.quizzes
+    const qmap = {}
+    for (const qq of (quiz?.quiz_questions || [])) qmap[qq.id] = qq
+    const answers = (s.quiz_answers || []).slice().sort((a, b) => (qmap[a.question_id]?.order_index ?? 0) - (qmap[b.question_id]?.order_index ?? 0))
+    for (const a of answers) {
+      const q = qmap[a.question_id]
+      rows.push({
+        user_id: s.user_id,
+        submitted_at: s.submitted_at,
+        quizTitle: quiz?.title || '(퀴즈)',
+        order: (q?.order_index ?? 0) + 1,
+        question: q?.question_text || '',
+        myAnswer: displayQuizAnswer(q, a.answer),
+        correctAnswer: q?.correct_answer != null ? displayQuizAnswer(q, q.correct_answer) : '',
+        isCorrect: a.is_correct,
+      })
+    }
+  }
+  return rows
+}
+
+// 종료 리포트 「참여자 댓글」 상세 — 인증 피드 댓글(post_comments) + 자유게시판 댓글(community_post_comments).
+//   반환: [{ user_id, created_at, where, context, content }] (시간 오름차순)
+export async function fetchProgramCommentsDetail(programId) {
+  const [ccRes, fcRes] = await Promise.all([
+    supabase.from('community_post_comments')
+      .select('user_id, content, created_at, community_posts!inner(program_id, title)')
+      .eq('community_posts.program_id', programId)
+      .order('created_at', { ascending: true }),
+    supabase.from('post_comments')
+      .select('user_id, content, created_at, verifications!inner(missions!inner(program_id, title))')
+      .eq('verifications.missions.program_id', programId)
+      .order('created_at', { ascending: true }),
+  ])
+  if (ccRes.error) throw ccRes.error
+  if (fcRes.error) throw fcRes.error
+  const rows = []
+  for (const c of (ccRes.data || [])) {
+    rows.push({ user_id: c.user_id, created_at: c.created_at, where: '자유게시판', context: c.community_posts?.title || '(글)', content: c.content })
+  }
+  for (const c of (fcRes.data || [])) {
+    rows.push({ user_id: c.user_id, created_at: c.created_at, where: '인증 피드', context: c.verifications?.missions?.title || '(미션)', content: c.content })
+  }
+  rows.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+  return rows
+}
+
 // 종료 리포트 「클래스 결과」 — 세션·출석 집계 (클래스 기능 프로그램만). owner RLS 로 조회.
 //   반환: { sessionCount, totalRegistered, totalConfirmed, uniqueAttendees, pointsGranted,
 //           instructorCount, attendanceRate(신청 대비, 없으면 null), sessions:[{...세션별}] }

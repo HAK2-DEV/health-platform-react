@@ -131,7 +131,7 @@ function addKeyValueSheet(wb, name, title, items) {
   return ws
 }
 
-export async function exportEndReportXlsx({ program, report, quizStats = [], community = null, perUser = null, raw = [], scoreBreakdown = {}, teamRanking = [], distanceByUser = null, metricsByUser = null, reportGroups = [], scoreLedger = [], classRoster = [] }) {
+export async function exportEndReportXlsx({ program, report, quizStats = [], community = null, perUser = null, raw = [], scoreBreakdown = {}, teamRanking = [], distanceByUser = null, metricsByUser = null, reportGroups = [], scoreLedger = [], classRoster = [], commentsDetail = null, quizAnswersDetail = null }) {
   const mod = await import('exceljs')
   const ExcelJS = mod.default ?? mod
   const wb = new ExcelJS.Workbook()
@@ -153,6 +153,9 @@ export async function exportEndReportXlsx({ program, report, quizStats = [], com
     ...report.participatedUsers.map(u => [u, '참여']),
     ...report.dormantUsers.map(u => [u, '휴면']),
   ]
+  const nickMap = {}
+  for (const [u] of roster) nickMap[u.user_id] = u.nickname
+  const nickOf = (uid) => nickMap[uid] || '(알 수 없음)'
 
   // ── 시트 1: 요약 (카드형) ──
   const sumItems = [
@@ -442,6 +445,30 @@ export async function exportEndReportXlsx({ program, report, quizStats = [], com
       { header: '출석시각', width: 12, align: 'center' },
       { header: '지급P', width: 7, align: 'right', numFmt: '#,##0' },
     ], rows)
+  }
+
+  // ── 시트: 참여자 댓글 (상세 포함 옵션) ── 인증 피드 + 자유게시판 댓글 전량
+  if (commentsDetail && commentsDetail.length) {
+    addTable(wb, '참여자 댓글', '참여자 댓글 상세', [
+      { header: '닉네임', width: 14 },
+      { header: '작성일시', width: 13, align: 'center' },
+      { header: '위치', width: 10, align: 'center' },
+      { header: '대상', width: 24 },
+      { header: '댓글 내용', width: 60 },
+    ], commentsDetail.map(c => [nickOf(c.user_id), kstDT(c.created_at), c.where, c.context, c.content]))
+  }
+
+  // ── 시트: 참여자 퀴즈 답변 (상세 포함 옵션) ── 참여자 × 문항별 내 답/정답/정오
+  if (quizAnswersDetail && quizAnswersDetail.length) {
+    addTable(wb, '참여자 퀴즈 답변', '참여자 퀴즈 답변 상세', [
+      { header: '닉네임', width: 14 },
+      { header: '퀴즈', width: 22 },
+      { header: '문항', width: 6, align: 'center' },
+      { header: '문항 내용', width: 40 },
+      { header: '내 답', width: 24 },
+      { header: '정답', width: 24 },
+      { header: '정오', width: 8, align: 'center' },
+    ], quizAnswersDetail.map(a => [nickOf(a.user_id), a.quizTitle, a.order, a.question, a.myAnswer, a.correctAnswer, a.isCorrect === true ? '정답' : a.isCorrect === false ? '오답' : '채점대기']))
   }
 
   await saveWorkbook(wb, `${sanitizeName(program.name)}_종료리포트.xlsx`)

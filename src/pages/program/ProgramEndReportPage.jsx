@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronLeft, ChevronDown, ChevronRight, Trophy, MessageSquare, Copy, Download } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
-import { queryKeys, fetchProgram, fetchProgramStats, fetchProgramOperatorLoad, fetchProgramQuizStats, fetchProgramCommunityStats, fetchProgramReports, fetchEndReportPerUser, fetchProgramScoreBreakdown, fetchProgramTeamRanking, fetchProgramDistanceByUser, fetchProgramMetricsByUser, fetchProgramClassStats, fetchProgramClassRoster, fetchProgramScoreLedger, REPORT_REASON_PRESETS, formatKstDate } from '../../lib/queries'
+import { queryKeys, fetchProgram, fetchProgramStats, fetchProgramOperatorLoad, fetchProgramQuizStats, fetchProgramCommunityStats, fetchProgramReports, fetchEndReportPerUser, fetchProgramScoreBreakdown, fetchProgramTeamRanking, fetchProgramDistanceByUser, fetchProgramMetricsByUser, fetchProgramCommentsDetail, fetchProgramQuizAnswersDetail, fetchProgramClassStats, fetchProgramClassRoster, fetchProgramScoreLedger, REPORT_REASON_PRESETS, formatKstDate } from '../../lib/queries'
 import { catOf } from '../../lib/classCategories'
 import { PROGRAM_THEME } from '../../lib/constants'
 import { formatKoreanDate } from '../../lib/formatters'
@@ -342,7 +342,7 @@ function ProgramEndReportPage() {
           {/* ─── 다음 액션 ─── */}
           <Reveal index={9}><NextActionsCard programId={id} feedEnabled={!!program.feed_enabled} navigate={navigate} onClone={() => setCloneOpen(true)}
             onThanks={() => navigate(`/programs/${id}?tab=community`, { state: { composeThanks: buildThanksDraft(program, report) } })}
-            onExport={async () => {
+            onExport={async (includeDetail) => {
               const [pu, scoreBreakdown, teamRanking, distance, metricsByUser, scoreLedger, classRoster] = await Promise.all([
                 perUser || fetchEndReportPerUser(id),
                 fetchProgramScoreBreakdown(id),
@@ -352,7 +352,15 @@ function ProgramEndReportPage() {
                 fetchProgramScoreLedger(id),
                 program?.class_feature_enabled ? fetchProgramClassRoster(id).catch(() => []) : [],
               ])
-              await exportEndReportXlsx({ program, report, quizStats, community, perUser: pu, raw: stats?._raw || [], scoreBreakdown, teamRanking, distanceByUser: distance, metricsByUser, reportGroups, scoreLedger, classRoster })
+              // 「상세 포함」 체크 시에만 무거운 댓글·퀴즈 답변 상세를 추가로 조회
+              let commentsDetail = null, quizAnswersDetail = null
+              if (includeDetail) {
+                ;[commentsDetail, quizAnswersDetail] = await Promise.all([
+                  fetchProgramCommentsDetail(id).catch(() => null),
+                  fetchProgramQuizAnswersDetail(id).catch(() => null),
+                ])
+              }
+              await exportEndReportXlsx({ program, report, quizStats, community, perUser: pu, raw: stats?._raw || [], scoreBreakdown, teamRanking, distanceByUser: distance, metricsByUser, reportGroups, scoreLedger, classRoster, commentsDetail, quizAnswersDetail })
             }} /></Reveal>
         </div>
       )}
@@ -1323,10 +1331,11 @@ function buildThanksDraft(program, report) {
 // ─── 다음 액션 ───
 function NextActionsCard({ programId, feedEnabled, navigate, onClone, onExport, onThanks }) {
   const [exporting, setExporting] = useState(false)
+  const [includeDetail, setIncludeDetail] = useState(false)
   const handleExport = async () => {
     if (exporting) return
     setExporting(true)
-    try { await onExport() } catch (e) { console.error('[리포트 내보내기 실패]', e); alert('리포트 내보내기에 실패했어요. 잠시 후 다시 시도해주세요.') } finally { setExporting(false) }
+    try { await onExport(includeDetail) } catch (e) { console.error('[리포트 내보내기 실패]', e); alert('리포트 내보내기에 실패했어요. 잠시 후 다시 시도해주세요.') } finally { setExporting(false) }
   }
   return (
     <div className="bg-white border border-[#e6e9e6] rounded-card-lg p-5">
@@ -1378,6 +1387,20 @@ function NextActionsCard({ programId, feedEnabled, navigate, onClone, onExport, 
             <p className="text-[11px] text-gray-500">요약·참여자(개인별)·미션·퀴즈 시트로 저장해요</p>
           </div>
         </button>
+        {/* 상세 포함 옵션 — 켜면 참여자별 댓글·퀴즈 답변 시트 2장 추가(파일이 커질 수 있음) */}
+        <label className="flex items-start gap-2.5 px-3 py-2 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={includeDetail}
+            onChange={(e) => setIncludeDetail(e.target.checked)}
+            disabled={exporting}
+            className="mt-0.5 w-4 h-4 rounded accent-emerald-500 flex-shrink-0"
+          />
+          <span className="flex-1 min-w-0">
+            <span className="block text-[12px] font-medium text-gray-700">댓글·퀴즈 답변 상세 포함</span>
+            <span className="block text-[11px] text-gray-400 leading-snug">참여자가 쓴 댓글과 문항별 답을 시트로 추가해요. 활동이 많으면 파일이 커져요.</span>
+          </span>
+        </label>
       </div>
     </div>
   )
