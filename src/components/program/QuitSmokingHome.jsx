@@ -1,4 +1,3 @@
-import { Fragment } from 'react'
 import { motion } from 'framer-motion'
 import { ChevronRight, Calendar, Activity, Award, Flame } from 'lucide-react'
 import QuitSmokingHero from './QuitSmokingHero'
@@ -7,6 +6,7 @@ import WeeklyStreak from './WeeklyStreak'
 import FlameIcon from '../common/FlameIcon'
 import CountUp from '../common/CountUp'
 import { NavCard, GoalCard, Icon3D } from './ProgramHome'
+import { Reveal } from './statsAnim'
 import { progressUrgency } from '../../lib/programVisuals'
 
 // 금연 테마 전용 카드형 홈 (탭 바 없이 카드 네비) — 달리기 RunningHome 방식.
@@ -147,8 +147,11 @@ function QuitSmokingHome({
       <QuitSmokingHero programId={programId} streak={streak} savedAmount={savedAmount}
         smokedToday={smokedToday} onAction={onRecord} />
 
-      {/* [커스터마이즈] 운영자 순서·숨김 반영 (클래스 일정 포함) */}
-      {orderedKeys.map((k) => <Fragment key={k}>{BOXES[k]()}</Fragment>)}
+      {/* [커스터마이즈] 운영자 순서·숨김 반영 (클래스 일정 포함) — 스크롤 진입 시 페이드업(Reveal) */}
+      {orderedKeys.map((k, i) => {
+        const content = BOXES[k]()
+        return content ? <Reveal key={k} index={Math.min(i, 5)}>{content}</Reveal> : null
+      })}
 
       {/* [운영자] 개요 화면 편집 */}
       {editable && (
