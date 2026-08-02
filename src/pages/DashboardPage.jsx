@@ -58,11 +58,13 @@ export function ProgramSlideCard({ program, participants, onClick, active = fals
   const daysLeft = program.end_date
     ? Math.max(0, Math.ceil((new Date(`${program.end_date}T23:59:59+09:00`) - new Date()) / 86400000))
     : null
-  const status = notStarted
-    ? { label: '준비중', cls: 'bg-sky-100 text-sky-700' }
-    : urg.urgency === 'ended'
-      ? { label: '종료', cls: 'bg-gray-200 text-gray-600' }
-      : { label: '진행중', cls: 'bg-emerald-100 text-emerald-700' }
+  const status = program.status === 'DRAFT'
+    ? { label: '임시저장', cls: 'bg-gray-100 text-gray-500' }
+    : notStarted
+      ? { label: '준비중', cls: 'bg-sky-100 text-sky-700' }
+      : urg.urgency === 'ended'
+        ? { label: '종료', cls: 'bg-gray-200 text-gray-600' }
+        : { label: '진행중', cls: 'bg-emerald-100 text-emerald-700' }
   const md = (d) => { const p = d.split('-'); return `${Number(p[1])}/${Number(p[2])}` }
   // 기간이 없는 상시 프로그램은 진행률이 늘 0% 라 막대가 거짓 정보 → 아예 표시하지 않음
   const hasPeriod = !!(program.start_date && program.end_date)
@@ -121,7 +123,9 @@ export function ProgramSlideCard({ program, participants, onClick, active = fals
           )}
         </div>
 
-        {!hasPeriod ? (
+        {program.status === 'DRAFT' ? (
+          <p className="text-[13px] font-semibold text-gray-500">{hasPeriod ? `${md(program.start_date)}~${md(program.end_date)}` : '작성 미완성'}</p>
+        ) : !hasPeriod ? (
           <p className="text-[13px] font-semibold text-gray-500">상시 운영</p>
         ) : notStarted ? (
           <p className="text-[13px] font-semibold text-gray-500">{`${md(program.start_date)}~${md(program.end_date)}`}</p>
@@ -149,7 +153,7 @@ export function ProgramSlideCard({ program, participants, onClick, active = fals
           <span className="w-px h-3 bg-gray-200 flex-shrink-0" />
           <span className="inline-flex items-center gap-1 whitespace-nowrap">
             <CalendarSolid className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-            {ended ? '종료됨' : daysLeft != null ? `${daysLeft}일 남음` : '상시'}
+            {program.status === 'DRAFT' ? '작성 중' : ended ? '종료됨' : daysLeft != null ? `${daysLeft}일 남음` : '상시'}
           </span>
         </div>
       </div>

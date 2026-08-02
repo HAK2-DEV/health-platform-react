@@ -1238,6 +1238,41 @@ function ProgramDetailPage() {
   const usesQuitHome = program.card_home === true && isQuitSmoking   // 금연 전용 카드홈(절충 변형)
   const cardHome = isRunningTheme || usesCardHome || usesQuitHome   // 탭바·프로필카드 숨김 + 서브화면 헤더 대상
   const runningSub = cardHome && activeTab !== 'overview'   // 카드형 홈의 서브화면(탭바 없이 뒤로+이름 헤더)
+  // 카드형 홈 히어로 상태 라벨 — DRAFT(임시저장)/예정/종료/진행중. (ProgramHome·QuitSmokingHome 공용)
+  const cardEnded = progressUrgency(calcProgress(program.start_date, program.end_date)).urgency === 'ended'
+  const cardStatusLabel = program.status === 'DRAFT'
+    ? '임시저장'
+    : cardEnded ? '종료'
+      : (program.status === 'PUBLISHED' && isUpcomingByStartDate(program.start_date)) ? '예정'
+        : '진행중'
+  // 카드형 홈 시트 최상단 배너 — 둘러보기(비참여) 참여 CTA 또는 DRAFT 완료 CTA (히어로와 겹치지 않게 시트 안)
+  const cardTopSlot = isViewer ? (
+    <div className="flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-2xl">
+      <span className="text-xl flex-shrink-0">👀</span>
+      <p className="flex-1 min-w-0 text-xs text-emerald-800 leading-snug">
+        <span className="font-bold">둘러보는 중이에요.</span> 참여하면 인증·작성·랭킹 참여가 가능해요.
+      </p>
+      <button
+        type="button"
+        onClick={() => setJoinOpen(true)}
+        className="flex-shrink-0 px-3 py-2 bg-gradient-to-r from-emerald-400 to-teal-500 text-white text-xs font-semibold rounded-full hover:from-emerald-500 hover:to-teal-600 transition"
+      >
+        참여 신청하기
+      </button>
+    </div>
+  ) : (isOwner && program.status === 'DRAFT' ? (
+    <button
+      type="button"
+      onClick={() => navigate(`/programs/new?id=${id}`)}
+      className="w-full flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-2xl text-left hover:bg-amber-100/70 transition"
+    >
+      <span className="text-xl flex-shrink-0">📝</span>
+      <p className="flex-1 min-w-0 text-xs text-amber-800 leading-snug">
+        <span className="font-bold">임시저장된 프로그램이에요.</span> 작성을 마치면 참여자에게 공개돼요.
+      </p>
+      <span className="flex-shrink-0 px-3 py-2 bg-amber-500 text-white text-xs font-semibold rounded-full">완료하기</span>
+    </button>
+  ) : null)
   // 운영자 메뉴 시트 「내 프로그램 설정」 → 각 설정 클릭 시 탭 전환 + 인라인 관리자 열기
   const openManagerFromMenu = (key) => {
     closePanel()
@@ -1704,7 +1739,8 @@ function ProgramDetailPage() {
         return (
           <QuitSmokingHome
             programId={id} programName={program.name} categories={program.categories}
-            streak={qStreak} savedAmount={qSaved} smokedToday={qSmokedToday} statusLabel="진행중"
+            streak={qStreak} savedAmount={qSaved} smokedToday={qSmokedToday} statusLabel={cardStatusLabel}
+            viewerSlot={cardTopSlot}
             notice={qNotice}
             progressData={qProgress} progress={calcProgress(program.start_date, program.end_date)}
             streakData={{ count: qStreak, days: overviewData?.weekDays || [] }}
@@ -1838,7 +1874,6 @@ function ProgramDetailPage() {
         if (metricSummary?.count) homeMetrics.push({ emoji: '🏃', label: '달성', value: fmtN(metricSummary.count), unit: '회' })
         const yy = (d) => (d || '').replace(/-/g, '.')
         const myRow = ranking.find((r) => r.user_id === userId)
-        const ended = progressUrgency(calcProgress(program.start_date, program.end_date)).urgency === 'ended'
         const homeNotice = latestNotice ? (latestNotice.title || latestNotice.body || '') : ''
         // 새 박스 실데이터
         const streakData = { count: overviewData?.streak || 0, days: overviewData?.weekDays || [] }
@@ -1862,7 +1897,7 @@ function ProgramDetailPage() {
             startDate={yy(program.start_date)}
             endDate={yy(program.end_date)}
             progress={calcProgress(program.start_date, program.end_date)}
-            statusLabel={ended ? '종료' : '진행중'}
+            statusLabel={cardStatusLabel}
             coverImagePath={program.cover_image_path}
             categories={program.categories}
             participantCount={ranking.length}
@@ -1881,33 +1916,7 @@ function ProgramDetailPage() {
             hiddenBoxes={program.home_layout?.hidden || []}
             streakData={streakData}
             progressData={isViewer ? null : progressData}
-            viewerSlot={isViewer ? (
-              <div className="flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-2xl">
-                <span className="text-xl flex-shrink-0">👀</span>
-                <p className="flex-1 min-w-0 text-xs text-emerald-800 leading-snug">
-                  <span className="font-bold">둘러보는 중이에요.</span> 참여하면 인증·작성·랭킹 참여가 가능해요.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setJoinOpen(true)}
-                  className="flex-shrink-0 px-3 py-2 bg-gradient-to-r from-emerald-400 to-teal-500 text-white text-xs font-semibold rounded-full hover:from-emerald-500 hover:to-teal-600 transition"
-                >
-                  참여 신청하기
-                </button>
-              </div>
-            ) : (isOwner && program.status === 'DRAFT' ? (
-              <button
-                type="button"
-                onClick={() => navigate(`/programs/new?id=${id}`)}
-                className="w-full flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-2xl text-left hover:bg-amber-100/70 transition"
-              >
-                <span className="text-xl flex-shrink-0">📝</span>
-                <p className="flex-1 min-w-0 text-xs text-amber-800 leading-snug">
-                  <span className="font-bold">임시저장된 프로그램이에요.</span> 작성을 마치면 참여자에게 공개돼요.
-                </p>
-                <span className="flex-shrink-0 px-3 py-2 bg-amber-500 text-white text-xs font-semibold rounded-full">완료하기</span>
-              </button>
-            ) : null)}
+            viewerSlot={cardTopSlot}
             todayMissions={todayMissionsData}
             recentItems={recentItemsData}
             pace={program.run_pace}

@@ -27,6 +27,7 @@ function QuitSmokingHome({
   progressData = null, progress = 0, notice = '',
   streakData = null,
   moodSlot = null, tipSlot = null, bannerSlot = null, classSlot = null,
+  viewerSlot = null,          // 둘러보기(비참여) 참여 CTA / DRAFT 완료 CTA — 시트 최상단
   variant = 'basic',
   homeHero = null, onHeroChange = null, homeGoal = null, onGoalChange = null, ownerId = null, editable = false,
   streakRef = null,
@@ -134,6 +135,8 @@ function QuitSmokingHome({
 
   return (
     <div className="-mx-[11px] px-4 pb-6 space-y-[9px]">
+      {/* 둘러보기(비참여) 참여 CTA / DRAFT 완료 CTA — 시트 최상단 */}
+      {viewerSlot}
       {/* [변형] 편집형 히어로 — extras 만 */}
       {showEditHero && (
         <ProgramHomeHero hero={homeHero} editable={editable} coverImagePath={coverImagePath}
