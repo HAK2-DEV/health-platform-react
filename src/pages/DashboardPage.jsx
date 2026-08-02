@@ -171,7 +171,7 @@ function SectionCard({ title, action, children, className = '' }) {
     >
       {(title || action) && (
         <div className="flex items-center justify-between gap-2 mb-3">
-          {title && <h2 className="flex items-center gap-1.5 text-base font-bold text-gray-800">{title}</h2>}
+          {title && <h2 className="flex items-center gap-1.5 text-lg font-bold text-gray-800">{title}</h2>}
           {action}
         </div>
       )}
@@ -591,7 +591,7 @@ function DashboardPage() {
         <Reveal index={0}><section>
           <div className="flex items-center justify-between gap-2 mb-3">
             <div className="flex items-center gap-2 min-w-0">
-              <h2 className="text-base font-bold text-gray-800 flex-shrink-0">프로그램</h2>
+              <h2 className="text-lg font-bold text-gray-800 flex-shrink-0">프로그램</h2>
               {canToggleMode && (
                 <span className="inline-flex items-center gap-0.5 bg-gray-100 rounded-full p-0.5">
                   <button type="button" onClick={() => switchMode('operator')} className={`px-2.5 py-1 rounded-full text-[12px] font-bold transition ${showOperator ? 'bg-white text-emerald-600 shadow-sm' : 'text-gray-500'}`}>운영중</button>
@@ -659,7 +659,7 @@ function DashboardPage() {
 
         {/* ─── 오늘의 활동 요약 / 운영 현황 — 모드별 4타일. 흰 카드 없이 페이지에 직접. ─── */}
         <Reveal index={1}><section>
-          <h2 className="text-base font-bold text-gray-800 mb-3">{showOperator ? '오늘의 운영 현황' : '오늘의 활동 요약'}</h2>
+          <h2 className="text-lg font-bold text-gray-800 mb-3">{showOperator ? '오늘의 운영 현황' : '오늘의 활동 요약'}</h2>
           <ModeSlide mode={effectiveMode} dir={modeDir}>
           <div className="grid grid-cols-4 gap-2.5">
             {summaryMetrics.map((m) => {
@@ -696,7 +696,7 @@ function DashboardPage() {
              pt-1(4px): 본인 요청으로 이 섹션만 살짝 더 내림(space-y 마진과 충돌 없게 padding 사용) ─── */}
         <Reveal index={2}><section className="pt-1">
           <div className="flex items-center justify-between gap-2 mb-3">
-            <h2 className="text-base font-bold text-gray-800">내 점수 및 랭킹</h2>
+            <h2 className="text-lg font-bold text-gray-800">내 점수 및 랭킹</h2>
             <button type="button" onClick={() => navigate('/rankings')} className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700">
               전체 랭킹<ChevronRight className="w-3 h-3" />
             </button>
