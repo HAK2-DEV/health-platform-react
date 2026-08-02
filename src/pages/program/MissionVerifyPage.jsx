@@ -1125,7 +1125,7 @@ function MissionVerifyPage() {
 
         {needsImage && (
           <div className="mb-5">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-base font-bold text-gray-800 mb-2">
               📷 인증 사진
               {perInput && <span className="ml-1 text-xs font-normal text-emerald-600">· {imgPts}P</span>}
               {optImage && <span className="ml-1 text-xs font-normal text-amber-600">(선택)</span>}
@@ -1172,7 +1172,7 @@ function MissionVerifyPage() {
 
         {needsNumeric && (
           <div className="mb-5">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-[12px] font-bold tracking-wide text-gray-400 mb-2">
               📊 기록 값
               {perInput && <span className="ml-1 text-xs font-normal text-emerald-600">· {numPts}P</span>}
               {optNumeric && <span className="ml-1 text-xs font-normal text-amber-600">(선택)</span>}
@@ -1188,7 +1188,7 @@ function MissionVerifyPage() {
                     return (
                     <div key={m.key}>
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm text-gray-700">{m.icon && <span className="mr-1">{m.icon}</span>}{m.label || '기록'}</span>
+                        <span className="text-base font-bold text-gray-800">{m.icon && <span className="mr-1">{m.icon}</span>}{m.label || '기록'}</span>
                         {m.max != null && <span className="text-[11px] text-gray-400">최대 {isHms ? `${Math.floor(Number(m.max) / 60)}시간` : `${m.max}${m.unit || ''}`}</span>}
                       </div>
                       {isClockMulti ? (
@@ -1258,7 +1258,7 @@ function MissionVerifyPage() {
 
         {needsNote && (
           <div className="mb-5">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-base font-bold text-gray-800 mb-2">
               💬 한 줄 소감
               {perInput && <span className="ml-1 text-xs font-normal text-emerald-600">· {notePts}P</span>}
               {optNote && <span className="ml-1 text-xs font-normal text-amber-600">(선택)</span>}
