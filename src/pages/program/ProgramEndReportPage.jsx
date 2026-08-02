@@ -232,6 +232,9 @@ function ProgramEndReportPage() {
     enabled: !!session && !!id && isOwner && isRunning,
   })
 
+  // 금연 프로그램 — 인증왕/개근왕(금연 목표와 무관)을 시상에서 제외
+  const isQuit = program?.theme === PROGRAM_THEME.QUIT_SMOKING
+
   // 클래스 결과 — 클래스(강사 세션) 기능 활성 프로그램만
   const { data: classStats } = useQuery({
     queryKey: ['program', id, 'classStats'],
@@ -334,7 +337,7 @@ function ProgramEndReportPage() {
           <Reveal index={6}><ModerationCard groups={reportGroups} programDays={report.programDays} programId={id} program={program} /></Reveal>
 
           {/* ─── 시상 · 랭킹 (부문별 + 무결성 검증) ─── */}
-          <Reveal index={7}><AwardsCard report={report} perUser={perUser} raw={stats?._raw || []} reportGroups={reportGroups} hasQuiz={quizStats.length > 0} hasCommunity={!!program.feed_enabled} distanceByUser={isRunning ? distanceByUser : null} /></Reveal>
+          <Reveal index={7}><AwardsCard report={report} perUser={perUser} raw={stats?._raw || []} reportGroups={reportGroups} hasQuiz={quizStats.length > 0} hasCommunity={!!program.feed_enabled} distanceByUser={isRunning ? distanceByUser : null} isQuit={isQuit} /></Reveal>
 
           {/* ─── 운영 부하 (있는 데이터만 · 정산은 보류) ─── */}
           <Reveal index={8}><OperatorLoadCard load={opLoad} /></Reveal>
@@ -703,7 +706,7 @@ function MissionsCard({ report, diagnosis }) {
 
 // ─── 시상 · 랭킹 — 부문별 1~3위 + 완주자(참가상) + 무결성 검증(⚠️ 신고·인증 몰림) ───
 const MEDALS = ['🥇', '🥈', '🥉']
-function AwardsCard({ report, perUser, raw = [], reportGroups = [], hasQuiz, hasCommunity, distanceByUser = null }) {
+function AwardsCard({ report, perUser, raw = [], reportGroups = [], hasQuiz, hasCommunity, distanceByUser = null, isQuit = false }) {
   const roster = [
     ...report.completedUsers.map(u => ({ ...u })),
     ...report.participatedUsers.map(u => ({ ...u })),
@@ -739,10 +742,14 @@ function AwardsCard({ report, perUser, raw = [], reportGroups = [], hasQuiz, has
   const cats = []
   // 달리기: 누적 거리왕을 맨 앞에
   if (distanceByUser) cats.push({ key: 'dist', icon: '🏃', title: '거리왕', crit: '누적 거리', pool: roster.filter(u => dist(u.user_id) > 0), metric: u => dist(u.user_id), label: u => `${dist(u.user_id).toFixed(1)}km`, tie: (a, b) => b.totalCount - a.totalCount })
-  cats.push(
-    { key: 'verif', icon: '🔥', title: '인증왕', crit: '총 인증 수', pool: roster.filter(u => u.totalCount > 0), metric: u => u.totalCount, label: u => `${u.totalCount}건`, tie: (a, b) => b.activeDays - a.activeDays },
-    { key: 'streak', icon: '📅', title: '개근왕', crit: '활동한 일수', pool: roster.filter(u => u.activeDays > 0), metric: u => u.activeDays, label: u => `${u.activeDays}일`, tie: (a, b) => b.totalCount - a.totalCount },
-  )
+  // 금연 테마는 인증왕/개근왕(인증 횟수·출석 = 금연 목표와 무관)을 시상에서 제외.
+  //   지표 방향(절약↑ vs 흡연↑)이 프로그램마다 달라 자동 「지표왕」은 넣지 않음(오시상 방지).
+  if (!isQuit) {
+    cats.push(
+      { key: 'verif', icon: '🔥', title: '인증왕', crit: '총 인증 수', pool: roster.filter(u => u.totalCount > 0), metric: u => u.totalCount, label: u => `${u.totalCount}건`, tie: (a, b) => b.activeDays - a.activeDays },
+      { key: 'streak', icon: '📅', title: '개근왕', crit: '활동한 일수', pool: roster.filter(u => u.activeDays > 0), metric: u => u.activeDays, label: u => `${u.activeDays}일`, tie: (a, b) => b.totalCount - a.totalCount },
+    )
+  }
   if (hasQuiz) cats.push({ key: 'quiz', icon: '🧠', title: '퀴즈왕', crit: '퀴즈 정답률', pool: roster.filter(u => q(u.user_id)?.correctRate != null), metric: u => q(u.user_id).correctRate, label: u => `${q(u.user_id).correctRate}% · ${q(u.user_id).quizCount}개`, tie: (a, b) => q(b.user_id).quizCount - q(a.user_id).quizCount })
   if (hasCommunity) cats.push({ key: 'comm', icon: '💬', title: '커뮤니티 MVP', crit: '글 + 댓글', pool: roster.filter(u => { const x = cm(u.user_id); return x && (x.posts + x.comments) > 0 }), metric: u => { const x = cm(u.user_id); return x.posts + x.comments }, label: u => { const x = cm(u.user_id); return `글 ${x.posts} · 댓글 ${x.comments}` }, tie: (a, b) => cm(b.user_id).posts - cm(a.user_id).posts })
 
