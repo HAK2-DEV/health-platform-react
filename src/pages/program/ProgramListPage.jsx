@@ -403,9 +403,7 @@ function ProgramListPage() {
         {/* ─── 참여중 ─── */}
         {tab === 'active' && (
           <>
-            <div>
-              <h2 className="text-lg font-bold text-gray-800">참여 중인 프로그램</h2>
-            </div>
+            <h2 className="text-lg font-bold text-gray-800">참여 중인 프로그램</h2>
             {isActiveLoading ? (
               <LoadingState size="sm" />
             ) : activePrograms.length === 0 ? (
@@ -435,10 +433,7 @@ function ProgramListPage() {
         {tab === 'mine' && (
           <>
             <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-bold text-gray-800">운영 중인 프로그램</h2>
-                <p className="text-sm text-gray-400 mt-0.5">내가 만든 프로그램을 관리해요.</p>
-              </div>
+              <h2 className="text-lg font-bold text-gray-800">운영 중인 프로그램</h2>
               {myPrograms.length > 0 && (
                 <button type="button" onClick={() => navigate('/programs/new')}
                   className="flex items-center gap-1 px-3 py-1.5 bg-emerald-50 text-emerald-700 text-xs font-semibold rounded-full hover:bg-emerald-100 transition flex-shrink-0">
