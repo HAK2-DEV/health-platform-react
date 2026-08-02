@@ -232,8 +232,9 @@ function ProgramEndReportPage() {
     enabled: !!session && !!id && isOwner && isRunning,
   })
 
-  // 금연 프로그램 — 인증왕/개근왕(금연 목표와 무관)을 시상에서 제외
-  const isQuit = program?.theme === PROGRAM_THEME.QUIT_SMOKING
+  // 금연 프로그램 — 인증왕/개근왕(금연 목표와 무관)을 시상에서 제외.
+  //   특수 카드홈 테마(QUIT_SMOKING)뿐 아니라 카테고리가 금연(NO_SMOKING)인 일반 프로그램도 포함.
+  const isQuit = program?.theme === PROGRAM_THEME.QUIT_SMOKING || (program?.categories || []).includes('NO_SMOKING')
 
   // 클래스 결과 — 클래스(강사 세션) 기능 활성 프로그램만
   const { data: classStats } = useQuery({
