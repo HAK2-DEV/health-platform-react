@@ -1541,8 +1541,8 @@ function ProgramDetailPage() {
         )
       })()}
 
-      {/* 열람 모드 배너 — 공개 프로그램 비참여자 */}
-      {isViewer && (
+      {/* 열람 모드 배너 — 공개 프로그램 비참여자. cardHome 에선 히어로와 겹쳐 시트 안(viewerSlot)으로 이동 */}
+      {isViewer && !cardHome && (
         <div className="flex items-center gap-3 mb-[6px] p-3 bg-emerald-50 border border-emerald-200 rounded-2xl">
           <span className="text-xl flex-shrink-0">👀</span>
           <p className="flex-1 min-w-0 text-xs text-emerald-800 leading-snug">
@@ -1556,6 +1556,21 @@ function ProgramDetailPage() {
             참여 신청하기
           </button>
         </div>
+      )}
+
+      {/* 임시저장(DRAFT) 완료 CTA — 운영자. cardHome 에선 히어로와 겹쳐 시트 안(draftSlot)으로 이동 */}
+      {isOwner && program.status === 'DRAFT' && !cardHome && (
+        <button
+          type="button"
+          onClick={() => navigate(`/programs/new?id=${id}`)}
+          className="w-full flex items-center gap-3 mb-[6px] p-3 bg-amber-50 border border-amber-200 rounded-2xl text-left hover:bg-amber-100/70 transition"
+        >
+          <span className="text-xl flex-shrink-0">📝</span>
+          <p className="flex-1 min-w-0 text-xs text-amber-800 leading-snug">
+            <span className="font-bold">임시저장된 프로그램이에요.</span> 작성을 마치면 참여자에게 공개돼요.
+          </p>
+          <span className="flex-shrink-0 px-3 py-2 bg-amber-500 text-white text-xs font-semibold rounded-full">완료하기</span>
+        </button>
       )}
 
       {/* 운영자 진입은 헤더 톱니바퀴(⚙️)로 통합 — 인라인 관리자 열 때 스크롤 기준점만 유지 */}
@@ -1865,7 +1880,34 @@ function ProgramDetailPage() {
             boxOrder={program.home_layout?.order || null}
             hiddenBoxes={program.home_layout?.hidden || []}
             streakData={streakData}
-            progressData={progressData}
+            progressData={isViewer ? null : progressData}
+            viewerSlot={isViewer ? (
+              <div className="flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-2xl">
+                <span className="text-xl flex-shrink-0">👀</span>
+                <p className="flex-1 min-w-0 text-xs text-emerald-800 leading-snug">
+                  <span className="font-bold">둘러보는 중이에요.</span> 참여하면 인증·작성·랭킹 참여가 가능해요.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setJoinOpen(true)}
+                  className="flex-shrink-0 px-3 py-2 bg-gradient-to-r from-emerald-400 to-teal-500 text-white text-xs font-semibold rounded-full hover:from-emerald-500 hover:to-teal-600 transition"
+                >
+                  참여 신청하기
+                </button>
+              </div>
+            ) : (isOwner && program.status === 'DRAFT' ? (
+              <button
+                type="button"
+                onClick={() => navigate(`/programs/new?id=${id}`)}
+                className="w-full flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-2xl text-left hover:bg-amber-100/70 transition"
+              >
+                <span className="text-xl flex-shrink-0">📝</span>
+                <p className="flex-1 min-w-0 text-xs text-amber-800 leading-snug">
+                  <span className="font-bold">임시저장된 프로그램이에요.</span> 작성을 마치면 참여자에게 공개돼요.
+                </p>
+                <span className="flex-shrink-0 px-3 py-2 bg-amber-500 text-white text-xs font-semibold rounded-full">완료하기</span>
+              </button>
+            ) : null)}
             todayMissions={todayMissionsData}
             recentItems={recentItemsData}
             pace={program.run_pace}

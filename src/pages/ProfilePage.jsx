@@ -429,9 +429,9 @@ function ProfilePage() {
             className="absolute left-1/2 -translate-x-1/2 bottom-[6px] w-[342px] max-w-full h-[73px] grid items-center bg-white/95 rounded-[11px] border border-gray-100 shadow-soft"
             style={{ gridTemplateColumns: 'calc(33.333% + 3px) calc(33.333% - 3px) 33.333%' }}
           >
-            <ProfileStat imgSrc="/icons/profile/programs.png" imgSize="w-[42px] h-[42px]" label="참여 중" value={<CountUp value={activePrograms.length} />} unit="개" />
-            <ProfileStat imgSrc="/icons/profile/point.png" label="누적 포인트" value={<CountUp value={pStats?.totalPoints ?? 0} duration={1100} />} unit="P" valueClass="text-emerald-600" divider />
-            <ProfileStat imgSrc="/icons/profile/streak.png" imgSize="w-[42px] h-[42px]" label="연속 인증" value={<CountUp value={pStats?.streak ?? 0} />} unit="일" valueClass="text-violet-600" divider />
+            <ProfileStat imgSrc="/icons/profile/programs.png" imgSize="w-[42px] h-[42px]" label="참여 중" value={<CountUp value={activePrograms.length} />} unit="개" onClick={() => navigate('/programs')} />
+            <ProfileStat imgSrc="/icons/profile/point.png" label="누적 포인트" value={<CountUp value={pStats?.totalPoints ?? 0} duration={1100} />} unit="P" valueClass="text-emerald-600" divider onClick={() => navigate('/rankings')} />
+            <ProfileStat imgSrc="/icons/profile/streak.png" imgSize="w-[42px] h-[42px]" label="연속 인증" value={<CountUp value={pStats?.streak ?? 0} />} unit="일" valueClass="text-violet-600" divider onClick={() => navigate('/record')} />
           </div>
         )}
       </div>
@@ -543,9 +543,9 @@ function ProfilePage() {
 
 // 프로필 메뉴 카드 — IconBox + 제목 + 설명 + ChevronRight (참고 사진).
 // 프로필 통계 셀 — 아이콘(또는 이미지) + 라벨 + 값 (구분선 옵션)
-function ProfileStat({ tone, icon, imgSrc, imgStyle, imgSize, label, value, unit, valueClass, divider }) {
-  return (
-    <div className={`flex items-center gap-[5px] px-2 ${divider ? 'border-l border-gray-100' : ''}`}>
+function ProfileStat({ tone, icon, imgSrc, imgStyle, imgSize, label, value, unit, valueClass, divider, onClick }) {
+  const inner = (
+    <>
       {imgSrc ? (
         <img src={imgSrc} alt="" aria-hidden="true" onError={(e) => { e.currentTarget.style.display = 'none' }} className={`object-contain flex-shrink-0 ${imgSize || 'w-8 h-8'}`} style={imgStyle} />
       ) : (
@@ -557,8 +557,17 @@ function ProfileStat({ tone, icon, imgSrc, imgStyle, imgSize, label, value, unit
           {value}{unit && <span className="text-[12px]">{unit}</span>}
         </p>
       </div>
-    </div>
+    </>
   )
+  const cls = `flex items-center gap-[5px] px-2 ${divider ? 'border-l border-gray-100' : ''}`
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={`${cls} h-full text-left rounded-[9px] hover:bg-gray-50 active:scale-[0.97] transition`}>
+        {inner}
+      </button>
+    )
+  }
+  return <div className={cls}>{inner}</div>
 }
 
 function ProfileMenuItem({ tone, icon, imgSrc, title, description, onClick }) {
