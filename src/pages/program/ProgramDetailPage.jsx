@@ -630,7 +630,7 @@ function ProgramDetailPage() {
   // 참여자 주간 리포트 — 참여중·발행·진행중일 때 개요 상단 배너 → 모달(이번 주 나의 기록).
   const participantReportEl = (!isOwner && isActiveParticipant && program?.status === 'PUBLISHED'
     && progressUrgency(calcProgress(program?.start_date, program?.end_date)).urgency !== 'ended') ? (
-    <ParticipantWeeklyReport programId={id} userId={userId} classEnabled={!!program?.class_feature_enabled} />
+    <ParticipantWeeklyReport programId={id} userId={userId} classEnabled={!!program?.class_feature_enabled} joinedAt={myPart?.joined_at} />
   ) : null
   // 넛지 초대 액션 — 초대코드형이면 InviteModal, 공개형이면 링크 공유/복사.
   const handleActivationInvite = async () => {

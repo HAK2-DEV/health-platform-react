@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Lightbulb, ChevronRight, Check, Info } from 'lucide-react'
 import Modal from '../common/Modal'
 import { Icon3D } from './ProgramHome'
-import { fetchMyWeeklyReport } from '../../lib/queries'
+import { fetchMyWeeklyReport, formatKstDate } from '../../lib/queries'
 
 // 참여자 「지난 주 나의 기록」 — 개요 상단 배너 → 모달. 주 1회(열람 시 사라짐), dev 는 항상 노출.
 //   완료된 지난 주(월~일) 집계: 미션·퀴즈·커뮤니티 글·댓글·(클래스) + 활동 일수(요일 도장) + 획득 포인트.
@@ -11,6 +11,13 @@ import { fetchMyWeeklyReport } from '../../lib/queries'
 const DEV = import.meta.env.DEV
 function weekKey() { const d = new Date(); const day = (d.getDay() + 6) % 7; d.setDate(d.getDate() - day); return d.toISOString().slice(0, 10) }
 const seenKey = (pid) => `pwr-seen:${pid}`
+// 이번 주 월요일 00:00(KST) = 지난 주 종료 경계. 이 이후 가입자는 지난 주 기록이 없음(fetchMyWeeklyReport 와 동일 기준).
+function thisWeekMondayKst() {
+  const base = new Date(`${formatKstDate(new Date())}T00:00:00+09:00`)
+  const dow = (base.getDay() + 6) % 7
+  const mon = new Date(base); mon.setDate(base.getDate() - dow)
+  return mon
+}
 
 function encourage(d) {
   const acted = d.missionCount + d.quizCount + d.postCount + d.commentCount + d.classCount
@@ -30,7 +37,7 @@ function Row({ src, emoji, label, n, unit }) {
   )
 }
 
-export default function ParticipantWeeklyReport({ programId, userId, classEnabled = false, placement = 'overview' }) {
+export default function ParticipantWeeklyReport({ programId, userId, classEnabled = false, placement = 'overview', joinedAt = null }) {
   const [open, setOpen] = useState(false)
   const [seen, setSeen] = useState(true)
   const [tipOpen, setTipOpen] = useState(false)
@@ -49,6 +56,9 @@ export default function ParticipantWeeklyReport({ programId, userId, classEnable
     if (!DEV) { try { localStorage.setItem(seenKey(programId), weekKey()) } catch { /* 무시 */ } ; setSeen(true) }
     setOpen(true)
   }
+
+  // 막 참가(이번 주 월요일 이후 가입)한 사람은 지난 주 기록이 통째로 없어 빈 리포트 → 노출 안 함
+  if (joinedAt && new Date(joinedAt) >= thisWeekMondayKst()) return null
 
   return (
     <>
