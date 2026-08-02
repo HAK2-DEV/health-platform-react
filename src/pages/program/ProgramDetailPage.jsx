@@ -1444,6 +1444,15 @@ function ProgramDetailPage() {
       </header>
       )}
 
+      {/* 탭 전환 페이드인 — 금연 테마는 탭(개요/미션/응원/내변화) 클릭 시 콘텐츠 remount + fade.
+          다른 테마는 정적 키라 remount 없음(기존 동작 유지). */}
+      <motion.div
+        key={isQuitSmoking ? `tab-${activeTab}` : 'tab-static'}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.22, ease: 'easeOut' }}
+      >
+
       {/* 프로그램 헤더 — 모의도 디자인: 배경 사진 풀 블리드 + 우측 페이드 + 진행중 배지.
           인라인 관리자 열림(inManager) 시엔 숨김 → 집중 편집 화면.
           달리기 테마는 RunningHome 자체 히어로/코스로 대체하므로 프로필 숨김 */}
@@ -2739,6 +2748,8 @@ function ProgramDetailPage() {
       </>)}
 
       </>)}
+
+      </motion.div>
 
       {/* 모달들 — lazy + 조건부 렌더. isOpen=true 되는 순간만 chunk 다운로드 */}
       <Suspense fallback={null}>

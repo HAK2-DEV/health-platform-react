@@ -114,6 +114,38 @@ export function useRealtimeSync() {
       )
       .subscribe()
 
+    // 인증 피드 소셜(댓글=응원·좋아요·댓글좋아요) 변경 → 피드/응원 게시판 캐시 무효화 (마이그 196).
+    //   다른 참여자가 인증글에 남긴 댓글(응원)이 화면에 즉시 반영된다. RLS 존중(같은 프로그램 멤버).
+    const feedSocialChannel = supabase
+      .channel('rt-feed-social')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'post_comments' },
+        () => debounce('feed-social', () => {
+          queryClient.invalidateQueries({ queryKey: ['post-comments'] })      // 인증글 댓글 목록
+          queryClient.invalidateQueries({ queryKey: ['feed', 'posts'] })      // 피드 목록(댓글 수)
+          queryClient.invalidateQueries({ queryKey: ['recent-cheers'] })      // 응원 게시판 최근 응원글
+          queryClient.invalidateQueries({ queryKey: ['best-cheers'] })        // 응원 게시판 베스트 응원
+        }),
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'post_likes' },
+        () => debounce('feed-social', () => {
+          queryClient.invalidateQueries({ queryKey: ['feed', 'posts'] })      // 피드 목록(좋아요 수)
+        }),
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'post_comment_likes' },
+        () => debounce('feed-clike', () => {
+          queryClient.invalidateQueries({ queryKey: ['post-comment-likes'] }) // 인증글 댓글 좋아요
+          queryClient.invalidateQueries({ queryKey: ['recent-cheers'] })
+          queryClient.invalidateQueries({ queryKey: ['best-cheers'] })        // 좋아요 순 베스트 응원
+        }),
+      )
+      .subscribe()
+
     return () => {
       Object.values(timersMap).forEach(clearTimeout)
       supabase.removeChannel(partChannel)
@@ -121,6 +153,7 @@ export function useRealtimeSync() {
       supabase.removeChannel(sessChannel)
       supabase.removeChannel(communityChannel)
       supabase.removeChannel(communitySocialChannel)
+      supabase.removeChannel(feedSocialChannel)
     }
   }, [userId, queryClient])
 }

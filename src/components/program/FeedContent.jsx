@@ -644,6 +644,9 @@ function CommentsSection({ verificationId, programId, myUserId, isProgramOwner, 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.postComments(verificationId) })
     queryClient.invalidateQueries({ queryKey: queryKeys.feedPosts(programId) })  // 댓글 수 갱신
+    // 인증글 댓글 = 응원 → 응원 게시판(CheerBoard) 「최근 응원글·베스트 응원」 즉시 반영
+    queryClient.invalidateQueries({ queryKey: ['recent-cheers', programId] })
+    queryClient.invalidateQueries({ queryKey: ['best-cheers', programId] })
   }
   const addMutation = useMutation({
     mutationFn: async ({ content, parentId }) => {
