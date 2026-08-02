@@ -118,7 +118,7 @@ export const PROGRAM_PRESETS = [
         point: 10,
         requires_image: false, requires_numeric: true, requires_note: false,
         numeric_point: 10, numeric_required: true,
-        metrics: [{ key: 'saved', label: '아낀 담배', unit: '개비', max: 100, icon: '🚭', allowZero: true }],
+        metrics: [{ key: 'saved', label: '오늘 피려다가 참은 담배', unit: '개비', max: 100, icon: '🚭', allowZero: true }],
         metric_aggregate: true,
         schedule_mode: 'ALL_DAYS',
         verification_type: 'AUTO',   // 자기 입력 — 자동 승인
