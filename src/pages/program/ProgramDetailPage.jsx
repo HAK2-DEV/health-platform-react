@@ -1205,6 +1205,17 @@ function ProgramDetailPage() {
   // 인라인 관리자(개요/미션/퀴즈/커뮤니티)가 열린 상태 — 프로그램 프로필·탭 바 숨김(집중 편집 화면)
   const inManager = overviewManageOpen || missionManageOpen || quizManageOpen || communityManageOpen
   // 헤더 뒤로 — 관리자 열려 있으면 그 관리자를 닫고(탭 화면 복귀), 아니면 이전 화면
+  // 둘러보기(preview 모달)로 들어온 뷰어의 종료 — 호스트 페이지로 복귀하며 그 모달 재오픈 신호 전달.
+  //   sessionStorage 사용(탭 전환 시 location.state 유실 회피). 저장된 id 가 현재 프로그램일 때만.
+  const exitToPreviewHost = () => {
+    if (!isViewer) return false
+    let ret = null
+    try { ret = JSON.parse(sessionStorage.getItem('previewReturn') || 'null') } catch { /* 손상값 무시 */ }
+    if (!ret || ret.id !== id) return false
+    try { sessionStorage.removeItem('previewReturn') } catch { /* 미지원 */ }
+    navigate(ret.path || '/dashboard', { state: { reopenPreview: ret.id } })
+    return true
+  }
   const handleHeaderBack = () => {
     if (overviewManageOpen) return closeOverviewManage()
     if (missionManageOpen) return closeMissionManage()
@@ -1220,8 +1231,10 @@ function ProgramDetailPage() {
       // 외부(퀴즈 「랭킹 보기」 등)에서 특정 탭으로 직접 들어온 경우엔 개요가 아니라 이전 화면으로 복귀
       if (activeTab !== 'overview' && location.state?.fromExternalTab) return navigate(-1)
       if (activeTab !== 'overview') return setActiveTab('overview')
+      if (exitToPreviewHost()) return   // 둘러보기 모달로 복귀
       return navigate('/dashboard')
     }
+    if (exitToPreviewHost()) return   // 둘러보기 모달로 복귀 (비카드홈 뷰어)
     // 미션 완료 → 「프로그램으로 이동」으로 들어온 경우: 뒤로가기는 묶음/완료 화면이 아니라 대시보드로
     if (location.state?.fromCompletion) return navigate('/dashboard')
     navigate(-1)

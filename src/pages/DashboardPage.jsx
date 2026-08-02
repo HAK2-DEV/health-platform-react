@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { motion, useInView } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../hooks/useAuth'
@@ -271,10 +271,22 @@ function ColdStartGuide({ onBrowse }) {
 function DashboardPage() {
   const { session } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const userId = session?.user?.id
 
   const [selectedPublicId, setSelectedPublicId] = useState(null)
   const [browseOpen, setBrowseOpen] = useState(false)
+  // 둘러보기 상세에서 뒤로 복귀 — 직전에 열려 있던 공개 프로그램 모달 재오픈(마운트당 1회)
+  const reopenedRef = useRef(false)
+  useEffect(() => {
+    if (reopenedRef.current) return
+    reopenedRef.current = true
+    const rid = location.state?.reopenPreview
+    if (rid) {
+      setSelectedPublicId(rid)
+      navigate(location.pathname, { replace: true, state: null })   // 상태 정리(새로고침·재진입 시 재오픈 방지)
+    }
+  }, [])   // eslint-disable-line react-hooks/exhaustive-deps
   const [showWelcome, setShowWelcome] = useState(false)
   // 대표 카드 모드 토글 (운영중 ⇄ 참여중) — 둘 다 있을 때 스와이프로 전환
   const [viewMode, setViewMode] = useState(() => {

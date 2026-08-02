@@ -1,6 +1,6 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
@@ -283,6 +283,18 @@ function ProgramListPage() {
   const [slide, setSlide] = useState(0)
   const [selectedPublicId, setSelectedPublicId] = useState(null)
   const [browseOpen, setBrowseOpen] = useState(false)
+  // 둘러보기 상세에서 뒤로 복귀 — 직전에 열려 있던 공개 프로그램 모달 재오픈(마운트당 1회)
+  const location = useLocation()
+  const reopenedRef = useRef(false)
+  useEffect(() => {
+    if (reopenedRef.current) return
+    reopenedRef.current = true
+    const rid = location.state?.reopenPreview
+    if (rid) {
+      setSelectedPublicId(rid)
+      navigate(location.pathname + location.search, { replace: true, state: null })
+    }
+  }, [])   // eslint-disable-line react-hooks/exhaustive-deps
 
   // 배너 자동 회전 (둘러보기 탭일 때만)
   useEffect(() => {

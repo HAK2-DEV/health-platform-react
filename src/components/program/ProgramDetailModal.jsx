@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Users, Target, Award, Crown, Lock, ShieldCheck, Globe2, Calendar } from 'lucide-react'
 import Modal from '../common/Modal'
@@ -22,6 +22,7 @@ import ConfirmModal from '../common/ConfirmModal'
 function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
   const { session } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const queryClient = useQueryClient()
   const [participationStatus, setParticipationStatus] = useState('loading')
   const [isJoining, setIsJoining] = useState(false)
@@ -437,11 +438,17 @@ function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
                   </button>
                 )}
 
-                {/* 미리보기 허용 프로그램 — 참여 전 내부 둘러보기(열람 전용) */}
+                {/* 미리보기 허용 프로그램 — 참여 전 내부 둘러보기(열람 전용).
+                    복귀 경로(호스트) + preview id 를 sessionStorage 에 저장 → 상세에서 뒤로 시 이 모달 재오픈.
+                    (탭 전환으로 location.state 가 유실되므로 state 대신 sessionStorage 사용) */}
                 {program.preview_enabled && (
                   <button
                     type="button"
-                    onClick={() => { onClose(); navigate(`/programs/${program.id}`) }}
+                    onClick={() => {
+                      try { sessionStorage.setItem('previewReturn', JSON.stringify({ path: location.pathname + location.search, id: program.id })) } catch { /* 미지원 */ }
+                      onClose()
+                      navigate(`/programs/${program.id}`)
+                    }}
                     className="w-full mt-2 px-4 py-3 bg-white border-2 border-emerald-200 text-emerald-700 font-semibold rounded-2xl hover:bg-emerald-50 transition"
                   >
                     둘러보기
