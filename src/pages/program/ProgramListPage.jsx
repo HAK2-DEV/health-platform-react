@@ -404,8 +404,7 @@ function ProgramListPage() {
         {tab === 'active' && (
           <>
             <div>
-              <h2 className="text-[16px] font-bold text-gray-800">참여 중인 프로그램</h2>
-              <p className="text-sm text-gray-400 mt-0.5">건강한 습관을 만들고 더 나은 나를 만나보세요! 💚</p>
+              <h2 className="text-lg font-bold text-gray-800">참여 중인 프로그램</h2>
             </div>
             {isActiveLoading ? (
               <LoadingState size="sm" />
@@ -437,7 +436,7 @@ function ProgramListPage() {
           <>
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-[16px] font-bold text-gray-800">운영 중인 프로그램</h2>
+                <h2 className="text-lg font-bold text-gray-800">운영 중인 프로그램</h2>
                 <p className="text-sm text-gray-400 mt-0.5">내가 만든 프로그램을 관리해요.</p>
               </div>
               {myPrograms.length > 0 && (
@@ -520,7 +519,7 @@ function ProgramListPage() {
 
             {/* 추천 프로그램 헤더 + 전체 보기 */}
             <div className="flex items-center justify-between">
-              <h2 className="text-[16px] font-bold text-gray-800">추천 프로그램</h2>
+              <h2 className="text-lg font-bold text-gray-800">추천 프로그램</h2>
               <button type="button" onClick={() => setBrowseOpen(true)}
                 className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700">
                 전체 보기<ChevronRight className="w-3.5 h-3.5" />
