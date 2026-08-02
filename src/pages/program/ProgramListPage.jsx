@@ -283,16 +283,18 @@ function ProgramListPage() {
   const [slide, setSlide] = useState(0)
   const [selectedPublicId, setSelectedPublicId] = useState(null)
   const [browseOpen, setBrowseOpen] = useState(false)
-  // 둘러보기 상세에서 뒤로 복귀 — 직전에 열려 있던 공개 프로그램 모달 재오픈(마운트당 1회)
+  // 둘러보기 상세에서 뒤로 복귀 — 직전에 열려 있던 공개 프로그램 모달 재오픈(마운트당 1회).
+  //   인페이지 back = location.state.reopenPreview / 하드웨어 back = ?preview 쿼리 (tab 은 보존)
   const location = useLocation()
   const reopenedRef = useRef(false)
   useEffect(() => {
     if (reopenedRef.current) return
     reopenedRef.current = true
-    const rid = location.state?.reopenPreview
+    const rid = location.state?.reopenPreview || new URLSearchParams(location.search).get('preview')
     if (rid) {
       setSelectedPublicId(rid)
-      navigate(location.pathname + location.search, { replace: true, state: null })
+      const sp = new URLSearchParams(location.search); sp.delete('preview')
+      navigate(location.pathname + (sp.toString() ? `?${sp}` : ''), { replace: true, state: null })
     }
   }, [])   // eslint-disable-line react-hooks/exhaustive-deps
 

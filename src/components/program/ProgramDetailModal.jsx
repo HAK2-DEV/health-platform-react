@@ -445,8 +445,16 @@ function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
                   <button
                     type="button"
                     onClick={() => {
+                      // 인페이지 back(헤더 화살표) 복귀용
                       try { sessionStorage.setItem('previewReturn', JSON.stringify({ path: location.pathname + location.search, id: program.id })) } catch { /* 미지원 */ }
-                      onClose()
+                      // 하드웨어/제스처 back 복귀용 — 현재 엔트리 URL 에 ?preview 를 심어두면, 뒤로 시
+                      //   호스트(대시보드/목록)가 그 URL 로 돌아오며 모달을 재오픈한다. onClose 는 호출하지 않음
+                      //   (호출 시 Modal 히스토리 정리가 이 엔트리를 pop 해버려 복귀가 깨짐).
+                      try {
+                        const url = new URL(window.location.href)
+                        url.searchParams.set('preview', program.id)
+                        window.history.replaceState(window.history.state, '', url)
+                      } catch { /* 무시 */ }
                       navigate(`/programs/${program.id}`)
                     }}
                     className="w-full mt-2 px-4 py-3 bg-white border-2 border-emerald-200 text-emerald-700 font-semibold rounded-2xl hover:bg-emerald-50 transition"

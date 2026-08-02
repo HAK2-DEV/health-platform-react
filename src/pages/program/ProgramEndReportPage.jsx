@@ -38,13 +38,15 @@ const isQuitProgram = (program) => program?.theme === PROGRAM_THEME.QUIT_SMOKING
 //   휴면  — 활동일 0 (참여만 하고 인증 없음)
 // ─── 핵심 진단 — 퍼널의 '가장 큰 이탈' 구간을 병목으로 보고 1문장 진단 + 처방. ───
 //   작은 표본이라 단정 금지: '경향 + 실험 제안' 톤. **…** 는 굵게 표시 마커.
-function buildDiagnosis({ funnel, bottleneck, totalParticipants }) {
+function buildDiagnosis({ funnel, bottleneck, totalParticipants, isQuit = false }) {
   const N = totalParticipants
-  if (N === 0) return { tone: 'neutral', text: '아직 참여자가 없어요. 참여자를 초대하면 여정 분석이 시작돼요.' }
+  const P = isQuit ? '도전자' : '참여자'       // 참여자 → 금연은 도전자
+  const DONE = isQuit ? '금연 성공' : '완주'    // 완주 → 금연은 금연 성공
+  if (N === 0) return { tone: 'neutral', text: `아직 ${P}가 없어요. ${P}를 초대하면 여정 분석이 시작돼요.` }
   const c = (k) => funnel.find(f => f.key === k)?.count ?? 0
   const first = c('first'), ret = c('return'), done = c('done')
   if (!bottleneck) {
-    return { tone: 'positive', text: '참여자 대부분이 큰 이탈 없이 여정을 이어갔어요. 이번 구성을 다음 기수에도 유지해보세요.' }
+    return { tone: 'positive', text: `${P} 대부분이 큰 이탈 없이 여정을 이어갔어요. 이번 구성을 다음 기수에도 유지해보세요.` }
   }
   if (bottleneck.toKey === 'first') {
     return {
@@ -63,13 +65,14 @@ function buildDiagnosis({ funnel, bottleneck, totalParticipants }) {
   // done
   return {
     tone: 'warn',
-    text: `**${ret}명**이 다시 참여했지만 완주까지는 **${done}명**이 이어졌어요. 중반 이후가 병목이었어요.`,
+    text: `**${ret}명**이 다시 참여했지만 ${DONE}까지는 **${done}명**이 이어졌어요. 중반 이후가 병목이었어요.`,
     fix: '기간을 조금 줄이거나, 중반에 응원·보상을 넣어보세요.',
   }
 }
 
 function computeReport(stats, program) {
   if (!stats || !program) return null
+  const isQuit = isQuitProgram(program)   // 금연: 참여자→도전자, 완주→금연 성공
   const userStats = stats.userStats || []
   const bundleStats = stats.bundleStats || []
   const raw = stats._raw || []
@@ -147,7 +150,7 @@ function computeReport(stats, program) {
     { key: 'first', label: '첫 인증 완료', count: activated },
     { key: 'return', label: '이틀 이상 인증', count: returned },
   ]
-  if (threshold && threshold >= 2) funnel.push({ key: 'done', label: `완주 (${threshold}일+)`, count: completedUsers.length })
+  if (threshold && threshold >= 2) funnel.push({ key: 'done', label: `${isQuit ? '금연 성공' : '완주'} (${threshold}일+)`, count: completedUsers.length })
   // 평균 유지일 — 전체 참여자의 활동일 평균(하단 요약용)
   const avgActiveDays = totalParticipants > 0
     ? userStats.reduce((s, u) => s + (u.activeDays || 0), 0) / totalParticipants
@@ -160,7 +163,7 @@ function computeReport(stats, program) {
   }
   const bottleneck = steps.filter(s => s.lost > 0)
     .sort((a, b) => (b.lost - a.lost) || ((b.lost / (b.fromCount || 1)) - (a.lost / (a.fromCount || 1))))[0] || null
-  const diagnosis = buildDiagnosis({ funnel, bottleneck, totalParticipants })
+  const diagnosis = buildDiagnosis({ funnel, bottleneck, totalParticipants, isQuit })
 
   return {
     programDays, threshold,
@@ -1040,12 +1043,13 @@ function ChannelEvaluation({ report, quizStats, community, program }) {
   const [sel, setSel] = useState(channels[0]?.key)
   if (channels.length === 0) return null
 
-  // 팩트 진단 — 판단 없이 현상만
-  const factMission = `미션 ${report.missionPerf.length}개 중 ${activeMissions}개에 인증이 있었고, 참여자 ${total}명 중 ${missionReach}명이 인증했어요.`
+  // 팩트 진단 — 판단 없이 현상만. 금연은 '참여자'→'도전자'
+  const P = isQuit ? '도전자' : '참여자'
+  const factMission = `미션 ${report.missionPerf.length}개 중 ${activeMissions}개에 인증이 있었고, ${P} ${total}명 중 ${missionReach}명이 인증했어요.`
   const factQuiz = quizReach === 0
-    ? `참여자 ${total}명 중 아무도 퀴즈에 응답하지 않았어요.`
-    : `참여자 ${total}명 중 ${quizReach}명이 응답했고, 채점된 답안 ${quizGraded}개 중 ${quizCorrect}개가 정답이었어요${quizCorrectRate != null ? ` (정답률 ${quizCorrectRate}%)` : ''}.`
-  const factComm = `참여자 ${total}명 중 ${commReach}명이 글·댓글·좋아요로 참여했어요. 글 ${community?.participantPosts ?? 0}개, 댓글 ${community?.totalComments ?? 0}개, 좋아요 ${community?.totalLikes ?? 0}회가 올라왔어요.`
+    ? `${P} ${total}명 중 아무도 퀴즈에 응답하지 않았어요.`
+    : `${P} ${total}명 중 ${quizReach}명이 응답했고, 채점된 답안 ${quizGraded}개 중 ${quizCorrect}개가 정답이었어요${quizCorrectRate != null ? ` (정답률 ${quizCorrectRate}%)` : ''}.`
+  const factComm = `${P} ${total}명 중 ${commReach}명이 글·댓글·좋아요로 참여했어요. 글 ${community?.participantPosts ?? 0}개, 댓글 ${community?.totalComments ?? 0}개, 좋아요 ${community?.totalLikes ?? 0}회가 올라왔어요.`
 
   return (
     <div className="space-y-3">

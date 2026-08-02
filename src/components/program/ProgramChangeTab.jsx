@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { TrendingUp, Users, ChevronLeft, ChevronRight } from 'lucide-react'
 import { fetchMyMoodTrend, fetchMyChangeStats, fetchParticipantChangeTrends, formatKstDate } from '../../lib/queries'
 import Modal from '../common/Modal'
+import { Reveal } from './statsAnim'
 
 // 금연 「내 변화」(참가자) / 「참가자 추세」(운영자) 탭.
 //   참가자: 본인 기분/흡연/시간대/욕구 차트.
@@ -165,7 +166,7 @@ export function ChangeCharts({ moods, stats, periodDays = 14 }) {
     <>
     <div className="space-y-[9px]">
       {/* 기분 변화 */}
-      <div className="bg-white rounded-2xl shadow-elevated p-4">
+      <Reveal index={0}><div className="bg-white rounded-2xl shadow-elevated p-4">
         <div className="flex items-center gap-2 mb-1">
           <TrendingUp className="w-4 h-4 text-emerald-600" />
           <h3 className="text-sm font-bold text-gray-800">기분 변화</h3>
@@ -189,10 +190,10 @@ export function ChangeCharts({ moods, stats, periodDays = 14 }) {
             </div>
           </>
         )}
-      </div>
+      </div></Reveal>
 
       {/* 흡연 추세 — 탭 시 상세 */}
-      <div className={`bg-white rounded-2xl shadow-elevated p-4 ${smokeHas ? 'cursor-pointer active:bg-gray-50 transition' : ''}`}
+      <Reveal index={1}><div className={`bg-white rounded-2xl shadow-elevated p-4 ${smokeHas ? 'cursor-pointer active:bg-gray-50 transition' : ''}`}
         role={smokeHas ? 'button' : undefined} onClick={smokeHas ? () => setDetail('smoke') : undefined}>
         <div className="flex items-center gap-2 mb-2">
           <span className="text-base">🚬</span>
@@ -206,10 +207,10 @@ export function ChangeCharts({ moods, stats, periodDays = 14 }) {
               <DailyBars series={cigSeries} firstLabel={firstLabel} lastLabel={lastLabel} />
               <p className="text-[11px] text-gray-400 text-center mt-2">탭하면 정확한 개비 수를 봐요</p>
             </>}
-      </div>
+      </div></Reveal>
 
       {/* 자주 피는 시간대 — 탭 시 상세 */}
-      <div className={`bg-white rounded-2xl shadow-elevated p-4 ${smokeHourHas ? 'cursor-pointer active:bg-gray-50 transition' : ''}`}
+      <Reveal index={2}><div className={`bg-white rounded-2xl shadow-elevated p-4 ${smokeHourHas ? 'cursor-pointer active:bg-gray-50 transition' : ''}`}
         role={smokeHourHas ? 'button' : undefined} onClick={smokeHourHas ? () => setDetail('smokeHour') : undefined}>
         <div className="flex items-center gap-2 mb-2">
           <span className="text-base">⏰</span>
@@ -219,10 +220,10 @@ export function ChangeCharts({ moods, stats, periodDays = 14 }) {
         {smokeHourHas
           ? <HourlyChart data={stats.smokeHourHist} color="#fb923c" />
           : <p className="text-[13px] text-gray-500 py-6 text-center">흡연 기록에 「핀 시각」을 적으면 시간대 패턴이 보여요.</p>}
-      </div>
+      </div></Reveal>
 
       {/* 욕구가 강한 시간대 — 탭 시 상세 */}
-      <div className={`bg-white rounded-2xl shadow-elevated p-4 ${cravingHas ? 'cursor-pointer active:bg-gray-50 transition' : ''}`}
+      <Reveal index={3}><div className={`bg-white rounded-2xl shadow-elevated p-4 ${cravingHas ? 'cursor-pointer active:bg-gray-50 transition' : ''}`}
         role={cravingHas ? 'button' : undefined} onClick={cravingHas ? () => setDetail('craving') : undefined}>
         <div className="flex items-center gap-2 mb-2">
           <span className="text-base">🔥</span>
@@ -233,10 +234,10 @@ export function ChangeCharts({ moods, stats, periodDays = 14 }) {
           ? <><HourlyChart data={stats.cravingHourHist} color="#f87171" />
               <p className="text-[11px] text-gray-400 text-center mt-2">탭하면 시각·요인·흡연량을 함께 봐요</p></>
           : <p className="text-[13px] text-gray-500 py-6 text-center">「흡연 욕구가 올라온 순간」을 기록하면 시간대가 보여요.</p>}
-      </div>
+      </div></Reveal>
 
       {/* 흡연 욕구 요인 — 참가자가 적은 내용 */}
-      <div className="bg-white rounded-2xl shadow-elevated p-4">
+      <Reveal index={4}><div className="bg-white rounded-2xl shadow-elevated p-4">
         <div className="flex items-center gap-2 mb-2">
           <span className="text-base">💭</span>
           <h3 className="text-sm font-bold text-gray-800">흡연 욕구 요인</h3>
@@ -262,7 +263,7 @@ export function ChangeCharts({ moods, stats, periodDays = 14 }) {
             )}
           </>
         )}
-      </div>
+      </div></Reveal>
     </div>
 
     {/* 카드 탭 → 상세 분석 시트 */}

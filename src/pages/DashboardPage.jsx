@@ -277,15 +277,16 @@ function DashboardPage() {
 
   const [selectedPublicId, setSelectedPublicId] = useState(null)
   const [browseOpen, setBrowseOpen] = useState(false)
-  // 둘러보기 상세에서 뒤로 복귀 — 직전에 열려 있던 공개 프로그램 모달 재오픈(마운트당 1회)
+  // 둘러보기 상세에서 뒤로 복귀 — 직전에 열려 있던 공개 프로그램 모달 재오픈(마운트당 1회).
+  //   인페이지 back = location.state.reopenPreview / 하드웨어 back = ?preview 쿼리
   const reopenedRef = useRef(false)
   useEffect(() => {
     if (reopenedRef.current) return
     reopenedRef.current = true
-    const rid = location.state?.reopenPreview
+    const rid = location.state?.reopenPreview || new URLSearchParams(location.search).get('preview')
     if (rid) {
       setSelectedPublicId(rid)
-      navigate(location.pathname, { replace: true, state: null })   // 상태 정리(새로고침·재진입 시 재오픈 방지)
+      navigate(location.pathname, { replace: true, state: null })   // 상태·쿼리 정리(새로고침·재진입 시 재오픈 방지)
     }
   }, [])   // eslint-disable-line react-hooks/exhaustive-deps
   const [showWelcome, setShowWelcome] = useState(false)
