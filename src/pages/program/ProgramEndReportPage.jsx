@@ -28,6 +28,10 @@ import { exportEndReportXlsx } from '../../lib/reportExport'
 
 const DAY_MS = 86_400_000
 
+// 금연 프로그램 판정 — 특수 카드홈 테마(QUIT_SMOKING) + 카테고리 금연(NO_SMOKING).
+//   리포트 용어를 금연 맥락(도전자·금연 성공률·금연 성공 비율)으로 바꾸는 데 사용.
+const isQuitProgram = (program) => program?.theme === PROGRAM_THEME.QUIT_SMOKING || (program?.categories || []).includes('NO_SMOKING')
+
 // 완주 3구간 (결정 B 고정 기준):
 //   완주  — 활동일 ≥ 프로그램 기간의 50%
 //   참여  — 활동일 ≥ 1 (완주 미만)
@@ -232,9 +236,8 @@ function ProgramEndReportPage() {
     enabled: !!session && !!id && isOwner && isRunning,
   })
 
-  // 금연 프로그램 — 인증왕/개근왕(금연 목표와 무관)을 시상에서 제외.
-  //   특수 카드홈 테마(QUIT_SMOKING)뿐 아니라 카테고리가 금연(NO_SMOKING)인 일반 프로그램도 포함.
-  const isQuit = program?.theme === PROGRAM_THEME.QUIT_SMOKING || (program?.categories || []).includes('NO_SMOKING')
+  // 금연 프로그램 — 시상에서 인증왕/개근왕 제외 + 용어(도전자·금연 성공률 등) 변경
+  const isQuit = isQuitProgram(program)
 
   // 클래스 결과 — 클래스(강사 세션) 기능 활성 프로그램만
   const { data: classStats } = useQuery({
@@ -316,12 +319,12 @@ function ProgramEndReportPage() {
           {/* ─── 핵심 3지표 ─── */}
           <Reveal index={2}>
           <div className="grid grid-cols-3 gap-3">
-            {/* 참여자 → 참여자 명단 / 누적 인증 → 미션별 인증 현황(유저 내역 포함) */}
-            <StatTile src="/icons/report/participants.png" emoji="👥" label="참여자" value={report.totalParticipants} unit="명"
+            {/* 참여자 → 참여자 명단 / 누적 인증 → 미션별 인증 현황(유저 내역 포함). 금연은 '도전자'·'금연 성공률' */}
+            <StatTile src="/icons/report/participants.png" emoji="👥" label={isQuit ? '도전자' : '참여자'} value={report.totalParticipants} unit="명"
               onClick={() => navigate(`/programs/${id}/stats/users`)} />
             <StatTile src="/icons/report/verifications.png" emoji="📋" label="누적 인증" value={report.totalVerifications} unit="건"
               onClick={() => navigate(`/programs/${id}/stats/missions`)} />
-            <StatTile src="/icons/report/completion.png" emoji="🏆" label="완주율" value={report.completionRate ?? 0} unit={report.completionRate == null ? '' : '%'} dim={report.completionRate == null} />
+            <StatTile src="/icons/report/completion.png" emoji="🏆" label={isQuit ? '금연 성공률' : '완주율'} value={report.completionRate ?? 0} unit={report.completionRate == null ? '' : '%'} dim={report.completionRate == null} />
           </div>
           </Reveal>
 
@@ -491,14 +494,14 @@ function JourneyCard({ report }) {
 }
 
 // ─── 미션 완주 분포(본문) — 도넛(통계 「참여자 상태」와 통일) + 범례 탭 → 실제 명단. 카드 없이 미션 상세 안 서브섹션으로. ───
-function CompletionBody({ report }) {
+function CompletionBody({ report, isQuit = false }) {
   const { completedUsers, participatedUsers, dormantUsers, totalParticipants, threshold } = report
   const [open, setOpen] = useState(completedUsers.length > 0 ? 'c' : null)
   const total = totalParticipants || 0
   const pct = (n) => (total > 0 ? Math.round((n / total) * 100) : 0)
-  // 참여도 emerald 그라데이션 — 참여자 상태 위젯과 동일 (완주=진한 / 참여=연한 / 휴면=그레이)
+  // 참여도 emerald 그라데이션 — 참여자 상태 위젯과 동일 (완주=진한 / 참여=연한 / 휴면=그레이). 금연은 완주→금연 성공.
   const segs = [
-    { key: 'c', label: '완주', users: completedUsers, hex: '#10b981', desc: threshold ? `${threshold}일+ 활동` : '기준 활동' },
+    { key: 'c', label: isQuit ? '금연 성공' : '완주', users: completedUsers, hex: '#10b981', desc: threshold ? `${threshold}일+ 활동` : '기준 활동' },
     { key: 'p', label: '참여', users: participatedUsers, hex: '#6ee7b7', desc: '1일+ 인증' },
     { key: 'd', label: '휴면', users: dormantUsers, hex: '#c3cac5', desc: '인증 없음' },
   ]
@@ -575,7 +578,7 @@ function DiagnosisNote({ text }) {
 }
 
 // ─── 미션 상세 — 미션별 참여율 막대 + 유지/삭제 후보 배지. 기본 3개, 나머지는 펼치기. ───
-function MissionsCard({ report, diagnosis }) {
+function MissionsCard({ report, diagnosis, isQuit = false }) {
   const { missionPerf, totalParticipants, trend, peakDay } = report
   const [showAll, setShowAll] = useState(false)
   const LIMIT = 3
@@ -675,13 +678,13 @@ function MissionsCard({ report, diagnosis }) {
         </button>
       )}
 
-      {/* 완주 분포 — 미션 인증 기준(activeDays). 미션 영역 안 서브섹션 */}
+      {/* 완주 분포 — 미션 인증 기준(activeDays). 금연은 '금연 성공 비율'. 미션 영역 안 서브섹션 */}
       <div className="mt-5 pt-4" style={{ borderTop: '1px solid #eef0ef' }}>
         <div className="flex items-center gap-2 mb-3">
-          <h4 style={{ fontSize: 13.5, fontWeight: 700, color: '#23282b' }}>완주 분포</h4>
+          <h4 style={{ fontSize: 13.5, fontWeight: 700, color: '#23282b' }}>{isQuit ? '금연 성공 비율' : '완주 분포'}</h4>
           <span className="text-[11px] text-gray-400 ml-auto">총 {totalParticipants}명 · 탭해서 명단</span>
         </div>
-        <CompletionBody report={report} />
+        <CompletionBody report={report} isQuit={isQuit} />
       </div>
 
       {/* 전체 기간 인증 추이 — 미션(인증) 활동이므로 미션 상세 안에 */}
@@ -764,13 +767,13 @@ function AwardsCard({ report, perUser, raw = [], reportGroups = [], hasQuiz, has
         <h3 className="text-base font-bold text-gray-900">시상 · 랭킹</h3>
         <span className="text-[11px] text-gray-400 ml-auto">상품 지급 기준</span>
       </div>
-      <p className="text-[11.5px] text-gray-500 mb-4">부문별 1~3위와 완주자예요. 동점은 괄호 기준으로 갈랐어요.</p>
+      <p className="text-[11.5px] text-gray-500 mb-4">부문별 1~3위와 {isQuit ? '금연 성공자' : '완주자'}예요. 동점은 괄호 기준으로 갈랐어요.</p>
 
       {/* 완주자(참가상) */}
       <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 mb-4" style={{ background: '#f1f6f3' }}>
         <span style={{ fontSize: 17 }}>🎗️</span>
         <div className="flex-1 min-w-0">
-          <p style={{ fontSize: 13, fontWeight: 700, color: '#0f5c3f' }}>완주자 {report.completedUsers.length}명 · 참가상 대상</p>
+          <p style={{ fontSize: 13, fontWeight: 700, color: '#0f5c3f' }}>{isQuit ? '금연 성공자' : '완주자'} {report.completedUsers.length}명 · 참가상 대상</p>
           <p style={{ fontSize: 11, color: '#4b7a63' }}>{report.threshold ? `${report.threshold}일 이상 활동` : '기준 활동'} 달성</p>
         </div>
       </div>
@@ -1009,6 +1012,7 @@ function CommunityCard({ community, total, neverCount, programDays, diagnosis })
 
 // ─── 영역별 평가 — 미션·퀴즈·커뮤니티(활성화된 채널만) 스코어카드 + 선택 채널 상세 ───
 function ChannelEvaluation({ report, quizStats, community, program }) {
+  const isQuit = isQuitProgram(program)
   const total = report.totalParticipants || 0
   // 미션 도달 = 인증 1건 이상 참여자(= 퍼널 첫인증)
   const missionReach = report.funnel.find(f => f.key === 'first')?.count || 0
@@ -1076,7 +1080,7 @@ function ChannelEvaluation({ report, quizStats, community, program }) {
       </div>
 
       {/* 선택 채널 상세 */}
-      {sel === 'mission' && <MissionsCard report={report} diagnosis={factMission} />}
+      {sel === 'mission' && <MissionsCard report={report} diagnosis={factMission} isQuit={isQuit} />}
       {sel === 'quiz' && <QuizPerformanceCard quizzes={quizStats} total={total} diagnosis={factQuiz} />}
       {sel === 'community' && <CommunityCard community={community} total={total} neverCount={neverCount} programDays={report.programDays} diagnosis={factComm} />}
     </div>
