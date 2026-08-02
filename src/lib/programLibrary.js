@@ -88,7 +88,7 @@ export const PROGRAM_PRESETS = [
         numeric_required: true, note_required: false,
         // 흡연 개비 + 핀 시각(시, 0~23) — 핀 시각은 「내 변화」 흡연 시간대 패턴 차트 데이터(슬라이스 3)
         metrics: [
-          { key: 'cigarettes', label: '흡연 개비', unit: '개비', max: 100, icon: '🚬', allowZero: true },
+          { key: 'cigarettes', label: '오늘 핀 담배 개수', unit: '개비', max: 100, icon: '🚬', allowZero: true },
           { key: 'smoke_hour', label: '핀 시각', icon: '⏰', inputFormat: 'clock_multi', allowZero: true },
         ],
         metric_aggregate: true,           // 누적 흡연량 추적
