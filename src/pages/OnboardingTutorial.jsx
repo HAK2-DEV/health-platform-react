@@ -132,7 +132,7 @@ export default function OnboardingTutorial() {
                 <div className="ob-rsframe">
                   <img className="ob-rs" src={IOS[scene].src} alt="" />
                   <div className="ob-spot" style={IOS[scene].spot} />
-                  <span className="ob-finger" style={IOS[scene].fin}>👆</span>
+                  <img className="ob-finger" src="/icons/onboarding/tap.png" style={IOS[scene].fin} alt="" />
                 </div>
                 <div className="ob-caption" dangerouslySetInnerHTML={{ __html: IOS[scene].cap }} />
                 <div className="ob-dots">{IOS.map((_, i) => <i key={i} className={i === scene ? 'on' : ''} onClick={() => setScene(i)} />)}</div>
@@ -185,10 +185,10 @@ export default function OnboardingTutorial() {
               <h1 className="ob-h1">어떤 설명을 <span className="hl">들어볼까요?</span></h1>
               <p className="ob-lead">듣고 싶은 설명을 골라주세요. <b style={{ color: 'var(--ob-ink)' }}>둘 다 볼 수 있어요.</b></p>
               <div style={{ flex: 1, marginTop: 20 }}>
-                {[['p', '🙋', '참여자 사용법', '프로그램 찾기 · 미션 인증 · 응원 · 성장까지'],
-                  ['o', '🧑‍🏫', '운영자 사용법', '프로그램 만들기 · 초대 · 운영 · 리포트까지']].map(([r, emo, h, p]) => (
+                {[['p', '/icons/onboarding/join.png', '🙋', '참여자 사용법', '프로그램 찾기 · 미션 인증 · 응원 · 성장까지'],
+                  ['o', '/icons/onboarding/invite.png', '🧑‍🏫', '운영자 사용법', '프로그램 만들기 · 초대 · 운영 · 리포트까지']].map(([r, ic, emo, h, p]) => (
                   <button className={`ob-role ${r}`} key={r} onClick={() => pickRole(r)}>
-                    <span className="emo">{emo}</span>
+                    <span className="emo"><Ic3D src={ic} emo={emo} size={40} /></span>
                     <div><h3>{h}</h3><p>{p}</p></div>
                     {seen[r]
                       ? <span className="seen">✓ 봤어요</span>
@@ -245,10 +245,10 @@ export default function OnboardingTutorial() {
 }
 
 // 3D 아이콘 + 이모지 폴백
-function Ic3D({ src, emo }) {
+function Ic3D({ src, emo, size = 32 }) {
   const [err, setErr] = useState(false)
-  if (err) return <span style={{ fontSize: 24 }}>{emo}</span>
-  return <img src={src} alt="" onError={() => setErr(true)} style={{ width: 32, height: 32, objectFit: 'contain' }} />
+  if (err) return <span style={{ fontSize: Math.round(size * 0.72) }}>{emo}</span>
+  return <img src={src} alt="" onError={() => setErr(true)} style={{ width: size, height: size, objectFit: 'contain' }} />
 }
 
 const STYLE = `
@@ -289,8 +289,8 @@ const STYLE = `
 #ob-root .ob-rs{width:100%;height:100%;object-fit:cover;display:block}
 #ob-root .ob-spot{position:absolute;border-radius:10px;box-shadow:0 0 0 3px var(--ob-green-br),0 0 0 8px color-mix(in srgb,var(--ob-green-br) 30%,transparent);animation:obhalo 1.5s ease-in-out infinite;z-index:3}
 @keyframes obhalo{0%,100%{box-shadow:0 0 0 3px var(--ob-green-br),0 0 0 8px color-mix(in srgb,var(--ob-green-br) 35%,transparent)}50%{box-shadow:0 0 0 3px var(--ob-green-br),0 0 0 13px color-mix(in srgb,var(--ob-green-br) 8%,transparent)}}
-#ob-root .ob-finger{position:absolute;z-index:4;font-size:28px;filter:drop-shadow(0 4px 5px rgba(0,0,0,.4));animation:obtap 1.5s ease-in-out infinite;pointer-events:none}
-@keyframes obtap{0%,100%{transform:translateY(3px) rotate(-8deg)}50%{transform:translateY(-5px) rotate(-8deg)}}
+#ob-root .ob-finger{position:absolute;z-index:4;width:44px;height:44px;object-fit:contain;filter:drop-shadow(0 5px 6px rgba(0,0,0,.35));animation:obtap 1.5s ease-in-out infinite;pointer-events:none}
+@keyframes obtap{0%,100%{transform:translateY(4px)}50%{transform:translateY(-5px)}}
 #ob-root .ob-caption{margin-top:15px;text-align:center;font-size:15px;line-height:1.55;font-weight:600;min-height:42px}
 #ob-root .ob-caption b{color:var(--ob-green);font-weight:800}
 #ob-root .ob-dots{display:flex;gap:7px;justify-content:center;margin-top:8px}
