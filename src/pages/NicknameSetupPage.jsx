@@ -61,7 +61,7 @@ const handleSubmit = async (e) => {
     if (updateError) throw updateError
     
     await refreshNickname()
-    navigate('/')
+    navigate('/onboarding')   // 새 계정 → 온보딩 튜토리얼(가입 직후 1회)
   } catch (err) {
     console.error('닉네임 저장 실패:', err)
     setError(err.message)

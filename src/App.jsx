@@ -22,6 +22,7 @@ const LoginPage = lazy(() => import('./pages/LoginPage'))
 const SignupPage = lazy(() => import('./pages/SignupPage'))
 const NicknameSetupPage = lazy(() => import('./pages/NicknameSetupPage'))
 const DashboardPage = lazy(() => import('./pages/DashboardPage'))
+const OnboardingTutorial = lazy(() => import('./pages/OnboardingTutorial'))
 const ProgramNewPage = lazy(() => import('./pages/program/ProgramNewPage'))
 const ProgramDetailPage = lazy(() => import('./pages/program/ProgramDetailPage'))
 const BundleDetailPage = lazy(() => import('./pages/program/BundleDetailPage'))
@@ -143,6 +144,9 @@ function AppShell() {
             } />
             <Route path="/dashboard" element={
               <ProtectedRoute><DashboardPage /></ProtectedRoute>
+            } />
+            <Route path="/onboarding" element={
+              <ProtectedRoute><OnboardingTutorial /></ProtectedRoute>
             } />
             <Route path="/admin/screen-stats" element={
               <ProtectedRoute><AdminScreenStatsPage /></ProtectedRoute>

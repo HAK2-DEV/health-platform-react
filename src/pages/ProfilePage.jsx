@@ -444,6 +444,13 @@ function ProfilePage() {
         title="내 기록"
         onClick={() => navigate('/profile/activity')}
       /></Reveal>
+      <Reveal index={1}><ProfileMenuItem
+        tone="emerald"
+        icon={<BookOpen className="w-5 h-5" />}
+        title="사용법 다시보기"
+        description="설치·참여·운영 튜토리얼을 다시 봐요"
+        onClick={() => navigate('/onboarding?replay=1')}
+      /></Reveal>
       {/* 운영자 가이드 — UI 대폭 변경으로 내용 갱신 필요, 임시 숨김 (2026-06-22).
           개편 후 복구 예정. 라우트(/operator-guide)와 OperatorGuidePage 는 유지. */}
       {/* <ProfileMenuItem
