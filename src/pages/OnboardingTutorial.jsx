@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 // 회원가입 직후 온보딩 튜토리얼 (마이페이지 「사용법 다시보기」로도 진입).
 //   흐름: 환영 → 앱 소개 → 홈 화면 설치(실제 스샷+스포트라이트) → 알림 → 설명 선택 → 역할별 여정 → 마무리
@@ -8,31 +8,31 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 
 const IOS = [
   { src: '/onboarding/ios/1-inapp.png', cap: '카톡·인스타 등에서 열었다면, 먼저 <b>브라우저에서 열기</b>를 눌러 Safari로 나가요',
-    spot: { left: '52%', top: '11.5%', width: '44%', height: '5%' }, fin: { left: '72%', top: '17%' } },
+    spot: { left: '55%', top: '14.2%', width: '37%', height: '4.2%' }, fin: { left: '47%', top: '9%' } },
   { src: '/onboarding/ios/2-share.png', cap: '메뉴에서 <b>공유</b>를 눌러요',
-    spot: { left: '25%', top: '55.5%', width: '64%', height: '5.5%' }, fin: { left: '30%', top: '61%' } },
+    spot: { left: '30%', top: '49.8%', width: '66%', height: '5.4%' }, fin: { left: '31%', top: '45%' } },
   { src: '/onboarding/ios/3-add-2.png', cap: '조금 내려서 <b>홈 화면에 추가</b>를 눌러요',
-    spot: { left: '4%', top: '47.5%', width: '92%', height: '6%' }, fin: { left: '20%', top: '54%' } },
+    spot: { left: '4%', top: '61.5%', width: '92%', height: '5.4%' }, fin: { left: '20%', top: '57%' } },
   { src: '/onboarding/ios/4-confirm.png', cap: '오른쪽 위 <b>추가</b>를 누르면 완료! 🎉 홈 화면에 도담 아이콘이 생겨요',
-    spot: { left: '76%', top: '7%', width: '20%', height: '4.5%' }, fin: { left: '78%', top: '12.5%' } },
+    spot: { left: '78%', top: '10.3%', width: '18%', height: '4.4%' }, fin: { left: '73%', top: '5%' } },
 ]
 
 const JOURNEY = {
   p: { badge: '참여자', cls: 'p', title: '건강 습관, 이렇게 만들어요',
     steps: [
-      { st: 'STEP 1', pv: 'p_find', h: '프로그램 찾기', p: '하단 <b>프로그램</b> 탭 →「둘러보기」에서 관심 카테고리로 찾아요. 초대 코드가 있으면 코드로 바로 참여!' },
-      { st: 'STEP 2', pv: 'p_join', h: '참여하기', p: '카드를 눌러 상세를 보고「참여하기」. 공개 프로그램은 참여 전 <b>둘러보기</b>도 돼요.' },
-      { st: 'STEP 3', pv: 'p_verify', h: '미션 인증', p: '오늘의 미션을 골라 <b>사진·기록</b>으로 인증. 자동 승인 또는 운영자 심사로 포인트!' },
-      { st: 'STEP 4', pv: 'p_cheer', h: '응원 주고받기', p: '응원 탭에서 서로의 인증에 <b>응원·좋아요</b>를 남겨요.' },
-      { st: 'STEP 5', pv: 'p_grow', h: '성장 확인', p: '성장 탭에서 <b>연속 인증·포인트·랭킹</b>과 내 변화를 한눈에.' },
+      { st: 'STEP 1', pv: 'p_find', imgs: ['/onboarding/journey/p-browse1.png', '/onboarding/journey/p-browse2.png'], h: '프로그램 찾기', p: '하단 <b>프로그램</b> 탭 →「둘러보기」에서 관심 카테고리로 찾아요. 초대 코드가 있으면 코드로 바로 참여!' },
+      { st: 'STEP 2', pv: 'p_join', imgs: ['/onboarding/journey/p2-detail.png'], h: '참여하기', p: '카드를 눌러 상세를 보고「참여하기」. 공개 프로그램은 참여 전 <b>둘러보기</b>도 돼요.' },
+      { st: 'STEP 3', pv: 'p_verify', video: '/onboarding/journey/p3-verify.mp4', h: '미션 인증', p: '오늘의 미션을 골라 <b>사진·기록</b>으로 인증. 자동 승인 또는 운영자 심사로 포인트!' },
+      { st: 'STEP 4', pv: 'p_cheer', imgs: ['/onboarding/journey/p4-cheer.png'], h: '응원 주고받기', p: '응원 탭에서 서로의 인증에 <b>응원·좋아요</b>를 남겨요.' },
+      { st: 'STEP 5', pv: 'p_grow', imgs: ['/onboarding/journey/p5-growth.png'], h: '성장 확인', p: '성장 탭에서 <b>연속 인증·포인트·랭킹</b>과 내 변화를 한눈에.' },
     ], tab: '화면 맨 아래 <b>탭바</b> — 🏠 대시보드 · 🚩 프로그램 · ＋ 기록 · 🌿 성장 · 👤 마이', mini: '🏠🚩🌿👤' },
   o: { badge: '운영자', cls: 'o', title: '프로그램, 이렇게 운영해요',
     steps: [
-      { st: 'STEP 1', pv: 'o_create', h: '프로그램 만들기', p: '하단 가운데 <b>＋</b> → 마법사로 이름·기간·카테고리 설정. <b>프리셋</b>이면 4분 완성!' },
-      { st: 'STEP 2', pv: 'o_mission', h: '미션·퀴즈 구성', p: '매일 인증할 <b>미션</b>과 <b>퀴즈</b>를 추가. 점수·인증 방식(자동/심사)을 정해요.' },
-      { st: 'STEP 3', pv: 'o_invite', h: '참여자 초대', p: '<b>코드·링크·카카오톡</b>으로 초대. 공개로 두면 둘러보기에 노출돼요.' },
+      { st: 'STEP 1', pv: 'o_create', imgs: ['/onboarding/journey/o1-create1.png', '/onboarding/journey/o1-create2.png', '/onboarding/journey/o1-create3.png'], h: '프로그램 만들기', p: '하단 가운데 <b>＋</b> → 마법사로 이름·기간·카테고리 설정. <b>프리셋</b>이면 4분 완성!' },
+      { st: 'STEP 2', pv: 'o_mission', imgs: ['/onboarding/journey/o2-mission.png'], h: '미션·퀴즈 구성', p: '매일 인증할 <b>미션</b>과 <b>퀴즈</b>를 추가. 점수·인증 방식(자동/심사)을 정해요.' },
+      { st: 'STEP 3', pv: 'o_invite', imgs: ['/onboarding/journey/o3-invite1.png', '/onboarding/journey/o3-invite2.png'], h: '참여자 초대', p: '<b>코드·링크·카카오톡</b>으로 초대. 공개로 두면 둘러보기에 노출돼요.' },
       { st: 'STEP 4', pv: 'o_manage', h: '운영하기', p: '인증 <b>승인</b>·공지·신고 처리를 한 화면에서. 실시간 참여 현황 확인.' },
-      { st: 'STEP 5', pv: 'o_report', h: '통계·종료 리포트', p: '참여율·미션 성과·랭킹을 <b>통계</b>로. 종료 시 완주율·<b>여정 퍼널</b> 리포트까지!' },
+      { st: 'STEP 5', pv: 'o_report', imgs: ['/onboarding/journey/o5-report1.png', '/onboarding/journey/o5-report2.png'], h: '통계·종료 리포트', p: '참여율·미션 성과·랭킹을 <b>통계</b>로. 종료 시 완주율·<b>여정 퍼널</b> 리포트까지!' },
     ], tab: '상단 <b>⚙️ 운영자 메뉴</b>에서 미션·퀴즈·공지·통계·초대에 바로 접근', mini: '⚙️' },
 }
 
@@ -50,21 +50,19 @@ const PREV = {
   o_report: `<div class="pv">${SB}<div class="pvh amber">📊 종료 리포트</div><div class="pvbd"><div class="pvrow" style="gap:4px"><div class="pvstat a"><b>60%</b><span>금연 성공률</span></div><div class="pvstat"><b>30</b><span>도전자</span></div></div><div class="pvlbl" style="color:#8a6d1b">참여 여정</div><div class="pvcard"><div class="pvrow" style="margin-bottom:3px"><span class="pvmeta" style="width:24px">가입</span><div class="pvln g" style="flex:1;height:6px;width:100%"></div><span class="pvmeta">30</span></div><div class="pvrow" style="margin-bottom:3px"><span class="pvmeta" style="width:24px">첫인증</span><div class="pvln g" style="flex:1;height:6px;width:70%"></div><span class="pvmeta">21</span></div><div class="pvrow" style="margin:0"><span class="pvmeta" style="width:24px">성공</span><div class="pvln g" style="flex:1;height:6px;width:50%"></div><span class="pvmeta">18</span></div></div></div></div>`,
 }
 
-const LOGO = <svg viewBox="0 0 48 48" fill="none" width="60" height="60"><path d="M24 42V22" stroke="#fff" strokeWidth="3.2" strokeLinecap="round" /><path d="M24 27C24 19 30 12 40 11C40 20 34 27 24 27Z" fill="#fff" /><path d="M24 31C24 24 18 18 9 18C9 26 15 31 24 31Z" fill="#DFF3E7" /></svg>
 
 export default function OnboardingTutorial() {
   const navigate = useNavigate()
-  const [sp] = useSearchParams()
-  const replay = sp.get('replay') === '1'
   const TOTAL = 7
   const [step, setStep] = useState(0)
   const [role, setRole] = useState(null)
   const [scene, setScene] = useState(0)
+  const [jStep, setJStep] = useState(0)
   const [seen, setSeen] = useState({ p: false, o: false })
   const [notifOn, setNotifOn] = useState(false)
   const [ringing, setRinging] = useState(false)
 
-  const go = (n) => { setStep(Math.max(0, Math.min(TOTAL - 1, n))); setScene(0); window.scrollTo(0, 0) }
+  const go = (n) => { setStep(Math.max(0, Math.min(TOTAL - 1, n))); setScene(0); setJStep(0); window.scrollTo(0, 0) }
   const finish = (dest) => { try { localStorage.setItem('onboarding-done', '1') } catch { /* 무시 */ } navigate(dest) }
 
   const allowNotif = () => {
@@ -81,13 +79,10 @@ export default function OnboardingTutorial() {
       <style>{STYLE}</style>
       <div className="ob-app">
         <div className="ob-top">
-          <button className="ob-back" hidden={step === 0} onClick={() => go(step === 5 ? 4 : step - 1)} aria-label="뒤로">
+          <button className="ob-back" hidden={step === 0} onClick={() => { if (step === 5 && jStep > 0) setJStep((x) => x - 1); else go(step === 5 ? 4 : step - 1) }} aria-label="뒤로">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
           </button>
           <div className="ob-bar"><i style={{ width: `${(step + 1) / TOTAL * 100}%` }} /></div>
-          {step <= 3
-            ? <button className="ob-skip" onClick={() => go(4)}>건너뛰기</button>
-            : <button className="ob-skip" onClick={() => finish('/dashboard')}>{replay ? '닫기' : '건너뛰기'}</button>}
         </div>
 
         <div className="ob-stage">
@@ -95,9 +90,9 @@ export default function OnboardingTutorial() {
           {step === 0 && (
             <section className="ob-screen">
               <div className="ob-center">
-                <div className="ob-hero">{LOGO}</div>
+                <div className="ob-hero"><img className="ob-heroimg" src="/app-icon.png" alt="도담" /></div>
                 <h1 className="ob-h1">건강, <span className="hl">함께</span> 시작해요</h1>
-                <div className="ob-tag">🌱 운영은 쉽게, 건강은 단단하게</div>
+                <div className="ob-tag">운영은 쉽게, 건강은 단단하게</div>
                 <p className="ob-lead" style={{ maxWidth: 300 }}>건강 프로그램을 함께 만들고 참여하는 곳.<br />2분이면 준비가 끝나요.</p>
               </div>
               <div className="ob-foot"><button className="ob-cta" onClick={() => go(1)}>시작하기 →</button></div>
@@ -126,23 +121,26 @@ export default function OnboardingTutorial() {
           {/* 2 install */}
           {step === 2 && (
             <section className="ob-screen">
-              <div className="ob-eyebrow">홈 화면에 설치 <span style={{ color: 'var(--ob-faint)', fontWeight: 600 }}>· 1분이면 끝</span></div>
-              <h1 className="ob-h1">도담을 <span className="hl">앱처럼</span> 열어요</h1>
+              <div className="ob-eyebrow" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                <span>홈 화면에 설치 <span style={{ color: 'var(--ob-faint)', fontWeight: 600 }}>· 1분이면 끝</span></span>
+                <button className="ob-skip" style={{ textTransform: 'none', letterSpacing: 0 }} onClick={() => go(3)}>{scene === IOS.length - 1 ? '설치 완료 · 다음' : '설치했어요 · 건너뛰기'}</button>
+              </div>
               <div className="ob-scene">
-                <div className="ob-rsframe">
-                  <img className="ob-rs" src={IOS[scene].src} alt="" />
-                  <div className="ob-spot" style={IOS[scene].spot} />
-                  <img className="ob-finger" src="/icons/onboarding/tap.png" style={IOS[scene].fin} alt="" />
+                <div className="ob-phonerow tight">
+                  <button className="ob-arrow" disabled={scene === 0} onClick={() => setScene(Math.max(0, scene - 1))} aria-label="이전">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
+                  </button>
+                  <div className="ob-rsframe">
+                    <img className="ob-rs" src={IOS[scene].src} alt="" />
+                    <div className="ob-spot" style={IOS[scene].spot} />
+                    <img className="ob-finger" src="/icons/onboarding/tap.png" style={IOS[scene].fin} alt="" />
+                  </div>
+                  <button className="ob-arrow prim" onClick={() => scene === IOS.length - 1 ? go(3) : setScene(scene + 1)} aria-label="다음">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg>
+                  </button>
                 </div>
                 <div className="ob-caption" dangerouslySetInnerHTML={{ __html: IOS[scene].cap }} />
                 <div className="ob-dots">{IOS.map((_, i) => <i key={i} className={i === scene ? 'on' : ''} onClick={() => setScene(i)} />)}</div>
-              </div>
-              <div className="ob-foot">
-                <div className="ob-scenenav">
-                  <button disabled={scene === 0} onClick={() => setScene(Math.max(0, scene - 1))}>‹ 이전</button>
-                  <button className="prim" onClick={() => scene === IOS.length - 1 ? go(3) : setScene(scene + 1)}>{scene === IOS.length - 1 ? '설치 끝! 다음 →' : '다음 단계 ›'}</button>
-                </div>
-                <button className="ob-cta ghost" style={{ marginTop: 9 }} onClick={() => go(3)}>설치했어요 · 건너뛰기</button>
               </div>
             </section>
           )}
@@ -155,12 +153,14 @@ export default function OnboardingTutorial() {
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                 {!notifOn ? (
                   <div>
-                    <div className={`ob-bell${ringing ? ' ring' : ''}`}><span className="ob-wave" /><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg></div>
+                    <div className={`ob-bell${ringing ? ' ring' : ''}`}><span className="ob-wave" /><Ic3D src="/icons/feature/bell.png" emo="🔔" size={54} /></div>
                     <div className="ob-perklist">
-                      <div className="ob-perk"><span className="k">🌱</span> 새로운 미션·퀴즈·클래스 소식을 바로</div>
-                      <div className="ob-perk"><span className="k">⏰</span> 오늘의 미션 리마인드</div>
-                      <div className="ob-perk"><span className="k">❤️</span> 내 인증에 달린 응원·좋아요</div>
-                      <div className="ob-perk"><span className="k">📢</span> 운영자의 새 공지</div>
+                      {[['/icons/growth/sprout.png', '🌱', '새로운 미션·퀴즈·클래스 소식을 바로'],
+                        ['/icons/running/stopwatch.png', '⏰', '오늘의 미션 리마인드'],
+                        ['/icons/cheer/heart-red.png', '❤️', '내 인증에 달린 응원·좋아요'],
+                        ['/icons/feature/notice.png', '📢', '운영자의 새 공지']].map(([src, emo, t]) => (
+                        <div className="ob-perk" key={t}><span className="k"><Ic3D src={src} emo={emo} size={30} /></span> {t}</div>
+                      ))}
                     </div>
                   </div>
                 ) : (
@@ -189,7 +189,7 @@ export default function OnboardingTutorial() {
                   ['o', '/icons/onboarding/invite.png', '🧑‍🏫', '운영자 사용법', '프로그램 만들기 · 초대 · 운영 · 리포트까지']].map(([r, ic, emo, h, p]) => (
                   <button className={`ob-role ${r}`} key={r} onClick={() => pickRole(r)}>
                     <span className="emo"><Ic3D src={ic} emo={emo} size={40} /></span>
-                    <div><h3>{h}</h3><p>{p}</p></div>
+                    <div className="rt"><h3>{h}</h3><p>{p}</p></div>
                     {seen[r]
                       ? <span className="seen">✓ 봤어요</span>
                       : <span className="arw"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg></span>}
@@ -200,34 +200,51 @@ export default function OnboardingTutorial() {
             </section>
           )}
 
-          {/* 5 journey */}
-          {step === 5 && j && (
-            <section className="ob-screen">
-              <div className="ob-jhead"><span className={`ob-badge ${j.cls}`}>{j.badge}</span><div className="ob-eyebrow" style={{ margin: 0 }}>사용법 · 실제 화면</div></div>
-              <h1 className="ob-h1" style={{ fontSize: 21 }}>{j.title}</h1>
-              <div style={{ flex: 1 }}>
-                <div className="ob-jsteps">
-                  {j.steps.map((s) => (
-                    <div className={`ob-jc ${j.cls}`} key={s.st}>
-                      <div className="ob-prev" dangerouslySetInnerHTML={{ __html: PREV[s.pv] }} />
-                      <div className="txt"><div className="st">{s.st}</div><h3>{s.h}</h3><p dangerouslySetInnerHTML={{ __html: s.p }} /></div>
+          {/* 5 journey — 좌/우 슬라이드 카루셀 */}
+          {step === 5 && j && (() => {
+            const s = j.steps[jStep]
+            const last = jStep === j.steps.length - 1
+            return (
+              <section className="ob-screen">
+                <div className="ob-jhead"><span className={`ob-badge ${j.cls}`}>{j.badge}</span><div className="ob-eyebrow" style={{ margin: 0 }}>사용법 · 실제 화면</div></div>
+                <div className="ob-jcar">
+                  <div className="ob-phonerow">
+                    <button className="ob-arrow" disabled={jStep === 0} onClick={() => setJStep((x) => Math.max(0, x - 1))} aria-label="이전">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
+                    </button>
+                    <div className={`ob-jcar-phone ${j.cls}`}>
+                      {s.video
+                        ? <JourneyVideo src={s.video} key={s.st} />
+                        : s.imgs
+                          ? <JourneyShot imgs={s.imgs} key={s.st} />
+                          : <div className="ob-prev" dangerouslySetInnerHTML={{ __html: PREV[s.pv] }} />}
                     </div>
-                  ))}
+                    <button className={`ob-arrow ${last ? '' : 'prim'}`} disabled={last} onClick={() => setJStep((x) => Math.min(j.steps.length - 1, x + 1))} aria-label="다음">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg>
+                    </button>
+                  </div>
+                  <div className={`ob-jtext ${j.cls}`} key={s.st}>
+                    <div className="st">{s.st}</div>
+                    <h3>{s.h}</h3>
+                    <p dangerouslySetInnerHTML={{ __html: s.p }} />
+                  </div>
+                  <div className="ob-dots">{j.steps.map((_, i) => <i key={i} className={i === jStep ? 'on' : ''} onClick={() => setJStep(i)} />)}</div>
                 </div>
-                <div className="ob-tabhint"><span className="mini">{j.mini}</span><p dangerouslySetInnerHTML={{ __html: j.tab }} /></div>
-              </div>
-              <div className="ob-foot">
-                <button className="ob-cta" onClick={() => go(4)}>다른 설명도 볼래요</button>
-                <button className="ob-cta ghost" onClick={() => go(6)}>이제 시작할게요 →</button>
-              </div>
-            </section>
-          )}
+                {last && (
+                  <div className="ob-foot">
+                    <button className="ob-cta" onClick={() => go(6)}>이제 시작할게요 →</button>
+                    <button className="ob-cta ghost" onClick={() => go(4)}>다른 설명도 볼래요</button>
+                  </div>
+                )}
+              </section>
+            )
+          })()}
 
           {/* 6 finish */}
           {step === 6 && (
             <section className="ob-screen">
               <div className="ob-center">
-                <div className="ob-hero">{LOGO}</div>
+                <div className="ob-hero"><img className="ob-heroimg" src="/app-icon.png" alt="도담" /></div>
                 <h1 className="ob-h1" style={{ marginTop: 20 }}>준비 완료!</h1>
                 <p className="ob-lead" style={{ maxWidth: 290 }}>이제 마음에 드는 프로그램을 둘러보거나, 직접 만들어볼까요?</p>
               </div>
@@ -244,6 +261,38 @@ export default function OnboardingTutorial() {
   )
 }
 
+// 여정 실제 스샷 썸네일 — 여러 장이면 자동 슬라이드(2.2s) + 점(탭 이동)
+function JourneyShot({ imgs }) {
+  const [i, setI] = useState(0)
+  useEffect(() => {
+    if (imgs.length < 2) return
+    const t = setInterval(() => setI((x) => (x + 1) % imgs.length), 2600)
+    return () => clearInterval(t)
+  }, [imgs.length])
+  return (
+    <div className="ob-jshot">
+      <div className="ob-jframe">
+        <div className="ob-jtrack" style={{ width: `${imgs.length * 100}%`, transform: `translateX(-${i * (100 / imgs.length)}%)` }}>
+          {imgs.map((src) => <img key={src} src={src} alt="" style={{ width: `${100 / imgs.length}%` }} />)}
+        </div>
+      </div>
+      {imgs.length > 1 && <div className="ob-jdots">{imgs.map((_, k) => <i key={k} className={k === i ? 'on' : ''} onClick={() => setI(k)} />)}</div>}
+    </div>
+  )
+}
+
+// 화면 녹화 영상 (iOS 자동재생: muted + playsInline 필수)
+function JourneyVideo({ src, poster }) {
+  return (
+    <div className="ob-jshot">
+      <div className="ob-jframe">
+        <video className="ob-jvid" src={src} poster={poster} autoPlay muted loop playsInline preload="auto" />
+        <div className="ob-jvid-mask" />
+      </div>
+    </div>
+  )
+}
+
 // 3D 아이콘 + 이모지 폴백
 function Ic3D({ src, emo, size = 32 }) {
   const [err, setErr] = useState(false)
@@ -252,7 +301,7 @@ function Ic3D({ src, emo, size = 32 }) {
 }
 
 const STYLE = `
-#ob-root{--ob-bg:#F7F5EF;--ob-surface:#fff;--ob-surface2:#F3F7F3;--ob-ink:#182420;--ob-muted:#66756B;--ob-faint:#9AA79E;--ob-green:#1F7A4D;--ob-green-br:#25A465;--ob-green-dp:#134E33;--ob-soft:#E7F3EB;--ob-tint:#F1F8F2;--ob-line:#E6EDE6;--ob-amber:#D98829;--ob-amber-soft:#FBF0DE;--ob-shadow:0 10px 30px -12px rgba(19,78,51,.28);--ob-shadow-sm:0 3px 12px -6px rgba(19,78,51,.22);--ob-ff:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR','Segoe UI',sans-serif}
+#ob-root{--ob-bg:#ffffff;--ob-surface:#ffffff;--ob-surface2:#f0fdf4;--ob-ink:#14261e;--ob-muted:#5f6b64;--ob-faint:#9aa79e;--ob-green:#10b981;--ob-green-br:#34d399;--ob-green-dp:#047857;--ob-soft:#ecfdf5;--ob-tint:#f0fdf4;--ob-line:#e8ece9;--ob-amber:#d97706;--ob-amber-soft:#fef3c7;--ob-shadow:0 10px 30px -12px rgba(16,185,129,.24);--ob-shadow-sm:0 3px 12px -6px rgba(16,185,129,.18);--ob-ff:'Pretendard Variable',Pretendard,-apple-system,BlinkMacSystemFont,system-ui,'Segoe UI','Apple SD Gothic Neo','Noto Sans KR',sans-serif}
 #ob-root{position:fixed;inset:0;z-index:2000;background:var(--ob-bg);font-family:var(--ob-ff);color:var(--ob-ink)}
 #ob-root *{box-sizing:border-box}
 #ob-root .ob-app{width:min(440px,100%);height:100dvh;margin:0 auto;display:flex;flex-direction:column;background:var(--ob-bg)}
@@ -275,41 +324,48 @@ const STYLE = `
 #ob-root .ob-foot{position:sticky;bottom:0;background:var(--ob-bg);padding:14px 0 22px;flex-shrink:0;margin-top:auto}
 #ob-root .ob-foot .ob-cta+.ob-cta{margin-top:9px}
 #ob-root .ob-center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
-#ob-root .ob-hero{width:110px;height:110px;border-radius:34px;background:radial-gradient(120% 120% at 30% 20%,var(--ob-green-br),var(--ob-green-dp));display:grid;place-items:center;box-shadow:0 18px 40px -14px color-mix(in srgb,var(--ob-green) 60%,transparent);animation:obpop .6s cubic-bezier(.2,1.3,.5,1) both}
+#ob-root .ob-hero{width:104px;height:104px;border-radius:26px;overflow:hidden;box-shadow:0 18px 40px -14px color-mix(in srgb,var(--ob-green) 55%,transparent);animation:obpop .6s cubic-bezier(.2,1.3,.5,1) both}
+#ob-root .ob-heroimg{width:100%;height:100%;object-fit:cover;display:block}
 @keyframes obpop{from{opacity:0;transform:scale(.7)}to{opacity:1;transform:none}}
 #ob-root .ob-center .ob-h1{margin-top:20px}
-#ob-root .ob-tag{margin-top:14px;display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:99px;background:var(--ob-soft);color:var(--ob-green-dp);font-size:13px;font-weight:700}
+#ob-root .ob-tag{margin-top:14px;color:var(--ob-green-dp);font-size:17px;font-weight:800;letter-spacing:-.01em}
 #ob-root .ob-feat{display:flex;align-items:flex-start;gap:14px;padding:15px;border-radius:20px;background:var(--ob-surface);border:1px solid var(--ob-line);box-shadow:var(--ob-shadow-sm);opacity:0;transform:translateY(12px);animation:obrise .5s cubic-bezier(.2,.8,.3,1) forwards}
 #ob-root .ob-feat+.ob-feat{margin-top:10px}
 @keyframes obrise{to{opacity:1;transform:none}}
 #ob-root .ob-feat .ob-ic{width:46px;height:46px;border-radius:14px;background:var(--ob-soft);display:grid;place-items:center;font-size:24px;flex-shrink:0}
 #ob-root .ob-feat h3{font-size:15.5px;font-weight:800}#ob-root .ob-feat p{font-size:13px;line-height:1.5;color:var(--ob-muted);margin-top:3px}
-#ob-root .ob-scene{margin-top:14px;flex:1;display:flex;flex-direction:column;align-items:center}
-#ob-root .ob-rsframe{position:relative;width:202px;aspect-ratio:640/1387;border-radius:26px;overflow:hidden;border:5px solid #111;box-shadow:var(--ob-shadow);flex-shrink:0;background:#fff}
+#ob-root .ob-scene{margin-top:8px;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center}
+#ob-root .ob-rsframe{position:relative;width:min(250px,60vw);aspect-ratio:640/1387;border-radius:30px;overflow:hidden;border:5px solid #111;box-shadow:var(--ob-shadow);flex-shrink:0;background:#fff}
+#ob-root .ob-phonerow.tight{gap:8px}
+#ob-root .ob-phonerow.tight .ob-arrow{width:38px;height:38px}
 #ob-root .ob-rs{width:100%;height:100%;object-fit:cover;display:block}
 #ob-root .ob-spot{position:absolute;border-radius:10px;box-shadow:0 0 0 3px var(--ob-green-br),0 0 0 8px color-mix(in srgb,var(--ob-green-br) 30%,transparent);animation:obhalo 1.5s ease-in-out infinite;z-index:3}
 @keyframes obhalo{0%,100%{box-shadow:0 0 0 3px var(--ob-green-br),0 0 0 8px color-mix(in srgb,var(--ob-green-br) 35%,transparent)}50%{box-shadow:0 0 0 3px var(--ob-green-br),0 0 0 13px color-mix(in srgb,var(--ob-green-br) 8%,transparent)}}
 #ob-root .ob-finger{position:absolute;z-index:4;width:44px;height:44px;object-fit:contain;filter:drop-shadow(0 5px 6px rgba(0,0,0,.35));animation:obtap 1.5s ease-in-out infinite;pointer-events:none}
 @keyframes obtap{0%,100%{transform:translateY(4px)}50%{transform:translateY(-5px)}}
-#ob-root .ob-caption{margin-top:15px;text-align:center;font-size:15px;line-height:1.55;font-weight:600;min-height:42px}
-#ob-root .ob-caption b{color:var(--ob-green);font-weight:800}
-#ob-root .ob-dots{display:flex;gap:7px;justify-content:center;margin-top:8px}
+#ob-root .ob-caption{margin:16px 0 8px;text-align:center;font-size:15px;line-height:1.5;font-weight:600;min-height:40px;word-break:keep-all;padding:0 10px}
+#ob-root .ob-caption b{color:var(--ob-green);font-weight:800;white-space:nowrap}
+#ob-root .ob-dots{display:flex;gap:7px;justify-content:center;margin-top:10px}
 #ob-root .ob-dots i{width:7px;height:7px;border-radius:99px;background:var(--ob-line);cursor:pointer;transition:.2s}
 #ob-root .ob-dots i.on{width:22px;background:var(--ob-green)}
-#ob-root .ob-scenenav{display:flex;gap:9px}
-#ob-root .ob-scenenav button{flex:1;height:44px;border-radius:13px;border:1px solid var(--ob-line);background:var(--ob-surface);color:var(--ob-ink);font-family:var(--ob-ff);font-size:14px;font-weight:700;cursor:pointer}
-#ob-root .ob-scenenav button.prim{background:var(--ob-green);color:#fff;border-color:var(--ob-green)}
-#ob-root .ob-scenenav button:disabled{opacity:.4}
+#ob-root .ob-phonerow{display:flex;align-items:center;justify-content:center;gap:12px}
+#ob-root .ob-arrow{width:42px;height:42px;border-radius:99px;border:1px solid var(--ob-line);background:var(--ob-surface);color:var(--ob-ink);display:grid;place-items:center;cursor:pointer;flex-shrink:0;box-shadow:var(--ob-shadow-sm);transition:.15s}
+#ob-root .ob-arrow svg{width:20px;height:20px}
+#ob-root .ob-arrow:hover{background:var(--ob-soft);border-color:var(--ob-green);color:var(--ob-green)}
+#ob-root .ob-arrow.prim{background:var(--ob-green);color:#fff;border-color:var(--ob-green);box-shadow:0 6px 16px -6px color-mix(in srgb,var(--ob-green) 65%,transparent)}
+#ob-root .ob-arrow.prim:hover{background:var(--ob-green-br)}
+#ob-root .ob-arrow:disabled{opacity:.3;cursor:default;box-shadow:none}
+#ob-root .ob-arrow:disabled:hover{background:var(--ob-surface);border-color:var(--ob-line);color:var(--ob-ink)}
 #ob-root .ob-bell{width:100px;height:100px;border-radius:30px;background:var(--ob-soft);display:grid;place-items:center;position:relative;margin:0 auto}
-#ob-root .ob-bell svg{width:50px;height:50px;color:var(--ob-green);transform-origin:50% 12%}
-#ob-root .ob-bell.ring svg{animation:obring .8s ease}
+#ob-root .ob-bell img{transform-origin:50% 12%}
+#ob-root .ob-bell.ring img{animation:obring .8s ease}
 @keyframes obring{0%,100%{transform:rotate(0)}20%{transform:rotate(16deg)}40%{transform:rotate(-13deg)}60%{transform:rotate(9deg)}80%{transform:rotate(-5deg)}}
 #ob-root .ob-wave{position:absolute;inset:-6px;border-radius:36px;border:2px solid var(--ob-green);opacity:0}
 #ob-root .ob-bell.ring .ob-wave{animation:obwv 1s ease-out}
 @keyframes obwv{0%{opacity:.5;transform:scale(.9)}100%{opacity:0;transform:scale(1.35)}}
-#ob-root .ob-perklist{margin-top:22px;display:flex;flex-direction:column;gap:11px}
-#ob-root .ob-perk{display:flex;align-items:center;gap:11px;font-size:14px;color:var(--ob-muted)}
-#ob-root .ob-perk .k{width:28px;height:28px;border-radius:9px;background:var(--ob-soft);display:grid;place-items:center;font-size:16px;flex-shrink:0}
+#ob-root .ob-perklist{margin-top:22px;display:flex;flex-direction:column;gap:13px}
+#ob-root .ob-perk{display:flex;align-items:center;gap:13px;font-size:14.5px;color:var(--ob-ink);font-weight:500}
+#ob-root .ob-perk .k{width:40px;height:40px;border-radius:12px;background:var(--ob-soft);display:grid;place-items:center;font-size:20px;flex-shrink:0}
 #ob-root .ob-granted{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
 #ob-root .ob-granted .ok{width:64px;height:64px;border-radius:99px;background:var(--ob-green);display:grid;place-items:center;color:#fff;animation:obpop .5s cubic-bezier(.2,1.3,.5,1) both}
 #ob-root .ob-granted .ok svg{width:34px;height:34px}
@@ -318,9 +374,10 @@ const STYLE = `
 #ob-root .ob-role:hover{border-color:var(--ob-green)}
 #ob-root .ob-role .emo{width:54px;height:54px;border-radius:16px;display:grid;place-items:center;font-size:28px;flex-shrink:0}
 #ob-root .ob-role.p .emo{background:var(--ob-soft)}#ob-root .ob-role.o .emo{background:var(--ob-amber-soft)}
+#ob-root .ob-role .rt{flex:1;min-width:0}
 #ob-root .ob-role h3{font-size:16.5px;font-weight:800}#ob-root .ob-role p{font-size:12.5px;color:var(--ob-muted);margin-top:3px;line-height:1.45}
-#ob-root .ob-role .arw{margin-left:auto;color:var(--ob-faint)}
-#ob-root .ob-role .seen{margin-left:auto;font-size:11px;font-weight:700;color:var(--ob-green);background:var(--ob-soft);padding:4px 9px;border-radius:99px}
+#ob-root .ob-role .arw{flex-shrink:0;color:var(--ob-faint)}
+#ob-root .ob-role .seen{flex-shrink:0;font-size:11px;font-weight:700;color:var(--ob-green);background:var(--ob-soft);padding:4px 9px;border-radius:99px;white-space:nowrap}
 #ob-root .ob-jhead{display:flex;align-items:center;gap:10px;margin-bottom:2px}
 #ob-root .ob-badge{padding:6px 12px;border-radius:99px;font-size:12.5px;font-weight:800}
 #ob-root .ob-badge.p{background:var(--ob-soft);color:var(--ob-green-dp)}#ob-root .ob-badge.o{background:var(--ob-amber-soft);color:var(--ob-amber)}
@@ -331,6 +388,24 @@ const STYLE = `
 #ob-root .ob-jc.o .txt .st{color:var(--ob-amber)}
 #ob-root .ob-tabhint{margin-top:14px;display:flex;align-items:center;gap:11px;padding:12px 14px;border-radius:15px;background:var(--ob-tint);border:1px dashed color-mix(in srgb,var(--ob-green) 40%,var(--ob-line))}
 #ob-root .ob-tabhint .mini{font-size:17px}#ob-root .ob-tabhint p{font-size:12px;color:var(--ob-muted);line-height:1.45}
+#ob-root .ob-jshot{display:flex;flex-direction:column;align-items:center;gap:7px;flex-shrink:0}
+#ob-root .ob-jframe{position:relative;width:112px;aspect-ratio:440/954;border-radius:16px;overflow:hidden;border:4px solid #111;box-shadow:var(--ob-shadow-sm);background:#fff}
+#ob-root .ob-jtrack{display:flex;height:100%;transition:transform .55s cubic-bezier(.45,.05,.2,1)}
+#ob-root .ob-jtrack img{height:100%;object-fit:cover;flex-shrink:0;display:block}
+#ob-root .ob-jvid{width:100%;height:100%;object-fit:cover;display:block;background:#fff}
+#ob-root .ob-jvid-mask{position:absolute;top:0;left:0;right:0;height:6.8%;background:#fff;z-index:2}
+#ob-root .ob-jdots{display:flex;gap:4px}
+#ob-root .ob-jdots i{width:5px;height:5px;border-radius:99px;background:var(--ob-line);cursor:pointer;transition:.2s}
+#ob-root .ob-jdots i.on{width:14px;background:var(--ob-green)}
+#ob-root .ob-jcar{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:6px 0}
+#ob-root .ob-jcar-phone{flex-shrink:0}
+#ob-root .ob-jcar-phone .ob-jframe{width:min(198px,52vw)}
+#ob-root .ob-jcar-phone .ob-prev{width:min(182px,48vw);height:auto;aspect-ratio:106/196}
+#ob-root .ob-jtext{text-align:center;max-width:300px;animation:obenter .3s ease both}
+#ob-root .ob-jtext .st{font-size:11px;font-weight:800;letter-spacing:.4px;color:var(--ob-green)}
+#ob-root .ob-jtext.o .st{color:var(--ob-amber)}
+#ob-root .ob-jtext h3{font-size:18px;font-weight:800;margin-top:4px}
+#ob-root .ob-jtext p{font-size:13.5px;color:var(--ob-muted);line-height:1.55;margin-top:7px;word-break:keep-all}
 #ob-root .ob-prev{width:106px;height:196px;border-radius:17px;background:#0c0c0c;padding:3px;flex-shrink:0;box-shadow:var(--ob-shadow-sm)}
 #ob-root .ob-prev .pv{position:relative;width:100%;height:100%;border-radius:14px;overflow:hidden;background:#fbfbf8;font-size:6.5px;color:#243}
 #ob-root .pv .pvsb{height:9px;display:flex;align-items:center;justify-content:space-between;padding:0 6px;font-size:5px;font-weight:800;color:#333;background:#fff}

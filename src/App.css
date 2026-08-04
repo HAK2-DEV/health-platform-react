@@ -87,6 +87,12 @@ p {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  /* 폰 폭 고정 셸 — 태블릿·갤럭시폴드(펼침) 등 넓은 화면에서 폰처럼 가운데 정렬,
+     양옆은 body 배경으로 레터박스. 실제 폰(<448px)에선 100% 폭이라 영향 없음. */
+  max-width: 28rem;              /* 448px = Tailwind max-w-md (하단 탭바 기준과 일치) */
+  margin-inline: auto;
+  background: #ffffff;
+  position: relative;
 }
 
 .app-main {

@@ -233,10 +233,12 @@ function BottomTabBar() {
       </AnimatePresence>
 
       <nav
-        className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-100"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+        className="fixed bottom-0 left-0 right-0 z-50"
       >
-        <div className="max-w-md mx-auto flex items-stretch">
+        <div
+          className="max-w-md mx-auto flex items-stretch bg-white border-t border-gray-100"
+          style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+        >
           {renderTab(tabs[0])}
           {renderTab(tabs[1])}
 

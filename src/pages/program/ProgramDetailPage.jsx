@@ -621,9 +621,15 @@ function ProgramDetailPage() {
   const toast = useToast()
   const [cheerOpen, setCheerOpen] = useState(false)
 
-  // 주간 리포트 넛지 — 운영자·발행·진행중·참여자 있을 때 개요 상단 배너 → 탭하면 통계로.
+  // 주간 리포트 넛지 — 운영자·발행·진행중일 때 개요 상단 배너 → 탭하면 통계로.
+  //   갓 만든/막 시작한 프로그램은 볼 데이터가 없어 넛지가 오해를 줌 → 최소 3일 지났을 때만.
+  const weeklyProgAgeDays = (() => {
+    const d = program?.created_at || program?.start_date
+    return d ? Math.floor((Date.now() - new Date(d).getTime()) / 86400000) : 0
+  })()
   const weeklyEnabled = isOwner && !!program && program?.status === 'PUBLISHED'
     && progressUrgency(calcProgress(program?.start_date, program?.end_date)).urgency !== 'ended'
+    && weeklyProgAgeDays >= 3
   const weeklyHighlightEl = weeklyEnabled ? (
     <WeeklyHighlight programId={id} onOpen={() => navigate(`/programs/${id}/stats?report=1`)} />
   ) : null

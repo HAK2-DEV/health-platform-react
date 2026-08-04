@@ -41,10 +41,26 @@ function HomePage() {
         return
       }
 
-      // 초대링크 등으로 진입했다 로그인한 경우 저장된 경로로 복귀 (1회 소비)
+      // 초대링크 등으로 진입했다 로그인한 경우 저장된 경로로 복귀 (1회 소비) — 온보딩보다 우선
       const redirect = sessionStorage.getItem('post_auth_redirect')
-      sessionStorage.removeItem('post_auth_redirect')
-      navigate(redirect || '/dashboard', { replace: true })
+      if (redirect) {
+        sessionStorage.removeItem('post_auth_redirect')
+        navigate(redirect, { replace: true })
+        setIsChecking(false)
+        return
+      }
+
+      // 조건 3 — 온보딩(설명하기) 미시청자에게 접속 시 1회 노출. (기존 가입 회원 포함)
+      // 즉시 'onboarding-done' 마킹해 자동 노출은 딱 한 번만. 다시보기(조건 2)는 별개.
+      try {
+        if (!localStorage.getItem('onboarding-done')) {
+          localStorage.setItem('onboarding-done', '1')
+          navigate('/onboarding', { replace: true })
+          return
+        }
+      } catch { /* localStorage 불가 환경 무시 */ }
+
+      navigate('/dashboard', { replace: true })
       setIsChecking(false)
     }
 
