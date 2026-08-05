@@ -78,7 +78,7 @@ function ProgramCreateChooser({ onDirect, onPickPreset, onBack, busyKey }) {
               <button type="button" onClick={() => setView('library')} className="w-full flex items-center gap-4 p-5 rounded-2xl border border-gray-200 hover:border-emerald-300 hover:bg-gray-50 transition text-left">
                 <span className="w-12 h-12 rounded-xl bg-violet-100 text-violet-600 flex items-center justify-center flex-shrink-0"><BookOpen className="w-6 h-6" /></span>
                 <div className="flex-1 min-w-0">
-                  <h2 className="font-bold text-gray-800">라이브러리에서 시작</h2>
+                  <h2 className="font-bold text-gray-800">템플릿에서 시작</h2>
                   <p className="text-xs text-gray-500 mt-0.5">미션까지 준비된 프로그램을 골라 바로 시작해요</p>
                 </div>
                 <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
@@ -92,7 +92,7 @@ function ProgramCreateChooser({ onDirect, onPickPreset, onBack, busyKey }) {
           <motion.div key="library" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 16 }} transition={{ duration: 0.25 }}>
             <div className="flex items-center gap-2 mb-5">
               <button type="button" onClick={() => setView('choose')} className="p-1.5 -ml-1.5 rounded-full hover:bg-gray-100"><ChevronLeft className="w-5 h-5 text-gray-600" /></button>
-              <h1 className="text-lg font-bold text-gray-900">프로그램 라이브러리</h1>
+              <h1 className="text-lg font-bold text-gray-900">프로그램 템플릿</h1>
             </div>
             <p className="text-[12px] text-gray-500 mb-4">고르면 미션까지 채워진 임시저장 프로그램이 만들어져요. 이름·기간은 다음 단계에서 조정해요.</p>
             <div className="space-y-3">

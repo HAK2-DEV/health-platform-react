@@ -13,7 +13,7 @@ const IOS = [
   { src: '/onboarding/ios/2-share.png', cap: '메뉴에서 <b>공유</b>를 눌러요',
     spot: { left: '30%', top: '49.8%', width: '66%', height: '5.4%' }, fin: { left: '31%', top: '45%' }, bub: { top: '41%', tail: 'down', tx: '30%' } },
   { src: '/onboarding/ios/3-add-2.png', cap: '조금 내려서 <b>홈 화면에 추가</b>를 눌러요',
-    spot: { left: '4%', top: '61.4%', width: '92%', height: '6.2%' }, fin: { left: '20%', top: '57%' }, bub: { top: '53%', tail: 'down', tx: '22%' } },
+    spot: { left: '4%', top: '61.4%', width: '92%', height: '6.2%' }, fin: { left: '20%', top: '62%' }, bub: { top: '53%', tail: 'down', tx: '22%' } },
   { src: '/onboarding/ios/4-confirm.png', cap: '오른쪽 위 <b>추가</b>를 누르면 완료! 🎉 홈 화면에 도담 아이콘이 생겨요',
     spot: { left: '78%', top: '10.3%', width: '18%', height: '4.4%' }, fin: { left: '73%', top: '5%' }, bub: { top: '-4%', left: '40%', tail: 'down', tx: '90%' } },
 ]
@@ -143,7 +143,7 @@ export default function OnboardingTutorial() {
                   <button className="ob-arrow" disabled={scene === 0} onClick={() => setScene(Math.max(0, scene - 1))} aria-label="이전">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
                   </button>
-                  <div className="ob-rsframe">
+                  <div className="ob-rsframe" key={scene}>
                     <img className="ob-rs" src={IOS[scene].src} alt="" />
                     <div className="ob-spot" style={IOS[scene].spot} />
                     <img className="ob-finger" src="/icons/onboarding/tap.png" style={IOS[scene].fin} alt="" />
@@ -151,7 +151,7 @@ export default function OnboardingTutorial() {
                   <button className="ob-arrow prim" onClick={() => scene === IOS.length - 1 ? go(3) : setScene(scene + 1)} aria-label="다음">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg>
                   </button>
-                  <div className={`ob-obubble ${IOS[scene].bub.tail}`} style={{ top: IOS[scene].bub.top, left: IOS[scene].bub.left || '50%', '--tx': IOS[scene].bub.tx }} dangerouslySetInnerHTML={{ __html: IOS[scene].cap }} />
+                  <div className={`ob-obubble ${IOS[scene].bub.tail}`} key={scene} style={{ top: IOS[scene].bub.top, left: IOS[scene].bub.left || '50%', '--tx': IOS[scene].bub.tx }} dangerouslySetInnerHTML={{ __html: IOS[scene].cap }} />
                 </div>
                 <div className="ob-dots">{IOS.map((_, i) => <i key={i} className={i === scene ? 'on' : ''} onClick={() => setScene(i)} />)}</div>
               </div>
@@ -228,7 +228,7 @@ export default function OnboardingTutorial() {
                     <button className="ob-arrow" disabled={jStep === 0} onClick={() => setJStep((x) => Math.max(0, x - 1))} aria-label="이전">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
                     </button>
-                    <div className={`ob-jcar-phone ${j.cls}`}>
+                    <div className={`ob-jcar-phone ${j.cls}`} key={jStep}>
                       {s.video
                         ? <JourneyVideo src={s.video} key={s.st} />
                         : s.imgs
@@ -339,6 +339,10 @@ const STYLE = `
 #ob-root .ob-stage{flex:1;overflow-y:auto;overflow-x:hidden}
 #ob-root .ob-screen{display:flex;flex-direction:column;min-height:100%;padding:12px 24px 0;animation:obenter .42s cubic-bezier(.22,.75,.28,1) both}
 @keyframes obenter{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+/* 다음/이전으로 넘길 때 폰(틀)도 함께 슬라이드+페이드 */
+@keyframes obadv{from{opacity:0;transform:translateX(22px)}to{opacity:1;transform:none}}
+/* 말풍선은 translateX(-50%) 가운데정렬 유지 위해 페이드만 */
+@keyframes obfade{from{opacity:0}to{opacity:1}}
 @media (prefers-reduced-motion:reduce){#ob-root .ob-screen,#ob-root *{animation:none!important}}
 #ob-root .ob-eyebrow{font-size:12.5px;font-weight:800;letter-spacing:.06em;color:var(--ob-green);text-transform:uppercase;margin-bottom:10px}
 #ob-root .ob-h1{font-size:26px;line-height:1.3;font-weight:800;letter-spacing:-.01em}
@@ -360,7 +364,7 @@ const STYLE = `
 #ob-root .ob-feat .ob-ic{width:46px;height:46px;border-radius:14px;background:var(--ob-soft);display:grid;place-items:center;font-size:24px;flex-shrink:0}
 #ob-root .ob-feat h3{font-size:15.5px;font-weight:800}#ob-root .ob-feat p{font-size:13px;line-height:1.5;color:var(--ob-muted);margin-top:3px}
 #ob-root .ob-scene{margin-top:22px;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start}
-#ob-root .ob-rsframe{position:relative;width:min(300px,60vw);aspect-ratio:640/1387;border-radius:34px;overflow:hidden;border:5px solid #111;box-shadow:var(--ob-shadow);flex-shrink:0;background:#fff}
+#ob-root .ob-rsframe{position:relative;width:min(300px,60vw);aspect-ratio:640/1387;border-radius:34px;overflow:hidden;border:5px solid #111;box-shadow:var(--ob-shadow);flex-shrink:0;background:#fff;animation:obadv .4s cubic-bezier(.22,.75,.28,1) both}
 #ob-root .ob-phonerow.tight{gap:8px}
 #ob-root .ob-phonerow.tight .ob-arrow{width:38px;height:38px}
 #ob-root .ob-rs{width:100%;height:100%;object-fit:cover;display:block}
@@ -371,7 +375,7 @@ const STYLE = `
 #ob-root .ob-finger{position:absolute;z-index:4;width:44px;height:44px;object-fit:contain;filter:drop-shadow(0 5px 6px rgba(0,0,0,.35));animation:obtap 1.5s ease-in-out infinite;pointer-events:none;will-change:transform}
 @keyframes obtap{0%,100%{transform:translateY(4px)}50%{transform:translateY(-5px)}}
 /* 화면 오버레이 말풍선 — 폰 스샷 위에 얹힘. 꼬리(up/down)가 강조 손가락을 가리킴. tx=꼬리 가로. */
-#ob-root .ob-obubble{position:absolute;left:50%;transform:translateX(-50%);width:min(230px,62vw);background:#fff;border-radius:13px;padding:8px 11px;text-align:center;font-size:11.5px;line-height:1.38;font-weight:600;color:var(--ob-ink);word-break:keep-all;box-shadow:0 7px 20px -4px rgba(20,38,30,.32),0 1px 4px rgba(20,38,30,.14);z-index:6}
+#ob-root .ob-obubble{position:absolute;left:50%;transform:translateX(-50%);width:min(230px,62vw);background:#fff;border-radius:13px;padding:8px 11px;text-align:center;font-size:11.5px;line-height:1.38;font-weight:600;color:var(--ob-ink);word-break:keep-all;box-shadow:0 7px 20px -4px rgba(20,38,30,.32),0 1px 4px rgba(20,38,30,.14);z-index:6;animation:obfade .35s ease both}
 #ob-root .ob-obubble b{color:var(--ob-green);font-weight:800;white-space:nowrap}
 #ob-root .ob-obubble::after{content:'';position:absolute;left:var(--tx,50%);transform:translateX(-50%);width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent}
 #ob-root .ob-obubble.down::after{bottom:-7px;border-top:8px solid #fff}
@@ -429,7 +433,7 @@ const STYLE = `
 #ob-root .ob-jdots i{width:5px;height:5px;border-radius:99px;background:var(--ob-line);cursor:pointer;transition:.2s}
 #ob-root .ob-jdots i.on{width:14px;background:var(--ob-green)}
 #ob-root .ob-jcar{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:11px;padding:6px 0}
-#ob-root .ob-jcar-phone{flex-shrink:0}
+#ob-root .ob-jcar-phone{flex-shrink:0;animation:obadv .4s cubic-bezier(.22,.75,.28,1) both}
 #ob-root .ob-jcar-phone .ob-jframe{width:min(300px,60vw)}
 #ob-root .ob-jcar-phone .ob-prev{width:min(280px,56vw);height:auto;aspect-ratio:106/196}
 /* STEP+제목 — 폰 위 헤더 / 설명 — 폰 아래 */
