@@ -26,6 +26,13 @@ export function useRealtimeSync() {
       timersMap[key] = setTimeout(fn, ms)
     }
 
+    // 팀 변경(참여·초대·위임·점수) → 팀 랭킹+멤버·내 초대·초대후보 (마이그 199)
+    const teamInvalidate = () => {
+      queryClient.invalidateQueries({ queryKey: ['rankings'] })              // teamByProgram(멤버·점수 포함)
+      queryClient.invalidateQueries({ queryKey: ['my-team-invites'] })
+      queryClient.invalidateQueries({ queryKey: ['team-invite-candidates'] })
+    }
+
     // 참여자 변경 → 참여자 수·통계·홈지표·랭킹·내 참여목록 무효화
     const partChannel = supabase
       .channel('rt-participants')
@@ -165,6 +172,13 @@ export function useRealtimeSync() {
           queryClient.invalidateQueries({ queryKey: ['quizzes'] })    // byProgram/participant/stats 등 전체
         }),
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'quiz_questions' },   // 문항 편집 → 푸는 화면 (마이그 199)
+        () => debounce('quizzes', () => {
+          queryClient.invalidateQueries({ queryKey: ['quizzes'] })
+        }),
+      )
       .subscribe()
 
     // 운영자↔참여자 핵심 상호작용 (마이그 198). RLS 존중 → 볼 수 있는 행만 배달됨.
@@ -213,6 +227,60 @@ export function useRealtimeSync() {
       )
       .subscribe()
 
+    // 팀·신고 (마이그 199). 팀 참여·초대·위임 / 신고 접수·처리.
+    const teamReportChannel = supabase
+      .channel('rt-teams-reports')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' },
+        () => debounce('teams', () => teamInvalidate()))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'team_members' },
+        () => debounce('teams', () => teamInvalidate()))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'team_invites' },
+        () => debounce('teams', () => teamInvalidate()))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'reports' },
+        () => debounce('reports', () => {
+          queryClient.invalidateQueries({ queryKey: ['reports'] })
+          queryClient.invalidateQueries({ queryKey: ['reportsUnresolvedCount'] })
+          queryClient.invalidateQueries({ queryKey: ['reporterStats'] })
+        }))
+      .subscribe()
+
+    // 클래스 신청/취소·출석 (마이그 199).
+    const classChannel = supabase
+      .channel('rt-class-detail')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'session_registrations' },
+        () => debounce('class', () => {
+          queryClient.invalidateQueries({ queryKey: ['sessions'] })   // 정원 수
+          queryClient.invalidateQueries({ queryKey: ['session'] })    // 상세
+          queryClient.invalidateQueries({ queryKey: ['roster'] })     // 신청자 명단
+        }))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'session_attendance' },
+        () => debounce('attend', () => {
+          queryClient.invalidateQueries({ queryKey: ['my-attendance'] })
+          queryClient.invalidateQueries({ queryKey: ['my-attendance-map'] })
+          queryClient.invalidateQueries({ queryKey: ['roster'] })
+        }))
+      .subscribe()
+
+    // 1:1 문의·답변 + 금연 기분체크 (마이그 199).
+    const supportChannel = supabase
+      .channel('rt-support-mood')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'inquiries' },
+        () => debounce('inquiry', () => {
+          queryClient.invalidateQueries({ queryKey: ['inquiries'] })
+          queryClient.invalidateQueries({ queryKey: ['inquiry'] })
+        }))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'inquiry_comments' },
+        () => debounce('inquiry', () => {
+          queryClient.invalidateQueries({ queryKey: ['inquiry-comments'] })
+          queryClient.invalidateQueries({ queryKey: ['inquiry'] })
+        }))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'mood_logs' },
+        () => debounce('mood', () => {
+          queryClient.invalidateQueries({ queryKey: ['mood-trend'] })
+          queryClient.invalidateQueries({ queryKey: ['stats'] })
+        }))
+      .subscribe()
+
     return () => {
       Object.values(timersMap).forEach(clearTimeout)
       supabase.removeChannel(partChannel)
@@ -223,6 +291,9 @@ export function useRealtimeSync() {
       supabase.removeChannel(feedSocialChannel)
       supabase.removeChannel(contentChannel)
       supabase.removeChannel(interactionChannel)
+      supabase.removeChannel(teamReportChannel)
+      supabase.removeChannel(classChannel)
+      supabase.removeChannel(supportChannel)
     }
   }, [userId, queryClient])
 }
