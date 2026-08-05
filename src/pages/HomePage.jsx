@@ -50,11 +50,10 @@ function HomePage() {
         return
       }
 
-      // 조건 3 — 온보딩(설명하기) 미시청자에게 접속 시 1회 노출. (기존 가입 회원 포함)
-      // 즉시 'onboarding-done' 마킹해 자동 노출은 딱 한 번만. 다시보기(조건 2)는 별개.
+      // 조건 3 — 온보딩(설명하기) 미완주자에게 접속 시 노출. (기존 가입 회원 포함)
+      // 마킹은 온보딩을 끝까지 봤을 때(마지막 화면 도달)만 됨 → 중간에 나가면 다음 접속에 다시 노출.
       try {
         if (!localStorage.getItem('onboarding-done')) {
-          localStorage.setItem('onboarding-done', '1')
           navigate('/onboarding', { replace: true })
           return
         }

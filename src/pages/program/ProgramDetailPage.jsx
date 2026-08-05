@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link, useSearchParams, useLocation } from 'reac
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../../hooks/useAuth'
-import { ChevronLeft, Plus, ChevronRight, Users, Trophy, Pencil, Calendar, Activity, Award, Flame, Check, Settings } from 'lucide-react'
+import { ChevronLeft, Plus, ChevronRight, ChevronDown, Users, Trophy, Pencil, Calendar, Activity, Award, Flame, Check, Settings } from 'lucide-react'
 import DoorIcon from '../../components/common/DoorIcon'
 import { supabase } from '../../supabaseClient'
 import { CATEGORY, PROGRAM_THEME } from '../../lib/constants'
@@ -2204,16 +2204,6 @@ function ProgramDetailPage() {
       <div ref={missionSectionRef} className="flex items-center justify-between mb-3 scroll-mt-16">
         {!cardHome && <h2 className="text-lg font-semibold text-gray-800">📋 미션 목록</h2>}
         <div className="flex items-center gap-2 ml-auto">
-          {missionCards.length > 3 && (
-            <button
-              type="button"
-              onClick={() => { setShowAllMissions(!showAllMissions); scrollToSection(missionSectionRef) }}
-              className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700"
-            >
-              {showAllMissions ? '간단히 보기' : `전체보기 (${missionCards.length})`}
-              {!showAllMissions && <ChevronRight className="w-3 h-3" />}
-            </button>
-          )}
           {/* 미션 추가 — 운영자 전용(미리보기 중 숨김). 카드홈은 상단 헤더 + 로 이동 */}
           {!cardHome && isOwner && !missionPreview && (
             <button
@@ -2299,6 +2289,18 @@ function ProgramDetailPage() {
             })}
           </AnimatePresence>
         </motion.div>
+      )}
+
+      {/* 전체보기/간단히 — 3번째 미션 카드 아래 큰 버튼 (헤더의 작은 링크 대체) */}
+      {missionCards.length > 3 && (
+        <button
+          type="button"
+          onClick={() => { setShowAllMissions(!showAllMissions); scrollToSection(missionSectionRef) }}
+          className="w-full mt-[9px] h-12 rounded-2xl border border-gray-200 bg-white text-gray-700 text-sm font-bold flex items-center justify-center gap-1.5 hover:bg-gray-50 active:scale-[0.99] transition"
+        >
+          {showAllMissions ? '간단히 보기' : `미션 전체보기 (${missionCards.length}개)`}
+          <ChevronDown className={`w-4 h-4 transition-transform ${showAllMissions ? 'rotate-180' : ''}`} />
+        </button>
       )}
 
       </>)}

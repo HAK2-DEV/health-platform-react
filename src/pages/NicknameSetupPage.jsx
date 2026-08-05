@@ -61,8 +61,7 @@ const handleSubmit = async (e) => {
     if (updateError) throw updateError
     
     await refreshNickname()
-    // 새 계정 → 온보딩 튜토리얼(가입 직후 1회, 조건 1). 즉시 마킹해 접속 게이트(조건 3) 중복 노출 방지.
-    try { localStorage.setItem('onboarding-done', '1') } catch { /* 무시 */ }
+    // 새 계정 → 온보딩 튜토리얼(가입 직후, 조건 1). 완료 마킹은 온보딩 완주 시에만.
     navigate('/onboarding')
   } catch (err) {
     console.error('닉네임 저장 실패:', err)

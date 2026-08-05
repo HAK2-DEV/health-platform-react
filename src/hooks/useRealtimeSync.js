@@ -146,6 +146,27 @@ export function useRealtimeSync() {
       )
       .subscribe()
 
+    // 미션·퀴즈 변경(새 발행·수정·삭제) → 미션/퀴즈 목록 무효화 (마이그 197).
+    //   운영자가 새 미션/퀴즈를 발행하면 화면을 켜둔 참여자 목록에 즉시 나타난다.
+    //   RLS 존중 → 해당 프로그램을 볼 수 있는 멤버/운영자에게만 이벤트가 배달됨.
+    const contentChannel = supabase
+      .channel('rt-mission-quiz')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'missions' },
+        () => debounce('missions', () => {
+          queryClient.invalidateQueries({ queryKey: ['missions'] })   // byProgram/today/detail 등 전체
+        }),
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'quizzes' },
+        () => debounce('quizzes', () => {
+          queryClient.invalidateQueries({ queryKey: ['quizzes'] })    // byProgram/participant/stats 등 전체
+        }),
+      )
+      .subscribe()
+
     return () => {
       Object.values(timersMap).forEach(clearTimeout)
       supabase.removeChannel(partChannel)
@@ -154,6 +175,7 @@ export function useRealtimeSync() {
       supabase.removeChannel(communityChannel)
       supabase.removeChannel(communitySocialChannel)
       supabase.removeChannel(feedSocialChannel)
+      supabase.removeChannel(contentChannel)
     }
   }, [userId, queryClient])
 }

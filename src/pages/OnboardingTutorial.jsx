@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 // 회원가입 직후 온보딩 튜토리얼 (마이페이지 「사용법 다시보기」로도 진입).
@@ -6,15 +6,16 @@ import { useNavigate } from 'react-router-dom'
 //   설치 안내 스샷: public/onboarding/ios/*.png (원본 그대로, 그 위에 스포트라이트+손가락).
 //   데모(artifact)로 설계 후 포팅. Android 스샷은 추후 — 지금은 CSS 목업.
 
+// bub — 화면 위 말풍선. top(프레임 세로%), tail('up'=아래에 두고 위로 / 'down'=위에 두고 아래로), tx(꼬리 가로 %, 손가락 X에 맞춤)
 const IOS = [
-  { src: '/onboarding/ios/1-inapp.png', cap: '카톡·인스타 등에서 열었다면, 먼저 <b>브라우저에서 열기</b>를 눌러 Safari로 나가요',
-    spot: { left: '55%', top: '14.2%', width: '37%', height: '4.2%' }, fin: { left: '47%', top: '9%' } },
+  { src: '/onboarding/ios/1-inapp.png', cap: '카톡, 인스타 등에서 링크로 열었다면, 먼저 <b>브라우저에서 열기</b>를 눌러 Safari로 나가요',
+    spot: { left: '55%', top: '14.2%', width: '37%', height: '4.2%' }, fin: { left: '55%', top: '9%' }, bub: { top: '1%', left: '60%', tail: 'down', tx: '46%' } },
   { src: '/onboarding/ios/2-share.png', cap: '메뉴에서 <b>공유</b>를 눌러요',
-    spot: { left: '30%', top: '49.8%', width: '66%', height: '5.4%' }, fin: { left: '31%', top: '45%' } },
+    spot: { left: '30%', top: '49.8%', width: '66%', height: '5.4%' }, fin: { left: '31%', top: '45%' }, bub: { top: '41%', tail: 'down', tx: '30%' } },
   { src: '/onboarding/ios/3-add-2.png', cap: '조금 내려서 <b>홈 화면에 추가</b>를 눌러요',
-    spot: { left: '4%', top: '61.5%', width: '92%', height: '5.4%' }, fin: { left: '20%', top: '57%' } },
+    spot: { left: '4%', top: '61.5%', width: '92%', height: '5.4%' }, fin: { left: '20%', top: '57%' }, bub: { top: '53%', tail: 'down', tx: '22%' } },
   { src: '/onboarding/ios/4-confirm.png', cap: '오른쪽 위 <b>추가</b>를 누르면 완료! 🎉 홈 화면에 도담 아이콘이 생겨요',
-    spot: { left: '78%', top: '10.3%', width: '18%', height: '4.4%' }, fin: { left: '73%', top: '5%' } },
+    spot: { left: '78%', top: '10.3%', width: '18%', height: '4.4%' }, fin: { left: '73%', top: '5%' }, bub: { top: '-4%', left: '40%', tail: 'down', tx: '90%' } },
 ]
 
 const JOURNEY = {
@@ -24,14 +25,14 @@ const JOURNEY = {
       { st: 'STEP 2', pv: 'p_join', imgs: ['/onboarding/journey/p2-detail.png'], h: '참여하기', p: '카드를 눌러 상세를 보고「참여하기」. 공개 프로그램은 참여 전 <b>둘러보기</b>도 돼요.' },
       { st: 'STEP 3', pv: 'p_verify', video: '/onboarding/journey/p3-verify.mp4', h: '미션 인증', p: '오늘의 미션을 골라 <b>사진·기록</b>으로 인증. 자동 승인 또는 운영자 심사로 포인트!' },
       { st: 'STEP 4', pv: 'p_cheer', imgs: ['/onboarding/journey/p4-cheer.png'], h: '응원 주고받기', p: '응원 탭에서 서로의 인증에 <b>응원·좋아요</b>를 남겨요.' },
-      { st: 'STEP 5', pv: 'p_grow', imgs: ['/onboarding/journey/p5-growth.png'], h: '성장 확인', p: '성장 탭에서 <b>연속 인증·포인트·랭킹</b>과 내 변화를 한눈에.' },
+      { st: 'STEP 5', pv: 'p_grow', imgs: ['/onboarding/journey/p5-growth.png'], crop: 0.72, h: '성장 확인', p: '성장 탭에서 <b>연속 인증·포인트·랭킹</b>과 내 변화를 한눈에.' },
     ], tab: '화면 맨 아래 <b>탭바</b> — 🏠 대시보드 · 🚩 프로그램 · ＋ 기록 · 🌿 성장 · 👤 마이', mini: '🏠🚩🌿👤' },
   o: { badge: '운영자', cls: 'o', title: '프로그램, 이렇게 운영해요',
     steps: [
       { st: 'STEP 1', pv: 'o_create', imgs: ['/onboarding/journey/o1-create1.png', '/onboarding/journey/o1-create2.png', '/onboarding/journey/o1-create3.png'], h: '프로그램 만들기', p: '하단 가운데 <b>＋</b> → 마법사로 이름·기간·카테고리 설정. <b>프리셋</b>이면 4분 완성!' },
       { st: 'STEP 2', pv: 'o_mission', imgs: ['/onboarding/journey/o2-mission.png'], h: '미션·퀴즈 구성', p: '매일 인증할 <b>미션</b>과 <b>퀴즈</b>를 추가. 점수·인증 방식(자동/심사)을 정해요.' },
       { st: 'STEP 3', pv: 'o_invite', imgs: ['/onboarding/journey/o3-invite1.png', '/onboarding/journey/o3-invite2.png'], h: '참여자 초대', p: '<b>코드·링크·카카오톡</b>으로 초대. 공개로 두면 둘러보기에 노출돼요.' },
-      { st: 'STEP 4', pv: 'o_manage', h: '운영하기', p: '인증 <b>승인</b>·공지·신고 처리를 한 화면에서. 실시간 참여 현황 확인.' },
+      { st: 'STEP 4', pv: 'o_manage', imgs: ['/onboarding/journey/o4-manage.png'], fit: 'contain', h: '운영하기', p: '인증 <b>승인</b>·공지·신고 처리를 한 화면에서. 실시간 참여 현황 확인.' },
       { st: 'STEP 5', pv: 'o_report', imgs: ['/onboarding/journey/o5-report1.png', '/onboarding/journey/o5-report2.png'], h: '통계·종료 리포트', p: '참여율·미션 성과·랭킹을 <b>통계</b>로. 종료 시 완주율·<b>여정 퍼널</b> 리포트까지!' },
     ], tab: '상단 <b>⚙️ 운영자 메뉴</b>에서 미션·퀴즈·공지·통계·초대에 바로 접근', mini: '⚙️' },
 }
@@ -72,6 +73,18 @@ export default function OnboardingTutorial() {
   }
   const pickRole = (r) => { setRole(r); setSeen(s => ({ ...s, [r]: true })); go(5) }
 
+  // 완주 기준 — 마지막 화면(step 6)에 도달하면 "끝까지 봄"으로 1회 완료 처리.
+  // (진입 즉시가 아니라 완주 시에만 마킹 → 중간에 나가면 다음 접속에 다시 노출)
+  useEffect(() => {
+    if (step === 6) { try { localStorage.setItem('onboarding-done', '1') } catch { /* 무시 */ } }
+  }, [step])
+
+  // 설치 안내 이미지 프리로드 — 진입 시 초록 화살표만 먼저 뜨고 사진이 늦게 뜨는 문제 방지.
+  useEffect(() => {
+    IOS.forEach(({ src }) => { const im = new Image(); im.src = src })
+    const tap = new Image(); tap.src = '/icons/onboarding/tap.png'
+  }, [])
+
   const j = role ? JOURNEY[role] : null
 
   return (
@@ -105,7 +118,7 @@ export default function OnboardingTutorial() {
               <div className="ob-eyebrow">앱 소개</div>
               <h1 className="ob-h1">이런 걸 할 수 있어요</h1>
               <div style={{ marginTop: 22, flex: 1 }}>
-                {[['/icons/cta/create.png', '✨', '직접 만들기', '직접 원하는 프로그램과 미션을 만들어 사람들과 함께해요.'],
+                {[['/icons/cta/create.png', '✨', '프로그램 운영하기', '직접 원하는 프로그램과 미션을 만들어 사람들과 함께해요.'],
                   ['/icons/feature/mission.png', '✅', '매일 미션 인증', '작은 미션을 인증하며 건강 습관을 단단하게 쌓아요.'],
                   ['/icons/feature/community.png', '💬', '함께 응원하고 성장', '서로 응원을 주고받고, 내 기록과 성장을 한눈에 확인해요.']].map(([src, emo, h, p], i) => (
                   <div className="ob-feat" key={h} style={{ animationDelay: `${0.05 + i * 0.1}s` }}>
@@ -138,8 +151,8 @@ export default function OnboardingTutorial() {
                   <button className="ob-arrow prim" onClick={() => scene === IOS.length - 1 ? go(3) : setScene(scene + 1)} aria-label="다음">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg>
                   </button>
+                  <div className={`ob-obubble ${IOS[scene].bub.tail}`} style={{ top: IOS[scene].bub.top, left: IOS[scene].bub.left || '50%', '--tx': IOS[scene].bub.tx }} dangerouslySetInnerHTML={{ __html: IOS[scene].cap }} />
                 </div>
-                <div className="ob-caption" dangerouslySetInnerHTML={{ __html: IOS[scene].cap }} />
                 <div className="ob-dots">{IOS.map((_, i) => <i key={i} className={i === scene ? 'on' : ''} onClick={() => setScene(i)} />)}</div>
               </div>
             </section>
@@ -206,9 +219,12 @@ export default function OnboardingTutorial() {
             const last = jStep === j.steps.length - 1
             return (
               <section className="ob-screen">
-                <div className="ob-jhead"><span className={`ob-badge ${j.cls}`}>{j.badge}</span><div className="ob-eyebrow" style={{ margin: 0 }}>사용법 · 실제 화면</div></div>
                 <div className="ob-jcar">
-                  <div className="ob-phonerow">
+                  <div className={`ob-jtitle ${j.cls}`} key={`t${s.st}`}>
+                    <div className="st">{s.st}</div>
+                    <h3>{s.h}</h3>
+                  </div>
+                  <div className="ob-phonerow tight">
                     <button className="ob-arrow" disabled={jStep === 0} onClick={() => setJStep((x) => Math.max(0, x - 1))} aria-label="이전">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
                     </button>
@@ -216,18 +232,14 @@ export default function OnboardingTutorial() {
                       {s.video
                         ? <JourneyVideo src={s.video} key={s.st} />
                         : s.imgs
-                          ? <JourneyShot imgs={s.imgs} key={s.st} />
+                          ? <JourneyShot imgs={s.imgs} crop={s.crop} aspect={s.aspect} fit={s.fit} key={s.st} />
                           : <div className="ob-prev" dangerouslySetInnerHTML={{ __html: PREV[s.pv] }} />}
                     </div>
                     <button className={`ob-arrow ${last ? '' : 'prim'}`} disabled={last} onClick={() => setJStep((x) => Math.min(j.steps.length - 1, x + 1))} aria-label="다음">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg>
                     </button>
                   </div>
-                  <div className={`ob-jtext ${j.cls}`} key={s.st}>
-                    <div className="st">{s.st}</div>
-                    <h3>{s.h}</h3>
-                    <p dangerouslySetInnerHTML={{ __html: s.p }} />
-                  </div>
+                  <p className={`ob-jdesc ${j.cls}`} key={`p${s.st}`} dangerouslySetInnerHTML={{ __html: s.p }} />
                   <div className="ob-dots">{j.steps.map((_, i) => <i key={i} className={i === jStep ? 'on' : ''} onClick={() => setJStep(i)} />)}</div>
                 </div>
                 {last && (
@@ -261,22 +273,33 @@ export default function OnboardingTutorial() {
   )
 }
 
-// 여정 실제 스샷 썸네일 — 여러 장이면 자동 슬라이드(2.2s) + 점(탭 이동)
-function JourneyShot({ imgs }) {
+// 여정 실제 스샷 썸네일 — 여러 장이면 자동 슬라이드 + 손가락 스와이프(스와이프하면 자동재생 정지) + 점(탭 이동)
+function JourneyShot({ imgs, crop, aspect, fit }) {
   const [i, setI] = useState(0)
+  const [paused, setPaused] = useState(false)
+  const startX = useRef(null)
   useEffect(() => {
-    if (imgs.length < 2) return
+    if (imgs.length < 2 || paused) return
     const t = setInterval(() => setI((x) => (x + 1) % imgs.length), 2600)
     return () => clearInterval(t)
-  }, [imgs.length])
+  }, [imgs.length, paused])
+  const jump = (n) => { setPaused(true); setI(n) }
+  const shift = (dir) => setI((x) => (x + dir + imgs.length) % imgs.length)
+  const onDown = (e) => { startX.current = e.clientX }
+  const onUp = (e) => {
+    if (startX.current == null) return
+    const dx = e.clientX - startX.current
+    startX.current = null
+    if (imgs.length > 1 && Math.abs(dx) > 28) { setPaused(true); shift(dx < 0 ? 1 : -1) }
+  }
   return (
     <div className="ob-jshot">
-      <div className="ob-jframe">
+      <div className="ob-jframe" style={aspect ? { aspectRatio: aspect } : crop ? { aspectRatio: `440 / ${Math.round(954 * crop)}` } : undefined} onPointerDown={onDown} onPointerUp={onUp} onPointerCancel={() => { startX.current = null }}>
         <div className="ob-jtrack" style={{ width: `${imgs.length * 100}%`, transform: `translateX(-${i * (100 / imgs.length)}%)` }}>
-          {imgs.map((src) => <img key={src} src={src} alt="" style={{ width: `${100 / imgs.length}%` }} />)}
+          {imgs.map((src) => <img key={src} src={src} alt="" style={{ width: `${100 / imgs.length}%`, objectFit: fit || undefined, objectPosition: crop ? 'top' : undefined }} draggable="false" />)}
         </div>
       </div>
-      {imgs.length > 1 && <div className="ob-jdots">{imgs.map((_, k) => <i key={k} className={k === i ? 'on' : ''} onClick={() => setI(k)} />)}</div>}
+      {imgs.length > 1 && <div className="ob-jdots">{imgs.map((_, k) => <i key={k} className={k === i ? 'on' : ''} onClick={() => jump(k)} />)}</div>}
     </div>
   )
 }
@@ -304,6 +327,8 @@ const STYLE = `
 #ob-root{--ob-bg:#ffffff;--ob-surface:#ffffff;--ob-surface2:#f0fdf4;--ob-ink:#14261e;--ob-muted:#5f6b64;--ob-faint:#9aa79e;--ob-green:#10b981;--ob-green-br:#34d399;--ob-green-dp:#047857;--ob-soft:#ecfdf5;--ob-tint:#f0fdf4;--ob-line:#e8ece9;--ob-amber:#d97706;--ob-amber-soft:#fef3c7;--ob-shadow:0 10px 30px -12px rgba(16,185,129,.24);--ob-shadow-sm:0 3px 12px -6px rgba(16,185,129,.18);--ob-ff:'Pretendard Variable',Pretendard,-apple-system,BlinkMacSystemFont,system-ui,'Segoe UI','Apple SD Gothic Neo','Noto Sans KR',sans-serif}
 #ob-root{position:fixed;inset:0;z-index:2000;background:var(--ob-bg);font-family:var(--ob-ff);color:var(--ob-ink)}
 #ob-root *{box-sizing:border-box}
+/* 모바일 길게눌러 '이미지 저장/다운로드' 콜아웃·드래그·선택 방지 (모든 스샷·아이콘·영상) */
+#ob-root img,#ob-root video{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;-webkit-user-drag:none;user-drag:none;pointer-events:none}
 #ob-root .ob-app{width:min(440px,100%);height:100dvh;margin:0 auto;display:flex;flex-direction:column;background:var(--ob-bg)}
 #ob-root .ob-top{display:flex;align-items:center;gap:12px;padding:14px 18px 6px;flex-shrink:0}
 #ob-root .ob-back{width:34px;height:34px;border-radius:11px;border:none;background:var(--ob-surface2);color:var(--ob-ink);display:grid;place-items:center;cursor:pointer;flex-shrink:0}
@@ -334,21 +359,27 @@ const STYLE = `
 @keyframes obrise{to{opacity:1;transform:none}}
 #ob-root .ob-feat .ob-ic{width:46px;height:46px;border-radius:14px;background:var(--ob-soft);display:grid;place-items:center;font-size:24px;flex-shrink:0}
 #ob-root .ob-feat h3{font-size:15.5px;font-weight:800}#ob-root .ob-feat p{font-size:13px;line-height:1.5;color:var(--ob-muted);margin-top:3px}
-#ob-root .ob-scene{margin-top:8px;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center}
-#ob-root .ob-rsframe{position:relative;width:min(250px,60vw);aspect-ratio:640/1387;border-radius:30px;overflow:hidden;border:5px solid #111;box-shadow:var(--ob-shadow);flex-shrink:0;background:#fff}
+#ob-root .ob-scene{margin-top:22px;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start}
+#ob-root .ob-rsframe{position:relative;width:min(300px,60vw);aspect-ratio:640/1387;border-radius:34px;overflow:hidden;border:5px solid #111;box-shadow:var(--ob-shadow);flex-shrink:0;background:#fff}
 #ob-root .ob-phonerow.tight{gap:8px}
 #ob-root .ob-phonerow.tight .ob-arrow{width:38px;height:38px}
 #ob-root .ob-rs{width:100%;height:100%;object-fit:cover;display:block}
-#ob-root .ob-spot{position:absolute;border-radius:10px;box-shadow:0 0 0 3px var(--ob-green-br),0 0 0 8px color-mix(in srgb,var(--ob-green-br) 30%,transparent);animation:obhalo 1.5s ease-in-out infinite;z-index:3}
-@keyframes obhalo{0%,100%{box-shadow:0 0 0 3px var(--ob-green-br),0 0 0 8px color-mix(in srgb,var(--ob-green-br) 35%,transparent)}50%{box-shadow:0 0 0 3px var(--ob-green-br),0 0 0 13px color-mix(in srgb,var(--ob-green-br) 8%,transparent)}}
-#ob-root .ob-finger{position:absolute;z-index:4;width:44px;height:44px;object-fit:contain;filter:drop-shadow(0 5px 6px rgba(0,0,0,.35));animation:obtap 1.5s ease-in-out infinite;pointer-events:none}
+#ob-root .ob-spot{position:absolute;border-radius:10px;box-shadow:0 0 0 3px var(--ob-green-br);z-index:3}
+/* 펄스 링 — box-shadow 애니(매프레임 repaint) 대신 pseudo-el 의 transform+opacity(합성) 로 렉 제거 */
+#ob-root .ob-spot::after{content:'';position:absolute;inset:0;border-radius:inherit;box-shadow:0 0 0 3px var(--ob-green-br);animation:obhalo 1.5s ease-out infinite;will-change:transform,opacity}
+@keyframes obhalo{0%{transform:scale(1);opacity:.6}70%,100%{transform:scale(1.3);opacity:0}}
+#ob-root .ob-finger{position:absolute;z-index:4;width:44px;height:44px;object-fit:contain;filter:drop-shadow(0 5px 6px rgba(0,0,0,.35));animation:obtap 1.5s ease-in-out infinite;pointer-events:none;will-change:transform}
 @keyframes obtap{0%,100%{transform:translateY(4px)}50%{transform:translateY(-5px)}}
-#ob-root .ob-caption{margin:16px 0 8px;text-align:center;font-size:15px;line-height:1.5;font-weight:600;min-height:40px;word-break:keep-all;padding:0 10px}
-#ob-root .ob-caption b{color:var(--ob-green);font-weight:800;white-space:nowrap}
+/* 화면 오버레이 말풍선 — 폰 스샷 위에 얹힘. 꼬리(up/down)가 강조 손가락을 가리킴. tx=꼬리 가로. */
+#ob-root .ob-obubble{position:absolute;left:50%;transform:translateX(-50%);width:min(230px,62vw);background:#fff;border-radius:13px;padding:8px 11px;text-align:center;font-size:11.5px;line-height:1.38;font-weight:600;color:var(--ob-ink);word-break:keep-all;box-shadow:0 7px 20px -4px rgba(20,38,30,.32),0 1px 4px rgba(20,38,30,.14);z-index:6}
+#ob-root .ob-obubble b{color:var(--ob-green);font-weight:800;white-space:nowrap}
+#ob-root .ob-obubble::after{content:'';position:absolute;left:var(--tx,50%);transform:translateX(-50%);width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent}
+#ob-root .ob-obubble.down::after{bottom:-7px;border-top:8px solid #fff}
+#ob-root .ob-obubble.up::after{top:-7px;border-bottom:8px solid #fff}
 #ob-root .ob-dots{display:flex;gap:7px;justify-content:center;margin-top:10px}
 #ob-root .ob-dots i{width:7px;height:7px;border-radius:99px;background:var(--ob-line);cursor:pointer;transition:.2s}
 #ob-root .ob-dots i.on{width:22px;background:var(--ob-green)}
-#ob-root .ob-phonerow{display:flex;align-items:center;justify-content:center;gap:12px}
+#ob-root .ob-phonerow{position:relative;display:flex;align-items:center;justify-content:center;gap:12px}
 #ob-root .ob-arrow{width:42px;height:42px;border-radius:99px;border:1px solid var(--ob-line);background:var(--ob-surface);color:var(--ob-ink);display:grid;place-items:center;cursor:pointer;flex-shrink:0;box-shadow:var(--ob-shadow-sm);transition:.15s}
 #ob-root .ob-arrow svg{width:20px;height:20px}
 #ob-root .ob-arrow:hover{background:var(--ob-soft);border-color:var(--ob-green);color:var(--ob-green)}
@@ -389,7 +420,7 @@ const STYLE = `
 #ob-root .ob-tabhint{margin-top:14px;display:flex;align-items:center;gap:11px;padding:12px 14px;border-radius:15px;background:var(--ob-tint);border:1px dashed color-mix(in srgb,var(--ob-green) 40%,var(--ob-line))}
 #ob-root .ob-tabhint .mini{font-size:17px}#ob-root .ob-tabhint p{font-size:12px;color:var(--ob-muted);line-height:1.45}
 #ob-root .ob-jshot{display:flex;flex-direction:column;align-items:center;gap:7px;flex-shrink:0}
-#ob-root .ob-jframe{position:relative;width:112px;aspect-ratio:440/954;border-radius:16px;overflow:hidden;border:4px solid #111;box-shadow:var(--ob-shadow-sm);background:#fff}
+#ob-root .ob-jframe{position:relative;width:112px;aspect-ratio:440/954;border-radius:16px;overflow:hidden;border:4px solid #111;box-shadow:var(--ob-shadow-sm);background:#fff;touch-action:pan-y;cursor:grab}
 #ob-root .ob-jtrack{display:flex;height:100%;transition:transform .55s cubic-bezier(.45,.05,.2,1)}
 #ob-root .ob-jtrack img{height:100%;object-fit:cover;flex-shrink:0;display:block}
 #ob-root .ob-jvid{width:100%;height:100%;object-fit:cover;display:block;background:#fff}
@@ -397,15 +428,16 @@ const STYLE = `
 #ob-root .ob-jdots{display:flex;gap:4px}
 #ob-root .ob-jdots i{width:5px;height:5px;border-radius:99px;background:var(--ob-line);cursor:pointer;transition:.2s}
 #ob-root .ob-jdots i.on{width:14px;background:var(--ob-green)}
-#ob-root .ob-jcar{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:6px 0}
+#ob-root .ob-jcar{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:11px;padding:2px 0}
 #ob-root .ob-jcar-phone{flex-shrink:0}
-#ob-root .ob-jcar-phone .ob-jframe{width:min(198px,52vw)}
-#ob-root .ob-jcar-phone .ob-prev{width:min(182px,48vw);height:auto;aspect-ratio:106/196}
-#ob-root .ob-jtext{text-align:center;max-width:300px;animation:obenter .3s ease both}
-#ob-root .ob-jtext .st{font-size:11px;font-weight:800;letter-spacing:.4px;color:var(--ob-green)}
-#ob-root .ob-jtext.o .st{color:var(--ob-amber)}
-#ob-root .ob-jtext h3{font-size:18px;font-weight:800;margin-top:4px}
-#ob-root .ob-jtext p{font-size:13.5px;color:var(--ob-muted);line-height:1.55;margin-top:7px;word-break:keep-all}
+#ob-root .ob-jcar-phone .ob-jframe{width:min(300px,60vw)}
+#ob-root .ob-jcar-phone .ob-prev{width:min(280px,56vw);height:auto;aspect-ratio:106/196}
+/* STEP+제목 — 폰 위 헤더 / 설명 — 폰 아래 */
+#ob-root .ob-jtitle{text-align:center;animation:obenter .3s ease both}
+#ob-root .ob-jtitle .st{font-size:11px;font-weight:800;letter-spacing:.4px;color:var(--ob-green)}
+#ob-root .ob-jtitle.o .st{color:var(--ob-amber)}
+#ob-root .ob-jtitle h3{font-size:18px;font-weight:800;margin-top:3px}
+#ob-root .ob-jdesc{text-align:center;max-width:300px;font-size:13px;color:var(--ob-muted);line-height:1.5;word-break:keep-all;animation:obenter .3s ease both}
 #ob-root .ob-prev{width:106px;height:196px;border-radius:17px;background:#0c0c0c;padding:3px;flex-shrink:0;box-shadow:var(--ob-shadow-sm)}
 #ob-root .ob-prev .pv{position:relative;width:100%;height:100%;border-radius:14px;overflow:hidden;background:#fbfbf8;font-size:6.5px;color:#243}
 #ob-root .pv .pvsb{height:9px;display:flex;align-items:center;justify-content:space-between;padding:0 6px;font-size:5px;font-weight:800;color:#333;background:#fff}
