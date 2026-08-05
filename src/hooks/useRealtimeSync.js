@@ -281,6 +281,21 @@ export function useRealtimeSync() {
         }))
       .subscribe()
 
+    // 프로필(닉네임·아바타) 변경 → 사용자 표시 화면 (마이그 200). 드문 이벤트라 넉넉히 디바운스.
+    const usersChannel = supabase
+      .channel('rt-users')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'users' },
+        () => debounce('users', () => {
+          queryClient.invalidateQueries({ queryKey: ['rankings'] })
+          queryClient.invalidateQueries({ queryKey: ['feed'] })
+          queryClient.invalidateQueries({ queryKey: ['post-comments'] })
+          queryClient.invalidateQueries({ queryKey: ['community-posts'] })
+          queryClient.invalidateQueries({ queryKey: ['community-post-social'] })
+          queryClient.invalidateQueries({ queryKey: ['verifications'] })   // 심사목록 닉/아바타
+          queryClient.invalidateQueries({ queryKey: ['stats'] })
+        }, 800))
+      .subscribe()
+
     return () => {
       Object.values(timersMap).forEach(clearTimeout)
       supabase.removeChannel(partChannel)
@@ -294,6 +309,7 @@ export function useRealtimeSync() {
       supabase.removeChannel(teamReportChannel)
       supabase.removeChannel(classChannel)
       supabase.removeChannel(supportChannel)
+      supabase.removeChannel(usersChannel)
     }
   }, [userId, queryClient])
 }
