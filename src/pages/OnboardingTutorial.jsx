@@ -143,7 +143,7 @@ export default function OnboardingTutorial() {
                   <button className="ob-arrow" disabled={scene === 0} onClick={() => setScene(Math.max(0, scene - 1))} aria-label="이전">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
                   </button>
-                  <div className="ob-rsframe" key={scene}>
+                  <div className="ob-rsframe" key={`rs${scene}`}>
                     <img className="ob-rs" src={IOS[scene].src} alt="" />
                     <div className="ob-spot" style={IOS[scene].spot} />
                     <img className="ob-finger" src="/icons/onboarding/tap.png" style={IOS[scene].fin} alt="" />
@@ -151,7 +151,7 @@ export default function OnboardingTutorial() {
                   <button className="ob-arrow prim" onClick={() => scene === IOS.length - 1 ? go(3) : setScene(scene + 1)} aria-label="다음">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg>
                   </button>
-                  <div className={`ob-obubble ${IOS[scene].bub.tail}`} key={scene} style={{ top: IOS[scene].bub.top, left: IOS[scene].bub.left || '50%', '--tx': IOS[scene].bub.tx }} dangerouslySetInnerHTML={{ __html: IOS[scene].cap }} />
+                  <div className={`ob-obubble ${IOS[scene].bub.tail}`} key={`bub${scene}`} style={{ top: IOS[scene].bub.top, left: IOS[scene].bub.left || '50%', '--tx': IOS[scene].bub.tx }} dangerouslySetInnerHTML={{ __html: IOS[scene].cap }} />
                 </div>
                 <div className="ob-dots">{IOS.map((_, i) => <i key={i} className={i === scene ? 'on' : ''} onClick={() => setScene(i)} />)}</div>
               </div>
