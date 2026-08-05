@@ -167,6 +167,52 @@ export function useRealtimeSync() {
       )
       .subscribe()
 
+    // 운영자↔참여자 핵심 상호작용 (마이그 198). RLS 존중 → 볼 수 있는 행만 배달됨.
+    //   - verifications    : 인증 제출(→운영자 심사목록)·승인/거절(→참여자 상태·미션완료)·피드
+    //   - score_ledgers    : 점수 지급/변동 → 랭킹·점수·통계
+    //   - quiz_submissions : 퀴즈 제출 → 결과·통계
+    //   - notifications    : 알림 생성 → 알림 목록·안읽음 뱃지
+    const interactionChannel = supabase
+      .channel('rt-interactions')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'verifications' },
+        () => debounce('verifications', () => {
+          queryClient.invalidateQueries({ queryKey: ['verifications'] })  // 심사 대기 / todayCounts
+          queryClient.invalidateQueries({ queryKey: ['missions'] })       // 오늘 미션 완료 상태
+          queryClient.invalidateQueries({ queryKey: ['feed'] })           // 인증 피드
+          queryClient.invalidateQueries({ queryKey: ['stats'] })
+          queryClient.invalidateQueries({ queryKey: ['home-stats'] })
+        }),
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'score_ledgers' },
+        () => debounce('scores', () => {
+          queryClient.invalidateQueries({ queryKey: ['scores'] })         // total/byProgram/recentSeries
+          queryClient.invalidateQueries({ queryKey: ['rankings'] })       // 개인·팀·변동
+          queryClient.invalidateQueries({ queryKey: ['stats'] })
+          queryClient.invalidateQueries({ queryKey: ['home-stats'] })
+        }),
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'quiz_submissions' },
+        () => debounce('quiz-sub', () => {
+          queryClient.invalidateQueries({ queryKey: ['quizzes'] })        // results/stats/participant/detail
+          queryClient.invalidateQueries({ queryKey: ['stats'] })
+        }),
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'notifications' },
+        () => debounce('notif', () => {
+          queryClient.invalidateQueries({ queryKey: ['notifications', 'list'] })
+          queryClient.invalidateQueries({ queryKey: ['notifications', 'unread'] })
+        }),
+      )
+      .subscribe()
+
     return () => {
       Object.values(timersMap).forEach(clearTimeout)
       supabase.removeChannel(partChannel)
@@ -176,6 +222,7 @@ export function useRealtimeSync() {
       supabase.removeChannel(communitySocialChannel)
       supabase.removeChannel(feedSocialChannel)
       supabase.removeChannel(contentChannel)
+      supabase.removeChannel(interactionChannel)
     }
   }, [userId, queryClient])
 }
