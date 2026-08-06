@@ -13,7 +13,7 @@ const IOS = [
   { src: '/onboarding/ios/2-share.png', cap: '메뉴에서 <b>공유</b>를 눌러요',
     spot: { left: '30%', top: '49.8%', width: '66%', height: '5.4%' }, fin: { left: '31%', top: '45%' }, bub: { top: '41%', tail: 'down', tx: '30%' } },
   { src: '/onboarding/ios/3-add-2.png', cap: '조금 내려서 <b>홈 화면에 추가</b>를 눌러요',
-    spot: { left: '4%', top: '61.4%', width: '92%', height: '6.2%' }, fin: { left: '20%', top: '62%' }, bub: { top: '53%', tail: 'down', tx: '22%' } },
+    spot: { left: '4%', top: '61.4%', width: '92%', height: '6.2%' }, fin: { left: '52%', top: '59%' }, bub: { top: '53%', tail: 'down', tx: '22%' } },
   { src: '/onboarding/ios/4-confirm.png', cap: '오른쪽 위 <b>추가</b>를 누르면 완료! 🎉 홈 화면에 도담 아이콘이 생겨요',
     spot: { left: '78%', top: '10.3%', width: '18%', height: '4.4%' }, fin: { left: '73%', top: '5%' }, bub: { top: '-4%', left: '40%', tail: 'down', tx: '90%' } },
 ]
