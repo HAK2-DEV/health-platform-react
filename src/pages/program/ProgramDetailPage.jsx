@@ -1943,7 +1943,7 @@ function ProgramDetailPage() {
             boxOrder={program.home_layout?.order || null}
             hiddenBoxes={program.home_layout?.hidden || []}
             streakData={streakData}
-            progressData={isViewer ? null : progressData}
+            progressData={(isViewer || program.overview_progress_enabled === false) ? null : progressData}
             viewerSlot={cardTopSlot}
             todayMissions={todayMissionsData}
             recentItems={recentItemsData}
@@ -2909,7 +2909,7 @@ function ProgramDetailPage() {
                 )}
                 <div className="grid grid-cols-1 gap-2.5">
                   {!isEnded && (
-                    <PanelMenuBox icon="🛠️" title="내 프로그램 설정" desc="프로그램 · 메뉴바(개요~랭킹)" chevron onClick={() => setPanelView('settings')} />
+                    <PanelMenuBox icon="🛠️" title="내 프로그램 설정" desc="프로그램 · 메뉴바(미션~클래스)" chevron onClick={() => setPanelView('settings')} />
                   )}
                   {!isEnded && (
                     <PanelMenuBox icon="🔔" title="알림" desc="새 소식 알림(미션·퀴즈·클래스·공지) 보내기" chevron onClick={() => setPanelView('notifications')} />
@@ -2942,7 +2942,7 @@ function ProgramDetailPage() {
                 </div>
                 <div className="grid grid-cols-1 gap-2.5">
                   <PanelMenuBox icon="📋" title="프로그램 설정" desc="이름·기간·카테고리·공개 + 퀴즈/커뮤니티 사용" onClick={() => { closePanel(); editReturnViewRef.current = 'settings'; setIsEditOpen(true) }} />
-                  <PanelMenuBox icon="🗂️" title="메뉴바 설정" desc="개요·미션·퀴즈·커뮤니티·랭킹" chevron onClick={() => setPanelView('menubar')} />
+                  <PanelMenuBox icon="🗂️" title="메뉴바 설정" desc="미션·퀴즈·커뮤니티·랭킹·클래스" chevron onClick={() => setPanelView('menubar')} />
                 </div>
               </>
             )}
@@ -2996,7 +2996,6 @@ function ProgramDetailPage() {
                   <h2 className="text-lg font-bold text-gray-800">메뉴바 설정</h2>
                 </div>
                 <div className="grid grid-cols-1 gap-2.5">
-                  <PanelMenuBox iconSrc="/icons/action/record.png" icon="📝" title="개요 설정" desc="개요 글·표지" onClick={() => openManagerFromMenu('overview')} />
                   <PanelMenuBox iconSrc="/icons/feature/mission.png" icon="📋" title="미션 설정" desc="미션 추가·수정·순서" onClick={() => openManagerFromMenu('missions')} />
                   {quizEnabled && (
                     <PanelMenuBox iconSrc="/icons/feature/quiz.png" icon="📋" title="퀴즈 설정" desc="퀴즈 생성·수정·결과" onClick={() => openManagerFromMenu('quizzes')} />

@@ -32,6 +32,8 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
   const [teamSizeMax, setTeamSizeMax] = useState(4)
   const [teamSizeFixed, setTeamSizeFixed] = useState(4)
   const [changeTabEnabled, setChangeTabEnabled] = useState(false)  // 금연 「내 변화」 탭 (140)
+  const [progressEnabled, setProgressEnabled] = useState(true)     // 「나의 진행 현황」 카드 표시 (145, 개요 흡수)
+  const [savingSubtract, setSavingSubtract] = useState(true)       // 금연 「오늘 절약」 흡연 차감 (139, 개요 흡수)
   const [coverImagePath, setCoverImagePath] = useState(null)
   const [inviteCode, setInviteCode] = useState('')
   const [isSaving, setIsSaving] = useState(false)
@@ -58,6 +60,8 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
       // ranking_enabled DEFAULT true — undefined/null 이면 켜진 상태로 (마법사와 동일 동작)
       setRankingEnabled(program.ranking_enabled !== false)
       setChangeTabEnabled(program.change_tab_enabled === true)
+      setProgressEnabled(program.overview_progress_enabled !== false)
+      setSavingSubtract(program.saving_subtract_smoking !== false)
       // 팀 기능 (126)
       setTeamEnabled(!!program.team_enabled)
       setTeamScoreMode(program.team_score_mode || 'sum')
@@ -127,6 +131,9 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
         ...(rankingEnabled ? {} : { podium_enabled: false, trend_enabled: false, period_filter_enabled: false }),
         // 금연 「내 변화」 탭 (140) — 컬럼 적용 시에만 저장
         ...(Object.prototype.hasOwnProperty.call(program, 'change_tab_enabled') ? { change_tab_enabled: changeTabEnabled } : {}),
+        // 개요 흡수 — 진행현황 카드 표시(145) / 금연 절약 차감(139), 컬럼 적용 시에만
+        ...(Object.prototype.hasOwnProperty.call(program, 'overview_progress_enabled') ? { overview_progress_enabled: progressEnabled } : {}),
+        ...(Object.prototype.hasOwnProperty.call(program, 'saving_subtract_smoking') ? { saving_subtract_smoking: savingSubtract } : {}),
         // 팀 기능 (126) — 토글 그대로 저장 (랭킹 OFF 시엔 화면에서 안 보일 뿐)
         team_enabled: teamEnabled,
         team_score_mode: teamEnabled ? teamScoreMode : null,
@@ -395,6 +402,27 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
             </button>
           )}
 
+          {/* 금연 설정 — 「오늘 절약」 흡연 차감 (139, 개요 흡수) */}
+          {program?.theme === 'QUIT_SMOKING' && (
+            <button
+              type="button"
+              onClick={() => setSavingSubtract(!savingSubtract)}
+              disabled={isSaving}
+              className={`w-full mb-3 p-3 rounded-lg border-2 text-left transition disabled:opacity-50 ${savingSubtract ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 bg-white hover:border-gray-300'}`}
+            >
+              <div className="flex items-start gap-2.5">
+                <span className="text-xl">🚭</span>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-medium ${savingSubtract ? 'text-emerald-700' : 'text-gray-800'}`}>흡연 시 절약액 차감</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{savingSubtract ? '핀 만큼 「오늘 절약」이 마이너스로 표시돼요.' : '안 핀 만큼만 절약으로 표시돼요 (마이너스 없음).'}</p>
+                </div>
+                <div className={`relative w-9 h-5 rounded-full flex-shrink-0 transition mt-0.5 ${savingSubtract ? 'bg-emerald-500' : 'bg-gray-300'}`}>
+                  <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${savingSubtract ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                </div>
+              </div>
+            </button>
+          )}
+
           {/* 랭킹·팀 — 금연 테마에선 숨김 */}
           {program?.theme !== 'QUIT_SMOKING' && (<>
           {/* 랭킹 표시 — 끄면 랭킹 페이지/탭에서 숨김 (단순 습관 형성 모드) */}
@@ -520,6 +548,28 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
                 )}
               </div>
             </div>
+          )}
+
+          {/* 「나의 진행 현황」 카드 표시 (145, 개요 흡수) — 이 카드가 있는 테마(표준/레거시)에서만.
+              러닝(러닝 인사이트로 대체)·금연(카드 없음)에선 토글 숨김. */}
+          {program?.theme !== 'RUNNING' && (
+            <button
+              type="button"
+              onClick={() => setProgressEnabled(!progressEnabled)}
+              disabled={isSaving}
+              className={`w-full mb-3 p-3 rounded-lg border-2 text-left transition disabled:opacity-50 ${progressEnabled ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 bg-white hover:border-gray-300'}`}
+            >
+              <div className="flex items-start gap-2.5">
+                <span className="text-xl">📈</span>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-medium ${progressEnabled ? 'text-emerald-700' : 'text-gray-800'}`}>「나의 진행 현황」 카드 표시</p>
+                  <p className="text-xs text-gray-500 mt-0.5">끄면 개요의 진행 현황 카드(활동일·참여율·연속·진행률)가 안 보여요.</p>
+                </div>
+                <div className={`relative w-9 h-5 rounded-full flex-shrink-0 transition mt-0.5 ${progressEnabled ? 'bg-emerald-500' : 'bg-gray-300'}`}>
+                  <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${progressEnabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                </div>
+              </div>
+            </button>
           )}
           </>)}
 
