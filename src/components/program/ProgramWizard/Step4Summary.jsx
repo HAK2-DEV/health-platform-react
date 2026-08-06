@@ -35,9 +35,10 @@ function Step4Summary({ initialData, programId, onPrev }) {
       queryClient.invalidateQueries({ queryKey: queryKeys.myPrograms(session.user.id) })
       queryClient.invalidateQueries({ queryKey: ['programs', 'public'] })
 
-      // 첫 운영자 환영 캐러셀 — 아직 안 본 경우 대시보드에서 1회 표시 (온보딩 A)
+      // 첫 운영자 환영 투어 — 아직 안 본 경우 대시보드에서 1회 표시 (온보딩 A)
       if (!localStorage.getItem('operator_welcome_seen')) {
         sessionStorage.setItem('show_operator_welcome', '1')
+        sessionStorage.setItem('operator_welcome_program', programId)  // 투어 마무리 CTA·적응형 필터용
       }
 
       // 게시 완료 → 대시보드

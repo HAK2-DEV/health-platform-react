@@ -290,6 +290,7 @@ function DashboardPage() {
     }
   }, [])   // eslint-disable-line react-hooks/exhaustive-deps
   const [showWelcome, setShowWelcome] = useState(false)
+  const [welcomeProgramId, setWelcomeProgramId] = useState(null)
   // 대표 카드 모드 토글 (운영중 ⇄ 참여중) — 둘 다 있을 때 스와이프로 전환
   const [viewMode, setViewMode] = useState(() => {
     // 마지막으로 보던 모드(운영중/참여중) 복원 — 뒤로 왔을 때 그 모드로
@@ -310,6 +311,8 @@ function DashboardPage() {
     if (sessionStorage.getItem('show_operator_welcome') === '1') {
       sessionStorage.removeItem('show_operator_welcome')
       localStorage.setItem('operator_welcome_seen', '1')
+      setWelcomeProgramId(sessionStorage.getItem('operator_welcome_program') || null)
+      sessionStorage.removeItem('operator_welcome_program')
       setShowWelcome(true)
     }
   }, [])
@@ -751,7 +754,7 @@ function DashboardPage() {
           )
         })()}
 
-        <WelcomeOperatorModal isOpen={showWelcome} onClose={() => setShowWelcome(false)} />
+        <WelcomeOperatorModal isOpen={showWelcome} programId={welcomeProgramId} onClose={() => setShowWelcome(false)} />
       </div>
     </div>
   )

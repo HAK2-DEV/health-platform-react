@@ -1,87 +1,168 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
+import { supabase } from '../../supabaseClient'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 
-// 첫 프로그램 발행 직후 1회 표시되는 환영 캐러셀 (온보딩 A).
-//   표시 여부는 localStorage('operator_welcome_seen') 로 1회 제어 (DashboardPage 에서 트리거).
-const SLIDES = [
-  { emoji: '🌿', title: '운영자가 되신 걸 환영해요!', body: '이제 나만의 건강 프로그램을 직접 운영할 수 있어요.' },
-  { emoji: '🎯', title: '미션으로 습관을 만들어요', body: '추천 라이브러리나 직접 만들기로 미션을 추가하고, 사진·기록·소감으로 인증받아요.' },
-  { emoji: '🏆', title: '참여를 북돋아요', body: '퀴즈·랭킹·성장 트랙과 공정한 인증 심사로 참여자를 응원해요.' },
-  { emoji: '📊', title: '한눈에 관리해요', body: '참여자 통계·가입 승인·초대까지 한 화면에서 관리해요.' },
+// 첫 프로그램 발행 직후 1회 표시되는 운영자 환영 투어 (전체화면 A안).
+//   구조: 감정 환영(코드) → 전체화면 코치마크 이미지들 → 행동 CTA(코드).
+//   이미지: 흐림+하이라이트+말풍선이 baked 된 완성 이미지를 full-bleed 로 표시(실제 화면 100% 크기감).
+//   flag 필드 있으면 해당 기능을 켠 프로그램만 노출(적응형). 없으면 항상.
+const TOUR = [
+  // A. 프로그램 홈 (항상)
+  { src: '/onboarding/operator-tour/01-settings.png' },
+  { src: '/onboarding/operator-tour/02-invite.png' },
+  { src: '/onboarding/operator-tour/03-goal.png' },
+  { src: '/onboarding/operator-tour/04-notice.png' },
+  { src: '/onboarding/operator-tour/05-overview-edit.png' },
+  // B. 운영자 관리 ⚙️ (항상)
+  { src: '/onboarding/operator-tour/06-program-settings.png' },
+  { src: '/onboarding/operator-tour/07-notification.png' },
+  { src: '/onboarding/operator-tour/08-stats.png' },
+  { src: '/onboarding/operator-tour/09-report.png' },
+  { src: '/onboarding/operator-tour/10-approve.png' },
+  // C. 메뉴바 설정 — 미션·메뉴바는 항상, 나머지는 켠 기능만(적응형)
+  { src: '/onboarding/operator-tour/11-menubar.png' },
+  { src: '/onboarding/operator-tour/12-mission.png' },
+  { src: '/onboarding/operator-tour/13-quiz.png', flag: 'quiz_enabled' },
+  { src: '/onboarding/operator-tour/14-community.png', flag: 'community_enabled' },
+  { src: '/onboarding/operator-tour/15-ranking.png', flag: 'ranking_enabled' },
+  { src: '/onboarding/operator-tour/16-class.png', flag: 'class_feature_enabled' },
 ]
 
-function WelcomeOperatorModal({ isOpen, onClose }) {
-  useBodyScrollLock(isOpen)  // iOS 배경 스크롤 방지
-  const [i, setI] = useState(0)
+function WelcomeOperatorModal({ isOpen, onClose, programId }) {
+  useBodyScrollLock(isOpen)
+  const navigate = useNavigate()
+  const [step, setStep] = useState(0)
+  const [dir, setDir] = useState(1)
+  const startX = useRef(null)
+
+  // 적응형 — 방금 만든 프로그램의 기능 플래그(켠 기능만 코치마크 노출)
+  const { data: flags } = useQuery({
+    queryKey: ['welcome-flags', programId],
+    queryFn: async () => {
+      const { data } = await supabase.from('programs')
+        .select('quiz_enabled, community_enabled, feed_enabled, ranking_enabled, class_feature_enabled')
+        .eq('id', programId).maybeSingle()
+      return data || {}
+    },
+    enabled: isOpen && !!programId,
+  })
+
   if (!isOpen) return null
-  const last = i === SLIDES.length - 1
-  const s = SLIDES[i]
+
+  // flag 있는 스텝은 켠 기능만. flags 로딩 전(또는 programId 없음=미리보기)엔 일단 다 표시.
+  const flagOn = (flag) => {
+    const f = flags
+    if (!f) return true
+    if (flag === 'quiz_enabled') return f.quiz_enabled !== false
+    if (flag === 'community_enabled') return Object.prototype.hasOwnProperty.call(f, 'community_enabled') ? f.community_enabled !== false : !!f.feed_enabled
+    if (flag === 'ranking_enabled') return f.ranking_enabled !== false
+    if (flag === 'class_feature_enabled') return f.class_feature_enabled === true
+    return true
+  }
+  const steps = TOUR.filter(t => !t.flag || flagOn(t.flag))
+
+  const TOTAL = steps.length + 2          // intro + 코치마크 + outro
+  const isIntro = step === 0
+  const isOutro = step === TOTAL - 1
+  const tourIdx = step - 1                // 1..steps.length 일 때 유효
+
+  const go = (n) => { setDir(n > step ? 1 : -1); setStep(Math.max(0, Math.min(TOTAL - 1, n))) }
+  const finish = (dest) => { onClose(); if (dest) navigate(dest) }
+
+  const onDown = (e) => { startX.current = e.clientX }
+  const onUp = (e) => {
+    if (startX.current == null) return
+    const dx = e.clientX - startX.current
+    startX.current = null
+    if (Math.abs(dx) > 40) { if (dx < 0 && step < TOTAL - 1) go(step + 1); else if (dx > 0 && step > 0) go(step - 1) }
+  }
+
+  const slide = {
+    initial: (d) => ({ opacity: 0, x: d > 0 ? 40 : -40 }),
+    animate: { opacity: 1, x: 0 },
+    exit: (d) => ({ opacity: 0, x: d > 0 ? -40 : 40 }),
+  }
 
   return (
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-sm bg-white rounded-card-lg shadow-elevated overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex justify-end p-2">
-          <button type="button" onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600" aria-label="닫기">
-            <X className="w-5 h-5" />
-          </button>
+    <div className="fixed inset-0 z-[70] bg-black/70">
+      <div className="relative w-full max-w-md mx-auto h-full bg-white overflow-hidden flex flex-col select-none">
+
+        {/* 상단 — 진행바 + 건너뛰기 */}
+        <div className="flex items-center gap-3 px-4 pt-3 pb-2" style={{ paddingTop: 'max(env(safe-area-inset-top), 0.75rem)' }}>
+          <div className="flex-1 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+            <div className="h-full rounded-full bg-emerald-500 transition-all duration-300" style={{ width: `${((step + 1) / TOTAL) * 100}%` }} />
+          </div>
+          <button type="button" onClick={() => finish()} className="text-[13px] font-semibold text-gray-400 hover:text-gray-600 flex-shrink-0">건너뛰기</button>
         </div>
 
-        <div className="px-6 pb-2 text-center min-h-[180px]">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, x: 16 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -16 }}
-              transition={{ duration: 0.22 }}
-            >
-              <div className="text-5xl mb-3">{s.emoji}</div>
-              <h2 className="text-xl font-bold text-gray-800 mb-2">{s.title}</h2>
-              <p className="text-sm text-gray-600 leading-relaxed">{s.body}</p>
-            </motion.div>
-          </AnimatePresence>
-        </div>
-
-        <div className="flex justify-center gap-1.5 py-4">
-          {SLIDES.map((_, idx) => (
-            <span
-              key={idx}
-              className={`h-1.5 rounded-full transition-all ${idx === i ? 'w-5 bg-emerald-500' : 'w-1.5 bg-gray-200'}`}
-            />
+        {/* 본문 */}
+        <div className="flex-1 relative overflow-hidden bg-white" onPointerDown={onDown} onPointerUp={onUp} onPointerCancel={() => { startX.current = null }}>
+          {/* 코치마크 이미지 — 전부 미리 마운트(디코딩)해 두고 현재 것만 표시 → 넘길 때 재로딩·흰 깜빡임 없음 */}
+          {steps.map((s, i) => (
+            <img key={s.src} src={s.src} alt="" draggable="false"
+              className={`absolute inset-0 w-full h-full object-contain pointer-events-none ${(!isIntro && !isOutro && i === tourIdx) ? 'opacity-100' : 'opacity-0'}`} />
           ))}
+          <AnimatePresence mode="wait" custom={dir}>
+            {isIntro ? (
+              <motion.div key="intro" custom={dir} variants={slide} initial="initial" animate="animate" exit="exit" transition={{ duration: 0.28 }}
+                className="absolute inset-0 flex flex-col items-center justify-center text-center px-8">
+                <img src="/icons/growth/sprout.png" alt="" className="w-44 h-44 object-contain mb-5" draggable="false" />
+                <h1 className="text-[30px] font-extrabold text-gray-900 leading-tight">첫 프로그램을 만드셨어요</h1>
+                <p className="mt-4 text-[17px] leading-relaxed text-gray-500 max-w-[320px]">
+                  이제 당신은 누군가의 <b className="text-emerald-600 font-bold">건강 동행자</b>예요.<br />
+                  운영은 어렵지 않아요 <br />
+                  주요 기능만 30초 안에 짚어드릴게요.
+                </p>
+                <button type="button" onClick={() => go(1)}
+                  className="mt-9 w-full max-w-[320px] py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-[16px] transition">
+                  둘러보기 시작 →
+                </button>
+              </motion.div>
+            ) : isOutro ? (
+              <motion.div key="outro" custom={dir} variants={slide} initial="initial" animate="animate" exit="exit" transition={{ duration: 0.28 }}
+                className="absolute inset-0 flex flex-col items-center justify-center text-center px-8">
+                <div className="text-6xl mb-4">🎉</div>
+                <h1 className="text-[26px] font-extrabold text-gray-900 leading-tight">준비 완료!</h1>
+                <p className="mt-3 text-[15px] leading-relaxed text-gray-500 max-w-[300px]">
+                  이제 첫 미션을 추가하고 참여자를 초대해볼까요?<br />하다 보면 금방 익숙해져요.
+                </p>
+                <button type="button" onClick={() => finish(programId ? `/programs/${programId}` : '/programs')}
+                  className="mt-8 w-full max-w-[300px] py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold transition">
+                  내 프로그램으로 가기 →
+                </button>
+                <button type="button" onClick={() => finish()}
+                  className="mt-2 w-full max-w-[300px] py-3 rounded-2xl bg-emerald-50 text-emerald-700 font-bold transition">
+                  나중에 할게요
+                </button>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+
+          {/* 좌우 화살표 — 코치마크 단계에서만 */}
+          {!isIntro && (
+            <button type="button" onClick={() => go(step - 1)} aria-label="이전"
+              className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/85 shadow-md flex items-center justify-center text-gray-600 hover:bg-white">
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+          )}
+          {!isOutro && !isIntro && (
+            <button type="button" onClick={() => go(step + 1)} aria-label="다음"
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-emerald-500 shadow-md flex items-center justify-center text-white hover:bg-emerald-600">
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          )}
         </div>
 
-        <div className="p-4 pt-0">
-          {last ? (
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-full py-3 rounded-card-lg bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-semibold transition"
-            >
-              시작하기
-            </button>
-          ) : (
-            <div className="flex items-center justify-between">
-              <button type="button" onClick={onClose} className="px-3 py-2 text-sm text-gray-400 hover:text-gray-600">
-                건너뛰기
-              </button>
-              <button
-                type="button"
-                onClick={() => setI(i + 1)}
-                className="px-6 py-3 rounded-card-lg bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-semibold transition"
-              >
-                다음
-              </button>
-            </div>
-          )}
+        {/* 하단 — 점 */}
+        <div className="flex items-center justify-center gap-1.5 py-4" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 1rem)' }}>
+          {Array.from({ length: TOTAL }).map((_, i) => (
+            <button key={i} type="button" onClick={() => go(i)}
+              className={`h-1.5 rounded-full transition-all ${i === step ? 'w-5 bg-emerald-500' : 'w-1.5 bg-gray-200'}`} />
+          ))}
         </div>
       </div>
     </div>
