@@ -51,7 +51,7 @@ function QuizLibraryModal({ isOpen, onClose, programId, initialSelection = null 
         {/* ─── 1단계: 대상자 ─── */}
         {step === 'audience' && (
           <>
-            <h2 className="text-lg font-bold text-gray-800 mb-1 pr-8">📚 퀴즈 라이브러리</h2>
+            <h2 className="text-lg font-bold text-gray-800 mb-1 pr-8">📚 퀴즈 템플릿</h2>
             <p className="text-xs text-gray-500 mb-4">대상자를 선택하세요. 출처 검증된 건강 상식 퀴즈를 제공합니다.</p>
             <div className="space-y-2">
               {QUIZ_AUDIENCES.map(a => (

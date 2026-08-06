@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect, Fragment } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, Trash2, GripVertical, Lock, Check, X, ChevronLeft, ChevronRight, Calendar } from 'lucide-react'
+import { Plus, Trash2, Lock, Check, X, ChevronLeft, ChevronRight, Calendar } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
 import { queryKeys, fetchQuizForEdit } from '../../lib/queries'
@@ -403,23 +403,14 @@ function QuizCreatePage() {
         </div>
 
         {/* 스텝 인디케이터 */}
-        <div className="flex items-center mb-5">
-          {STEP_LABELS.map((label, i) => {
+        <div className="flex items-center justify-center gap-1.5 mb-5">
+          {STEP_LABELS.map((_, i) => {
             const n = i + 1
-            const active = step === n
-            const done = step > n
             return (
-              <Fragment key={n}>
-                {i > 0 && <div className={`flex-1 h-0.5 mt-[14px] mx-1 rounded-full ${step >= n ? 'bg-emerald-500' : 'bg-gray-200'}`} />}
-                <div className="flex flex-col items-center flex-shrink-0">
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[13px] font-bold ${done || active ? 'bg-emerald-500 text-white' : 'bg-gray-100 text-gray-400'}`}>
-                    {done ? <Check className="w-4 h-4" /> : n}
-                  </div>
-                  <span className={`mt-1 text-[10px] font-medium whitespace-nowrap ${active ? 'text-emerald-600' : 'text-gray-400'}`}>
-                    {label}{n === 2 && step === 2 ? ` ${qIndex + 1}/${questions.length}` : ''}
-                  </span>
-                </div>
-              </Fragment>
+              <span
+                key={n}
+                className={`h-1.5 rounded-full transition-all ${step === n ? 'w-5 bg-emerald-500' : 'w-1.5 bg-gray-200'}`}
+              />
             )
           })}
         </div>
@@ -544,10 +535,12 @@ function QuizCreatePage() {
 // ─── 문제 편집 카드 ─────────────────────────────────────
 function QuestionEditor({ index, question: q, canRemove, onChange, onRemove, onUpdateOption, onAddOption, onRemoveOption }) {
   const included = q.included !== false
+  const [showExpl, setShowExpl] = useState(!!q.explanation)   // 해설: 내용 있으면 펼침, 없으면 「+ 해설 추가」로 접기
   return (
-    <div className={`rounded-2xl border-2 p-5 transition ${included ? 'border-emerald-400 bg-emerald-50/40' : 'border-gray-200 bg-gray-50 opacity-60'}`}>
-      <div className="flex items-center justify-between mb-3">
-        <label className="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
+    <div className={`rounded-2xl border-2 p-4 space-y-2.5 transition ${included ? 'border-emerald-400 bg-emerald-50/40' : 'border-gray-200 bg-gray-50 opacity-60'}`}>
+      {/* 헤더 — 발행 포함 토글 + 삭제 (문제 번호는 바깥 "문제 N/N" 에 있음) */}
+      <div className="flex items-center justify-between">
+        <label className="flex items-center gap-1.5 text-xs font-medium text-gray-600 cursor-pointer">
           {/* 발행 포함 체크박스 — 해제하면 이 문항은 발행에서 제외 */}
           <input
             type="checkbox"
@@ -556,8 +549,7 @@ function QuestionEditor({ index, question: q, canRemove, onChange, onRemove, onU
             className="w-4 h-4 accent-emerald-500"
             title="발행에 포함"
           />
-          <GripVertical className="w-4 h-4 text-gray-300" />
-          문제 {index + 1}
+          발행 포함
         </label>
         {canRemove && (
           <button
@@ -572,7 +564,7 @@ function QuestionEditor({ index, question: q, canRemove, onChange, onRemove, onU
       </div>
 
       {/* 유형 선택 */}
-      <div className="flex gap-1.5 mb-3">
+      <div className="flex gap-1.5">
         {QUESTION_TYPES.map(t => {
           const active = q.type === t.value
           return (
@@ -589,26 +581,27 @@ function QuestionEditor({ index, question: q, canRemove, onChange, onRemove, onU
         })}
       </div>
 
-      {/* 문제 내용 */}
+      {/* 문제 내용 — 내용 많으면 아래로 자동 확장 */}
       <textarea
+        ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 320) + 'px' } }}
         value={q.question_text}
-        onChange={(e) => onChange({ question_text: e.target.value })}
+        onChange={(e) => { onChange({ question_text: e.target.value }); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 320) + 'px' }}
         rows={2}
         placeholder="문제를 입력해주세요"
-        className="w-full px-3 py-2 mb-3 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 resize-none text-sm"
+        className="w-full px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 resize-none overflow-hidden text-sm"
       />
 
       {/* 유형별 정답 입력 */}
       {q.type === 'MULTIPLE' && (
-        <div className="space-y-2 mb-3">
+        <div className="space-y-2">
           <p className="text-xs text-gray-500">보기 · <span className="text-emerald-600 font-semibold">정답을 체크해주세요</span></p>
           {q.options.map((opt, oIdx) => (
-            <div key={oIdx} className="flex items-center gap-2 min-w-0">
+            <div key={oIdx} className="flex items-start gap-2 min-w-0">
               <button
                 type="button"
                 onClick={() => onChange({ correctIndex: oIdx })}
                 title="정답으로 지정"
-                className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 border-2 transition ${
+                className={`w-6 h-6 mt-1 rounded-full flex items-center justify-center flex-shrink-0 border-2 transition ${
                   q.correctIndex === oIdx
                     ? 'bg-emerald-500 border-emerald-500 text-white'
                     : 'bg-white border-gray-300 text-transparent hover:border-emerald-400'
@@ -616,18 +609,19 @@ function QuestionEditor({ index, question: q, canRemove, onChange, onRemove, onU
               >
                 <Check className="w-4 h-4" strokeWidth={3} />
               </button>
-              <input
-                type="text"
+              <textarea
+                ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 200) + 'px' } }}
                 value={opt}
-                onChange={(e) => onUpdateOption(oIdx, e.target.value)}
+                onChange={(e) => { onUpdateOption(oIdx, e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px' }}
+                rows={1}
                 placeholder={`보기 ${oIdx + 1}`}
-                className="flex-1 min-w-0 px-3 py-1.5 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 text-sm"
+                className="flex-1 min-w-0 px-3 py-1.5 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 resize-none overflow-hidden text-sm"
               />
               {q.options.length > 2 && (
                 <button
                   type="button"
                   onClick={() => onRemoveOption(oIdx)}
-                  className="p-1 text-gray-400 hover:text-red-500 transition flex-shrink-0"
+                  className="p-1 mt-1 text-gray-400 hover:text-red-500 transition flex-shrink-0"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
@@ -645,7 +639,7 @@ function QuestionEditor({ index, question: q, canRemove, onChange, onRemove, onU
       )}
 
       {q.type === 'OX' && (
-        <div className="mb-3">
+        <div>
           <p className="text-xs text-gray-500 mb-1.5">정답 선택</p>
           <div className="flex gap-2">
           {['O', 'X'].map(v => (
@@ -664,7 +658,7 @@ function QuestionEditor({ index, question: q, canRemove, onChange, onRemove, onU
       )}
 
       {q.type === 'SHORT' && (
-        <div className="mb-3 space-y-2">
+        <div className="space-y-2">
           {/* 채점 방식 */}
           <div className="flex gap-1.5">
             {[
@@ -694,18 +688,34 @@ function QuestionEditor({ index, question: q, canRemove, onChange, onRemove, onU
         </div>
       )}
 
-      {/* 해설 — 객관식/OX 만. 정답 공개 ON 시 참가자가 제출 후 정답과 함께 봄 (서술형 제외) */}
+      {/* 해설 — 객관식/OX 만. 정답 공개 ON 시 참가자가 제출 후 정답과 함께 봄 (서술형 제외).
+          기본 접힘 — 내용 있으면 펼침, 없으면 「+ 해설 추가」로 공간 절약 */}
       {q.type !== 'SHORT' && (
-        <div className="mb-3">
-          <label className="block text-xs font-medium text-gray-600 mb-1">💡 해설 (선택)</label>
-          <textarea
-            value={q.explanation || ''}
-            onChange={(e) => onChange({ explanation: e.target.value })}
-            rows={2}
-            placeholder="정답에 대한 해설 (정답 공개 시 참가자에게 노출돼요)"
-            className="w-full px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 resize-none text-sm"
-          />
-        </div>
+        showExpl ? (
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-medium text-gray-600">💡 해설 (선택)</label>
+              {!q.explanation && (
+                <button type="button" onClick={() => setShowExpl(false)}
+                  className="text-[11px] text-gray-400 hover:text-gray-600">접기</button>
+              )}
+            </div>
+            <textarea
+              ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 320) + 'px' } }}
+              value={q.explanation || ''}
+              onChange={(e) => { onChange({ explanation: e.target.value }); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 320) + 'px' }}
+              rows={2}
+              autoFocus
+              placeholder="정답에 대한 해설 (정답 공개 시 참가자에게 노출돼요)"
+              className="w-full px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 resize-none overflow-hidden text-sm"
+            />
+          </div>
+        ) : (
+          <button type="button" onClick={() => setShowExpl(true)}
+            className="flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:text-emerald-700">
+            <Plus className="w-3.5 h-3.5" /> 💡 해설 추가 <span className="font-normal text-gray-400">(선택)</span>
+          </button>
+        )
       )}
 
       {/* 점수 + award_mode */}

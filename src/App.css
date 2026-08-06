@@ -74,13 +74,11 @@ body {
   color: var(--color-text);
 }
 
-h1 {
-  margin: 0;
-}
-
-p {
-  margin: 0;
-}
+/* h1 { margin: 0 } · p { margin: 0 } 제거 (Tailwind v4 layering 버그).
+   이 규칙들은 unlayered 라 @layer utilities 안의 마진 유틸(mb-8 등)을 cascade layer
+   상 항상 덮어써서, <h1>·<p> 에 준 mb-*/mt-* 가 전부 무시되던 원인.
+   Preflight(@layer base)가 이미 h1~h6·p 마진을 0 으로 리셋하므로 여기 리셋은 불필요.
+   위 button{color:inherit} 제거(61줄)와 동일한 layering 이슈. */
 
 /* === App 레이아웃 === */
 .app {

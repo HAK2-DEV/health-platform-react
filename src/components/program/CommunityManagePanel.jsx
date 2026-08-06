@@ -57,6 +57,12 @@ const REPORT_OPTIONS = [
   { key: '5', label: '신고 5회', desc: '5명 누적 시 숨김' },
   { key: 'auto', label: '즉시 숨김', desc: '신고 1회로 바로 숨김' },
 ]
+// 설정을 3개 탭으로 그룹화 — 세로 스크롤 대신 탭 전환
+const TABS = [
+  { key: 'look', label: '스타일' },    // 레이아웃 + 미리보기
+  { key: 'boards', label: '게시판' },  // 게시판 카테고리 + 인증 피드 공개
+  { key: 'rules', label: '규칙' },     // 승인·노출 + 댓글 점수 + 신고 정책
+]
 
 function LayoutPreview({ type }) {
   const box = 'bg-gray-300 rounded-[2px]'
@@ -247,7 +253,6 @@ const Toggle = ({ on, onClick }) => (
     <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${on ? 'left-[22px]' : 'left-0.5'}`} />
   </button>
 )
-const numBadge = (n) => <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500 text-white text-[11px] font-bold">{n}</span>
 const headCls = 'flex items-center gap-1.5 text-[15px] font-bold text-gray-800 mb-3'
 
 const CommunityManagePanel = forwardRef(function CommunityManagePanel({ program, onSaved }, ref) {
@@ -262,6 +267,7 @@ const CommunityManagePanel = forwardRef(function CommunityManagePanel({ program,
   const [commentPointsEnabled, setCommentPointsEnabled] = useState(false)
   const [commentPoints, setCommentPoints] = useState(2)
   const [commentDailyLimit, setCommentDailyLimit] = useState(1)
+  const [tab, setTab] = useState('look')   // 모양 / 게시판 / 규칙
 
   useEffect(() => {
     if (!program) return
@@ -334,17 +340,29 @@ const CommunityManagePanel = forwardRef(function CommunityManagePanel({ program,
 
   return (
     <div className="-mx-[11px]">
-    <div className="mission-fields w-[366px] max-w-full mx-auto space-y-[9px] pb-2">
-      {/* 1) 레이아웃 */}
+    <div className="mission-fields w-[366px] max-w-full mx-auto pb-2">
+      {/* 탭 바 — 3그룹으로 묶어 세로 스크롤 제거 */}
+      <div className="flex gap-1.5 mb-3">
+        {TABS.map(t => (
+          <button key={t.key} type="button" onClick={() => setTab(t.key)}
+            className={`flex-1 py-2 rounded-xl text-[13px] font-bold transition ${tab === t.key ? 'bg-emerald-500 text-white shadow-sm' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="space-y-[9px]">
+      {tab === 'look' && (<>
+      {/* 레이아웃 */}
       <section className="bg-white border border-gray-100 rounded-2xl shadow-soft p-4">
-        <h3 className={headCls}>{numBadge(1)} 레이아웃 선택</h3>
-        <p className="text-[11px] text-gray-400 mb-3 -mt-2">선택한 형태로 게시글 배치가 바뀝니다. <span className="text-gray-300">(옆으로 밀어 선택)</span></p>
-        <div className="flex gap-2 overflow-x-auto -mx-1 px-1 pt-1 pb-1 scrollbar-hide">
+        <h3 className={headCls}>스타일 선택</h3>
+        <p className="text-[11px] text-gray-400 mb-3 -mt-2">선택한 형태로 게시글 배치가 바뀝니다.</p>
+        <div className="grid grid-cols-2 gap-2">
           {LAYOUTS.map(l => {
             const on = layout === l.key
             return (
               <button key={l.key} type="button" onClick={() => setLayout(l.key)}
-                className={`relative flex-shrink-0 w-[104px] flex flex-col items-center text-center rounded-xl border-2 p-2 transition ${on ? 'border-emerald-400 bg-emerald-50/50' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
+                className={`relative flex flex-col items-center text-center rounded-xl border-2 p-2 transition ${on ? 'border-emerald-400 bg-emerald-50/50' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
                 {on && <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center shadow-sm"><Check className="w-2.5 h-2.5 text-white" /></span>}
                 <div className="w-full rounded-md bg-gray-50 border border-gray-100 mb-1.5"><LayoutPreview type={l.key} /></div>
                 <span className={`text-[12px] font-bold ${on ? 'text-emerald-700' : 'text-gray-700'}`}>{l.label}</span>
@@ -355,10 +373,23 @@ const CommunityManagePanel = forwardRef(function CommunityManagePanel({ program,
         </div>
       </section>
 
-      {/* 2) 게시판 카테고리 — 칩 */}
+      {/* 미리보기 — 모양 탭에 함께 (레이아웃 고르며 바로 확인) */}
+      <section className="bg-white border border-gray-100 rounded-2xl shadow-soft p-4">
+        <h3 className={headCls}>미리보기</h3>
+        <div className="flex items-baseline gap-2 mb-2">
+          <p className="text-[13px] font-bold text-gray-800">{selLayout.label}</p>
+          <p className="text-[11px] text-gray-500">{selLayout.desc}</p>
+        </div>
+        <CommunityPreview layout={layout} reactionsEnabled={reactionAuto} boards={boards} />
+        <p className="text-[11px] text-gray-400 mt-2">예시 게시글로 보여드려요. 저장하면 선택한 스타일이 참여자 커뮤니티에 적용돼요.</p>
+      </section>
+      </>)}
+
+      {tab === 'boards' && (<>
+      {/* 게시판 카테고리 — 칩 */}
       <section className="bg-white border border-gray-100 rounded-2xl shadow-soft p-4">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="flex items-center gap-1.5 text-[15px] font-bold text-gray-800">{numBadge(2)} 게시판 카테고리</h3>
+          <h3 className="flex items-center gap-1.5 text-[15px] font-bold text-gray-800">게시판 카테고리</h3>
           <span className="text-[10px] text-gray-400">ⓘ 이름 탭=수정 · X=삭제</span>
         </div>
         <div className="flex items-center gap-2 overflow-x-auto -mx-1 px-1 pb-1 scrollbar-hide">
@@ -429,7 +460,7 @@ const CommunityManagePanel = forwardRef(function CommunityManagePanel({ program,
                       <div className="fixed inset-0 z-10" onClick={() => setMenuOpenId(null)} />
                       <div className="absolute right-0 top-6 z-20 w-36 bg-white border border-gray-200 rounded-lg shadow-lg py-1">
                         <button type="button" onClick={() => { setLayoutModal({ boardId: b.id }); setMenuOpenId(null) }} className="w-full flex items-center gap-1.5 px-3 py-1.5 text-left text-[12px] text-gray-700 hover:bg-gray-50">
-                          <LayoutGrid className="w-3.5 h-3.5" /> 레이아웃 선택
+                          <LayoutGrid className="w-3.5 h-3.5" /> 스타일 선택
                         </button>
                         <button type="button" onClick={() => { removeBoard(b.id); setMenuOpenId(null) }} className="w-full flex items-center gap-1.5 px-3 py-1.5 text-left text-[12px] text-red-600 hover:bg-red-50">
                           <Trash2 className="w-3.5 h-3.5" /> 게시판 삭제
@@ -475,9 +506,12 @@ const CommunityManagePanel = forwardRef(function CommunityManagePanel({ program,
         </div>
       </section>
 
-      {/* 3) 승인 및 노출 */}
+      </>)}
+
+      {tab === 'rules' && (<>
+      {/* 승인 및 노출 */}
       <section className="bg-white border border-gray-100 rounded-2xl shadow-soft p-4">
-        <h3 className={headCls}>{numBadge(3)} 승인 및 노출 <span className="text-[11px] font-normal text-gray-400 ml-1">설정 저장</span></h3>
+        <h3 className={headCls}>승인 및 노출 <span className="text-[11px] font-normal text-gray-400 ml-1">설정 저장</span></h3>
         <div className="space-y-3">
           {[
             { label: '공지 게시판 사용', desc: '상단 고정 공지를 노출', on: noticeEnabled, set: setNoticeEnabled },
@@ -498,7 +532,7 @@ const CommunityManagePanel = forwardRef(function CommunityManagePanel({ program,
       <section className="bg-white border border-gray-100 rounded-2xl shadow-soft p-4">
         <div className="flex items-start gap-3">
           <div className="flex-1 min-w-0">
-            <h3 className="flex items-center gap-1.5 text-[15px] font-bold text-gray-800">{numBadge(4)} 댓글 활동 점수</h3>
+            <h3 className="flex items-center gap-1.5 text-[15px] font-bold text-gray-800">댓글 활동 점수</h3>
             <p className="text-[11px] text-gray-500 mt-1 break-keep">다른 참여자의 글·인증에 댓글을 달면 점수를 줘서 소통을 유도해요.</p>
           </div>
           <Toggle on={commentPointsEnabled} onClick={() => setCommentPointsEnabled(v => !v)} />
@@ -539,7 +573,7 @@ const CommunityManagePanel = forwardRef(function CommunityManagePanel({ program,
       {/* 5) 신고/숨김 정책 — 자동 숨김 토글(off=직접 관리). off 면 임계값 버튼 숨김 */}
       <section className="bg-white border border-gray-100 rounded-2xl shadow-soft p-4">
         <div className="flex items-center justify-between mb-2.5">
-          <h3 className="flex items-center gap-1.5 text-[15px] font-bold text-gray-800">{numBadge(5)} 신고 / 숨김 정책</h3>
+          <h3 className="flex items-center gap-1.5 text-[15px] font-bold text-gray-800">신고 / 숨김 정책</h3>
           <div className="flex items-center gap-1.5">
             <span className="text-[11px] text-gray-500">자동 숨김</span>
             <Toggle on={reportPolicy !== 'off'} onClick={() => setReportPolicy(p => p === 'off' ? '2' : 'off')} />
@@ -564,17 +598,8 @@ const CommunityManagePanel = forwardRef(function CommunityManagePanel({ program,
           </div>
         )}
       </section>
-
-      {/* 6) 미리보기 — 예시 게시글로 실제 참여자 화면 미리보기 */}
-      <section className="bg-white border border-gray-100 rounded-2xl shadow-soft p-4">
-        <h3 className={headCls}>{numBadge(6)} 미리보기</h3>
-        <div className="flex items-baseline gap-2 mb-2">
-          <p className="text-[13px] font-bold text-gray-800">{selLayout.label}</p>
-          <p className="text-[11px] text-gray-500">{selLayout.desc}</p>
-        </div>
-        <CommunityPreview layout={layout} reactionsEnabled={reactionAuto} boards={boards} />
-        <p className="text-[11px] text-gray-400 mt-2">예시 게시글로 보여드려요. 저장하면 선택한 레이아웃이 참여자 커뮤니티에 적용돼요.</p>
-      </section>
+      </>)}
+      </div>
 
       {/* 신고·숨김 관리(신고 관리 + 가려진 인증)는 운영자 메뉴로 이동됨 */}
 
@@ -587,8 +612,8 @@ const CommunityManagePanel = forwardRef(function CommunityManagePanel({ program,
         return (
           <div className="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center p-5" onClick={() => setLayoutModal(null)}>
             <div className="w-full max-w-xs bg-white rounded-2xl p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
-              <h4 className="text-[15px] font-bold text-gray-800 mb-0.5">“{b.name}” 레이아웃</h4>
-              <p className="text-[11px] text-gray-400 mb-3">이 게시판만 다른 레이아웃으로. 기본은 전체 설정({LAYOUTS.find(l => l.key === layout)?.label})을 따라요.</p>
+              <h4 className="text-[15px] font-bold text-gray-800 mb-0.5">“{b.name}” 스타일</h4>
+              <p className="text-[11px] text-gray-400 mb-3">이 게시판만 다른 스타일로. 기본은 전체 설정({LAYOUTS.find(l => l.key === layout)?.label})을 따라요.</p>
               <div className="grid grid-cols-2 gap-2">
                 {/* 전체 설정 따름 */}
                 <button type="button" onClick={() => choose('')}

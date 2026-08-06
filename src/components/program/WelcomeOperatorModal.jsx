@@ -1,10 +1,11 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../supabaseClient'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Check, Bell } from 'lucide-react'
+import { getPushState, subscribeToPush } from '../../lib/push'
 
 // 첫 프로그램 발행 직후 1회 표시되는 운영자 환영 투어 (전체화면 A안).
 //   구조: 감정 환영(코드) → 전체화면 코치마크 이미지들 → 행동 CTA(코드).
@@ -19,7 +20,7 @@ const TOUR = [
   { src: '/onboarding/operator-tour/05-overview-edit.png' },
   // B. 운영자 관리 ⚙️ (항상)
   { src: '/onboarding/operator-tour/06-program-settings.png' },
-  { src: '/onboarding/operator-tour/07-notification.png' },
+  { src: '/onboarding/operator-tour/07-notification.png', action: 'push' },
   { src: '/onboarding/operator-tour/08-stats.png' },
   { src: '/onboarding/operator-tour/09-report.png' },
   { src: '/onboarding/operator-tour/10-approve.png' },
@@ -50,6 +51,27 @@ function WelcomeOperatorModal({ isOpen, onClose, programId }) {
     },
     enabled: isOpen && !!programId,
   })
+
+  // 알림 슬라이드 — 실제 폰 푸시 켜기(권한 요청 + 구독). 설명만 하던 슬라이드에 CTA 추가.
+  const [pushState, setPushState] = useState(null)   // 'subscribed' | 'unsubscribed' | 'denied' | 'unsupported' | 'nokey'
+  const [pushBusy, setPushBusy] = useState(false)
+  const [pushMsg, setPushMsg] = useState('')
+  useEffect(() => {
+    if (!isOpen) return
+    getPushState().then(setPushState).catch(() => {})
+  }, [isOpen])
+  const enablePush = async () => {
+    setPushMsg(''); setPushBusy(true)
+    try {
+      await subscribeToPush()
+      setPushState('subscribed')
+    } catch (e) {
+      setPushMsg(e?.message || '알림을 켜지 못했어요')
+      getPushState().then(setPushState).catch(() => {})
+    } finally {
+      setPushBusy(false)
+    }
+  }
 
   if (!isOpen) return null
 
@@ -154,6 +176,33 @@ function WelcomeOperatorModal({ isOpen, onClose, programId }) {
               className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-emerald-500 shadow-md flex items-center justify-center text-white hover:bg-emerald-600">
               <ChevronRight className="w-5 h-5" />
             </button>
+          )}
+
+          {/* 알림 슬라이드 — 실제 폰 푸시 켜기 CTA (설명만 하던 화면에서 그 자리에서 켬) */}
+          {!isIntro && !isOutro && steps[tourIdx]?.action === 'push' && (
+            <div className="absolute left-0 right-0 bottom-5 flex flex-col items-center gap-2 px-10 z-20">
+              {pushState === 'subscribed' ? (
+                <div className="inline-flex items-center gap-1.5 px-5 py-3 rounded-2xl bg-emerald-500 text-white text-sm font-bold shadow-lg">
+                  <Check className="w-4 h-4" /> 폰 알림이 켜졌어요
+                </div>
+              ) : pushState === 'denied' ? (
+                <p className="text-[12px] text-gray-600 bg-white/95 rounded-xl px-3.5 py-2 shadow text-center leading-relaxed max-w-[300px]">
+                  알림이 차단돼 있어요. <b>브라우저·기기 설정</b>에서 이 앱의 알림을 허용해주세요.
+                </p>
+              ) : (pushState === 'unsupported' || pushState === 'nokey') ? (
+                <p className="text-[12px] text-gray-500 bg-white/95 rounded-xl px-3.5 py-2 shadow text-center leading-relaxed max-w-[300px]">
+                  이 환경에선 폰 푸시를 켤 수 없어요. <b>홈 화면에 추가한 앱</b>에서 다시 시도해보세요.
+                </p>
+              ) : (
+                <button type="button" onClick={enablePush} disabled={pushBusy}
+                  className="inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white text-[15px] font-bold shadow-xl transition disabled:opacity-60">
+                  <Bell className="w-4 h-4" /> {pushBusy ? '켜는 중…' : '지금 폰 알림 켜기'}
+                </button>
+              )}
+              {pushMsg && pushState !== 'denied' && (
+                <p className="text-[12px] text-rose-600 bg-white/95 rounded-xl px-3.5 py-2 shadow text-center max-w-[300px]">{pushMsg}</p>
+              )}
+            </div>
           )}
         </div>
 

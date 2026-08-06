@@ -58,6 +58,10 @@ export function useRealtimeSync() {
         () => debounce('programs', () => {
           queryClient.invalidateQueries({ queryKey: ['programs', 'public'] })
           queryClient.invalidateQueries({ queryKey: ['programs', 'mine', userId] })
+          // 단일 프로그램 상세(헤더·커뮤니티 스타일/게시판/규칙·공지·목표 등) 도 갱신 →
+          // 운영자 저장 시 그 프로그램을 보고 있는 참여자 화면에 즉시 반영.
+          // prefix 무효화라 캐시에 있는(=지금 보고 있는) 프로그램만 실제 refetch 됨.
+          queryClient.invalidateQueries({ queryKey: ['programs', 'detail'] })
         }),
       )
       .subscribe()

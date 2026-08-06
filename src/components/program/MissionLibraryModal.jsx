@@ -23,9 +23,9 @@ function Bundle3D({ bundle }) {
 // 인증 입력 유형 — 한 미션에 복수 선택 가능 (사진+소감 통합 등). missions.requires_* 와 매핑.
 // 제출 화면(MissionVerifyPage)이 이미 사진/기록/소감을 한 미션에 같이 띄워 한 번에 제출함.
 const INPUT_TYPES = [
-  { field: 'requires_image', icon: ImageIcon, label: '사진' },
-  { field: 'requires_numeric', icon: BarChart3, label: '기록' },
-  { field: 'requires_note', icon: MessageSquare, label: '소감' },
+  { field: 'requires_image', icon: ImageIcon, label: '사진 제출' },
+  { field: 'requires_numeric', icon: BarChart3, label: '숫자 입력' },
+  { field: 'requires_note', icon: MessageSquare, label: '소감 작성' },
 ]
 
 // 추천 미션 라이브러리 모달
@@ -113,6 +113,7 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
       endDate: program.end_date,
       showSchedule: false,
       showPreview: false,
+      showDetail: false,
       editingInstruction: false,
       // 084 — 입력별 점수/필수. 라이브러리에 per-input 값 있으면 우선(통합 미션), 없으면 단일 point 배치
       image_point: m.image_point ?? (m.requires_image ? (m.point ?? 10) : 10),
@@ -299,7 +300,7 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
         {program && (
           <div className="p-6">
             <h2 className="text-xl font-semibold text-gray-800 mb-1 pr-8">
-              💡 추천 미션 라이브러리
+              💡 추천 미션 템플릿
             </h2>
             <p className="text-xs text-gray-500 mb-4">
               카테고리에서 묶음을 골라 한 번에 여러 미션을 추가하세요
@@ -415,7 +416,7 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
             className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-3 disabled:opacity-50"
           >
             <ChevronLeft className="w-4 h-4" />
-            라이브러리로
+            템플릿으로
           </button>
 
           <h2 className="text-xl font-semibold text-gray-800 mb-1 pr-8 flex items-center gap-2">
@@ -498,11 +499,11 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
 
                   {/* 점수 / 한도 / 승인 방식 미세 조정 — 선택된 미션만 활성 */}
                   {m.selected && (
-                    <div className="divide-y divide-gray-200 [&>div]:py-[9px]">
-                      {/* 인증 입력 유형 — 복수 선택 (사진+소감 통합 등). 첫 섹션만 제목 정렬 위해 들여쓰기 유지 */}
-                      <div className="pl-7">
-                        <label className="block text-[11px] text-gray-500 mb-[9px] font-bold">
-                          인증 입력 <span className="text-gray-400 font-normal">(1개 이상 · 여러 개면 한 화면에서 같이 제출)</span>
+                    <div className="mt-3 space-y-4">
+                      {/* 인증 입력 유형 — 복수 선택 (핵심, 항상 노출) */}
+                      <div>
+                        <label className="block text-[13px] font-bold text-gray-800 mb-2">
+                          인증 입력 <span className="text-[11px] font-medium text-gray-400">1개 이상 · 여러 개면 한 화면에서 같이 제출</span>
                         </label>
                         <div className="flex gap-1.5 flex-wrap">
                           {INPUT_TYPES.map(t => {
@@ -515,13 +516,13 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
                                 onClick={() => updateDraft(idx, t.field, !on)}
                                 disabled={isSaving}
                                 className={`
-                                  inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs border transition disabled:opacity-50
+                                  inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[13px] border transition disabled:opacity-50
                                   ${on
                                     ? 'border-emerald-500 bg-emerald-50 text-emerald-700 font-semibold'
                                     : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}
                                 `}
                               >
-                                <Icon className="w-3 h-3" />
+                                <Icon className="w-3.5 h-3.5" />
                                 {t.label}
                               </button>
                             )
@@ -529,38 +530,38 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
                         </div>
                       </div>
 
-                      {/* 입력별 점수 · 필수 (084) */}
+                      {/* 입력별 점수 · 필수 (084) — 핵심, 항상 노출 */}
                       <div>
-                        <label className="block text-[11px] text-gray-500 mb-[9px] font-bold">입력별 점수 · 필수</label>
-                        <div className="space-y-1.5">
+                        <label className="block text-[13px] font-bold text-gray-800 mb-2">입력별 점수 · 필수</label>
+                        <div className="space-y-2">
                           {[
-                            { f: 'image_point', r: 'image_required', on: m.requires_image, label: '사진', Icon: ImageIcon },
-                            { f: 'numeric_point', r: 'numeric_required', on: m.requires_numeric, label: '기록', Icon: BarChart3 },
-                            { f: 'note_point', r: 'note_required', on: m.requires_note, label: '소감', Icon: MessageSquare },
+                            { f: 'image_point', r: 'image_required', on: m.requires_image, label: '사진 제출', Icon: ImageIcon },
+                            { f: 'numeric_point', r: 'numeric_required', on: m.requires_numeric, label: '숫자 입력', Icon: BarChart3 },
+                            { f: 'note_point', r: 'note_required', on: m.requires_note, label: '소감 작성', Icon: MessageSquare },
                           ].filter(row => row.on).map(row => (
-                            <div key={row.f} className="flex items-center gap-1.5">
-                              <span className="inline-flex items-center gap-0.5 w-11 flex-shrink-0 text-[11px] font-medium text-gray-600">
-                                <row.Icon className="w-3 h-3 text-emerald-600" /> {row.label}
+                            <div key={row.f} className="flex items-center gap-2">
+                              <span className="inline-flex items-center gap-1 w-[4.5rem] flex-shrink-0 text-[13px] font-medium text-gray-700">
+                                <row.Icon className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" /> {row.label}
                               </span>
-                              <div className="relative flex-1 min-w-0">
+                              <div className="relative w-[4.25rem] flex-shrink-0">
                                 <input
                                   type="number"
                                   min={0}
                                   value={m[row.f] ?? 0}
                                   onChange={(e) => updateDraft(idx, row.f, e.target.value)}
                                   disabled={isSaving}
-                                  className="w-full pl-2 pr-5 py-1 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 disabled:bg-gray-50"
+                                  className="w-full pl-2 pr-5 py-1 text-sm text-right border border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 disabled:bg-gray-50"
                                 />
-                                <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[11px] text-gray-400">P</span>
+                                <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[11px] text-gray-400 pointer-events-none">P</span>
                               </div>
-                              <div className="flex gap-1 flex-shrink-0">
+                              <div className="flex gap-1 flex-shrink-0 ml-auto">
                                 {[{ v: true, t: '필수' }, { v: false, t: '선택' }].map(opt => (
                                   <button
                                     key={opt.t}
                                     type="button"
                                     onClick={() => updateDraft(idx, row.r, opt.v)}
                                     disabled={isSaving}
-                                    className={`px-2 py-1 rounded text-[11px] border transition disabled:opacity-50
+                                    className={`px-2.5 py-1 rounded text-xs border transition disabled:opacity-50
                                       ${(m[row.r] !== false) === opt.v
                                         ? (opt.v
                                             ? 'border-emerald-500 bg-emerald-50 text-emerald-700 font-semibold'
@@ -574,17 +575,32 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
                             </div>
                           ))}
                         </div>
-                        <p className="mt-1 text-[11px] text-gray-500">최대 <span className="font-bold text-emerald-600">{draftTotal(m)}P</span></p>
+                        <p className="mt-2 text-[13px] text-gray-600">최대 <span className="font-bold text-emerald-600">{draftTotal(m)}P</span></p>
                       </div>
 
+                      {/* ── 상세 설정 (접기) — 하루 최대·승인·기간·일정·미리보기 ── */}
+                      <div>
+                        <button
+                          type="button"
+                          onClick={() => updateDraft(idx, 'showDetail', !m.showDetail)}
+                          disabled={isSaving}
+                          className="flex items-center gap-1.5 text-[13px] font-bold text-gray-700 hover:text-gray-900 disabled:opacity-50"
+                        >
+                          {m.showDetail ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                          상세 설정
+                          <span className="text-[11px] font-normal text-gray-400">하루 최대 · 승인 · 기간 · 일정 · 미리보기</span>
+                        </button>
+
+                        {m.showDetail && (
+                          <div className="mt-3 space-y-4 border-l-2 border-gray-100 pl-3">
                       {/* 기록 지표 — 별도 편집기. 라이브러리에 지표가 정의된 묶음(러닝 등)만 노출 */}
                       {m.requires_numeric && Array.isArray(m.metrics) && m.metrics.length > 0 && (
                         <button type="button" onClick={() => setMetricsEditIdx(idx)} disabled={isSaving}
                           className="w-full flex items-center gap-2 p-2.5 rounded-lg border border-gray-200 bg-white hover:border-emerald-300 transition text-left disabled:opacity-50">
                           <span className="text-base flex-shrink-0">📊</span>
                           <div className="flex-1 min-w-0">
-                            <p className="text-[12px] font-medium text-gray-800">기록 지표 {(m.metrics?.length || 0)}개</p>
-                            <p className="text-[10px] text-gray-400 truncate">
+                            <p className="text-[13px] font-medium text-gray-800">기록 지표 {(m.metrics?.length || 0)}개</p>
+                            <p className="text-[11px] text-gray-400 truncate">
                               {(m.metrics || []).map(x => x.label || '(이름 없음)').join(' · ') || '항목을 추가해보세요'}{m.metric_aggregate ? ' · 통계 표시' : ''}
                             </p>
                           </div>
@@ -594,7 +610,7 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
 
                       {/* 하루 최대 — 라벨 옆 인라인 입력 */}
                       <div className="flex items-center gap-2">
-                        <label className="text-[11px] text-gray-500 flex-shrink-0 font-bold">하루 최대 <span className="font-normal text-gray-400">(선택)</span></label>
+                        <label className="text-[13px] font-bold text-gray-800 flex-shrink-0">하루 최대 <span className="font-normal text-gray-400 text-[11px]">(선택)</span></label>
                         <input
                           type="number"
                           value={m.daily_limit ?? ''}
@@ -608,7 +624,7 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
 
                       {/* 승인 방식 — 자동 / 운영자 심사 토글 */}
                       <div>
-                        <label className="block text-[11px] text-gray-500 mb-[9px] font-bold">
+                        <label className="block text-[13px] font-bold text-gray-800 mb-2">
                           승인 방식
                         </label>
                         <div className="grid grid-cols-2 gap-2">
@@ -617,7 +633,7 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
                             onClick={() => updateDraft(idx, 'verification_type', 'AUTO')}
                             disabled={isSaving}
                             className={`
-                              px-2 py-1.5 rounded-md border text-xs transition disabled:opacity-50
+                              px-2 py-2 rounded-md border text-[13px] transition disabled:opacity-50
                               ${m.verification_type === 'AUTO'
                                 ? 'border-emerald-500 bg-emerald-50 text-emerald-700 font-medium'
                                 : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}
@@ -630,7 +646,7 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
                             onClick={() => updateDraft(idx, 'verification_type', 'MANUAL')}
                             disabled={isSaving}
                             className={`
-                              px-2 py-1.5 rounded-md border text-xs transition disabled:opacity-50
+                              px-2 py-2 rounded-md border text-[13px] transition disabled:opacity-50
                               ${m.verification_type === 'MANUAL'
                                 ? 'border-emerald-500 bg-emerald-50 text-emerald-700 font-medium'
                                 : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}
@@ -643,8 +659,8 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
 
                       {/* 운영 기간 (예약) — 시작일을 미래로 두면 그날부터 활성화 */}
                       <div>
-                        <label className="block text-[11px] text-gray-500 mb-[9px] font-bold">
-                          운영 기간 <span className="text-gray-400 font-normal">(시작일을 미래로 두면 예약 미션)</span>
+                        <label className="block text-[13px] font-bold text-gray-800 mb-2">
+                          운영 기간 <span className="text-gray-400 font-normal text-[11px]">(시작일을 미래로 두면 예약 미션)</span>
                         </label>
                         <div className="flex items-center gap-1.5">
                           <input
@@ -675,9 +691,9 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
                           type="button"
                           onClick={() => updateDraft(idx, 'showSchedule', !m.showSchedule)}
                           disabled={isSaving}
-                          className="flex items-center gap-1 text-[11px] text-gray-600 hover:text-gray-800 disabled:opacity-50"
+                          className="flex items-center gap-1 text-[13px] text-gray-600 hover:text-gray-800 disabled:opacity-50"
                         >
-                          {m.showSchedule ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                          {m.showSchedule ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                           <span className="font-bold">운영 일정</span> (선택) — {m.schedule_mode === 'ALL_DAYS' ? '매일' :
                                                 m.schedule_mode === 'WEEKDAYS' ? '평일만' :
                                                 m.schedule_mode === 'WEEKENDS' ? '주말만' : '직접 선택'}
@@ -805,6 +821,9 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
                           참여자 제출 화면 미리보기
                         </button>
                         {m.showPreview && <div data-preview><SubmitPreview mission={m} /></div>}
+                      </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}

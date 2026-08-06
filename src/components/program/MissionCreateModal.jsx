@@ -1,10 +1,39 @@
 import { useState, useEffect, useRef, Fragment } from 'react'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { supabase } from '../../supabaseClient'
-import { Image as ImageIcon, BarChart3, MessageSquare, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Plus, X, Check } from 'lucide-react'
+import { Image as ImageIcon, BarChart3, MessageSquare, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Plus, X, Check, Info } from 'lucide-react'
 import MissionIconPicker from './MissionIconPicker'
 import { SCHEDULE_MODES, WEEKDAY_OPTIONS } from '../../lib/constants'
 import { toKSTDateString } from '../../lib/formatters'
+
+// ⓘ 클릭 시 라벨/제목 줄 위로 뜨는 툴팁. 부모가 relative(폼 폭)여야 가운데 정렬됨.
+function InfoTip({ tipKey, tipOpen, onToggle, children }) {
+  return (
+    <>
+      <button type="button" onClick={() => onToggle(tipKey)} className="text-gray-400 hover:text-emerald-500 transition flex-shrink-0" aria-label="도움말">
+        <Info className="w-4 h-4" />
+      </button>
+      {tipOpen === tipKey && (
+        <span className="absolute left-1/2 bottom-full mb-2 -translate-x-1/2 z-20 w-[92%] max-w-[300px] text-[13px] font-normal text-white bg-gray-800 rounded-xl px-4 py-3 shadow-xl leading-relaxed break-keep text-center">
+          {children}
+        </span>
+      )}
+    </>
+  )
+}
+
+// 필드 라벨 — 통일된 위계: 굵은 라벨 + 배지(필수/선택/무) + ⓘ 툴팁
+//   required=true → 필수, required=false → 선택, required 미지정 → 배지 없음
+function FieldLabel({ title, required, tipKey, tipOpen, onToggle, children }) {
+  return (
+    <div className="relative flex items-center gap-1.5 mb-1.5">
+      <span className="text-[15px] font-bold text-gray-800">{title}</span>
+      {required === true && <span className="text-[11px] font-bold text-rose-500">필수</span>}
+      {required === false && <span className="text-[11px] font-medium text-gray-400">선택</span>}
+      {children && <InfoTip tipKey={tipKey} tipOpen={tipOpen} onToggle={onToggle}>{children}</InfoTip>}
+    </div>
+  )
+}
 
 // 운영자가 자기 프로그램에 미션을 직접 추가/수정 (본인 (가) 진화)
 // 인증 유형 3가지: 사진(requires_image) / 기록(requires_numeric) / 소감(requires_note)
@@ -54,9 +83,11 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
   const [endDate, setEndDate] = useState('')
 
   const [isSaving, setIsSaving] = useState(false)
-  const [step, setStep] = useState(1)   // 3단계 마법사 (1.기본 2.인증·점수 3.운영)
-  const TOTAL_STEPS = 4
-  const STEP_LABELS = ['제목 설정', '아이콘 설정', '인증·점수', '운영']
+  const [tipOpen, setTipOpen] = useState(null)   // 도움말 툴팁 — 열린 필드 키(null=닫힘)
+  const toggleTip = (k) => setTipOpen(t => t === k ? null : k)
+  const [step, setStep] = useState(1)   // 6단계 (1.제목 2.일정 3.아이콘 4.인증방법 5.점수 6.운영)
+  const TOTAL_STEPS = 6
+  const STEP_LABELS = ['제목', '일정', '아이콘', '인증', '점수', '운영']
   const [error, setErrorRaw] = useState(null)
   const [errorTick, setErrorTick] = useState(0)
   const errorRef = useRef(null)
@@ -167,9 +198,9 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
     (requiresNote && noteRequired ? (parseInt(notePoint) || 0) : 0)
 
   const INPUT_ROWS = [
-    { key: 'image', on: requiresImage, label: '사진', Icon: ImageIcon, point: imagePoint, setPoint: setImagePoint, required: imageRequired, setRequired: setImageRequired },
-    { key: 'numeric', on: requiresNumeric, label: '기록', Icon: BarChart3, point: numericPoint, setPoint: setNumericPoint, required: numericRequired, setRequired: setNumericRequired },
-    { key: 'note', on: requiresNote, label: '소감', Icon: MessageSquare, point: notePoint, setPoint: setNotePoint, required: noteRequired, setRequired: setNoteRequired },
+    { key: 'image', on: requiresImage, label: '사진 제출', Icon: ImageIcon, point: imagePoint, setPoint: setImagePoint, required: imageRequired, setRequired: setImageRequired },
+    { key: 'numeric', on: requiresNumeric, label: '숫자 입력', Icon: BarChart3, point: numericPoint, setPoint: setNumericPoint, required: numericRequired, setRequired: setNumericRequired },
+    { key: 'note', on: requiresNote, label: '소감 작성', Icon: MessageSquare, point: notePoint, setPoint: setNotePoint, required: noteRequired, setRequired: setNoteRequired },
   ]
 
   // 단계별 검증
@@ -177,24 +208,27 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
     if (!title.trim()) return '미션 제목을 입력해주세요'
     return null
   }
-  const validateStep2 = () => {
-    if (!requiresImage && !requiresNumeric && !requiresNote) return '인증 유형을 최소 1개 선택해주세요'
+  const validateSchedule = () => {
+    if (startDate && endDate && endDate < startDate) return '종료일이 시작일보다 빠를 수 없어요'
+    if (scheduleMode === 'CUSTOM' && activeDays.length === 0) return '운영 요일을 최소 1일 선택해주세요'
+    return null
+  }
+  const validateMethod = () => {
+    if (!requiresImage && !requiresNumeric && !requiresNote) return '인증 방법을 최소 1개 선택해주세요'
+    return null
+  }
+  const validatePoints = () => {
     if (totalPoint < 1) return '점수 합계는 1 이상이어야 합니다'
     const anyRequired =
       (requiresImage && imageRequired) || (requiresNumeric && numericRequired) || (requiresNote && noteRequired)
     if (!anyRequired) return '필수 입력을 최소 1개 지정해주세요 (전부 선택일 수 없어요)'
     return null
   }
-  const validateStep3 = () => {
-    if (scheduleMode === 'CUSTOM' && activeDays.length === 0) return '운영 요일을 최소 1일 선택해주세요'
-    if (startDate && endDate && endDate < startDate) return '종료일이 시작일보다 빠를 수 없어요'
-    return null
-  }
 
   // 다음/이전 — 현재 단계 검증 통과 시에만 진행
   const goNext = () => {
-    // 1=기본(제목) · 2=아이콘(검증 없음) · 3=인증·점수 · 4=운영
-    const v = step === 1 ? validateStep1() : step === 3 ? validateStep2() : null
+    // 1=제목 · 2=아이콘(검증X) · 3=인증방법 · 4=점수 · 5=운영
+    const v = step === 1 ? validateStep1() : step === 2 ? validateSchedule() : step === 4 ? validateMethod() : step === 5 ? validatePoints() : null
     if (v) { setError(v); return }
     setError(null)
     setStep(s => Math.min(TOTAL_STEPS, s + 1))
@@ -204,8 +238,9 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
   const handleSave = async () => {
     // 전 단계 방어 검증 — 오류 시 해당 단계로 이동
     const e1 = validateStep1(); if (e1) { setStep(1); setError(e1); return }
-    const e2 = validateStep2(); if (e2) { setStep(3); setError(e2); return }
-    const e3 = validateStep3(); if (e3) { setStep(4); setError(e3); return }
+    const es = validateSchedule(); if (es) { setStep(2); setError(es); return }
+    const em = validateMethod(); if (em) { setStep(4); setError(em); return }
+    const ep = validatePoints(); if (ep) { setStep(5); setError(ep); return }
 
     setIsSaving(true)
     setError(null)
@@ -291,14 +326,14 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
       onClick={onClick}
       disabled={isSaving}
       className={`
-        flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition disabled:opacity-50
+        flex flex-col items-center gap-2 py-4 px-2 rounded-xl border-2 transition disabled:opacity-50
         ${active
           ? 'border-emerald-500 bg-emerald-50'
           : 'border-gray-200 bg-white hover:border-gray-300'}
       `}
     >
-      <Icon className={`w-5 h-5 ${active ? 'text-emerald-600' : 'text-gray-400'}`} />
-      <span className={`text-xs ${active ? 'text-emerald-700 font-medium' : 'text-gray-600'}`}>
+      <Icon className={`w-6 h-6 ${active ? 'text-emerald-600' : 'text-gray-400'}`} />
+      <span className={`text-[13px] ${active ? 'text-emerald-700 font-semibold' : 'text-gray-600'}`}>
         {label}
       </span>
     </button>
@@ -316,7 +351,7 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
               className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-3 disabled:opacity-50"
             >
               <ChevronLeft className="w-4 h-4" />
-              라이브러리로
+              템플릿으로
             </button>
           )}
           <h2 className="text-xl font-semibold text-gray-800 mb-4 pr-8 flex items-baseline gap-2 min-w-0">
@@ -325,7 +360,7 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
           </h2>
 
           {/* 스텝 인디케이터 */}
-          <div className="flex items-center mb-5">
+          <div className="flex items-start mb-5">
             {STEP_LABELS.map((label, i) => {
               const n = i + 1
               const active = step === n
@@ -333,11 +368,11 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
               return (
                 <Fragment key={n}>
                   {i > 0 && <div className={`flex-1 h-0.5 mt-[14px] mx-1 rounded-full ${step >= n ? 'bg-emerald-500' : 'bg-gray-200'}`} />}
-                  <div className="flex flex-col items-center flex-shrink-0">
+                  <div className="flex flex-col items-center flex-shrink-0 w-11">
                     <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[13px] font-bold ${done || active ? 'bg-emerald-500 text-white' : 'bg-gray-100 text-gray-400'}`}>
                       {done ? <Check className="w-4 h-4" /> : n}
                     </div>
-                    <span className={`mt-1 text-[10px] font-medium text-center leading-tight w-12 ${active ? 'text-emerald-600' : 'text-gray-400'}`}>{label}</span>
+                    <span className={`mt-1 text-[10px] font-medium text-center leading-tight w-full ${active ? 'text-emerald-600' : 'text-gray-400'}`}>{label}</span>
                   </div>
                 </Fragment>
               )
@@ -346,276 +381,57 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
 
           {/* ── 1단계: 기본 ── */}
           {step === 1 && (<>
-          <p className="text-[12px] text-gray-500 leading-relaxed mb-4 bg-gray-50 rounded-lg p-2.5 break-keep">
-            참여자에게 보여줄 미션의 <b className="text-gray-700">이름</b>과 <b className="text-gray-700">안내</b>를 적어요.
-            <br />예) “20분 이상 걷기”처럼 행동이 분명한 이름이 좋아요.
-          </p>
           {/* 제목 */}
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              미션 제목 *
-            </label>
+            <FieldLabel title="미션 제목" required tipKey="title" tipOpen={tipOpen} onToggle={toggleTip}>
+              행동이 분명한 이름이 좋아요.<br />예: <b className="text-emerald-300">“20분 이상 걷기”</b>
+            </FieldLabel>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
+              onFocus={() => setTipOpen(null)}
               maxLength={50}
-              placeholder="예: 20분 이상 운동하기"
+              placeholder="예: 20분 이상 걷기"
               disabled={isSaving}
               className="w-full px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 disabled:bg-gray-50"
             />
           </div>
 
-          {/* 안내 설명 */}
+          {/* 미션 설명 */}
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              안내 설명 (선택)
-            </label>
+            <FieldLabel title="미션 설명" required={false} tipKey="desc" tipOpen={tipOpen} onToggle={toggleTip}>
+              참여자가 <b className="text-emerald-300">무엇을 어떻게</b> 할지 구체적으로 적어요.<br />예: “20분 이상 걷고 이동 거리를 기록해요.”
+            </FieldLabel>
             <textarea
+              ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 320) + 'px' } }}
               value={instruction}
-              onChange={(e) => setInstruction(e.target.value)}
+              onChange={(e) => { setInstruction(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 320) + 'px' }}
+              onFocus={() => setTipOpen(null)}
               maxLength={200}
-              placeholder="예: 20분 이상 운동하고 시간 기록하기"
+              placeholder="예: 20분 이상 걷고 시간 기록하기"
               rows={2}
               disabled={isSaving}
-              className="w-full px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 disabled:bg-gray-50 resize-none"
+              className="w-full px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 disabled:bg-gray-50 resize-none overflow-hidden"
             />
           </div>
           </>)}
 
-          {/* ── 2단계: 아이콘 ── */}
+          {/* ── 2단계: 일정 ── */}
           {step === 2 && (<>
-          <p className="text-[12px] text-gray-500 leading-relaxed mb-4 bg-gray-50 rounded-lg p-2.5 break-keep">
-            미션을 대표할 <b className="text-gray-700">아이콘</b>을 골라요. 목록·인증 화면에서 한눈에 구분돼요.
-            <br />직접 업로드하거나 기본 아이콘 중에 고르면 되고, 없어도 괜찮아요.
-          </p>
-          {/* 미션 아이콘 (선택) */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              미션 아이콘 (선택)
-            </label>
-            <MissionIconPicker
-              ownerId={program.owner_id}
-              value={iconPath}
-              onChange={setIconPath}
-              disabled={isSaving}
-            />
+          <div className="relative flex items-center gap-1.5 mb-2 mt-1">
+            <h3 className="text-[18px] font-bold text-gray-900 break-keep">언제 운영할까요?</h3>
+            <InfoTip tipKey="when" tipOpen={tipOpen} onToggle={toggleTip}>
+              미션이 열리는 기간과 요일을 정해요. 비워두면 프로그램 전체 기간·매일로 열려요.
+            </InfoTip>
           </div>
-          </>)}
-
-          {/* ── 3단계: 인증·점수 ── */}
-          {step === 3 && (<>
-          <p className="text-[12px] text-gray-500 leading-relaxed mb-4 bg-gray-50 rounded-lg p-2.5 break-keep">
-            참여자가 <b className="text-gray-700">어떻게 인증</b>할지와 <b className="text-gray-700">점수</b>를 정해요.
-            복수 선택 가능해요.<br /> <b className="text-gray-700">필수</b>는 꼭 제출해야 점수를 받고,
-            <b className="text-gray-700">선택</b>은 안 해도 되지만 하면 추가 점수예요.
-          </p>
-          {/* 인증 유형 — 다중 선택 */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              인증 방법 (최소 1개) *
-            </label>
-            <p className="text-sm text-gray-400 mb-2 break-keep">
-              📷 사진 = 인증샷 <br /> 📊 기록 = 숫자 입력(걸음수·시간 등) <br /> 💬 소감 = 한 줄 글
-            </p>
-            <div className="grid grid-cols-3 gap-2">
-              <TypeCard
-                active={requiresImage}
-                onClick={() => setRequiresImage(!requiresImage)}
-                Icon={ImageIcon}
-                label="사진"
-              />
-              <TypeCard
-                active={requiresNumeric}
-                onClick={() => setRequiresNumeric(!requiresNumeric)}
-                Icon={BarChart3}
-                label="기록"
-              />
-              <TypeCard
-                active={requiresNote}
-                onClick={() => setRequiresNote(!requiresNote)}
-                Icon={MessageSquare}
-                label="소감"
-              />
-            </div>
-          </div>
-
-          {/* 입력별 점수 · 필수 (084) */}
-          {(requiresImage || requiresNumeric || requiresNote) && (
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                입력별 점수 · 필수 *
-              </label>
-              <p className="text-xs text-gray-400 mb-2">
-                선택 입력은 제출 시 건너뛸 수 있고, 작성하면 추가 점수예요.
-              </p>
-              <div className="space-y-2">
-                {INPUT_ROWS.filter(r => r.on).map(r => (
-                  <div key={r.key} className="flex items-center gap-2">
-                    <span className="inline-flex items-center gap-1 w-14 flex-shrink-0 text-sm font-medium text-gray-700">
-                      <r.Icon className="w-4 h-4 text-emerald-600" /> {r.label}
-                    </span>
-                    <div className="relative flex-1 min-w-0">
-                      <input
-                        type="number"
-                        min={0}
-                        value={r.point}
-                        onChange={(e) => r.setPoint(e.target.value)}
-                        disabled={isSaving}
-                        className="w-full pl-2 pr-6 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 disabled:bg-gray-50"
-                      />
-                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">P</span>
-                    </div>
-                    <div className="flex gap-1 flex-shrink-0">
-                      {[{ v: true, label: '필수' }, { v: false, label: '선택' }].map(opt => (
-                        <button
-                          key={opt.label}
-                          type="button"
-                          onClick={() => r.setRequired(opt.v)}
-                          disabled={isSaving}
-                          className={`px-2.5 py-1.5 rounded-md border text-xs transition disabled:opacity-50
-                            ${r.required === opt.v
-                              ? (opt.v
-                                  ? 'border-emerald-500 bg-emerald-50 text-emerald-700 font-semibold'
-                                  : 'border-amber-400 bg-amber-50 text-amber-700 font-semibold')
-                              : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <p className="mt-2 text-xs text-gray-500">
-                최대 <span className="font-bold text-emerald-600">{totalPoint}P</span>
-                {requiredPoint !== totalPoint && (
-                  <> · 필수만 제출 시 <span className="font-semibold text-gray-700">{requiredPoint}P</span></>
-                )}
-              </p>
-            </div>
-          )}
-
-          {/* 기록 지표 (122) — 라이브러리(러닝 등)에서 온 미션만 편집 가능. 직접 만들기에선 추가 불가. */}
-          {requiresNumeric && metrics.length > 0 && (
-            <button type="button" onClick={() => setMetricsEditOpen(true)} disabled={isSaving}
-              className="w-full flex items-center gap-2.5 mb-4 p-3 rounded-xl border border-gray-200 bg-gray-50/60 hover:border-emerald-300 transition text-left disabled:opacity-50">
-              <span className="text-lg flex-shrink-0">📊</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-800">기록 지표 {metrics.length}개</p>
-                <p className="text-[11px] text-gray-400 truncate">
-                  {metrics.map(m => m.label || '(이름 없음)').join(' · ')}{metricAggregate ? ' · 개요 통계 표시' : ''}
-                </p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
-            </button>
-          )}
-          </>)}
-
-          {/* ── 4단계: 운영 ── */}
-          {step === 4 && (<>
-          <p className="text-[12px] text-gray-500 leading-relaxed mb-4 bg-gray-50 rounded-lg p-2.5 break-keep">
-            미션을 <b className="text-gray-700">언제·어떻게 운영</b>할지 정해요. <br /> 나중에 언제든 수정할 수 있어요.
-          </p>
-          {/* 달리기 전용 — 메인/서브 (주간 스트릭 색 구분) */}
-          {program?.theme === 'RUNNING' && (
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">메인 미션 · 서브 미션</label>
-              <p className="text-[12px] text-gray-500 mb-2.5 break-keep leading-relaxed">
-                꼭 해야 할 <b className="text-gray-700">핵심 미션</b>은 메인, 하면 좋은 <b className="text-gray-700">보조·선택 미션</b>은 서브로 정해요.
-                프로그램 홈의 <b className="text-gray-700">주간 스트릭(요일 도장)</b>에서 메인은 <b className="text-emerald-600">초록</b>, 서브는 <b className="text-amber-600">앰버</b>로 칠해져 한눈에 구분돼요.
-                <br /><span className="text-gray-400">예: 「평일 3km 달리기」 = 메인 · 「주말 함께 달리기」 = 서브</span>
-              </p>
-              <div className="flex gap-2">
-                <button type="button" onClick={() => setIsMain(true)} disabled={isSaving}
-                  className={`flex-1 rounded-lg border-2 py-2.5 px-2 text-center transition ${isMain ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 hover:border-gray-300'}`}>
-                  <span className={`block text-sm font-bold ${isMain ? 'text-emerald-700' : 'text-gray-500'}`}>🟢 메인 미션</span>
-                  <span className={`block text-[11px] font-medium mt-0.5 ${isMain ? 'text-emerald-600/80' : 'text-gray-400'}`}>꼭 해야 할 핵심 미션</span>
-                </button>
-                <button type="button" onClick={() => setIsMain(false)} disabled={isSaving}
-                  className={`flex-1 rounded-lg border-2 py-2.5 px-2 text-center transition ${!isMain ? 'border-amber-500 bg-amber-50' : 'border-gray-200 hover:border-gray-300'}`}>
-                  <span className={`block text-sm font-bold ${!isMain ? 'text-amber-700' : 'text-gray-500'}`}>🟡 서브 미션</span>
-                  <span className={`block text-[11px] font-medium mt-0.5 ${!isMain ? 'text-amber-600/80' : 'text-gray-400'}`}>하면 좋은 보조 미션</span>
-                </button>
-              </div>
-            </div>
-
-            
-          )}
-          {/* 하루 최대 */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              하루 최대 (선택)
-            </label>
-            <div className="flex items-center gap-2">
-              <div className="relative w-28">
-                <input
-                  type="number"
-                  value={dailyLimit}
-                  onChange={(e) => setDailyLimit(e.target.value)}
-                  min={1}
-                  placeholder="∞"
-                  disabled={isSaving}
-                  className="w-full pl-3 pr-7 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 disabled:bg-gray-50 text-center"
-                />
-                <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none">회</span>
-              </div>
-              <span className="text-xs text-gray-400">비우면 무제한</span>
-            </div>
-          </div>
-
-          {/* 승인 방식 */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              승인 방식
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setVerificationType('AUTO')}
-                disabled={isSaving}
-                className={`
-                  p-2.5 rounded-xl border-2 text-sm transition disabled:opacity-50
-                  ${verificationType === 'AUTO'
-                    ? 'border-emerald-500 bg-emerald-50 text-emerald-700 font-medium'
-                    : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}
-                `}
-              >
-                자동 승인
-              </button>
-              <button
-                type="button"
-                onClick={() => setVerificationType('MANUAL')}
-                disabled={isSaving}
-                className={`
-                  p-2.5 rounded-xl border-2 text-sm transition disabled:opacity-50
-                  ${verificationType === 'MANUAL'
-                    ? 'border-emerald-500 bg-emerald-50 text-emerald-700 font-medium'
-                    : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}
-                `}
-              >
-                운영자 심사
-              </button>
-            </div>
-
-            {/* AUTO 안내 — 검수 없이 즉시 점수. 부적절 인증 우려 시 수동 권장 */}
-            {verificationType === 'AUTO' && (
-              <>
-                {/* 승인 버튼 ↔ 안내 박스 사이 투명 스페이서 (앱 섹션 간격 16px) */}
-                <div aria-hidden className="h-4" />
-                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3 leading-relaxed">
-                  자동 승인은 검수 없이 즉시 점수가 지급돼요. 정확성이 중요하거나 랭킹 경쟁이 있다면
-                  「운영자 심사」를 권장해요. (자동 승인이라도 나중에 피드에서 「점수 제외」할 수 있어요.)
-                </p>
-              </>
-            )}
-          </div>
+          <p className="text-[15px] text-gray-600 mb-6 break-keep">기간·요일 모두 선택 · 나중에 수정 가능</p>
 
           {/* 운영 기간 (예약) — 시작일을 미래로 두면 그날부터 활성화 */}
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              운영 기간 <span className="text-xs font-normal text-gray-400">(시작일을 미래로 두면 예약 미션)</span>
-            </label>
+            <FieldLabel title="운영 기간" required={false} tipKey="period" tipOpen={tipOpen} onToggle={toggleTip}>
+              비우면 프로그램 전체 기간에 열려요. <b className="text-emerald-300">시작일을 미래로</b> 두면 그날 자동 시작되는 예약 미션이 돼요.
+            </FieldLabel>
             <div className="flex items-center gap-2">
               <input
                 type="date"
@@ -639,7 +455,7 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
             </div>
           </div>
 
-          {/* 일정 (선택) — 운영 요일 + 제외 기간 */}
+          {/* 운영 일정 (선택) — 운영 요일 + 제외 기간 */}
           <div className="mb-4">
             <button
               type="button"
@@ -769,6 +585,238 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
               </div>
             )}
           </div>
+          </>)}
+
+          {/* ── 3단계: 아이콘 ── */}
+          {step === 3 && (<>
+          {/* 미션 아이콘 (선택) */}
+          <div className="mb-4">
+            <FieldLabel title="미션 아이콘" required={false} tipKey="icon" tipOpen={tipOpen} onToggle={toggleTip}>
+              목록·인증 화면에서 미션을 한눈에 구분해줘요.<br />직접 업로드하거나 기본 아이콘에서 골라요. 없어도 괜찮아요.
+            </FieldLabel>
+            <MissionIconPicker
+              ownerId={program.owner_id}
+              value={iconPath}
+              onChange={setIconPath}
+              disabled={isSaving}
+            />
+          </div>
+          </>)}
+
+          {/* ── 4단계: 인증 방법 ── */}
+          {step === 4 && (<>
+          {/* 인증 방법 — 다중 선택 */}
+          <div className="mb-4">
+            <div className="relative flex items-center gap-1.5 mb-2 mt-1">
+              <h3 className="text-[18px] font-bold text-gray-900 break-keep">미션을 어떻게 인증할까요?</h3>
+              <InfoTip tipKey="verify" tipOpen={tipOpen} onToggle={toggleTip}>
+                📷 사진 = 인증샷 · 📊 기록 = 숫자 입력(걸음·시간 등) · 💬 소감 = 한 줄 글<br />여러 개 골라도 돼요.
+              </InfoTip>
+            </div>
+            <p className="text-[15px] text-gray-600 mb-6 break-keep">참여자가 제출할 방법을 골라요 · 여러 개 선택 가능</p>
+            <div className="grid grid-cols-3 gap-2.5">
+              <TypeCard
+                active={requiresImage}
+                onClick={() => setRequiresImage(!requiresImage)}
+                Icon={ImageIcon}
+                label="사진 제출"
+              />
+              <TypeCard
+                active={requiresNumeric}
+                onClick={() => setRequiresNumeric(!requiresNumeric)}
+                Icon={BarChart3}
+                label="숫자 입력"
+              />
+              <TypeCard
+                active={requiresNote}
+                onClick={() => setRequiresNote(!requiresNote)}
+                Icon={MessageSquare}
+                label="소감 작성"
+              />
+            </div>
+          </div>
+          </>)}
+
+          {/* ── 5단계: 점수 ── */}
+          {step === 5 && (<>
+          <div className="relative flex items-center gap-1.5 mb-2 mt-1">
+            <h3 className="text-[18px] font-bold text-gray-900 break-keep">점수를 어떻게 줄까요?</h3>
+            <InfoTip tipKey="points" tipOpen={tipOpen} onToggle={toggleTip}>
+              각 입력에 점수를 매겨요. <b className="text-emerald-300">필수</b>는 꼭 제출해야 점수를 받고, <b className="text-emerald-300">선택</b>은 안 해도 되지만 하면 추가 점수예요.
+            </InfoTip>
+          </div>
+          <p className="text-[15px] text-gray-600 mb-6 break-keep">입력마다 점수와 필수·선택을 정해요</p>
+
+          {/* 입력별 점수 · 필수 (084) */}
+          {(requiresImage || requiresNumeric || requiresNote) && (
+            <div className="mb-4">
+              <div className="space-y-2">
+                {INPUT_ROWS.filter(r => r.on).map(r => (
+                  <div key={r.key} className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1 w-[4.75rem] flex-shrink-0 text-sm font-medium text-gray-700">
+                      <r.Icon className="w-4 h-4 text-emerald-600 flex-shrink-0" /> {r.label}
+                    </span>
+                    <div className="relative w-[4.5rem] flex-shrink-0">
+                      <input
+                        type="number"
+                        min={0}
+                        value={r.point}
+                        onChange={(e) => r.setPoint(e.target.value)}
+                        disabled={isSaving}
+                        className="w-full pl-2 pr-6 py-1.5 text-sm text-right border border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 disabled:bg-gray-50"
+                      />
+                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">P</span>
+                    </div>
+                    <div className="flex gap-1 flex-shrink-0 ml-auto">
+                      {[{ v: true, label: '필수' }, { v: false, label: '선택' }].map(opt => (
+                        <button
+                          key={opt.label}
+                          type="button"
+                          onClick={() => r.setRequired(opt.v)}
+                          disabled={isSaving}
+                          className={`px-2.5 py-1.5 rounded-md border text-xs transition disabled:opacity-50
+                            ${r.required === opt.v
+                              ? (opt.v
+                                  ? 'border-emerald-500 bg-emerald-50 text-emerald-700 font-semibold'
+                                  : 'border-amber-400 bg-amber-50 text-amber-700 font-semibold')
+                              : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-3 text-[15px] text-gray-600">
+                최대 <span className="font-bold text-emerald-600">{totalPoint}P</span>
+                {requiredPoint !== totalPoint && (
+                  <> · 필수만 제출 시 <span className="font-semibold text-gray-700">{requiredPoint}P</span></>
+                )}
+              </p>
+            </div>
+          )}
+
+          {/* 기록 지표 (122) — 라이브러리(러닝 등)에서 온 미션만 편집 가능. 직접 만들기에선 추가 불가. */}
+          {requiresNumeric && metrics.length > 0 && (
+            <button type="button" onClick={() => setMetricsEditOpen(true)} disabled={isSaving}
+              className="w-full flex items-center gap-2.5 mb-4 p-3 rounded-xl border border-gray-200 bg-gray-50/60 hover:border-emerald-300 transition text-left disabled:opacity-50">
+              <span className="text-lg flex-shrink-0">📊</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-800">기록 지표 {metrics.length}개</p>
+                <p className="text-[11px] text-gray-400 truncate">
+                  {metrics.map(m => m.label || '(이름 없음)').join(' · ')}{metricAggregate ? ' · 개요 통계 표시' : ''}
+                </p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
+            </button>
+          )}
+          </>)}
+
+          {/* ── 6단계: 운영 ── */}
+          {step === 6 && (<>
+          <div className="relative flex items-center gap-1.5 mb-2 mt-1">
+            <h3 className="text-[18px] font-bold text-gray-900 break-keep">어떻게 운영할까요?</h3>
+            <InfoTip tipKey="ops" tipOpen={tipOpen} onToggle={toggleTip}>
+              승인 방식·하루 최대 등을 정해요. 여기 설정은 모두 나중에 언제든 바꿀 수 있어요.
+            </InfoTip>
+          </div>
+          <p className="text-[15px] text-gray-600 mb-6 break-keep">대부분 선택 항목이에요 · 나중에 수정 가능</p>
+
+          {/* 달리기 전용 — 메인/서브 (주간 스트릭 색 구분) */}
+          {program?.theme === 'RUNNING' && (
+            <div className="mb-4">
+              <FieldLabel title="메인 미션 · 서브 미션" tipKey="mainsub" tipOpen={tipOpen} onToggle={toggleTip}>
+                꼭 해야 할 <b className="text-emerald-300">핵심</b>은 메인, 하면 좋은 <b className="text-emerald-300">보조</b>는 서브.<br />
+                주간 스트릭에서 메인=<b className="text-emerald-300">초록</b>, 서브=<b className="text-amber-300">앰버</b>로 구분돼요.<br />
+                <span className="text-gray-300">예: 「평일 3km」=메인 · 「주말 함께」=서브</span>
+              </FieldLabel>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setIsMain(true)} disabled={isSaving}
+                  className={`flex-1 rounded-lg border-2 py-2.5 px-2 text-center transition ${isMain ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                  <span className={`block text-sm font-bold ${isMain ? 'text-emerald-700' : 'text-gray-500'}`}>🟢 메인 미션</span>
+                  <span className={`block text-[11px] font-medium mt-0.5 ${isMain ? 'text-emerald-600/80' : 'text-gray-400'}`}>꼭 해야 할 핵심 미션</span>
+                </button>
+                <button type="button" onClick={() => setIsMain(false)} disabled={isSaving}
+                  className={`flex-1 rounded-lg border-2 py-2.5 px-2 text-center transition ${!isMain ? 'border-amber-500 bg-amber-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                  <span className={`block text-sm font-bold ${!isMain ? 'text-amber-700' : 'text-gray-500'}`}>🟡 서브 미션</span>
+                  <span className={`block text-[11px] font-medium mt-0.5 ${!isMain ? 'text-amber-600/80' : 'text-gray-400'}`}>하면 좋은 보조 미션</span>
+                </button>
+              </div>
+            </div>
+
+            
+          )}
+          {/* 하루 최대 */}
+          <div className="mb-4">
+            <FieldLabel title="하루 최대" required={false} tipKey="daily" tipOpen={tipOpen} onToggle={toggleTip}>
+              하루에 이 미션을 <b className="text-emerald-300">몇 번까지</b> 인증할 수 있는지 정해요. 비우면 무제한이에요.
+            </FieldLabel>
+            <div className="flex items-center gap-2">
+              <div className="relative w-28">
+                <input
+                  type="number"
+                  value={dailyLimit}
+                  onChange={(e) => setDailyLimit(e.target.value)}
+                  min={1}
+                  placeholder="∞"
+                  disabled={isSaving}
+                  className="w-full pl-3 pr-7 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 disabled:bg-gray-50 text-center"
+                />
+                <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none">회</span>
+              </div>
+              <span className="text-xs text-gray-400">비우면 무제한</span>
+            </div>
+          </div>
+
+          {/* 승인 방식 */}
+          <div className="mb-4">
+            <FieldLabel title="승인 방식" tipKey="approve" tipOpen={tipOpen} onToggle={toggleTip}>
+              <b className="text-emerald-300">자동 승인</b> = 제출 즉시 점수 지급.<br /><b className="text-emerald-300">운영자 심사</b> = 운영자가 확인한 뒤 점수 지급.
+            </FieldLabel>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setVerificationType('AUTO')}
+                disabled={isSaving}
+                className={`
+                  p-2.5 rounded-xl border-2 text-sm transition disabled:opacity-50
+                  ${verificationType === 'AUTO'
+                    ? 'border-emerald-500 bg-emerald-50 text-emerald-700 font-medium'
+                    : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}
+                `}
+              >
+                자동 승인
+              </button>
+              <button
+                type="button"
+                onClick={() => setVerificationType('MANUAL')}
+                disabled={isSaving}
+                className={`
+                  p-2.5 rounded-xl border-2 text-sm transition disabled:opacity-50
+                  ${verificationType === 'MANUAL'
+                    ? 'border-emerald-500 bg-emerald-50 text-emerald-700 font-medium'
+                    : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}
+                `}
+              >
+                운영자 심사
+              </button>
+            </div>
+
+            {/* AUTO 안내 — 검수 없이 즉시 점수. 부적절 인증 우려 시 수동 권장 */}
+            {verificationType === 'AUTO' && (
+              <>
+                {/* 승인 버튼 ↔ 안내 박스 사이 투명 스페이서 (앱 섹션 간격 16px) */}
+                <div aria-hidden className="h-4" />
+                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3 leading-relaxed">
+                  자동 승인은 검수 없이 즉시 점수가 지급돼요. 정확성이 중요하거나 랭킹 경쟁이 있다면
+                  「운영자 심사」를 권장해요. (자동 승인이라도 나중에 피드에서 「점수 제외」할 수 있어요.)
+                </p>
+              </>
+            )}
+          </div>
+
+
           </>)}
 
           {/* 에러 */}
