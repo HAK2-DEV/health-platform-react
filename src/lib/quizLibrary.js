@@ -602,7 +602,7 @@ const GENERAL_TOPICS = [
       mc("흡연이 원인이 될 수 있는 질환으로 알맞지 않은 것은?",
         ["폐암·후두암 등 여러 부위의 암", "만성폐쇄성폐질환(COPD)", "심장병 등 심혈관 질환", "세균 감염으로만 생기는 단순 감기"], 3,
         "흡연은 폐암뿐 아니라 구강·후두·식도·방광암 등 다양한 암과 심장병, COPD의 주요 원인입니다. 오늘 한 개비를 줄이는 것도 위험을 낮추는 시작입니다.",
-        "https://health.kdca.go.kr/healthinfo/biz/health/gnrlzHealthInfo/gnrlzHealthInfo/gnrlzHealthInfoView.do?cntnts_sn=5299"),
+        "https://www.who.int/news-room/fact-sheets/detail/tobacco"),
       mc("흡연 욕구(갈망)가 올라올 때 도움이 되는 대처법으로 보기 어려운 것은?",
         ["몇 분간 피우지 않고 시간 미루기", "물이나 무설탕 껌으로 입 달래기", "가벼운 산책이나 심호흡하기", "흡연하던 장소에 일부러 오래 머무르기"], 3,
         "갈망은 대개 몇 분이면 지나가므로 시간 미루기·물 마시기·자리 이동·심호흡이 효과적입니다. 흡연을 연상시키는 장소는 피하세요.",
