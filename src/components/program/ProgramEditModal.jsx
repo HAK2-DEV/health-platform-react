@@ -24,6 +24,7 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
   const [quizEnabled, setQuizEnabled] = useState(true)        // 메뉴바 퀴즈 사용 (102)
   const [communityEnabled, setCommunityEnabled] = useState(true)  // 메뉴바 커뮤니티 사용 (102) = 피드 활성
   const [rankingEnabled, setRankingEnabled] = useState(true)  // 랭킹 메뉴 표시 (세부는 랭킹 설정)
+  const [classFeatureEnabled, setClassFeatureEnabled] = useState(false)  // 클래스 메뉴 사용 — 생성 후에도 토글 가능(기존엔 2단계에서만 설정)
   // 팀 기능 (126) — 랭킹이 켜져 있어야 동작
   const [teamEnabled, setTeamEnabled] = useState(false)
   const [teamScoreMode, setTeamScoreMode] = useState('sum')
@@ -59,6 +60,7 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
       )
       // ranking_enabled DEFAULT true — undefined/null 이면 켜진 상태로 (마법사와 동일 동작)
       setRankingEnabled(program.ranking_enabled !== false)
+      setClassFeatureEnabled(!!program.class_feature_enabled)
       setChangeTabEnabled(program.change_tab_enabled === true)
       setProgressEnabled(program.overview_progress_enabled !== false)
       setSavingSubtract(program.saving_subtract_smoking !== false)
@@ -126,6 +128,8 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
         // 102 컬럼 — 마이그레이션 적용 후에만 저장(미적용 시 스킵, 하위호환)
         ...(Object.prototype.hasOwnProperty.call(program, 'quiz_enabled') ? { quiz_enabled: quizEnabled } : {}),
         ...(Object.prototype.hasOwnProperty.call(program, 'community_enabled') ? { community_enabled: communityEnabled } : {}),
+        // 클래스 메뉴 사용 — 생성 후에도 켜고 끌 수 있게 (기존엔 2단계에서만 설정됨)
+        class_feature_enabled: classFeatureEnabled,
         // 랭킹 메뉴 표시 — OFF 면 세부(시상대/추세/기간필터)도 자동 OFF. 세부 설정은 「랭킹 설정」.
         ranking_enabled: rankingEnabled,
         ...(rankingEnabled ? {} : { podium_enabled: false, trend_enabled: false, period_filter_enabled: false }),
@@ -377,6 +381,25 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
               </div>
               <div className={`relative w-9 h-5 rounded-full flex-shrink-0 transition mt-0.5 ${communityEnabled ? 'bg-rose-500' : 'bg-gray-300'}`}>
                 <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${communityEnabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+              </div>
+            </div>
+          </button>
+
+          {/* 클래스 사용 — 생성 후에도 토글 가능. 켜면 클래스 일정 운영, 끄면 탭 숨김 */}
+          <button
+            type="button"
+            onClick={() => setClassFeatureEnabled(!classFeatureEnabled)}
+            disabled={isSaving}
+            className={`w-full mb-3 p-3 rounded-lg border-2 text-left transition disabled:opacity-50 ${classFeatureEnabled ? 'border-teal-500 bg-teal-50' : 'border-gray-200 bg-white hover:border-gray-300'}`}
+          >
+            <div className="flex items-start gap-2.5">
+              <span className="text-xl">📅</span>
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm font-medium ${classFeatureEnabled ? 'text-teal-700' : 'text-gray-800'}`}>클래스 메뉴 사용</p>
+                <p className="text-xs text-gray-500 mt-0.5">요가·필라테스처럼 정해진 시간에 모이는 수업 일정을 운영해요. 끄면 클래스 탭이 참여자에게 안 보여요.</p>
+              </div>
+              <div className={`relative w-9 h-5 rounded-full flex-shrink-0 transition mt-0.5 ${classFeatureEnabled ? 'bg-teal-500' : 'bg-gray-300'}`}>
+                <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${classFeatureEnabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
               </div>
             </div>
           </button>

@@ -9,8 +9,8 @@ const APPROVAL_MODES = [
   { key: 'approval', emoji: '✅', label: '운영자 승인', description: '운영자가 승인해야 참여할 수 있어요' },
 ]
 const SUB = [
-  { q: '누구에게 공개할까요?', sub: '비공개는 초대 코드로만 참여해요.' },
-  { q: '참여 승인은 어떻게 할까요?', sub: '자동이면 바로 참여돼요.\n승인이면 운영자 확인 후 참여돼요.' },
+  { q: '참여자가 이 프로그램을 어떻게 찾을까요?', sub: '비공개는 초대 코드로만 참여해요.' },
+  { q: '참여 승인은 어떻게 할까요?', sub: '자동이면 바로 참여돼요.\n승인이면 운영자 확인 후 참여돼요.\n⚠️ 공개 프로그램은 생성 후 바꿀 수 없어요.\n(비공개는 나중에 수정 가능)', danger: true },
   { q: '최대 참여 인원을 정할까요?', sub: '비워두면 최대 100명까지 참가할 수 있습니다.' },
 ]
 const TOTAL = SUB.length
@@ -106,7 +106,7 @@ function Step3JoinConditions({ initialData, onNext, onSave, onPrev, enterAtEnd =
           <motion.div key={subStep} custom={dir} variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.22, ease: 'easeOut' }}>
             <h2 className="text-xl font-bold text-gray-800 break-keep flex items-center gap-1.5" style={{ marginBottom: '9px' }}>
               <span>{SUB[subStep].q}</span>
-              <InfoTip>{SUB[subStep].sub}</InfoTip>
+              <InfoTip danger={SUB[subStep].danger}>{SUB[subStep].sub}</InfoTip>
             </h2>
 
             {/* 0: 공개 범위 + 참여 전 둘러보기 */}

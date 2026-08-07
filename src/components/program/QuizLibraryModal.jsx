@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ChevronRight, ChevronLeft, FileText, Check, ExternalLink, Pencil } from 'lucide-react'
 import Modal from '../common/Modal'
+import InfoTip from '../common/InfoTip'
 import { QUIZ_AUDIENCES } from '../../lib/quizLibrary'
 
 // 퀴즈 라이브러리 — 3단계: 대상자 → 주제 → 미리보기 → 「편집하기」로 폼(QuizCreatePage) 이어받기.
@@ -51,19 +52,25 @@ function QuizLibraryModal({ isOpen, onClose, programId, initialSelection = null 
         {/* ─── 1단계: 대상자 ─── */}
         {step === 'audience' && (
           <>
-            <h2 className="text-lg font-bold text-gray-800 mb-1 pr-8">📚 퀴즈 템플릿</h2>
-            <p className="text-xs text-gray-500 mb-4">대상자를 선택하세요. 출처 검증된 건강 상식 퀴즈를 제공합니다.</p>
+            <h2 className="text-lg font-bold text-gray-800 mb-3 pr-8">📚 퀴즈 템플릿</h2>
+            <p className="text-[15px] font-semibold text-gray-700 mb-1">대상자를 선택하세요</p>
+            <p className="text-xs text-gray-500 mb-4">출처 검증된 건강 상식 퀴즈를 제공합니다.</p>
             <div className="space-y-2">
               {QUIZ_AUDIENCES.map(a => (
-                <button key={a.key} type="button" onClick={() => setAudienceKey(a.key)}
-                  className="w-full flex items-center gap-3 p-4 bg-white border border-gray-200 rounded-2xl hover:border-emerald-300 hover:bg-emerald-50/40 transition text-left">
+                <div key={a.key} role="button" tabIndex={0}
+                  onClick={() => setAudienceKey(a.key)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setAudienceKey(a.key) } }}
+                  className="w-full flex items-center gap-3 p-4 bg-white border border-gray-200 rounded-2xl hover:border-emerald-300 hover:bg-emerald-50/40 transition text-left cursor-pointer">
                   <span className="text-2xl">{a.emoji}</span>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-gray-800">{a.label}</p>
-                    <p className="text-xs text-gray-500 truncate">{a.description} · 주제 {a.topics.length}개</p>
+                    <div className="flex items-center gap-1">
+                      <p className="font-semibold text-gray-800">{a.label}</p>
+                      <InfoTip side="top">{a.description.split(' · ').join('\n')}</InfoTip>
+                    </div>
+                    <p className="text-xs text-gray-400">주제 {a.topics.length}개</p>
                   </div>
                   <ChevronRight className="w-5 h-5 text-gray-300 flex-shrink-0" />
-                </button>
+                </div>
               ))}
             </div>
             <button type="button"

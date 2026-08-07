@@ -24,8 +24,8 @@ import InfoTip from '../../common/InfoTip'
 const SUB = [
   { q: '프로그램 이름을 정해볼까요?', sub: '참여자에게 보이는 이름이에요.' },
   { q: '한 줄 설명을 적어볼까요?', sub: '프로그램을 한 문장으로 소개해요.\n(선택 — 비워도 돼요)' },
-  { q: '어떤 카테고리인가요?', sub: '하나만 골라주세요.\n메뉴 구성이 여기에 맞춰져요.' },
-  { q: '언제부터 언제까지 진행하나요?', sub: '시작 후엔 시작일을 바꿀 수 없어요.\n(종료일만 나중에 수정 가능)' },
+  { q: '어떤 카테고리인가요?', sub: '하나만 골라주세요. 메뉴 구성이 여기에 맞춰져요.\n⚠️ 생성 후에는 바꿀 수 없어요.', danger: true },
+  { q: '언제부터 언제까지 진행하나요?', sub: '⚠️ 시작 후엔 시작일을 바꿀 수 없어요.\n(종료일은 수정 가능 합니다)', danger: true },
   { q: '대표 사진을 더해요', sub: '선택이에요 — 비워도 괜찮아요.' },
 ]
 const TOTAL = SUB.length
@@ -144,7 +144,7 @@ function Step1Basic({ initialData, onNext, onSave, enterAtEnd = false }) {
           >
             <h2 className="text-xl font-bold text-gray-800 break-keep flex items-center gap-1.5" style={{ marginBottom: '18px' }}>
               <span>{SUB[subStep].q}</span>
-              <InfoTip>{SUB[subStep].sub}</InfoTip>
+              <InfoTip danger={SUB[subStep].danger}>{SUB[subStep].sub}</InfoTip>
             </h2>
 
             {/* 0: 이름 */}
