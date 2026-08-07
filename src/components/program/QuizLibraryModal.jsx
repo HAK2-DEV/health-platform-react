@@ -65,7 +65,7 @@ function QuizLibraryModal({ isOpen, onClose, programId, initialSelection = null 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1">
                       <p className="font-semibold text-gray-800">{a.label}</p>
-                      <InfoTip side="top">{a.description.split(' · ').join('\n')}</InfoTip>
+                      <InfoTip side="top">{a.description.replace(/ · /g, '\n').replace(/ \(/g, '\n(')}</InfoTip>
                     </div>
                     <p className="text-xs text-gray-400">주제 {a.topics.length}개</p>
                   </div>

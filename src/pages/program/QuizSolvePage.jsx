@@ -251,8 +251,11 @@ function QuizSolvePage() {
                       {quiz.reveal_answers && q.correct_answer != null && (
                         <div className="flex items-center gap-2 text-[13px] mt-0.5"><span className="text-gray-500 flex-shrink-0">정답</span><span className="text-emerald-700 font-medium">{displayAnswer(q, q.correct_answer)}</span></div>
                       )}
-                      {quiz.reveal_answers && q.explanation && (
-                        <div className="flex items-start gap-1.5 text-[12px] bg-emerald-50/70 rounded-lg p-2 mt-1.5"><span>💡</span><span className="text-gray-700 leading-snug whitespace-pre-wrap break-keep">{q.explanation}</span></div>
+                      {quiz.reveal_answers && (q.explanation || q.source) && (
+                        <div className="text-[12px] bg-emerald-50/70 rounded-lg p-2 mt-1.5">
+                          {q.explanation && <div className="flex items-start gap-1.5"><span>💡</span><span className="text-gray-700 leading-snug whitespace-pre-wrap break-keep">{q.explanation}</span></div>}
+                          {q.source && <a href={q.source} target="_blank" rel="noopener noreferrer" className="inline-block mt-1 text-emerald-600 font-medium hover:underline break-all">출처 ↗</a>}
+                        </div>
                       )}
                       <p className="text-[11px] text-gray-400 mt-1">획득 {myAns?.awarded_point ?? 0}점</p>
                     </div>
@@ -390,11 +393,16 @@ function QuizSolvePage() {
                       <span className="text-emerald-700 font-medium">{displayAnswer(q, q.correct_answer)}</span>
                     </div>
                   )}
-                  {/* 해설 (정답 공개 + 해설 있을 때) */}
-                  {quiz.reveal_answers && q.explanation && (
-                    <div className="flex items-start gap-1.5 text-sm bg-emerald-50/70 rounded-lg p-2 mt-1">
-                      <span className="flex-shrink-0">💡</span>
-                      <span className="text-gray-700 leading-snug whitespace-pre-wrap">{q.explanation}</span>
+                  {/* 해설·출처 (정답 공개 시) */}
+                  {quiz.reveal_answers && (q.explanation || q.source) && (
+                    <div className="text-sm bg-emerald-50/70 rounded-lg p-2 mt-1">
+                      {q.explanation && (
+                        <div className="flex items-start gap-1.5">
+                          <span className="flex-shrink-0">💡</span>
+                          <span className="text-gray-700 leading-snug whitespace-pre-wrap">{q.explanation}</span>
+                        </div>
+                      )}
+                      {q.source && <a href={q.source} target="_blank" rel="noopener noreferrer" className="inline-block mt-1 text-emerald-600 font-medium hover:underline break-all">출처 ↗</a>}
                     </div>
                   )}
                   <p className="text-xs text-gray-400 mt-1">획득 {myAns?.awarded_point ?? 0}점</p>

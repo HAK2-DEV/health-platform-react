@@ -31,6 +31,7 @@ const newQuestion = (type = 'MULTIPLE') => ({
   oxAnswer: 'O',
   shortAnswer: '',
   explanation: '',  // 해설 (객관식/OX) — 정답 공개 ON 시 참가자에게 노출. 서술형은 미사용
+  source: '',       // 출처 URL (선택) — 정답 공개 시 해설 옆에 링크로 노출 (마이그 202)
   included: true,   // 발행 포함 여부 (문항 앞 체크박스). 라이브러리 prefill 시 확인용
 })
 
@@ -44,15 +45,15 @@ const shuffleLibOptions = (options, correctIndex) => {
   return { options: arr.map(o => o.text), correctIndex: arr.findIndex(o => o.isAnswer) }
 }
 
-// 라이브러리 문항 → QuizCreatePage 내부 문항 형태 (해설·출처·예시답안은 발행본에 미포함)
+// 라이브러리 문항 → QuizCreatePage 내부 문항 형태 (해설·출처 이월, 예시답안은 발행본에 미포함)
 const mapLibQuestion = (q) => {
   const base = newQuestion(q.type)
   if (q.type === 'MULTIPLE') {
     const s = shuffleLibOptions(q.options, q.correctIndex ?? 0)
-    return { ...base, question_text: q.question_text, point: q.point ?? 10, options: s.options, correctIndex: s.correctIndex, award_mode: q.award_mode || 'CORRECT_ONLY', explanation: q.explanation || '' }
+    return { ...base, question_text: q.question_text, point: q.point ?? 10, options: s.options, correctIndex: s.correctIndex, award_mode: q.award_mode || 'CORRECT_ONLY', explanation: q.explanation || '', source: q.source || '' }
   }
   if (q.type === 'OX') {
-    return { ...base, question_text: q.question_text, point: q.point ?? 10, oxAnswer: q.oxAnswer || 'O', award_mode: q.award_mode || 'CORRECT_ONLY', explanation: q.explanation || '' }
+    return { ...base, question_text: q.question_text, point: q.point ?? 10, oxAnswer: q.oxAnswer || 'O', award_mode: q.award_mode || 'CORRECT_ONLY', explanation: q.explanation || '', source: q.source || '' }
   }
   // SHORT — 해설 미사용
   return { ...base, question_text: q.question_text, point: q.point ?? 10, grading_mode: q.grading_mode || 'MANUAL', shortAnswer: q.shortAnswer || '', award_mode: q.award_mode || 'CORRECT_ONLY' }
@@ -75,6 +76,7 @@ const mapDbQuestion = (q) => {
     point: q.point ?? 10,
     award_mode: q.award_mode || 'CORRECT_ONLY',
     explanation: q.explanation || '',
+    source: q.source || '',
     included: true,
   }
   if (q.type === 'MULTIPLE') {
@@ -250,6 +252,8 @@ function QuizCreatePage() {
     grading_mode: q.type === 'SHORT' ? q.grading_mode : 'AUTO',
     // 해설 — 객관식/OX 만. 정답 공개 ON 시 참가자 결과 화면에 노출
     explanation: q.type !== 'SHORT' && q.explanation?.trim() ? q.explanation.trim() : null,
+    // 출처 URL — 정답 공개 시 해설 옆 링크로 노출 (마이그 202)
+    source: q.type !== 'SHORT' && q.source?.trim() ? q.source.trim() : null,
     order_index: idx,
   })
 
@@ -535,7 +539,7 @@ function QuizCreatePage() {
 // ─── 문제 편집 카드 ─────────────────────────────────────
 function QuestionEditor({ index, question: q, canRemove, onChange, onRemove, onUpdateOption, onAddOption, onRemoveOption }) {
   const included = q.included !== false
-  const [showExpl, setShowExpl] = useState(!!q.explanation)   // 해설: 내용 있으면 펼침, 없으면 「+ 해설 추가」로 접기
+  const [showExpl, setShowExpl] = useState(!!q.explanation || !!q.source)   // 해설/출처 있으면 펼침, 없으면 「+ 해설 추가」로 접기
   return (
     <div className={`rounded-2xl border-2 p-4 space-y-2.5 transition ${included ? 'border-emerald-400 bg-emerald-50/40' : 'border-gray-200 bg-gray-50 opacity-60'}`}>
       {/* 헤더 — 발행 포함 토글 + 삭제 (문제 번호는 바깥 "문제 N/N" 에 있음) */}
@@ -708,6 +712,13 @@ function QuestionEditor({ index, question: q, canRemove, onChange, onRemove, onU
               autoFocus
               placeholder="정답에 대한 해설 (정답 공개 시 참가자에게 노출돼요)"
               className="w-full px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 resize-none overflow-hidden text-sm"
+            />
+            <input
+              type="url"
+              value={q.source || ''}
+              onChange={(e) => onChange({ source: e.target.value })}
+              placeholder="🔗 출처 링크 (선택 · https://…) — 해설 옆에 표시돼 신뢰도를 높여요"
+              className="w-full mt-1.5 px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 text-sm"
             />
           </div>
         ) : (

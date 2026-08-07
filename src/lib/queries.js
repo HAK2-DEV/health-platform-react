@@ -3552,6 +3552,7 @@ export const createProgramFromPreset = async ({ presetKey, userId, selectedKeys,
         award_mode: q.award_mode || 'CORRECT_ONLY',
         grading_mode: q.type === 'SHORT' ? (q.grading_mode || 'MANUAL') : 'AUTO',
         explanation: (q.type !== 'SHORT' && q.explanation) ? q.explanation : null,
+        source: (q.type !== 'SHORT' && q.source) ? q.source : null,   // 출처 URL (마이그 202)
         order_index: idx,
       }))
       if (qrows.length) {
