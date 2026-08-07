@@ -11,6 +11,7 @@ import { CATEGORY, PROGRAM_THEME } from './constants'
 export const PROGRAM_PRESETS = [
   {
     key: 'run_3km',
+    quizTopicKey: 'activity',
     emoji: '🏃',
     name: '3km 달리기 챌린지',
     description: '하루 3km 달리기로 건강한 습관을 만드는 챌린지예요.',
@@ -63,6 +64,7 @@ export const PROGRAM_PRESETS = [
   },
   {
     key: 'quit_smoking',
+    quizTopicKey: 'smoking',
     emoji: '🚭',
     name: '금연 습관 챌린지',
     description: '함께 응원하며 금연 습관을 만들어가는 프로그램이에요.',
@@ -128,6 +130,7 @@ export const PROGRAM_PRESETS = [
   },
   {
     key: 'diet_21days',
+    quizTopicKey: 'nutrition',
     emoji: '🥗',
     name: '건강 식습관 21일',
     description: '21일 동안 식습관을 하나씩 바꿔보는 프로그램이에요.',
@@ -135,23 +138,24 @@ export const PROGRAM_PRESETS = [
     durationDays: 21,
     bundleTitle: '🥗 식습관',
     missions: [
-      { key: 'water', title: '물 8잔 마시기', instruction: '하루 8잔(약 2L)을 목표로 물을 자주 마셔요. 마신 물병·컵을 사진으로 찍어 인증하면 완료돼요.', point: 10 },
-      { key: 'veggie', title: '채소 한 끼 먹기', instruction: '채소가 들어간 식사를 하루 한 끼 이상 챙겨 먹고, 그 식사 사진을 올려 인증해요.', point: 10 },
-      { key: 'no_latenight', title: '야식 참기', instruction: '야식 없이 하루를 마무리했다면 인증해요. 참기 힘들었던 순간이나 대신 한 일을 함께 적으면 더 좋아요.', point: 10 },
+      { key: 'water', title: '물 8잔 마시기', instruction: '하루 8잔(약 2L)을 목표로 물을 자주 마셔요. 마신 물병·컵을 사진으로 찍어 인증하면 완료돼요.', point: 10, icon: 'water.png' },
+      { key: 'veggie', title: '채소 한 끼 먹기', instruction: '채소가 들어간 식사를 하루 한 끼 이상 챙겨 먹고, 그 식사 사진을 올려 인증해요.', point: 10, icon: 'diet.png' },
+      { key: 'no_latenight', title: '야식 참기', instruction: '야식 없이 하루를 마무리했다면 인증해요. 참기 힘들었던 순간이나 대신 한 일을 함께 적으면 더 좋아요.', point: 10, icon: 'diet.png' },
     ],
   },
   {
     key: 'mind_2weeks',
+    quizTopicKey: 'mind',
     emoji: '🧘',
+    iconSrc: '/icons/meditation/meditate.png',   // 3D 명상 아이콘
     name: '2주 마음챙김',
     description: '바쁜 일상 속 마음을 돌보는 2주 프로그램이에요.',
     categories: [CATEGORY.MINDCARE.key],
     durationDays: 14,
     bundleTitle: '🧘 마음챙김',
     missions: [
-      { key: 'meditate', title: '5분 명상', instruction: '조용한 곳에서 5분간 호흡에 집중하며 명상해요. 끝난 뒤 느낀 점을 짧게 적어 인증해요.', point: 10, requires_image: false, requires_note: true },
-      { key: 'gratitude', title: '감사 일기', instruction: '오늘 감사했던 일 한 가지를 떠올려 적어요. 작고 사소한 것도 좋아요.', point: 10, requires_image: false, requires_note: true },
-      { key: 'reflect', title: '하루 돌아보기', instruction: '오늘 하루를 돌아보며 잘한 점·아쉬운 점을 짧게 메모로 남겨 인증해요.', point: 5, requires_image: false, requires_note: true },
+      { key: 'meditate', title: '3분 명상', instruction: '자리를 잡고 앉아 3분간 호흡에 집중해요. 음악과 호흡 가이드가 함께 나와요.', point: 10, verify_style: 'meditation', meditation_seconds: 180, meditation_pattern: { inhale: 4, hold1: 4, exhale: 4, hold2: 4 } },
+      { key: 'reflect', title: '하루 돌아보기', instruction: '오늘 하루를 돌아보며 잘한 점·아쉬운 점을 짧게 메모로 남겨 인증해요.', point: 5, requires_image: false, requires_note: true, icon: 'diary.png' },
     ],
   },
 ]
@@ -172,9 +176,10 @@ export function durationLabel(days) {
 //   active_from/until 은 생성 시 프로그램 기간으로 채움(이후 027 트리거가 날짜 동기화).
 export function expandPresetMission(m, { programId, activeFrom, activeUntil, bundleTitle }) {
   const point = m.point ?? 10
-  const ri = m.requires_image ?? true
-  const rn = m.requires_numeric ?? false
-  const rno = m.requires_note ?? false
+  const isMed = m.verify_style === 'meditation'   // 명상(타이머) — 입력 없이 완료로 인증
+  const ri = isMed ? false : (m.requires_image ?? true)
+  const rn = isMed ? false : (m.requires_numeric ?? false)
+  const rno = isMed ? false : (m.requires_note ?? false)
   const onlyImage = ri && !rn && !rno
   const onlyNote = rno && !ri && !rn
   return {
@@ -182,9 +187,14 @@ export function expandPresetMission(m, { programId, activeFrom, activeUntil, bun
     feature: null,
     title: m.title,
     instruction: m.instruction || null,
-    verification_type: m.verification_type || 'AUTO',
+    verification_type: isMed ? 'AUTO' : (m.verification_type || 'AUTO'),
     point,
     daily_limit: m.daily_limit ?? null,
+    // 명상(타이머) 인증 필드
+    verify_style: m.verify_style || 'standard',
+    meditation_seconds: isMed ? (m.meditation_seconds ?? 180) : null,
+    meditation_pattern: isMed ? (m.meditation_pattern ?? { inhale: 4, hold1: 4, exhale: 4, hold2: 4 }) : null,
+    meditation_music: null,
     requires_image: ri,
     requires_numeric: rn,
     requires_note: rno,

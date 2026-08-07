@@ -31,7 +31,9 @@ function MissionCard({
 }) {
   const navigate = useNavigate()
 
+  const isMeditation = mission.verify_style === 'meditation'   // 명상(타이머) — 입력 없이 완료로 인증
   const types = []
+  if (isMeditation) types.push('명상')
   if (mission.requires_image) types.push('업로드')
   if (mission.requires_numeric) types.push('기록')
   if (mission.requires_note) types.push('소감')
@@ -78,10 +80,10 @@ function MissionCard({
     >
       {/* 1행 — 참여자/운영자 공통: [썸네일] 제목 + 5P + 인증 액션 */}
       <div className="flex items-center justify-between gap-3">
-      {/* 좌측 썸네일 — 라이브러리 사전 제작 아이콘. 없으면 미표시 (절약된 공간만큼 제목 확장) */}
-      {mission.icon_path && (
+      {/* 좌측 썸네일 — 커스텀 아이콘. 없으면 명상 미션은 3D 명상 아이콘 기본, 그 외엔 미표시 */}
+      {(mission.icon_path || isMeditation) && (
         <img
-          src={resolveMissionIcon(mission.icon_path)}
+          src={mission.icon_path ? resolveMissionIcon(mission.icon_path) : '/icons/meditation/meditate.png'}
           alt=""
           className="w-14 h-14 flex-shrink-0 rounded-xl object-contain bg-gray-50"
           loading="lazy"

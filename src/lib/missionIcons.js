@@ -11,6 +11,7 @@ export const MISSION_ICONS = [
   'stretching.png',  // 스트레칭 (요가)
   'sleep.png',       // 수면 (달·베개)
   'meditation.png',  // 명상·마음 (연꽃)
+  '/icons/meditation/meditate.png',  // 명상 (3D 명상 캐릭터)
   'nosmoke.png',     // 금연 (담배·새싹)
   'reading.png',     // 독서 (책)
   'diary.png',       // 일기·소감·감사·공감 (일기장·연필)
@@ -85,5 +86,6 @@ export const normalizeMissionIcon = (iconPath) =>
 export const resolveMissionIcon = (iconPath) => {
   if (!iconPath) return null
   if (/^https?:\/\//.test(iconPath)) return iconPath
+  if (iconPath.startsWith('/')) return iconPath   // 절대 public 경로(예: /icons/meditation/meditate.png)는 그대로
   return `/mission-icons/${normalizeMissionIcon(iconPath)}`
 }

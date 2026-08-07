@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { generateInviteCode } from '../../../lib/queries'
+import InfoTip from '../../common/InfoTip'
 
 // 3단계: 참여 조건 — 무스크롤 서브스텝. 공개 범위 → 참여 승인 → 최대 인원.
 const APPROVAL_MODES = [
@@ -9,7 +10,7 @@ const APPROVAL_MODES = [
 ]
 const SUB = [
   { q: '누구에게 공개할까요?', sub: '비공개는 초대 코드로만 참여해요.' },
-  { q: '참여 승인은 어떻게 할까요?', sub: '자동이면 바로, 승인이면 운영자 확인 후 참여돼요.' },
+  { q: '참여 승인은 어떻게 할까요?', sub: '자동이면 바로 참여돼요.\n승인이면 운영자 확인 후 참여돼요.' },
   { q: '최대 참여 인원을 정할까요?', sub: '비워두면 최대 100명까지 참가할 수 있습니다.' },
 ]
 const TOTAL = SUB.length
@@ -103,8 +104,10 @@ function Step3JoinConditions({ initialData, onNext, onSave, onPrev, enterAtEnd =
       <div className="min-h-[300px]">
         <AnimatePresence mode="wait" custom={dir}>
           <motion.div key={subStep} custom={dir} variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.22, ease: 'easeOut' }}>
-            <h2 className="text-xl font-bold text-gray-800 break-keep" style={{ marginBottom: '9px' }}>{SUB[subStep].q}</h2>
-            <p className="text-sm text-gray-500 break-keep whitespace-pre-line" style={{ marginBottom: '9px' }}>{SUB[subStep].sub}</p>
+            <h2 className="text-xl font-bold text-gray-800 break-keep flex items-center gap-1.5" style={{ marginBottom: '9px' }}>
+              <span>{SUB[subStep].q}</span>
+              <InfoTip>{SUB[subStep].sub}</InfoTip>
+            </h2>
 
             {/* 0: 공개 범위 + 참여 전 둘러보기 */}
             {subStep === 0 && (

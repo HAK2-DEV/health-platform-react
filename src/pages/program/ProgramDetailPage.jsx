@@ -2219,7 +2219,7 @@ function ProgramDetailPage() {
         </div>
       </div>
       {missions.length === 0 ? (
-        <EmptyState icon="/icons/empty/mission.png" title="미션이 아직 없어요" description={isOwner && !missionPreview ? '오른쪽 + 버튼으로 새 미션을 추가하세요' : undefined} />
+        <EmptyState icon="/icons/feature/mission-empty.png" title="미션이 아직 없어요" description={isOwner && !missionPreview ? '오른쪽 + 버튼으로 새 미션을 추가하세요' : undefined} />
       ) : (
         <motion.div layout className="grid grid-cols-1 gap-[9px]">
           <AnimatePresence initial={false}>
@@ -2230,6 +2230,10 @@ function ProgramDetailPage() {
                   mission: m,
                   todayCounts,
                   isOwner,
+                  // 아이콘 없는 미션 기본값 — 달리기 테마만 신발, 그 외는 프로그램 카테고리 아이콘
+                  fallbackIcon: program?.theme === 'RUNNING'
+                    ? '/icons/running/shoe.png'
+                    : (program?.categories?.[0] ? `/icons/category/${program.categories[0].toLowerCase()}.png` : null),
                   showOwnerActions: isOwner && !isEnded,   // 종료 프로그램은 수정/삭제 숨김
                   isDeletePending: deleteMissionMutation.isPending,
                   onDelete: handleMissionDelete,
@@ -2344,7 +2348,7 @@ function ProgramDetailPage() {
         const quizList = isOwner ? programQuizzes : participantQuizzes
         // 참가자(비운영자)는 풀 퀴즈가 없으면 빈 상태만. 운영자는 헤더+추가 버튼 유지.
         if (!isOwner && quizList.length === 0) {
-          return <EmptyState icon="📝" title="아직 풀 수 있는 퀴즈가 없어요" />
+          return <EmptyState icon="/icons/feature/quiz-empty.png" title="아직 풀 수 있는 퀴즈가 없어요" />
         }
         // 달리기 — 히어로(푼/전체 링) + 상태 요약(진행중/예정/종료)
         const now = new Date()
@@ -2399,7 +2403,7 @@ function ProgramDetailPage() {
             </div>
           </div>
           {quizList.length === 0 ? (
-            <EmptyState icon="📝" title="아직 퀴즈가 없어요" description="오른쪽 + 버튼으로 새 퀴즈를 추가하세요" />
+            <EmptyState icon="/icons/feature/quiz-empty.png" title="아직 퀴즈가 없어요" description="오른쪽 + 버튼으로 새 퀴즈를 추가하세요" />
           ) : (
             <div className="grid grid-cols-1 gap-[9px]">
               {(showAllQuizzes ? quizList : quizList.slice(0, 3)).map((quiz, qi) => (

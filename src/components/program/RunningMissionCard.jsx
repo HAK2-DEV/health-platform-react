@@ -12,11 +12,14 @@ const SHOE_FALLBACK = '/icons/running/shoe.png'
 function RunningMissionCard({
   mission, index = 0, todayCounts = {}, isOwner, showOwnerActions = true,
   isDeletePending, onDelete, onEdit, programId, viewerMode, onViewerAction, onToggleMain,
+  fallbackIcon = null,   // 아이콘 없는 미션의 기본 아이콘(프로그램 카테고리/테마 기준). 없으면 신발.
 }) {
   const isMain = mission.is_main !== false
   const navigate = useNavigate()
 
+  const isMeditation = mission.verify_style === 'meditation'   // 명상(타이머) — 입력 없이 완료로 인증
   const types = []
+  if (isMeditation) types.push('명상')
   if (mission.requires_image) types.push('업로드')
   if (mission.requires_numeric) types.push('기록')
   if (mission.requires_note) types.push('소감')
@@ -46,7 +49,7 @@ function RunningMissionCard({
     : isAfterEnd ? '운영 종료'
     : !todayCheck.active ? todayCheck.reason : null
 
-  const iconSrc = mission.icon_path ? resolveMissionIcon(mission.icon_path) : SHOE_FALLBACK
+  const iconSrc = mission.icon_path ? resolveMissionIcon(mission.icon_path) : (isMeditation ? '/icons/meditation/meditate.png' : (fallbackIcon || SHOE_FALLBACK))
 
   // 완료(reachedLimit) 아닐 때 우측 컴팩트 액션
   const renderAction = () => {

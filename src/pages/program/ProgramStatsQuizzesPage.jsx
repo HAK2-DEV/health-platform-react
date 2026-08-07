@@ -62,7 +62,7 @@ function ProgramStatsQuizzesPage() {
 
       {totalQuizzes === 0 ? (
         <EmptyState
-          icon="📝"
+          icon="/icons/feature/quiz-empty.png"
           title="아직 만든 퀴즈가 없어요"
           description="아래 버튼으로 첫 퀴즈를 만들어보세요"
           action={{ label: '+ 새 퀴즈 만들기', onClick: () => navigate(`/programs/${id}/posts/quiz/new`) }}

@@ -10,14 +10,18 @@ import { resolveMissionIcon } from '../../lib/missionIcons'
 function Cat3D({ cat }) {
   const [err, setErr] = useState(false)
   if (err) return <span>{cat.emoji}</span>
-  return <img src={`/icons/category/${cat.key.toLowerCase()}.png`} alt="" aria-hidden="true" onError={() => setErr(true)} className="w-4 h-4 object-contain" />
+  // 마음관리는 명상 3D 아이콘 사용
+  const src = cat.key === 'MINDCARE' ? '/icons/meditation/meditate.png' : `/icons/category/${cat.key.toLowerCase()}.png`
+  return <img src={src} alt="" aria-hidden="true" onError={() => setErr(true)} className="w-4 h-4 object-contain" />
 }
 // 묶음 카드 3D 아이콘 — 묶음의 첫 미션 아이콘(3D) 사용. 없으면 이모지 폴백
 function Bundle3D({ bundle }) {
   const [err, setErr] = useState(false)
+  // 묶음에 icon 지정 있으면 그걸(전체 경로), 없으면 첫 미션 아이콘, 그것도 없으면 이모지
   const iconFile = bundle.missions?.find((m) => m.icon)?.icon
-  if (err || !iconFile) return <span className="text-2xl">{bundle.emoji}</span>
-  return <img src={resolveMissionIcon(iconFile)} alt="" aria-hidden="true" onError={() => setErr(true)} className="w-9 h-9 object-contain" />
+  const src = bundle.icon || (iconFile ? resolveMissionIcon(iconFile) : null)
+  if (err || !src) return <span className="text-2xl">{bundle.emoji}</span>
+  return <img src={src} alt="" aria-hidden="true" onError={() => setErr(true)} className="w-9 h-9 object-contain" />
 }
 
 // 인증 입력 유형 — 한 미션에 복수 선택 가능 (사진+소감 통합 등). missions.requires_* 와 매핑.
@@ -214,17 +218,17 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
       setError(`"${drafts[invalidPeriodIdx].title}" 미션의 종료일이 시작일보다 빠를 수 없어요`)
       return
     }
-    // 인증 입력 유형 0개 차단 — 제출 화면이 비어버림
+    // 인증 입력 유형 0개 차단 — 제출 화면이 비어버림 (명상형은 타이머 완료라 예외)
     const noInputIdx = drafts.findIndex(m =>
-      m.selected && !m.requires_image && !m.requires_numeric && !m.requires_note
+      m.selected && m.verify_style !== 'meditation' && !m.requires_image && !m.requires_numeric && !m.requires_note
     )
     if (noInputIdx >= 0) {
       setError(`"${drafts[noInputIdx].title}" 미션의 인증 입력을 1개 이상 선택해주세요`)
       return
     }
-    // 필수 입력 0개 차단 (전부 선택일 수 없음)
+    // 필수 입력 0개 차단 (전부 선택일 수 없음) — 명상형 예외
     const noRequiredIdx = drafts.findIndex(m =>
-      m.selected &&
+      m.selected && m.verify_style !== 'meditation' &&
       !((m.requires_image && m.image_required !== false) ||
         (m.requires_numeric && m.numeric_required !== false) ||
         (m.requires_note && m.note_required !== false))
@@ -239,14 +243,21 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
 
     // 선택된 미션만 INSERT — 각 미션의 일정 옵션 (schedule_mode/active_days/excluded_periods) 반영
     const bundleTitle = `${bundle.emoji} ${bundle.title}`
-    const rows = drafts.filter(m => m.selected).map(m => ({
+    const rows = drafts.filter(m => m.selected).map(m => {
+      const isMed = m.verify_style === 'meditation'
+      return {
       program_id: program.id,
       feature: null,
       title: m.title,
       instruction: m.instruction || null,
-      verification_type: m.verification_type,
-      point: draftTotal(m),
+      verification_type: isMed ? 'AUTO' : m.verification_type,
+      point: isMed ? (parseInt(m.point) || 0) : draftTotal(m),
       daily_limit: m.daily_limit ? parseInt(m.daily_limit) : null,
+      // 명상(타이머) 인증 — 라이브러리 명상 미션
+      verify_style: m.verify_style || 'standard',
+      meditation_seconds: isMed ? (m.meditation_seconds || 180) : null,
+      meditation_pattern: isMed ? (m.meditation_pattern || null) : null,
+      meditation_music: null,
       requires_image: m.requires_image,
       requires_numeric: m.requires_numeric,
       requires_note: m.requires_note,
@@ -278,7 +289,8 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
       excluded_periods: m.excluded_periods.filter(p => p.start_date && p.end_date),
       bundle_title: bundleTitle,
       icon_path: m.icon || null,  // Day 65 — 라이브러리 사전 제작 아이콘 (075 마이그레이션)
-    }))
+      }
+    })
 
     const { error: insertError } = await supabase.from('missions').insert(rows)
 
@@ -500,6 +512,22 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
                   {/* 점수 / 한도 / 승인 방식 미세 조정 — 선택된 미션만 활성 */}
                   {m.selected && (
                     <div className="mt-3 space-y-4">
+                      {/* 명상 미션 — 입력·점수 편집 대신 요약(완료 점수만 조정) */}
+                      {m.verify_style === 'meditation' && (
+                        <div className="rounded-xl bg-emerald-50/60 border border-emerald-100 p-3">
+                          <p className="text-[13px] font-bold text-gray-800 flex items-center gap-1.5"><img src="/icons/meditation/meditate.png" alt="" className="w-5 h-5 object-contain" /> 명상 타이머 · {Math.round((m.meditation_seconds || 180) / 60)}분</p>
+                          <p className="text-[11px] text-gray-500 mt-0.5 mb-2">호흡 가이드와 함께 앉아서 명상 후 자동 인증돼요.</p>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[12px] text-gray-600">완료 점수</span>
+                            <input type="number" min={1} value={m.point ?? 10}
+                              onChange={(e) => updateDraft(idx, 'point', e.target.value)} disabled={isSaving}
+                              className="w-16 px-2 py-1 text-sm text-right border border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 disabled:bg-gray-50" />
+                            <span className="text-[12px] text-gray-500">P</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {m.verify_style !== 'meditation' && (<>
                       {/* 인증 입력 유형 — 복수 선택 (핵심, 항상 노출) */}
                       <div>
                         <label className="block text-[13px] font-bold text-gray-800 mb-2">
@@ -577,6 +605,7 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
                         </div>
                         <p className="mt-2 text-[13px] text-gray-600">최대 <span className="font-bold text-emerald-600">{draftTotal(m)}P</span></p>
                       </div>
+                      </>)}
 
                       {/* ── 상세 설정 (접기) — 하루 최대·승인·기간·일정·미리보기 ── */}
                       <div>

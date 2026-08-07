@@ -70,11 +70,10 @@ function ProgramHomeHero({
     <>
       {/* 상태바 밑까지 커버가 채워지도록 높이에 safe-area 더함(위쪽으로 확장) */}
       <div className="relative" style={{ height: `calc(${HERO_H}px + ${safeTop})` }}>
-        {/* ① 커버 — 살짝 워시. 운영자는 탭하면 커버 업로드 */}
+        {/* ① 커버 — 살짝 워시. 커버 변경은 상단 「커버 변경」 버튼으로만(전체 탭 제거 → 뒤로·설정 오탭 방지) */}
         <div
-          className={`absolute inset-0 overflow-hidden ${editable ? 'cursor-pointer' : ''}`}
+          className="absolute inset-0 overflow-hidden"
           style={{ filter: 'saturate(.85) contrast(.94) brightness(.98)' }}
-          onClick={editable && !uploading ? () => fileRef.current?.click() : undefined}
         >
           {bgUrl
             ? <img src={bgUrl} alt="" className="w-full h-full object-cover" />
@@ -107,12 +106,13 @@ function ProgramHomeHero({
             )}
           </button>
         )}
-        {/* 커버 변경 힌트 (운영자) */}
+        {/* 커버 변경 버튼 (운영자) — 이 버튼으로만 사진 선택 (커버 전체 탭 제거) */}
         {editable && (
-          <span className="absolute left-1/2 -translate-x-1/2 z-10 pointer-events-none inline-flex items-center gap-1 text-[10.5px] font-bold text-white bg-black/32 px-2 py-1 rounded-full backdrop-blur-sm"
-            style={{ top: `calc(0.95rem + ${safeTop})` }}>
-            <ImagePlus className="w-3 h-3" /> {uploading ? '업로드 중…' : '탭해서 커버 변경'}
-          </span>
+          <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
+            className="absolute left-1/2 -translate-x-1/2 z-20 inline-flex items-center gap-1 text-[11px] font-bold text-white bg-black/40 hover:bg-black/55 active:bg-black/60 px-3 py-1.5 rounded-full backdrop-blur-sm shadow-sm transition disabled:opacity-60"
+            style={{ top: `calc(0.85rem + ${safeTop})` }}>
+            <ImagePlus className="w-3.5 h-3.5" /> {uploading ? '업로드 중…' : '커버 변경'}
+          </button>
         )}
 
         {/* 타이틀 블록 (밝은 페이드 위, 어두운 텍스트) */}

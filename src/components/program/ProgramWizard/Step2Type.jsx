@@ -4,6 +4,7 @@ import { ChevronDown, ChevronUp, ChevronRight, Heart, MessageCircle, Circle, X, 
 import { MISSION_LIBRARY } from '../../../lib/missionLibrary'
 import { CATEGORY } from '../../../lib/constants'
 import UserAvatar from '../../common/UserAvatar'
+import InfoTip from '../../common/InfoTip'
 
 // 2단계: 사용할 메뉴 — "한 번에 한 질문" 서브스텝(타입폼 방식).
 //   토글 나열 대신, 화면당 결정 하나 + 예/아니요 큰 버튼 + "참여자에게 이렇게 보여요" 미리보기.
@@ -663,31 +664,31 @@ function Step2Type({ initialData, onNext, onSave, onPrev, enterAtEnd = false }) 
       q: isQuitCat ? '서로 응원하게 할까요?' : '서로 이야기 나누게 할까요?',
       sub: isQuitCat
         ? '참가자·운영자가 글과 댓글로 서로 응원해요.'
-        : '사진·글로 오늘의 활동을 자랑하고, 서로 댓글·좋아요로 응원해요.',
+        : '사진·글로 오늘의 활동을 자랑하고,\n서로 댓글·좋아요로 응원해요.',
     },
     ranking: {
       q: '순위표를 보여줄까요?',
-      sub: '점수가 높은 사람부터 줄을 세워 보여줘요. 서로 선의의 경쟁을 하게 돼요.',
+      sub: '점수가 높은 사람부터 줄을 세워 보여줘요.\n서로 선의의 경쟁을 하게 돼요.',
     },
     podium: {
       q: '상위 3명 시상대를 보여줄까요?',
-      sub: '1·2·3등을 메달과 함께 시상대로 크게 보여줘요. 상위권에 동기 부여가 돼요. (참여자 3명 이상일 때 나타나요)',
+      sub: '1·2·3등을 메달과 함께 시상대로 크게 보여줘요.\n상위권에 동기 부여가 돼요.\n(참여자 3명 이상일 때 나타나요)',
     },
     team: {
       q: '팀을 짜서 같이 도전할까요?',
-      sub: '참여자끼리 팀을 만들어 함께 점수를 모아요. 순위표에 팀 순위도 함께 보여요.',
+      sub: '참여자끼리 팀을 만들어 함께 점수를 모아요.\n순위표에 팀 순위도 함께 보여요.',
     },
     quiz: {
       q: '건강 퀴즈를 낼까요?',
-      sub: '참여자가 O/X·객관식 문제를 풀며 건강 상식을 배워요.',
+      sub: '참여자가 O/X·객관식 문제를 풀며\n건강 상식을 배워요.',
     },
     class: {
       q: '정해진 시간에 모이는 수업이 있나요?',
-      sub: '요가·필라테스처럼 강사가 진행하는 클래스 일정을 운영해요. 없으면 그냥 넘어가세요.',
+      sub: '요가·필라테스처럼 강사가 진행하는\n클래스 일정을 운영해요. 없으면 그냥 넘어가세요.',
     },
     change: {
       q: '「내 변화」 탭을 쓸까요?',
-      sub: '참가자가 자신의 금연·기분·절약 변화를 한눈에 봐요. 운영자는 참가자별 변화를 확인할 수 있어요.',
+      sub: '참가자가 자신의 기분·흡연 추세·시간대 패턴을 그래프로 봐요.\n운영자는 참가자별 변화를 확인할 수 있어요.',
     },
   }
 
@@ -711,8 +712,10 @@ function Step2Type({ initialData, onNext, onSave, onPrev, enterAtEnd = false }) 
             exit="exit"
             transition={{ duration: 0.22, ease: 'easeOut' }}
           >
-            <h2 className="text-xl font-bold text-gray-800 break-keep" style={{ marginBottom: '5px' }}>{META[cur].q}</h2>
-            <p className="text-sm text-gray-500 break-keep" style={{ marginBottom: '16px' }}>{META[cur].sub}</p>
+            <h2 className="text-xl font-bold text-gray-800 break-keep flex items-center gap-1.5" style={{ marginBottom: '16px' }}>
+              <span>{META[cur].q}</span>
+              <InfoTip>{META[cur].sub}</InfoTip>
+            </h2>
 
             {/* ── 소통(커뮤니티/응원) ── */}
             {cur === 'community' && (<>
@@ -823,9 +826,27 @@ function Step2Type({ initialData, onNext, onSave, onPrev, enterAtEnd = false }) 
             {/* ── 내 변화 (금연) ── */}
             {cur === 'change' && (<>
               <Preview>
-                <div className="bg-white rounded-lg border border-gray-100 p-2.5 text-[12px]">
-                  <p className="font-bold text-gray-700" style={{ marginBottom: '3px' }}>🚭 연속 금연 5일째</p>
-                  <p className="text-gray-400">아낀 돈 22,500원 · 오늘 기분 😊 좋아짐</p>
+                <div className="space-y-2">
+                  {/* 기분 변화 — 실제 MoodChart 스타일(가는 선 + 기분별 색점) */}
+                  <div className="bg-white rounded-lg border border-gray-100 p-2.5">
+                    <p className="text-[11px] font-bold text-gray-700 mb-1.5">📈 기분 변화</p>
+                    <svg viewBox="0 0 120 30" className="w-full" style={{ maxHeight: 30 }} preserveAspectRatio="none">
+                      <line x1="4" y1="15" x2="116" y2="15" stroke="#f3f4f6" strokeWidth="1" />
+                      <polyline points="6,22 28,11 50,22 72,5 94,11 116,5" fill="none" stroke="#10b981" strokeWidth="1.5" opacity="0.5" strokeLinejoin="round" strokeLinecap="round" />
+                      {[[6, 22, '#f59e0b'], [28, 11, '#34d399'], [50, 22, '#f59e0b'], [72, 5, '#10b981'], [94, 11, '#34d399'], [116, 5, '#10b981']].map(([x, y, c], i) => (
+                        <circle key={i} cx={x} cy={y} r="2.5" fill={c} />
+                      ))}
+                    </svg>
+                  </div>
+                  {/* 흡연 추세 — 실제 DailyBars 스타일(orange 막대, 줄어드는 추세) */}
+                  <div className="bg-white rounded-lg border border-gray-100 p-2.5">
+                    <p className="text-[11px] font-bold text-gray-700 mb-1.5">🚬 흡연 추세</p>
+                    <div className="flex items-end gap-[3px] h-7">
+                      {[5, 4, 4, 3, 3, 2, 1].map((v, i) => (
+                        <div key={i} className="flex-1 rounded-sm bg-orange-300" style={{ height: `${(v / 5) * 100}%` }} />
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </Preview>
               <YesNo value={changeTabEnabled} onChange={setChangeTabEnabled} />

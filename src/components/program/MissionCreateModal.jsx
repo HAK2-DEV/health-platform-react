@@ -61,6 +61,12 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
   const [imageRequired, setImageRequired] = useState(true)
   const [numericRequired, setNumericRequired] = useState(true)
   const [noteRequired, setNoteRequired] = useState(true)
+
+  // ── 명상(타이머) 인증 — 마음관리(MINDCARE) 전용 4번째 스타일 ──
+  const [verifyStyle, setVerifyStyle] = useState('standard')   // 'standard' | 'meditation'
+  const [medMinutes, setMedMinutes] = useState(3)              // 명상 길이(분)
+  const [medPattern, setMedPattern] = useState({ inhale: 4, hold1: 4, exhale: 4, hold2: 4 })  // 박스호흡 기본(운영자 커스텀)
+  const [medPoint, setMedPoint] = useState(10)                // 완료 점수
   // 다중 지표 (122) — 거리·시간·칼로리처럼 여러 숫자 항목. metricAggregate = 개요 통계 표시.
   const [metrics, setMetrics] = useState([])  // [{ key, label, unit, max, icon }]
   const [metricAggregate, setMetricAggregate] = useState(false)
@@ -114,6 +120,10 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
       setImageRequired(true)
       setNumericRequired(true)
       setNoteRequired(true)
+      setVerifyStyle('standard')
+      setMedMinutes(3)
+      setMedPattern({ inhale: 4, hold1: 4, exhale: 4, hold2: 4 })
+      setMedPoint(10)
       setMetrics([])
       setMetricAggregate(false)
       setMetricsEditOpen(false)
@@ -150,6 +160,10 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
       setImageRequired(editMission.image_required ?? true)
       setNumericRequired(editMission.numeric_required ?? true)
       setNoteRequired(editMission.note_required ?? true)
+      setVerifyStyle(editMission.verify_style || 'standard')
+      setMedMinutes(editMission.meditation_seconds ? Math.max(1, Math.round(editMission.meditation_seconds / 60)) : 3)
+      setMedPattern(editMission.meditation_pattern || { inhale: 4, hold1: 4, exhale: 4, hold2: 4 })
+      setMedPoint(editMission.point ?? 10)
       // 다중 지표 — metrics 있으면 그대로, 없으면 레거시 단일(metric_unit) 변환
       const _src = Array.isArray(editMission.metrics) && editMission.metrics.length
         ? editMission.metrics
@@ -213,11 +227,14 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
     if (scheduleMode === 'CUSTOM' && activeDays.length === 0) return '운영 요일을 최소 1일 선택해주세요'
     return null
   }
+  const isMed = verifyStyle === 'meditation'   // 명상(타이머) 인증 스타일
   const validateMethod = () => {
+    if (isMed) return null   // 명상형은 타이머 완료가 인증 → 사진/기록/소감 불필요
     if (!requiresImage && !requiresNumeric && !requiresNote) return '인증 방법을 최소 1개 선택해주세요'
     return null
   }
   const validatePoints = () => {
+    if (isMed) { if ((parseInt(medPoint) || 0) < 1) return '완료 점수는 1 이상이어야 합니다'; return null }
     if (totalPoint < 1) return '점수 합계는 1 이상이어야 합니다'
     const anyRequired =
       (requiresImage && imageRequired) || (requiresNumeric && numericRequired) || (requiresNote && noteRequired)
@@ -249,21 +266,27 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
       title: title.trim(),
       instruction: instruction.trim() || null,
       icon_path: iconPath || null,
-      verification_type: verificationType,
-      point: totalPoint,
+      verification_type: isMed ? 'AUTO' : verificationType,   // 명상은 자기보고 신뢰 → AUTO
+      point: isMed ? (parseInt(medPoint) || 0) : totalPoint,
       daily_limit: dailyLimit ? parseInt(dailyLimit) : null,
-      requires_image: requiresImage,
-      requires_numeric: requiresNumeric,
-      requires_note: requiresNote,
+      // 명상(타이머) 인증 — 스타일/시간/호흡패턴. 아니면 standard.
+      verify_style: verifyStyle,
+      meditation_seconds: isMed ? Math.max(30, medMinutes * 60) : null,
+      meditation_pattern: isMed ? medPattern : null,
+      meditation_music: null,
+      // 명상형은 사진/기록/소감 없음
+      requires_image: isMed ? false : requiresImage,
+      requires_numeric: isMed ? false : requiresNumeric,
+      requires_note: isMed ? false : requiresNote,
       // 084 — 입력별 점수/필수 (미사용 입력은 point NULL → 채점 합산서 제외)
-      image_point: requiresImage ? (parseInt(imagePoint) || 0) : null,
-      numeric_point: requiresNumeric ? (parseInt(numericPoint) || 0) : null,
-      note_point: requiresNote ? (parseInt(notePoint) || 0) : null,
-      image_required: requiresImage ? imageRequired : true,
-      numeric_required: requiresNumeric ? numericRequired : true,
-      note_required: requiresNote ? noteRequired : true,
+      image_point: (!isMed && requiresImage) ? (parseInt(imagePoint) || 0) : null,
+      numeric_point: (!isMed && requiresNumeric) ? (parseInt(numericPoint) || 0) : null,
+      note_point: (!isMed && requiresNote) ? (parseInt(notePoint) || 0) : null,
+      image_required: (!isMed && requiresImage) ? imageRequired : true,
+      numeric_required: (!isMed && requiresNumeric) ? numericRequired : true,
+      note_required: (!isMed && requiresNote) ? noteRequired : true,
       // 다중 지표 (122) — 숫자 입력 미션만. 라벨·단위 있는 것만 저장.
-      metrics: requiresNumeric
+      metrics: (!isMed && requiresNumeric)
         ? metrics
             .filter(m => (m.label || '').trim() || (m.unit || '').trim())
             .map(m => ({
@@ -275,7 +298,7 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
               icon: (m.icon || '').trim() || null,
             }))
         : [],
-      metric_aggregate: requiresNumeric ? metricAggregate : false,
+      metric_aggregate: (!isMed && requiresNumeric) ? metricAggregate : false,
       metric_unit: null,   // 레거시 — 다중 지표로 대체
       max_per_entry: null, // 레거시 — 지표별 max 로 대체
       // 일정 옵션 — 033 점수 트리거가 KST 기준으로 검사
@@ -340,6 +363,7 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
   )
 
   if (!isOpen || !program) return null
+  const isMindcare = Array.isArray(program.categories) && program.categories.includes('MINDCARE')  // 명상형 노출 조건
   return (
     <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-5" onClick={onClose}>
       <div className="w-full max-w-md max-h-[88vh] overflow-y-auto bg-white rounded-2xl p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
@@ -605,7 +629,76 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
 
           {/* ── 4단계: 인증 방법 ── */}
           {step === 4 && (<>
-          {/* 인증 방법 — 다중 선택 */}
+          {/* 마음관리 전용 — 인증 스타일 선택(일반 vs 명상 타이머) */}
+          {isMindcare && (
+            <div className="grid grid-cols-2 gap-2 mb-5 mt-1">
+              {[
+                { v: 'standard', emoji: '📷', label: '일반 인증', desc: '사진·기록·소감' },
+                { v: 'meditation', img: '/icons/meditation/meditate.png', label: '명상 타이머', desc: '앉아서 명상 후 완료' },
+              ].map(o => {
+                const on = verifyStyle === o.v
+                return (
+                  <button key={o.v} type="button" onClick={() => setVerifyStyle(o.v)} disabled={isSaving}
+                    className={`rounded-xl border-2 p-3 text-center transition ${on ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
+                    {o.img
+                      ? <img src={o.img} alt="" draggable="false" className="w-9 h-9 mx-auto mb-1 object-contain" />
+                      : <span className="block text-2xl leading-none mb-1">{o.emoji}</span>}
+                    <span className={`block text-[15px] font-bold ${on ? 'text-emerald-700' : 'text-gray-600'}`}>{o.label}</span>
+                    <span className="block text-[11px] text-gray-400 mt-0.5">{o.desc}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
+          {isMed ? (
+          /* 명상형 설정 — 시간 + 호흡 패턴 */
+          <div className="mb-4">
+            <div className="relative flex items-center gap-1.5 mb-2">
+              <h3 className="text-[18px] font-bold text-gray-900 break-keep">명상을 어떻게 진행할까요?</h3>
+              <InfoTip tipKey="med" tipOpen={tipOpen} onToggle={toggleTip}>
+                참여자가 앉아서 타이머 동안 명상해요. 음악·호흡 가이드가 함께 나오고, 시간이 끝나면 완료로 인증돼요.
+              </InfoTip>
+            </div>
+            <p className="text-[15px] text-gray-600 mb-6 break-keep">시간과 호흡 패턴을 정해요 · 완료는 정직하게 믿어요</p>
+
+            {/* 명상 시간 */}
+            <FieldLabel title="명상 시간" tipKey="medtime" tipOpen={tipOpen} onToggle={toggleTip}>
+              참여자가 명상할 길이예요.
+            </FieldLabel>
+            <div className="flex gap-2 mb-6">
+              {[3, 5, 10, 15].map(m => (
+                <button key={m} type="button" onClick={() => setMedMinutes(m)} disabled={isSaving}
+                  className={`flex-1 py-2.5 rounded-xl border-2 text-[15px] font-bold transition ${medMinutes === m ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}>
+                  {m}분
+                </button>
+              ))}
+            </div>
+
+            {/* 호흡 패턴 */}
+            <FieldLabel title="호흡 패턴 (초)" required={false} tipKey="medbreath" tipOpen={tipOpen} onToggle={toggleTip}>
+              화면의 원이 커졌다 작아지며 호흡을 안내해요. 기본은 <b className="text-emerald-300">박스 호흡 4-4-4-4</b>. 초 단위로 바꿀 수 있어요.
+            </FieldLabel>
+            <div className="grid grid-cols-4 gap-2">
+              {[
+                { key: 'inhale', label: '들숨' },
+                { key: 'hold1', label: '멈춤' },
+                { key: 'exhale', label: '날숨' },
+                { key: 'hold2', label: '멈춤' },
+              ].map(b => (
+                <div key={b.key} className="text-center">
+                  <label className="block text-[11px] font-medium text-gray-500 mb-1">{b.label}</label>
+                  <input type="number" min={0} max={20} value={medPattern[b.key]}
+                    onChange={(e) => setMedPattern(p => ({ ...p, [b.key]: Math.max(0, Math.min(20, parseInt(e.target.value) || 0)) }))}
+                    disabled={isSaving}
+                    className="w-full px-2 py-2 text-center text-sm border-2 border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500 disabled:bg-gray-50" />
+                </div>
+              ))}
+            </div>
+            <p className="mt-2 text-[12px] text-gray-400">멈춤을 0으로 두면 「들숨 → 날숨」만 반복해요 (초심자용).</p>
+          </div>
+          ) : (
+          /* 기존 인증 방법 — 다중 선택 */
           <div className="mb-4">
             <div className="relative flex items-center gap-1.5 mb-2 mt-1">
               <h3 className="text-[18px] font-bold text-gray-900 break-keep">미션을 어떻게 인증할까요?</h3>
@@ -615,30 +708,36 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
             </div>
             <p className="text-[15px] text-gray-600 mb-6 break-keep">참여자가 제출할 방법을 골라요 · 여러 개 선택 가능</p>
             <div className="grid grid-cols-3 gap-2.5">
-              <TypeCard
-                active={requiresImage}
-                onClick={() => setRequiresImage(!requiresImage)}
-                Icon={ImageIcon}
-                label="사진 제출"
-              />
-              <TypeCard
-                active={requiresNumeric}
-                onClick={() => setRequiresNumeric(!requiresNumeric)}
-                Icon={BarChart3}
-                label="숫자 입력"
-              />
-              <TypeCard
-                active={requiresNote}
-                onClick={() => setRequiresNote(!requiresNote)}
-                Icon={MessageSquare}
-                label="소감 작성"
-              />
+              <TypeCard active={requiresImage} onClick={() => setRequiresImage(!requiresImage)} Icon={ImageIcon} label="사진 제출" />
+              <TypeCard active={requiresNumeric} onClick={() => setRequiresNumeric(!requiresNumeric)} Icon={BarChart3} label="숫자 입력" />
+              <TypeCard active={requiresNote} onClick={() => setRequiresNote(!requiresNote)} Icon={MessageSquare} label="소감 작성" />
             </div>
           </div>
+          )}
           </>)}
 
           {/* ── 5단계: 점수 ── */}
           {step === 5 && (<>
+          {isMed ? (
+          /* 명상 완료 점수 (단일) */
+          <div className="mb-4">
+            <div className="relative flex items-center gap-1.5 mb-2 mt-1">
+              <h3 className="text-[18px] font-bold text-gray-900 break-keep">완료하면 몇 점을 줄까요?</h3>
+              <InfoTip tipKey="medpoint" tipOpen={tipOpen} onToggle={toggleTip}>
+                명상 타이머를 끝까지 마치면 받는 점수예요. 습관 형성이 목적이라 부담 없는 점수를 권해요.
+              </InfoTip>
+            </div>
+            <p className="text-[15px] text-gray-600 mb-6 break-keep">명상을 완료하면 주는 점수</p>
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1 text-sm font-medium text-gray-700"><img src="/icons/meditation/meditate.png" alt="" className="w-5 h-5 object-contain" /> 완료 점수</span>
+              <div className="relative w-[5rem]">
+                <input type="number" min={1} value={medPoint} onChange={(e) => setMedPoint(e.target.value)} disabled={isSaving}
+                  className="w-full pl-2 pr-6 py-1.5 text-sm text-right border border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 disabled:bg-gray-50" />
+                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">P</span>
+              </div>
+            </div>
+          </div>
+          ) : (<>
           <div className="relative flex items-center gap-1.5 mb-2 mt-1">
             <h3 className="text-[18px] font-bold text-gray-900 break-keep">점수를 어떻게 줄까요?</h3>
             <InfoTip tipKey="points" tipOpen={tipOpen} onToggle={toggleTip}>
@@ -711,6 +810,7 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
               <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
             </button>
           )}
+          </>)}
           </>)}
 
           {/* ── 6단계: 운영 ── */}

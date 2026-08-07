@@ -211,7 +211,7 @@ function NotificationsPage() {
         {isLoading ? (
           <LoadingState />
         ) : notifications.length === 0 ? (
-          <EmptyState icon="📭" title="아직 알림이 없어요" />
+          <EmptyState icon="/icons/feature/bell.png" title="아직 알림이 없어요" />
         ) : totalCount === 0 ? (
           <div className="bg-white border border-gray-100 rounded-card-lg shadow-soft p-6 text-center">
             <p className="text-sm text-gray-500">선택한 필터의 알림이 없어요</p>

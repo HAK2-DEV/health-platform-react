@@ -7,6 +7,7 @@
 //   - userId 가 필요한 키는 항상 user 인자 포함 — 로그인 다른 계정이면 캐시 자동 분리
 import { supabase } from '../supabaseClient'
 import { getPreset, expandPresetMission } from './programLibrary'
+import { QUIZ_AUDIENCES } from './quizLibrary'
 
 export const queryKeys = {
   // 본인이 만든 프로그램 (대시보드 "내 프로그램" 섹션)
@@ -3470,10 +3471,13 @@ export const upsertMood = async ({ programId, userId, mood }) => {
 //   프리셋(코드 정의) → DRAFT 프로그램 + 미션(전체 기간) 생성. 이후 마법사에서 이름·날짜 마무리.
 //   날짜 변경 시 027 트리거가 미션 active_from/until 을 자동 동기화.
 //   원자성: 미션 insert 실패 시 새 프로그램 삭제(cascade)로 롤백.
-export const createProgramFromPreset = async ({ presetKey, userId, selectedKeys, durationDays }) => {
+export const createProgramFromPreset = async ({ presetKey, userId, selectedKeys, durationDays, audienceKey }) => {
   if (!userId) throw new Error('로그인이 필요합니다')
   const preset = getPreset(presetKey)
   if (!preset) throw new Error('프리셋을 찾을 수 없어요')
+  // 선택 대상자 + 프리셋 quizTopicKey 에 맞는 퀴즈 주제 (해당 조합이 없으면 퀴즈 없이 진행)
+  const audience = QUIZ_AUDIENCES.find(a => a.key === (audienceKey || 'general_adult')) || QUIZ_AUDIENCES[0]
+  const quizTopic = preset.quizTopicKey ? ((audience?.topics || []).find(t => t.key === preset.quizTopicKey) || null) : null
   // selectedKeys 가 있으면 그 미션만, 없으면 전체
   const chosen = Array.isArray(selectedKeys) && selectedKeys.length
     ? (preset.missions || []).filter(m => selectedKeys.includes(m.key))
@@ -3502,7 +3506,8 @@ export const createProgramFromPreset = async ({ presetKey, userId, selectedKeys,
     source_preset_key: presetKey,   // 라이브러리 출처 추적 (마이그 135) — 운영자 수 집계용
     theme: preset.theme || null,    // 테마 프로그램(금연 등) — 상세 페이지 변형 (마이그 136)
     // 프리셋이 지정한 메뉴 플래그만 반영 (미지정은 DB 기본값). 금연: 퀴즈/랭킹 OFF, 내 변화 ON
-    ...(preset.quizEnabled != null ? { quiz_enabled: preset.quizEnabled } : {}),
+    // 퀴즈가 번들되면 퀴즈 메뉴 강제 ON (프리셋 quizEnabled 보다 우선)
+    ...(quizTopic ? { quiz_enabled: true } : (preset.quizEnabled != null ? { quiz_enabled: preset.quizEnabled } : {})),
     ...(preset.rankingEnabled != null ? { ranking_enabled: preset.rankingEnabled } : {}),
     ...(preset.changeTabEnabled != null ? { change_tab_enabled: preset.changeTabEnabled } : {}),
   }).select('id').single()
@@ -3521,6 +3526,41 @@ export const createProgramFromPreset = async ({ presetKey, userId, selectedKeys,
   } catch (err) {
     await supabase.from('programs').delete().eq('id', newId)
     throw err
+  }
+
+  // 3) 퀴즈 번들 — 프리셋 quizTopicKey + 선택 대상자에 맞는 주제가 있으면 발행.
+  //    실패해도 프로그램·미션은 유지(퀴즈는 보너스 — 운영자가 나중에 추가 가능).
+  if (quizTopic) {
+    try {
+      const { data: quiz, error: qErr } = await supabase.from('quizzes').insert({
+        program_id: newId,
+        title: `${quizTopic.title} 퀴즈`,
+        description: `${quizTopic.title} 건강 상식 퀴즈`,
+        reveal_answers: true,   // 교육용 — 제출 후 정답·해설 공개
+        created_by: userId,
+      }).select('id').single()
+      if (qErr) throw qErr
+      const qrows = (quizTopic.questions || []).map((q, idx) => ({
+        quiz_id: quiz.id,
+        type: q.type,
+        question_text: q.question_text,
+        options: q.type === 'MULTIPLE' ? q.options : null,
+        correct_answer: q.type === 'MULTIPLE' ? String(q.correctIndex ?? 0)
+          : q.type === 'OX' ? (q.oxAnswer || 'O')
+          : (q.grading_mode === 'AUTO' ? (q.shortAnswer || '') : null),
+        point: q.point ?? 10,
+        award_mode: q.award_mode || 'CORRECT_ONLY',
+        grading_mode: q.type === 'SHORT' ? (q.grading_mode || 'MANUAL') : 'AUTO',
+        explanation: (q.type !== 'SHORT' && q.explanation) ? q.explanation : null,
+        order_index: idx,
+      }))
+      if (qrows.length) {
+        const { error: qqErr } = await supabase.from('quiz_questions').insert(qrows)
+        if (qqErr) { await supabase.from('quizzes').delete().eq('id', quiz.id); throw qqErr }
+      }
+    } catch (err) {
+      console.warn('프리셋 퀴즈 발행 실패(미션은 유지):', err?.message)
+    }
   }
 
   return newId

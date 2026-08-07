@@ -82,8 +82,11 @@
    iOS Safari 의 edge swipe back 은 시스템 제스처라 별도 JS 핸들러 필요 — main.jsx 참조. */
 html, body {
   overscroll-behavior-x: none;
-  /* 폰 폭 고정 셸의 양옆 레터박스 색 (넓은 화면에서만 보임). 실제 폰에선 앱이 꽉 차 안 보임. */
-  background: #e7ebea;
+  /* 앱 배경 — 흰색 + 화면 높이 채움.
+     (구: #e7ebea 회색 "레터박스" → 콘텐츠 짧은 페이지에서 앱 아래로 회색이 새어
+      큰 회색 블록으로 보이던 버그. 실제 폰에선 body 흰색이 이미 양옆도 덮음.) */
+  background: #ffffff;
+  min-height: 100dvh;
 }
 
 /* ============================================================

@@ -45,6 +45,8 @@ export function useRealtimeSync() {
           queryClient.invalidateQueries({ queryKey: ['home-stats'] })
           queryClient.invalidateQueries({ queryKey: ['rankings'] })
           queryClient.invalidateQueries({ queryKey: ['programs', 'active', userId] })
+          queryClient.invalidateQueries({ queryKey: ['program-pending'] })         // 참여 승인 대기 목록(운영자 모달)
+          queryClient.invalidateQueries({ queryKey: ['program-pending-count'] })   // 승인 대기 카운트 뱃지
         }),
       )
       .subscribe()

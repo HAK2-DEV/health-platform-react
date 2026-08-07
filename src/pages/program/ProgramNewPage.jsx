@@ -161,12 +161,12 @@ function ProgramNewPage() {
   }
 
   // 라이브러리 프리셋 선택 → DRAFT 프로그램+미션 생성 → 마법사 재진입(?id=)으로 이름·날짜 마무리
-  const handlePickPreset = async (presetKey, selectedKeys, durationDays) => {
+  const handlePickPreset = async (presetKey, selectedKeys, durationDays, audienceKey) => {
     if (creatingKey) return
     setCreatingKey(presetKey)
     setError(null)
     try {
-      const newId = await createProgramFromPreset({ presetKey, userId: session.user.id, selectedKeys, durationDays })
+      const newId = await createProgramFromPreset({ presetKey, userId: session.user.id, selectedKeys, durationDays, audienceKey })
       queryClient.invalidateQueries({ queryKey: queryKeys.myPrograms(session.user.id) })
       navigate(`/programs/new?id=${newId}`, { replace: true })
     } catch (err) {

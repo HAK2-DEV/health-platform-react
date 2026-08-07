@@ -36,6 +36,25 @@ const SIZE_IMG = {
   lg: 'w-20 h-20 mb-3',
 }
 const isImagePath = (v) => typeof v === 'string' && (/^(https?:)?\//.test(v) || /\.(png|webp|jpg|jpeg|svg|gif)$/i.test(v))
+
+// 이모지 아이콘 → 3D 에셋 매핑. 호출부 수정 없이 전역 교체(빈 상태 3D 통일).
+//   매핑에 없는 이모지(🔍·🔒·🗂️ 등)는 그대로 이모지로 렌더.
+const EMOJI_ICON = {
+  '📊': '/icons/feature/stats.png',       // 통계·인증 기록
+  '💬': '/icons/mypage/comments.png',     // 댓글·문의
+  '📝': '/icons/mypage/posts.png',        // 글·기록 작성
+  '📭': '/icons/feature/mission-empty.png',// 인증·심사 없음
+  '👥': '/icons/cheer/people.png',        // 참여자·팀
+  '🙌': '/icons/cheer/people.png',
+  '✅': '/icons/action/complete.png',      // 처리 완료·없음
+  '🎯': '/icons/profile/programs.png',     // 프로그램 없음
+  '📋': '/icons/profile/programs.png',
+  '🏆': '/icons/profile/programs.png',
+  '💎': '/icons/feature/point.png',        // 점수
+  '🗓️': '/icons/mypage/calendar.png',     // 일정·클래스
+  '🧘': '/icons/feature/attendance.png',   // 클래스 출석
+  '📦': '/icons/feature/mission-empty.png',// 묶음에 미션 없음
+}
 const SIZE_TITLE = {
   sm: 'text-base',  // Day 65 본인 피드백: 모바일 가독성 위해 sm 도 base 로
   md: 'text-base',
@@ -56,6 +75,7 @@ function EmptyState({
   size = 'md',
   className = '',
 }) {
+  const resolvedIcon = EMOJI_ICON[icon] || icon   // 이모지면 3D 경로로 치환(없으면 원본)
   return (
     <div
       className={`
@@ -65,12 +85,12 @@ function EmptyState({
         ${className}
       `}
     >
-      {icon && (
-        isImagePath(icon) ? (
-          <img src={icon} alt="" className={`${SIZE_IMG[size] || SIZE_IMG.md} mx-auto object-contain`} />
+      {resolvedIcon && (
+        isImagePath(resolvedIcon) ? (
+          <img src={resolvedIcon} alt="" className={`${SIZE_IMG[size] || SIZE_IMG.md} mx-auto object-contain`} />
         ) : (
           <div className={`${SIZE_ICON[size] || SIZE_ICON.md} opacity-70 leading-none`}>
-            {icon}
+            {resolvedIcon}
           </div>
         )
       )}

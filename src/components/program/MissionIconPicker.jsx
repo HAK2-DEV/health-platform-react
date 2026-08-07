@@ -104,7 +104,7 @@ function MissionIconPicker({ ownerId, value, onChange, disabled }) {
               className={`relative aspect-square rounded-lg border-2 overflow-hidden transition disabled:opacity-50
                 ${selected ? 'border-emerald-500' : 'border-transparent hover:border-gray-300 bg-white'}`}
             >
-              <img src={`/mission-icons/${ic}`} alt="" loading="lazy" className="w-full h-full object-contain bg-white" />
+              <img src={resolveMissionIcon(ic)} alt="" loading="lazy" className="w-full h-full object-contain bg-white" />
               {selected && <Check className="absolute top-0.5 right-0.5 w-4 h-4 text-emerald-600 bg-white rounded-full p-0.5" />}
             </button>
           )

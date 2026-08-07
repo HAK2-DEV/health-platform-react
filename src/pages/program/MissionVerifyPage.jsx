@@ -15,6 +15,7 @@ import { compressImage, compressThumbnail } from '../../lib/imageCompression'
 import { thumbPathOf } from '../../lib/signedUrls'
 import { primeAudio } from '../../lib/sound'
 import LoadingState from '../../components/common/LoadingState'
+import MeditationPlayer from '../../components/program/MeditationPlayer'
 import ImageCropModal from '../../components/common/ImageCropModal'
 import NotificationBell from '../../components/common/NotificationBell'
 import Confetti from '../../components/common/Confetti'
@@ -287,7 +288,8 @@ function MissionVerifyPage() {
     enabled: !!userId,
   })
   const isRecordableMission = (m, counts = recTodayCounts) => {
-    if (!(m.requires_image || m.requires_numeric || m.requires_note)) return false
+    // 명상형은 입력 없이 타이머 완료로 인증 → 입력 체크 건너뜀
+    if (m.verify_style !== 'meditation' && !(m.requires_image || m.requires_numeric || m.requires_note)) return false
     const now = new Date()
     if (m.active_from && now < new Date(m.active_from)) return false
     if (m.active_until && now > new Date(m.active_until)) return false
@@ -315,6 +317,7 @@ function MissionVerifyPage() {
   const needsImage = !!mission?.requires_image
   const needsNumeric = !!mission?.requires_numeric
   const needsNote = !!mission?.requires_note
+  const isMeditation = mission?.verify_style === 'meditation'   // 명상(타이머) 인증
   // 다중 지표 (122) — 정의돼 있으면 지표별 입력, 없으면 레거시 단일 numeric
   const metricList = Array.isArray(mission?.metrics) ? mission.metrics : []
   const hasMetrics = metricList.length > 0
@@ -943,6 +946,18 @@ function MissionVerifyPage() {
           )}
         </div>
       </div>
+    )
+  }
+
+  // 명상형 — 표준 인증 폼 대신 전체화면 명상 플레이어. 완료 시 제출(AUTO) → 위 완료 화면으로.
+  if (isMeditation) {
+    return (
+      <MeditationPlayer
+        mission={mission}
+        onComplete={() => { primeAudio(); submitMutation.mutate() }}
+        onClose={handleClose}
+        submitting={submitMutation.isPending}
+      />
     )
   }
 

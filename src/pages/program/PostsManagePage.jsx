@@ -124,7 +124,7 @@ function PostsManagePage() {
       {isQuizzesLoading ? (
         <LoadingState />
       ) : quizzes.length === 0 ? (
-        <EmptyState icon="📝" title="아직 만든 퀴즈가 없어요" description="위의 '퀴즈 만들기'로 시작해보세요" />
+        <EmptyState icon="/icons/feature/quiz-empty.png" title="아직 만든 퀴즈가 없어요" description="위의 '퀴즈 만들기'로 시작해보세요" />
       ) : (
         <motion.div
           initial={{ opacity: 0 }}

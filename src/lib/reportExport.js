@@ -30,6 +30,21 @@ const thin = () => ({ style: 'thin', color: { argb: CLR.border } })
 const box = () => ({ top: thin(), left: thin(), bottom: thin(), right: thin() })
 const medal = (rank) => (rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank)
 
+// 헤더가 한 줄에 들어가도록 최소 열 너비 추정(한글/전각 ≈ 2, 그 외 ≈ 1.15) + 여백.
+//   지정 width 와 max → 데이터가 넓은 열은 유지, 헤더가 긴 열(참여율(%) 등)은 안 잘리게 넓힘.
+function isWideChar(code) {
+  return (code >= 0xAC00 && code <= 0xD7A3)   // 한글 음절
+    || (code >= 0x3130 && code <= 0x318F)     // 한글 호환 자모
+    || (code >= 0x4E00 && code <= 0x9FFF)     // CJK
+    || (code >= 0xFF00 && code <= 0xFFEF)     // 전각
+}
+function headerMinWidth(text) {
+  let w = 0
+  const s = String(text || '')
+  for (let i = 0; i < s.length; i++) w += isWideChar(s.charCodeAt(i)) ? 2 : 1.15
+  return Math.ceil(w + 2.5)
+}
+
 function statusStyle(cell, status) {
   const m = status === '완주' ? CLR.done : status === '참여' ? CLR.part : status === '휴면' ? CLR.dorm : null
   if (!m) return
@@ -65,7 +80,7 @@ function addTable(wb, name, title, columns, rows, { statusCol } = {}) {
     cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }
     cell.border = box()
   })
-  hr.height = 22
+  hr.height = 34   // 2줄로 접히는 헤더(예: "운동 시간(분)")도 안 잘리게 넉넉히
   // 데이터(행3~)
   rows.forEach((r, ri) => {
     const dr = ws.getRow(3 + ri)
@@ -82,7 +97,7 @@ function addTable(wb, name, title, columns, rows, { statusCol } = {}) {
       if (statusCol === i + 1) statusStyle(cell, v)
     })
   })
-  columns.forEach((c, i) => { ws.getColumn(i + 1).width = c.width || 12 })
+  columns.forEach((c, i) => { ws.getColumn(i + 1).width = Math.max(c.width || 12, headerMinWidth(c.header)) })
   ws.views = [{ state: 'frozen', ySplit: 2 }]
   return ws
 }
@@ -144,8 +159,8 @@ export async function exportEndReportXlsx({ program, report, quizStats = [], com
   const mVal = (uid, key) => Math.round((Number(mBy[uid]?.[key]) || 0) * 10) / 10
   // 지표가 있으면 전 지표 컬럼, 없으면(레거시) 거리 단일 컬럼으로 폴백.
   const extraColDefs = useMetrics
-    ? metricDefs.map(m => ({ header: `${m.label}${m.unit ? `(${m.unit})` : ''}`, width: 12, align: 'right', numFmt: '#,##0.0' }))
-    : (hasDist ? [{ header: '누적 거리(km)', width: 13, align: 'right', numFmt: '#,##0.0' }] : [])
+    ? metricDefs.map(m => ({ header: `${m.label}${m.unit ? `(${m.unit})` : ''}`, width: 14, align: 'right', numFmt: '#,##0.0' }))
+    : (hasDist ? [{ header: '누적 거리(km)', width: 14, align: 'right', numFmt: '#,##0.0' }] : [])
   const extraRow = (uid) => useMetrics ? metricDefs.map(m => mVal(uid, m.key)) : (hasDist ? [km(uid)] : [])
 
   const roster = [
@@ -251,11 +266,11 @@ export async function exportEndReportXlsx({ program, report, quizStats = [], com
     { header: '활동일', width: 8, align: 'center' },
     { header: '총 인증', width: 8, align: 'center' },
     ...extraColDefs,
-    { header: '미션 종류', width: 9, align: 'center' },
+    { header: '미션 종류', width: 10, align: 'center' },
     { header: '제출 미션', width: 36 },
-    { header: '참여 퀴즈', width: 9, align: 'center' },
-    { header: '퀴즈 정답률(%)', width: 13, align: 'right', numFmt: '#,##0' },
-    { header: '커뮤니티 글', width: 11, align: 'center' },
+    { header: '참여 퀴즈', width: 10, align: 'center' },
+    { header: '퀴즈 정답률(%)', width: 15, align: 'right', numFmt: '#,##0' },
+    { header: '커뮤니티 글', width: 12, align: 'center' },
     { header: '댓글', width: 7, align: 'center' },
     { header: '점수', width: 8, align: 'right', numFmt: '#,##0' },
   ]
@@ -365,7 +380,7 @@ export async function exportEndReportXlsx({ program, report, quizStats = [], com
     })
     addTable(wb, '미션별 시간대', '미션별 인증 시간대 분포', [
       { header: '미션', width: 22 },
-      ...TIME_BUCKETS.map(b => ({ header: `${b.label}(${b.range[0]}-${b.range[1]}시)`, width: 12, align: 'right', numFmt: '#,##0' })),
+      ...TIME_BUCKETS.map(b => ({ header: `${b.label}(${b.range[0]}-${b.range[1]}시)`, width: 14, align: 'right', numFmt: '#,##0' })),
       { header: '피크 시간대', width: 12, align: 'center' },
       { header: '총', width: 7, align: 'right', numFmt: '#,##0' },
     ], rows)
