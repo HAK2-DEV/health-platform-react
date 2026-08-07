@@ -11,7 +11,7 @@ const dLabel = (iso) => { const d = new Date(iso); return `${d.getMonth() + 1}/$
 const tLabel = (iso) => { const d = new Date(iso); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` }
 
 export default function ClassOverviewCard({ programId, joinedAt = null, onOpenAll = () => {} }) {
-  const { data: sessions = [] } = useQuery({
+  const { data: sessions = [], isLoading: isSessLoading } = useQuery({
     queryKey: ['sessions', programId], queryFn: () => fetchSessions(programId), enabled: !!programId,
   })
   // 오늘(KST) 이후 클래스 — 오늘 클래스는 시작 시각이 지나도 하루 종일 노출
@@ -32,7 +32,9 @@ export default function ClassOverviewCard({ programId, joinedAt = null, onOpenAl
         {thisWeek > 0 && <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 rounded-full px-2 py-0.5">이번 주 {thisWeek}</span>}
         <span className="ml-auto inline-flex items-center text-[12px] text-gray-400">전체 보기 <ChevronRight className="w-4 h-4" /></span>
       </button>
-      {preview.length === 0 ? (
+      {isSessLoading ? (
+        <p className="text-[13px] text-gray-300 py-2 text-center">불러오는 중…</p>
+      ) : preview.length === 0 ? (
         <p className="text-[13px] text-gray-400 py-2 text-center">예정된 클래스가 없어요.</p>
       ) : (
         <div className="space-y-2">

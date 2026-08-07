@@ -43,7 +43,7 @@ function SessionCard({ s, mine, att, isPast, isNew, onOpen }) {
 
 export default function ClassScheduleList({ programId, userId, joinedAt = null, onOpenSession = () => {} }) {
   const [pastOpen, setPastOpen] = useState(false)
-  const { data: sessions = [] } = useQuery({
+  const { data: sessions = [], isLoading: isSessLoading } = useQuery({
     queryKey: ['sessions', programId], queryFn: () => fetchSessions(programId), enabled: !!programId,
   })
 
@@ -72,6 +72,9 @@ export default function ClassScheduleList({ programId, userId, joinedAt = null, 
     { label: '이후', items: upcoming.filter(s => new Date(s.starts_at).getTime() > now + 14 * DAY) },
   ].filter(g => g.items.length > 0)
 
+  if (isSessLoading) {
+    return <p className="text-[13px] text-gray-400 py-16 text-center">불러오는 중…</p>
+  }
   if (upcoming.length === 0 && past.length === 0) {
     return <p className="text-[13px] text-gray-500 py-16 text-center">아직 등록된 클래스가 없어요.</p>
   }

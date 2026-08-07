@@ -35,7 +35,7 @@ function ProgramStatsUserVerificationsBundlePage() {
     enabled: !!session && !!id && isOwner,
   })
 
-  const { data: userVerifications = [] } = useQuery({
+  const { data: userVerifications = [], isLoading: isVerLoading } = useQuery({
     queryKey: ['stats', 'userVerifications', id, targetUserId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -108,7 +108,9 @@ function ProgramStatsUserVerificationsBundlePage() {
         </p>
       </div>
 
-      {missionGroups.length === 0 ? (
+      {isVerLoading ? (
+        <LoadingState variant="card" />
+      ) : missionGroups.length === 0 ? (
         <EmptyState icon="📊" title="아직 인증 기록이 없어요" />
       ) : (
         <div className="grid grid-cols-1 gap-3">

@@ -611,7 +611,7 @@ function DashboardPage() {
           </div>
 
           <ModeSlide mode={effectiveMode} dir={modeDir}>
-          {isActiveLoading ? (
+          {(isActiveLoading || isMyLoading) ? (   // 둘 다 로드돼야 effectiveMode(운영/참여)가 확정됨 — 하나만 기다리면 빈 상태가 잘못된 모드로 깜빡임
             <LoadingState size="sm" />
           ) : slideList.length === 0 ? (
             <EmptyState

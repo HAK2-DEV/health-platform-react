@@ -26,12 +26,12 @@ function CheerBoard({ program, isOwner }) {
   const qc = useQueryClient()
   const letter = todayLetter()
 
-  const { data: best = [] } = useQuery({
+  const { data: best = [], isLoading: isBestLoading } = useQuery({
     queryKey: ['best-cheers', programId],
     queryFn: () => fetchBestCheers(programId, { limit: 1 }),
     enabled: !!programId,
   })
-  const { data: recent = [] } = useQuery({
+  const { data: recent = [], isLoading: isRecentLoading } = useQuery({
     queryKey: ['recent-cheers', programId],
     queryFn: () => fetchRecentCheers(programId, { limit: 4 }),
     enabled: !!programId,
@@ -108,7 +108,9 @@ function CheerBoard({ program, isOwner }) {
             <Star className="w-4 h-4 text-amber-400 fill-current" />
             <h4 className="text-[13px] font-bold text-gray-800">베스트 응원</h4>
           </div>
-          {top ? (
+          {isBestLoading ? (
+            <div className="h-4 w-2/3 bg-gray-100 rounded animate-pulse" />
+          ) : top ? (
             <>
               <p className="text-[14px] text-gray-800 leading-snug break-words">{top.content}</p>
               <div className="flex items-center gap-1.5 mt-2">
@@ -132,7 +134,9 @@ function CheerBoard({ program, isOwner }) {
             <MessageSquare className="w-4 h-4 text-sky-500" />
             <h4 className="text-[13px] font-bold text-gray-800">최근 응원글</h4>
           </div>
-          {recent.length === 0 ? (
+          {isRecentLoading ? (
+            <div className="h-4 w-1/2 bg-gray-100 rounded animate-pulse my-1" />
+          ) : recent.length === 0 ? (
             <p className="text-[12px] text-gray-400 py-1">아직 응원글이 없어요</p>
           ) : (
             <ul className="divide-y divide-gray-50">

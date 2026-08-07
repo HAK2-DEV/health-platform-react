@@ -33,7 +33,7 @@ function ProgramStatsUserDetailPage() {
 
   const isOwner = program?.owner_id === myUserId
 
-  const { data: stats } = useQuery({
+  const { data: stats, isLoading: isStatsLoading } = useQuery({
     queryKey: queryKeys.programStats(id),
     queryFn: () => fetchProgramStats(id),
     enabled: !!session && !!id && isOwner,
@@ -231,6 +231,9 @@ function ProgramStatsUserDetailPage() {
         </p>
       </div>
     )
+  }
+  if (isStatsLoading) {
+    return <LoadingState variant="page" />
   }
   if (!userInfo) {
     return (

@@ -58,7 +58,9 @@ function ProgramStatsUserQuizzesPage() {
         </p>
       </div>
 
-      {quizzes.length === 0 ? (
+      {isLoading ? (
+        <LoadingState variant="card" />
+      ) : quizzes.length === 0 ? (
         <EmptyState icon="/icons/feature/quiz-empty.png" title="응시한 퀴즈가 없어요" description="퀴즈를 풀면 점수와 정답률이 쌓여요" />
       ) : (
         <UserQuizList quizzes={quizzes} />

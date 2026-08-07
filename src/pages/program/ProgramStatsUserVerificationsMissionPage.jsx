@@ -55,7 +55,7 @@ function ProgramStatsUserVerificationsMissionPage() {
 
   // ⚠️ 고유 키 사용 — 다른 통계 페이지들은 같은 prefix 로 'APPROVED'만(status 필드 없이) 캐시한다.
   // 키를 공유하면 그 캐시가 재사용돼 거절/대기건이 전부 '승인됨'으로 보이는 버그가 난다.
-  const { data: userVerifications = [] } = useQuery({
+  const { data: userVerifications = [], isLoading: isVerLoading } = useQuery({
     queryKey: ['stats', 'userVerificationsFull', id, targetUserId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -142,15 +142,26 @@ function ProgramStatsUserVerificationsMissionPage() {
 
       <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
         <p className="text-xs text-gray-500 mb-1">{userInfo?.nickname || '(유저)'}</p>
-        <h1 className="text-2xl font-medium text-gray-800">
-          {missionTitle}
-        </h1>
-        <p className="text-sm text-gray-500 mt-1">
-          인증 {missionVerifications.length}건 · {dateGroups.length}일
-        </p>
+        {isVerLoading ? (
+          <>
+            <div className="h-7 w-40 bg-gray-100 rounded-md animate-pulse" />
+            <div className="h-4 w-24 bg-gray-100 rounded mt-2 animate-pulse" />
+          </>
+        ) : (
+          <>
+            <h1 className="text-2xl font-medium text-gray-800">
+              {missionTitle}
+            </h1>
+            <p className="text-sm text-gray-500 mt-1">
+              인증 {missionVerifications.length}건 · {dateGroups.length}일
+            </p>
+          </>
+        )}
       </div>
 
-      {dateGroups.length === 0 ? (
+      {isVerLoading ? (
+        <LoadingState variant="card" />
+      ) : dateGroups.length === 0 ? (
         <EmptyState icon="📊" title="아직 인증 기록이 없어요" />
       ) : (
         <div className="space-y-5">

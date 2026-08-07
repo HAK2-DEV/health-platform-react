@@ -217,10 +217,10 @@ function ReviewTab({ programId, session, onChanged }) {
           return (
             <button key={s.key} type="button" onClick={() => setExpanded(cur => cur === s.key ? null : s.key)}
               className={`flex-1 py-3 px-1 text-center transition ${on ? 'bg-gray-100/80' : 'hover:bg-gray-50 active:bg-gray-100'}`}>
-              <p className={`text-[22px] font-extrabold leading-none ${s.cls}`}>{s.value}<span className="text-[12px] text-gray-400 font-bold ml-0.5">건</span></p>
-              <p className="text-[11px] text-gray-500 mt-1 inline-flex items-center justify-center gap-0.5 whitespace-nowrap">
-                {s.label}<ChevronRight className={`w-3 h-3 text-gray-400 transition-transform ${on ? 'rotate-90' : ''}`} />
+              <p className="text-[13px] font-semibold text-gray-600 mb-1.5 flex items-center justify-center gap-0.5 whitespace-nowrap">
+                {s.label}<ChevronRight className={`w-3.5 h-3.5 text-gray-400 transition-transform ${on ? 'rotate-90' : ''}`} />
               </p>
+              <p className={`text-[22px] font-extrabold leading-none ${s.cls}`}>{s.value}<span className="text-[12px] text-gray-400 font-bold ml-0.5">건</span></p>
             </button>
           )
         })}

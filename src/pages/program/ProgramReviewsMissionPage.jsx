@@ -27,7 +27,7 @@ function ProgramReviewsMissionPage() {
 
   const isOwner = program?.owner_id === userId
 
-  const { data: pending = [] } = useQuery({
+  const { data: pending = [], isLoading: isPendingLoading } = useQuery({
     queryKey: queryKeys.pendingReviews(id),
     queryFn: () => fetchPendingReviewsEnriched(id),
     enabled: !!session && !!id && isOwner,
@@ -166,7 +166,9 @@ function ProgramReviewsMissionPage() {
         </p>
       </div>
 
-      {missionPending.length === 0 ? (
+      {isPendingLoading ? (
+        <LoadingState variant="card" />
+      ) : missionPending.length === 0 ? (
         <EmptyState icon="✅" title="이 미션의 심사 대기 인증을 모두 처리했어요" />
       ) : (
         <div className="space-y-3">

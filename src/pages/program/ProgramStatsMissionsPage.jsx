@@ -53,10 +53,7 @@ function MiniHourBars({ hourly, peakHour, hex }) {
             key={h}
             className="flex-1 flex flex-col justify-end h-full cursor-pointer"
             title={`${formatHour12(h)} · ${count}건`}
-            onPointerDown={() => setActive(h)}
-            onPointerUp={() => setActive(null)}
-            onPointerLeave={() => setActive(cur => (cur === h ? null : cur))}
-            onPointerCancel={() => setActive(null)}
+            onClick={() => setActive(cur => (cur === h ? null : h))}
           >
             <div
               className="w-full rounded-sm"
@@ -105,10 +102,7 @@ function PeakHourChart({ hourly, windowSet }) {
               key={h}
               className="flex-1 flex flex-col justify-end h-full cursor-pointer"
               title={`${formatHour12(h)} · ${count}건`}
-              onPointerDown={() => setActive(h)}
-              onPointerUp={() => setActive(null)}
-              onPointerLeave={() => setActive(cur => (cur === h ? null : cur))}
-              onPointerCancel={() => setActive(null)}
+              onClick={() => setActive(cur => (cur === h ? null : h))}
             >
               <div
                 className={`w-full rounded-t-md ${count === 0 ? 'bg-gray-100' : 'bg-emerald-500'}`}

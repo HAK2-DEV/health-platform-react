@@ -48,7 +48,7 @@ function BundleDetailPage() {
     enabled: !!session && !!id,
   })
 
-  const { data: missions = [] } = useQuery({
+  const { data: missions = [], isLoading: isMissionsLoading } = useQuery({
     queryKey: queryKeys.programMissions(id),
     queryFn: () => fetchProgramMissions(id),
     enabled: !!session && !!id,
@@ -123,7 +123,7 @@ function BundleDetailPage() {
     }
   }, [allCompleted])
 
-  if (isProgramLoading || !program) {
+  if (isProgramLoading || !program || isMissionsLoading) {
     return <LoadingState variant="page" />
   }
 

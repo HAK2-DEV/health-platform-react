@@ -30,7 +30,7 @@ function ProgramStatsUserPostsPage() {
   })
   const userInfo = stats?.userStats?.find(u => u.user_id === targetUserId) || null
 
-  const { data: userPosts = [] } = useQuery({
+  const { data: userPosts = [], isLoading: isPostsLoading } = useQuery({
     queryKey: ['stats', 'userPosts', id, targetUserId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -111,7 +111,9 @@ function ProgramStatsUserPostsPage() {
         <h1 className="text-2xl font-medium text-gray-800 flex items-center gap-2"><img src="/icons/mypage/posts.png" alt="" aria-hidden="true" className="w-7 h-7 object-contain" /> 작성한 게시글</h1>
       </div>
 
-      {userPosts.length === 0 ? (
+      {isPostsLoading ? (
+        <LoadingState variant="card" />
+      ) : userPosts.length === 0 ? (
         <EmptyState icon="📝" title="작성한 게시글이 없어요" />
       ) : (
         <div className="bg-white border border-gray-200 rounded-2xl divide-y divide-gray-100 overflow-hidden">

@@ -30,7 +30,7 @@ function ProgramStatsUserCommentsPage() {
   })
   const userInfo = stats?.userStats?.find(u => u.user_id === targetUserId) || null
 
-  const { data: userComments = [] } = useQuery({
+  const { data: userComments = [], isLoading: isCommentsLoading } = useQuery({
     queryKey: ['stats', 'userComments', id, targetUserId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -45,7 +45,7 @@ function ProgramStatsUserCommentsPage() {
     enabled: !!session && !!id && !!targetUserId && isOwner,
   })
 
-  const { data: userVerifComments = [] } = useQuery({
+  const { data: userVerifComments = [], isLoading: isVerifCommentsLoading } = useQuery({
     queryKey: ['stats', 'userVerifComments', id, targetUserId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -98,7 +98,9 @@ function ProgramStatsUserCommentsPage() {
         <h1 className="text-2xl font-medium text-gray-800 flex items-center gap-2"><img src="/icons/mypage/comments.png" alt="" aria-hidden="true" className="w-7 h-7 object-contain" /> 작성한 댓글</h1>
       </div>
 
-      {allComments.length === 0 ? (
+      {(isCommentsLoading || isVerifCommentsLoading) ? (
+        <LoadingState variant="card" />
+      ) : allComments.length === 0 ? (
         <EmptyState icon="💬" title="작성한 댓글이 없어요" />
       ) : (
         <div className="bg-white border border-gray-200 rounded-2xl divide-y divide-gray-100 overflow-hidden">

@@ -37,7 +37,7 @@ function InquiryDetailModal({ inquiryId, userId, isAdmin, isOpen, onClose, onCha
     queryFn: () => fetchInquiry(inquiryId),
     enabled: isOpen && !!inquiryId,
   })
-  const { data: comments = [] } = useQuery({
+  const { data: comments = [], isLoading: isCommentsLoading } = useQuery({
     queryKey: ['inquiry-comments', inquiryId],
     queryFn: () => fetchInquiryComments(inquiryId),
     enabled: isOpen && !!inquiryId,
@@ -113,7 +113,9 @@ function InquiryDetailModal({ inquiryId, userId, isAdmin, isOpen, onClose, onCha
             {/* 댓글 스레드 */}
             <div className="mt-5 pt-4 border-t border-gray-100">
               <p className="text-[13px] font-bold text-gray-400 mb-3">답변 {comments.length > 0 && `· ${comments.length}`}</p>
-              {comments.length === 0 ? (
+              {isCommentsLoading ? (
+                <p className="text-[13px] text-gray-300 py-2">답변 불러오는 중…</p>
+              ) : comments.length === 0 ? (
                 <p className="text-[13px] text-gray-400 py-2">아직 답변이 없어요. 관리자가 확인 후 답변드려요.</p>
               ) : (
                 <div className="space-y-3">

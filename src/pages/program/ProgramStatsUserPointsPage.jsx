@@ -38,7 +38,7 @@ function ProgramStatsUserPointsPage() {
   })
   const userInfo = stats?.userStats?.find(u => u.user_id === targetUserId) || null
 
-  const { data: bd } = useQuery({
+  const { data: bd, isLoading: isBdLoading } = useQuery({
     queryKey: ['stats', 'userScoreBreakdown', id, targetUserId],
     queryFn: () => fetchUserScoreBreakdown(id, targetUserId),
     enabled: !!session && !!id && !!targetUserId && isOwner,
@@ -70,7 +70,9 @@ function ProgramStatsUserPointsPage() {
         <p className="text-sm text-gray-500 mt-2">누적 <b className="text-emerald-700">{total}P</b> 가 어디서 왔는지 미션별로 보여줘요.</p>
       </div>
 
-      {!hasAny ? (
+      {isBdLoading ? (
+        <LoadingState variant="card" />
+      ) : !hasAny ? (
         <EmptyState icon="💎" title="아직 획득한 점수가 없어요" description="미션 인증이 승인되면 점수가 쌓여요" />
       ) : (
         <div className="bg-white border border-gray-200 rounded-2xl divide-y divide-gray-100 overflow-hidden">

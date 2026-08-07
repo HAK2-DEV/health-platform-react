@@ -56,7 +56,9 @@ function ProgramStatsUserClassesPage() {
         </p>
       </div>
 
-      {classes.length === 0 ? (
+      {isLoading ? (
+        <LoadingState variant="card" />
+      ) : classes.length === 0 ? (
         <EmptyState icon="🧘" title="신청·출석한 클래스가 없어요" description="클래스를 신청하고 출석하면 여기 쌓여요" />
       ) : (
         <UserClassList classes={classes} />

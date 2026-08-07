@@ -26,7 +26,7 @@ function ProgramReviewsBundlePage() {
 
   const isOwner = program?.owner_id === userId
 
-  const { data: pending = [] } = useQuery({
+  const { data: pending = [], isLoading: isPendingLoading } = useQuery({
     queryKey: queryKeys.pendingReviews(id),
     queryFn: () => fetchPendingReviewsEnriched(id),
     enabled: !!session && !!id && isOwner,
@@ -76,7 +76,9 @@ function ProgramReviewsBundlePage() {
         </p>
       </div>
 
-      {missionGroups.length === 0 ? (
+      {isPendingLoading ? (
+        <LoadingState variant="card" />
+      ) : missionGroups.length === 0 ? (
         <EmptyState icon="📭" title="심사 대기 중인 인증이 없어요" />
       ) : (
         <div className="grid grid-cols-1 gap-3">
