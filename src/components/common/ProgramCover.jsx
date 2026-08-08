@@ -97,6 +97,8 @@ function ProgramCover({ imagePath, categories, name, variant = 'hero', className
           src={publicUrl}
           alt={name || '프로그램 표지'}
           className="absolute inset-0 w-full h-full object-cover"
+          loading="lazy"
+          decoding="async"
           onError={() => setUploadedFailed(true)}
         />
       )}
@@ -106,6 +108,8 @@ function ProgramCover({ imagePath, categories, name, variant = 'hero', className
           alt={name || `${cat.label} 프로그램`}
           className="absolute inset-0 w-full h-full object-cover"
           style={categoryCoverPosition}
+          loading="lazy"
+          decoding="async"
           onError={() => setCategoryFailed(true)}
         />
       )}
