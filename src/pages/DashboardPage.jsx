@@ -446,11 +446,13 @@ function DashboardPage() {
     const idx = slideList.findIndex(p => p.id === savedId)
     if (idx > 0) {
       setSlide(idx)
-      requestAnimationFrame(() => {
+      // 더블 rAF — 첫 마운트엔 레이아웃(카드 폭)이 덜 정착돼 위치를 잘못 재던 문제(썸네일 어긋남).
+      //   두 프레임 뒤 실제 카드의 offsetLeft 로 스크롤 → 폭·gap 계산 오차 없이 정확히 스냅.
+      requestAnimationFrame(() => requestAnimationFrame(() => {
         const el = trackRef.current
-        if (!el || !el.firstElementChild) return
-        el.scrollLeft = idx * (el.firstElementChild.offsetWidth + 12)
-      })
+        const child = el?.children?.[idx]
+        if (child) el.scrollLeft = child.offsetLeft
+      }))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slideList, effectiveMode])
