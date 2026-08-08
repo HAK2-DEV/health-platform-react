@@ -307,15 +307,21 @@ function DashboardPage() {
     if (session === null) navigate('/login')
   }, [session, navigate])
 
+  // 첫 운영자 환영 투어 — sessionStorage 플래그로 진입. StrictMode(dev) 이중마운트에도 안전하도록
+  //   여기선 '읽기+표시'만, 소비(플래그 제거 + seen 저장)는 닫을 때(closeWelcome)에서. (플래그를 효과에서
+  //   즉시 지우면 dev 첫 마운트가 버려질 때 소비돼 투어가 안 뜨던 문제 방지)
   useEffect(() => {
     if (sessionStorage.getItem('show_operator_welcome') === '1') {
-      sessionStorage.removeItem('show_operator_welcome')
-      localStorage.setItem('operator_welcome_seen', '1')
       setWelcomeProgramId(sessionStorage.getItem('operator_welcome_program') || null)
-      sessionStorage.removeItem('operator_welcome_program')
       setShowWelcome(true)
     }
   }, [])
+  const closeWelcome = () => {
+    setShowWelcome(false)
+    sessionStorage.removeItem('show_operator_welcome')
+    sessionStorage.removeItem('operator_welcome_program')
+    if (userId) localStorage.setItem(`operator_welcome_seen_${userId}`, '1')  // 계정별 1회
+  }
 
   // ─── 데이터 ───────────
   const { data: nickname } = useQuery({
@@ -754,7 +760,7 @@ function DashboardPage() {
           )
         })()}
 
-        <WelcomeOperatorModal isOpen={showWelcome} programId={welcomeProgramId} onClose={() => setShowWelcome(false)} />
+        <WelcomeOperatorModal isOpen={showWelcome} programId={welcomeProgramId} onClose={closeWelcome} />
       </div>
     </div>
   )

@@ -35,8 +35,9 @@ function Step4Summary({ initialData, programId, onPrev }) {
       queryClient.invalidateQueries({ queryKey: queryKeys.myPrograms(session.user.id) })
       queryClient.invalidateQueries({ queryKey: ['programs', 'public'] })
 
-      // 첫 운영자 환영 투어 — 아직 안 본 경우 대시보드에서 1회 표시 (온보딩 A)
-      if (!localStorage.getItem('operator_welcome_seen')) {
+      // 첫 운영자 환영 투어 — 아직 안 본 경우 대시보드에서 1회 표시 (온보딩 A).
+      //   localStorage 는 브라우저 공용이라 userId 로 키잉 → 계정별 1회(같은 기기 다른 계정도 각각 노출).
+      if (!localStorage.getItem(`operator_welcome_seen_${session.user.id}`)) {
         sessionStorage.setItem('show_operator_welcome', '1')
         sessionStorage.setItem('operator_welcome_program', programId)  // 투어 마무리 CTA·적응형 필터용
       }

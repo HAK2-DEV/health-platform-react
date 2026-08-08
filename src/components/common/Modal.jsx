@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence, useDragControls } from 'framer-motion'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 
@@ -50,6 +50,20 @@ function Modal({ isOpen, onClose, children, onPrev, onNext, fill = false }) {
   // body 스크롤 잠금 (iOS 대응, 중첩 안전) — 공용 훅. [[useBodyScrollLock]]
   useBodyScrollLock(isOpen)
 
+  // iOS 키보드 대응 — 입력창 포커스로 키보드가 뜨면 visualViewport 가 줄어든다.
+  //   그 높이만큼 오버레이 하단에 패딩 → 바텀시트가 키보드 위로 올라와 입력·버튼이 안 가림.
+  //   (예: 회원 탈퇴 닉네임 입력, 비번 변경, 각종 폼 모달 — 이전엔 스크롤해야 보였음)
+  const [kbInset, setKbInset] = useState(0)
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!isOpen || !vv) { setKbInset(0); return }
+    const onResize = () => setKbInset(Math.max(0, window.innerHeight - vv.height - vv.offsetTop))
+    vv.addEventListener('resize', onResize)
+    vv.addEventListener('scroll', onResize)
+    onResize()
+    return () => { vv.removeEventListener('resize', onResize); vv.removeEventListener('scroll', onResize) }
+  }, [isOpen])
+
   // 하드웨어/브라우저 뒤로가기 = 모달 닫기 (네이티브 안드로이드 뒤로 UX).
   //   열릴 때 history 더미(고유 key) push → 뒤로가기(popstate) 시 onClose.
   //   닫힐 때: 뒤로가기로 닫힌 게 아니고 우리 더미가 아직 최상단일 때만 history.back() 으로 정리.
@@ -86,6 +100,7 @@ function Modal({ isOpen, onClose, children, onPrev, onNext, fill = false }) {
       {isOpen && (
         <div
           className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4"
+          style={{ paddingBottom: kbInset || undefined, transition: 'padding-bottom .2s ease' }}
           onClick={onClose}
         >
           {/* 배경 흐림 — fade */}
