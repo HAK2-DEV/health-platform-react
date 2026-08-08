@@ -19,13 +19,16 @@ const tLabel = (iso) => { const d = new Date(iso); return `${String(d.getHours()
 
 function Field({ label, children }) {
   return (
-    <label className="block">
+    <label className="block min-w-0">
       <span className="text-[12px] font-bold text-gray-600">{label}</span>
       <div className="mt-1">{children}</div>
     </label>
   )
 }
 const inputCls = 'w-full h-10 px-2.5 border border-gray-200 rounded-lg text-[13px] focus:outline-none focus:ring-1 focus:ring-emerald-400'
+// iOS 네이티브 date/time 입력 — 기본 appearance 가 고유 최소폭·정렬을 강제해 그리드에서 겹치고 여백이 틀어짐.
+//   appearance-none(일반 박스처럼) + min-w-0(그리드 칸에 맞게 축소) + box-border 로 정렬·겹침 해결.
+const dtCls = `${inputCls} appearance-none min-w-0 box-border align-middle [&::-webkit-date-and-time-value]:text-left [&::-webkit-date-and-time-value]:m-0 [&::-webkit-datetime-edit]:p-0`
 
 // 종목 선택 — 아이콘 표시용 커스텀 드롭다운(native select 는 이미지 불가). 인라인 확장(모달 클리핑 회피).
 const catBadge = (c, size) => c.icon
@@ -233,10 +236,10 @@ function SessionForm({ instructors, initial, isEdit = false, onSave, onClose, bu
             )}
             {step === 2 && (
               <>
-                <Field label="날짜 *"><input type="date" className={inputCls} value={date} onChange={e => setDate(e.target.value)} /></Field>
+                <Field label="날짜 *"><input type="date" className={dtCls} value={date} onChange={e => setDate(e.target.value)} /></Field>
                 <div className="grid grid-cols-2 gap-2">
-                  <Field label="시작 *"><input type="time" className={inputCls} value={start} onChange={e => setStart(e.target.value)} /></Field>
-                  <Field label="종료"><input type="time" className={inputCls} value={end} onChange={e => setEnd(e.target.value)} /></Field>
+                  <Field label="시작 *"><input type="time" className={dtCls} value={start} onChange={e => setStart(e.target.value)} /></Field>
+                  <Field label="종료"><input type="time" className={dtCls} value={end} onChange={e => setEnd(e.target.value)} /></Field>
                 </div>
               </>
             )}
