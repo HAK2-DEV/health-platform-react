@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { supabase } from '../../supabaseClient'
 import { CATEGORY } from '../../lib/constants'
 import { CATEGORY_HEX } from '../../lib/programVisuals'
+import { thumbPathOf } from '../../lib/signedUrls'
 
 // 프로그램 대표 사진 — 상세 헤더 / 카드 / 모달 어디서나 재사용.
 // props:
@@ -53,19 +54,24 @@ function ProgramCover({ imagePath, categories, name, variant = 'hero', className
   const variantCls = VARIANT_CLS[variant] || VARIANT_CLS.hero
   const emojiCls = VARIANT_EMOJI[variant] || VARIANT_EMOJI.hero
 
+  // 두 단계 fallback + 썸네일 상태
+  const [thumbFailed, setThumbFailed] = useState(false)
+  const [uploadedFailed, setUploadedFailed] = useState(false)
+  const [categoryFailed, setCategoryFailed] = useState(false)
+
   // 1) 운영자 업로드 사진 (Supabase Storage)
-  const publicUrl = imagePath
-    ? supabase.storage.from('program-covers').getPublicUrl(imagePath).data?.publicUrl
+  //    카드/목록(작은 변형)은 가벼운 썸네일(_thumb, 400px)을 써 로딩 stall·낭비 방지.
+  //    hero/banner(큰 헤더)만 원본. 썸네일이 없는 구 표지는 onError 로 원본 폴백.
+  const wantThumb = !!imagePath && variant !== 'hero' && variant !== 'banner' && !thumbFailed
+  const coverPath = imagePath ? (wantThumb ? thumbPathOf(imagePath) : imagePath) : null
+  const publicUrl = coverPath
+    ? supabase.storage.from('program-covers').getPublicUrl(coverPath).data?.publicUrl
     : null
 
   // 2) 카테고리 기본 표지 경로
   const firstCategory = (categories && categories[0]) || 'ETC'
   const cat = CATEGORY[firstCategory] || CATEGORY.ETC
   const categoryCoverUrl = COVER_BY_CATEGORY[firstCategory] || null
-
-  // 두 단계 fallback 상태
-  const [uploadedFailed, setUploadedFailed] = useState(false)
-  const [categoryFailed, setCategoryFailed] = useState(false)
 
   const showUploaded = publicUrl && !uploadedFailed
   const showCategoryDefault = !showUploaded && categoryCoverUrl && !categoryFailed
@@ -99,7 +105,7 @@ function ProgramCover({ imagePath, categories, name, variant = 'hero', className
           className="absolute inset-0 w-full h-full object-cover"
           loading="lazy"
           decoding="async"
-          onError={() => setUploadedFailed(true)}
+          onError={() => { if (wantThumb) setThumbFailed(true); else setUploadedFailed(true) }}
         />
       )}
       {showCategoryDefault && (

@@ -1,6 +1,8 @@
 import { useRef, useState, useEffect } from 'react'
 import { Camera, X, Crop } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
+import { compressThumbnail } from '../../lib/imageCompression'
+import { thumbPathOf } from '../../lib/signedUrls'
 import ProgramCover from './ProgramCover'
 import ImageCropModal from './ImageCropModal'
 import ConfirmModal from './ConfirmModal'
@@ -83,12 +85,12 @@ function CoverImageUploader({ ownerId, imagePath, onChange, categories, name, di
     setUploading(true)
     setError(null)
     try {
-      // 1) 기존 이미지가 있으면 먼저 storage 에서 삭제 (orphan 방지)
+      // 1) 기존 이미지(+썸네일) 가 있으면 먼저 storage 에서 삭제 (orphan 방지)
       if (imagePath) {
-        await supabase.storage.from('program-covers').remove([imagePath])
+        await supabase.storage.from('program-covers').remove([imagePath, thumbPathOf(imagePath)])
       }
 
-      // 2) 새 파일 업로드 — crop 결과는 항상 jpeg
+      // 2) 원본(1200x675) 업로드 — crop 결과는 항상 jpeg
       const newPath = `${ownerId}/${Date.now()}.jpg`
       const { error: upErr } = await supabase.storage
         .from('program-covers')
@@ -96,7 +98,17 @@ function CoverImageUploader({ ownerId, imagePath, onChange, categories, name, di
 
       if (upErr) throw upErr
 
-      // 3) 부모에 새 path 알림 + 모달 닫기
+      // 3) 카드/목록용 400px 썸네일도 함께 업로드 — 대시보드 캐러셀 등에서 가벼운 버전 사용(로딩 stall 방지).
+      //    실패해도 치명적 아님 — ProgramCover 가 원본으로 폴백.
+      try {
+        const thumbBlob = await compressThumbnail(blob)
+        if (thumbBlob) {
+          await supabase.storage.from('program-covers')
+            .upload(thumbPathOf(newPath), thumbBlob, { upsert: true, contentType: 'image/jpeg' })
+        }
+      } catch { /* 썸네일 생략 */ }
+
+      // 4) 부모에 새 path 알림 + 모달 닫기
       onChange(newPath)
       closeCropModal()
     } catch (err) {
@@ -116,7 +128,7 @@ function CoverImageUploader({ ownerId, imagePath, onChange, categories, name, di
     setError(null)
     try {
       if (imagePath) {
-        await supabase.storage.from('program-covers').remove([imagePath])
+        await supabase.storage.from('program-covers').remove([imagePath, thumbPathOf(imagePath)])
       }
       onChange(null)
     } catch (err) {
