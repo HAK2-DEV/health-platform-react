@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { subscribeToPush } from '../lib/push'
 
 // 회원가입 직후 온보딩 튜토리얼 (마이페이지 「사용법 다시보기」로도 진입).
 //   흐름: 환영 → 앱 소개 → 홈 화면 설치(실제 스샷+스포트라이트) → 알림 → 설명 선택 → 역할별 여정 → 마무리
@@ -62,14 +63,26 @@ export default function OnboardingTutorial() {
   const [seen, setSeen] = useState({ p: false, o: false })
   const [notifOn, setNotifOn] = useState(false)
   const [ringing, setRinging] = useState(false)
+  const [notifBusy, setNotifBusy] = useState(false)
+  const [notifErr, setNotifErr] = useState('')
 
   const go = (n) => { setStep(Math.max(0, Math.min(TOTAL - 1, n))); setScene(0); setJStep(0); window.scrollTo(0, 0) }
   const finish = (dest) => { try { localStorage.setItem('onboarding-done', '1') } catch { /* 무시 */ } navigate(dest) }
 
-  const allowNotif = () => {
-    setRinging(true)
-    setTimeout(() => setNotifOn(true), 620)
-    setTimeout(() => go(4), 1500)
+  // 실제 폰 푸시 켜기 — 권한 요청 + 구독 + push_subscriptions 저장. 성공해야 성공화면 노출.
+  //   requestPermission 은 클릭 제스처 안에서 첫 await 로 호출돼야 브라우저가 허용(패턴: WelcomeOperatorModal).
+  const allowNotif = async () => {
+    setNotifErr(''); setRinging(true); setNotifBusy(true)
+    try {
+      await subscribeToPush()
+      setNotifOn(true)
+      setTimeout(() => go(4), 1200)
+    } catch (e) {
+      setRinging(false)
+      setNotifErr(e?.message || '알림을 켜지 못했어요. 나중에 마이페이지 > 알림 설정에서 켤 수 있어요.')
+    } finally {
+      setNotifBusy(false)
+    }
   }
   const pickRole = (r) => { setRole(r); setSeen(s => ({ ...s, [r]: true })); go(5) }
 
@@ -185,8 +198,9 @@ export default function OnboardingTutorial() {
                 )}
               </div>
               <div className="ob-foot">
-                <button className="ob-cta" onClick={allowNotif}>🔔 알림 켜기</button>
-                <button className="ob-cta ghost" onClick={() => go(4)}>나중에 할게요</button>
+                {notifErr && <p style={{ color: '#dc2626', fontSize: 13, textAlign: 'center', marginBottom: 8, lineHeight: 1.5 }}>{notifErr}</p>}
+                {!notifOn && <button className="ob-cta" onClick={allowNotif} disabled={notifBusy}>{notifBusy ? '켜는 중…' : '🔔 알림 켜기'}</button>}
+                <button className="ob-cta ghost" onClick={() => go(4)}>{notifOn ? '다음' : '나중에 할게요'}</button>
               </div>
             </section>
           )}
