@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { ChevronLeft, Upload, X, Check, Flag, Clock, Star, Camera, MessageSquare, Pencil, Move } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../hooks/useAuth'
+import { useKeyboardInset } from '../../hooks/useKeyboardInset'
 import { supabase } from '../../supabaseClient'
 import { CATEGORY } from '../../lib/constants'
 import { checkMissionToday } from '../../lib/formatters'
@@ -91,6 +92,7 @@ const HERO_ASPECT = 'aspect-[16/9]'
 function MissionVerifyPage() {
   const { programId, missionId } = useParams()
   const { session } = useAuth()
+  const kbInset = useKeyboardInset()   // iOS 키보드 높이 — 하단 제출바가 안 가리게
   const navigate = useNavigate()
   const location = useLocation()
   const queryClient = useQueryClient()
@@ -1365,7 +1367,7 @@ function MissionVerifyPage() {
         )}
       </motion.div>
 
-      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-gray-100 px-5 py-3 z-40">
+      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-gray-100 px-5 py-3 z-40" style={{ bottom: kbInset || undefined, transition: 'bottom .2s ease' }}>
         <div className="max-w-4xl mx-auto flex gap-2">
           <button
             type="button"

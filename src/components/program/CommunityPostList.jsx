@@ -5,6 +5,7 @@ import { Trash2, Pencil, Flag, Pin, PinOff, Clock, Check, EyeOff } from 'lucide-
 import { deleteCommunityPost, setCommunityPostPin, setCommunityPostStatus, rejectCommunityPost, queryKeys } from '../../lib/queries'
 import { getCachedSignedUrls, getSignedUrls, thumbPathOf } from '../../lib/signedUrls'
 import { formatRelativeKstDay } from '../../lib/formatters'
+import { useKeyboardInset } from '../../hooks/useKeyboardInset'
 import UserAvatar from '../common/UserAvatar'
 import EmptyState from '../common/EmptyState'
 import ReportModal from '../common/ReportModal'
@@ -19,6 +20,7 @@ import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 //   - 카드 탭 시 상세 모달(글 펼치기).
 function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId, isOwner, onEdit, layout = 'feed', canReact = false, canComment = false, focusPostId = null, focusCommentId = null, onFocusHandled, focusCloseTo = null }) {
   const navigate = useNavigate()
+  const kbInset = useKeyboardInset()   // iOS 키보드 높이 — 상세 오버레이(하단 댓글창) 위로 띄우기
   // 딥링크(?post=)로 연 상세를 닫을 때, focusCloseTo 가 있으면 그 경로로 복귀(예: 오늘의 활동).
   //   일반 목록에서 연 상세는 그대로 닫힘. openedViaFocusRef 로 구분.
   const openedViaFocusRef = useRef(false)
@@ -438,7 +440,7 @@ function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId,
           </>
         )
         return (
-          <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-5" style={{ touchAction: 'pan-y' }} onClick={closeDetail}>
+          <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-5" style={{ touchAction: 'pan-y', paddingBottom: kbInset ? kbInset + 20 : undefined, transition: 'padding-bottom .2s ease' }} onClick={closeDetail}>
             <div
               className={`w-full max-w-md max-h-[85vh] bg-white rounded-2xl shadow-xl flex flex-col ${social ? 'overflow-hidden' : 'overflow-y-auto overflow-x-hidden overscroll-contain p-5'}`}
               style={{ touchAction: 'pan-y' }}
