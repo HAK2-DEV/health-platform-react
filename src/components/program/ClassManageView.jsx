@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useKeyboardInset } from '../../hooks/useKeyboardInset'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { Plus, Calendar, MapPin, Users, Pencil, Trash2, Copy, X, ChevronDown, ChevronUp, Camera, Loader2 } from 'lucide-react'
@@ -155,6 +156,13 @@ function InstructorForm({ initial, onSave, onClose, busy }) {
 const pad2 = (n) => String(n).padStart(2, '0')
 const toDateInput = (iso) => { if (!iso) return ''; const d = new Date(iso); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}` }
 const toTimeInput = (iso) => { if (!iso) return ''; const d = new Date(iso); return `${pad2(d.getHours())}:${pad2(d.getMinutes())}` }
+// 클래스 추가/수정 — 무스크롤 단계별 위저드 (미션/퀴즈 마법사와 동일 UX)
+const SESSION_STEPS = ['기본 정보', '일정', '장소', '신청 · 점수', '안내']
+const stepSlide = {
+  enter: (d) => ({ x: d > 0 ? 28 : -28, opacity: 0 }),
+  center: { x: 0, opacity: 1 },
+  exit: (d) => ({ x: d > 0 ? -28 : 28, opacity: 0 }),
+}
 function SessionForm({ instructors, initial, isEdit = false, onSave, onClose, busy }) {
   const [title, setTitle] = useState(initial?.title || '')
   const [category, setCategory] = useState(initial?.category || 'yoga')
@@ -169,9 +177,18 @@ function SessionForm({ instructors, initial, isEdit = false, onSave, onClose, bu
   const [points, setPoints] = useState(initial?.points != null ? String(initial.points) : '0')
   const [desc, setDesc] = useState(initial?.description || '')
 
-  const valid = title.trim() && date && start
+  const [step, setStep] = useState(1)
+  const [dir, setDir] = useState(1)
+  const TOTAL = SESSION_STEPS.length
+
+  const canSave = title.trim() && date && start
+  //  1단계=제목 필수, 2단계=날짜·시작 필수. 나머지 단계는 선택이라 통과 가능.
+  const stepValid = (s) => s === 1 ? !!title.trim() : s === 2 ? (!!date && !!start) : true
+  const goNext = () => { if (stepValid(step)) { setDir(1); setStep(s => Math.min(TOTAL, s + 1)) } }
+  const goPrev = () => { setDir(-1); setStep(s => Math.max(1, s - 1)) }
+
   const save = () => {
-    if (!valid) return
+    if (!canSave) return
     const startsAt = new Date(`${date}T${start}`).toISOString()
     const endsAt = end ? new Date(`${date}T${end}`).toISOString() : null
     onSave({
@@ -183,41 +200,96 @@ function SessionForm({ instructors, initial, isEdit = false, onSave, onClose, bu
       description: desc.trim() || null,
     })
   }
+
   return (
     <Overlay onClose={onClose} title={isEdit ? '클래스 수정' : (initial ? '클래스 복사' : '클래스 추가')} wide>
-      <Field label="클래스 제목 *"><input className={inputCls} value={title} onChange={e => setTitle(e.target.value)} placeholder="예: 하타 요가 · 코어 안정화" /></Field>
-      <div className="grid grid-cols-2 gap-2">
-        <Field label="종목">
-          <CategorySelect value={category} onChange={setCategory} />
-        </Field>
-        <Field label="강사">
-          <select className={inputCls} value={instructorId} onChange={e => setInstructorId(e.target.value)}>
-            <option value="">미지정</option>
-            {instructors.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
-          </select>
-        </Field>
+      {/* 스텝 인디케이터 */}
+      <div className="flex items-center justify-center gap-1.5 mb-1">
+        {SESSION_STEPS.map((_, i) => (
+          <span key={i} className={`h-1.5 rounded-full transition-all ${step === i + 1 ? 'w-5 bg-emerald-500' : 'w-1.5 bg-gray-200'}`} />
+        ))}
       </div>
-      <Field label="날짜 *"><input type="date" className={inputCls} value={date} onChange={e => setDate(e.target.value)} /></Field>
-      <div className="grid grid-cols-2 gap-2">
-        <Field label="시작 *"><input type="time" className={inputCls} value={start} onChange={e => setStart(e.target.value)} /></Field>
-        <Field label="종료"><input type="time" className={inputCls} value={end} onChange={e => setEnd(e.target.value)} /></Field>
+      <p className="text-center text-[13px] font-semibold text-gray-500 mb-4">{step}. {SESSION_STEPS[step - 1]}</p>
+
+      {/* 단계 콘텐츠 — 각 단계가 한 화면에 맞아 스크롤 없음 (min-h 로 푸터 흔들림 방지) */}
+      <div className="min-h-[210px]">
+        <AnimatePresence mode="wait" custom={dir}>
+          <motion.div key={step} custom={dir} variants={stepSlide} initial="enter" animate="center" exit="exit" transition={{ duration: 0.2, ease: 'easeOut' }}>
+            {step === 1 && (
+              <>
+                <Field label="클래스 제목 *"><input className={inputCls} value={title} onChange={e => setTitle(e.target.value)} placeholder="예: 하타 요가 · 코어 안정화" autoFocus /></Field>
+                <div className="grid grid-cols-2 gap-2">
+                  <Field label="종목"><CategorySelect value={category} onChange={setCategory} /></Field>
+                  <Field label="강사">
+                    <select className={inputCls} value={instructorId} onChange={e => setInstructorId(e.target.value)}>
+                      <option value="">미지정</option>
+                      {instructors.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+                    </select>
+                  </Field>
+                </div>
+              </>
+            )}
+            {step === 2 && (
+              <>
+                <Field label="날짜 *"><input type="date" className={inputCls} value={date} onChange={e => setDate(e.target.value)} /></Field>
+                <div className="grid grid-cols-2 gap-2">
+                  <Field label="시작 *"><input type="time" className={inputCls} value={start} onChange={e => setStart(e.target.value)} /></Field>
+                  <Field label="종료"><input type="time" className={inputCls} value={end} onChange={e => setEnd(e.target.value)} /></Field>
+                </div>
+              </>
+            )}
+            {step === 3 && (
+              <>
+                <Field label="장소명"><input className={inputCls} value={placeName} onChange={e => setPlaceName(e.target.value)} placeholder="예: 스튜디오 A (2층)" /></Field>
+                <Field label="주소"><input className={inputCls} value={placeAddr} onChange={e => setPlaceAddr(e.target.value)} placeholder="예: 서울 강남구 …" /></Field>
+              </>
+            )}
+            {step === 4 && (
+              <>
+                <div className="grid grid-cols-2 gap-2">
+                  <Field label="신청 방식">
+                    <select className={inputCls} value={signup} onChange={e => setSignup(e.target.value)}>
+                      <option value="rsvp">사전 신청(정원)</option>
+                      <option value="open">자유 참여</option>
+                    </select>
+                  </Field>
+                  <Field label="정원">
+                    <input type="number" min="1" className={inputCls} value={capacity} onChange={e => setCapacity(e.target.value)} placeholder={signup === 'open' ? '무제한' : '예: 12'} disabled={signup === 'open'} />
+                  </Field>
+                </div>
+                <Field label="출석 포인트">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1/2"><input type="number" min="0" className={`${inputCls} text-center`} value={points} onChange={e => setPoints(e.target.value)} placeholder="0" /></div>
+                    <span className="text-sm font-semibold text-gray-500">P</span>
+                  </div>
+                </Field>
+              </>
+            )}
+            {step === 5 && (
+              <Field label="안내 · 준비물"><textarea className={`${inputCls} h-28 py-2 resize-none`} value={desc} onChange={e => setDesc(e.target.value)} placeholder="예: 개인 매트, 편한 복장" /></Field>
+            )}
+          </motion.div>
+        </AnimatePresence>
       </div>
-      <Field label="장소명"><input className={inputCls} value={placeName} onChange={e => setPlaceName(e.target.value)} placeholder="예: 스튜디오 A (2층)" /></Field>
-      <Field label="주소"><input className={inputCls} value={placeAddr} onChange={e => setPlaceAddr(e.target.value)} placeholder="예: 서울 강남구 …" /></Field>
-      <div className="grid grid-cols-2 gap-2">
-        <Field label="신청 방식">
-          <select className={inputCls} value={signup} onChange={e => setSignup(e.target.value)}>
-            <option value="rsvp">사전 신청(정원)</option>
-            <option value="open">자유 참여</option>
-          </select>
-        </Field>
-        <Field label="정원">
-          <input type="number" min="1" className={inputCls} value={capacity} onChange={e => setCapacity(e.target.value)} placeholder={signup === 'open' ? '무제한' : '예: 12'} disabled={signup === 'open'} />
-        </Field>
+
+      {/* 푸터 — 취소/이전 · 다음/저장 */}
+      <div className="flex gap-2 mt-4">
+        <button type="button" onClick={step === 1 ? onClose : goPrev} disabled={busy}
+          className="flex-1 h-11 rounded-xl border border-gray-200 text-gray-600 text-sm font-bold hover:bg-gray-50 transition disabled:opacity-50">
+          {step === 1 ? '취소' : '이전'}
+        </button>
+        {step < TOTAL ? (
+          <button type="button" onClick={goNext} disabled={!stepValid(step)}
+            className="flex-[1.6] h-11 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white text-sm font-bold transition disabled:opacity-50">
+            다음
+          </button>
+        ) : (
+          <button type="button" onClick={save} disabled={!canSave || busy}
+            className="flex-[1.6] h-11 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white text-sm font-bold transition disabled:opacity-50">
+            {busy ? '저장 중...' : (isEdit ? '수정 저장' : '저장')}
+          </button>
+        )}
       </div>
-      <Field label="출석 포인트"><input type="number" min="0" className={inputCls} value={points} onChange={e => setPoints(e.target.value)} placeholder="0" /></Field>
-      <Field label="안내 · 준비물"><textarea className={`${inputCls} h-16 py-2 resize-none`} value={desc} onChange={e => setDesc(e.target.value)} placeholder="예: 개인 매트, 편한 복장" /></Field>
-      <FormButtons onClose={onClose} onSave={save} busy={busy} disabled={!valid} />
     </Overlay>
   )
 }
