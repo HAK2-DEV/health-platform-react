@@ -182,15 +182,28 @@ function SessionForm({ instructors, initial, isEdit = false, onSave, onClose, bu
 
   const [step, setStep] = useState(1)
   const [dir, setDir] = useState(1)
+  const [triedNext, setTriedNext] = useState(false)   // 「다음」 눌렀는데 필수 미입력 → 안내 표시(채우면 자동 사라짐)
   const TOTAL = SESSION_STEPS.length
 
   // 정원(참여 인원) — 사전 신청(rsvp)일 때 필수. 자유 참여(open)면 무제한이라 불필요.
   const capacityOk = signup !== 'rsvp' || !!capacity
-  const canSave = title.trim() && date && start && capacityOk
-  //  1단계=제목 필수, 2단계=날짜·시작 필수, 4단계=정원 필수(rsvp). 나머지 단계는 선택.
-  const stepValid = (s) => s === 1 ? !!title.trim() : s === 2 ? (!!date && !!start) : s === 4 ? capacityOk : true
-  const goNext = () => { if (stepValid(step)) { setDir(1); setStep(s => Math.min(TOTAL, s + 1)) } }
-  const goPrev = () => { setDir(-1); setStep(s => Math.max(1, s - 1)) }
+  const timeOk = !end || end > start   // 종료는 시작보다 늦어야 (HH:MM 문자열 비교 = 같은 날 시각 비교)
+  const canSave = title.trim() && date && start && capacityOk && timeOk
+  // 단계별 필수·규칙 위반 시 안내 문구(없으면 통과). 값을 고치면 stepError 가 ''로 바뀌어 자동 사라짐.
+  const stepError = (s) => {
+    if (s === 1 && !title.trim()) return '클래스 제목을 입력해주세요'
+    if (s === 2) {
+      if (!(date && start)) return '날짜와 시작 시간을 입력해주세요'
+      if (end && end <= start) return '종료 시간은 시작 시간보다 늦어야 해요'
+    }
+    if (s === 4 && !capacityOk) return '정원(참여 인원)을 입력해주세요'
+    return ''
+  }
+  const goNext = () => {
+    if (stepError(step)) { setTriedNext(true); return }   // 버튼은 눌리지만, 미입력이면 안내 후 멈춤(희미하게 X)
+    setTriedNext(false); setDir(1); setStep(s => Math.min(TOTAL, s + 1))
+  }
+  const goPrev = () => { setTriedNext(false); setDir(-1); setStep(s => Math.max(1, s - 1)) }
 
   const save = () => {
     if (!canSave) return
@@ -277,6 +290,10 @@ function SessionForm({ instructors, initial, isEdit = false, onSave, onClose, bu
         </AnimatePresence>
       </div>
 
+      {/* 필수 미입력·규칙 위반 안내 — 「다음」 눌렀을 때만, 고치면 자동 사라짐 (버튼은 안 희미해짐) */}
+      {triedNext && stepError(step) && (
+        <p className="text-[12px] font-semibold text-red-500 text-center mt-3 -mb-1">{stepError(step)}</p>
+      )}
       {/* 푸터 — 취소/이전 · 다음/저장 */}
       <div className="flex gap-2 mt-4">
         <button type="button" onClick={step === 1 ? onClose : goPrev} disabled={busy}
@@ -284,12 +301,12 @@ function SessionForm({ instructors, initial, isEdit = false, onSave, onClose, bu
           {step === 1 ? '취소' : '이전'}
         </button>
         {step < TOTAL ? (
-          <button type="button" onClick={goNext} disabled={!stepValid(step)}
-            className="flex-[1.6] h-11 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white text-sm font-bold transition disabled:opacity-50">
+          <button type="button" onClick={goNext}
+            className="flex-[1.6] h-11 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white text-sm font-bold transition">
             다음
           </button>
         ) : (
-          <button type="button" onClick={save} disabled={!canSave || busy}
+          <button type="button" onClick={save} disabled={busy}
             className="flex-[1.6] h-11 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white text-sm font-bold transition disabled:opacity-50">
             {busy ? '저장 중...' : (isEdit ? '수정 저장' : '저장')}
           </button>
