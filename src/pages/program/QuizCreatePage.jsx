@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2, Lock, Check, X, ChevronLeft, ChevronRight, Calendar } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
+import { useKeyboardInset } from '../../hooks/useKeyboardInset'
 import { supabase } from '../../supabaseClient'
 import { queryKeys, fetchQuizForEdit } from '../../lib/queries'
 import LoadingState from '../../components/common/LoadingState'
@@ -92,6 +93,7 @@ function QuizCreatePage() {
   const { id, quizId } = useParams()
   const isEdit = !!quizId
   const navigate = useNavigate()
+  const kbInset = useKeyboardInset()   // iOS 키보드 높이 — 해설 등 입력 시 카드/푸터가 안 가리게
   const location = useLocation()
   const { session } = useAuth()
   const queryClient = useQueryClient()
@@ -396,7 +398,7 @@ function QuizCreatePage() {
 
   return (
     <div className="min-h-screen flex items-start justify-center px-2 py-4 sm:p-4 bg-gray-50">
-      <div className="w-full max-w-2xl my-2 sm:my-4 bg-white rounded-2xl shadow-xl p-4 sm:p-6 flex flex-col" style={{ maxHeight: '94vh' }}>
+      <div className="w-full max-w-2xl my-2 sm:my-4 bg-white rounded-2xl shadow-xl p-4 sm:p-6 flex flex-col" style={{ maxHeight: kbInset ? `calc(94vh - ${kbInset}px)` : '94vh', transition: 'max-height .2s ease' }}>
         {/* 헤더 */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-baseline gap-2 min-w-0">
@@ -540,6 +542,7 @@ function QuizCreatePage() {
 function QuestionEditor({ index, question: q, canRemove, onChange, onRemove, onUpdateOption, onAddOption, onRemoveOption }) {
   const included = q.included !== false
   const [showExpl, setShowExpl] = useState(!!q.explanation || !!q.source)   // 해설/출처 있으면 펼침, 없으면 「+ 해설 추가」로 접기
+  const [explJustOpened, setExplJustOpened] = useState(false)   // 「+ 해설 추가」로 직접 열 때만 자동 포커스(템플릿에서 처음부터 펼쳐진 건 포커스 X → 키보드 안 튐)
   return (
     <div className={`rounded-2xl border-2 p-4 space-y-2.5 transition ${included ? 'border-emerald-400 bg-emerald-50/40' : 'border-gray-200 bg-gray-50 opacity-60'}`}>
       {/* 헤더 — 발행 포함 토글 + 삭제 (문제 번호는 바깥 "문제 N/N" 에 있음) */}
@@ -709,7 +712,7 @@ function QuestionEditor({ index, question: q, canRemove, onChange, onRemove, onU
               value={q.explanation || ''}
               onChange={(e) => { onChange({ explanation: e.target.value }); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 320) + 'px' }}
               rows={2}
-              autoFocus
+              autoFocus={explJustOpened}
               placeholder="정답에 대한 해설 (정답 공개 시 참가자에게 노출돼요)"
               className="w-full px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 resize-none overflow-hidden text-sm"
             />
@@ -722,7 +725,7 @@ function QuestionEditor({ index, question: q, canRemove, onChange, onRemove, onU
             />
           </div>
         ) : (
-          <button type="button" onClick={() => setShowExpl(true)}
+          <button type="button" onClick={() => { setShowExpl(true); setExplJustOpened(true) }}
             className="flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:text-emerald-700">
             <Plus className="w-3.5 h-3.5" /> 💡 해설 추가 <span className="font-normal text-gray-400">(선택)</span>
           </button>
