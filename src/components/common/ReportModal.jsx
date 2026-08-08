@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useKeyboardInset } from '../../hooks/useKeyboardInset'
 import { useMutation } from '@tanstack/react-query'
 import { createReport, REPORT_REASON_PRESETS } from '../../lib/queries'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
@@ -10,6 +11,7 @@ function ReportModal({ isOpen, onClose, programId, targetType, targetId, onRepor
   const [error, setError] = useState(null)
   const [done, setDone] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
+  const kbInset = useKeyboardInset()   // iOS 키보드 높이 — 사유 입력 시 카드 위로
 
   useEffect(() => { if (isOpen) { setReason(''); setError(null); setDone(false); setShowHelp(false) } }, [isOpen])
   useBodyScrollLock(isOpen)  // iOS 배경 스크롤 방지
@@ -25,7 +27,7 @@ function ReportModal({ isOpen, onClose, programId, targetType, targetId, onRepor
 
   if (!isOpen) return null
   return (
-    <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-5" onClick={onClose}>
+    <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-5" style={{ paddingBottom: kbInset ? kbInset + 20 : undefined, transition: 'padding-bottom .2s ease' }} onClick={onClose}>
       <div className="w-full max-w-xs bg-white rounded-2xl p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
         {done ? (
           <div className="text-center py-2">

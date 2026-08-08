@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useKeyboardInset } from '../../hooks/useKeyboardInset'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { Ban } from 'lucide-react'
 
@@ -12,13 +13,14 @@ function RejectReasonModal({
   presets = [],
 }) {
   const [reason, setReason] = useState('')
+  const kbInset = useKeyboardInset()   // iOS 키보드 높이 — 사유 입력 시 카드 위로
   useEffect(() => { if (isOpen) setReason('') }, [isOpen])
   useBodyScrollLock(isOpen)  // iOS 배경 스크롤 방지
   if (!isOpen) return null
   const defaultDesc = (postLabel ? '“' + postLabel + '” 글을 거절해요. ' : '이 글을 거절해요. ')
     + '거절하면 글이 삭제되고 작성자에게 사유가 전달돼요.'
   return (
-    <div className="fixed inset-0 z-[85] bg-black/40 flex items-center justify-center p-5" onClick={() => !busy && onClose()}>
+    <div className="fixed inset-0 z-[85] bg-black/40 flex items-center justify-center p-5" style={{ paddingBottom: kbInset ? kbInset + 20 : undefined, transition: 'padding-bottom .2s ease' }} onClick={() => !busy && onClose()}>
       <div className="w-full max-w-xs bg-white rounded-2xl p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-2 mb-1.5">
           <span className="w-7 h-7 rounded-full bg-red-50 text-red-500 flex items-center justify-center flex-shrink-0"><Ban className="w-4 h-4" /></span>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, Fragment } from 'react'
+import { useKeyboardInset } from '../../hooks/useKeyboardInset'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { supabase } from '../../supabaseClient'
 import { Image as ImageIcon, BarChart3, MessageSquare, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Plus, X, Check, Info } from 'lucide-react'
@@ -44,6 +45,7 @@ function FieldLabel({ title, required, tipKey, tipOpen, onToggle, children }) {
 // onBack: 라이브러리에서 「직접 만들기」로 진입한 경우 — 라이브러리로 돌아가기 (생성 모드만)
 function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, onBack }) {
   useBodyScrollLock(isOpen)  // iOS 배경 스크롤 방지
+  const kbInset = useKeyboardInset()   // iOS 키보드 높이 — 제목·설명·지표 입력 시 카드 위로
   const isEditMode = !!editMission
 
   const [title, setTitle] = useState('')
@@ -365,7 +367,7 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
   if (!isOpen || !program) return null
   const isMindcare = Array.isArray(program.categories) && program.categories.includes('MINDCARE')  // 명상형 노출 조건
   return (
-    <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-5" onClick={onClose}>
+    <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-5" style={{ paddingBottom: kbInset ? kbInset + 20 : undefined, transition: 'padding-bottom .2s ease' }} onClick={onClose}>
       <div className="w-full max-w-md max-h-[88vh] overflow-y-auto bg-white rounded-2xl p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
           {onBack && !isEditMode && step === 1 && (
             <button
@@ -971,7 +973,7 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
 
       {/* 기록 지표 — 별도 전체화면 편집기 (모달 위 오버레이) */}
       {metricsEditOpen && (
-        <div className="fixed inset-0 z-[80] bg-white flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[80] bg-white flex flex-col" style={{ paddingBottom: kbInset || undefined, transition: 'padding-bottom .2s ease' }} onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 flex-shrink-0">
             <button type="button" onClick={() => setMetricsEditOpen(false)} className="p-1 -ml-1 text-gray-500 hover:text-gray-800" aria-label="뒤로"><ChevronLeft className="w-5 h-5" /></button>
             <h2 className="text-lg font-bold text-gray-800">📊 기록 지표</h2>

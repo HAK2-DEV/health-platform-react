@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useKeyboardInset } from '../../hooks/useKeyboardInset'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { motion } from 'framer-motion'
 import { ChevronRight, Calendar, Activity, Award, Flame, Pencil } from 'lucide-react'
@@ -116,6 +117,7 @@ function GoalField({ label, value, onChange, placeholder, cls = '' }) {
 export function GoalCard({ emoji, title, value, unit, hint, editable = false, onSave = null }) {
   const [editing, setEditing] = useState(false)
   useBodyScrollLock(editing)  // 목표 카드 편집 오버레이 — iOS 배경 스크롤 방지
+  const kbInset = useKeyboardInset()   // iOS 키보드 높이 — 목표 편집 입력 시 카드 위로
   const [draft, setDraft] = useState({ emoji, title, value, unit, hint })
   const set = (k, v) => setDraft((d) => ({ ...d, [k]: v }))
   const open = () => { setDraft({ emoji, title, value, unit, hint }); setEditing(true) }
@@ -142,7 +144,7 @@ export function GoalCard({ emoji, title, value, unit, hint, editable = false, on
         </div>
       </div>
       {editing && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-5" style={{ background: 'rgba(15,23,42,0.45)' }} onClick={() => setEditing(false)}>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-5" style={{ background: 'rgba(15,23,42,0.45)', paddingBottom: kbInset ? kbInset + 20 : undefined, transition: 'padding-bottom .2s ease' }} onClick={() => setEditing(false)}>
           <div className="w-full max-w-[320px] rounded-2xl bg-white p-5 shadow-2xl space-y-3" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-[15px] font-bold text-gray-800">목표 카드 편집</h3>
             <div>

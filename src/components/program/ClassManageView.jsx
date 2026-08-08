@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { useKeyboardInset } from '../../hooks/useKeyboardInset'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { Plus, Calendar, MapPin, Users, Pencil, Trash2, Copy, X, ChevronDown, ChevronUp, Camera, Loader2 } from 'lucide-react'
 import { CLASS_CAT_LIST, catOf } from '../../lib/classCategories'
@@ -223,8 +224,9 @@ function SessionForm({ instructors, initial, isEdit = false, onSave, onClose, bu
 
 function Overlay({ title, children, onClose, wide }) {
   useBodyScrollLock(true)  // 마운트=열림 → iOS 배경 스크롤 방지
+  const kbInset = useKeyboardInset()   // iOS 키보드 높이 — 클래스/강사 편집 입력 시 카드 위로
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/45" onClick={onClose}>
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/45" style={{ paddingBottom: kbInset ? kbInset + 16 : undefined, transition: 'padding-bottom .2s ease' }} onClick={onClose}>
       <div className={`w-full ${wide ? 'max-w-md' : 'max-w-xs'} max-h-[88vh] overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl`} onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-[16px] font-bold text-gray-900">{title}</h3>

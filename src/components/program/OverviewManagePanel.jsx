@@ -1,5 +1,6 @@
 import { useState, useEffect, forwardRef, useImperativeHandle } from 'react'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
+import { useKeyboardInset } from '../../hooks/useKeyboardInset'
 import { supabase } from '../../supabaseClient'
 import { CATEGORY, CATEGORY_LIST, PROGRAM, PROGRAM_THEME } from '../../lib/constants'
 import { isUpcomingByStartDate } from '../../lib/formatters'
@@ -26,6 +27,7 @@ const OverviewManagePanel = forwardRef(function OverviewManagePanel({ program, p
   const [coverImagePath, setCoverImagePath] = useState(null)  // 배너/썸네일 표지
   const [descModalOpen, setDescModalOpen] = useState(false)  // 한줄 설명 — 넓게 입력 모달
   useBodyScrollLock(descModalOpen)  // 설명 입력 오버레이 — iOS 배경 스크롤 방지
+  const kbInset = useKeyboardInset()   // iOS 키보드 높이 — 설명 입력 시 카드 위로
 
   useEffect(() => {
     if (!program) return
@@ -234,7 +236,7 @@ const OverviewManagePanel = forwardRef(function OverviewManagePanel({ program, p
 
       {/* 한줄 설명 — 넓게 입력 모달 */}
       {descModalOpen && (
-        <div className="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center p-5" onClick={() => setDescModalOpen(false)}>
+        <div className="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center p-5" style={{ paddingBottom: kbInset ? kbInset + 20 : undefined, transition: 'padding-bottom .2s ease' }} onClick={() => setDescModalOpen(false)}>
           <div className="w-full max-w-md bg-white rounded-2xl p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <h4 className="text-[15px] font-bold text-gray-800 mb-2">📝 한줄 설명</h4>
             <textarea

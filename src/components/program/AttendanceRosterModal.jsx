@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useKeyboardInset } from '../../hooks/useKeyboardInset'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { X, Loader2, Check } from 'lucide-react'
@@ -34,6 +35,7 @@ function CodeEditor({ sessionId }) {
 
 export default function AttendanceRosterModal({ session, confirmedBy = null, attendanceMode = 'operator_roll', onClose }) {
   useBodyScrollLock(true)  // 마운트=열림 → iOS 배경 스크롤 방지
+  const kbInset = useKeyboardInset()   // iOS 키보드 높이 — 현장코드 입력 시 카드 위로
   const qc = useQueryClient()
   const { data: roster = [], isLoading } = useQuery({
     queryKey: ['roster', session.id], queryFn: () => fetchSessionRoster(session.id), enabled: !!session.id,
@@ -48,7 +50,7 @@ export default function AttendanceRosterModal({ session, confirmedBy = null, att
   const present = roster.filter(r => r.attStatus === 'confirmed').length
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/45" onClick={onClose}>
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/45" style={{ paddingBottom: kbInset ? kbInset + 16 : undefined, transition: 'padding-bottom .2s ease' }} onClick={onClose}>
       <div className="w-full max-w-sm max-h-[85vh] overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-1">
           <h3 className="text-[16px] font-bold text-gray-900 truncate pr-2">출석부</h3>

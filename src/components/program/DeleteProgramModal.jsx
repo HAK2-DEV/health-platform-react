@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useKeyboardInset } from '../../hooks/useKeyboardInset'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { AlertTriangle, ChevronLeft } from 'lucide-react'
 
@@ -9,6 +10,7 @@ import { AlertTriangle, ChevronLeft } from 'lucide-react'
 // props: isOpen, programTitle, onClose, onConfirm, busy
 function DeleteProgramModal({ isOpen, programTitle = '', onClose, onConfirm, busy = false }) {
   useBodyScrollLock(isOpen)  // iOS 배경 스크롤 방지
+  const kbInset = useKeyboardInset()   // iOS 키보드 높이 — 제목 확인 입력 시 카드 위로
   const [step, setStep] = useState(1)
   const [typed, setTyped] = useState('')
 
@@ -23,7 +25,7 @@ function DeleteProgramModal({ isOpen, programTitle = '', onClose, onConfirm, bus
   const handleClose = () => { if (!busy) onClose() }
 
   return (
-    <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-5" onClick={handleClose}>
+    <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-5" style={{ paddingBottom: kbInset ? kbInset + 20 : undefined, transition: 'padding-bottom .2s ease' }} onClick={handleClose}>
       <div className="w-full max-w-xs bg-white rounded-2xl p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
         {step === 1 && (
           <>
