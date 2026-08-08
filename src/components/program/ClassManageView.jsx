@@ -167,7 +167,7 @@ function SessionForm({ instructors, initial, isEdit = false, onSave, onClose, bu
   const [title, setTitle] = useState(initial?.title || '')
   const [category, setCategory] = useState(initial?.category || 'yoga')
   const [instructorId, setInstructorId] = useState(initial?.instructor_id ?? instructors[0]?.id ?? '')
-  const [date, setDate] = useState(toDateInput(initial?.starts_at) || '')
+  const [date, setDate] = useState(toDateInput(initial?.starts_at) || toDateInput(new Date()))  // 새 클래스는 오늘로 기본(빈 date 박스 방지)
   const [start, setStart] = useState(toTimeInput(initial?.starts_at) || '19:00')
   const [end, setEnd] = useState(toTimeInput(initial?.ends_at) || (initial ? '' : '20:00'))
   const [placeName, setPlaceName] = useState(initial?.place_name || '')
@@ -181,9 +181,11 @@ function SessionForm({ instructors, initial, isEdit = false, onSave, onClose, bu
   const [dir, setDir] = useState(1)
   const TOTAL = SESSION_STEPS.length
 
-  const canSave = title.trim() && date && start
-  //  1단계=제목 필수, 2단계=날짜·시작 필수. 나머지 단계는 선택이라 통과 가능.
-  const stepValid = (s) => s === 1 ? !!title.trim() : s === 2 ? (!!date && !!start) : true
+  // 정원(참여 인원) — 사전 신청(rsvp)일 때 필수. 자유 참여(open)면 무제한이라 불필요.
+  const capacityOk = signup !== 'rsvp' || !!capacity
+  const canSave = title.trim() && date && start && capacityOk
+  //  1단계=제목 필수, 2단계=날짜·시작 필수, 4단계=정원 필수(rsvp). 나머지 단계는 선택.
+  const stepValid = (s) => s === 1 ? !!title.trim() : s === 2 ? (!!date && !!start) : s === 4 ? capacityOk : true
   const goNext = () => { if (stepValid(step)) { setDir(1); setStep(s => Math.min(TOTAL, s + 1)) } }
   const goPrev = () => { setDir(-1); setStep(s => Math.max(1, s - 1)) }
 
@@ -253,7 +255,7 @@ function SessionForm({ instructors, initial, isEdit = false, onSave, onClose, bu
                       <option value="open">자유 참여</option>
                     </select>
                   </Field>
-                  <Field label="정원">
+                  <Field label={signup === 'rsvp' ? '정원 *' : '정원'}>
                     <input type="number" min="1" className={inputCls} value={capacity} onChange={e => setCapacity(e.target.value)} placeholder={signup === 'open' ? '무제한' : '예: 12'} disabled={signup === 'open'} />
                   </Field>
                 </div>
