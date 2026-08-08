@@ -398,7 +398,7 @@ function QuizCreatePage() {
 
   return (
     <div className="min-h-screen flex items-start justify-center px-2 py-4 sm:p-4 bg-gray-50">
-      <div className="w-full max-w-2xl my-2 sm:my-4 bg-white rounded-2xl shadow-xl p-4 sm:p-6 flex flex-col" style={{ maxHeight: kbInset ? `calc(94vh - ${kbInset}px)` : '94vh', transition: 'max-height .2s ease' }}>
+      <div className="w-full max-w-2xl my-2 sm:my-4 bg-white rounded-2xl shadow-xl p-4 sm:p-6 flex flex-col" style={{ maxHeight: `calc(90dvh - ${kbInset}px)`, transition: 'max-height .2s ease' }}>
         {/* 헤더 */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-baseline gap-2 min-w-0">
