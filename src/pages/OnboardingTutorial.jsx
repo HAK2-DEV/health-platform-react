@@ -96,6 +96,8 @@ export default function OnboardingTutorial() {
   useEffect(() => {
     IOS.forEach(({ src }) => { const im = new Image(); im.src = src })
     const tap = new Image(); tap.src = '/icons/onboarding/tap.png'
+    // 여정(참여자/운영자) 스샷도 프리로드 — 5·6단계 진입 시 흰 깜빡임 방지 (앞 슬라이드 읽는 동안 미리 받음)
+    Object.values(JOURNEY).forEach(r => r.steps.forEach(s => (s.imgs || []).forEach(src => { const im = new Image(); im.src = src })))
   }, [])
 
   const j = role ? JOURNEY[role] : null
@@ -108,7 +110,8 @@ export default function OnboardingTutorial() {
           <button className="ob-back" hidden={step === 0} onClick={() => { if (step === 5 && jStep > 0) setJStep((x) => x - 1); else go(step === 5 ? 4 : step - 1) }} aria-label="뒤로">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
           </button>
-          <div className="ob-bar"><i style={{ width: `${(step + 1) / TOTAL * 100}%` }} /></div>
+          {/* 상단 진행바 — 여정(step5)에선 5개 서브스텝만큼도 전진(하단 점 대체). */}
+          <div className="ob-bar"><i style={{ width: `${(step === 5 && j ? 5 + (jStep + 1) / j.steps.length : step + 1) / TOTAL * 100}%` }} /></div>
         </div>
 
         <div className="ob-stage">
@@ -254,7 +257,6 @@ export default function OnboardingTutorial() {
                     </button>
                   </div>
                   <p className={`ob-jdesc ${j.cls}`} key={`p${s.st}`} dangerouslySetInnerHTML={{ __html: s.p }} />
-                  <div className="ob-dots">{j.steps.map((_, i) => <i key={i} className={i === jStep ? 'on' : ''} onClick={() => setJStep(i)} />)}</div>
                 </div>
                 {last && (
                   <div className="ob-foot">
@@ -291,13 +293,14 @@ export default function OnboardingTutorial() {
 function JourneyShot({ imgs, crop, aspect, fit }) {
   const [i, setI] = useState(0)
   const [paused, setPaused] = useState(false)
+  const [loaded, setLoaded] = useState({})   // src → true. 로드 완료 시 페이드인 (프리로드 캐시면 즉시)
+  const markLoaded = (src) => setLoaded((m) => (m[src] ? m : { ...m, [src]: true }))
   const startX = useRef(null)
   useEffect(() => {
     if (imgs.length < 2 || paused) return
     const t = setInterval(() => setI((x) => (x + 1) % imgs.length), 2600)
     return () => clearInterval(t)
   }, [imgs.length, paused])
-  const jump = (n) => { setPaused(true); setI(n) }
   const shift = (dir) => setI((x) => (x + dir + imgs.length) % imgs.length)
   const onDown = (e) => { startX.current = e.clientX }
   const onUp = (e) => {
@@ -308,12 +311,15 @@ function JourneyShot({ imgs, crop, aspect, fit }) {
   }
   return (
     <div className="ob-jshot">
-      <div className="ob-jframe" style={aspect ? { aspectRatio: aspect } : crop ? { aspectRatio: `440 / ${Math.round(954 * crop)}` } : undefined} onPointerDown={onDown} onPointerUp={onUp} onPointerCancel={() => { startX.current = null }}>
+      <div className="ob-jframe" style={{ backgroundColor: '#eef2f0', ...(aspect ? { aspectRatio: aspect } : crop ? { aspectRatio: `440 / ${Math.round(954 * crop)}` } : {}) }} onPointerDown={onDown} onPointerUp={onUp} onPointerCancel={() => { startX.current = null }}>
         <div className="ob-jtrack" style={{ width: `${imgs.length * 100}%`, transform: `translateX(-${i * (100 / imgs.length)}%)` }}>
-          {imgs.map((src) => <img key={src} src={src} alt="" style={{ width: `${100 / imgs.length}%`, objectFit: fit || undefined, objectPosition: crop ? 'top' : undefined }} draggable="false" />)}
+          {imgs.map((src) => <img key={src} src={src} alt=""
+            ref={(el) => { if (el && el.complete) markLoaded(src) }}
+            onLoad={() => markLoaded(src)}
+            style={{ width: `${100 / imgs.length}%`, objectFit: fit || undefined, objectPosition: crop ? 'top' : undefined, opacity: loaded[src] ? 1 : 0, transition: 'opacity .25s ease' }} draggable="false" />)}
         </div>
+        {imgs.length > 1 && <span className="ob-jcount">{i + 1} / {imgs.length}</span>}
       </div>
-      {imgs.length > 1 && <div className="ob-jdots">{imgs.map((_, k) => <i key={k} className={k === i ? 'on' : ''} onClick={() => jump(k)} />)}</div>}
     </div>
   )
 }
@@ -443,9 +449,7 @@ const STYLE = `
 #ob-root .ob-jtrack img{height:100%;object-fit:cover;flex-shrink:0;display:block}
 #ob-root .ob-jvid{width:100%;height:100%;object-fit:cover;display:block;background:#fff}
 #ob-root .ob-jvid-mask{position:absolute;top:0;left:0;right:0;height:6.8%;background:#fff;z-index:2}
-#ob-root .ob-jdots{display:flex;gap:4px}
-#ob-root .ob-jdots i{width:5px;height:5px;border-radius:99px;background:var(--ob-line);cursor:pointer;transition:.2s}
-#ob-root .ob-jdots i.on{width:14px;background:var(--ob-green)}
+#ob-root .ob-jcount{position:absolute;top:7px;left:50%;transform:translateX(-50%);z-index:4;background:rgba(17,17,17,.6);color:#fff;font-size:10.5px;font-weight:700;line-height:1;padding:3px 8px;border-radius:99px;letter-spacing:.02em;font-variant-numeric:tabular-nums;pointer-events:none}
 #ob-root .ob-jcar{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:11px;padding:6px 0}
 #ob-root .ob-jcar-phone{flex-shrink:0;animation:obadv .4s cubic-bezier(.22,.75,.28,1) both}
 #ob-root .ob-jcar-phone .ob-jframe{width:min(300px,60vw)}
@@ -455,7 +459,7 @@ const STYLE = `
 #ob-root .ob-jtitle .st{font-size:11px;font-weight:800;letter-spacing:.4px;color:var(--ob-green)}
 #ob-root .ob-jtitle.o .st{color:var(--ob-amber)}
 #ob-root .ob-jtitle h3{font-size:18px;font-weight:800;margin-top:3px}
-#ob-root .ob-jdesc{text-align:center;max-width:300px;font-size:13px;color:var(--ob-muted);line-height:1.5;word-break:keep-all;animation:obenter .3s ease both}
+#ob-root .ob-jdesc{text-align:center;max-width:310px;font-size:15px;color:var(--ob-muted);line-height:1.55;word-break:keep-all;animation:obenter .3s ease both}
 #ob-root .ob-prev{width:106px;height:196px;border-radius:17px;background:#0c0c0c;padding:3px;flex-shrink:0;box-shadow:var(--ob-shadow-sm)}
 #ob-root .ob-prev .pv{position:relative;width:100%;height:100%;border-radius:14px;overflow:hidden;background:#fbfbf8;font-size:6.5px;color:#243}
 #ob-root .pv .pvsb{height:9px;display:flex;align-items:center;justify-content:space-between;padding:0 6px;font-size:5px;font-weight:800;color:#333;background:#fff}
