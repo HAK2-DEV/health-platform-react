@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { Check, X, Clock, Trophy, Eye, Circle } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
+import { useKeyboardInset } from '../../hooks/useKeyboardInset'
 import {
   queryKeys,
   fetchQuizForParticipant,
@@ -473,6 +474,7 @@ function MiniRing({ done, total }) {
 }
 
 function QuizStepper({ quiz, questions, answers, setAnswer, currentIdx, setCurrentIdx, onSubmit, submitting, submitError, backPath }) {
+  const kbInset = useKeyboardInset()   // iOS 키보드 높이 — 주관식 답 입력 시 하단 제출바 위로
   const total = questions.length
   const q = questions[currentIdx]
   const isLast = currentIdx === total - 1
@@ -511,7 +513,7 @@ function QuizStepper({ quiz, questions, answers, setAnswer, currentIdx, setCurre
       )}
 
       {/* 하단 고정 — 이전 / 다음·답안 제출 */}
-      <div className="fixed bottom-0 left-0 right-0 px-4 pb-4 pt-3 bg-gradient-to-t from-white via-white to-transparent">
+      <div className="fixed bottom-0 left-0 right-0 px-4 pb-4 pt-3 bg-gradient-to-t from-white via-white to-transparent" style={{ bottom: kbInset || undefined, transition: 'bottom .2s ease' }}>
         <div className="max-w-2xl mx-auto flex gap-2">
           {currentIdx > 0 && (
             <button type="button" onClick={() => setCurrentIdx((i) => Math.max(0, i - 1))}
