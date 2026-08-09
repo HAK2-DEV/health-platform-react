@@ -30,6 +30,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # secrets 컨텍스트는 if: 조건에서 직접 못 씀 → env 로 옮겨 env.X 로 게이팅(릴리스/Play 단계용).
+    #   시크릿 미설정이면 빈 문자열이라 해당 단계는 자동 스킵. Debug APK 단계는 항상 실행.
+    env:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      PLAY_STORE_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}
 
     steps:
       - name: Checkout
@@ -87,12 +92,12 @@ jobs:
 
       # Release AAB (Play Store 업로드 — 서명 필요)
       - name: Decode keystore
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        if: ${{ env.ANDROID_KEYSTORE_BASE64 != '' }}
         run: |
           echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > ${{ runner.temp }}/release.jks
 
       - name: Build Release AAB
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        if: ${{ env.ANDROID_KEYSTORE_BASE64 != '' }}
         working-directory: android
         env:
           KEYSTORE_PATH: ${{ runner.temp }}/release.jks
@@ -107,7 +112,7 @@ jobs:
             -Pandroid.injected.signing.key.password=$KEY_PASSWORD
 
       - name: Upload Release AAB
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        if: ${{ env.ANDROID_KEYSTORE_BASE64 != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: android-release-aab
@@ -116,7 +121,7 @@ jobs:
 
       # Play Store 자동 업로드 (선택 — service account JSON 필요)
       - name: Upload to Play Store Internal Track
-        if: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON != '' }}
+        if: ${{ env.PLAY_STORE_SERVICE_ACCOUNT_JSON != '' }}
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}
