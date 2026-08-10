@@ -31,7 +31,7 @@ const config: CapacitorConfig = {
   plugins: {
     SplashScreen: {
       launchShowDuration: 1500,
-      backgroundColor: '#d1fae5',  // brand-mint
+      backgroundColor: '#0a9d70',  // 도담 초록 — 스플래시 이미지 배경과 동일 톤(민트 플래시 방지)
       androidScaleType: 'CENTER_CROP',
       showSpinner: false,
       androidSpinnerStyle: 'large',
