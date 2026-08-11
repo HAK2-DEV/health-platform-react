@@ -35,8 +35,9 @@ const config: CapacitorConfig = {
       androidScaleType: 'CENTER_CROP',
       showSpinner: false,
       androidSpinnerStyle: 'large',
-      splashFullScreen: true,
-      splashImmersive: true,
+      // 전체화면/이머시브 = adjustResize 키보드 버그 유발 → false (2026-08-11 측정 확인)
+      splashFullScreen: false,
+      splashImmersive: false,
     },
     StatusBar: {
       // 상태바가 웹뷰를 덮지 않게(false) → 콘텐츠가 상태바 밑으로 파고드는 문제 방지.
