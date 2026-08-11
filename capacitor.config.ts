@@ -45,6 +45,11 @@ const config: CapacitorConfig = {
       style: 'LIGHT',             // 밝은 배경 → 어두운 아이콘 (플러그인 명명이 직관과 반대)
       backgroundColor: '#f8fbf9', // surface-app 과 동일 — 상태바가 앱 상단과 자연스럽게 이어짐
     },
+    Keyboard: {
+      // 네이티브 앱 전용 — 키보드 표시 시 WebView 를 그만큼 리사이즈해 입력칸이
+      //   키보드 밑에 가리지 않고 위로 올라오게. (브라우저는 자체 처리하므로 무관)
+      resize: 'native',
+    },
   },
 }
 
