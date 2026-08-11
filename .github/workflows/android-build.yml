@@ -17,7 +17,7 @@ name: Android Build
 
 on:
   push:
-    branches: [main, mvp-v2]
+    branches: [main, mvp-v2, feat/3d-icons]   # feat/3d-icons — 네이티브 테스트 빌드용(APK 확인). 테스트 끝나면 제거.
     paths:
       - 'src/**'
       - 'android/**'
