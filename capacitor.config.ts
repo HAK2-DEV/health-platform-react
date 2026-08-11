@@ -1,5 +1,4 @@
 import type { CapacitorConfig } from '@capacitor/cli'
-import { KeyboardResize } from '@capacitor/keyboard'
 
 // Day 65 — Capacitor 설정.
 // Bundle ID: com.healthplatform.app (절대 변경 X — App Store 제출 후 고정)
@@ -14,10 +13,8 @@ const config: CapacitorConfig = {
   appName: '건강증진 플랫폼',
   webDir: 'dist',
   // 프로덕션은 번들된 자산 사용 (오프라인 일부 동작 + App Store 가이드라인 통과 유리).
-  // ⚠️⚠️ 개발 전용 라이브 리로드 — PC 개발 서버에서 실시간 로드. (2026-08-11 키보드 튜닝용)
-  //   정식/베타 빌드 전 반드시 이 server 블록 제거! (안 그러면 앱이 개발 PC 없인 안 켜짐)
-  //   개발 서버(`npm run dev -- --host`) + 같은 WiFi 필수.
-  server: { url: 'http://192.168.0.4:5173', cleartext: true },
+  // 본인이 native 라이브 디버깅 원하면 아래 server.url 일시 활성화:
+  // server: { url: 'http://192.168.x.x:5173', cleartext: true },
   ios: {
     // iOS 키보드가 input 가릴 때 자동 스크롤
     contentInset: 'always',
@@ -47,11 +44,6 @@ const config: CapacitorConfig = {
       overlaysWebView: false,
       style: 'LIGHT',             // 밝은 배경 → 어두운 아이콘 (플러그인 명명이 직관과 반대)
       backgroundColor: '#f8fbf9', // surface-app 과 동일 — 상태바가 앱 상단과 자연스럽게 이어짐
-    },
-    Keyboard: {
-      // 네이티브 앱 전용 — 키보드 표시 시 WebView 를 그만큼 리사이즈해 입력칸이
-      //   키보드 밑에 가리지 않고 위로 올라오게. (브라우저는 자체 처리하므로 무관)
-      resize: KeyboardResize.Native,
     },
   },
 }
