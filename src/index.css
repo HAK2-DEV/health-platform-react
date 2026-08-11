@@ -1,6 +1,20 @@
 @import "tailwindcss";
 
 /* ============================================================
+   Pretendard 내장(self-host) — 네이티브 앱/오프라인 FOUT 방지.
+   기존엔 index.html 에서 CDN(cdn.jsdelivr.net) 로드 → 네이티브 앱에서
+   폰트가 뒤늦게 도착해 첫 렌더가 넓은 시스템 폰트로 계산됨(글자 밀림/잘림).
+   로컬 번들(/fonts) 로 즉시 로드해 레이아웃 튐 제거. (2026-08-11)
+   ============================================================ */
+@font-face {
+  font-family: 'Pretendard Variable';
+  font-weight: 45 920;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/PretendardVariable.woff2') format('woff2');
+}
+
+/* ============================================================
    Day 65 Phase 0 — 디자인 토큰
    Tailwind v4 는 @theme 블록으로 CSS 변수 정의 → 그대로 유틸 클래스 생성.
    예: --color-brand-mint → bg-brand-mint / text-brand-mint / border-brand-mint

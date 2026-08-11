@@ -39,9 +39,11 @@ const config: CapacitorConfig = {
       splashImmersive: true,
     },
     StatusBar: {
-      // 베이지/민트 배경에 맞춰 아이콘은 어둡게
-      style: 'LIGHT',
-      backgroundColor: '#d1fae5',
+      // 상태바가 웹뷰를 덮지 않게(false) → 콘텐츠가 상태바 밑으로 파고드는 문제 방지.
+      //   (Android 는 노치 없는 기기에서 env(safe-area-inset-top)=0 이라 CSS 패딩만으론 못 가림)
+      overlaysWebView: false,
+      style: 'LIGHT',             // 밝은 배경 → 어두운 아이콘 (플러그인 명명이 직관과 반대)
+      backgroundColor: '#f8fbf9', // surface-app 과 동일 — 상태바가 앱 상단과 자연스럽게 이어짐
     },
   },
 }
