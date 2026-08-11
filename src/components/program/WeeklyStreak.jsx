@@ -166,7 +166,7 @@ const WeeklyStreak = forwardRef(function WeeklyStreak({ count = 0, days = [], ic
   )
 
   // 요일 동그라미들 (도장 연출 포함) — card/wide 공용. 반폭 카드는 7개 넉넉히 들어가게 살짝 작게.
-  const cellSize = variant === 'wide' ? 'w-5 h-5' : 'w-[18px] h-[18px]'
+  const cellSize = variant === 'wide' ? 'w-[17px] h-[17px]' : 'w-[18px] h-[18px]'
   const dayCells = days.map((d, i) => {
     const done = cellDone(i)
     const stamping = stampIdx === i
@@ -255,7 +255,7 @@ const WeeklyStreak = forwardRef(function WeeklyStreak({ count = 0, days = [], ic
             <div className="flex-1 flex items-center justify-center gap-1.5">{dayCells}</div>
             <div className="flex flex-col items-center flex-shrink-0">
               {flameEl}
-              <p className="text-[11px] font-extrabold text-gray-700 leading-none mt-1 whitespace-nowrap">{bestStreak}일 연속</p>
+              <p className="text-[10px] font-extrabold text-gray-700 leading-none mt-1 whitespace-nowrap">{bestStreak}일 연속</p>
             </div>
           </div>
         ) : (
@@ -266,8 +266,8 @@ const WeeklyStreak = forwardRef(function WeeklyStreak({ count = 0, days = [], ic
                 <motion.span animate={flameCtrl} style={{ transformOrigin: '50% 90%', display: 'inline-flex' }}>{flameNode}</motion.span>
               </span>
               <div className="min-w-0 flex-1">
-                <span className="text-[13px] font-bold text-gray-800">주간 스트릭</span>
-                <p className="text-[11px] text-gray-500 mt-1.5">{streak}일 연속 성공 중</p>
+                <span className="text-[13px] font-bold text-gray-800 whitespace-nowrap">주간 스트릭</span>
+                <p className="text-[10px] text-gray-500 mt-1.5 truncate">{streak}일 연속 성공 중</p>
               </div>
             </div>
             <div className="flex items-center justify-between mt-3">{dayCells}</div>

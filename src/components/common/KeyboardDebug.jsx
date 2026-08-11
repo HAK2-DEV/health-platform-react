@@ -1,20 +1,19 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 // ⚠️ 임시 진단 오버레이 — 키보드 과제(B) 측정용. 해결 후 제거.
-//   화면 최상단에 실제 뷰포트 수치를 실시간 표시 → 키보드가 뷰포트를 줄이는지(resize)
-//   덮는지(overlay) 판별. inset = 키보드가 가리는 높이(px).
+//   inner(window.innerHeight)가 키보드 시 줄어드는지 = interactive-widget=resizes-content 작동 여부.
+//   minInner 가 668→340 처럼 줄면 작동(콘텐츠 뷰포트 축소) → 모달이 키보드 위로.
 function KeyboardDebug() {
   const [d, setD] = useState({})
+  const minInnerRef = useRef(99999)
   useEffect(() => {
     const vv = window.visualViewport
-    const update = () => setD({
-      inner: window.innerHeight,
-      vv: vv ? Math.round(vv.height) : '-',
-      top: vv ? Math.round(vv.offsetTop) : '-',
-      inset: vv ? Math.round(window.innerHeight - vv.height - vv.offsetTop) : '-',
-      client: document.documentElement.clientHeight,
-      dvh: Math.round(window.innerHeight),
-    })
+    const update = () => {
+      const inner = window.innerHeight
+      const vvh = vv ? Math.round(vv.height) : inner
+      if (inner < minInnerRef.current) minInnerRef.current = inner
+      setD({ inner, vv: vvh, minInner: minInnerRef.current })
+    }
     update()
     vv?.addEventListener('resize', update)
     vv?.addEventListener('scroll', update)
@@ -27,11 +26,13 @@ function KeyboardDebug() {
   }, [])
   return (
     <div style={{
-      position: 'fixed', top: 0, left: 0, right: 0, zIndex: 99999,
-      background: 'rgba(0,0,0,0.85)', color: '#3f6', font: '11px monospace',
-      padding: '3px 8px', pointerEvents: 'none', textAlign: 'center', letterSpacing: '0.3px',
+      position: 'fixed', top: '90px', left: '8px', right: '8px', zIndex: 99999,
+      background: 'rgba(0,0,0,0.9)', color: '#3f6', font: 'bold 15px monospace',
+      padding: '10px 12px', pointerEvents: 'none', textAlign: 'center', borderRadius: '10px', lineHeight: 1.7,
     }}>
-      inner:{d.inner} · vv:{d.vv} · top:{d.top} · inset:{d.inset} · client:{d.client}
+      지금 inner:{d.inner} vv:{d.vv}
+      <br />
+      <span style={{ color: '#fd6' }}>키보드때 minInner:{d.minInner}</span>
     </div>
   )
 }

@@ -109,7 +109,7 @@ export function ProgramSlideCard({ program, participants, onClick, active = fals
       <div className="relative h-full w-[52%] p-4 flex flex-col justify-between">
         <div>
           <div className="flex items-center gap-1.5">
-            <span className={`inline-flex items-center px-2 h-[20px] rounded-md text-[10px] font-bold ${status.cls}`}>
+            <span className={`inline-flex items-center px-2 h-[20px] rounded-md text-[10px] font-bold whitespace-nowrap flex-shrink-0 ${status.cls}`}>
               {status.label}
             </span>
             {newTotal > 0 && (
@@ -606,8 +606,8 @@ function DashboardPage() {
               <h2 className="text-lg font-bold text-gray-800 flex-shrink-0">프로그램</h2>
               {canToggleMode && (
                 <span className="inline-flex items-center gap-0.5 bg-gray-100 rounded-full p-0.5">
-                  <button type="button" onClick={() => switchMode('operator')} className={`px-2.5 py-1 rounded-full text-[12px] font-bold transition ${showOperator ? 'bg-white text-emerald-600 shadow-sm' : 'text-gray-500'}`}>운영중</button>
-                  <button type="button" onClick={() => switchMode('participant')} className={`px-2.5 py-1 rounded-full text-[12px] font-bold transition ${!showOperator ? 'bg-white text-emerald-600 shadow-sm' : 'text-gray-500'}`}>참여중</button>
+                  <button type="button" onClick={() => switchMode('operator')} className={`px-2.5 py-1 rounded-full text-[12px] font-bold whitespace-nowrap transition ${showOperator ? 'bg-white text-emerald-600 shadow-sm' : 'text-gray-500'}`}>운영중</button>
+                  <button type="button" onClick={() => switchMode('participant')} className={`px-2.5 py-1 rounded-full text-[12px] font-bold whitespace-nowrap transition ${!showOperator ? 'bg-white text-emerald-600 shadow-sm' : 'text-gray-500'}`}>참여중</button>
                 </span>
               )}
             </div>
@@ -692,7 +692,7 @@ function DashboardPage() {
                     className="w-10 h-10 object-contain"
                   />
                   {/* 라벨 — 기기 폭 안에서 한 줄 유지하며 최대 14px 까지 키움(FitText 자동 축소) */}
-                  <FitText max={14} min={10} className="text-gray-500 font-semibold mt-2 leading-tight text-center" title={m.label}>{m.label}</FitText>
+                  <FitText max={14} min={8} className="text-gray-500 font-semibold mt-2 leading-tight text-center" title={m.label}>{m.label}</FitText>
                   <p className="text-[18px] font-extrabold leading-tight mt-0.5">
                     <span className={highlight ? m.accent : 'text-gray-900'}><CountUp value={m.value} duration={1100} /></span>
                     <span className="text-[11px] text-gray-500 font-bold ml-0.5">{m.unit}</span>

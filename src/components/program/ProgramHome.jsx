@@ -91,9 +91,9 @@ export function NavCard({ iconSrc, iconEmoji, title, desc, actionLabel, onClick,
       <button
         type="button"
         onClick={onClick}
-        className="w-full h-7 mt-auto rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-bold flex items-center justify-center gap-0.5 transition"
+        className="w-full h-7 mt-auto rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] font-bold flex items-center justify-center whitespace-nowrap transition"
       >
-        {actionLabel} <ChevronRight className="w-3 h-3" />
+        {actionLabel}
       </button>
     </div>
   )
@@ -139,8 +139,8 @@ export function GoalCard({ emoji, title, value, unit, hint, editable = false, on
         <div className="min-w-0 flex-1">
           <span className="text-[13px] font-bold text-gray-800">{title}</span>
           {/* 값 글씨를 기기 폭에 맞춰 축소(clamp) + 단위 줄바꿈 방지 → SE 등 좁은 화면에서 단위 밀림 방지 */}
-          <p className="font-extrabold text-emerald-600 leading-none whitespace-nowrap" style={{ marginTop: '15px', fontSize: 'clamp(16px, 5.8vw, 24px)' }}>{value}<span className="text-[12px] font-bold text-gray-400 ml-1">{unit}</span></p>
-          <p className="text-[11px] text-gray-400" style={{ marginTop: '6px' }}>{hint}</p>
+          <p className="font-extrabold text-emerald-600 leading-none whitespace-nowrap" style={{ marginTop: '15px', fontSize: 'clamp(14px, 4.6vw, 20px)' }}>{value}<span className="text-[11px] font-bold text-gray-400 ml-1">{unit}</span></p>
+          <p className="text-[10px] text-gray-400 whitespace-nowrap overflow-hidden text-ellipsis" style={{ marginTop: '6px' }}>{hint}</p>
         </div>
       </div>
       {editing && (
@@ -259,7 +259,7 @@ function ProgramHome({
             <div key={c.label + i} className={`flex-1 flex flex-col items-center text-center px-1 ${i !== 0 ? 'border-l border-gray-100' : ''}`}>
               <div className="flex items-center gap-0.5 mb-1">
                 {c.img ? <Icon3D src={c.img} emoji={c.emoji} className="w-[18px] h-[18px]" /> : <span className="text-[15px] leading-none">{c.emoji}</span>}
-                <span className="text-[11px] text-gray-400 whitespace-nowrap">{c.label}</span>
+                <span className="text-[10px] text-gray-400 whitespace-nowrap">{c.label}</span>
               </div>
               <span className="text-[15px] font-extrabold text-gray-900 leading-tight">{c.value}<span className="text-[10px] font-medium text-gray-400 ml-0.5">{c.unit}</span></span>
             </div>
@@ -313,7 +313,7 @@ function ProgramHome({
                 <s.Icon className={`w-3 h-3 flex-shrink-0 ${s.ic}`} />
                 <span className="text-[11px] font-semibold text-gray-600 whitespace-nowrap">{s.lbl}</span>
               </div>
-              <p className={`text-lg font-semibold leading-tight ${s.c || 'text-gray-800'}`}>{s.prefix}<CountUp value={s.v} duration={900} /><span className="text-xs text-gray-500">{s.u}</span></p>
+              <p className={`text-lg font-semibold leading-tight truncate tabular-nums ${s.c || 'text-gray-800'}`}>{s.prefix}<CountUp value={s.v} duration={900} /><span className="text-xs text-gray-500">{s.u}</span></p>
             </div>
           ))}
         </div>

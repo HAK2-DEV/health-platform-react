@@ -560,7 +560,7 @@ function ProfileStat({ tone, icon, imgSrc, imgStyle, imgSize, label, value, unit
       )}
       <div className="flex-1 min-w-0">
         <FitText className="text-gray-400 leading-tight" max={12} min={8} title={typeof label === 'string' ? label : undefined}>{label}</FitText>
-        <p className={`text-[15px] font-extrabold leading-tight ${valueClass || 'text-gray-900'}`}>
+        <p className={`text-[15px] font-extrabold leading-tight truncate tabular-nums ${valueClass || 'text-gray-900'}`}>
           {value}{unit && <span className="text-[12px]">{unit}</span>}
         </p>
       </div>

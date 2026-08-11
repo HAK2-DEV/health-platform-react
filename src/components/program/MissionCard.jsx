@@ -122,7 +122,7 @@ function MissionCard({
         </span>
       ) : isInactive ? (
         <span
-          className="inline-flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-500 text-xs rounded font-medium whitespace-nowrap"
+          className="inline-flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-500 text-xs rounded font-medium whitespace-nowrap max-w-[130px] truncate"
           title={inactiveLabel}
         >
           🚫 {inactiveLabel}
