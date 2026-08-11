@@ -11,6 +11,8 @@ function FitText({ children, max = 12, min = 8, step = 0.5, className = '', titl
     const el = ref.current
     if (!el) return
     const measure = () => {
+      const el = ref.current
+      if (!el) return
       let s = max
       el.style.fontSize = `${s}px`
       let guard = 0
@@ -22,6 +24,13 @@ function FitText({ children, max = 12, min = 8, step = 0.5, className = '', titl
       }
     }
     measure()
+
+    // 웹폰트(Pretendard)는 첫 페인트보다 늦게 적용됨 → 그 전 측정은 넓은 fallback 기준이라
+    //   글자가 넘쳐 잘리거나 두 줄로 깨짐(네이티브 앱에서 특히). 폰트 준비되면 재측정.
+    //   document.fonts.ready 는 모든 폰트 로드 후 resolve. (미지원 브라우저는 무시)
+    if (typeof document !== 'undefined' && document.fonts?.ready) {
+      document.fonts.ready.then(() => measure())
+    }
 
     // 회전·리사이즈로 폭이 바뀌면 재측정. (폰트 조절로 높이만 변한 경우는 무시 → 루프 방지)
     const parent = el.parentElement || el
