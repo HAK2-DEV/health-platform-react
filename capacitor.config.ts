@@ -1,4 +1,5 @@
 import type { CapacitorConfig } from '@capacitor/cli'
+import { KeyboardResize } from '@capacitor/keyboard'
 
 // Day 65 — Capacitor 설정.
 // Bundle ID: com.healthplatform.app (절대 변경 X — App Store 제출 후 고정)
@@ -45,6 +46,11 @@ const config: CapacitorConfig = {
       overlaysWebView: false,
       style: 'LIGHT',             // 밝은 배경 → 어두운 아이콘 (플러그인 명명이 직관과 반대)
       backgroundColor: '#f8fbf9', // surface-app 과 동일 — 상태바가 앱 상단과 자연스럽게 이어짐
+    },
+    Keyboard: {
+      // resize:'none' — 웹뷰 리사이즈 안 함(붕괴 버그 회피). keyboardWillShow 이벤트로
+      //   키보드 높이만 받아 useKeyboardInset 이 하단 입력칸을 위로 올림. (manifest 는 adjustNothing)
+      resize: KeyboardResize.None,
     },
   },
 }
