@@ -13,8 +13,8 @@ const config: CapacitorConfig = {
   appName: '건강증진 플랫폼',
   webDir: 'dist',
   // 프로덕션은 번들된 자산 사용 (오프라인 일부 동작 + App Store 가이드라인 통과 유리).
-  // ⚠️ 개발 전용 라이브 리로드 — 키보드 과제(B) 튜닝용. 정식 빌드 전 반드시 제거!
-  server: { url: 'http://192.168.0.4:5173', cleartext: true },
+  // 본인이 native 라이브 디버깅 원하면 아래 server.url 일시 활성화:
+  // server: { url: 'http://192.168.x.x:5173', cleartext: true },
   ios: {
     // iOS 키보드가 input 가릴 때 자동 스크롤
     contentInset: 'always',

@@ -10,7 +10,6 @@ import PwaUpdatePrompt from './components/common/PwaUpdatePrompt'
 import SplashScreen from './components/common/SplashScreen'
 import BottomTabBar from './components/common/BottomTabBar'
 import InAppBrowserBanner from './components/common/InAppBrowserBanner'
-import KeyboardDebug from './components/common/KeyboardDebug'
 import { useRealtimeSync } from './hooks/useRealtimeSync'
 
 // 코드 스플리팅 — 페이지별 lazy chunk 분리 (Day 65 본인 결정)
@@ -125,8 +124,6 @@ function AppShell() {
 
   return (
    <div className="app">
-      {/* ⚠️ 임시 키보드 진단 오버레이 (B 과제 측정용 — 해결 후 제거) */}
-      <KeyboardDebug />
       {/* 인앱 브라우저(카톡 등) 안내 — 화면 축소 이슈. 감지 안 되면 렌더 X */}
       <InAppBrowserBanner />
       <main
