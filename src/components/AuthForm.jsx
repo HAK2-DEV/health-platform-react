@@ -48,6 +48,11 @@ function AuthForm() {
           onChange={(e) => setEmail(e.target.value)}
           placeholder="이메일"
           required
+          inputMode="email"
+          autoComplete="email"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
           className="px-3 py-2 text-base border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500"
         />
         <input
