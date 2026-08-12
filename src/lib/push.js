@@ -32,30 +32,33 @@ export async function subscribeToPush() {
   if (!pushSupported()) throw new Error('이 브라우저는 푸시 알림을 지원하지 않아요')
   if (!VAPID_PUBLIC) throw new Error('푸시 설정(VAPID 키)이 아직 준비되지 않았어요')
 
-  // 이미 차단(denied)된 상태면 requestPermission 이 프롬프트 없이 즉시 denied 를 반환.
-  //   ※ 웹 알림 권한(Notification.permission)은 크롬이 "사이트(origin)별"로 저장 → 설치된
-  //     WebAPK/PWA 도 이 사이트 권한을 물려받음. 안드로이드 앱 알림(설정→앱→도담)을 켜도
-  //     사이트 권한이 denied 면 소용없음. 따라서 크롬 "사이트 설정 → 알림"에서 풀어야 함.
+  // 웹 알림 권한(Notification.permission)은 크롬이 "사이트(origin)별"로 저장한다.
+  //   설치된 WebAPK/PWA 도 이 사이트 권한을 물려받음. 프리뷰/프로드처럼 도메인이 다르면
+  //   권한도 따로라, 다른 도메인에서 허용해도 이 도메인엔 안 먹힘 → 메시지에 현재 host 표시.
+  const host = typeof window !== 'undefined' ? window.location.hostname : '이 사이트'
+  const standalone = typeof window !== 'undefined' && (
+    window.matchMedia?.('(display-mode: standalone)').matches ||
+    window.navigator.standalone === true
+  )
+
+  // 이미 차단(denied)이면 requestPermission 이 프롬프트 없이 즉시 denied 반환 → 설정에서 풀어야 함.
   if (Notification.permission === 'denied') {
-    const host = typeof window !== 'undefined' ? window.location.hostname : '이 사이트'
-    const standalone = typeof window !== 'undefined' && (
-      window.matchMedia?.('(display-mode: standalone)').matches ||
-      window.navigator.standalone === true
-    )
     throw new Error(
       standalone
-        ? `알림이 차단돼 있어요.\n크롬 브라우저 앱 → ⋮ → 설정 → 사이트 설정 → 알림 →\n차단됨 목록의 '${host}'를 '허용'으로 바꾼 뒤\n도담을 다시 열어 「알림 켜기」를 눌러주세요.\n(휴대폰 설정 → 앱 → 도담 → 알림도 켜져 있어야 해요)`
-        : `알림이 차단돼 있어요.\n주소창 왼쪽 자물쇠(또는 ⋮ → 사이트 설정) → 알림 → 허용\n(또는 크롬 설정 → 사이트 설정 → 알림 → '${host}' → 허용)\n바꾼 뒤 다시 「알림 켜기」를 눌러주세요.`
+        ? `알림이 차단돼 있어요.\n크롬 브라우저 앱 → ⋮ → 설정 → 사이트 설정 → 알림 →\n차단됨 목록의 '${host}'를 '허용'으로 바꾼 뒤\n도담을 다시 열어 「알림 켜기」를 눌러주세요.`
+        : `알림이 차단돼 있어요.\n주소창 자물쇠(또는 크롬 설정 → 사이트 설정 → 알림) →\n'${host}' → 허용 으로 바꾼 뒤 다시 눌러주세요.`
     )
   }
 
   const perm = await Notification.requestPermission()
   if (perm === 'denied') {
-    throw new Error('알림을 차단하셨어요. 브라우저·휴대폰 설정에서 이 앱 알림을 허용으로 바꾼 뒤 다시 시도해주세요.')
+    throw new Error('알림을 차단하셨어요. 설정에서 이 앱 알림을 허용으로 바꾼 뒤 다시 시도해주세요.')
   }
   if (perm !== 'granted') {
-    // 'default' — 허용/차단 없이 프롬프트를 닫음
-    throw new Error('알림 허용 창을 닫으셨어요. 「알림 켜기」를 다시 눌러 「허용」을 선택해주세요.')
+    // 'default' — 팝업을 안 띄웠거나(조용한 요청) 닫음. 도메인 불일치도 흔한 원인.
+    throw new Error(
+      `아직 '${host}' 알림이 켜지지 않았어요.\n「알림 켜기」를 다시 눌러 뜨는 팝업에서 「허용」을 선택해주세요.\n※ 설정에서 허용했는데도 계속 이러면, 지금 이 앱 주소('${host}')가 아닌 다른 주소를 허용한 것일 수 있어요.`
+    )
   }
 
   const reg = await navigator.serviceWorker.ready
