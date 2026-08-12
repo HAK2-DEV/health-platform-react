@@ -21,6 +21,9 @@ import {
 const DISMISS_KEY = 'install-nudge-dismissed'
 const SHOW_DELAY_MS = 4000
 const DONE_SHOW_MS = 6000
+// appinstalled 는 설치 확정 순간 발생하지만 홈 화면 아이콘 생성/크롬 설치 UI 가
+// 끝나기 전이라 이르게 느껴짐 → 이만큼 지연 후 완료 배너 노출.
+const DONE_DELAY_MS = 2500
 
 // 세션 한정 닫힘 — sessionStorage 는 탭/앱을 닫으면 비워지므로, 다시 들어오면 배너가 재노출된다.
 function sessionDismissed() {
@@ -73,10 +76,15 @@ function InstallPromptBanner() {
     return () => clearTimeout(t)
   }, [])
 
-  // 설치 완료(appinstalled → installed true 로 전환) 감지 → 성공 배너 노출
+  // 설치 완료(appinstalled → installed true 로 전환) 감지 → 잠깐 뒤 성공 배너 노출
+  //   (실제 설치가 마무리될 시간을 두어 "너무 빨리 뜨는" 느낌 방지)
   useEffect(() => {
-    if (installed && !prevInstalled.current) setJustInstalled(true)
+    const wasInstalled = prevInstalled.current
     prevInstalled.current = installed
+    if (installed && !wasInstalled) {
+      const t = setTimeout(() => setJustInstalled(true), DONE_DELAY_MS)
+      return () => clearTimeout(t)
+    }
   }, [installed])
 
   // 성공 배너는 잠깐 보여주고 자동으로 사라짐
