@@ -9,6 +9,7 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { registerSW } from 'virtual:pwa-register'
 import { initSentry } from './lib/sentry'
 import { installSwipeBackBlocker } from './lib/disableSwipeBack'
+import { initInstallPrompt } from './lib/installPrompt'
 import { setUpdateSW, notifyNeedRefresh } from './lib/pwaUpdate'
 import ErrorBoundary from './components/common/ErrorBoundary'
 import ScreenTracker from './components/common/ScreenTracker'
@@ -18,6 +19,9 @@ initSentry()
 
 // 모바일 가로 스와이프 뒤로가기 차단 (좌·우 가장자리 터치) — PWA standalone 모드면 자동 skip.
 installSwipeBackBlocker()
+
+// PWA 설치 유도 — beforeinstallprompt 를 렌더 전 전역에서 캐치(놓침 방지). 배너는 InstallPromptBanner 가 노출.
+initInstallPrompt()
 
 // 새 배포 후 구버전 탭 자가복구 —
 //   배포 시 Vite 가 청크 해시를 바꿔 옛 청크가 사라짐 → 구버전 탭이 아직 안 불러온

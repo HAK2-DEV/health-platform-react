@@ -7,6 +7,8 @@ import LoadingState from './components/common/LoadingState'
 import { ToastProvider } from './contexts/ToastContext'
 import { AvatarViewerProvider } from './contexts/AvatarViewerContext'
 import PwaUpdatePrompt from './components/common/PwaUpdatePrompt'
+import OfflineBanner from './components/common/OfflineBanner'
+import InstallPromptBanner from './components/common/InstallPromptBanner'
 import SplashScreen from './components/common/SplashScreen'
 import BottomTabBar from './components/common/BottomTabBar'
 import InAppBrowserBanner from './components/common/InAppBrowserBanner'
@@ -324,6 +326,12 @@ function AppShell() {
 
       {/* 새 버전 알림 배너 — 새 SW 대기 시 노출 (PWA prompt 전략) */}
       <PwaUpdatePrompt />
+
+      {/* 오프라인 상태 배너 — 연결 끊기면 노출, 재연결 시 자동 갱신 안내 */}
+      <OfflineBanner />
+
+      {/* 설치 유도 배너 — 진입 몇 초 뒤, 홈 화면 추가 권유 (닫으면 2주 침묵) */}
+      <InstallPromptBanner />
     </div>
   )
 }

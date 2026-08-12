@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { subscribeToPush } from '../lib/push'
+import { isStandalone, isNativeApp } from '../lib/installPrompt'
 
 // 회원가입 직후 온보딩 튜토리얼 (마이페이지 「사용법 다시보기」로도 진입).
 //   흐름: 환영 → 앱 소개 → 홈 화면 설치(실제 스샷+스포트라이트) → 알림 → 설명 선택 → 역할별 여정 → 마무리
@@ -66,6 +67,8 @@ export default function OnboardingTutorial() {
   const [notifBusy, setNotifBusy] = useState(false)
   const [notifErr, setNotifErr] = useState('')
 
+  // 이미 홈 화면에 설치됨(standalone)이거나 네이티브 앱이면 온보딩의 "홈 화면 설치"(step 2)를 건너뛴다.
+  const installed = isStandalone() || isNativeApp()
   const go = (n) => { setStep(Math.max(0, Math.min(TOTAL - 1, n))); setScene(0); setJStep(0); window.scrollTo(0, 0) }
   const finish = (dest) => { try { localStorage.setItem('onboarding-done', '1') } catch { /* 무시 */ } navigate(dest) }
 
@@ -107,7 +110,7 @@ export default function OnboardingTutorial() {
       <style>{STYLE}</style>
       <div className="ob-app">
         <div className="ob-top">
-          <button className="ob-back" hidden={step === 0} onClick={() => { if (step === 5 && jStep > 0) setJStep((x) => x - 1); else go(step === 5 ? 4 : step - 1) }} aria-label="뒤로">
+          <button className="ob-back" hidden={step === 0} onClick={() => { if (step === 5 && jStep > 0) setJStep((x) => x - 1); else go(step === 5 ? 4 : (installed && step === 3 ? 1 : step - 1)) }} aria-label="뒤로">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
           </button>
           {/* 상단 진행바 — 여정(step5)에선 5개 서브스텝만큼도 전진(하단 점 대체). */}
@@ -143,7 +146,7 @@ export default function OnboardingTutorial() {
                   </div>
                 ))}
               </div>
-              <div className="ob-foot"><button className="ob-cta" onClick={() => go(2)}>다음</button></div>
+              <div className="ob-foot"><button className="ob-cta" onClick={() => go(installed ? 3 : 2)}>다음</button></div>
             </section>
           )}
 
