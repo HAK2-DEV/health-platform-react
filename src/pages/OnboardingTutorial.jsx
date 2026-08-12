@@ -204,7 +204,7 @@ export default function OnboardingTutorial() {
                 )}
               </div>
               <div className="ob-foot">
-                {notifErr && <p style={{ color: '#dc2626', fontSize: 13, textAlign: 'center', marginBottom: 8, lineHeight: 1.5 }}>{notifErr}</p>}
+                {notifErr && <p style={{ color: '#dc2626', fontSize: 13, textAlign: 'left', marginBottom: 8, lineHeight: 1.5, whiteSpace: 'pre-line' }}>{notifErr}</p>}
                 {!notifOn && <button className="ob-cta" onClick={allowNotif} disabled={notifBusy}>{notifBusy ? '켜는 중…' : '🔔 알림 켜기'}</button>}
                 <button className="ob-cta ghost" onClick={() => go(4)}>{notifOn ? '다음' : '나중에 할게요'}</button>
               </div>

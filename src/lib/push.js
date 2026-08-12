@@ -31,8 +31,23 @@ export async function getPushState() {
 export async function subscribeToPush() {
   if (!pushSupported()) throw new Error('이 브라우저는 푸시 알림을 지원하지 않아요')
   if (!VAPID_PUBLIC) throw new Error('푸시 설정(VAPID 키)이 아직 준비되지 않았어요')
+
+  // 이미 차단(denied)된 상태면 requestPermission 이 프롬프트 없이 즉시 denied 를 반환 →
+  //   설정에서 직접 허용해야 하므로 구체적으로 안내(특히 갤럭시/안드로이드).
+  if (Notification.permission === 'denied') {
+    throw new Error(
+      '알림이 차단돼 있어요.\n① 주소창 왼쪽 자물쇠(또는 ⋮ → 사이트 설정) → 알림 → 허용\n② 안드로이드: 설정 → 앱 → 크롬(또는 도담) → 알림 켜기\n바꾼 뒤 다시 「알림 켜기」를 눌러주세요.'
+    )
+  }
+
   const perm = await Notification.requestPermission()
-  if (perm !== 'granted') throw new Error('알림 권한을 허용해야 폰 푸시를 받을 수 있어요')
+  if (perm === 'denied') {
+    throw new Error('알림을 차단하셨어요. 브라우저·휴대폰 설정에서 이 앱 알림을 허용으로 바꾼 뒤 다시 시도해주세요.')
+  }
+  if (perm !== 'granted') {
+    // 'default' — 허용/차단 없이 프롬프트를 닫음
+    throw new Error('알림 허용 창을 닫으셨어요. 「알림 켜기」를 다시 눌러 「허용」을 선택해주세요.')
+  }
 
   const reg = await navigator.serviceWorker.ready
   let sub = await reg.pushManager.getSubscription()
