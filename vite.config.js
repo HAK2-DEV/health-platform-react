@@ -28,6 +28,13 @@ export default defineConfig({
         background_color: '#ffffff',
         theme_color: '#059669',
         lang: 'ko',
+        // getInstalledRelatedApps() 가 "이 PWA 가 실제 설치됐는지" 확인할 수 있도록 자기참조.
+        //   상대경로라 프리뷰/프로드 등 어느 도메인에서도 해당 origin 의 manifest 로 해석됨.
+        //   설치 유도 배너가 "실제 설치 완료" 시점을 정확히 감지하는 데 사용.
+        prefer_related_applications: false,
+        related_applications: [
+          { platform: 'webapp', url: '/manifest.webmanifest' },
+        ],
         icons: [
           {
             src: '/app-icon.png',
