@@ -38,10 +38,15 @@ export default defineConfig({
         // 설치 다이얼로그를 앱스토어 같은 "리치 시트"로 — 크롬은 narrow 스크린샷이 있으면
         //   스크린샷+설명이 담긴 풍부한 설치 UI 를 보여줌. 온보딩 여정 이미지 재활용(모두 440x954 동일 비율).
         screenshots: [
+          // 참여자 여정
           { src: '/onboarding/journey/p-browse1.png', sizes: '440x954', type: 'image/png', form_factor: 'narrow', label: '관심 프로그램 둘러보기' },
           { src: '/onboarding/journey/p2-detail.png', sizes: '440x954', type: 'image/png', form_factor: 'narrow', label: '프로그램 참여하기' },
-          { src: '/onboarding/journey/p4-cheer.png', sizes: '440x954', type: 'image/png', form_factor: 'narrow', label: '서로 응원하기' },
-          { src: '/onboarding/journey/p5-growth.png', sizes: '440x954', type: 'image/png', form_factor: 'narrow', label: '연속 인증·성장 확인' },
+          { src: '/onboarding/journey/p4-cheer.png', sizes: '440x954', type: 'image/png', form_factor: 'narrow', label: '서로 응원하고 좋아요' },
+          { src: '/onboarding/journey/p5-growth.png', sizes: '440x954', type: 'image/png', form_factor: 'narrow', label: '연속 인증·랭킹으로 성장 확인' },
+          // 운영자 사용법
+          { src: '/onboarding/journey/o1-create1.png', sizes: '440x954', type: 'image/png', form_factor: 'narrow', label: '운영자: 프로그램·미션 만들기' },
+          { src: '/onboarding/journey/o2-mission.png', sizes: '440x954', type: 'image/png', form_factor: 'narrow', label: '운영자: 미션·퀴즈 구성' },
+          { src: '/onboarding/journey/o5-report1.png', sizes: '440x954', type: 'image/png', form_factor: 'narrow', label: '운영자: 참여 통계·종료 리포트' },
         ],
         icons: [
           {
