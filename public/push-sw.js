@@ -9,8 +9,9 @@ self.addEventListener('push', (event) => {
   const title = data.title || '도담'
   const options = {
     body: data.body || '',
-    icon: '/app-icon.png',
-    badge: '/app-icon.png',
+    // 큰 아이콘: 풀블리드 초록(모서리 회색 제거). 배지: 흰 실루엣(투명) — 안드로이드 상태바/앱명 옆.
+    icon: '/notification-icon.png',
+    badge: '/notification-badge.png',
     data: { link: data.link || '/' },
     tag: data.tag || undefined,       // 같은 tag 는 알림 합쳐짐(스팸 방지)
     renotify: !!data.tag,
