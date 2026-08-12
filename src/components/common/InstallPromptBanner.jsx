@@ -15,19 +15,17 @@ import {
 // 설치 유도 배너 — "홈 화면에 추가" 를 적절한 순간에 슬쩍 권함.
 //   Android/Desktop Chrome: [설치] → 네이티브 설치 다이얼로그 원탭.
 //   iOS Safari: 네이티브 이벤트가 없어 [방법 보기] → 설치 스크린샷 시트(InstallIOSSheet).
-//   설치됨/스탠드얼론/네이티브앱/인앱브라우저/최근 닫음 → 노출 안 함.
-//   닫으면 2주 침묵(localStorage), 설치되면 영구 숨김.
-//   설치 완료(appinstalled) 시 → "설치 완료! 홈 화면 확인" 성공 배너를 잠깐 노출.
-const DISMISS_KEY = 'install-nudge-dismissed-at'
-const DISMISS_DAYS = 14
+//   설치됨/스탠드얼론/네이티브앱/인앱브라우저 → 노출 안 함.
+//   닫으면 "세션 한정"으로만 숨김(sessionStorage) — 앱을 다시 열면 재노출(설치 유도 우선).
+//   설치되면 영구 숨김. 설치 완료(appinstalled) 시 → "설치 완료! 홈 화면 확인" 성공 배너.
+const DISMISS_KEY = 'install-nudge-dismissed'
 const SHOW_DELAY_MS = 4000
 const DONE_SHOW_MS = 6000
 
-function dismissedRecently() {
+// 세션 한정 닫힘 — sessionStorage 는 탭/앱을 닫으면 비워지므로, 다시 들어오면 배너가 재노출된다.
+function sessionDismissed() {
   try {
-    const at = Number(localStorage.getItem(DISMISS_KEY) || 0)
-    if (!at) return false
-    return Date.now() - at < DISMISS_DAYS * 24 * 60 * 60 * 1000
+    return sessionStorage.getItem(DISMISS_KEY) === '1'
   } catch {
     return false
   }
@@ -62,7 +60,7 @@ function InstallPromptBanner() {
   const { deferredPrompt, installed } = useInstallPrompt()
   const online = useOnlineStatus()
   const [delayPassed, setDelayPassed] = useState(false)
-  const [dismissed, setDismissed] = useState(false)
+  const [dismissed, setDismissed] = useState(sessionDismissed)
   const [iosSheetOpen, setIosSheetOpen] = useState(false)
   const [previewNote, setPreviewNote] = useState(false)
   const [preview] = useState(detectPreview)
@@ -93,7 +91,6 @@ function InstallPromptBanner() {
   const blocked =
     installed ||
     dismissed ||
-    dismissedRecently() ||
     isStandalone() ||
     isNativeApp() ||
     isInAppBrowser() ||
@@ -103,9 +100,9 @@ function InstallPromptBanner() {
 
   const markDismissed = () => {
     try {
-      localStorage.setItem(DISMISS_KEY, String(Date.now()))
+      sessionStorage.setItem(DISMISS_KEY, '1')
     } catch {
-      /* localStorage 불가(사생활 모드 등) — 세션 내 숨김만 */
+      /* sessionStorage 불가 — 세션 내 숨김(state)만 */
     }
     setDismissed(true)
   }
