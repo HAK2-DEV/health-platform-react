@@ -4,7 +4,7 @@
   ],
   "headers": [
     {
-      "source": "/push-sw.js",
+      "source": "/push-sw-v2.js",
       "headers": [
         { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
       ]
