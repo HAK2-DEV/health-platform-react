@@ -256,12 +256,12 @@ function ProgramHome({
         <h3 className="text-[13px] font-bold text-gray-800 mb-3">주요 기록 요약</h3>
         <div className="flex">
           {metrics.map((c, i) => (
-            <div key={c.label + i} className={`flex-1 flex flex-col items-center text-center px-1 ${i !== 0 ? 'border-l border-gray-100' : ''}`}>
-              <div className="flex items-center gap-0.5 mb-1">
-                {c.img ? <Icon3D src={c.img} emoji={c.emoji} className="w-[18px] h-[18px]" /> : <span className="text-[15px] leading-none">{c.emoji}</span>}
-                <span className="text-[10px] text-gray-400 whitespace-nowrap">{c.label}</span>
+            <div key={c.label + i} className={`flex-1 min-w-0 flex flex-col items-center text-center px-1 ${i !== 0 ? 'border-l border-gray-100' : ''}`}>
+              <div className="flex items-center gap-0.5 mb-1 min-w-0">
+                {c.img ? <Icon3D src={c.img} emoji={c.emoji} className="w-[18px] h-[18px] flex-shrink-0" /> : <span className="text-[15px] leading-none flex-shrink-0">{c.emoji}</span>}
+                <span className="text-[10px] text-gray-400 truncate min-w-0">{c.label}</span>
               </div>
-              <span className="text-[15px] font-extrabold text-gray-900 leading-tight">{c.value}<span className="text-[10px] font-medium text-gray-400 ml-0.5">{c.unit}</span></span>
+              <span className="block w-full truncate tabular-nums text-[15px] font-extrabold text-gray-900 leading-tight">{c.value}<span className="text-[10px] font-medium text-gray-400 ml-0.5">{c.unit}</span></span>
             </div>
           ))}
         </div>
@@ -311,7 +311,7 @@ function ProgramHome({
             <div key={s.lbl}>
               <div className="flex items-center gap-0.5 mb-1">
                 <s.Icon className={`w-3 h-3 flex-shrink-0 ${s.ic}`} />
-                <span className="text-[11px] font-semibold text-gray-600 whitespace-nowrap">{s.lbl}</span>
+                <span className="text-[10px] font-semibold text-gray-600 whitespace-nowrap">{s.lbl}</span>
               </div>
               <p className={`text-lg font-semibold leading-tight truncate tabular-nums ${s.c || 'text-gray-800'}`}>{s.prefix}<CountUp value={s.v} duration={900} /><span className="text-xs text-gray-500">{s.u}</span></p>
             </div>

@@ -693,7 +693,7 @@ function DashboardPage() {
                   />
                   {/* 라벨 — 기기 폭 안에서 한 줄 유지하며 최대 14px 까지 키움(FitText 자동 축소) */}
                   <FitText max={14} min={8} className="text-gray-500 font-semibold mt-2 leading-tight text-center" title={m.label}>{m.label}</FitText>
-                  <p className="text-[18px] font-extrabold leading-tight mt-0.5">
+                  <p className="text-[18px] font-extrabold leading-tight mt-0.5 max-w-full truncate tabular-nums">
                     <span className={highlight ? m.accent : 'text-gray-900'}><CountUp value={m.value} duration={1100} /></span>
                     <span className="text-[11px] text-gray-500 font-bold ml-0.5">{m.unit}</span>
                   </p>

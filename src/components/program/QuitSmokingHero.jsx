@@ -3,6 +3,7 @@ import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { useNavigate } from 'react-router-dom'
 import { CalendarDays, Heart, Pencil } from 'lucide-react'
 import { quitRecovery, RECOVERY_MILESTONES } from '../../lib/quitRecovery'
+import FitText from '../common/FitText'
 
 // 금연 테마 프로그램 — 상세 프로필 히어로 (목업 기반, 2026-06-28).
 //   theme === 'QUIT_SMOKING' 일 때 기본 프로필 카드 대신 렌더.
@@ -108,9 +109,9 @@ function Stat({ icon, label, value, valueColor = 'text-emerald-600', onClick }) 
   const inner = (
     <>
       <div className="flex items-center justify-center gap-1 text-[12px] text-gray-500 mb-1.5">
-        {icon}<span>{label}</span>
+        {icon}<span className="whitespace-nowrap">{label}</span>
       </div>
-      <p className={`text-xl font-extrabold ${valueColor} leading-none`}>{value}</p>
+      <FitText max={20} min={12} className={`font-extrabold ${valueColor} leading-none text-center`} title={typeof value === 'string' ? value : undefined}>{value}</FitText>
     </>
   )
   if (onClick) {

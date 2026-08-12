@@ -399,12 +399,12 @@ function RunningHome({
             { img: `${RICON}/star.png`,      fb: <Star className="w-5 h-5 text-violet-500" />,         label: '연속 인증', num: daily.streakDays, fmtFn: (v) => Number(v || 0).toLocaleString('ko-KR', { maximumFractionDigits: 0 }), unit: '일' },
             { img: `${RICON}/flame.png`,     fb: <Flame className="w-5 h-5 text-rose-500" />,          label: '칼로리',   num: daily.calories, fmtFn: (v) => Number(v || 0).toLocaleString('ko-KR', { maximumFractionDigits: 0 }), unit: 'kcal' },
           ].map((c, i) => (
-            <div key={i} className={`flex-1 flex flex-col items-center text-center px-1 ${i !== 0 ? 'border-l border-gray-100' : ''}`}>
-              <div className="flex items-center gap-1 mb-1">
-                <AssetImg src={c.img} className="w-5 h-5 object-contain" fallback={c.fb} />
-                <span className="text-[11px] font-semibold text-gray-500 whitespace-nowrap">{c.label}</span>
+            <div key={i} className={`flex-1 min-w-0 flex flex-col items-center text-center px-1 ${i !== 0 ? 'border-l border-gray-100' : ''}`}>
+              <div className="flex items-center gap-1 mb-1 min-w-0">
+                <AssetImg src={c.img} className="w-5 h-5 object-contain flex-shrink-0" fallback={c.fb} />
+                <span className="text-[10px] font-semibold text-gray-500 truncate min-w-0">{c.label}</span>
               </div>
-              <span className="text-[19px] font-extrabold text-gray-900 leading-tight"><CountUp value={c.num} format={c.fmtFn} duration={1100} /><span className="text-[12px] font-semibold text-gray-400 ml-0.5">{c.unit}</span></span>
+              <span className="block w-full truncate tabular-nums text-[17px] font-extrabold text-gray-900 leading-tight"><CountUp value={c.num} format={c.fmtFn} duration={1100} /><span className="text-[11px] font-semibold text-gray-400 ml-0.5">{c.unit}</span></span>
             </div>
           ))}
         </div>

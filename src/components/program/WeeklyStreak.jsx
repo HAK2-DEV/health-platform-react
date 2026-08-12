@@ -166,7 +166,7 @@ const WeeklyStreak = forwardRef(function WeeklyStreak({ count = 0, days = [], ic
   )
 
   // 요일 동그라미들 (도장 연출 포함) — card/wide 공용. 반폭 카드는 7개 넉넉히 들어가게 살짝 작게.
-  const cellSize = variant === 'wide' ? 'w-[17px] h-[17px]' : 'w-[18px] h-[18px]'
+  const cellSize = variant === 'wide' ? 'w-[16px] h-[16px]' : 'w-[18px] h-[18px]'
   const dayCells = days.map((d, i) => {
     const done = cellDone(i)
     const stamping = stampIdx === i
@@ -246,16 +246,16 @@ const WeeklyStreak = forwardRef(function WeeklyStreak({ count = 0, days = [], ic
       >
         {variant === 'wide' ? (
           // 레퍼런스 와이드 — 좌 텍스트 / 가운데 요일 / 우 불꽃·최고기록
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <div className="min-w-0 flex-shrink-0">
-              <p className="text-[11px] font-bold text-gray-900 flex items-center gap-1"><Calendar className="w-3 h-3 text-emerald-600" /> 이번 주 기록</p>
+              <p className="text-[11px] font-bold text-gray-900 flex items-center gap-1"><Calendar className="w-3 h-3 text-emerald-600 flex-shrink-0" /> 이번 주 기록</p>
               <p className="text-[14px] font-extrabold text-gray-800 mt-0.5 whitespace-nowrap">{streak}일 연속 성공!</p>
-              <p className="text-[10px] text-gray-400 mt-0.5">꾸준함이 만드는 변화</p>
+              <p className="text-[10px] text-gray-400 mt-0.5 whitespace-nowrap">꾸준함이 만드는 변화</p>
             </div>
-            <div className="flex-1 flex items-center justify-center gap-1.5">{dayCells}</div>
+            <div className="flex-1 flex items-center justify-center gap-0.5">{dayCells}</div>
             <div className="flex flex-col items-center flex-shrink-0">
               {flameEl}
-              <p className="text-[10px] font-extrabold text-gray-700 leading-none mt-1 whitespace-nowrap">{bestStreak}일 연속</p>
+              <p className="text-[9px] font-extrabold text-gray-700 leading-none mt-1 whitespace-nowrap">{bestStreak}일 연속</p>
             </div>
           </div>
         ) : (

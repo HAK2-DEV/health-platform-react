@@ -411,8 +411,8 @@ function RankingBanner({ badge }) {
             {badge}
           </span>
         )}
-        <h2 className="text-[15px] font-bold text-gray-800 leading-snug drop-shadow-sm">꾸준함이 건강을 만듭니다! 💚</h2>
-        <p className="mt-1 text-[11px] text-gray-600">매일의 작은 실천이 큰 변화를 만들어요.</p>
+        <h2 className="text-[15px] font-bold text-gray-800 leading-snug drop-shadow-sm break-keep">꾸준함이 건강을 만듭니다! 💚</h2>
+        <p className="mt-1 text-[11px] text-gray-600 break-keep">매일의 작은 실천이 큰 변화를 만들어요.</p>
       </div>
     </div>
   )
