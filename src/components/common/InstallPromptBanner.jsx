@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Download, X, Share } from 'lucide-react'
+import { Download, X, Share, CheckCircle2 } from 'lucide-react'
 import { useInstallPrompt } from '../../hooks/useInstallPrompt'
 import { useOnlineStatus } from '../../hooks/useOnlineStatus'
 import InstallIOSSheet from './InstallIOSSheet'
@@ -17,9 +17,11 @@ import {
 //   iOS Safari: 네이티브 이벤트가 없어 [방법 보기] → 설치 스크린샷 시트(InstallIOSSheet).
 //   설치됨/스탠드얼론/네이티브앱/인앱브라우저/최근 닫음 → 노출 안 함.
 //   닫으면 2주 침묵(localStorage), 설치되면 영구 숨김.
+//   설치 완료(appinstalled) 시 → "설치 완료! 홈 화면 확인" 성공 배너를 잠깐 노출.
 const DISMISS_KEY = 'install-nudge-dismissed-at'
 const DISMISS_DAYS = 14
 const SHOW_DELAY_MS = 4000
+const DONE_SHOW_MS = 6000
 
 function dismissedRecently() {
   try {
@@ -32,10 +34,10 @@ function dismissedRecently() {
 }
 
 // 디자인 미리보기 — ?installpreview=1 이면 조건 무시하고 노출(dev 서버 http 에선 실제 이벤트가 안 나므로).
-//   ?installpreview=ios 면 iOS 버전([방법 보기]+시트)을 안드로이드에서도 강제 미리보기.
+//   ?installpreview=ios 면 iOS 버전([방법 보기]+시트)을, =done 이면 설치 완료 배너를 강제 미리보기.
 //   sessionStorage 에 기록해 라우트 이동(스플래시→로그인 등)으로 쿼리스트링이 사라져도 유지.
 function detectPreview() {
-  if (typeof window === 'undefined') return { forced: false, ios: false }
+  if (typeof window === 'undefined') return { forced: false, ios: false, done: false }
   const params = new URLSearchParams(window.location.search)
   let val = null
   if (params.has('installpreview')) {
@@ -52,8 +54,8 @@ function detectPreview() {
       /* 무시 */
     }
   }
-  if (!val) return { forced: false, ios: false }
-  return { forced: true, ios: val === 'ios' }
+  if (!val) return { forced: false, ios: false, done: false }
+  return { forced: true, ios: val === 'ios', done: val === 'done' }
 }
 
 function InstallPromptBanner() {
@@ -65,11 +67,26 @@ function InstallPromptBanner() {
   const [previewNote, setPreviewNote] = useState(false)
   const [preview] = useState(detectPreview)
   const previewForced = preview.forced
+  const [justInstalled, setJustInstalled] = useState(preview.done)
+  const prevInstalled = useRef(installed)
 
   useEffect(() => {
     const t = setTimeout(() => setDelayPassed(true), SHOW_DELAY_MS)
     return () => clearTimeout(t)
   }, [])
+
+  // 설치 완료(appinstalled → installed true 로 전환) 감지 → 성공 배너 노출
+  useEffect(() => {
+    if (installed && !prevInstalled.current) setJustInstalled(true)
+    prevInstalled.current = installed
+  }, [installed])
+
+  // 성공 배너는 잠깐 보여주고 자동으로 사라짐
+  useEffect(() => {
+    if (!justInstalled) return
+    const t = setTimeout(() => setJustInstalled(false), DONE_SHOW_MS)
+    return () => clearTimeout(t)
+  }, [justInstalled])
 
   const ios = isIOSSafari() || preview.ios
   // 노출 부적격 — 이미 앱/닫음/인앱/오프라인
@@ -82,7 +99,7 @@ function InstallPromptBanner() {
     isInAppBrowser() ||
     !online
   const eligible = !blocked && (!!deferredPrompt || ios)
-  const show = previewForced ? !dismissed : delayPassed && eligible
+  const show = (previewForced ? !dismissed : delayPassed && eligible) && !justInstalled
 
   const markDismissed = () => {
     try {
@@ -98,7 +115,7 @@ function InstallPromptBanner() {
       setIosSheetOpen(true) // iOS: 설치 스크린샷 시트 열기
     } else if (deferredPrompt) {
       const { outcome } = await promptInstall()
-      // 거절해도 당분간 다시 안 띄움
+      // 수락하면 appinstalled 가 성공 배너를 띄움. 거절하면 당분간 침묵.
       if (outcome !== 'accepted') markDismissed()
     } else if (previewForced) {
       setPreviewNote(true) // 미리보기(dev http) — 실제 설치 불가 안내
@@ -110,6 +127,40 @@ function InstallPromptBanner() {
   return (
     <>
       <AnimatePresence>
+        {/* 설치 완료 성공 배너 (우선) */}
+        {justInstalled && (
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 24 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+            className="fixed left-1/2 -translate-x-1/2 z-[70] w-[calc(100%-2rem)] max-w-md"
+            style={{ bottom: 'calc(env(safe-area-inset-bottom) + 108px)' }}
+            role="status"
+            aria-live="polite"
+          >
+            <div className="flex items-center gap-3 bg-emerald-600/95 text-white rounded-2xl shadow-xl px-4 py-3 backdrop-blur-sm">
+              <CheckCircle2 className="w-6 h-6 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold leading-tight">설치 완료! 🎉</p>
+                <p className="text-[11px] text-emerald-50 leading-tight mt-0.5">
+                  홈 화면에서 도담 아이콘을 확인해보세요
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setJustInstalled(false)}
+                className="flex-shrink-0 p-1 text-emerald-100 hover:text-white transition"
+                title="닫기"
+                aria-label="닫기"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </motion.div>
+        )}
+
+        {/* 설치 유도 배너 */}
         {show && (
           <motion.div
             initial={{ opacity: 0, y: 24 }}
