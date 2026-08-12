@@ -32,18 +32,20 @@ export async function subscribeToPush() {
   if (!pushSupported()) throw new Error('이 브라우저는 푸시 알림을 지원하지 않아요')
   if (!VAPID_PUBLIC) throw new Error('푸시 설정(VAPID 키)이 아직 준비되지 않았어요')
 
-  // 이미 차단(denied)된 상태면 requestPermission 이 프롬프트 없이 즉시 denied 를 반환 →
-  //   설정에서 직접 허용해야 하므로 구체적으로 안내. 실행 형태별로 경로가 다름:
-  //   설치된 PWA(standalone)엔 주소창/자물쇠가 없으므로 안드로이드 앱 설정으로 안내.
+  // 이미 차단(denied)된 상태면 requestPermission 이 프롬프트 없이 즉시 denied 를 반환.
+  //   ※ 웹 알림 권한(Notification.permission)은 크롬이 "사이트(origin)별"로 저장 → 설치된
+  //     WebAPK/PWA 도 이 사이트 권한을 물려받음. 안드로이드 앱 알림(설정→앱→도담)을 켜도
+  //     사이트 권한이 denied 면 소용없음. 따라서 크롬 "사이트 설정 → 알림"에서 풀어야 함.
   if (Notification.permission === 'denied') {
+    const host = typeof window !== 'undefined' ? window.location.hostname : '이 사이트'
     const standalone = typeof window !== 'undefined' && (
       window.matchMedia?.('(display-mode: standalone)').matches ||
       window.navigator.standalone === true
     )
     throw new Error(
       standalone
-        ? '알림이 차단돼 있어요.\n설정 → 앱 → 도담 → 알림 → 허용으로 바꾼 뒤\n다시 「알림 켜기」를 눌러주세요.\n(또는 홈 화면 앱 아이콘을 길게 눌러 → 앱 정보 → 알림)'
-        : '알림이 차단돼 있어요.\n① 주소창 왼쪽 자물쇠(또는 ⋮ → 사이트 설정) → 알림 → 허용\n② 안드로이드: 설정 → 앱 → 크롬 → 알림 켜기\n바꾼 뒤 다시 「알림 켜기」를 눌러주세요.'
+        ? `알림이 차단돼 있어요.\n크롬 브라우저 앱 → ⋮ → 설정 → 사이트 설정 → 알림 →\n차단됨 목록의 '${host}'를 '허용'으로 바꾼 뒤\n도담을 다시 열어 「알림 켜기」를 눌러주세요.\n(휴대폰 설정 → 앱 → 도담 → 알림도 켜져 있어야 해요)`
+        : `알림이 차단돼 있어요.\n주소창 왼쪽 자물쇠(또는 ⋮ → 사이트 설정) → 알림 → 허용\n(또는 크롬 설정 → 사이트 설정 → 알림 → '${host}' → 허용)\n바꾼 뒤 다시 「알림 켜기」를 눌러주세요.`
     )
   }
 
