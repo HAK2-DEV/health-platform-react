@@ -35,6 +35,14 @@ export default defineConfig({
         related_applications: [
           { platform: 'webapp', url: '/manifest.webmanifest' },
         ],
+        // 설치 다이얼로그를 앱스토어 같은 "리치 시트"로 — 크롬은 narrow 스크린샷이 있으면
+        //   스크린샷+설명이 담긴 풍부한 설치 UI 를 보여줌. 온보딩 여정 이미지 재활용(모두 440x954 동일 비율).
+        screenshots: [
+          { src: '/onboarding/journey/p-browse1.png', sizes: '440x954', type: 'image/png', form_factor: 'narrow', label: '관심 프로그램 둘러보기' },
+          { src: '/onboarding/journey/p2-detail.png', sizes: '440x954', type: 'image/png', form_factor: 'narrow', label: '프로그램 참여하기' },
+          { src: '/onboarding/journey/p4-cheer.png', sizes: '440x954', type: 'image/png', form_factor: 'narrow', label: '서로 응원하기' },
+          { src: '/onboarding/journey/p5-growth.png', sizes: '440x954', type: 'image/png', form_factor: 'narrow', label: '연속 인증·성장 확인' },
+        ],
         icons: [
           {
             src: '/app-icon.png',
