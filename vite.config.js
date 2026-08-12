@@ -38,6 +38,8 @@ export default defineConfig({
         // 설치 다이얼로그를 앱스토어 같은 "리치 시트"로 — 크롬은 narrow 스크린샷이 있으면
         //   스크린샷+설명이 담긴 풍부한 설치 UI 를 보여줌. 온보딩 여정 이미지 재활용(모두 440x954 동일 비율).
         screenshots: [
+          // 앱 소개
+          { src: '/onboarding/journey/p0-intro.png', sizes: '440x954', type: 'image/png', form_factor: 'narrow', label: '이런 걸 할 수 있어요 — 운영·인증·응원' },
           // 참여자 여정
           { src: '/onboarding/journey/p-browse1.png', sizes: '440x954', type: 'image/png', form_factor: 'narrow', label: '관심 프로그램 둘러보기' },
           { src: '/onboarding/journey/p2-detail.png', sizes: '440x954', type: 'image/png', form_factor: 'narrow', label: '프로그램 참여하기' },
