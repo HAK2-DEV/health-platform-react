@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useLayoutEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, useReducedMotion } from 'framer-motion'
 import { Ticket, X } from 'lucide-react'
@@ -8,104 +8,149 @@ import { getInviteHint, clearInviteHint } from '../../lib/pendingInvite'
 //   자동복귀가 끊기거나 이미 로그인 상태로 초대만 보고 넘어간 경우의 안전망(본인 아이디어 2026-08-13).
 //   참여 완료·닫기·7일 만료 시 사라짐. (저장: lib/pendingInvite 의 invite_hint)
 //
-//   등장 연출(2026-08-13): 콜드스타트 스플래시가 걷힌 뒤, 배경을 블러하며 살짝 튀어올랐다가
-//   제자리로 착지하면서 블러가 부드럽게 풀림(주목 유도). 스플래시가 없으면(앱 내 이동) 즉시.
-//   조상에 transform 없음(.app=relative) → fixed 블러 오버레이가 뷰포트 기준으로 정상.
-//   오버레이(z-45)와 카드(z-46)는 형제라 카드가 위 → 카드는 선명, 대시보드 본문만 블러.
+//   등장 연출 — 운영자 「인증 심사 대기」 배너(OperatorReviewBanner)와 동일 패턴:
+//   콜드스타트 스플래시가 걷힌 뒤, 화면 정중앙에 통통 튀며 팝업(딤+글로우) → 원래 자리로
+//   스프링 이동하며 딤/블러가 부드럽게 해제. 슬롯이 레이아웃을 예약하고 fixed 클론이 연출.
+//   조상에 transform 없음(.app=relative) → fixed 가 뷰포트 기준으로 정상.
+
+// 카드 본체(시각) — 슬롯/클론 양쪽에서 재사용. onDismiss 있으면 X 버튼 활성.
+function CardBody({ hint, rm, onDismiss }) {
+  return (
+    <div className="relative w-full flex items-center gap-3 p-3.5 rounded-[12px] bg-gradient-to-r from-emerald-500 to-teal-500 text-white overflow-hidden shadow-md">
+      {!rm && (
+        <motion.span
+          aria-hidden="true"
+          className="absolute inset-y-0 left-0 w-1/3 -skew-x-12 bg-white/25 blur-[2px]"
+          initial={{ x: '-160%' }}
+          animate={{ x: '460%' }}
+          transition={{ duration: 1.5, ease: 'easeInOut', repeat: Infinity, repeatDelay: 2.8 }}
+        />
+      )}
+      <span className="relative w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
+        <Ticket className="w-5 h-5" />
+      </span>
+      <span className="relative flex-1 min-w-0">
+        <span className="block text-[11px] font-bold text-white/85">🎟️ 초대받은 프로그램</span>
+        <span className="block text-[15px] font-extrabold truncate leading-tight">
+          {hint.name || '참여하러 가기'}
+        </span>
+      </span>
+      <span className="relative flex-shrink-0 text-[12px] font-extrabold bg-white/25 rounded-full px-3 py-1.5 whitespace-nowrap">
+        참여하기
+      </span>
+      <button
+        type="button"
+        onClick={onDismiss}
+        aria-label="초대 카드 닫기"
+        tabIndex={onDismiss ? 0 : -1}
+        className="relative flex-shrink-0 p-1 -mr-1 text-white/70 hover:text-white transition"
+      >
+        <X className="w-4 h-4" />
+      </button>
+    </div>
+  )
+}
+
 function InviteHintCard() {
   const navigate = useNavigate()
   const rm = useReducedMotion()
   const [hint, setHint] = useState(() => getInviteHint())
-  const [phase, setPhase] = useState('wait')   // wait(스플래시/대기) → pop(등장) → done
+  const [phase, setPhase] = useState('wait')   // wait → center → settle → done
+  const [rect, setRect] = useState(null)
+  const [intro, setIntro] = useState(false)
+  const slotRef = useRef(null)
+  const startedRef = useRef(false)
 
+  // 스플래시가 걷힌 뒤(또는 스플래시 없으면 즉시) 연출 트리거. reduced-motion 은 바로 done.
   useEffect(() => {
-    const start = () => setPhase(rm ? 'done' : 'pop')
-    if (typeof window === 'undefined' || !window.__appSplashActive) { start(); return }
-    const on = () => start()
-    window.addEventListener('app-splash-done', on, { once: true })
-    return () => window.removeEventListener('app-splash-done', on)
+    if (rm) { setPhase('done'); return }
+    const begin = () => setIntro(true)
+    if (typeof window === 'undefined' || !window.__appSplashActive) { begin(); return }
+    window.addEventListener('app-splash-done', begin, { once: true })
+    return () => window.removeEventListener('app-splash-done', begin)
   }, [rm])
+
+  // paint 전에 슬롯 좌표를 재고 center 로 전환 → 깜빡임 없음
+  useLayoutEffect(() => {
+    if (intro && !startedRef.current && slotRef.current) {
+      startedRef.current = true
+      const r = slotRef.current.getBoundingClientRect()
+      setRect({ top: r.top, left: r.left, width: r.width })
+      setPhase('center')
+    }
+  }, [intro])
+
+  // 정중앙 강조 유지 후 원위치로
+  useEffect(() => {
+    if (phase !== 'center') return
+    const t = setTimeout(() => setPhase('settle'), 900)
+    return () => clearTimeout(t)
+  }, [phase])
 
   if (!hint) return null
 
   const go = () => navigate(`/join?code=${encodeURIComponent(hint.code)}`)
   const dismiss = (e) => { e.stopPropagation(); clearInviteHint(); setHint(null) }
 
-  const POP_MS = 1.15
-  const POP_TIMES = [0, 0.45, 1]
+  const centerTop = (typeof window !== 'undefined' ? window.innerHeight * 0.42 : 360)
+  const animating = (phase === 'center' || phase === 'settle') && rect
 
   return (
-    <>
-      <motion.div
+    <div className="w-full">
+      {/* 슬롯 — 레이아웃 예약. 연출 중엔 숨김(자리만), 완료 후 실제 클릭 대상 */}
+      <div
         role="button"
         tabIndex={0}
+        ref={slotRef}
         onClick={go}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go() } }}
-        initial={rm ? false : { opacity: 0, scale: 0.92, y: 8 }}
-        animate={
-          rm ? { opacity: 1 }
-            : phase === 'wait' ? { opacity: 0, scale: 0.92, y: 8 }
-            : phase === 'pop' ? { opacity: 1, scale: [0.92, 1.07, 1], y: [8, -8, 0] }
-            : { opacity: 1, scale: 1, y: 0 }
-        }
-        transition={phase === 'pop'
-          ? { duration: POP_MS, times: POP_TIMES, ease: [0.22, 1, 0.36, 1] }
-          : { duration: 0.3 }}
-        onAnimationComplete={() => { if (phase === 'pop') setPhase('done') }}
-        className={`relative w-full flex items-center gap-3 p-3.5 rounded-[12px] bg-gradient-to-r from-emerald-500 to-teal-500 text-white cursor-pointer overflow-hidden shadow-md ${phase === 'pop' ? 'z-[46] shadow-xl' : ''}`}
+        className="w-full cursor-pointer"
+        style={{ visibility: phase === 'done' ? 'visible' : 'hidden' }}
       >
-        {/* 시머 스윕 — 주기적으로 빛이 훑고 지나가 주목 유도 */}
-        {!rm && (
-          <motion.span
-            aria-hidden="true"
-            className="absolute inset-y-0 left-0 w-1/3 -skew-x-12 bg-white/25 blur-[2px]"
-            initial={{ x: '-160%' }}
-            animate={{ x: '460%' }}
-            transition={{ duration: 1.5, ease: 'easeInOut', repeat: Infinity, repeatDelay: 2.6 }}
+        <CardBody hint={hint} rm={rm} onDismiss={dismiss} />
+      </div>
+
+      {animating && (
+        <>
+          {/* 배경 딤 + 블러 — center 에서 인, settle 에서 부드럽게 해제 */}
+          <motion.div
+            className="fixed inset-0 z-40 bg-black/10 backdrop-blur-[2px] pointer-events-none"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: phase === 'center' ? 1 : 0 }}
+            transition={{ duration: phase === 'center' ? 0.3 : 0.4 }}
           />
-        )}
-
-        {/* 아이콘 — 가끔 살짝 흔들림 */}
-        <motion.span
-          className="relative w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0"
-          animate={rm ? undefined : { rotate: [0, -9, 8, -6, 0] }}
-          transition={{ duration: 1.1, ease: 'easeInOut', repeat: Infinity, repeatDelay: 2.8 }}
-        >
-          <Ticket className="w-5 h-5" />
-        </motion.span>
-
-        <span className="relative flex-1 min-w-0">
-          <span className="block text-[11px] font-bold text-white/85">🎟️ 초대받은 프로그램</span>
-          <span className="block text-[15px] font-extrabold truncate leading-tight">
-            {hint.name || '참여하러 가기'}
-          </span>
-        </span>
-
-        <span className="relative flex-shrink-0 text-[12px] font-extrabold bg-white/25 rounded-full px-3 py-1.5 whitespace-nowrap">
-          참여하기
-        </span>
-
-        <button
-          type="button"
-          onClick={dismiss}
-          aria-label="초대 카드 닫기"
-          className="relative flex-shrink-0 p-1 -mr-1 text-white/70 hover:text-white transition"
-        >
-          <X className="w-4 h-4" />
-        </button>
-      </motion.div>
-
-      {/* 배경 블러 — 팝 구간에만. 대시보드 본문을 흐리게 했다가 착지하며 부드럽게 해제 */}
-      {phase === 'pop' && !rm && (
-        <motion.div
-          aria-hidden="true"
-          className="fixed inset-0 z-[45] bg-white/10 backdrop-blur-md pointer-events-none"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: [0, 1, 0] }}
-          transition={{ duration: POP_MS, times: POP_TIMES, ease: 'easeInOut' }}
-        />
+          {/* fixed 클론 — 정중앙 팝(1.08x) → 슬롯 위치로 스프링 이동 */}
+          <motion.div
+            className="fixed z-50 pointer-events-none"
+            style={{ transformOrigin: 'center' }}
+            initial={{ top: centerTop, left: rect.left, width: rect.width, scale: 0.85, opacity: 0 }}
+            animate={
+              phase === 'center'
+                ? { top: centerTop, left: rect.left, width: rect.width, scale: 1.08, opacity: 1 }
+                : { top: rect.top, left: rect.left, width: rect.width, scale: 1, opacity: 1 }
+            }
+            transition={
+              phase === 'center'
+                ? { type: 'spring', stiffness: 420, damping: 12, mass: 0.9 }
+                : { type: 'spring', stiffness: 260, damping: 26 }
+            }
+            onAnimationComplete={() => { if (phase === 'settle') setPhase('done') }}
+          >
+            <motion.div
+              className="rounded-[12px]"
+              animate={{
+                boxShadow: phase === 'center'
+                  ? '0 0 0 6px rgba(16,185,129,0.18), 0 16px 36px rgba(16,185,129,0.30)'
+                  : '0 0 0 0px rgba(16,185,129,0)',
+              }}
+              transition={{ duration: 0.4 }}
+            >
+              <CardBody hint={hint} rm={rm} />
+            </motion.div>
+          </motion.div>
+        </>
       )}
-    </>
+    </div>
   )
 }
 
