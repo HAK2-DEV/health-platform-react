@@ -445,6 +445,21 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
               className="w-full px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 disabled:bg-gray-50 resize-none overflow-hidden"
             />
           </div>
+
+          {/* 인증 방식 — 빠른 추가를 위해 1단계에 노출(가장 중요한 선택). 세부(필수·점수)는 뒤 단계 기본값. */}
+          {!isMed && (
+          <div className="mb-2">
+            <FieldLabel title="인증 방식" required tipKey="verify1" tipOpen={tipOpen} onToggle={toggleTip}>
+              참여자가 제출할 방법이에요. 여러 개 골라도 돼요.<br />📷 사진 · 📊 숫자 · 💬 소감
+            </FieldLabel>
+            <div className="grid grid-cols-3 gap-2.5">
+              <TypeCard active={requiresImage} onClick={() => setRequiresImage(!requiresImage)} Icon={ImageIcon} label="사진 제출" />
+              <TypeCard active={requiresNumeric} onClick={() => setRequiresNumeric(!requiresNumeric)} Icon={BarChart3} label="숫자 입력" />
+              <TypeCard active={requiresNote} onClick={() => setRequiresNote(!requiresNote)} Icon={MessageSquare} label="소감 작성" />
+            </div>
+            <p className="text-[12px] text-gray-400 mt-1.5">기본값(사진·10P·상시)으로 <b className="text-gray-500">바로 추가</b>하거나, <b className="text-gray-500">세부 설정</b>에서 일정·점수·운영을 조정하세요.</p>
+          </div>
+          )}
           </>)}
 
           {/* ── 2단계: 일정 ── */}
@@ -935,18 +950,38 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
             </p>
           )}
 
-          {/* 버튼 — 이전 / 다음 / 저장 */}
-          <div className="flex gap-2">
-            {step === 1 ? (
+          {/* 버튼 — 1단계: 바로 추가 + 세부 설정 링크(빠른 추가). 그 외: 이전·다음·저장 */}
+          {step === 1 ? (
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  disabled={isSaving}
+                  className="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-md transition disabled:opacity-50"
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className="flex-[2] px-4 py-3 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-medium rounded-md transition disabled:bg-gray-400"
+                >
+                  {isSaving ? '저장 중...' : (isEditMode ? '바로 저장' : '바로 추가')}
+                </button>
+              </div>
               <button
                 type="button"
-                onClick={onClose}
+                onClick={goNext}
                 disabled={isSaving}
-                className="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-md transition disabled:opacity-50"
+                className="w-full text-[13px] text-gray-500 hover:text-emerald-600 font-medium py-1.5 transition disabled:opacity-50"
               >
-                취소
+                일정 · 점수 · 운영 등 세부 설정 ›
               </button>
-            ) : (
+            </div>
+          ) : (
+            <div className="flex gap-2">
               <button
                 type="button"
                 onClick={goPrev}
@@ -955,27 +990,27 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
               >
                 이전
               </button>
-            )}
-            {step < TOTAL_STEPS ? (
-              <button
-                type="button"
-                onClick={goNext}
-                disabled={isSaving}
-                className="flex-[2] px-4 py-3 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-medium rounded-md transition"
-              >
-                다음
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={isSaving}
-                className="flex-[2] px-4 py-3 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-medium rounded-md transition disabled:bg-gray-400"
-              >
-                {isSaving ? '저장 중...' : (isEditMode ? '미션 수정 저장' : '미션 추가')}
-              </button>
-            )}
-          </div>
+              {step < TOTAL_STEPS ? (
+                <button
+                  type="button"
+                  onClick={goNext}
+                  disabled={isSaving}
+                  className="flex-[2] px-4 py-3 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-medium rounded-md transition"
+                >
+                  다음
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className="flex-[2] px-4 py-3 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-medium rounded-md transition disabled:bg-gray-400"
+                >
+                  {isSaving ? '저장 중...' : (isEditMode ? '미션 수정 저장' : '미션 추가')}
+                </button>
+              )}
+            </div>
+          )}
       </div>
 
       {/* 기록 지표 — 별도 전체화면 편집기 (모달 위 오버레이) */}
