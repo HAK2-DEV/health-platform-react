@@ -52,10 +52,14 @@ function Modal({ isOpen, onClose, children, onPrev, onNext, fill = false }) {
   //   그 높이만큼 오버레이 하단에 패딩 → 바텀시트가 키보드 위로 올라와 입력·버튼이 안 가림.
   //   (예: 회원 탈퇴 닉네임 입력, 비번 변경, 각종 폼 모달 — 이전엔 스크롤해야 보였음)
   const [kbInset, setKbInset] = useState(0)
+  const [kbViewportH, setKbViewportH] = useState(0)  // 키보드 위 실제 보이는 높이(vv.height) — fill 모달 높이 산정용
   useEffect(() => {
     const vv = window.visualViewport
-    if (!isOpen || !vv) { setKbInset(0); return }
-    const onResize = () => setKbInset(Math.max(0, window.innerHeight - vv.height - vv.offsetTop))
+    if (!isOpen || !vv) { setKbInset(0); setKbViewportH(0); return }
+    const onResize = () => {
+      setKbInset(Math.max(0, window.innerHeight - vv.height - vv.offsetTop))
+      setKbViewportH(vv.height)
+    }
     vv.addEventListener('resize', onResize)
     vv.addEventListener('scroll', onResize)
     onResize()
@@ -95,8 +99,9 @@ function Modal({ isOpen, onClose, children, onPrev, onNext, fill = false }) {
                 : 'max-h-[85vh] sm:max-h-[85vh] overflow-y-auto'
             }`}
             // fill 모달: 키보드 뜨면 고정 88vh 가 안 줄어 상단(제목 등)이 화면 위로 밀려 안 보임
-            //   → 키보드 높이만큼 최대높이를 줄여 키보드 위에 온전히 들어오게(헤더 보이고 본문이 줄어듦).
-            style={fill && kbInset ? { maxHeight: `calc(100vh - ${kbInset}px - 16px)` } : undefined}
+            //   → 실제 화면 높이(window.innerHeight) - 키보드 만큼으로 최대높이를 줄여 키보드 위에 온전히
+            //     들어오게. (100vh 는 안드 크롬에서 실제보다 커서 부정확 → innerHeight 사용)
+            style={fill && kbInset ? { maxHeight: `${Math.max(280, kbViewportH - 12)}px` } : undefined}
             onClick={(e) => e.stopPropagation()}
             onTouchStart={onTouchStart}
             onTouchEnd={onTouchEnd}

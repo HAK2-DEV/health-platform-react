@@ -462,8 +462,8 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
             <FieldLabel title="운영 기간" required={false} tipKey="period" tipOpen={tipOpen} onToggle={toggleTip}>
               비우면 프로그램 전체 기간에 열려요. <b className="text-emerald-300">시작일을 미래로</b> 두면 그날 자동 시작되는 예약 미션이 돼요.
             </FieldLabel>
-            {/* 세로 스택 — 좌우 배치는 폭이 좁아 네이티브 date 표시의 "일"이 잘림 */}
-            <div className="flex flex-col gap-2">
+            {/* 좌우 배치 + 내용 크기(w-auto) — 전체폭은 낭비, flex-1+min-w-0 은 폭이 좁아 "일" 잘림 */}
+            <div className="flex items-center gap-2 flex-wrap">
               <input
                 type="date"
                 aria-label="시작일"
@@ -472,8 +472,9 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
                 max={program.end_date}
                 onChange={(e) => setStartDate(e.target.value)}
                 disabled={isSaving}
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500 disabled:bg-gray-50"
+                className="w-auto px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500 disabled:bg-gray-50"
               />
+              <span className="text-gray-400 flex-shrink-0">~</span>
               <input
                 type="date"
                 aria-label="종료일"
@@ -482,7 +483,7 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
                 max={program.end_date}
                 onChange={(e) => setEndDate(e.target.value)}
                 disabled={isSaving}
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500 disabled:bg-gray-50"
+                className="w-auto px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500 disabled:bg-gray-50"
               />
             </div>
           </div>
