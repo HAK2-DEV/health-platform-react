@@ -119,7 +119,10 @@ function QuizEditModal({ quiz, isOpen, onClose, onSuccess }) {
               <label className="block text-sm font-medium text-gray-700 mb-2">풀이 기한 (선택)</label>
               <div className="flex flex-col sm:flex-row sm:items-end gap-2">
                 <div className="w-full sm:flex-1 min-w-0">
-                  <p className="flex items-center gap-1 text-[11px] text-gray-500 mb-1"><Calendar className="w-3 h-3" /> 시작</p>
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="flex items-center gap-1 text-[11px] text-gray-500"><Calendar className="w-3 h-3" /> 시작</p>
+                    {startAt && <button type="button" onClick={() => setStartAt('')} disabled={isSaving} className="text-[11px] text-gray-400 hover:text-red-500 transition disabled:opacity-40">지우기</button>}
+                  </div>
                   <input
                     type="datetime-local"
                     value={startAt}
@@ -130,7 +133,10 @@ function QuizEditModal({ quiz, isOpen, onClose, onSuccess }) {
                 </div>
                 <span className="hidden sm:inline text-gray-400 flex-shrink-0 pb-2">~</span>
                 <div className="w-full sm:flex-1 min-w-0">
-                  <p className="flex items-center gap-1 text-[11px] text-gray-500 mb-1"><Calendar className="w-3 h-3" /> 종료</p>
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="flex items-center gap-1 text-[11px] text-gray-500"><Calendar className="w-3 h-3" /> 종료</p>
+                    {dueAt && <button type="button" onClick={() => setDueAt('')} disabled={isSaving} className="text-[11px] text-gray-400 hover:text-red-500 transition disabled:opacity-40">지우기</button>}
+                  </div>
                   <input
                     ref={dueAtRef}
                     type="datetime-local"
