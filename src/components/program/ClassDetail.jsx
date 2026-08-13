@@ -264,7 +264,7 @@ export default function ClassDetail({ sessionId, programId, userId, isOwner = fa
             <>
               <div className="flex gap-2">
                 <input value={code} onChange={e => { setCode(e.target.value); setCodeErr(null) }} placeholder="현장 코드 입력" maxLength={12}
-                  className="flex-1 h-11 px-3 rounded-xl border border-gray-200 text-[15px] font-bold tracking-widest text-gray-800 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
+                  className="flex-1 min-w-0 h-11 px-3 rounded-xl border border-gray-200 text-[15px] font-bold tracking-widest text-gray-800 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
                 <button type="button" onClick={() => mCheckIn.mutate()} disabled={mCheckIn.isPending || !code.trim()}
                   className="h-11 px-5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold transition disabled:opacity-50 flex items-center justify-center gap-2 flex-shrink-0 whitespace-nowrap">
                   {mCheckIn.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}출석

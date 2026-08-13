@@ -13,7 +13,6 @@ import { initInstallPrompt } from './lib/installPrompt'
 import { setUpdateSW, notifyNeedRefresh } from './lib/pwaUpdate'
 import ErrorBoundary from './components/common/ErrorBoundary'
 import ScreenTracker from './components/common/ScreenTracker'
-import { initDiag } from './lib/diagOverlay'   // 🔧 임시 진단(가로 밀림) — React 밖 바닐라, 조사 후 삭제
 
 // Sentry 초기화 — 지연 로딩(첫 페인트 이후 idle). DSN 없으면 no-op.
 initSentry()
@@ -91,6 +90,3 @@ createRoot(document.getElementById('root')).render(
     </ErrorBoundary>
   </StrictMode>,
 )
-
-// 🔧 임시 진단 오버레이 — React 밖에서 초기화(앱 트리에 영향 0). ?diag=1 로 켜짐. 조사 후 삭제.
-initDiag()

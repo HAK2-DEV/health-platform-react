@@ -25,7 +25,7 @@ function CodeEditor({ sessionId }) {
       <p className="text-[12px] font-bold text-emerald-800 mb-1.5">현장 출석 코드</p>
       <div className="flex gap-2">
         <input value={val} onChange={e => setInput(e.target.value)} placeholder="예: 4821" maxLength={12}
-          className="flex-1 h-9 px-2.5 rounded-lg border border-emerald-200 text-[14px] font-bold tracking-widest text-gray-800 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
+          className="flex-1 min-w-0 h-9 px-2.5 rounded-lg border border-emerald-200 text-[14px] font-bold tracking-widest text-gray-800 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
         <button type="button" onClick={() => m.mutate((val || '').trim())} disabled={m.isPending || !(val || '').trim()}
           className="h-9 px-4 rounded-lg bg-emerald-500 text-white text-[13px] font-bold disabled:opacity-50 flex-shrink-0 whitespace-nowrap">저장</button>
       </div>
