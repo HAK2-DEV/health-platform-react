@@ -718,7 +718,7 @@ function CommentsSection({ verificationId, programId, myUserId, isProgramOwner, 
     const el = refs.current[targetCommentId]
     if (!el) return
     const t = setTimeout(() => {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' })  // inline:nearest — 갤럭시 가로 밀림 방지
       setHighlight(targetCommentId)
       setTimeout(() => setHighlight(null), 2500)
     }, 250)
@@ -727,10 +727,12 @@ function CommentsSection({ verificationId, programId, myUserId, isProgramOwner, 
 
   // 댓글 아이콘으로 방금 연 경우 — 입력창이 화면에 들어오도록 살짝 스크롤.
   //   (딥링크 targetCommentId 는 위 타겟 스크롤이 담당하므로 제외)
+  //   block:'center' 는 갤럭시 WebView 에서 문서를 가로로도 밀어 화면이 옆으로 붙는 버그 유발
+  //   (아이폰은 세로만). → block:'nearest'(최소 세로 이동) + inline:'nearest'(가로 미이동) 로 회피.
   useEffect(() => {
     if (targetCommentId) return
     const t = setTimeout(() => {
-      inputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      inputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' })
     }, 120)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
