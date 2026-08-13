@@ -26,7 +26,7 @@ import { Reveal } from './statsAnim'
 //   onOpenTab(key), onRecord(), onNotice()
 
 // 커스터마이즈 가능한 박스 — 기본 순서 + 라벨(편집 화면·Phase 2 에서 재사용). 고정(hero/menu) 제외.
-export const HOME_BOX_ORDER = ['notice', 'summary', 'menu', 'progress', 'metrics', 'todayMissions', 'recent', 'classes', 'banner']
+export const HOME_BOX_ORDER = ['notice', 'summary', 'menu', 'classes', 'progress', 'metrics', 'todayMissions', 'recent', 'banner']
 export const HOME_BOX_LABELS = {
   notice: '공지사항',
   summary: '요약 지표',
