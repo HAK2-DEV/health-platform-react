@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useKeyboardInset } from '../../hooks/useKeyboardInset'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
+import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 import { motion } from 'framer-motion'
 import { ChevronRight, Calendar, Activity, Award, Flame, Pencil } from 'lucide-react'
 import WeeklyStreak from './WeeklyStreak'
@@ -117,6 +118,7 @@ function GoalField({ label, value, onChange, placeholder, cls = '' }) {
 export function GoalCard({ emoji, title, value, unit, hint, editable = false, onSave = null }) {
   const [editing, setEditing] = useState(false)
   useBodyScrollLock(editing)  // 목표 카드 편집 오버레이 — iOS 배경 스크롤 방지
+  useBackButtonClose(editing, () => setEditing(false))  // 하드웨어 뒤로가기 = 닫기
   const kbInset = useKeyboardInset()   // iOS 키보드 높이 — 목표 편집 입력 시 카드 위로
   const [draft, setDraft] = useState({ emoji, title, value, unit, hint })
   const set = (k, v) => setDraft((d) => ({ ...d, [k]: v }))

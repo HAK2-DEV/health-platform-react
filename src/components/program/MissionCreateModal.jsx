@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, Fragment } from 'react'
 import { useKeyboardInset } from '../../hooks/useKeyboardInset'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
+import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 import { supabase } from '../../supabaseClient'
 import { Image as ImageIcon, BarChart3, MessageSquare, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Plus, X, Check, Info } from 'lucide-react'
 import MissionIconPicker from './MissionIconPicker'
@@ -45,6 +46,7 @@ function FieldLabel({ title, required, tipKey, tipOpen, onToggle, children }) {
 // onBack: 라이브러리에서 「직접 만들기」로 진입한 경우 — 라이브러리로 돌아가기 (생성 모드만)
 function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, onBack }) {
   useBodyScrollLock(isOpen)  // iOS 배경 스크롤 방지
+  useBackButtonClose(isOpen, onClose)  // 하드웨어 뒤로가기 = 닫기 (중첩 지표편집기는 이중닫힘 방지 위해 제외)
   const kbInset = useKeyboardInset()   // iOS 키보드 높이 — 제목·설명·지표 입력 시 카드 위로
   const isEditMode = !!editMission
 

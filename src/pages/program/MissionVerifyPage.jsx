@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, Fragment } from 'react'
+import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ChevronLeft, Upload, X, Check, Flag, Clock, Star, Camera, MessageSquare, Pencil, Move } from 'lucide-react'
@@ -163,6 +164,7 @@ function MissionVerifyPage() {
   const [heroCropSrc, setHeroCropSrc] = useState(null)
   const [heroCropOpen, setHeroCropOpen] = useState(false)
   const [heroUploading, setHeroUploading] = useState(false)
+  useBackButtonClose(heroEditOpen && !heroCropOpen, () => setHeroEditOpen(false))  // 하드웨어 뒤로가기 = 히어로 편집 닫기
   const heroFileRef = useRef(null)
   const updateHeroMutation = useMutation({
     mutationFn: async (url) => {   // url: 전체 public URL | null(아이콘으로 폴백)

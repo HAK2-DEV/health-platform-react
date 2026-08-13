@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
+import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 import { useNavigate } from 'react-router-dom'
 import { CalendarDays, Heart, Pencil } from 'lucide-react'
 import { quitRecovery, RECOVERY_MILESTONES } from '../../lib/quitRecovery'
@@ -20,6 +21,7 @@ function QuitSmokingHero({ programId, streak = 0, savedAmount = null, healthScor
   const rec = quitRecovery(streak)  // 연속 금연일 → 회복 단계
   const [recOpen, setRecOpen] = useState(false)
   useBodyScrollLock(recOpen)  // 기록 오버레이 — iOS 배경 스크롤 방지
+  useBackButtonClose(recOpen, () => setRecOpen(false))  // 하드웨어 뒤로가기 = 닫기
 
   return (
     <>

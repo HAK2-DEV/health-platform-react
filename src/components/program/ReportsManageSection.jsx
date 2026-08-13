@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
+import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Flag, EyeOff, Eye, Check, ChevronRight, X } from 'lucide-react'
@@ -61,6 +62,7 @@ function ReportsManageSection({ programId, onNavigate, returnTo = null }) {
   //   패널 안 모달로 바로 띄워 판단하게 한다. ("부적절한 인증 사진" 판단엔 이미지가 핵심)
   const [viewVer, setViewVer] = useState(null)   // 인증 뷰어 모달 대상 group
   useBodyScrollLock(!!viewVer)  // 인증 뷰어 오버레이 — iOS 배경 스크롤 방지
+  useBackButtonClose(!!viewVer, () => setViewVer(null))  // 하드웨어 뒤로가기 = 닫기
   const [verUrl, setVerUrl] = useState(null)      // 인증 이미지 signed URL
   useEffect(() => {
     const path = viewVer?.target?.image_path

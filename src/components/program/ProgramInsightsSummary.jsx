@@ -1,5 +1,6 @@
 import { useMemo, useState, useRef, useEffect } from 'react'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
+import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 import { useNavigate, useParams } from 'react-router-dom'
 import { TrendingUp, TrendingDown, Minus, ChevronRight, ChevronDown } from 'lucide-react'
 import { formatKstDate } from '../../lib/queries'
@@ -439,6 +440,7 @@ function BarStat({ label, pct, sub, tip, tipAlign = 'left' }) {
 function WidgetMetrics({ insights }) {
   const [showTrend, setShowTrend] = useState(false)
   useBodyScrollLock(showTrend)  // 추이 상세 오버레이 — iOS 배경 스크롤 방지
+  useBackButtonClose(showTrend, () => setShowTrend(false))  // 하드웨어 뒤로가기 = 닫기
   const m = insights.metrics
   // 어제 대비 활동 참여자 증감 — participationTrend 끝=오늘, 그 앞=어제
   const pt = insights.participationTrend || []
@@ -509,6 +511,7 @@ function WidgetTrend({ insights }) {
   const { verificationTrend, last7Count, trendDelta, trendDeltaPct } = insights
   const [open, setOpen] = useState(false)
   useBodyScrollLock(open)  // 추이 상세 오버레이 — iOS 배경 스크롤 방지
+  useBackButtonClose(open, () => setOpen(false))  // 하드웨어 뒤로가기 = 닫기
 
   let TrendIcon = Minus
   let trendCls = 'text-gray-500'

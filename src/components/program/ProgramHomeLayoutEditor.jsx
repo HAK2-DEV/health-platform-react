@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
+import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 import { motion } from 'framer-motion'
 import { ChevronUp, ChevronDown, Minus, Plus, X } from 'lucide-react'
 import { HOME_BOX_ORDER, HOME_BOX_LABELS } from './ProgramHome'
@@ -35,6 +36,7 @@ function BoxShape({ boxKey, menuLabels, labels = HOME_BOX_LABELS }) {
 function ProgramHomeLayoutEditor({ currentOrder, currentHidden, menuLabels, saving, onClose, onSave,
   boxKeys = HOME_BOX_ORDER, boxLabels = HOME_BOX_LABELS, nonHideable = ['menu'] }) {
   useBodyScrollLock(true)  // 마운트=열림(전체화면 편집기) → iOS 배경 스크롤 방지
+  useBackButtonClose(true, onClose)  // 하드웨어 뒤로가기 = 닫기
   const allKeys = boxKeys
   const [visible, setVisible] = useState(() => {
     const hiddenArr = (currentHidden || []).filter((k) => allKeys.includes(k))

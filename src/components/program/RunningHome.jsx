@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
+import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Timer, Flame, Megaphone, Footprints, Star, ClipboardList, HelpCircle, MessageSquare, Trophy, ChevronRight, Check, Pencil, X } from 'lucide-react'
 import WeeklyStreak from './WeeklyStreak'
@@ -210,6 +211,7 @@ function RichField({ initialHtml, baseFontSize, baseFontWeight, baseColor, sizes
 function RunningHeroBlock({ hero, editable, onHeroChange }) {
   const [editing, setEditing] = useState(false)
   useBodyScrollLock(editing)  // 히어로 편집 오버레이 — iOS 배경 스크롤 방지
+  useBackButtonClose(editing, () => setEditing(false))  // 하드웨어 뒤로가기 = 닫기
   const [draft, setDraft] = useState(HERO_DEFAULT_HTML)
   const set = (k, v) => setDraft((d) => ({ ...d, [k]: v }))
   const open = () => {
@@ -325,6 +327,7 @@ function RunningHome({
   // 추천 페이스 인라인 수정 (운영자)
   const [editingPace, setEditingPace] = useState(false)
   useBodyScrollLock(editingPace)  // 페이스 목표 편집 오버레이 — iOS 배경 스크롤 방지
+  useBackButtonClose(editingPace, () => setEditingPace(false))  // 하드웨어 뒤로가기 = 닫기
   const [paceInput, setPaceInput] = useState(pace)
   const savePace = () => {
     const v = paceInput.trim()
