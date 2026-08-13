@@ -25,18 +25,28 @@ function SplashScreen() {
   // 업데이트 reload 로 진입한 경우엔 이미 업데이트 스플래시(3D 새싹)를 봤으므로 초기 스플래시 생략
   //   (로딩화면 2번 노출 방지). 플래그는 한 번만 사용하고 제거.
   const [show, setShow] = useState(() => {
+    let willShow = true
     try {
       if (sessionStorage.getItem('pwa-updating')) {
         sessionStorage.removeItem('pwa-updating')
-        return false
+        willShow = false
       }
     } catch { /* sessionStorage 미지원 */ }
-    return true
+    // 콜드 스타트 스플래시가 화면을 덮는 동안 뒤에서 마운트되는 요소들이 등장 애니메이션을
+    //   놓치지 않도록 상태 공유 — 스플래시가 걷힌 뒤 'app-splash-done' 으로 등장 트리거.
+    if (typeof window !== 'undefined') window.__appSplashActive = willShow
+    return willShow
   })
 
   useEffect(() => {
     if (!show) return
-    const t = setTimeout(() => setShow(false), DURATION_MS)
+    const t = setTimeout(() => {
+      setShow(false)
+      try {
+        window.__appSplashActive = false
+        window.dispatchEvent(new Event('app-splash-done'))
+      } catch { /* 무시 */ }
+    }, DURATION_MS)
     return () => clearTimeout(t)
   }, [show])
 

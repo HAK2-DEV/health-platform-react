@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, useReducedMotion } from 'framer-motion'
 import { Ticket, X } from 'lucide-react'
@@ -12,6 +12,16 @@ function InviteHintCard() {
   const navigate = useNavigate()
   const rm = useReducedMotion()
   const [hint, setHint] = useState(() => getInviteHint())
+  // 콜드 스타트 스플래시가 덮고 있는 동안 등장이 재생·완료돼 놓치는 문제 →
+  //   스플래시가 걷힌 뒤(app-splash-done) 등장. 스플래시가 없으면 즉시.
+  const [play, setPlay] = useState(false)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.__appSplashActive) { setPlay(true); return }
+    const on = () => setPlay(true)
+    window.addEventListener('app-splash-done', on, { once: true })
+    return () => window.removeEventListener('app-splash-done', on)
+  }, [])
+
   if (!hint) return null
 
   const go = () => navigate(`/join?code=${encodeURIComponent(hint.code)}`)
@@ -24,8 +34,8 @@ function InviteHintCard() {
       onClick={go}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go() } }}
       initial={rm ? false : { opacity: 0, y: 14, scale: 0.96 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ type: 'spring', stiffness: 380, damping: 24, delay: 0.05 }}
+      animate={rm ? { opacity: 1 } : (play ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 14, scale: 0.96 })}
+      transition={{ type: 'spring', stiffness: 380, damping: 24 }}
       className="relative w-full flex items-center gap-3 p-3.5 rounded-[12px] bg-gradient-to-r from-emerald-500 to-teal-500 text-white cursor-pointer overflow-hidden shadow-md"
     >
       {/* 시머 스윕 — 주기적으로 빛이 훑고 지나가 주목 유도 */}
