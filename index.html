@@ -9,7 +9,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&display=swap">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <!-- 확대 허용(user-scalable) — 갤럭시 폴드 커버 등에서 콘텐츠가 작게 나올 때 손가락으로 키울 수 있게.
+         더블탭 줌은 index.css 의 touch-action:manipulation 이 막아 앱 느낌 유지. (접근성 WCAG 상으로도 확대 허용 권장) -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 
     <!-- PWA — manifest 는 vite-plugin-pwa 가 빌드 시 자동 inject -->
     <meta name="theme-color" content="#059669" />
