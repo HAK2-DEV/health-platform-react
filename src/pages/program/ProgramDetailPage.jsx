@@ -485,9 +485,11 @@ function ProgramDetailPage() {
   // 「새 미션/퀴즈」 강조 — 기준(lastSeen 없으면 참여시각) 이후 생성분 개수. 미션/퀴즈 탭 열면 seen 처리(배지 사라짐).
   const quizzesForNew = isOwner ? programQuizzes : participantQuizzes
   const [newSeenTick, setNewSeenTick] = useState(0)
-  // 미션 탭 진입 시점의 기준시각을 markSeen 전에 1회 캡처 → 보는 동안 개별 NEW 배지 유지(markSeen 이 갱신해도).
+  // 미션/퀴즈 탭 진입 시점의 기준시각을 markSeen 전에 1회 캡처 → 보는 동안 개별 NEW 배지 유지(markSeen 이 갱신해도).
   const missionsSinceRef = useRef(null)
   const missionsCapturedRef = useRef(false)
+  const quizzesSinceRef = useRef(null)
+  const quizzesCapturedRef = useRef(false)
   useEffect(() => {   // 해당 탭 열면 seen 갱신 → 배지 사라짐
     if (!id) return
     if (activeTab === 'missions') {
@@ -497,7 +499,13 @@ function ProgramDetailPage() {
       }
       markSeen(id, 'missions'); setNewSeenTick(t => t + 1)
     }
-    else if (activeTab === 'quizzes') { markSeen(id, 'quizzes'); setNewSeenTick(t => t + 1) }
+    else if (activeTab === 'quizzes') {
+      if (!quizzesCapturedRef.current) {
+        quizzesSinceRef.current = getLastSeen(id, 'quizzes') || myPart?.joined_at || null
+        quizzesCapturedRef.current = true
+      }
+      markSeen(id, 'quizzes'); setNewSeenTick(t => t + 1)
+    }
   }, [activeTab, id])
   const newMissionCount = useMemo(() => countNew(missionsRaw, id, 'missions', myPart?.joined_at), [missionsRaw, id, myPart, newSeenTick])
   const newQuizCount = useMemo(() => countNew(quizzesForNew, id, 'quizzes', myPart?.joined_at), [quizzesForNew, id, myPart, newSeenTick])
@@ -2414,11 +2422,12 @@ function ProgramDetailPage() {
                     programId={id}
                     quizPreview={quizPreview}
                     isOwner={isOwner && !isEnded}
+                    isNew={isNewSince(quiz, quizzesSinceRef.current)}
                     onEdit={(q) => navigate(`/programs/${id}/posts/quiz/${q.id}/edit`)}
                     onDelete={handleQuizDelete}
                   />
                 ) : (
-                  <QuizListItem key={quiz.id} quiz={quiz} programId={id} quizPreview={quizPreview} />
+                  <QuizListItem key={quiz.id} quiz={quiz} programId={id} quizPreview={quizPreview} isNew={isNewSince(quiz, quizzesSinceRef.current)} />
                 )
               ))}
             </div>
@@ -3110,7 +3119,7 @@ function ProgramDetailPage() {
 // 퀴즈 목록 1행 — 예정(미시작) 퀴즈는 입장 차단 + 클릭 시 좌우 흔들기.
 //   shake 를 카드 로컬 state 로 둬서 부모(ProgramDetailPage) 리렌더에 끊기지 않고
 //   끝까지 재생되도록 함 → 예정 미션 카드(MissionCard)와 동일한 흔들림 세기.
-function QuizListItem({ quiz, programId, quizPreview }) {
+function QuizListItem({ quiz, programId, quizPreview, isNew = false }) {
   const navigate = useNavigate()
   const [shake, setShake] = useState(false)
   const sub = quiz.mySubmission
@@ -3138,7 +3147,10 @@ function QuizListItem({ quiz, programId, quizPreview }) {
     >
       <span className="text-2xl flex-shrink-0">{lockedNotStarted ? '🔒' : '📝'}</span>
       <div className="flex-1 min-w-0">
-        <h3 className="font-medium text-gray-800 truncate">{quiz.title}</h3>
+        <h3 className="font-medium text-gray-800 flex items-center gap-1.5 min-w-0">
+          <span className="truncate">{quiz.title}</span>
+          {isNew && <span className="flex-shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[10px] font-extrabold leading-none tracking-wide">NEW</span>}
+        </h3>
         <p className={`text-xs mt-0.5 ${lockedNotStarted ? 'text-amber-600 font-medium' : 'text-gray-500'}`}>
           {sub
             ? (sub.status === 'PENDING' ? '채점 중' : `완료 · ${sub.total_score}점`)

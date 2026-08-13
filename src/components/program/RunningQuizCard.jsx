@@ -17,7 +17,7 @@ function typeChips(breakdown, questionCount) {
   return chips.length ? chips : [`${questionCount || 0}문제`]
 }
 
-function RunningQuizCard({ quiz, index = 0, programId, quizPreview, isOwner, onEdit, onDelete }) {
+function RunningQuizCard({ quiz, index = 0, programId, quizPreview, isOwner, onEdit, onDelete, isNew = false }) {
   const navigate = useNavigate()
   const [shake, setShake] = useState(false)
   const sub = quiz.mySubmission
@@ -58,6 +58,7 @@ function RunningQuizCard({ quiz, index = 0, programId, quizPreview, isOwner, onE
             <div className="flex items-center gap-1.5 min-w-0">
               <span className="text-[12px] font-extrabold text-emerald-500 flex-shrink-0">{String(index + 1).padStart(2, '0')}</span>
               <h3 className="text-[14px] font-bold text-gray-800 break-keep leading-snug truncate">{quiz.title}</h3>
+              {isNew && <span className="flex-shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[10px] font-extrabold leading-none">NEW</span>}
             </div>
             <span className="text-[12px] font-extrabold text-emerald-600 whitespace-nowrap flex-shrink-0">+{quiz.totalPoint || 0}P</span>
           </div>
