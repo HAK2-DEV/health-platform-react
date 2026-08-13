@@ -117,26 +117,20 @@ function QuizEditModal({ quiz, isOpen, onClose, onSuccess }) {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">풀이 기한 (선택)</label>
-              <div className="flex flex-col sm:flex-row sm:items-end gap-2">
-                <div className="w-full sm:flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-1">
-                    <p className="flex items-center gap-1 text-[11px] text-gray-500"><Calendar className="w-3 h-3" /> 시작</p>
-                    {startAt && <button type="button" onClick={() => setStartAt('')} disabled={isSaving} className="text-[11px] text-gray-400 hover:text-red-500 transition disabled:opacity-40">지우기</button>}
-                  </div>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <p className="flex items-center gap-1 text-[11px] text-gray-500 w-8 flex-shrink-0"><Calendar className="w-3 h-3" /> 시작</p>
                   <input
                     type="datetime-local"
                     value={startAt}
                     onChange={handleStartChange}
                     disabled={isSaving}
-                    className="block w-full min-w-0 px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 disabled:bg-gray-50"
+                    className="min-w-0 px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 disabled:bg-gray-50"
                   />
+                  {startAt && <button type="button" onClick={() => setStartAt('')} disabled={isSaving} className="text-[11px] text-gray-400 hover:text-red-500 transition flex-shrink-0 disabled:opacity-40">지우기</button>}
                 </div>
-                <span className="hidden sm:inline text-gray-400 flex-shrink-0 pb-2">~</span>
-                <div className="w-full sm:flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-1">
-                    <p className="flex items-center gap-1 text-[11px] text-gray-500"><Calendar className="w-3 h-3" /> 종료</p>
-                    {dueAt && <button type="button" onClick={() => setDueAt('')} disabled={isSaving} className="text-[11px] text-gray-400 hover:text-red-500 transition disabled:opacity-40">지우기</button>}
-                  </div>
+                <div className="flex items-center gap-2">
+                  <p className="flex items-center gap-1 text-[11px] text-gray-500 w-8 flex-shrink-0"><Calendar className="w-3 h-3" /> 종료</p>
                   <input
                     ref={dueAtRef}
                     type="datetime-local"
@@ -144,8 +138,9 @@ function QuizEditModal({ quiz, isOpen, onClose, onSuccess }) {
                     onChange={(e) => setDueAt(e.target.value)}
                     min={startAt || undefined}
                     disabled={isSaving}
-                    className="block w-full min-w-0 px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 disabled:bg-gray-50"
+                    className="min-w-0 px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 disabled:bg-gray-50"
                   />
+                  {dueAt && <button type="button" onClick={() => setDueAt('')} disabled={isSaving} className="text-[11px] text-gray-400 hover:text-red-500 transition flex-shrink-0 disabled:opacity-40">지우기</button>}
                 </div>
               </div>
             </div>

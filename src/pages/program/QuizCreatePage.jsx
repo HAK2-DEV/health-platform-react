@@ -438,23 +438,18 @@ function QuizCreatePage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">풀이 기한 <span className="font-normal text-gray-400">(선택)</span></label>
-                <div className="flex flex-col sm:flex-row sm:items-end gap-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <p className="flex items-center gap-1 text-[11px] text-gray-500"><Calendar className="w-3 h-3" /> 시작</p>
-                      {startAt && <button type="button" onClick={() => setStartAt('')} className="text-[11px] text-gray-400 hover:text-red-500 transition">지우기</button>}
-                    </div>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <p className="flex items-center gap-1 text-[11px] text-gray-500 w-8 flex-shrink-0"><Calendar className="w-3 h-3" /> 시작</p>
                     <input type="datetime-local" value={startAt} onChange={handleStartChange}
-                      className="w-full px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500" />
+                      className="min-w-0 px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500" />
+                    {startAt && <button type="button" onClick={() => setStartAt('')} className="text-[11px] text-gray-400 hover:text-red-500 transition flex-shrink-0">지우기</button>}
                   </div>
-                  <span className="hidden sm:inline text-gray-400 flex-shrink-0 pb-2">~</span>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <p className="flex items-center gap-1 text-[11px] text-gray-500"><Calendar className="w-3 h-3" /> 종료</p>
-                      {dueAt && <button type="button" onClick={() => setDueAt('')} className="text-[11px] text-gray-400 hover:text-red-500 transition">지우기</button>}
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <p className="flex items-center gap-1 text-[11px] text-gray-500 w-8 flex-shrink-0"><Calendar className="w-3 h-3" /> 종료</p>
                     <input ref={dueAtRef} type="datetime-local" value={dueAt} onChange={handleDueChange} min={startAt || undefined}
-                      className="w-full px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500" />
+                      className="min-w-0 px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500" />
+                    {dueAt && <button type="button" onClick={() => setDueAt('')} className="text-[11px] text-gray-400 hover:text-red-500 transition flex-shrink-0">지우기</button>}
                   </div>
                 </div>
                 <p className="text-xs text-gray-400 mt-1">시작 비우면 즉시 시작 / 종료 비우면 무기한</p>
