@@ -888,10 +888,10 @@ function CommentsSection({ verificationId, programId, myUserId, isProgramOwner, 
           placeholder={replyTo ? '답글 달기...' : '댓글 달기...'}
           maxLength={200}
           disabled={addMutation.isPending}
-          className="flex-1 px-3.5 h-10 text-sm border border-gray-300 bg-gray-50 rounded-full text-gray-800 placeholder:text-gray-400 outline-none transition focus:border-emerald-400 focus:bg-white disabled:opacity-50"
+          className="flex-1 min-w-0 px-3.5 h-10 text-sm border border-gray-300 bg-gray-50 rounded-full text-gray-800 placeholder:text-gray-400 outline-none transition focus:border-emerald-400 focus:bg-white disabled:opacity-50"
         />
         <button type="button" onClick={submit} disabled={addMutation.isPending || !input.trim()}
-          className="p-2 text-emerald-500 hover:bg-emerald-50 rounded-full transition disabled:opacity-40" title="댓글 작성">
+          className="flex-shrink-0 p-2 text-emerald-500 hover:bg-emerald-50 rounded-full transition disabled:opacity-40" title="댓글 작성">
           <Send className="w-4 h-4" />
         </button>
         </div>
