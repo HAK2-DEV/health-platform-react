@@ -119,8 +119,8 @@ function CommunityPostModal({ isOpen, onClose, program, boards = [], defaultBoar
 
   return (
     <>
-    <Modal isOpen={isOpen} onClose={onClose} fill>
-      <div className="flex-1 min-h-0 flex flex-col px-5 pt-1 pb-4">
+    <Modal isOpen={isOpen} onClose={onClose}>
+      <div className="px-5 pt-1 pb-4">
         {/* 헤더 — 고정 */}
         <div className="flex-shrink-0 space-y-3">
           <h2 className="text-lg font-bold text-gray-800">{isEdit ? '✏️ 글 수정' : '✏️ 글쓰기'}</h2>
@@ -138,10 +138,10 @@ function CommunityPostModal({ isOpen, onClose, program, boards = [], defaultBoar
           </div>
         </div>
 
-        {/* 본문 — 남는 공간을 채움 */}
-        <div className="flex-1 min-h-0 flex flex-col mt-3">
+        {/* 본문 — 고정 높이(일반 모달, 스크롤 대응) */}
+        <div className="mt-3">
           <textarea value={body} onChange={(e) => setBody(e.target.value)} maxLength={500} placeholder="내용을 입력하세요 (최대 500자)"
-            className="flex-1 min-h-[100px] w-full px-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500 resize-none leading-relaxed" />
+            className="min-h-[160px] w-full px-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500 resize-none leading-relaxed" />
           <p className="text-[11px] text-gray-400 text-right mt-0.5 flex-shrink-0">{body.length}/500</p>
         </div>
 

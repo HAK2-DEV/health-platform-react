@@ -98,10 +98,10 @@ function Modal({ isOpen, onClose, children, onPrev, onNext, fill = false }) {
                 ? 'h-[88vh] sm:h-[85vh] flex flex-col overflow-hidden'
                 : 'max-h-[85vh] sm:max-h-[85vh] overflow-y-auto'
             }`}
-            // fill 모달: 키보드 뜨면 고정 88vh 가 안 줄어 상단(제목 등)이 화면 위로 밀려 안 보임
-            //   → 실제 화면 높이(window.innerHeight) - 키보드 만큼으로 최대높이를 줄여 키보드 위에 온전히
-            //     들어오게. (100vh 는 안드 크롬에서 실제보다 커서 부정확 → innerHeight 사용)
-            style={fill && kbInset ? { maxHeight: `${Math.max(280, kbViewportH - 12)}px` } : undefined}
+            // 키보드 뜨면 모달 최대높이를 키보드 위 실제 보이는 높이(visualViewport)로 제한 → 키보드 위에
+            //   온전히 들어오고, overflow-y-auto 라 브라우저가 포커스된 입력창을 자동으로 보이게 스크롤.
+            //   (100vh 는 안드 크롬에서 실제보다 커 부정확 → visualViewport 사용) fill·일반 모달 모두 적용.
+            style={kbInset ? { maxHeight: `${Math.max(240, kbViewportH - 12)}px` } : undefined}
             onClick={(e) => e.stopPropagation()}
             onTouchStart={onTouchStart}
             onTouchEnd={onTouchEnd}
