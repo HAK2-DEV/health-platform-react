@@ -13,6 +13,7 @@ import UserAvatar from '../../components/common/UserAvatar'
 import LoadingState from '../../components/common/LoadingState'
 import EmptyState from '../../components/common/EmptyState'
 import ReportsManageSection from '../../components/program/ReportsManageSection'
+import CheerModal from '../../components/program/CheerModal'
 
 // 「오늘의 운영」 상세 — 단일 4탭 (/programs/:id/operator-today?tab=review|join|report|rate).
 //   대시보드 「오늘의 운영 현황」 타일 클릭 시 진입. 선택 프로그램 기준.
@@ -425,6 +426,8 @@ function RateTab({ programId }) {
     queryFn: () => fetchProgramTodayParticipation(programId),
     enabled: !!programId,
   })
+  // 리마인드(이탈관리) — 「아직 안 함」 명단에서 개별/전체 리마인드 푸시. CheerModal reminder 변형 재사용.
+  const [remind, setRemind] = useState(null)  // {userId,nickname} | {userIds,groupLabel}
   if (isLoading || !data) return <LoadingState />
 
   return (
@@ -451,15 +454,41 @@ function RateTab({ programId }) {
 
       {data.notYet.length > 0 && (
         <>
-          <p className="text-[12px] font-bold text-gray-400 mt-3 mb-1">아직 안 함 ({data.notYet.length})</p>
+          <div className="flex items-center justify-between mt-3 mb-1">
+            <p className="text-[12px] font-bold text-gray-400">아직 안 함 ({data.notYet.length})</p>
+            <button
+              type="button"
+              onClick={() => setRemind({ userIds: data.notYet.map(u => u.user_id), groupLabel: `오늘 아직 인증 안 한 ${data.notYet.length}명` })}
+              className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-full px-2.5 py-1 transition"
+            >
+              ⏰ 전체 리마인드
+            </button>
+          </div>
           {data.notYet.map(u => (
-            <div key={u.user_id} className="flex items-center gap-3 bg-white rounded-xl border border-gray-100 shadow-soft px-3.5 py-2.5 opacity-70">
+            <div key={u.user_id} className="flex items-center gap-3 bg-white rounded-xl border border-gray-100 shadow-soft px-3.5 py-2.5">
               <UserAvatar avatarPath={u.avatar_path} nickname={u.nickname} size="sm" />
               <span className="flex-1 text-[13px] font-semibold text-gray-600 truncate">{u.nickname}</span>
-              <span className="text-[11px] text-gray-400 flex-shrink-0">미인증</span>
+              <button
+                type="button"
+                onClick={() => setRemind({ userId: u.user_id, nickname: u.nickname })}
+                className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 flex-shrink-0 whitespace-nowrap"
+              >
+                🔔 리마인드
+              </button>
             </div>
           ))}
         </>
+      )}
+
+      {remind && (
+        <CheerModal
+          programId={programId}
+          variant="reminder"
+          onClose={() => setRemind(null)}
+          {...(remind.userIds
+            ? { targetUserIds: remind.userIds, groupLabel: remind.groupLabel }
+            : { targetUserId: remind.userId, targetNickname: remind.nickname })}
+        />
       )}
     </div>
   )
