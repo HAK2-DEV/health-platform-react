@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Users, Target, Award, Crown, Lock, ShieldCheck, Globe2, Calendar } from 'lucide-react'
@@ -33,6 +34,7 @@ function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
   // APPROVAL 입장 답변 — 「참여 신청하기」 누르면 입장 질문 폼이 펼쳐짐(showEntryForm)
   const [entryAnswer, setEntryAnswer] = useState('')
   const [showEntryForm, setShowEntryForm] = useState(false)
+  useBackButtonClose(showEntryForm, () => setShowEntryForm(false))  // 하드웨어 뒤로가기 = 참가폼 닫기(스택 최상단)
 
   // 모달 fetch — 운영자/참여자/미션 정보 한 번에
   const { data: joinInfo } = useQuery({

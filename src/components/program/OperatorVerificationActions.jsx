@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useKeyboardInset } from '../../hooks/useKeyboardInset'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
+import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Ban, Eye, EyeOff } from 'lucide-react'
 import { queryKeys, excludeVerificationScore, setVerificationFeedVisible } from '../../lib/queries'
@@ -27,6 +28,7 @@ function OperatorVerificationActions({ verification, programId, feedEnabled = tr
   // 모달 상태 — 네이티브 prompt/confirm 대신 중앙 카드 UI
   const [excludeOpen, setExcludeOpen] = useState(false)
   useBodyScrollLock(excludeOpen)  // 점수 제외 확인 오버레이 — iOS 배경 스크롤 방지
+  useBackButtonClose(excludeOpen, () => setExcludeOpen(false))  // 하드웨어 뒤로가기 = 닫기
   const [reason, setReason] = useState('')
   const [hideConfirmOpen, setHideConfirmOpen] = useState(false)
 

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
+import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 import Modal from '../common/Modal'
 import { supabase } from '../../supabaseClient'
 import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Plus, X, Image as ImageIcon, BarChart3, MessageSquare, Pencil, Check } from 'lucide-react'
@@ -150,6 +151,7 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
 
   // 기록 지표 편집 (별도 전체화면) — draft 의 metrics 배열 조작
   const [metricsEditIdx, setMetricsEditIdx] = useState(null)
+  useBackButtonClose(metricsEditIdx !== null, () => setMetricsEditIdx(null))  // 하드웨어 뒤로가기 = 지표편집 닫기(스택 최상단)
   const setDraftMetrics = (idx, fn) => setDrafts(prev => prev.map((d, i) => i === idx ? { ...d, metrics: fn(Array.isArray(d.metrics) ? d.metrics : []) } : d))
   const MAX_METRICS = 4
   const addDraftMetric = (idx) => setDraftMetrics(idx, ms => ms.length >= MAX_METRICS ? ms : [...ms, { key: 'k' + Math.random().toString(36).slice(2, 8), label: '', unit: '', max: '', icon: '' }])

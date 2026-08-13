@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Image as ImageIcon, X, Crop, Clock } from 'lucide-react'
 import Modal from '../common/Modal'
@@ -25,6 +26,7 @@ function CommunityPostModal({ isOpen, onClose, program, boards = [], defaultBoar
   const [cropSrc, setCropSrc] = useState(null)   // 편집 중인 원본 objectURL
   const [isCropOpen, setIsCropOpen] = useState(false)
   const [pendingDone, setPendingDone] = useState(false)  // 승인 필요 게시판 제출 완료 안내 카드
+  useBackButtonClose(pendingDone, () => setPendingDone(false))  // 하드웨어 뒤로가기 = 닫기(스택 최상단)
 
   useEffect(() => {
     if (!isOpen) return

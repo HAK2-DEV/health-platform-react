@@ -75,6 +75,7 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
   const [metrics, setMetrics] = useState([])  // [{ key, label, unit, max, icon }]
   const [metricAggregate, setMetricAggregate] = useState(false)
   const [metricsEditOpen, setMetricsEditOpen] = useState(false)  // 별도 전체화면 지표 편집기
+  useBackButtonClose(metricsEditOpen, () => setMetricsEditOpen(false))  // 하드웨어 뒤로가기 = 지표편집 닫기(스택 최상단)
   const newKey = () => 'k' + Math.random().toString(36).slice(2, 8)
   const MAX_METRICS = 4
   const addMetric = () => setMetrics(m => m.length >= MAX_METRICS ? m : [...m, { key: newKey(), label: '', unit: '', max: '', icon: '' }])
