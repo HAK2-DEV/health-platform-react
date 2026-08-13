@@ -117,6 +117,12 @@ select,
    iOS Safari 의 edge swipe back 은 시스템 제스처라 별도 JS 핸들러 필요 — main.jsx 참조. */
 html, body {
   overscroll-behavior-x: none;
+  /* 가로 스크롤 원천 차단 — 모바일 PWA 는 가로 스크롤이 없어야 함.
+     증상: 갤럭시에서 댓글 입력창 포커스 시 브라우저가 가로 scrollIntoView 하거나
+     1px 가로 오버플로로 문서가 옆으로 밀려 콘텐츠가 좌측에 붙고 우측이 잘림.
+     clip 은 스크롤 컨테이너를 만들지 않아 내부 sticky/fixed 에 영향 없고, 세로 스크롤도 유지.
+     (내부 가로 스크롤 컨테이너는 각자 overflow-x-auto 로 독립 스크롤 → 영향 없음.) */
+  overflow-x: clip;
   /* 앱 배경 — 흰색 + 화면 높이 채움.
      (구: #e7ebea 회색 "레터박스" → 콘텐츠 짧은 페이지에서 앱 아래로 회색이 새어
       큰 회색 블록으로 보이던 버그. 실제 폰에선 body 흰색이 이미 양옆도 덮음.) */
