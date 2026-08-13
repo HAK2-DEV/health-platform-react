@@ -13,6 +13,7 @@ import ConfirmModal from '../common/ConfirmModal'
 import CommunityPostSocial from './CommunityPostSocial'
 import RejectReasonModal from './RejectReasonModal'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
+import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 
 // 게시판 글 목록 — 작성자/내용/이미지(signed URL) + 본인·운영자 삭제·고정.
 //   layout: feed(기본 카드) / list(가로 행) / grid(2열) / magazine(대1+소2+중1 반복).
@@ -97,6 +98,7 @@ function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId,
   const handleEdit = (p) => { setDetailPost(null); onEdit?.(p) }
 
   useBodyScrollLock(!!detailPost)  // 상세 팝업 열렸을 때 iOS 배경 스크롤 방지
+  useBackButtonClose(!!detailPost, closeDetail)  // 하드웨어 뒤로가기 = 상세 닫기
 
   const invalidatePosts = () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.communityPosts(programId, boardId) })

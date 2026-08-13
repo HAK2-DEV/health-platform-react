@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../supabaseClient'
+import { useBackButtonClose } from '../hooks/useBackButtonClose'
 
 // 전역 프로필 사진 뷰어 — 어디서든 useAvatarViewer().open({ avatarPath, nickname }) 로 크게 보기.
 //   UserAvatar 의 viewable 옵션이 이 컨텍스트를 호출한다. 모달은 앱 루트에 1개만(포털처럼 최상위).
@@ -16,6 +17,7 @@ export function AvatarViewerProvider({ children }) {
   const [view, setView] = useState(null)   // { avatarPath, nickname } | null
   const open = useCallback((v) => { if (v) setView(v) }, [])
   const close = useCallback(() => setView(null), [])
+  useBackButtonClose(!!view, close)  // 하드웨어 뒤로가기 = 닫기
 
   // ESC 로 닫기
   useEffect(() => {

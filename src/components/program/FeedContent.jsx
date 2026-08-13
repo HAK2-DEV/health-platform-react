@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
+import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 import { useMutation, useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { Heart, MessageCircle, BarChart3, Send, Trash2, Pencil, Flag, CornerDownRight } from 'lucide-react'
@@ -178,6 +179,7 @@ function FeedContent({ program, layout: layoutProp = null, targetVerificationId 
   // 커뮤니티 레이아웃 — 훅(useBodyScrollLock)은 아래 early return 보다 위에 있어야 함(hooks 규칙).
   const layout = layoutProp || program.community_layout || 'feed'
   useBodyScrollLock(!!focusedId && layout !== 'feed')  // 그리드/매거진 풀뷰 오버레이 — iOS 배경 스크롤 방지
+  useBackButtonClose(!!focusedId && layout !== 'feed', () => setFocusedId(null))  // 하드웨어 뒤로가기 = 풀뷰 닫기
 
   if (isPostsLoading) {
     return <LoadingState text="피드 불러오는 중..." />

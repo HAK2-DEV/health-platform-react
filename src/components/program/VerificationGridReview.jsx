@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
+import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { X, Check, ClipboardCheck, ChevronLeft, ChevronRight, Ban, RotateCcw, Circle, PauseCircle } from 'lucide-react'
 import { approveVerifications, rejectVerifications, queryKeys } from '../../lib/queries'
@@ -31,6 +32,7 @@ function formatMetricRows(defsRaw, mvRaw) {
 
 export default function VerificationGridReview({ isOpen, onClose, programId, reviews = [], reviewerId }) {
   useBodyScrollLock(isOpen)  // iOS 배경 스크롤 방지
+  useBackButtonClose(isOpen, onClose)  // 하드웨어 뒤로가기 = 리뷰 닫기
   const qc = useQueryClient()
   const [rejectIds, setRejectIds] = useState(() => new Set())
   const [heldIds, setHeldIds] = useState(() => new Set())   // 보류(선택 취소) — 승인·거절 어디에도 안 들어가고 PENDING 유지

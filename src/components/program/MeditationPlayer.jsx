@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 import { X, Play, Check } from 'lucide-react'
 
 // 참여자 명상 플레이어 — 마음관리 「명상 타이머」 인증.
@@ -18,6 +19,7 @@ function MeditationPlayer({ mission, onComplete, onClose, submitting = false }) 
   const [paused, setPaused] = useState(false)
   const [remaining, setRemaining] = useState(totalSec)
   const [breath, setBreath] = useState({ label: '', scale: 0.55 })
+  useBackButtonClose(true, onClose)  // 하드웨어 뒤로가기 = 닫기
 
   const elapsedRef = useRef(0)   // ms
   const lastRef = useRef(0)
