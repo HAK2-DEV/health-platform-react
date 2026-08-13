@@ -4,6 +4,7 @@ import { Hourglass } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
+import { takePendingInvite } from '../lib/pendingInvite'
 
 function HomePage() {
   const { session, isLoading } = useAuth()
@@ -41,10 +42,10 @@ function HomePage() {
         return
       }
 
-      // 초대링크 등으로 진입했다 로그인한 경우 저장된 경로로 복귀 (1회 소비) — 온보딩보다 우선
-      const redirect = sessionStorage.getItem('post_auth_redirect')
+      // 초대링크 등으로 진입했다 로그인한 경우 저장된 경로로 복귀 (1회 소비) — 온보딩보다 우선.
+      //   localStorage 기반(pendingInvite) — OAuth 리다이렉트/브라우저 전환에도 코드가 살아남음.
+      const redirect = takePendingInvite()
       if (redirect) {
-        sessionStorage.removeItem('post_auth_redirect')
         navigate(redirect, { replace: true })
         setIsChecking(false)
         return

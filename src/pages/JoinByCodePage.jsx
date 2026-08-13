@@ -10,6 +10,7 @@ import UserAvatar from '../components/common/UserAvatar'
 import StickyBackBar from '../components/common/StickyBackBar'
 import { formatKoreanDate } from '../lib/formatters'
 import { CATEGORY } from '../lib/constants'
+import { setPendingInvite } from '../lib/pendingInvite'
 
 // 초대 코드 가입 페이지 — 코드 단독으로 lookup + 가입
 // 라우트: /join?code=<TEXT>  (program 파라미터는 더 이상 사용 X)
@@ -34,7 +35,7 @@ function JoinByCodePage() {
   const navigate = useNavigate()
   // 초대 링크가 카톡 등 인앱 브라우저에 남은 남의 세션으로 열릴 수 있어, 현재 계정을 알리고 전환 제공.
   const handleSwitchAccount = async () => {
-    sessionStorage.setItem('post_auth_redirect', window.location.pathname + window.location.search)
+    setPendingInvite(window.location.pathname + window.location.search)
     try { await supabase.auth.signOut() } catch { /* 무시 */ }
     navigate('/login')
   }
@@ -97,7 +98,7 @@ function JoinByCodePage() {
   // (소비/제거는 HomePage 가 1회만 — ref 가드로 StrictMode 안전)
   useEffect(() => {
     if (!session && urlCode) {
-      sessionStorage.setItem('post_auth_redirect', window.location.pathname + window.location.search)
+      setPendingInvite(window.location.pathname + window.location.search)
     }
   }, [session, urlCode])
 
@@ -131,7 +132,7 @@ function JoinByCodePage() {
           type="button"
           onClick={() => {
             // 로그인/회원가입(닉네임) 완료 후 이 초대 화면으로 자동 복귀
-            sessionStorage.setItem('post_auth_redirect', window.location.pathname + window.location.search)
+            setPendingInvite(window.location.pathname + window.location.search)
             navigate('/login')
           }}
           className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-medium rounded-2xl shadow-md transition"
