@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useKeyboardInset } from '../../hooks/useKeyboardInset'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
+import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { X, Loader2, Check } from 'lucide-react'
 import { fetchSessionRoster, setSessionAttendance, fetchSessionCode, setSessionCode } from '../../lib/queries'
@@ -35,6 +36,7 @@ function CodeEditor({ sessionId }) {
 
 export default function AttendanceRosterModal({ session, confirmedBy = null, attendanceMode = 'operator_roll', onClose }) {
   useBodyScrollLock(true)  // 마운트=열림 → iOS 배경 스크롤 방지
+  useBackButtonClose(true, onClose)  // 하드웨어 뒤로가기 = 닫기
   const kbInset = useKeyboardInset()   // iOS 키보드 높이 — 현장코드 입력 시 카드 위로
   const qc = useQueryClient()
   const { data: roster = [], isLoading } = useQuery({

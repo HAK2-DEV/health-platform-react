@@ -2,9 +2,11 @@
 //   props: invite({ teamName, emoji, leaderNickname, memberCount, capacity }),
 //          isOpen, error, onAccept, onDecline, onClose, busy
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
+import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 
 function TeamInviteAcceptModal({ invite, isOpen, error, onAccept, onDecline, onClose, busy = false }) {
   useBodyScrollLock(isOpen)  // iOS 배경 스크롤 방지
+  useBackButtonClose(isOpen, onClose)  // 하드웨어 뒤로가기 = 닫기
   if (!isOpen || !invite) return null
   return (
     <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-5" onClick={onClose}>

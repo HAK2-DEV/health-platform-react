@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useKeyboardInset } from '../../hooks/useKeyboardInset'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
+import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 import { AlertTriangle, ChevronLeft } from 'lucide-react'
 
 // 프로그램 삭제 — 2단계 확인 (운영자 전용, 호출부에서 isOwner 가드).
@@ -10,6 +11,7 @@ import { AlertTriangle, ChevronLeft } from 'lucide-react'
 // props: isOpen, programTitle, onClose, onConfirm, busy
 function DeleteProgramModal({ isOpen, programTitle = '', onClose, onConfirm, busy = false }) {
   useBodyScrollLock(isOpen)  // iOS 배경 스크롤 방지
+  useBackButtonClose(isOpen, onClose)  // 하드웨어 뒤로가기 = 닫기
   const kbInset = useKeyboardInset()   // iOS 키보드 높이 — 제목 확인 입력 시 카드 위로
   const [step, setStep] = useState(1)
   const [typed, setTyped] = useState('')

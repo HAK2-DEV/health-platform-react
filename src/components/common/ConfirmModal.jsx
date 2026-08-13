@@ -1,9 +1,11 @@
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
+import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 
 // 공용 확인 모달 — window.confirm 대체 (한줄 설명 모달과 동일 오버레이 스타일)
 //   props: isOpen, onClose, onConfirm, title, message, confirmLabel, danger, busy
 function ConfirmModal({ isOpen, onClose, onConfirm, title, message, confirmLabel = '확인', danger = false, busy = false }) {
   useBodyScrollLock(isOpen)  // iOS 배경 스크롤 방지
+  useBackButtonClose(isOpen, onClose)  // 하드웨어 뒤로가기 = 닫기
   if (!isOpen) return null
   return (
     <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-5" onClick={onClose}>

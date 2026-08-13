@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
+import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 import { supabase } from '../../supabaseClient'
 import { useToast } from '../../contexts/ToastContext'
 
@@ -44,6 +45,7 @@ const MAX = 200
 
 export default function CheerModal({ programId, targetUserId, targetNickname, targetUserIds, groupLabel, variant = 'cheer', onClose }) {
   useBodyScrollLock(true)  // 마운트=열림 → iOS 배경 스크롤 방지
+  useBackButtonClose(true, onClose)  // 하드웨어 뒤로가기 = 닫기
   const toast = useToast()
   const v = VARIANTS[variant] || VARIANTS.cheer
   const isBulk = Array.isArray(targetUserIds)

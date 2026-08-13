@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
+import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { X, Clock, Check } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
@@ -12,6 +13,7 @@ import RejectReasonModal from './RejectReasonModal'
 //   대기열 방식: 항상 posts[0] 을 보여주고, 처리하면 그 글이 빠져 다음 글이 올라옴.
 function CommunityReviewModal({ isOpen, onClose, programId, posts = [], boards = [] }) {
   useBodyScrollLock(isOpen)  // iOS 배경 스크롤 방지
+  useBackButtonClose(isOpen, onClose)  // 하드웨어 뒤로가기 = 닫기
   const qc = useQueryClient()
   const [imageUrl, setImageUrl] = useState(null)
   const [rejectOpen, setRejectOpen] = useState(false)   // 거절 사유 입력 모달

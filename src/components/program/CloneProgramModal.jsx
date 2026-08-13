@@ -7,6 +7,7 @@ import { X, Copy, Calendar, Loader2 } from 'lucide-react'
 import { cloneProgram, formatKstDate, queryKeys } from '../../lib/queries'
 import { formatKoreanDate } from '../../lib/formatters'
 import { useAuth } from '../../hooks/useAuth'
+import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 
 // 다음 기수 열기 — 프로그램 복제 모달 (2026-06-28 본인 결정: 새 시작일만 입력 → 평행 이동).
 //   설정·미션·퀴즈만 복사한 DRAFT 새 프로그램 생성. 참여자·인증·점수는 초기화.
@@ -21,6 +22,7 @@ function addDays(dateStr, days) {
 
 function CloneProgramModal({ isOpen, onClose, program }) {
   useBodyScrollLock(isOpen)  // iOS 배경 스크롤 방지
+  useBackButtonClose(isOpen, onClose)  // 하드웨어 뒤로가기 = 닫기
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { session } = useAuth()

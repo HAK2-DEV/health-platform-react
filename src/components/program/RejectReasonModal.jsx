@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useKeyboardInset } from '../../hooks/useKeyboardInset'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
+import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 import { Ban } from 'lucide-react'
 
 // 거절 사유 입력 — 중앙 카드. onSubmit(reason) → 호출측이 처리. 사유는 작성자에게 알림으로 전달.
@@ -16,6 +17,7 @@ function RejectReasonModal({
   const kbInset = useKeyboardInset()   // iOS 키보드 높이 — 사유 입력 시 카드 위로
   useEffect(() => { if (isOpen) setReason('') }, [isOpen])
   useBodyScrollLock(isOpen)  // iOS 배경 스크롤 방지
+  useBackButtonClose(isOpen, onClose)  // 하드웨어 뒤로가기 = 닫기
   if (!isOpen) return null
   const defaultDesc = (postLabel ? '“' + postLabel + '” 글을 거절해요. ' : '이 글을 거절해요. ')
     + '거절하면 글이 삭제되고 작성자에게 사유가 전달돼요.'
