@@ -10,7 +10,7 @@ import UserAvatar from '../components/common/UserAvatar'
 import StickyBackBar from '../components/common/StickyBackBar'
 import { formatKoreanDate } from '../lib/formatters'
 import { CATEGORY } from '../lib/constants'
-import { setPendingInvite } from '../lib/pendingInvite'
+import { setPendingInvite, setInviteHint, clearInviteHint } from '../lib/pendingInvite'
 
 // 초대 코드 가입 페이지 — 코드 단독으로 lookup + 가입
 // 라우트: /join?code=<TEXT>  (program 파라미터는 더 이상 사용 X)
@@ -60,6 +60,7 @@ function JoinByCodePage() {
       if (data?.ok) {
         setProgram(data.program)
         setStatus('preview')
+        setInviteHint(c.trim(), data.program?.name)   // 대시보드 「초대받은 프로그램」 카드용 — 이름까지 저장
       } else {
         setErrorReason(data?.reason || 'unknown')
         setStatus('error')
@@ -81,6 +82,7 @@ function JoinByCodePage() {
         queryClient.invalidateQueries({ queryKey: ['rankings'] })
         // 참여자 수·둘러보기·통계 즉시 반영
         invalidateParticipation(queryClient, { programId: data.program_id, userId: session?.user?.id })
+        clearInviteHint(code.trim())   // 참여 완료 → 대시보드 초대 카드 제거
         setJoinResult(data)
         setStatus('joined')
       } else {
@@ -97,6 +99,7 @@ function JoinByCodePage() {
   // 비로그인으로 초대링크 진입 시 — 로그인/회원가입 완료 후 이 화면으로 복귀하도록 경로 저장.
   // (소비/제거는 HomePage 가 1회만 — ref 가드로 StrictMode 안전)
   useEffect(() => {
+    if (urlCode) setInviteHint(urlCode)   // 방문 즉시 대시보드 카드용 힌트(코드). 이름은 lookup 후 갱신.
     if (!session && urlCode) {
       setPendingInvite(window.location.pathname + window.location.search)
     }

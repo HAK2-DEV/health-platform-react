@@ -15,6 +15,7 @@ import CountUp from '../components/common/CountUp'
 import FitText from '../components/common/FitText'
 import LoadingState from '../components/common/LoadingState'
 import EmptyState from '../components/common/EmptyState'
+import InviteHintCard from '../components/common/InviteHintCard'
 import RankTrophyAnim from '../components/common/RankTrophyAnim'
 import { calcProgress, progressUrgency } from '../lib/programVisuals'
 import {
@@ -539,6 +540,9 @@ function DashboardPage() {
 
       {/* 콘텐츠 — 섹션 간격 16px(히어로·프로그램·활동요약·점수 균일, 제목이 위 박스에 붙지 않게) */}
       <div className="w-full max-w-4xl mx-auto px-3 sm:px-4 pt-[9px] pb-6 space-y-4">
+
+        {/* ─── 초대받은 프로그램 카드 — 힌트 있을 때만(참여/닫기 전) ─── */}
+        <InviteHintCard />
 
         {/* ─── 인사말 헤더 (이미지 카드, 모서리 10) — 페이드 없이 항상 보임 ─── */}
         <div className="relative overflow-hidden rounded-[10px] bg-[#eef7f1] h-[120px]">

@@ -25,3 +25,43 @@ export function takePendingInvite() {
     return path
   } catch { return null }
 }
+
+// ── 대시보드 「초대받은 프로그램」 카드 힌트 ──────────────────────────
+//   위 pendingInvite(자동복귀, 1회 소비)와 별개의 "지속 리마인더".
+//   자동복귀가 중간에 끊기거나 이미 로그인 상태로 초대만 보고 넘어간 경우의 안전망.
+//   초대링크 방문 시 심고, 참여 완료·사용자 닫기·7일 만료 전까지 유지.
+const HINT_KEY = 'invite_hint'
+const HINT_TTL_MS = 7 * 24 * 60 * 60_000
+
+export function setInviteHint(code, name) {
+  if (!code) return
+  try {
+    const prev = getInviteHint()
+    localStorage.setItem(HINT_KEY, JSON.stringify({
+      code,
+      name: name || prev?.name || '',
+      at: prev?.code === code ? prev.at : Date.now(),   // 같은 코드면 최초 방문시각 유지
+    }))
+  } catch { /* 저장 불가 무시 */ }
+}
+
+export function getInviteHint() {
+  try {
+    const raw = localStorage.getItem(HINT_KEY)
+    if (!raw) return null
+    const h = JSON.parse(raw)
+    if (!h?.code || typeof h.at !== 'number' || Date.now() - h.at > HINT_TTL_MS) {
+      localStorage.removeItem(HINT_KEY)
+      return null
+    }
+    return h
+  } catch { return null }
+}
+
+// code 지정 시 해당 코드일 때만 삭제(다른 초대로 덮인 경우 오삭제 방지). 미지정 시 무조건 삭제.
+export function clearInviteHint(code) {
+  try {
+    if (code) { const h = getInviteHint(); if (h && h.code !== code) return }
+    localStorage.removeItem(HINT_KEY)
+  } catch { /* 무시 */ }
+}
