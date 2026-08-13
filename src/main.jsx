@@ -13,7 +13,7 @@ import { initInstallPrompt } from './lib/installPrompt'
 import { setUpdateSW, notifyNeedRefresh } from './lib/pwaUpdate'
 import ErrorBoundary from './components/common/ErrorBoundary'
 import ScreenTracker from './components/common/ScreenTracker'
-import DiagOverlay from './components/common/DiagOverlay'   // 🔧 임시 진단(가로 밀림) — 조사 후 삭제
+import { initDiag } from './lib/diagOverlay'   // 🔧 임시 진단(가로 밀림) — React 밖 바닐라, 조사 후 삭제
 
 // Sentry 초기화 — 지연 로딩(첫 페인트 이후 idle). DSN 없으면 no-op.
 initSentry()
@@ -82,8 +82,6 @@ createRoot(document.getElementById('root')).render(
           </AuthProvider>
           {/* 화면 체류 분석(자체, 콘텐츠 미수집·프로드 한정) — Router 안에서 useLocation 사용 */}
           <ScreenTracker />
-          {/* 🔧 임시 진단 오버레이 — ?diag=1 로 켜짐. 가로 밀림 조사 후 삭제 예정 */}
-          <DiagOverlay />
         </BrowserRouter>
         {/* DevTools 는 dev 서버에서만 렌더 — production 빌드에서 일반 사용자에게 노출 방지 */}
         {import.meta.env.DEV && (
@@ -93,3 +91,6 @@ createRoot(document.getElementById('root')).render(
     </ErrorBoundary>
   </StrictMode>,
 )
+
+// 🔧 임시 진단 오버레이 — React 밖에서 초기화(앱 트리에 영향 0). ?diag=1 로 켜짐. 조사 후 삭제.
+initDiag()
