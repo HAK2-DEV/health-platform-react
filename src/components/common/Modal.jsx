@@ -94,6 +94,9 @@ function Modal({ isOpen, onClose, children, onPrev, onNext, fill = false }) {
                 ? 'h-[88vh] sm:h-[85vh] flex flex-col overflow-hidden'
                 : 'max-h-[85vh] sm:max-h-[85vh] overflow-y-auto'
             }`}
+            // fill 모달: 키보드 뜨면 고정 88vh 가 안 줄어 상단(제목 등)이 화면 위로 밀려 안 보임
+            //   → 키보드 높이만큼 최대높이를 줄여 키보드 위에 온전히 들어오게(헤더 보이고 본문이 줄어듦).
+            style={fill && kbInset ? { maxHeight: `calc(100vh - ${kbInset}px - 16px)` } : undefined}
             onClick={(e) => e.stopPropagation()}
             onTouchStart={onTouchStart}
             onTouchEnd={onTouchEnd}

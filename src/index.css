@@ -15,6 +15,27 @@
 }
 
 /* ============================================================
+   네이티브 앱 느낌 (2026-08-13)
+   · 텍스트 롱프레스 선택/검색(안드로이드 "…검색결과 보기") · iOS 콜아웃 차단
+   · 더블탭 확대 차단(스크롤·핀치는 유지)
+   입력 요소·contenteditable 은 예외(선택·편집 가능해야 함).
+   ============================================================ */
+html {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+input,
+textarea,
+select,
+[contenteditable="true"],
+[contenteditable=""] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* ============================================================
    Day 65 Phase 0 — 디자인 토큰
    Tailwind v4 는 @theme 블록으로 CSS 변수 정의 → 그대로 유틸 클래스 생성.
    예: --color-brand-mint → bg-brand-mint / text-brand-mint / border-brand-mint
