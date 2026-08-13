@@ -119,7 +119,7 @@ function QuizEditModal({ quiz, isOpen, onClose, onSuccess }) {
               <label className="block text-sm font-medium text-gray-700 mb-2">풀이 기한 (선택)</label>
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <p className="flex items-center gap-1 text-[11px] text-gray-500 w-8 flex-shrink-0"><Calendar className="w-3 h-3" /> 시작</p>
+                  <p className="flex items-center gap-1 text-[11px] text-gray-500 flex-shrink-0 whitespace-nowrap"><Calendar className="w-3 h-3" /> 시작</p>
                   <input
                     type="datetime-local"
                     value={startAt}
@@ -130,7 +130,7 @@ function QuizEditModal({ quiz, isOpen, onClose, onSuccess }) {
                   {startAt && <button type="button" onClick={() => setStartAt('')} disabled={isSaving} className="text-[11px] text-gray-400 hover:text-red-500 transition flex-shrink-0 disabled:opacity-40">지우기</button>}
                 </div>
                 <div className="flex items-center gap-2">
-                  <p className="flex items-center gap-1 text-[11px] text-gray-500 w-8 flex-shrink-0"><Calendar className="w-3 h-3" /> 종료</p>
+                  <p className="flex items-center gap-1 text-[11px] text-gray-500 flex-shrink-0 whitespace-nowrap"><Calendar className="w-3 h-3" /> 종료</p>
                   <input
                     ref={dueAtRef}
                     type="datetime-local"

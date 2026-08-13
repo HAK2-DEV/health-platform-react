@@ -440,13 +440,13 @@ function QuizCreatePage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">풀이 기한 <span className="font-normal text-gray-400">(선택)</span></label>
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <p className="flex items-center gap-1 text-[11px] text-gray-500 w-8 flex-shrink-0"><Calendar className="w-3 h-3" /> 시작</p>
+                    <p className="flex items-center gap-1 text-[11px] text-gray-500 flex-shrink-0 whitespace-nowrap"><Calendar className="w-3 h-3" /> 시작</p>
                     <input type="datetime-local" value={startAt} onChange={handleStartChange}
                       className="min-w-0 px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500" />
                     {startAt && <button type="button" onClick={() => setStartAt('')} className="text-[11px] text-gray-400 hover:text-red-500 transition flex-shrink-0">지우기</button>}
                   </div>
                   <div className="flex items-center gap-2">
-                    <p className="flex items-center gap-1 text-[11px] text-gray-500 w-8 flex-shrink-0"><Calendar className="w-3 h-3" /> 종료</p>
+                    <p className="flex items-center gap-1 text-[11px] text-gray-500 flex-shrink-0 whitespace-nowrap"><Calendar className="w-3 h-3" /> 종료</p>
                     <input ref={dueAtRef} type="datetime-local" value={dueAt} onChange={handleDueChange} min={startAt || undefined}
                       className="min-w-0 px-3 py-2 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500" />
                     {dueAt && <button type="button" onClick={() => setDueAt('')} className="text-[11px] text-gray-400 hover:text-red-500 transition flex-shrink-0">지우기</button>}
