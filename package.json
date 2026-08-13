@@ -27,6 +27,7 @@
     "@tanstack/react-query": "^5.100.11",
     "@tanstack/react-query-devtools": "^5.100.11",
     "browser-image-compression": "^2.0.2",
+    "capacitor-health": "^8.1.2",
     "exceljs": "^4.4.0",
     "framer-motion": "^12.39.0",
     "lucide-react": "^1.16.0",
