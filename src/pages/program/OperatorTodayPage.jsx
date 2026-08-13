@@ -40,7 +40,8 @@ function OperatorTodayPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const rawTab = searchParams.get('tab')
   const tab = TAB_KEYS.includes(rawTab) ? rawTab : 'review'
-  const setTab = (t) => setSearchParams({ tab: t }, { replace: true })
+  // 기본(review) 탭에서 다른 탭으로 첫 전환만 push → 하드웨어 뒤로가기가 심사 탭으로 복귀(대시보드로 안 튐).
+  const setTab = (t) => setSearchParams({ tab: t }, { replace: !(tab === 'review' && t !== 'review') })
 
   const { data: program, isLoading: isProgramLoading } = useQuery({
     queryKey: queryKeys.program(id),

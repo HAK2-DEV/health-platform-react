@@ -77,11 +77,12 @@ function SupportPage() {
   const tab = searchParams.get('tab') === 'inquiry' ? 'inquiry' : 'faq'
   const deepLinkInquiryId = searchParams.get('inquiry')
 
+  // 기본(faq) 탭에서 문의 탭으로 첫 전환만 push → 하드웨어 뒤로가기가 FAQ 로 복귀.
   const setTab = (t) => setSearchParams(prev => {
     const next = new URLSearchParams(prev)
     if (t === 'faq') next.delete('tab'); else next.set('tab', t)
     return next
-  }, { replace: true })
+  }, { replace: !(tab === 'faq' && t !== 'faq') })
 
   const { data: role, isLoading: roleLoading } = useQuery({
     queryKey: ['my-role', userId],
