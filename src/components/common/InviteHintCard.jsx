@@ -80,10 +80,10 @@ function InviteHintCard() {
     }
   }, [intro])
 
-  // 정중앙 강조 유지 후 원위치로
+  // 정중앙 강조 유지 후 원위치로. center 스프링이 충분히 진정된 뒤 착지로 넘어가야 매끄럽다.
   useEffect(() => {
     if (phase !== 'center') return
-    const t = setTimeout(() => setPhase('settle'), 900)
+    const t = setTimeout(() => setPhase('settle'), 1000)
     return () => clearTimeout(t)
   }, [phase])
 
@@ -112,12 +112,12 @@ function InviteHintCard() {
 
       {animating && (
         <>
-          {/* 배경 딤 + 블러 — center 에서 인, settle 에서 부드럽게 해제 */}
+          {/* 배경 딤 + 블러 — center 에서 인, settle 에서 이동과 같은 길이로 동기화해 부드럽게 해제 */}
           <motion.div
             className="fixed inset-0 z-40 bg-black/10 backdrop-blur-[2px] pointer-events-none"
             initial={{ opacity: 0 }}
             animate={{ opacity: phase === 'center' ? 1 : 0 }}
-            transition={{ duration: phase === 'center' ? 0.3 : 0.4 }}
+            transition={{ duration: phase === 'center' ? 0.3 : 0.7, ease: phase === 'center' ? 'easeOut' : [0.4, 0, 0.2, 1] }}
           />
           {/* fixed 클론 — 기준 위치는 슬롯(top:rect.top)에 고정하고 y(transform)만 애니메이션.
               top(레이아웃) 대신 y(GPU transform)로 이동해야 대시보드 로딩 중 잦은 리렌더에도
@@ -133,8 +133,8 @@ function InviteHintCard() {
             }
             transition={
               phase === 'center'
-                ? { type: 'spring', stiffness: 420, damping: 12, mass: 0.9 }
-                : { type: 'spring', stiffness: 260, damping: 26 }
+                ? { type: 'spring', stiffness: 420, damping: 16, mass: 0.9 }
+                : { type: 'tween', duration: 0.7, ease: [0.4, 0, 0.2, 1] }
             }
             onAnimationComplete={() => { if (phase === 'settle') setPhase('done') }}
           >
@@ -145,7 +145,7 @@ function InviteHintCard() {
                   ? '0 0 0 6px rgba(16,185,129,0.18), 0 16px 36px rgba(16,185,129,0.30)'
                   : '0 0 0 0px rgba(16,185,129,0)',
               }}
-              transition={{ duration: 0.4 }}
+              transition={{ duration: phase === 'center' ? 0.35 : 0.7, ease: phase === 'center' ? 'easeOut' : [0.4, 0, 0.2, 1] }}
             >
               <CardBody hint={hint} rm={rm} />
             </motion.div>
