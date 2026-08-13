@@ -119,15 +119,17 @@ function InviteHintCard() {
             animate={{ opacity: phase === 'center' ? 1 : 0 }}
             transition={{ duration: phase === 'center' ? 0.3 : 0.4 }}
           />
-          {/* fixed 클론 — 정중앙 팝(1.08x) → 슬롯 위치로 스프링 이동 */}
+          {/* fixed 클론 — 기준 위치는 슬롯(top:rect.top)에 고정하고 y(transform)만 애니메이션.
+              top(레이아웃) 대신 y(GPU transform)로 이동해야 대시보드 로딩 중 잦은 리렌더에도
+              스냅 없이 항상 부드럽다. 정중앙 팝(y 아래로+scale 1.08) → 슬롯 위치(y:0)로 착지. */}
           <motion.div
             className="fixed z-50 pointer-events-none"
-            style={{ transformOrigin: 'center' }}
-            initial={{ top: centerTop, left: rect.left, width: rect.width, scale: 0.85, opacity: 0 }}
+            style={{ top: rect.top, left: rect.left, width: rect.width, transformOrigin: 'center' }}
+            initial={{ y: centerTop - rect.top, scale: 0.85, opacity: 0 }}
             animate={
               phase === 'center'
-                ? { top: centerTop, left: rect.left, width: rect.width, scale: 1.08, opacity: 1 }
-                : { top: rect.top, left: rect.left, width: rect.width, scale: 1, opacity: 1 }
+                ? { y: centerTop - rect.top, scale: 1.08, opacity: 1 }
+                : { y: 0, scale: 1, opacity: 1 }
             }
             transition={
               phase === 'center'
