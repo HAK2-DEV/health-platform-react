@@ -13,6 +13,7 @@ function RunningMissionCard({
   mission, index = 0, todayCounts = {}, isOwner, showOwnerActions = true,
   isDeletePending, onDelete, onEdit, programId, viewerMode, onViewerAction, onToggleMain,
   fallbackIcon = null,   // 아이콘 없는 미션의 기본 아이콘(프로그램 카테고리/테마 기준). 없으면 신발.
+  isNew = false,         // 마지막으로 본 이후 추가된 새 미션 — NEW 배지
 }) {
   const isMain = mission.is_main !== false
   const navigate = useNavigate()
@@ -85,7 +86,10 @@ function RunningMissionCard({
         />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
-            <h3 className="text-[14px] font-bold text-gray-800 break-keep leading-snug truncate">{mission.title}</h3>
+            <h3 className="text-[14px] font-bold text-gray-800 break-keep leading-snug flex items-center gap-1.5 min-w-0">
+              <span className="truncate">{mission.title}</span>
+              {isNew && <span className="flex-shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[10px] font-extrabold leading-none">NEW</span>}
+            </h3>
             {isOwner && onToggleMain ? (
               <button type="button" onClick={() => onToggleMain(mission)} title="메인/서브 전환"
                 className={`px-1.5 py-0.5 rounded text-[10px] font-extrabold flex-shrink-0 transition ${isMain ? 'bg-emerald-100 text-emerald-600 hover:bg-emerald-200' : 'bg-amber-100 text-amber-600 hover:bg-amber-200'}`}>

@@ -28,6 +28,7 @@ function MissionCard({
   navigateSearch,    // 인증 URL 에 붙일 쿼리 (예: '?from=record') — 새로고침에도 출처 생존
   viewerMode,        // 공개 프로그램 비참여자 열람 — 인증 버튼 대신 '참여 필요'
   onViewerAction,    // 열람자가 인증 시도 시 (참여 모달 열기)
+  isNew = false,     // 마지막으로 본 이후 추가된 새 미션 — NEW 배지
 }) {
   const navigate = useNavigate()
 
@@ -91,7 +92,12 @@ function MissionCard({
         />
       )}
       <div className="flex-1 min-w-0">
-        <h3 className="font-medium text-gray-800 mb-1">{mission.title}</h3>
+        <h3 className="font-medium text-gray-800 mb-1 flex items-center gap-1.5 flex-wrap">
+          {mission.title}
+          {isNew && (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[10px] font-extrabold leading-none tracking-wide">NEW</span>
+          )}
+        </h3>
        <p className={`text-xs ${isBeforeStart ? 'text-amber-600 font-medium' : 'text-gray-500'}`}>
   {isBeforeStart ? (
     <>

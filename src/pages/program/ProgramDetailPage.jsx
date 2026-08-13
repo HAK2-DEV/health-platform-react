@@ -44,7 +44,7 @@ import ActivationNudge from '../../components/program/ActivationNudge'
 import WeeklyHighlight from '../../components/program/WeeklyHighlight'
 import ParticipantWeeklyReport from '../../components/program/ParticipantWeeklyReport'
 import { useToast } from '../../contexts/ToastContext'
-import { markSeen, countNew, getLastSeen } from '../../lib/newContent'
+import { markSeen, countNew, getLastSeen, isNewSince } from '../../lib/newContent'
 import { warnLargeUserList } from '../../lib/sentry'
 import UserAvatar from '../../components/common/UserAvatar'
 import ProfileButton from '../../components/common/ProfileButton'
@@ -485,9 +485,18 @@ function ProgramDetailPage() {
   // 「새 미션/퀴즈」 강조 — 기준(lastSeen 없으면 참여시각) 이후 생성분 개수. 미션/퀴즈 탭 열면 seen 처리(배지 사라짐).
   const quizzesForNew = isOwner ? programQuizzes : participantQuizzes
   const [newSeenTick, setNewSeenTick] = useState(0)
+  // 미션 탭 진입 시점의 기준시각을 markSeen 전에 1회 캡처 → 보는 동안 개별 NEW 배지 유지(markSeen 이 갱신해도).
+  const missionsSinceRef = useRef(null)
+  const missionsCapturedRef = useRef(false)
   useEffect(() => {   // 해당 탭 열면 seen 갱신 → 배지 사라짐
     if (!id) return
-    if (activeTab === 'missions') { markSeen(id, 'missions'); setNewSeenTick(t => t + 1) }
+    if (activeTab === 'missions') {
+      if (!missionsCapturedRef.current) {
+        missionsSinceRef.current = getLastSeen(id, 'missions') || myPart?.joined_at || null
+        missionsCapturedRef.current = true
+      }
+      markSeen(id, 'missions'); setNewSeenTick(t => t + 1)
+    }
     else if (activeTab === 'quizzes') { markSeen(id, 'quizzes'); setNewSeenTick(t => t + 1) }
   }, [activeTab, id])
   const newMissionCount = useMemo(() => countNew(missionsRaw, id, 'missions', myPart?.joined_at), [missionsRaw, id, myPart, newSeenTick])
@@ -2213,6 +2222,7 @@ function ProgramDetailPage() {
                 const m = card.mission
                 const commonProps = {
                   mission: m,
+                  isNew: isNewSince(m, missionsSinceRef.current),
                   todayCounts,
                   isOwner,
                   // 아이콘 없는 미션 기본값 — 달리기 테마만 신발, 그 외는 프로그램 카테고리 아이콘
@@ -2253,6 +2263,7 @@ function ProgramDetailPage() {
               const group = card.group
               const totalPoint = group.missions.reduce((s, m) => s + (m.point || 0), 0)
               const bundleParam = encodeURIComponent(group.bundleTitle)
+              const bundleNew = group.missions.some(m => isNewSince(m, missionsSinceRef.current))
 
               return (
                 <motion.button
@@ -2267,7 +2278,10 @@ function ProgramDetailPage() {
                   className="w-full flex items-center gap-3 p-4 bg-white rounded-2xl shadow-elevated hover:bg-gray-50 transition text-left"
                 >
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-medium text-gray-800 truncate">{group.bundleTitle}</h3>
+                    <h3 className="font-medium text-gray-800 flex items-center gap-1.5 min-w-0">
+                      <span className="truncate">{group.bundleTitle}</span>
+                      {bundleNew && <span className="flex-shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[10px] font-extrabold leading-none">NEW</span>}
+                    </h3>
                     <p className="text-xs text-gray-500 mt-0.5">
                       {group.missions.length}개 미션 · 총 {totalPoint}P
                     </p>

@@ -19,6 +19,16 @@ export function markSeen(programId, kind) {
 //   기준 = localStorage lastSeen(탭 열면 갱신) 우선, 없으면 fallbackSince(보통 참여 시각 joined_at).
 //   → 상세를 한 번도 안 열어도 「참여 후 추가된 콘텐츠」를 new 로 표시.
 //   비교는 타임스탬프(ms)로 — DB('+00:00')·markSeen('Z') 포맷 차이/초미만 경계에서도 정확.
+// 단일 item 이 「새 콘텐츠」인지 — created_at > 명시한 기준 시각(since).
+//   목록에서 개별 NEW 배지용. 탭 열면 markSeen 이 lastSeen 을 갱신하므로, 호출 측은
+//   탭 진입 시점의 기준시각을 캡처해 넘겨야 보는 동안 배지가 유지됨.
+export function isNewSince(item, since) {
+  if (!since || !item?.created_at) return false
+  const s = new Date(since).getTime()
+  const t = new Date(item.created_at).getTime()
+  return !Number.isNaN(s) && !Number.isNaN(t) && t > s
+}
+
 export function countNew(items, programId, kind, fallbackSince = null) {
   const since = getLastSeen(programId, kind) || fallbackSince
   if (!since) return 0
