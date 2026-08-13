@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useNicknameCheck } from '../hooks/useNicknameCheck'
 import { UserPlus } from 'lucide-react'
 import NicknameInput from '../components/auth/NicknameInput'
+import { takePendingInvite } from '../lib/pendingInvite'
 
 function NicknameSetupPage() {
   const { session, refreshNickname } = useAuth()
@@ -61,8 +62,10 @@ const handleSubmit = async (e) => {
     if (updateError) throw updateError
     
     await refreshNickname()
-    // 새 계정 → 온보딩 튜토리얼(가입 직후, 조건 1). 완료 마킹은 온보딩 완주 시에만.
-    navigate('/onboarding')
+    // 초대링크로 들어온 신규 유저면 온보딩보다 초대 참여를 우선(없으면 온보딩 튜토리얼).
+    //   NicknameSetupPage 는 '/' 를 안 거치고 직행하므로 여기서 초대 복귀를 직접 처리.
+    const invite = takePendingInvite()
+    navigate(invite || '/onboarding')
   } catch (err) {
     console.error('닉네임 저장 실패:', err)
     setError(err.message)
