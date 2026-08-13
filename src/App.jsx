@@ -12,6 +12,7 @@ import InstallPromptBanner from './components/common/InstallPromptBanner'
 import SplashScreen from './components/common/SplashScreen'
 import BottomTabBar from './components/common/BottomTabBar'
 import InAppBrowserBanner from './components/common/InAppBrowserBanner'
+import InAppBrowserGate from './components/common/InAppBrowserGate'
 import { useRealtimeSync } from './hooks/useRealtimeSync'
 
 // 코드 스플리팅 — 페이지별 lazy chunk 분리 (Day 65 본인 결정)
@@ -128,6 +129,8 @@ function AppShell() {
    <div className="app">
       {/* 인앱 브라우저(카톡 등) 안내 — 화면 축소 이슈. 감지 안 되면 렌더 X */}
       <InAppBrowserBanner />
+      {/* 온보딩(초대/로그인/가입) 경로에서만 — 인앱 브라우저 강한 전체화면 게이트(외부 브라우저 유도) */}
+      <InAppBrowserGate />
       <main
         className={`app-main ${showTabBar ? 'pb-24' : 'pb-4'}`}
         style={{ paddingTop: 'max(env(safe-area-inset-top), 0.75rem)' }}
