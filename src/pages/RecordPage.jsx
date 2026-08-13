@@ -1,4 +1,5 @@
 import { useState, useMemo, Fragment } from 'react'
+import { useBackButtonClose } from '../hooks/useBackButtonClose'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
@@ -358,6 +359,7 @@ function FeaturedProgram({ program, onClick }) {
 
 // 프로그램 선택 모달 — 인증 가능 프로그램 리스트 (완료 프로그램은 비활성)
 function ProgramPickerModal({ open, groups, onClose, onSelect }) {
+  useBackButtonClose(open, onClose)  // 하드웨어 뒤로가기 = 닫기
   if (!open) return null
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">

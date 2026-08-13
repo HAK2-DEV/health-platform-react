@@ -4,6 +4,7 @@ import { Lock, Plus, ChevronRight } from 'lucide-react'
 import EmptyState from '../common/EmptyState'
 import LoadingState from '../common/LoadingState'
 import { fetchInquiries, checkInquiryPassword } from '../../lib/queries'
+import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 import InquiryWriteModal from './InquiryWriteModal'
 import InquiryDetailModal from './InquiryDetailModal'
 
@@ -27,6 +28,7 @@ function InquiryBoard({ userId, isAdmin, roleReady = true, deepLinkInquiryId, on
   const [pwInput, setPwInput] = useState('')
   const [pwError, setPwError] = useState(null)
   const [pwBusy, setPwBusy] = useState(false)
+  useBackButtonClose(!!pwTarget, () => setPwTarget(null))  // 하드웨어 뒤로가기 = 비번 모달 닫기
 
   const { data: inquiries = [], isLoading } = useQuery({
     queryKey: ['inquiries'],

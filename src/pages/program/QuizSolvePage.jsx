@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { Check, X, Clock, Trophy, Eye, Circle } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
+import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 import { useKeyboardInset } from '../../hooks/useKeyboardInset'
 import {
   queryKeys,
@@ -55,6 +56,7 @@ function QuizSolvePage() {
   const [confirmOpen, setConfirmOpen] = useState(false)  // 미응답 제출 확인 모달
   const [resultOpen, setResultOpen] = useState(false)    // 정답 보기 모달
   const [celebrated, setCelebrated] = useState(false)    // 제출 완료 연출 재생 여부
+  useBackButtonClose(resultOpen, () => setResultOpen(false))  // 하드웨어 뒤로가기 = 정답 모달 닫기
 
   const submitMutation = useMutation({
     mutationFn: () => {

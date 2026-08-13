@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
+import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 import { motion, AnimatePresence } from 'framer-motion'
 
 // 팁 아이콘 — 3D 아이콘 이미지, 로드 실패 시에만 이모지로 대체(겹침 없음)
@@ -21,6 +22,7 @@ const TIPS = [
 
 function ParticipationTipsSheet({ isOpen, onClose }) {
   useBodyScrollLock(isOpen)  // iOS 배경 스크롤 방지
+  useBackButtonClose(isOpen, onClose)  // 하드웨어 뒤로가기 = 닫기
   return (
     <AnimatePresence>
       {isOpen && (

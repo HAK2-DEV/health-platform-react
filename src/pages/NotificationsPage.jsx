@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useBackButtonClose } from '../hooks/useBackButtonClose'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -80,6 +81,7 @@ function NotificationsPage() {
 
   const [filter, setFilter] = useState('all')
   const [detailNotif, setDetailNotif] = useState(null)   // 이동 경로 없는 알림(거절 등) 상세 펼침
+  useBackButtonClose(!!detailNotif, () => setDetailNotif(null))  // 하드웨어 뒤로가기 = 상세 닫기
 
   const { data: notifications = [], isLoading } = useQuery({
     queryKey: queryKeys.notifications(userId),
