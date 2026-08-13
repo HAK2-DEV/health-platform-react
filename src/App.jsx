@@ -9,7 +9,6 @@ import { AvatarViewerProvider } from './contexts/AvatarViewerContext'
 import PwaUpdatePrompt from './components/common/PwaUpdatePrompt'
 import OfflineBanner from './components/common/OfflineBanner'
 import InstallPromptBanner from './components/common/InstallPromptBanner'
-import NavDebug from './components/common/NavDebug'
 import SplashScreen from './components/common/SplashScreen'
 import BottomTabBar from './components/common/BottomTabBar'
 import InAppBrowserBanner from './components/common/InAppBrowserBanner'
@@ -333,9 +332,6 @@ function AppShell() {
 
       {/* 설치 유도 배너 — 진입 몇 초 뒤, 홈 화면 추가 권유 (닫으면 2주 침묵) */}
       <InstallPromptBanner />
-
-      {/* 임시 네비게이션 디버그 — ?navdebug=1 일 때만 */}
-      <NavDebug />
     </div>
   )
 }

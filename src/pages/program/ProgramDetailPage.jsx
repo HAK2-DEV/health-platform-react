@@ -208,12 +208,16 @@ function ProgramDetailPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const activeTab = searchParams.get('tab') || 'overview'
   const setActiveTab = (key) => {
+    // 개요(기본)에서 다른 탭으로 "처음" 전환할 때만 push → 하드웨어 뒤로가기가 개요로 복귀.
+    //   (기존엔 항상 replace 라 개요 엔트리가 사라져 뒤로=대시보드로 튀었음)
+    //   탭↔탭 전환·개요로 복귀는 replace 유지(히스토리 안 쌓임). ?tab= 은 URL 에 남아 미션 인증 뒤로 시 탭 보존.
+    const pushEntry = activeTab === 'overview' && key !== 'overview'
     setSearchParams(prev => {
       const next = new URLSearchParams(prev)
       if (key === 'overview') next.delete('tab')
       else next.set('tab', key)
       return next
-    }, { replace: true })
+    }, { replace: !pushEntry })
   }
 
   // 탭 전환 시 상단부터 시작 — activeTab 은 ?tab= 쿼리라 pathname 이 안 바뀌어 App 전역 스크롤
