@@ -1,5 +1,6 @@
 import { useState, useEffect, forwardRef, useImperativeHandle } from 'react'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
+import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 import { useKeyboardInset } from '../../hooks/useKeyboardInset'
 import { supabase } from '../../supabaseClient'
 import { Check, Heart, MessageCircle, Plus, X, ChevronUp, ChevronDown, MoreVertical, Trash2, LayoutGrid } from 'lucide-react'
@@ -305,6 +306,8 @@ const CommunityManagePanel = forwardRef(function CommunityManagePanel({ program,
   const [layoutModal, setLayoutModal] = useState(null)  // 게시판별 레이아웃 선택 { boardId }
   const [nameModal, setNameModal] = useState(null)    // 게시판 이름 입력 모달 { mode:'add'|'rename', boardId, value }
   useBodyScrollLock(!!layoutModal || !!nameModal)  // 레이아웃/이름 오버레이 — iOS 배경 스크롤 방지
+  useBackButtonClose(!!layoutModal, () => setLayoutModal(null))  // 하드웨어 뒤로가기 = 닫기(스택 최상단)
+  useBackButtonClose(!!nameModal, () => setNameModal(null))
   const kbInset = useKeyboardInset()   // iOS 키보드 높이 — 게시판 이름 입력 시 카드 위로
   const confirmName = () => {
     const v = (nameModal?.value || '').trim().slice(0, 8)

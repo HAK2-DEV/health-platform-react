@@ -1,5 +1,6 @@
 import { useState, useEffect, forwardRef, useImperativeHandle } from 'react'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
+import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 import { useKeyboardInset } from '../../hooks/useKeyboardInset'
 import { supabase } from '../../supabaseClient'
 import { CATEGORY, CATEGORY_LIST, PROGRAM, PROGRAM_THEME } from '../../lib/constants'
@@ -27,6 +28,7 @@ const OverviewManagePanel = forwardRef(function OverviewManagePanel({ program, p
   const [coverImagePath, setCoverImagePath] = useState(null)  // 배너/썸네일 표지
   const [descModalOpen, setDescModalOpen] = useState(false)  // 한줄 설명 — 넓게 입력 모달
   useBodyScrollLock(descModalOpen)  // 설명 입력 오버레이 — iOS 배경 스크롤 방지
+  useBackButtonClose(descModalOpen, () => setDescModalOpen(false))  // 하드웨어 뒤로가기 = 닫기(스택 최상단)
   const kbInset = useKeyboardInset()   // iOS 키보드 높이 — 설명 입력 시 카드 위로
 
   useEffect(() => {
