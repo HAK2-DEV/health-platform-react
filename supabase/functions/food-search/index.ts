@@ -65,12 +65,16 @@ Deno.serve(async (req) => {
         const name = pick(row, ['foodNm', '식품명'])
         if (!name) continue
         const kcal = num(pick(row, ['enerc', '에너지(kcal)']))
-        const dedup = `${name}|${kcal}`
+        // 제조사(브랜드) — 가공식품 제품 구분용. '해당없음'/빈값은 제외.
+        let maker = pick(row, ['mfrNm', '제조사명']) || pick(row, ['restNm', '업체명']) || ''
+        if (maker === '해당없음' || maker === '없음') maker = ''
+        const dedup = `${name}|${maker}|${kcal}`
         if (seen.has(dedup)) continue
         seen.add(dedup)
         foods.push({
-          id: pick(row, ['foodCd', '식품코드']) || `${name}-${kcal}`,
+          id: pick(row, ['foodCd', '식품코드']) || `${name}-${maker}-${kcal}`,
           name,
+          maker,
           serving: pick(row, ['nutConSrtrQua', '영양성분함량기준량']) || '100g',
           kcal,
           carb: num(pick(row, ['chocdf', '탄수화물(g)'])),

@@ -103,7 +103,9 @@ function MealLogger({ onComplete }) {
             <button key={f.id} type="button" onClick={() => addFood(f)}
               className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-emerald-50/60 transition">
               <span className="flex-1 min-w-0">
-                <span className="block text-[13px] font-bold text-gray-800 truncate">{f.name}</span>
+                <span className="block text-[13px] font-bold text-gray-800 truncate">
+                  {f.name}{f.maker ? <span className="font-medium text-gray-400"> · {f.maker}</span> : null}
+                </span>
                 <span className="block text-[11px] text-gray-400">{f.serving} · {f.kcal}kcal</span>
               </span>
               <span className="w-7 h-7 rounded-lg bg-emerald-500 text-white flex items-center justify-center flex-shrink-0"><Plus className="w-4 h-4" /></span>
@@ -134,7 +136,9 @@ function MealLogger({ onComplete }) {
                   return (
                     <div key={e.key} className="flex items-center gap-2.5 rounded-xl border border-gray-100 bg-white shadow-soft px-3 py-2.5">
                       <div className="flex-1 min-w-0">
-                        <p className="text-[13px] font-bold text-gray-800 truncate">{e.food.name}</p>
+                        <p className="text-[13px] font-bold text-gray-800 truncate">
+                          {e.food.name}{e.food.maker ? <span className="font-medium text-gray-400"> · {e.food.maker}</span> : null}
+                        </p>
                         <p className="text-[11px] mt-0.5 flex items-center gap-2">
                           <span className="font-bold text-gray-700 tabular-nums">{n.kcal}kcal</span>
                           {NUTRIENTS.map((nu) => (
