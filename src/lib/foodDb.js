@@ -74,6 +74,45 @@ export async function searchFoods(query, { deep = false, limit = 15 } = {}) {
   return searchMock(q)
 }
 
+// 개별 음식 등록(내 음식) — 제공량(g) 기준 입력 → 서버가 per-100g 변환 저장.
+//   반환: 담기 가능한 food 객체(basis per100) 또는 null. 이후 검색·즐겨찾기에 그대로 노출.
+export async function submitFood({ name, maker = null, servingG = 100, kcal = 0, carb = 0, protein = 0, fat = 0 }) {
+  const { data, error } = await supabase.rpc('submit_food', {
+    p_name: name, p_maker: maker, p_serving_g: servingG,
+    p_kcal: kcal, p_carb: carb, p_protein: protein, p_fat: fat,
+  })
+  if (error) throw error
+  const row = Array.isArray(data) ? data[0] : data
+  return row ? { ...row, basis: 'per100', source: 'user' } : null
+}
+
+// 공유 토글(등록자 본인) — 내 음식을 공개 풀에 올리거나 내림.
+export async function setFoodPublic(foodId, on) {
+  const { error } = await supabase.rpc('set_food_public', { p_food_id: String(foodId), p_on: !!on })
+  return !error
+}
+
+// 신고 — 잘못된 공유 음식. 3회 누적 시 서버가 자동 비공개.
+export async function reportFood(foodId, reason = null) {
+  const { error } = await supabase.rpc('report_food', { p_food_id: String(foodId), p_reason: reason })
+  return !error
+}
+
+// 검증 토글(관리자) — 공유 음식에 ✓ 부여.
+export async function verifyFood(foodId, on) {
+  const { error } = await supabase.rpc('verify_food', { p_food_id: String(foodId), p_on: !!on })
+  return !error
+}
+
+// 영양성분표 사진 → 구조화 추출(제공량/열량/탄단지). 엣지함수 nutrition-label(Gemini).
+//   반환: { serving_g, kcal, carb, protein, fat, sodium, sugar, confidence }
+export async function readNutritionLabel(imageDataUrl) {
+  const { data, error } = await supabase.functions.invoke('nutrition-label', { body: { image: imageDataUrl } })
+  if (error) throw error
+  if (!data?.ok) throw new Error(data?.error || 'read_failed')
+  return data.data
+}
+
 // 검색 실패(0건) 로깅 — 동의어 사전 보강용 데이터. fire-and-forget.
 export function logSearchMiss(term) {
   const t = String(term || '').trim()
