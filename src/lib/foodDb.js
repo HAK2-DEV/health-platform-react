@@ -66,6 +66,13 @@ export async function searchFoods(query) {
   return searchMock(q)
 }
 
+// 담을 때 호출 — 인기순(pick_count) 집계. 커스텀(직접입력)/목데이터는 건너뜀. fire-and-forget.
+export function recordPick(foodId) {
+  const id = String(foodId || '')
+  if (!id || id.startsWith('custom')) return
+  try { supabase.rpc('increment_food_pick', { p_id: id }) } catch { /* 무시 */ }
+}
+
 // 음식 × 배수(qty) → 반올림 영양치
 export function scaleNutrients(food, qty) {
   const r = (n) => Math.round((Number(n) || 0) * qty)

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Search, Plus, X, Minus } from 'lucide-react'
-import { searchFoods, scaleNutrients } from '../../lib/foodDb'
+import { searchFoods, scaleNutrients, recordPick } from '../../lib/foodDb'
 
 // 식단 입력 로거 — 끼니 선택 → 검색 → 담기 → 수량조절 → 끼니별 그룹 + 실시간 합계(칼로리+탄단지).
 //   UX 검증용(러프 UI). 데이터 소스는 lib/foodDb(현재 목, 나중에 실제 API로 스왑).
@@ -25,6 +25,7 @@ function MealLogger({ onComplete }) {
   const [results, setResults] = useState([])
   const [searching, setSearching] = useState(false)
   const [entries, setEntries] = useState([])   // [{ key, meal, food, qty }]
+  const [customKcal, setCustomKcal] = useState('')   // 직접입력 칼로리
   const seq = useRef(0)
 
   useEffect(() => {
@@ -48,8 +49,19 @@ function MealLogger({ onComplete }) {
       }
       return [...prev, { key: ++seq.current, meal, food, qty: 1 }]
     })
+    recordPick(food.id)   // 인기순(pick_count) 집계
     setQuery('')
     setResults([])
+  }
+  // 검색결과 없을 때 — 직접 입력(이름=검색어 + 칼로리)
+  const addCustom = () => {
+    const kc = parseInt(customKcal, 10)
+    const nm = query.trim()
+    if (!nm || !(kc >= 1)) return
+    const n = ++seq.current
+    const food = { id: `custom-${n}`, name: nm, maker: '직접입력', serving: '1인분', kcal: kc, carb: 0, protein: 0, fat: 0 }
+    setEntries((prev) => [...prev, { key: n, meal, food, qty: 1 }])
+    setQuery(''); setResults([]); setCustomKcal('')
   }
   const changeQty = (key, delta) => setEntries((prev) =>
     prev.map((e) => e.key === key ? { ...e, qty: Math.max(0.5, +(e.qty + delta).toFixed(1)) } : e))
@@ -98,7 +110,19 @@ function MealLogger({ onComplete }) {
           {searching ? (
             <p className="px-3 py-3 text-[12px] text-gray-400">검색 중…</p>
           ) : results.length === 0 ? (
-            <p className="px-3 py-3 text-[12px] text-gray-400">검색 결과가 없어요. 다른 이름으로 찾아보세요.</p>
+            <div className="px-3 py-3">
+              <p className="text-[12px] text-gray-400 mb-2">'{query}' 검색 결과가 없어요. 직접 추가할 수 있어요.</p>
+              <div className="flex items-center gap-2">
+                <span className="flex-1 min-w-0 text-[13px] font-bold text-gray-700 truncate">{query}</span>
+                <input type="number" inputMode="numeric" min={1} value={customKcal}
+                  onChange={(e) => setCustomKcal(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') addCustom() }}
+                  placeholder="kcal"
+                  className="w-[72px] h-9 px-2 text-sm text-center border-2 border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500" />
+                <button type="button" onClick={addCustom} disabled={!(parseInt(customKcal, 10) >= 1)}
+                  className="h-9 px-3 rounded-lg bg-emerald-500 text-white text-[13px] font-bold whitespace-nowrap disabled:bg-gray-300">담기</button>
+              </div>
+            </div>
           ) : results.map((f) => (
             <button key={f.id} type="button" onClick={() => addFood(f)}
               className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-emerald-50/60 transition">
