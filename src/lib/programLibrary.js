@@ -137,6 +137,7 @@ export const PROGRAM_PRESETS = [
     categories: [CATEGORY.DIET.key],
     durationDays: 21,
     bundleTitle: '🥗 식습관',
+    rankingEnabled: false,   // 식단은 개인·민감 → 경쟁 랭킹 기본 OFF(운영자가 챌린지형이면 켤 수 있음)
     // 메인(기본 체크) — 아침·점심·저녁·간식 식단 인증(AI 칼로리 기록, verify_style:meal)
     missions: [
       { key: 'breakfast', title: '아침 식단 인증', instruction: '오늘 아침에 먹은 음식을 사진 또는 검색으로 담아 인증해요. AI가 칼로리·탄단지를 자동으로 계산해줘요.', point: 10, verify_style: 'meal', meal_type: 'breakfast', icon: '/icons/meal/breakfast.png' },

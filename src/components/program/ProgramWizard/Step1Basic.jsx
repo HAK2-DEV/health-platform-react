@@ -164,8 +164,8 @@ function Step1Basic({ initialData, onNext, onSave, enterAtEnd = false }) {
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">{name.length}/{PROGRAM.NAME_MAX_LENGTH}</span>
                 </div>
                 {isDupName ? (
-                  <p className="flex items-center gap-1 mt-2 text-[13px] text-red-600">
-                    <AlertCircle className="w-4 h-4 flex-shrink-0" /> 이미 있는 프로그램 이름이에요. 다른 이름을 써주세요.
+                  <p className="flex items-start gap-1 mt-2 text-[13px] text-red-600 break-keep">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" /> <span>이미 있는 프로그램 이름이에요. 다른 이름을 써주세요.</span>
                   </p>
                 ) : nameChecking ? (
                   <p className="flex items-center gap-1 mt-2 text-[12px] text-gray-400">

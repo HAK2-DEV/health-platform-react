@@ -668,7 +668,7 @@ function Step2Type({ initialData, onNext, onSave, onPrev, enterAtEnd = false }) 
     },
     ranking: {
       q: '순위표를 보여줄까요?',
-      sub: '점수가 높은 사람부터 줄을 세워 보여줘요.\n서로 선의의 경쟁을 하게 돼요.',
+      sub: '점수가 높은 사람부터 줄을 세워 보여줘요.\n서로 선의의 경쟁을 하게 돼요.\n💡 챌린지·경쟁형으로 운영하신다면 추천해요.',
     },
     podium: {
       q: '상위 3명 시상대를 보여줄까요?',
