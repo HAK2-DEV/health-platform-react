@@ -2,7 +2,8 @@ import { useEffect, useState, useRef, Fragment } from 'react'
 import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ChevronLeft, Upload, X, Check, Flag, Clock, Star, Camera, MessageSquare, Pencil, Move } from 'lucide-react'
+import { ChevronLeft, Upload, X, Check, Flag, Clock, Star, Camera, MessageSquare, Pencil, Move, Loader2 } from 'lucide-react'
+import { readActivityScreenshot, fileToDataUrl as activityFileToDataUrl, mapActivityToMetrics } from '../../lib/activityOcr'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../hooks/useAuth'
 import { useKeyboardInset } from '../../hooks/useKeyboardInset'
@@ -248,6 +249,8 @@ function MissionVerifyPage() {
   const [isCropOpen, setIsCropOpen] = useState(false)
   const [numericValue, setNumericValue] = useState('')
   const [metricValues, setMetricValues] = useState({})  // 다중 지표 입력값 {key: value}
+  const [ocrBusy, setOcrBusy] = useState(false)         // 운동 스크린샷 OCR 중
+  const [ocrHint, setOcrHint] = useState(null)
   const [noteText, setNoteText] = useState('')
   const [feedVisible, setFeedVisible] = useState(true)  // 디폴트 노출 — feed_enabled 인 프로그램만 의미 있음
   // 인증 피드 공개 정책 (커뮤니티 관리자 ②) ↔ 제출 토글 연결
@@ -366,6 +369,27 @@ function MissionVerifyPage() {
     return r != null && String(r).trim() !== ''
   }
   const anyMetricFilled = hasMetrics && metricList.some(filledMetric)
+  // 운동 미션 여부(거리 km / 시간 hms 지표) → 스크린샷 OCR 버튼 노출
+  const isActivityMetrics = metricList.some(m => String(m.unit || '').toLowerCase() === 'km' || m.inputFormat === 'hms')
+  // 운동 기록 스크린샷 → 지표 자동 입력
+  const onActivityShot = async (ev) => {
+    const file = ev.target.files?.[0]
+    if (!file) return
+    setOcrBusy(true); setOcrHint(null)
+    try {
+      const dataUrl = await activityFileToDataUrl(file)
+      const d = await readActivityScreenshot(dataUrl)
+      const { updates, labels } = mapActivityToMetrics(metricList, d)
+      if (Object.keys(updates).length) {
+        setMetricValues(v => ({ ...v, ...updates }))
+        setOcrHint(`사진에서 읽었어요 · ${labels.join(' · ')} (확인 후 제출)`)
+      } else {
+        setOcrHint('값을 읽지 못했어요. 직접 입력해 주세요.')
+      }
+    } catch {
+      setOcrHint('사진을 읽지 못했어요. 직접 입력해 주세요.')
+    } finally { setOcrBusy(false); ev.target.value = '' }
+  }
   // "기록" 입력 여부 — 다중이면 지표 1개+, 아니면 단일 numeric
   const numericFilled = hasMetrics ? anyMetricFilled : !!numericValue
   const requireCount = [needsImage, needsNumeric, needsNote].filter(Boolean).length
@@ -1233,6 +1257,16 @@ function MissionVerifyPage() {
               {perInput && <span className="ml-1 text-xs font-normal text-emerald-600">· {numPts}P</span>}
               {optNumeric && <span className="ml-1 text-xs font-normal text-amber-600">(선택)</span>}
             </label>
+            {isActivityMetrics && (
+              <div className="mb-2.5">
+                <label className={`flex items-center justify-center gap-2 h-11 rounded-xl border-2 border-dashed cursor-pointer transition ${ocrBusy ? 'border-emerald-300 bg-emerald-50/60 text-emerald-600' : 'border-gray-200 text-gray-600 hover:border-emerald-300 hover:bg-emerald-50/40'}`}>
+                  {ocrBusy ? <><Loader2 className="w-4 h-4 animate-spin" /><span className="text-[13px] font-bold">사진 읽는 중…</span></> : <><Camera className="w-4 h-4" /><span className="text-[13px] font-bold">운동 기록 사진으로 자동 입력</span></>}
+                  <input type="file" accept="image/*" onChange={onActivityShot} disabled={ocrBusy || isSubmitting} className="hidden" />
+                </label>
+                {ocrHint && <p className="text-[11px] text-emerald-600 text-center mt-1">{ocrHint}</p>}
+                <p className="text-[11px] text-gray-400 text-center mt-1">나이키런·삼성헬스·스트라바 등 캡처 → 거리·시간 자동 입력</p>
+              </div>
+            )}
             {hasMetrics ? (
               <>
                 <div className="space-y-2.5">
