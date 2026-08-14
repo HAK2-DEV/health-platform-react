@@ -1,4 +1,6 @@
-// 식품 영양 데이터 소스 — 검색 인터페이스. 지금은 목(mock), 나중에 실제 API(엣지함수 프록시)로 스왑.
+import { supabase } from '../supabaseClient'
+
+// 식품 영양 데이터 소스 — 검색 인터페이스. 목데이터 폴백 + 엣지함수(food-search) 프록시.
 //   반환 음식 1개 = 1회 표준제공량 기준 { id, name, serving, kcal, carb, protein, fat }.
 //   호출측(MealLogger)은 이 인터페이스만 사용 → 데이터 소스 교체에 영향 없음.
 //
@@ -38,12 +40,25 @@ const MOCK_FOODS = [
   { id: 'protein_shk', name: '단백질쉐이크', serving: '1스쿱',        kcal: 120, carb: 5,  protein: 24, fat: 1 },
 ]
 
-// 검색 — 식품명 부분일치. (실제 API 스왑 시 이 함수 내부만 교체)
+function searchMock(q) {
+  const lc = q.toLowerCase()
+  return MOCK_FOODS.filter((f) => f.name.toLowerCase().includes(lc)).slice(0, 20)
+}
+
+// 검색 — 엣지함수(food-search) 프록시 → data.go.kr 통합식품영양성분DB.
+//   함수 미배포/미설정/오류 시 목데이터로 폴백(전환기 안전망).
 export async function searchFoods(query) {
   const q = (query || '').trim()
   if (!q) return []
-  const lc = q.toLowerCase()
-  return MOCK_FOODS.filter((f) => f.name.toLowerCase().includes(lc)).slice(0, 20)
+  try {
+    const { data, error } = await supabase.functions.invoke('food-search', { body: { q } })
+    if (error) throw error
+    if (Array.isArray(data?.foods) && data.foods.length > 0) return data.foods
+    // foods 비어도(검색결과 0 or not_configured) → 폴백으로 UX 유지
+  } catch {
+    /* 폴백 */
+  }
+  return searchMock(q)
 }
 
 // 음식 × 배수(qty) → 반올림 영양치
