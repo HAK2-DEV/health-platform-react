@@ -10,7 +10,7 @@
 //   실제 응답 형식(확인됨): { body: { items: { item: [ { foodNm, enerc, chocdf, prot, fatce, nat,
 //     nutConSrtrQua, foodSize, foodCd, ... } ] }, totalCount } }.  영양치는 nutConSrtrQua(보통 100g) 기준.
 
-const KEY = Deno.env.get('FOOD_API_KEY') ?? ''
+const KEY = (Deno.env.get('FOOD_API_KEY') ?? '').trim()   // 저장 시 딸려온 공백/개행 제거
 const ENDPOINTS = (Deno.env.get('FOOD_ENDPOINTS') ?? '').split(',').map((s) => s.trim()).filter(Boolean)
 const PER = 20   // 데이터셋당 최대 결과
 
