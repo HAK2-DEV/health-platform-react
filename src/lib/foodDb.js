@@ -104,6 +104,38 @@ export async function verifyFood(foodId, on) {
   return !error
 }
 
+// 라벨 OCR 자동 검증(등록자 본인) — 영양성분표로 등록한 음식에 ✓ 부여.
+export async function markFoodVerified(foodId) {
+  const { error } = await supabase.rpc('mark_food_verified', { p_food_id: String(foodId) })
+  return !error
+}
+
+// 내가 등록한 음식 목록 (수정·삭제용).
+export async function getMyRegisteredFoods() {
+  try {
+    const { data, error } = await supabase.rpc('get_my_foods')
+    if (error) throw error
+    return Array.isArray(data) ? data.map((f) => ({ ...f, basis: 'per100', source: 'user' })) : []
+  } catch { return [] }
+}
+
+// 내 음식 수정 — 제공량(g)+영양 → per-100g 변환 저장. 수정 시 검증 해제.
+//   반환: 수정된 행 수(0=대상 못 찾음). 에러는 throw.
+export async function updateFood(foodId, { name, maker = null, servingG = 100, kcal = 0, carb = 0, protein = 0, fat = 0 }) {
+  const { data, error } = await supabase.rpc('update_food', {
+    p_food_id: String(foodId), p_name: name, p_maker: maker, p_serving_g: servingG,
+    p_kcal: kcal, p_carb: carb, p_protein: protein, p_fat: fat,
+  })
+  if (error) throw error
+  return Number(data ?? 0)   // update_food 가 rows(int) 반환하도록 마이그224에서 변경
+}
+
+// 내 음식 삭제.
+export async function deleteFood(foodId) {
+  const { error } = await supabase.rpc('delete_food', { p_food_id: String(foodId) })
+  return !error
+}
+
 // 영양성분표 사진 → 구조화 추출(제공량/열량/탄단지). 엣지함수 nutrition-label(Gemini).
 //   반환: { serving_g, kcal, carb, protein, fat, sodium, sugar, confidence }
 export async function readNutritionLabel(imageDataUrl) {

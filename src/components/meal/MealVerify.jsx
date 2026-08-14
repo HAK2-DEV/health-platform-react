@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { Search, Plus, Minus, X, Camera, Loader2, Heart, Check, Flag } from 'lucide-react'
-import { searchFoods, computeNutrients, foodBasis, defaultAmount, recordPick, recognizeFoodPhoto, recordUse, setFavorite, getUserFoods, rowToFood, logSearchMiss, submitFood, setFoodPublic, reportFood, readNutritionLabel } from '../../lib/foodDb'
+import { Search, Plus, Minus, X, Camera, Loader2, Heart, Check, Flag, Pencil, Trash2 } from 'lucide-react'
+import { searchFoods, computeNutrients, foodBasis, defaultAmount, recordPick, recognizeFoodPhoto, recordUse, setFavorite, getUserFoods, rowToFood, logSearchMiss, submitFood, setFoodPublic, reportFood, readNutritionLabel, markFoodVerified, getMyRegisteredFoods, updateFood, deleteFood } from '../../lib/foodDb'
 
 // 식단 미션 인증 — 한 끼니(아침/점심/저녁/간식) 기록.
 //   두 방법: 🔍 검색(32만 DB) · 📷 AI 사진(food-vision → 프리필). 그램 확정 → 영양치와 함께 제출.
@@ -9,10 +9,11 @@ import { searchFoods, computeNutrients, foodBasis, defaultAmount, recordPick, re
 const MEAL_LABEL = { breakfast: '아침', lunch: '점심', dinner: '저녁', snack: '간식' }
 const MEAL_EMOJI = { breakfast: '🌅', lunch: '☀️', dinner: '🌙', snack: '🍪' }
 const NUTRIENTS = [
-  { key: 'carb', label: '탄수', text: 'text-amber-600', dot: 'bg-amber-400', bar: 'bg-amber-400' },
-  { key: 'protein', label: '단백', text: 'text-sky-600', dot: 'bg-sky-400', bar: 'bg-sky-400' },
-  { key: 'fat', label: '지방', text: 'text-rose-500', dot: 'bg-rose-400', bar: 'bg-rose-400' },
+  { key: 'carb', label: '탄수', full: '탄수화물', text: 'text-amber-600', dot: 'bg-amber-400', bar: 'bg-amber-400' },
+  { key: 'protein', label: '단백', full: '단백질', text: 'text-sky-600', dot: 'bg-sky-400', bar: 'bg-sky-400' },
+  { key: 'fat', label: '지방', full: '지방', text: 'text-rose-500', dot: 'bg-rose-400', bar: 'bg-rose-400' },
 ]
+const DAILY_VALUE = { kcal: 2000, carb: 324, protein: 55, fat: 54 }  // 1일 영양성분 기준치(식품표시기준)
 
 // 파일 → 리사이즈·압축 base64 dataURL (AI 전송량 절약)
 function fileToDataUrl(file, maxDim = 1024, quality = 0.7) {
@@ -75,13 +76,19 @@ function SectionLabel({ icon, children }) {
 // 즐겨찾기 가능 여부 — 임시(직접입력/AI 미매칭)는 저장 불가
 const canFav = (id) => { const s = String(id || ''); return !!s && !s.startsWith('custom') && !s.startsWith('ai-') }
 
+// 직접 등록 폼 초기값
+const REG_EMPTY = { name: '', g: '100', kcal: '', carb: '', protein: '', fat: '', share: false, fromLabel: false, editId: null }
+
 export default function MealVerify({ mealType = 'breakfast', onSubmit, submitting = false, onCancel }) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
   const [searching, setSearching] = useState(false)
   const [open, setOpen] = useState(false)
   const [entries, setEntries] = useState([])   // [{ key, food, amount }]
-  const [reg, setReg] = useState({ name: '', g: '100', kcal: '', carb: '', protein: '', fat: '', share: false })
+  const [reg, setReg] = useState({ name: '', g: '100', kcal: '', carb: '', protein: '', fat: '', share: false, fromLabel: false, editId: null })
+  const [myRegistered, setMyRegistered] = useState([])    // 내가 등록한 음식 목록
+  const [deleteFoodTarget, setDeleteFoodTarget] = useState(null)
+  const [detailEntry, setDetailEntry] = useState(null)    // 영양 상세 시트 대상
   const [regBusy, setRegBusy] = useState(false)
   const [panel, setPanel] = useState(null)          // null | 'favorites' | 'register'
   const [favSel, setFavSel] = useState(() => new Set())   // 즐겨찾기 복수선택
@@ -178,31 +185,50 @@ export default function MealVerify({ mealType = 'breakfast', onSubmit, submittin
     recordUse(food)   // 최근·자주 목록 갱신(다음 열 때 반영)
     setQuery(''); setResults([]); setOpen(false)
   }
-  // 개별 등록 — 영구 저장(내 음식) 후 담기. 다음부터 검색에 나옴.
+  const refreshMyRegistered = () => getMyRegisteredFoods().then(setMyRegistered)
+
+  // 개별 등록/수정 — 영구 저장. 신규는 담기까지, 수정은 목록 갱신.
   const registerFood = async () => {
     const name = reg.name.trim()
     const g = Math.max(1, parseFloat(reg.g) || 100)
     const kcal = parseFloat(reg.kcal) || 0
     if (!name || !(kcal >= 1) || regBusy) return
+    const nutr = { name, servingG: g, kcal, carb: parseFloat(reg.carb) || 0, protein: parseFloat(reg.protein) || 0, fat: parseFloat(reg.fat) || 0 }
     setRegBusy(true)
     try {
-      const food = await submitFood({
-        name, servingG: g, kcal,
-        carb: parseFloat(reg.carb) || 0, protein: parseFloat(reg.protein) || 0, fat: parseFloat(reg.fat) || 0,
-      })
-      if (food) {
-        if (reg.share) { setFoodPublic(food.id, true) }   // 모두에게 공유
-        addEntry(food, g)          // 등록 제공량만큼 담기(per-100g 기준)
-        recordUse(food)
-        setQuery(''); setResults([]); setOpen(false); setPanel(null)
-        setReg({ name: '', g: '100', kcal: '', carb: '', protein: '', fat: '', share: false })
+      if (reg.editId) {                                   // 수정
+        try {
+          const n = await updateFood(reg.editId, nutr)
+          if (n > 0) { await setFoodPublic(reg.editId, reg.share); setReg({ ...REG_EMPTY }); setLabelHint('✓ 수정 저장됐어요'); refreshMyRegistered() }
+          else setLabelHint('수정 대상을 찾지 못했어요. 다시 시도해 주세요.')
+        } catch (e) { setLabelHint('수정 실패: ' + (e?.message || String(e))) }
+      } else {                                             // 신규 등록 + 담기
+        const food = await submitFood(nutr)
+        if (food) {
+          if (reg.fromLabel) { markFoodVerified(food.id); food.verified = true }  // 라벨 OCR → 자동 검증
+          if (reg.share) { setFoodPublic(food.id, true) }                          // 모두에게 공유
+          addEntry(food, g); recordUse(food)
+          setQuery(''); setResults([]); setOpen(false); setPanel(null); setReg({ ...REG_EMPTY })
+        }
       }
     } catch { /* 실패 시 유지 */ } finally { setRegBusy(false) }
   }
 
   const openRegister = (prefill = '') => {
-    setReg({ name: prefill, g: '100', kcal: '', carb: '', protein: '', fat: '', share: false })
-    setLabelHint(null); setOpen(false); setPanel('register')
+    setReg({ ...REG_EMPTY, name: prefill })
+    setLabelHint(null); setOpen(false); setPanel('register'); refreshMyRegistered()
+  }
+  const fillEditFood = (f) => {   // 내 음식 → 폼에 채워 수정 모드 (저장된 제공량 기준)
+    const m = String(f.serving || '').match(/(\d+(?:\.\d+)?)/)
+    setReg({ name: f.name || '', g: m ? m[1] : '100', kcal: String(f.kcal ?? ''), carb: String(f.carb ?? ''), protein: String(f.protein ?? ''), fat: String(f.fat ?? ''), share: !!f.is_public, fromLabel: false, editId: f.id })
+    setLabelHint(null)
+  }
+  const confirmDeleteFood = async () => {
+    const f = deleteFoodTarget; if (!f) return
+    setDeleteFoodTarget(null)
+    await deleteFood(f.id)
+    if (reg.editId === f.id) { setReg({ ...REG_EMPTY }); setLabelHint(null) }
+    refreshMyRegistered()
   }
 
   // 영양성분표 사진 → OCR → 등록 폼 자동 채움
@@ -220,8 +246,9 @@ export default function MealVerify({ mealType = 'breakfast', onSubmit, submittin
         carb: d.carb ? String(d.carb) : r.carb,
         protein: d.protein ? String(d.protein) : r.protein,
         fat: d.fat ? String(d.fat) : r.fat,
+        fromLabel: d.kcal ? true : r.fromLabel,   // 라벨로 읽었으면 등록 시 자동 검증
       }))
-      setLabelHint(d.kcal ? `표에서 읽었어요 · ${d.serving_g}g당 ${d.kcal}kcal (확인 후 저장)` : '표를 읽지 못했어요. 직접 입력해 주세요.')
+      setLabelHint(d.kcal ? `표에서 읽었어요 · ${d.serving_g}g당 ${d.kcal}kcal · ✓ 검증으로 등록돼요` : '표를 읽지 못했어요. 직접 입력해 주세요.')
     } catch {
       setLabelHint('표를 읽지 못했어요. 직접 입력해 주세요.')
     } finally { setLabelBusy(false); ev.target.value = '' }
@@ -405,7 +432,7 @@ export default function MealVerify({ mealType = 'breakfast', onSubmit, submittin
           const isGram = basis.mode === 'gram'
           return (
             <div key={e.key} className="flex items-center gap-3 rounded-2xl bg-white border border-gray-100 px-3.5 py-3">
-              <div className="flex-1 min-w-0">
+              <button type="button" onClick={() => setDetailEntry(e)} className="flex-1 min-w-0 text-left">
                 <p className="text-[13px] font-semibold text-gray-900 truncate">{e.food.name}{e.food.maker ? <span className="font-normal text-gray-400"> · {e.food.maker}</span> : null}</p>
                 <p className="text-[11px] mt-1 flex items-center gap-2.5">
                   <span className="font-bold text-gray-900 tabular-nums">{n.kcal}<span className="text-gray-400 font-medium">kcal</span></span>
@@ -415,7 +442,7 @@ export default function MealVerify({ mealType = 'breakfast', onSubmit, submittin
                     </span>
                   ))}
                 </p>
-              </div>
+              </button>
               <div className="flex items-center gap-1.5 flex-shrink-0">
                 {canFav(e.food.id) && (
                   <button type="button" aria-label="즐겨찾기" onClick={() => toggleFav(e.food)}
@@ -554,13 +581,14 @@ export default function MealVerify({ mealType = 'breakfast', onSubmit, submittin
       {panel === 'register' && (
         <div className="absolute inset-0 z-40 flex items-center justify-center p-4">
           <button type="button" aria-label="닫기" onClick={() => setPanel(null)} className="absolute inset-0 bg-black/15" />
-          <div className="relative w-full max-w-sm flex flex-col rounded-3xl bg-white shadow-elevated border border-gray-100 overflow-hidden">
+          <div className="relative w-full max-w-sm max-h-[85%] flex flex-col rounded-3xl bg-white shadow-elevated border border-gray-100 overflow-hidden">
             <div className="flex-shrink-0 flex items-center gap-2 px-4 py-3 border-b border-gray-100">
               <Plus className="w-4 h-4 text-emerald-500" />
-              <h3 className="text-[14px] font-extrabold text-gray-900">직접 등록</h3>
+              <h3 className="text-[14px] font-extrabold text-gray-900">{reg.editId ? '음식 수정' : '직접 등록'}</h3>
+              {reg.editId && <button type="button" onClick={() => { setReg({ ...REG_EMPTY }); setLabelHint(null) }} className="text-[11px] text-gray-400 hover:text-gray-600">＋새 등록</button>}
               <button type="button" onClick={() => setPanel(null)} aria-label="닫기" className="ml-auto w-7 h-7 rounded-full text-gray-400 hover:bg-gray-100 flex items-center justify-center"><X className="w-4 h-4" /></button>
             </div>
-            <div className="p-4 space-y-2.5">
+            <div className="p-4 space-y-2.5 overflow-y-auto">
               <label className={`flex items-center justify-center gap-2 h-11 rounded-xl border-2 border-dashed cursor-pointer transition ${labelBusy ? 'border-emerald-300 bg-emerald-50/60 text-emerald-600' : 'border-gray-200 text-gray-600 hover:border-emerald-300 hover:bg-emerald-50/40'}`}>
                 {labelBusy ? <><Loader2 className="w-4 h-4 animate-spin" /><span className="text-[13px] font-bold">표 읽는 중…</span></> : <><Camera className="w-4 h-4" /><span className="text-[13px] font-bold">영양성분표 찍어서 자동 입력</span></>}
                 <input type="file" accept="image/*" onChange={onLabelPhoto} disabled={labelBusy} className="hidden" />
@@ -604,9 +632,31 @@ export default function MealVerify({ mealType = 'breakfast', onSubmit, submittin
               </button>
               <button type="button" onClick={registerFood} disabled={regBusy || !reg.name.trim() || !(parseFloat(reg.kcal) >= 1)}
                 className="w-full h-11 rounded-2xl bg-emerald-500 text-white text-[14px] font-bold disabled:bg-gray-200 disabled:text-gray-400 flex items-center justify-center gap-1.5 transition">
-                {regBusy ? <><Loader2 className="w-4 h-4 animate-spin" /> 등록 중…</> : '등록하고 담기'}
+                {regBusy ? <><Loader2 className="w-4 h-4 animate-spin" /> {reg.editId ? '저장 중…' : '등록 중…'}</> : (reg.editId ? '수정 저장' : '등록하고 담기')}
               </button>
-              <p className="text-[10px] text-gray-400 text-center">입력한 1회 제공량 기준으로 저장돼요</p>
+              <p className="text-[10px] text-gray-400 text-center">{reg.editId ? '수정하면 라벨 검증(✓)은 해제돼요' : '입력한 1회 제공량 기준으로 저장돼요'}</p>
+
+              {/* 내가 등록한 음식 — 수정·삭제 */}
+              {myRegistered.length > 0 && (
+                <div className="pt-2.5 mt-1 border-t border-gray-100">
+                  <p className="text-[11px] font-bold text-gray-400 mb-1.5">내가 등록한 음식 {myRegistered.length}</p>
+                  <div className="space-y-1">
+                    {myRegistered.map((f) => (
+                      <div key={f.id} className={`flex items-center gap-2 rounded-xl px-2.5 py-2 border ${reg.editId === f.id ? 'bg-emerald-50 border-emerald-200' : 'bg-gray-50 border-transparent'}`}>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[12.5px] font-semibold text-gray-800 truncate">{f.name}
+                            {f.verified ? <span className="ml-1 text-[9px] font-bold text-emerald-600">✓</span> : null}
+                            {f.is_public ? <span className="ml-1 text-[9px] text-gray-400">🌐</span> : null}
+                          </p>
+                          <p className="text-[10.5px] text-gray-400">{f.serving || '100g'}당 {f.kcal}kcal</p>
+                        </div>
+                        <button type="button" onClick={() => fillEditFood(f)} aria-label="수정" className="w-7 h-7 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 flex items-center justify-center flex-shrink-0"><Pencil className="w-3.5 h-3.5" /></button>
+                        <button type="button" onClick={() => setDeleteFoodTarget(f)} aria-label="삭제" className="w-7 h-7 rounded-lg text-gray-400 hover:text-rose-500 hover:bg-rose-50 flex items-center justify-center flex-shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -628,6 +678,64 @@ export default function MealVerify({ mealType = 'breakfast', onSubmit, submittin
           </div>
         </div>
       )}
+
+      {/* ── 내 음식 삭제 확인 ─────────────────────── */}
+      {deleteFoodTarget && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center p-6">
+          <button type="button" aria-label="닫기" onClick={() => setDeleteFoodTarget(null)} className="absolute inset-0 bg-black/20" />
+          <div className="relative w-full max-w-xs rounded-3xl bg-white shadow-elevated border border-gray-100 p-5 text-center">
+            <div className="w-11 h-11 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center mx-auto mb-3"><Trash2 className="w-5 h-5" /></div>
+            <p className="text-[14px] font-bold text-gray-900 mb-1">이 음식을 삭제할까요?</p>
+            <p className="text-[12px] text-gray-500 mb-4 truncate">{deleteFoodTarget.name}</p>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setDeleteFoodTarget(null)} className="flex-1 h-10 rounded-2xl bg-gray-100 text-gray-500 text-[13px] font-bold">취소</button>
+              <button type="button" onClick={confirmDeleteFood} className="flex-1 h-10 rounded-2xl bg-rose-500 text-white text-[13px] font-bold">삭제</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 영양 상세 시트 ─────────────────────────── */}
+      {detailEntry && (() => {
+        const dn = computeNutrients(detailEntry.food, detailEntry.amount)
+        const db = foodBasis(detailEntry.food)
+        const amtLabel = db.mode === 'gram' ? `${detailEntry.amount}${db.unit}` : `×${detailEntry.amount}`
+        return (
+          <div className="absolute inset-0 z-50 flex items-center justify-center p-4">
+            <button type="button" aria-label="닫기" onClick={() => setDetailEntry(null)} className="absolute inset-0 bg-black/20" />
+            <div className="relative w-full max-w-sm rounded-3xl bg-white shadow-elevated border border-gray-100 overflow-hidden">
+              <div className="flex items-start gap-2 px-4 py-3 border-b border-gray-100">
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-[15px] font-extrabold text-gray-900 truncate">{detailEntry.food.name}</h3>
+                  <p className="text-[11px] text-gray-400 truncate">{detailEntry.food.maker ? detailEntry.food.maker + ' · ' : ''}{amtLabel} 기준</p>
+                </div>
+                <button type="button" onClick={() => setDetailEntry(null)} aria-label="닫기" className="w-7 h-7 rounded-full text-gray-400 hover:bg-gray-100 flex items-center justify-center flex-shrink-0"><X className="w-4 h-4" /></button>
+              </div>
+              <div className="p-4">
+                <div className="text-center mb-4">
+                  <p className="text-[30px] font-extrabold text-gray-900 leading-none tabular-nums">{dn.kcal.toLocaleString()}<span className="text-[14px] text-gray-400 font-bold ml-1">kcal</span></p>
+                  <p className="text-[11px] text-gray-400 mt-1.5">1일 기준 2,000kcal 대비 <b className="text-gray-600">{Math.round(dn.kcal / DAILY_VALUE.kcal * 100)}%</b></p>
+                </div>
+                <div className="space-y-3">
+                  {NUTRIENTS.map((nu) => {
+                    const val = dn[nu.key], dv = DAILY_VALUE[nu.key], pct = Math.round(val / dv * 100)
+                    return (
+                      <div key={nu.key}>
+                        <div className="flex items-baseline justify-between mb-1">
+                          <span className="text-[12.5px] font-semibold text-gray-700 flex items-center gap-1.5"><span className={`w-2 h-2 rounded-full ${nu.dot}`} />{nu.full}</span>
+                          <span className="text-[12px] tabular-nums"><b className="text-gray-900">{val}g</b> <span className="text-gray-400">/ {dv}g · {pct}%</span></span>
+                        </div>
+                        <div className="h-2 rounded-full bg-gray-100 overflow-hidden"><span className={`block h-full ${nu.bar}`} style={{ width: `${Math.min(100, pct)}%` }} /></div>
+                      </div>
+                    )
+                  })}
+                </div>
+                <p className="text-[10.5px] text-gray-400 text-center mt-4 leading-relaxed">나트륨·당류·포화/트랜스지방 등 상세 영양소는 준비 중이에요<br />※ 1일 영양성분 기준치 대비 · 참고용</p>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }
