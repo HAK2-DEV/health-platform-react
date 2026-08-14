@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Sparkles, BookOpen, ChevronRight, ChevronLeft, Loader2, Check, Users } from 'lucide-react'
+import { Sparkles, BookOpen, ChevronRight, ChevronLeft, ChevronDown, Loader2, Check, Users } from 'lucide-react'
 import { PROGRAM_PRESETS, durationLabel } from '../../lib/programLibrary'
 import { QUIZ_AUDIENCES } from '../../lib/quizLibrary'
 import { fetchPresetUsageCounts } from '../../lib/queries'
@@ -20,6 +20,7 @@ import { PROGRAM_THEME } from '../../lib/constants'
 // 미션 한 줄 설명 — 일정/인증 방식 요약
 function missionHint(m) {
   if (m.verify_style === 'meditation') return `명상 타이머 · ${Math.round((m.meditation_seconds || 180) / 60)}분`
+  if (m.verify_style === 'meal') return 'AI 칼로리 기록'
   const parts = []
   if (m.metric_aggregate) parts.push('누적')
   else if (m.schedule_mode === 'WEEKDAYS') parts.push('평일')
@@ -38,6 +39,7 @@ function ProgramCreateChooser({ onDirect, onPickPreset, onBack, busyKey }) {
   const [selected, setSelected] = useState([])      // 선택된 미션 key[]
   const [duration, setDuration] = useState(null)    // 선택된 기간(일)
   const [audienceKey, setAudienceKey] = useState('general_adult')  // 번들 퀴즈 대상자
+  const [recOpen, setRecOpen] = useState(false)     // 추천 미션 섹션 펼침
 
   // 프리셋별 운영자 수 (마이그 135 RPC) — 라이브러리에서만 필요
   const { data: usage = {} } = useQuery({
@@ -49,9 +51,10 @@ function ProgramCreateChooser({ onDirect, onPickPreset, onBack, busyKey }) {
 
   const openDetail = (p) => {
     setPreset(p)
-    setSelected(p.missions.map(m => m.key))          // 기본 전체 선택
+    setSelected(p.missions.map(m => m.key))          // 메인 미션만 기본 체크(추천은 미체크)
     setDuration(p.durationDays)                       // 기본 기간
     setAudienceKey(audiencesForPreset(p)[0]?.key || 'general_adult')  // 기본 대상자
+    setRecOpen(false)
     setView('detail')
   }
   const toggle = (key) => {
@@ -186,6 +189,40 @@ function ProgramCreateChooser({ onDirect, onPickPreset, onBack, busyKey }) {
                 )
               })}
             </div>
+
+            {/* 추천 미션 — 접이식, 기본 미체크(서브 미션) */}
+            {preset.recommendedMissions?.length > 0 && (
+              <div className="mb-6">
+                <button type="button" onClick={() => setRecOpen(o => !o)} disabled={!!busyKey}
+                  className="w-full flex items-center gap-1.5 mb-2.5 disabled:opacity-60">
+                  <span className="text-[14px] font-bold text-gray-800">💡 추천 미션</span>
+                  <span className="text-[12px] text-gray-400">{preset.recommendedMissions.length}개 · 필요하면 추가</span>
+                  <ChevronDown className={`w-4 h-4 text-gray-400 ml-auto transition-transform ${recOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {recOpen && (
+                  <div className="space-y-2.5">
+                    {preset.recommendedMissions.map(m => {
+                      const on = selected.includes(m.key)
+                      return (
+                        <button key={m.key} type="button" onClick={() => toggle(m.key)} disabled={!!busyKey}
+                          className={`w-full flex items-start gap-3 p-4 rounded-xl border text-left transition disabled:opacity-60 ${on ? 'border-emerald-400 bg-emerald-50/60' : 'border-gray-200 hover:bg-gray-50'}`}>
+                          <span className={`w-6 h-6 mt-0.5 rounded-md flex items-center justify-center flex-shrink-0 border ${on ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-gray-300 text-transparent'}`}>
+                            <Check className="w-4 h-4" strokeWidth={3} />
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[15px] font-bold text-gray-900">{m.title}</p>
+                            <p className="text-[14px] text-gray-600 leading-relaxed mt-1 break-keep">{m.instruction}</p>
+                            <p className="text-[12px] font-semibold text-emerald-700 mt-1.5">
+                              {missionHint(m)}{preset.rankingEnabled !== false ? ` · ${m.point ?? 10}P` : ''}
+                            </p>
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* 대상자 선택 — 맞는 지식 퀴즈가 함께 발행됨 (퀴즈 있는 프리셋만) */}
             {audiencesForPreset(preset).length > 1 && (

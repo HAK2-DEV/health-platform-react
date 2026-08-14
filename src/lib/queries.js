@@ -3478,9 +3478,10 @@ export const createProgramFromPreset = async ({ presetKey, userId, selectedKeys,
   // 선택 대상자 + 프리셋 quizTopicKey 에 맞는 퀴즈 주제 (해당 조합이 없으면 퀴즈 없이 진행)
   const audience = QUIZ_AUDIENCES.find(a => a.key === (audienceKey || 'general_adult')) || QUIZ_AUDIENCES[0]
   const quizTopic = preset.quizTopicKey ? ((audience?.topics || []).find(t => t.key === preset.quizTopicKey) || null) : null
-  // selectedKeys 가 있으면 그 미션만, 없으면 전체
+  // 선택 후보 = 메인(missions) + 추천(recommendedMissions). selectedKeys 있으면 그것만, 없으면 메인만.
+  const pool = [...(preset.missions || []), ...(preset.recommendedMissions || [])]
   const chosen = Array.isArray(selectedKeys) && selectedKeys.length
-    ? (preset.missions || []).filter(m => selectedKeys.includes(m.key))
+    ? pool.filter(m => selectedKeys.includes(m.key))
     : (preset.missions || [])
 
   // 기간 — 오늘 시작, 선택 기간(없으면 프리셋 기본) (운영자가 마법사에서 조정)

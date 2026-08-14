@@ -137,7 +137,15 @@ export const PROGRAM_PRESETS = [
     categories: [CATEGORY.DIET.key],
     durationDays: 21,
     bundleTitle: '🥗 식습관',
+    // 메인(기본 체크) — 아침·점심·저녁·간식 식단 인증(AI 칼로리 기록, verify_style:meal)
     missions: [
+      { key: 'breakfast', title: '아침 식단 인증', instruction: '오늘 아침에 먹은 음식을 사진 또는 검색으로 담아 인증해요. AI가 칼로리·탄단지를 자동으로 계산해줘요.', point: 10, verify_style: 'meal', meal_type: 'breakfast', icon: '/icons/meal/breakfast.png' },
+      { key: 'lunch', title: '점심 식단 인증', instruction: '오늘 점심에 먹은 음식을 담아 인증해요. AI가 칼로리를 자동으로 계산해줘요.', point: 10, verify_style: 'meal', meal_type: 'lunch', icon: '/icons/meal/lunch.png' },
+      { key: 'dinner', title: '저녁 식단 인증', instruction: '오늘 저녁에 먹은 음식을 담아 인증해요. AI가 칼로리를 자동으로 계산해줘요.', point: 10, verify_style: 'meal', meal_type: 'dinner', icon: '/icons/meal/dinner.png' },
+      { key: 'snack', title: '간식 인증', instruction: '오늘 먹은 간식을 담아 인증해요. AI가 칼로리를 자동으로 계산해줘요.', point: 10, verify_style: 'meal', meal_type: 'snack', icon: '/icons/meal/snack.png' },
+    ],
+    // 추천(기본 체크 X) — 필요하면 함께 추가하는 서브 미션
+    recommendedMissions: [
       { key: 'water', title: '물 8잔 마시기', instruction: '하루 8잔(약 2L)을 목표로 물을 자주 마셔요. 마신 물병·컵을 사진으로 찍어 인증하면 완료돼요.', point: 10, icon: 'water.png' },
       { key: 'veggie', title: '채소 한 끼 먹기', instruction: '채소가 들어간 식사를 하루 한 끼 이상 챙겨 먹고, 그 식사 사진을 올려 인증해요.', point: 10, icon: 'diet.png' },
       { key: 'no_latenight', title: '야식 참기', instruction: '야식 없이 하루를 마무리했다면 인증해요. 참기 힘들었던 순간이나 대신 한 일을 함께 적으면 더 좋아요.', point: 10, icon: 'diet.png' },
@@ -177,9 +185,11 @@ export function durationLabel(days) {
 export function expandPresetMission(m, { programId, activeFrom, activeUntil, bundleTitle }) {
   const point = m.point ?? 10
   const isMed = m.verify_style === 'meditation'   // 명상(타이머) — 입력 없이 완료로 인증
-  const ri = isMed ? false : (m.requires_image ?? true)
-  const rn = isMed ? false : (m.requires_numeric ?? false)
-  const rno = isMed ? false : (m.requires_note ?? false)
+  const isMeal = m.verify_style === 'meal'        // 식단(검색·AI사진) — 자체 입력 화면
+  const special = isMed || isMeal                 // 자체 입력형 → 사진/숫자/소감 없음, AUTO 승인
+  const ri = special ? false : (m.requires_image ?? true)
+  const rn = special ? false : (m.requires_numeric ?? false)
+  const rno = special ? false : (m.requires_note ?? false)
   const onlyImage = ri && !rn && !rno
   const onlyNote = rno && !ri && !rn
   return {
@@ -187,11 +197,12 @@ export function expandPresetMission(m, { programId, activeFrom, activeUntil, bun
     feature: null,
     title: m.title,
     instruction: m.instruction || null,
-    verification_type: isMed ? 'AUTO' : (m.verification_type || 'AUTO'),
+    verification_type: special ? 'AUTO' : (m.verification_type || 'AUTO'),
     point,
     daily_limit: m.daily_limit ?? null,
-    // 명상(타이머) 인증 필드
+    // 명상(타이머)·식단(끼니) 인증 필드
     verify_style: m.verify_style || 'standard',
+    meal_type: isMeal ? (m.meal_type || 'breakfast') : null,
     meditation_seconds: isMed ? (m.meditation_seconds ?? 180) : null,
     meditation_pattern: isMed ? (m.meditation_pattern ?? { inhale: 4, hold1: 4, exhale: 4, hold2: 4 }) : null,
     meditation_music: null,
