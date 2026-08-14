@@ -48,7 +48,7 @@ export default function MealPhotoDemo() {
       // 각 인식 음식 → 우리 DB 최상위 매칭
       const matched = await Promise.all(foods.map(async (f) => {
         let db = null
-        try { const r = await searchFoods(f.name); db = r?.[0] || null } catch { /* 매칭 실패 무시 */ }
+        try { const r = await searchFoods(f.name, { deep: true, limit: 5 }); db = r?.[0] || null } catch { /* 매칭 실패 무시 */ }
         return { ...f, origGrams: f.grams || 0, db }
       }))
       setItems(matched)

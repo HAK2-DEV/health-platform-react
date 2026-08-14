@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { Search, Plus, Minus, X, Camera, Loader2 } from 'lucide-react'
-import { searchFoods, computeNutrients, foodBasis, defaultAmount, recordPick, recognizeFoodPhoto } from '../../lib/foodDb'
+import { Search, Plus, Minus, X, Camera, Loader2, Heart } from 'lucide-react'
+import { searchFoods, computeNutrients, foodBasis, defaultAmount, recordPick, recognizeFoodPhoto, recordUse, setFavorite, getUserFoods, rowToFood } from '../../lib/foodDb'
 
 // 식단 미션 인증 — 한 끼니(아침/점심/저녁/간식) 기록.
 //   두 방법: 🔍 검색(32만 DB) · 📷 AI 사진(food-vision → 프리필). 그램 확정 → 영양치와 함께 제출.
@@ -34,6 +34,32 @@ function fileToDataUrl(file, maxDim = 1024, quality = 0.7) {
   })
 }
 
+// 검색결과·즐겨찾기·최근 공용 행 — 담기 + 하트 토글
+function FoodRow({ food, faved, onAdd, onToggleFav }) {
+  const basis = foodBasis(food)
+  const sub = basis.mode === 'gram'
+    ? `${food.serving || '100g'}당 ${food.kcal}kcal`
+    : `${food.serving ? food.serving + ' · ' : ''}${food.kcal}kcal`
+  return (
+    <div className="w-full flex items-center gap-1.5 px-4 py-3">
+      <button type="button" onClick={() => onAdd(food)} className="flex-1 min-w-0 text-left">
+        <span className="block text-[13.5px] font-semibold text-gray-900 truncate">{food.name}{food.maker ? <span className="font-normal text-gray-400"> · {food.maker}</span> : null}</span>
+        <span className="block text-[11px] text-gray-400 mt-0.5">{sub}</span>
+      </button>
+      <button type="button" onClick={() => onToggleFav(food)} aria-label={faved ? '즐겨찾기 해제' : '즐겨찾기'}
+        className="w-8 h-8 flex items-center justify-center flex-shrink-0 active:scale-90 transition">
+        <Heart className={`w-[18px] h-[18px] transition ${faved ? 'fill-rose-400 text-rose-400' : 'text-gray-300'}`} />
+      </button>
+      <button type="button" onClick={() => onAdd(food)} aria-label="담기"
+        className="w-7 h-7 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0"><Plus className="w-4 h-4" /></button>
+    </div>
+  )
+}
+
+function SectionLabel({ icon, children }) {
+  return <p className="flex items-center gap-1.5 text-[11.5px] font-bold text-gray-400 px-1 mb-1.5">{icon}{children}</p>
+}
+
 export default function MealVerify({ mealType = 'breakfast', onSubmit, submitting = false, onCancel }) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
@@ -45,19 +71,52 @@ export default function MealVerify({ mealType = 'breakfast', onSubmit, submittin
   const [photoPreview, setPhotoPreview] = useState(null)
   const [photoError, setPhotoError] = useState(null)
   const [source, setSource] = useState('search')   // 'search' | 'photo'
+  const [myFoods, setMyFoods] = useState({ favorites: [], recents: [] })
+  const [favIds, setFavIds] = useState(() => new Set())
+  const [deepLoading, setDeepLoading] = useState(false)
+  const [deepDone, setDeepDone] = useState(false)
   const photoFileRef = useRef(null)
   const seq = useRef(0)
   const boxRef = useRef(null)
 
+  const applyMyFoods = (uf) => {
+    setMyFoods(uf)
+    setFavIds(new Set(uf.favorites.map((r) => String(r.food_id))))
+  }
+  const refreshMyFoods = () => getUserFoods().then(applyMyFoods)
+  useEffect(() => {
+    let alive = true
+    getUserFoods().then((uf) => { if (alive) applyMyFoods(uf) })
+    return () => { alive = false }
+  }, [])
+
+  const toggleFav = async (food) => {
+    const id = String(food.id)
+    const on = !favIds.has(id)
+    setFavIds((prev) => { const n = new Set(prev); if (on) n.add(id); else n.delete(id); return n })  // 낙관적
+    await setFavorite(food, on)
+    refreshMyFoods()
+  }
+
   useEffect(() => {
     const q = query.trim()
+    setDeepDone(false)
     if (!q) { setResults([]); setSearching(false); return }
     setSearching(true)
     const t = setTimeout(async () => {
-      try { setResults(await searchFoods(q)) } finally { setSearching(false) }
+      try { setResults(await searchFoods(q)) } finally { setSearching(false) }   // 빠른 앞일치
     }, 300)
     return () => clearTimeout(t)
   }, [query])
+
+  // 더보기 — 부분일치까지 정밀 검색(느림, 사용자 대기)
+  const runDeep = async () => {
+    const q = query.trim()
+    if (!q || deepLoading) return
+    setDeepLoading(true)
+    try { setResults(await searchFoods(q, { deep: true, limit: 40 })); setDeepDone(true) }
+    finally { setDeepLoading(false) }
+  }
 
   useEffect(() => {
     if (!open) return
@@ -79,6 +138,7 @@ export default function MealVerify({ mealType = 'breakfast', onSubmit, submittin
   const addFood = (food) => {
     addEntry(food, defaultAmount(food))
     recordPick(food.id)
+    recordUse(food)   // 최근·자주 목록 갱신(다음 열 때 반영)
     setQuery(''); setResults([]); setOpen(false)
   }
   const addCustom = () => {
@@ -113,7 +173,7 @@ export default function MealVerify({ mealType = 'breakfast', onSubmit, submittin
       const byId = new Map()
       for (const f of foods) {
         let db = null
-        try { const r = await searchFoods(f.name); db = r?.[0] || null } catch { /* 무시 */ }
+        try { const r = await searchFoods(f.name, { deep: true, limit: 5 }); db = r?.[0] || null } catch { /* 무시 */ }
         let food, amount
         if (db) { const b = foodBasis(db); food = db; amount = b.mode === 'gram' ? (f.grams || b.base) : 1 }
         else { const n = ++seq.current; food = { id: `ai-${n}`, name: f.name, maker: 'AI 추정', serving: '1인분', kcal: f.kcal || 0, carb: 0, protein: 0, fat: 0 }; amount = 1 }
@@ -131,6 +191,11 @@ export default function MealVerify({ mealType = 'breakfast', onSubmit, submittin
   }
 
   const clearPhoto = () => { setPhotoPreview(null); photoFileRef.current = null; setPhotoError(null); setSource('search') }
+
+  // 즐겨찾기한 항목을 검색결과 최상단으로
+  const sortedResults = useMemo(
+    () => [...results].sort((a, b) => (favIds.has(String(b.id)) ? 1 : 0) - (favIds.has(String(a.id)) ? 1 : 0)),
+    [results, favIds])
 
   const totals = useMemo(() => entries.reduce((t, e) => {
     const n = computeNutrients(e.food, e.amount)
@@ -157,13 +222,23 @@ export default function MealVerify({ mealType = 'breakfast', onSubmit, submittin
         <span className="text-[11px] text-gray-400 ml-auto">검색 또는 사진으로 담아요</span>
       </div>
 
-      {/* AI 사진 */}
-      <label className="flex-shrink-0 flex items-center justify-center gap-2 h-11 rounded-2xl bg-emerald-500 text-white text-[14px] font-bold cursor-pointer active:bg-emerald-600 transition mb-2">
-        {photoBusy ? <Loader2 className="w-5 h-5 animate-spin" /> : <Camera className="w-5 h-5" />}
-        {photoBusy ? 'AI가 분석 중…' : '📷 사진으로 자동 담기 (AI)'}
-        <input type="file" accept="image/*" capture="environment" onChange={onPhoto} disabled={photoBusy || submitting} className="hidden" />
+      {/* AI 사진 — 점선 박스 탭 → 촬영/앨범 선택 */}
+      <label className={`flex-shrink-0 flex flex-col items-center justify-center gap-1.5 px-4 py-6 rounded-2xl border-2 border-dashed cursor-pointer transition mb-3 ${photoBusy ? 'border-emerald-300 bg-emerald-50/60' : 'border-gray-200 hover:border-emerald-300 hover:bg-emerald-50/40 active:bg-emerald-50'}`}>
+        {photoBusy ? (
+          <>
+            <Loader2 className="w-7 h-7 text-emerald-500 animate-spin" />
+            <span className="text-[13px] font-semibold text-emerald-600">AI가 사진을 분석 중…</span>
+          </>
+        ) : (
+          <>
+            <span className="w-11 h-11 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center"><Camera className="w-[22px] h-[22px]" /></span>
+            <span className="text-[14px] font-bold text-gray-800 text-center">사진을 올리면 자동으로 칼로리를 계산해줘요</span>
+            <span className="text-[11.5px] text-gray-400">탭해서 촬영하거나 앨범에서 선택</span>
+          </>
+        )}
+        <input type="file" accept="image/*" onChange={onPhoto} disabled={photoBusy || submitting} className="hidden" />
       </label>
-      {photoError && <p className="flex-shrink-0 text-[11px] text-rose-500 mb-2">{photoError}</p>}
+      {photoError && <p className="flex-shrink-0 text-[11px] text-rose-500 mb-2 text-center">{photoError}</p>}
 
       {/* 검색 */}
       <div ref={boxRef} className="flex-shrink-0 relative z-20">
@@ -193,21 +268,25 @@ export default function MealVerify({ mealType = 'breakfast', onSubmit, submittin
                     className="h-9 px-3.5 rounded-xl bg-emerald-500 text-white text-[13px] font-semibold whitespace-nowrap disabled:bg-gray-200 disabled:text-gray-400">담기</button>
                 </div>
               </div>
-            ) : results.map((f) => (
-              <button key={f.id} type="button" onClick={() => addFood(f)} className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 transition">
-                <span className="flex-1 min-w-0">
-                  <span className="block text-[13.5px] font-semibold text-gray-900 truncate">{f.name}{f.maker ? <span className="font-normal text-gray-400"> · {f.maker}</span> : null}</span>
-                  <span className="block text-[11px] text-gray-400 mt-0.5">{foodBasis(f).mode === 'gram' ? `${f.serving || '100g'}당 ${f.kcal}kcal` : `${f.serving} · ${f.kcal}kcal`}</span>
-                </span>
-                <span className="w-7 h-7 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0"><Plus className="w-4 h-4" /></span>
-              </button>
-            ))}
+            ) : (
+              <>
+                {sortedResults.map((f) => (
+                  <FoodRow key={f.id} food={f} faved={favIds.has(String(f.id))} onAdd={addFood} onToggleFav={toggleFav} />
+                ))}
+                {!deepDone && (
+                  <button type="button" onClick={runDeep} disabled={deepLoading}
+                    className="w-full px-4 py-3 text-[12.5px] font-semibold text-emerald-600 hover:bg-emerald-50 flex items-center justify-center gap-1.5 disabled:text-gray-400">
+                    {deepLoading ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> 정밀 검색 중…</> : '🔎 못 찾으셨나요? 더 정확히 찾기'}
+                  </button>
+                )}
+              </>
+            )}
           </div>
         )}
       </div>
 
-      {/* 담은 목록 */}
-      <div className="mt-3 flex-1 min-h-0 overflow-y-auto space-y-1.5">
+      {/* 담은 목록 + 내 음식(즐겨찾기·최근) */}
+      <div className="mt-3 flex-1 min-h-0 overflow-y-auto space-y-3">
         {photoPreview && (
           <div className="relative">
             <img src={photoPreview} alt="" className="w-full max-h-40 object-cover rounded-2xl border border-gray-100" />
@@ -217,11 +296,9 @@ export default function MealVerify({ mealType = 'breakfast', onSubmit, submittin
             </button>
           </div>
         )}
-        {entries.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-gray-200 px-4 py-10 text-center">
-            <p className="text-[13px] text-gray-400 leading-relaxed">사진을 찍거나 음식을 검색해<br />이 끼니를 담아보세요</p>
-          </div>
-        ) : entries.map((e) => {
+        {entries.length > 0 && (
+          <div className="space-y-1.5">
+            {entries.map((e) => {
           const n = computeNutrients(e.food, e.amount)
           const basis = foodBasis(e.food)
           const isGram = basis.mode === 'gram'
@@ -254,7 +331,40 @@ export default function MealVerify({ mealType = 'breakfast', onSubmit, submittin
               </div>
             </div>
           )
-        })}
+            })}
+          </div>
+        )}
+
+        {/* 즐겨찾기 */}
+        {myFoods.favorites.length > 0 && (
+          <section>
+            <SectionLabel icon={<Heart className="w-3.5 h-3.5 fill-rose-400 text-rose-400" />}>즐겨찾기</SectionLabel>
+            <div className="rounded-2xl bg-white border border-gray-100 divide-y divide-gray-50 overflow-hidden">
+              {myFoods.favorites.map((r) => (
+                <FoodRow key={r.food_id} food={rowToFood(r)} faved={favIds.has(String(r.food_id))} onAdd={addFood} onToggleFav={toggleFav} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* 최근에 담은 음식 */}
+        {myFoods.recents.length > 0 && (
+          <section>
+            <SectionLabel icon={<span className="text-[12px] leading-none">🕘</span>}>최근에 담은 음식</SectionLabel>
+            <div className="rounded-2xl bg-white border border-gray-100 divide-y divide-gray-50 overflow-hidden">
+              {myFoods.recents.map((r) => (
+                <FoodRow key={r.food_id} food={rowToFood(r)} faved={favIds.has(String(r.food_id))} onAdd={addFood} onToggleFav={toggleFav} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* 처음 — 아무 기록도 없을 때 */}
+        {entries.length === 0 && myFoods.favorites.length === 0 && myFoods.recents.length === 0 && (
+          <div className="rounded-2xl border border-dashed border-gray-200 px-4 py-10 text-center">
+            <p className="text-[13px] text-gray-400 leading-relaxed">위에서 사진을 올리거나<br />음식을 검색해 담아보세요</p>
+          </div>
+        )}
       </div>
 
       {/* 하단 — 합계 + 제출 */}

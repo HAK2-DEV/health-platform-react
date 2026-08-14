@@ -1,4 +1,5 @@
 import { supabase } from '../supabaseClient'
+import { aliasOf } from './foodAliases'
 
 // 식품 영양 데이터 소스 — 검색 인터페이스. 목데이터 폴백 + 엣지함수(food-search) 프록시.
 //   반환 음식 1개 = 1회 표준제공량 기준 { id, name, serving, kcal, carb, protein, fat }.
@@ -45,16 +46,23 @@ function searchMock(q) {
   return MOCK_FOODS.filter((f) => f.name.toLowerCase().includes(lc)).slice(0, 20)
 }
 
-// 검색 — 3단계: ① foods 테이블 부분일치 RPC(제조사 포함·인기순) → ② 엣지함수 프록시(적재 전/미매칭)
-//   → ③ 목데이터. 적재 완료 후엔 ①이 거의 다 처리.
-export async function searchFoods(query) {
+// 검색 — 3단계: ① foods 테이블 RPC → ② 엣지함수 프록시(적재 전/미매칭) → ③ 목데이터.
+//   opts.deep=false(기본): 앞일치만 — 글자수 무관 즉시. true: 부분일치까지(정밀·느림, "더보기").
+//   opts.limit: 반환 개수(기본 15, 정밀검색은 크게).
+export async function searchFoods(query, { deep = false, limit = 15 } = {}) {
   const q = (query || '').trim()
   if (!q) return []
-  // ① foods 테이블 부분일치(RPC) — "우유"→저지방우유, "하림"→하림 제품, 인기순
-  try {
-    const { data, error } = await supabase.rpc('search_foods', { q, lim: 30 })
+  // ① foods 테이블(RPC) — 동의어(연상어)면 정식명으로 치환 검색, 0건이면 원문 폴백
+  const alias = aliasOf(q)
+  const runRpc = async (term) => {
+    const { data, error } = await supabase.rpc('search_foods', { q: term, lim: limit, deep })
     if (error) throw error
-    if (Array.isArray(data) && data.length > 0) return data.map((f) => ({ ...f, basis: 'per100' }))
+    return Array.isArray(data) ? data.map((f) => ({ ...f, basis: 'per100' })) : []
+  }
+  try {
+    let rows = await runRpc(alias || q)
+    if (rows.length === 0 && alias) rows = await runRpc(q)   // 별칭 실패 시 원문
+    if (rows.length > 0) return rows
   } catch { /* 다음 단계 */ }
   // ② 적재 전/미매칭 — 정부 API 프록시(prefix 한계 있음)
   try {
@@ -80,6 +88,50 @@ export function recordPick(foodId) {
   const id = String(foodId || '')
   if (!id || id.startsWith('custom')) return
   try { supabase.rpc('increment_food_pick', { p_id: id }) } catch { /* 무시 */ }
+}
+
+// ── 내 음식(즐겨찾기·최근) ─────────────────────────────────
+//   임시 id(custom-/ai-)는 저장 안 함 — 안정적으로 재현 불가하므로.
+const isTransientId = (id) => { const s = String(id || ''); return !s || s.startsWith('custom') || s.startsWith('ai-') }
+const foodArgs = (food) => ({
+  p_food_id: String(food.id), p_name: food.name, p_maker: food.maker || null,
+  p_serving: food.serving || null,
+  p_kcal: food.kcal ?? null, p_carb: food.carb ?? null, p_protein: food.protein ?? null, p_fat: food.fat ?? null,
+  p_basis: food.basis || null,
+})
+
+// user_foods 행 → 담기 가능한 food 객체
+export function rowToFood(r) {
+  return { id: r.food_id, name: r.name, maker: r.maker, serving: r.serving,
+    kcal: r.kcal, carb: r.carb, protein: r.protein, fat: r.fat, basis: r.basis || undefined }
+}
+
+// 담을 때: 사용기록(횟수+최근) upsert. fire-and-forget.
+export function recordUse(food) {
+  if (isTransientId(food?.id)) return
+  try { supabase.rpc('touch_food', foodArgs(food)) } catch { /* 무시 */ }
+}
+
+// 하트 토글. 성공 여부 반환.
+export async function setFavorite(food, on) {
+  if (isTransientId(food?.id)) return false
+  const { error } = await supabase.rpc('set_food_favorite', { ...foodArgs(food), p_on: !!on })
+  return !error
+}
+
+// 내 음식 로드 → { favorites, recents }.
+//   favorites = ♥ 등록(자주 담은 순), recents = 최근 담은(즐겨찾기 제외, 중복 방지).
+export async function getUserFoods() {
+  try {
+    const { data, error } = await supabase.from('user_foods').select('*')
+      .order('last_used_at', { ascending: false }).limit(100)
+    if (error) throw error
+    const rows = Array.isArray(data) ? data : []
+    const favorites = rows.filter((r) => r.favorite)
+      .sort((a, b) => (b.use_count - a.use_count) || (new Date(b.last_used_at) - new Date(a.last_used_at)))
+    const recents = rows.filter((r) => !r.favorite && r.use_count > 0).slice(0, 20)
+    return { favorites, recents }
+  } catch { return { favorites: [], recents: [] } }
 }
 
 // 음식 기준(basis) 판별.

@@ -24,6 +24,55 @@ const MEAL_DEFAULT = [
   { key: 'snack', label: '간식', emoji: '🍪', kcal: 0, done: false },
 ]
 
+// 1일 영양성분 기준치 (식품등의 표시기준) — 간단 영양평가용 참조값
+const DAILY_VALUE = [
+  { key: 'kcal', label: '에너지', unit: 'kcal', dv: 2000, bar: 'bg-gray-400' },
+  { key: 'carb', label: '탄수화물', unit: 'g', dv: 324, bar: 'bg-amber-400' },
+  { key: 'protein', label: '단백질', unit: 'g', dv: 55, bar: 'bg-sky-400' },
+  { key: 'fat', label: '지방', unit: 'g', dv: 54, bar: 'bg-rose-400' },
+]
+
+// 오늘의 영양 평가 — 섭취량을 1일 기준치와 비교(진행률 + 과잉 경고). 참고용.
+function NutritionReport({ today }) {
+  const rows = DAILY_VALUE.map((n) => {
+    const val = today?.[n.key] || 0
+    const pct = n.dv > 0 ? Math.round((val / n.dv) * 100) : 0
+    return { ...n, val, pct, over: pct > 110 }
+  })
+  const overs = rows.filter((r) => r.over && r.key !== 'kcal')
+  const summary = rows.every((r) => r.val === 0)
+    ? '식단을 인증하면 1일 기준치 대비 영양 상태를 알려드려요.'
+    : overs.length
+      ? `${overs.map((r) => r.label).join('·')}이(가) 1일 기준치를 넘었어요. 다음 끼니에서 조절해보세요.`
+      : '아직 1일 기준치 안이에요. 균형 있게 채워가고 있어요.'
+  return (
+    <div className="rounded-2xl p-4 bg-white border border-gray-100 shadow-soft">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-[13px] font-bold text-gray-800">오늘의 영양 평가</h3>
+        <span className="text-[10px] text-gray-400">1일 기준치 대비</span>
+      </div>
+      <div className="space-y-2.5">
+        {rows.map((n) => (
+          <div key={n.key}>
+            <div className="flex items-baseline justify-between mb-1">
+              <span className="text-[12px] font-semibold text-gray-700">{n.label}</span>
+              <span className="text-[11px] tabular-nums">
+                <b className={n.over ? 'text-rose-500' : 'text-gray-800'}>{n.val.toLocaleString()}{n.unit}</b>
+                <span className="text-gray-400"> / {n.dv.toLocaleString()}{n.unit} · {n.pct}%</span>
+              </span>
+            </div>
+            <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+              <div className={`h-full rounded-full ${n.over ? 'bg-rose-400' : n.bar}`} style={{ width: `${Math.min(100, n.pct)}%` }} />
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="text-[11px] text-gray-400 mt-3 leading-relaxed">{summary}</p>
+      <p className="text-[10px] text-gray-300 mt-1">※ 1일 영양성분 기준치 기준 참고용이며, 의학적 진단이 아니에요.</p>
+    </div>
+  )
+}
+
 // 매크로 라벨(탄단지 %·g) — 모듈 스코프(렌더 중 컴포넌트 정의 금지)
 function MacroLabel({ label, pct, g, color, align }) {
   return (
@@ -258,6 +307,8 @@ export default function DietOverview({
       </div>
 
       <MealStatus meals={meals} />
+
+      <NutritionReport today={today} />
 
       {menu.length > 0 && (
         <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${menu.length}, minmax(0, 1fr))` }}>
