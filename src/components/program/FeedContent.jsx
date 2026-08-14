@@ -19,6 +19,45 @@ import EmptyState from '../../components/common/EmptyState'
 import LoadingState from '../../components/common/LoadingState'
 import ReportModal from '../common/ReportModal'
 
+// 식단 인증 영양 요약 — 총 kcal + 탄단지 + 담은 음식 목록 (커뮤니티 피드 노출)
+const MEAL_MACROS = [
+  { key: 'meal_carb', label: '탄', dot: 'bg-amber-400', text: 'text-amber-600' },
+  { key: 'meal_protein', label: '단', dot: 'bg-sky-400', text: 'text-sky-600' },
+  { key: 'meal_fat', label: '지', dot: 'bg-rose-400', text: 'text-rose-500' },
+]
+function MealFeedSummary({ post }) {
+  const items = Array.isArray(post.meal_items) ? post.meal_items : []
+  return (
+    <div className="rounded-2xl bg-emerald-50/60 border border-emerald-100 p-3">
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex items-baseline gap-1">
+          <span className="text-[13px]">🍽️</span>
+          <span className="text-[18px] font-extrabold text-gray-900 tabular-nums ml-0.5">{(post.meal_kcal ?? 0).toLocaleString()}</span>
+          <span className="text-[11px] font-bold text-gray-400">kcal</span>
+        </span>
+        <span className="flex items-center gap-2.5">
+          {MEAL_MACROS.map(m => (
+            <span key={m.key} className={`inline-flex items-center gap-1 text-[11px] font-semibold ${m.text} tabular-nums`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${m.dot}`} />{m.label} {post[m.key] ?? 0}<span className="text-gray-400 font-medium">g</span>
+            </span>
+          ))}
+        </span>
+      </div>
+      {items.length > 0 && (
+        <p className="text-[11.5px] text-gray-500 leading-relaxed mt-1.5">
+          {items.map((it, i) => (
+            <span key={i}>
+              {i > 0 && <span className="text-gray-300"> · </span>}
+              {it.name}{it.amount ? <span className="text-gray-400"> {it.amount}{it.unit || 'g'}</span> : null}
+            </span>
+          ))}
+        </p>
+      )}
+      {post.meal_source === 'photo' && <p className="text-[10px] text-gray-400 mt-1">📷 AI 추정 · 참고용</p>}
+    </div>
+  )
+}
+
 // 피드 본문 — ProgramFeedPage / ProgramDetailPage 「커뮤니티」 탭 공유.
 // 본인 결정 (Day 58): 커뮤니티 탭 클릭 시 진입 카드 없이 바로 피드 노출 → UX 자연스러움.
 //
@@ -479,6 +518,13 @@ function FeedContent({ program, layout: layoutProp = null, targetVerificationId 
                     </p>
                   )
                 )}
+              </div>
+            )}
+
+            {/* 식단 인증 — 영양 요약 + 담은 음식 */}
+            {post.meal_kcal != null && (
+              <div className="px-4 pt-2">
+                <MealFeedSummary post={post} />
               </div>
             )}
 

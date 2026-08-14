@@ -2418,7 +2418,7 @@ export const fetchFeedPosts = async (programId, page = 0, pageSize = FEED_PAGE_S
   // 1) APPROVED + feed_visible 인증만 — range 로 페이지네이션
   const { data: vData, error: vErr } = await supabase
     .from('verifications')
-    .select('id, mission_id, user_id, submitted_at, image_path, numeric_value, metric_values, note, missions!inner(program_id, title, bundle_title, requires_note, metrics)')
+    .select('id, mission_id, user_id, submitted_at, image_path, numeric_value, metric_values, note, meal_kcal, meal_carb, meal_protein, meal_fat, meal_items, meal_source, missions!inner(program_id, title, bundle_title, requires_note, metrics)')
     .eq('missions.program_id', programId)
     .eq('missions.feed_excluded', false)   // 운영자 전용 미션(욕구 순간 등) 제외
     .eq('status', 'APPROVED')
