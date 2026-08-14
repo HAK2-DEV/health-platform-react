@@ -28,6 +28,8 @@ import WeeklyStreak from '../../components/program/WeeklyStreak'
 import FlameIcon from '../../components/common/FlameIcon'
 import MetricSummaryCard from '../../components/program/MetricSummaryCard'
 import ProgramHome, { HOME_BOX_ORDER, HOME_BOX_LABELS, Icon3D } from '../../components/program/ProgramHome'
+import ProgramHomeHero from '../../components/program/ProgramHomeHero'
+import DietOverview from '../../components/program/DietOverview'
 import ProgramHomeLayoutEditor from '../../components/program/ProgramHomeLayoutEditor'
 import { resolveMissionIcon } from '../../lib/missionIcons'
 import { getSignedUrls, thumbPathOf } from '../../lib/signedUrls'
@@ -317,6 +319,30 @@ function ProgramDetailPage() {
     queryKey: queryKeys.programOverview(id, userId),
     queryFn: () => fetchProgramOverview(id, userId),
     enabled: !!session && !!id && !!userId,
+  })
+
+  // 식단 카테고리 — 참여자 개인 목표 kcal (program_participants.daily_kcal_goal, 마이그 212)
+  const { data: dietGoalRow } = useQuery({
+    queryKey: ['diet-goal', id, userId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('program_participants')
+        .select('daily_kcal_goal')
+        .eq('program_id', id).eq('user_id', userId).maybeSingle()
+      return data
+    },
+    enabled: !!session && !!id && !!userId && program?.categories?.[0] === 'DIET',
+  })
+  const setDietGoalMutation = useMutation({
+    mutationFn: async (g) => { await supabase.rpc('set_diet_goal', { p_program: id, p_goal: g }) },
+    onMutate: async (g) => {
+      await queryClient.cancelQueries({ queryKey: ['diet-goal', id, userId] })
+      const prev = queryClient.getQueryData(['diet-goal', id, userId])
+      queryClient.setQueryData(['diet-goal', id, userId], { daily_kcal_goal: g })
+      return { prev }
+    },
+    onError: (_e, _g, ctx) => { if (ctx?.prev !== undefined) queryClient.setQueryData(['diet-goal', id, userId], ctx.prev) },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['diet-goal', id, userId] }),
   })
 
   // 주간 스트릭 있는 프로그램(달리기 + 카드홈) — 오늘 인증이 승인되면(자동/수동 무관)
@@ -1254,10 +1280,12 @@ function ProgramDetailPage() {
   // 달리기 테마 — 홈(개요) 외 서브화면에선 헤더 진행중·이름·톱니 숨김
   const isRunningTheme = program.theme === PROGRAM_THEME.RUNNING
   const isQuitSmoking = program.theme === PROGRAM_THEME.QUIT_SMOKING
-  // 카드형 홈(개편 2026-07-07) — 달리기=RunningHome, 표준=ProgramHome, 금연=QuitSmokingHome.
-  const usesCardHome = program.card_home === true && !isRunningTheme && !isQuitSmoking
+  const isDiet = program.categories?.[0] === 'DIET'   // 식단 카테고리 — 전용 개요(DietOverview)
+  // 카드형 홈(개편 2026-07-07) — 달리기=RunningHome, 표준=ProgramHome, 금연=QuitSmokingHome, 식단=DietOverview.
+  const usesDietHome = isDiet && !isRunningTheme && !isQuitSmoking   // 식단 전용 카드홈
+  const usesCardHome = program.card_home === true && !isRunningTheme && !isQuitSmoking && !isDiet
   const usesQuitHome = program.card_home === true && isQuitSmoking   // 금연 전용 카드홈(절충 변형)
-  const cardHome = isRunningTheme || usesCardHome || usesQuitHome   // 탭바·프로필카드 숨김 + 서브화면 헤더 대상
+  const cardHome = isRunningTheme || usesCardHome || usesQuitHome || usesDietHome   // 탭바·프로필카드 숨김 + 서브화면 헤더 대상
   const runningSub = cardHome && activeTab !== 'overview'   // 카드형 홈의 서브화면(탭바 없이 뒤로+이름 헤더)
   // 카드형 홈 히어로 상태 라벨 — DRAFT(임시저장)/예정/종료/진행중. (ProgramHome·QuitSmokingHome 공용)
   const cardEnded = progressUrgency(calcProgress(program.start_date, program.end_date)).urgency === 'ended'
@@ -1379,7 +1407,7 @@ function ProgramDetailPage() {
     ? <ClassOverviewCard programId={id} joinedAt={myPart?.joined_at} onOpenAll={openClassesTab} />
     : null
 
-  const immersiveHome = usesCardHome && activeTab === 'overview' && !inManager
+  const immersiveHome = (usesCardHome || usesDietHome) && activeTab === 'overview' && !inManager
   return (
     <div className="px-[11px] pt-2 pb-6 max-w-4xl mx-auto">
       {/* 상단 헤더 — 카드홈 개요(immersive)에선 숨기고 히어로 위 뒤로/설정으로 대체 */}
@@ -1797,6 +1825,65 @@ function ProgramDetailPage() {
             onNotice={openNoticeBoard}
             noticeUnread={noticeUnread}
           />
+        )
+      })()}
+
+      {/* 식단 카테고리 — 전용 개요(DietOverview): 커버 히어로 + 진행현황 도넛 + 스트릭/주간추이 + 끼니별 + 메뉴 */}
+      {usesDietHome && (() => {
+        const streakData = { count: overviewData?.streak || 0, days: overviewData?.weekDays || [] }
+        const dGoal = dietGoalRow?.daily_kcal_goal || 1800
+        const journeyText = (() => {
+          if (!program.start_date) return ''
+          const s = new Date(program.start_date)
+          const dplus = Math.max(0, Math.floor((Date.now() - s.getTime()) / 86400000))
+          const tot = program.end_date ? Math.max(1, Math.round((new Date(program.end_date).getTime() - s.getTime()) / 86400000)) : null
+          return tot ? `D+${dplus} · ${tot}일 여정` : `D+${dplus}`
+        })()
+        const menu = [
+          { iconSrc: '/icons/feature/mission.png', iconEmoji: '📋', title: '미션', desc: '식단을 기록해요', actionLabel: '기록하기', onClick: () => setActiveTab('missions'), newCount: newMissionCount },
+          (quizEnabled && !isViewer) ? { iconSrc: '/icons/feature/quiz.png', iconEmoji: '❓', title: '퀴즈', desc: '건강 지식을 배워요', actionLabel: '풀어보기', onClick: () => setActiveTab('quizzes'), newCount: newQuizCount } : null,
+          communityEnabled ? { iconSrc: '/icons/feature/community.png', iconEmoji: '💬', title: '커뮤니티', desc: '함께 응원해요', actionLabel: '바로가기', onClick: () => setActiveTab('community') } : null,
+          (program.ranking_enabled !== false) ? { iconSrc: '/icons/reward/ranking.png', iconEmoji: '🏆', title: '랭킹', desc: '순위를 확인해요', actionLabel: '확인하기', onClick: () => setActiveTab('ranking') } : null,
+        ].filter(Boolean)
+        return (
+          <div className="-mx-[11px]" style={{ marginTop: 'calc(-0.5rem - max(env(safe-area-inset-top, 0px), 0.75rem))' }}>
+            <ProgramHomeHero
+              hero={program.home_hero}
+              editable={isOwner && !isEnded}
+              coverImagePath={program.cover_image_path}
+              categories={program.categories}
+              programName={program.name}
+              statusLabel={cardStatusLabel}
+              participantCount={ranking.length}
+              journeyText={journeyText}
+              ownerName={program.owner_nickname || program.owner?.nickname || null}
+              ownerId={program.owner_id}
+              onHeroChange={(cfg) => homeHeroMutation.mutate(cfg)}
+              onBack={handleHeaderBack}
+              onSettings={isOwner ? () => setIsPanelOpen(true) : null}
+              pendingCount={pendingReviews.length}
+            />
+            <div className="relative -mt-[22px] rounded-t-[26px] px-4 pt-5 pb-6 space-y-[9px]" style={{ background: '#fdfbf7' }}>
+              {cardTopSlot}
+              {activationNudgeEl}
+              {isOwner && cardEnded && (
+                <EndReportBanner onClick={() => navigate(`/programs/${id}/report`)} playIntro={playEndReportIntro} onIntroDone={() => setPlayEndReportIntro(false)} />
+              )}
+              {isOwner && !isEnded && pendingReviews.length > 0 && (
+                <OperatorReviewBanner count={pendingReviews.length} onClick={() => setVreviewOpen(true)} playIntro={playReviewIntro} onIntroDone={() => setPlayReviewIntro(false)} />
+              )}
+              {weeklyHighlightEl || participantReportEl || completionBannerEl}
+              <DietOverview
+                today={{ kcal: 0, carb: 0, protein: 0, fat: 0 }}
+                goal={dGoal}
+                onGoalChange={(g) => setDietGoalMutation.mutate(g)}
+                week={[]}
+                streak={streakData}
+                streakIcon="leaf"
+                menu={menu}
+              />
+            </div>
+          </div>
         )
       })()}
 
