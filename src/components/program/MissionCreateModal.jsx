@@ -3,7 +3,7 @@ import { useKeyboardInset } from '../../hooks/useKeyboardInset'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 import { supabase } from '../../supabaseClient'
-import { Image as ImageIcon, BarChart3, MessageSquare, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Plus, X, Check, Info } from 'lucide-react'
+import { Image as ImageIcon, BarChart3, MessageSquare, ChevronDown, ChevronUp, ChevronLeft, Plus, X, Check, Info } from 'lucide-react'
 import MissionIconPicker from './MissionIconPicker'
 import { SCHEDULE_MODES, WEEKDAY_OPTIONS } from '../../lib/constants'
 import { toKSTDateString } from '../../lib/formatters'
@@ -848,10 +848,9 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
             </div>
           )}
 
-          {/* 기록 지표 (122) — 라이브러리(러닝 등)에서 온 미션만 편집 가능. 직접 만들기에선 추가 불가. */}
+          {/* 기록 지표 (122) — 템플릿(러닝 등) 고정. 읽기 전용 표시만(레이아웃·OCR·집계 정합성 보호). */}
           {requiresNumeric && metrics.length > 0 && (
-            <button type="button" onClick={() => setMetricsEditOpen(true)} disabled={isSaving}
-              className="w-full flex items-center gap-2.5 mb-4 p-3 rounded-xl border border-gray-200 bg-gray-50/60 hover:border-emerald-300 transition text-left disabled:opacity-50">
+            <div className="w-full flex items-center gap-2.5 mb-4 p-3 rounded-xl border border-gray-200 bg-gray-50/60">
               <span className="text-lg flex-shrink-0">📊</span>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-800">기록 지표 {metrics.length}개</p>
@@ -859,8 +858,8 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
                   {metrics.map(m => m.label || '(이름 없음)').join(' · ')}{metricAggregate ? ' · 개요 통계 표시' : ''}
                 </p>
               </div>
-              <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
-            </button>
+              <span className="text-[10px] font-medium text-gray-400 flex-shrink-0 whitespace-nowrap px-1.5 py-0.5 rounded-md bg-gray-100">템플릿 고정</span>
+            </div>
           )}
           </>)}
           </>)}
