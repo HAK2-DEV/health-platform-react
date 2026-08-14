@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Search, Plus, Minus, X, Camera, Loader2, Heart } from 'lucide-react'
-import { searchFoods, computeNutrients, foodBasis, defaultAmount, recordPick, recognizeFoodPhoto, recordUse, setFavorite, getUserFoods, rowToFood } from '../../lib/foodDb'
+import { searchFoods, computeNutrients, foodBasis, defaultAmount, recordPick, recognizeFoodPhoto, recordUse, setFavorite, getUserFoods, rowToFood, logSearchMiss } from '../../lib/foodDb'
 
 // 식단 미션 인증 — 한 끼니(아침/점심/저녁/간식) 기록.
 //   두 방법: 🔍 검색(32만 DB) · 📷 AI 사진(food-vision → 프리필). 그램 확정 → 영양치와 함께 제출.
@@ -78,6 +78,7 @@ export default function MealVerify({ mealType = 'breakfast', onSubmit, submittin
   const photoFileRef = useRef(null)
   const seq = useRef(0)
   const boxRef = useRef(null)
+  const loggedMiss = useRef(new Set())
 
   const applyMyFoods = (uf) => {
     setMyFoods(uf)
@@ -103,10 +104,22 @@ export default function MealVerify({ mealType = 'breakfast', onSubmit, submittin
     setDeepDone(false)
     if (!q) { setResults([]); setSearching(false); return }
     setSearching(true)
+    let cancelled = false
     const t = setTimeout(async () => {
-      try { setResults(await searchFoods(q)) } finally { setSearching(false) }   // 빠른 앞일치
+      try {
+        let r = await searchFoods(q)                        // 빠른 앞일치(+초성)
+        if (!cancelled && r.length === 0) {                 // 0건 → 자동 정밀(오타·부분일치) 구제
+          r = await searchFoods(q, { deep: true, limit: 40 })
+          if (!cancelled) setDeepDone(true)
+        }
+        if (cancelled) return
+        setResults(r)
+        if (r.length === 0 && !loggedMiss.current.has(q)) {  // 그래도 0건 → 실패 로깅(1회)
+          loggedMiss.current.add(q); logSearchMiss(q)
+        }
+      } finally { if (!cancelled) setSearching(false) }
     }, 300)
-    return () => clearTimeout(t)
+    return () => { cancelled = true; clearTimeout(t) }
   }, [query])
 
   // 더보기 — 부분일치까지 정밀 검색(느림, 사용자 대기)

@@ -74,6 +74,13 @@ export async function searchFoods(query, { deep = false, limit = 15 } = {}) {
   return searchMock(q)
 }
 
+// 검색 실패(0건) 로깅 — 동의어 사전 보강용 데이터. fire-and-forget.
+export function logSearchMiss(term) {
+  const t = String(term || '').trim()
+  if (t.length < 2) return
+  try { supabase.rpc('log_search_miss', { p_term: t }) } catch { /* 무시 */ }
+}
+
 // 음식 사진 → 인식(음식 + 추정 그램 + 대략 kcal). 엣지함수 food-vision(Gemini) 프록시.
 //   반환: [{ name, grams, kcal, confidence }]  — 양은 근사치(사용자가 최종 확정).
 export async function recognizeFoodPhoto(imageDataUrl) {
