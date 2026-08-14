@@ -58,25 +58,28 @@ Deno.serve(async (req) => {
     if (!KEY || ENDPOINTS.length === 0) return json({ foods: [], error: 'not_configured' })
 
     const batches = await Promise.all(ENDPOINTS.map((ep) => queryEndpoint(ep, query)))
-    const byName = new Set<string>()   // 같은 이름 중복 제거(대표 1개)
+    const seen = new Set<string>()   // 이름+칼로리 동일한 것만 중복 제거(값 다르면 다 보임)
     const foods: unknown[] = []
     for (const rows of batches) {
       for (const row of rows) {
         const name = pick(row, ['foodNm', '식품명'])
-        if (!name || byName.has(name)) continue
-        byName.add(name)
+        if (!name) continue
+        const kcal = num(pick(row, ['enerc', '에너지(kcal)']))
+        const dedup = `${name}|${kcal}`
+        if (seen.has(dedup)) continue
+        seen.add(dedup)
         foods.push({
-          id: pick(row, ['foodCd', '식품코드']) || name,
+          id: pick(row, ['foodCd', '식품코드']) || `${name}-${kcal}`,
           name,
           serving: pick(row, ['nutConSrtrQua', '영양성분함량기준량']) || '100g',
-          kcal: num(pick(row, ['enerc', '에너지(kcal)'])),
+          kcal,
           carb: num(pick(row, ['chocdf', '탄수화물(g)'])),
           protein: num(pick(row, ['prot', '단백질(g)'])),
           fat: num(pick(row, ['fatce', '지방(g)'])),
         })
-        if (foods.length >= 25) break
+        if (foods.length >= 30) break
       }
-      if (foods.length >= 25) break
+      if (foods.length >= 30) break
     }
     return json({ foods })
   } catch (e) {
