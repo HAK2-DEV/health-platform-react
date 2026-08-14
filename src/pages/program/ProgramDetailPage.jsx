@@ -344,6 +344,22 @@ function ProgramDetailPage() {
     onError: (_e, _g, ctx) => { if (ctx?.prev !== undefined) queryClient.setQueryData(['diet-goal', id, userId], ctx.prev) },
     onSettled: () => queryClient.invalidateQueries({ queryKey: ['diet-goal', id, userId] }),
   })
+  // 식단 인증(verify_style:meal) — 최근 8일치 영양 집계용(오늘 섭취·끼니별·주간추이)
+  const { data: mealVerifs = [] } = useQuery({
+    queryKey: ['diet-meals', id, userId],
+    queryFn: async () => {
+      const since = new Date(Date.now() - 8 * 86400000).toISOString()
+      const { data } = await supabase
+        .from('verifications')
+        .select('meal_kcal, meal_carb, meal_protein, meal_fat, submitted_at, missions!inner(program_id, meal_type)')
+        .eq('user_id', userId)
+        .eq('missions.program_id', id)
+        .not('meal_kcal', 'is', null)
+        .gte('submitted_at', since)
+      return data || []
+    },
+    enabled: !!session && !!id && !!userId && program?.categories?.[0] === 'DIET',
+  })
 
   // 주간 스트릭 있는 프로그램(달리기 + 카드홈) — 오늘 인증이 승인되면(자동/수동 무관)
   //   개요 진입 시 「도장」 1회 재생. 하루·프로그램 단위 localStorage 플래그로 중복 방지
@@ -1845,6 +1861,25 @@ function ProgramDetailPage() {
           communityEnabled ? { iconSrc: '/icons/feature/community.png', iconEmoji: '💬', title: '커뮤니티', desc: '함께 응원해요', actionLabel: '바로가기', onClick: () => setActiveTab('community') } : null,
           (program.ranking_enabled !== false) ? { iconSrc: '/icons/reward/ranking.png', iconEmoji: '🏆', title: '랭킹', desc: '순위를 확인해요', actionLabel: '확인하기', onClick: () => setActiveTab('ranking') } : null,
         ].filter(Boolean)
+        // 식단 인증(meal) 집계 — 오늘 섭취 / 끼니별 / 주간 추이 (KST 기준)
+        const kstDateStr = (ts) => new Date(ts).toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' })
+        const todayStr = kstDateStr(Date.now())
+        const todayV = mealVerifs.filter((v) => kstDateStr(v.submitted_at) === todayStr)
+        const dietToday = todayV.reduce((t, v) => ({ kcal: t.kcal + (v.meal_kcal || 0), carb: t.carb + (v.meal_carb || 0), protein: t.protein + (v.meal_protein || 0), fat: t.fat + (v.meal_fat || 0) }), { kcal: 0, carb: 0, protein: 0, fat: 0 })
+        const dietMeals = [
+          { key: 'breakfast', label: '아침', emoji: '🌅' }, { key: 'lunch', label: '점심', emoji: '☀️' },
+          { key: 'dinner', label: '저녁', emoji: '🌙' }, { key: 'snack', label: '간식', emoji: '🍪' },
+        ].map((m) => {
+          const kc = todayV.filter((v) => v.missions?.meal_type === m.key).reduce((s, v) => s + (v.meal_kcal || 0), 0)
+          return { ...m, kcal: kc, done: kc > 0 }
+        })
+        const dietWeek = []
+        for (let i = 6; i >= 0; i--) {
+          const ts = Date.now() - i * 86400000
+          const ds = kstDateStr(ts)
+          const kc = mealVerifs.filter((v) => kstDateStr(v.submitted_at) === ds).reduce((s, v) => s + (v.meal_kcal || 0), 0)
+          dietWeek.push({ label: new Date(ts).toLocaleDateString('ko-KR', { weekday: 'short', timeZone: 'Asia/Seoul' }), kcal: kc })
+        }
         return (
           <div className="-mx-[11px]" style={{ marginTop: 'calc(-0.5rem - max(env(safe-area-inset-top, 0px), 0.75rem))' }}>
             <ProgramHomeHero
@@ -1874,10 +1909,11 @@ function ProgramDetailPage() {
               )}
               {weeklyHighlightEl || participantReportEl || completionBannerEl}
               <DietOverview
-                today={{ kcal: 0, carb: 0, protein: 0, fat: 0 }}
+                today={dietToday}
                 goal={dGoal}
                 onGoalChange={(g) => setDietGoalMutation.mutate(g)}
-                week={[]}
+                week={dietWeek}
+                meals={dietMeals}
                 streak={streakData}
                 streakIcon="leaf"
                 menu={menu}

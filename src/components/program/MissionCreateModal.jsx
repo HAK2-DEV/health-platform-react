@@ -70,6 +70,7 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
   // ── 명상(타이머) 인증 — 마음관리(MINDCARE) 전용 4번째 스타일 ──
   const [verifyStyle, setVerifyStyle] = useState('standard')   // 'standard' | 'meditation'
   const [medMinutes, setMedMinutes] = useState(3)              // 명상 길이(분)
+  const [mealType, setMealType] = useState('breakfast')        // 식단 인증 — 끼니(breakfast/lunch/dinner/snack)
   const [medPattern, setMedPattern] = useState({ inhale: 4, hold1: 4, exhale: 4, hold2: 4 })  // 박스호흡 기본(운영자 커스텀)
   const [medPoint, setMedPoint] = useState(10)                // 완료 점수
   // 다중 지표 (122) — 거리·시간·칼로리처럼 여러 숫자 항목. metricAggregate = 개요 통계 표시.
@@ -167,6 +168,7 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
       setNumericRequired(editMission.numeric_required ?? true)
       setNoteRequired(editMission.note_required ?? true)
       setVerifyStyle(editMission.verify_style || 'standard')
+      setMealType(editMission.meal_type || 'breakfast')
       setMedMinutes(editMission.meditation_seconds ? Math.max(1, Math.round(editMission.meditation_seconds / 60)) : 3)
       setMedPattern(editMission.meditation_pattern || { inhale: 4, hold1: 4, exhale: 4, hold2: 4 })
       setMedPoint(editMission.point ?? 10)
@@ -234,13 +236,15 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
     return null
   }
   const isMed = verifyStyle === 'meditation'   // 명상(타이머) 인증 스타일
+  const isMeal = verifyStyle === 'meal'        // 식단 인증(검색·AI사진) 스타일
+  const isDietCat = Array.isArray(program.categories) && program.categories.includes('DIET')  // 식단 카테고리(숫자입력 미사용)
   const validateMethod = () => {
-    if (isMed) return null   // 명상형은 타이머 완료가 인증 → 사진/기록/소감 불필요
+    if (isMed || isMeal) return null   // 명상=타이머, 식단=음식기록이 인증 → 사진/기록/소감 불필요
     if (!requiresImage && !requiresNumeric && !requiresNote) return '인증 방법을 최소 1개 선택해주세요'
     return null
   }
   const validatePoints = () => {
-    if (isMed) { if ((parseInt(medPoint) || 0) < 1) return '완료 점수는 1 이상이어야 합니다'; return null }
+    if (isMed || isMeal) { if ((parseInt(medPoint) || 0) < 1) return '완료 점수는 1 이상이어야 합니다'; return null }
     if (totalPoint < 1) return '점수 합계는 1 이상이어야 합니다'
     const anyRequired =
       (requiresImage && imageRequired) || (requiresNumeric && numericRequired) || (requiresNote && noteRequired)
@@ -272,27 +276,29 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
       title: title.trim(),
       instruction: instruction.trim() || null,
       icon_path: iconPath || null,
-      verification_type: isMed ? 'AUTO' : verificationType,   // 명상은 자기보고 신뢰 → AUTO
-      point: isMed ? (parseInt(medPoint) || 0) : totalPoint,
+      verification_type: (isMed || isMeal) ? 'AUTO' : verificationType,   // 명상·식단은 자기보고 신뢰 → AUTO
+      point: (isMed || isMeal) ? (parseInt(medPoint) || 0) : totalPoint,
       daily_limit: dailyLimit ? parseInt(dailyLimit) : null,
       // 명상(타이머) 인증 — 스타일/시간/호흡패턴. 아니면 standard.
       verify_style: verifyStyle,
       meditation_seconds: isMed ? Math.max(30, medMinutes * 60) : null,
       meditation_pattern: isMed ? medPattern : null,
       meditation_music: null,
-      // 명상형은 사진/기록/소감 없음
-      requires_image: isMed ? false : requiresImage,
-      requires_numeric: isMed ? false : requiresNumeric,
-      requires_note: isMed ? false : requiresNote,
+      // 식단 인증 — 끼니(아침/점심/저녁/간식)
+      meal_type: isMeal ? mealType : null,
+      // 명상·식단형은 사진/기록/소감 없음(자체 입력 화면)
+      requires_image: (isMed || isMeal) ? false : requiresImage,
+      requires_numeric: (isMed || isMeal || isDietCat) ? false : requiresNumeric,
+      requires_note: (isMed || isMeal) ? false : requiresNote,
       // 084 — 입력별 점수/필수 (미사용 입력은 point NULL → 채점 합산서 제외)
-      image_point: (!isMed && requiresImage) ? (parseInt(imagePoint) || 0) : null,
-      numeric_point: (!isMed && requiresNumeric) ? (parseInt(numericPoint) || 0) : null,
-      note_point: (!isMed && requiresNote) ? (parseInt(notePoint) || 0) : null,
-      image_required: (!isMed && requiresImage) ? imageRequired : true,
-      numeric_required: (!isMed && requiresNumeric) ? numericRequired : true,
-      note_required: (!isMed && requiresNote) ? noteRequired : true,
+      image_point: (!isMed && !isMeal && requiresImage) ? (parseInt(imagePoint) || 0) : null,
+      numeric_point: (!isMed && !isMeal && requiresNumeric) ? (parseInt(numericPoint) || 0) : null,
+      note_point: (!isMed && !isMeal && requiresNote) ? (parseInt(notePoint) || 0) : null,
+      image_required: (!isMed && !isMeal && requiresImage) ? imageRequired : true,
+      numeric_required: (!isMed && !isMeal && requiresNumeric) ? numericRequired : true,
+      note_required: (!isMed && !isMeal && requiresNote) ? noteRequired : true,
       // 다중 지표 (122) — 숫자 입력 미션만. 라벨·단위 있는 것만 저장.
-      metrics: (!isMed && requiresNumeric)
+      metrics: (!isMed && !isMeal && requiresNumeric)
         ? metrics
             .filter(m => (m.label || '').trim() || (m.unit || '').trim())
             .map(m => ({
@@ -639,23 +645,41 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
 
           {/* ── 인증 방식 — 1단계(제목·설명) 아래에 병합 렌더 ── */}
           {step === 1 && (<>
-          {/* 마음관리 전용 — 인증 스타일 선택(일반 vs 명상 타이머) */}
-          {isMindcare && (
+          {/* 인증 스타일 선택 — 마음관리=명상, 식단=식단 기록 */}
+          {(isMindcare || isDietCat) && (
             <div className="grid grid-cols-2 gap-2 mb-5 mt-1">
-              {[
-                { v: 'standard', emoji: '📷', label: '일반 인증', desc: '사진·기록·소감' },
-                { v: 'meditation', img: '/icons/meditation/meditate.png', label: '명상 타이머', desc: '앉아서 명상 후 완료' },
-              ].map(o => {
+              {(isDietCat
+                ? [
+                    { v: 'standard', emoji: '📷', label: '인증샷 제출', desc: '식사 사진 제출', tip: '오늘 먹은 식사 사진을 제출해요.' },
+                    { v: 'meal', emoji: '🍱', label: '칼로리 기록', desc: 'AI 자동 계산·입력', tip: '음식 사진을 올리면 AI가 칼로리를 자동으로 계산해줘요. 음식을 직접 검색해 담거나, 칼로리를 수기로 입력할 수도 있어요.' },
+                  ]
+                : [
+                    { v: 'standard', emoji: '📷', label: '일반 인증', desc: '사진·기록·소감' },
+                    { v: 'meditation', img: '/icons/meditation/meditate.png', label: '명상 타이머', desc: '앉아서 명상 후 완료' },
+                  ]
+              ).map((o, i) => {
                 const on = verifyStyle === o.v
                 return (
-                  <button key={o.v} type="button" onClick={() => setVerifyStyle(o.v)} disabled={isSaving}
-                    className={`rounded-xl border-2 p-3 text-center transition ${on ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
-                    {o.img
-                      ? <img src={o.img} alt="" draggable="false" className="w-9 h-9 mx-auto mb-1 object-contain" />
-                      : <span className="block text-2xl leading-none mb-1">{o.emoji}</span>}
-                    <span className={`block text-[15px] font-bold ${on ? 'text-emerald-700' : 'text-gray-600'}`}>{o.label}</span>
-                    <span className="block text-[11px] text-gray-400 mt-0.5">{o.desc}</span>
-                  </button>
+                  <div key={o.v} className="relative">
+                    <button type="button" onClick={() => setVerifyStyle(o.v)} disabled={isSaving}
+                      className={`w-full rounded-xl border-2 p-3 text-center transition ${on ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
+                      {o.img
+                        ? <img src={o.img} alt="" draggable="false" className="w-9 h-9 mx-auto mb-1 object-contain" />
+                        : <span className="block text-2xl leading-none mb-1">{o.emoji}</span>}
+                      <span className={`block text-[15px] font-bold ${on ? 'text-emerald-700' : 'text-gray-600'}`}>{o.label}</span>
+                      <span className="block text-[11px] text-gray-400 mt-0.5">{o.desc}</span>
+                    </button>
+                    {o.tip && (<>
+                      <button type="button" onClick={() => toggleTip(`vs_${o.v}`)} className="absolute top-1.5 right-1.5 text-gray-400 hover:text-emerald-500 transition z-10" aria-label="도움말">
+                        <Info className="w-4 h-4" />
+                      </button>
+                      {tipOpen === `vs_${o.v}` && (
+                        <span className={`absolute ${i === 0 ? 'left-0' : 'right-0'} bottom-full mb-2 z-20 w-[210px] max-w-[calc(100vw-40px)] text-[13px] font-normal text-white bg-gray-800 rounded-xl px-4 py-3 shadow-xl leading-relaxed break-keep text-left`}>
+                          {o.tip}
+                        </span>
+                      )}
+                    </>)}
+                  </div>
                 )
               })}
             </div>
@@ -707,6 +731,24 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
             </div>
             <p className="mt-2 text-[12px] text-gray-400">멈춤을 0으로 두면 「들숨 → 날숨」만 반복해요 (초심자용).</p>
           </div>
+          ) : isMeal ? (
+          /* 식단형 설정 — 끼니 선택 */
+          <div className="mb-4">
+            <h3 className="text-[18px] font-bold text-gray-900 break-keep mb-2 mt-1">어떤 끼니인가요?</h3>
+            <p className="text-[15px] text-gray-600 mb-6 break-keep">참여자가 이 끼니의 식단을 검색·사진으로 기록해요</p>
+            <div className="grid grid-cols-4 gap-2">
+              {[{ v: 'breakfast', e: '🌅', l: '아침' }, { v: 'lunch', e: '☀️', l: '점심' }, { v: 'dinner', e: '🌙', l: '저녁' }, { v: 'snack', e: '🍪', l: '간식' }].map(o => {
+                const on = mealType === o.v
+                return (
+                  <button key={o.v} type="button" onClick={() => setMealType(o.v)} disabled={isSaving}
+                    className={`rounded-xl border-2 py-3 flex flex-col items-center gap-1 transition ${on ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
+                    <span className="text-xl leading-none">{o.e}</span>
+                    <span className={`text-[13px] font-bold ${on ? 'text-emerald-700' : 'text-gray-600'}`}>{o.l}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
           ) : (
           /* 기존 인증 방법 — 다중 선택 */
           <div className="mb-4">
@@ -717,9 +759,9 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
               </InfoTip>
             </div>
             <p className="text-[15px] text-gray-600 mb-6 break-keep">참여자가 제출할 방법을 골라요 · 여러 개 선택 가능</p>
-            <div className="grid grid-cols-3 gap-2.5">
+            <div className={`grid ${isDietCat ? 'grid-cols-2' : 'grid-cols-3'} gap-2.5`}>
               <TypeCard active={requiresImage} onClick={() => setRequiresImage(!requiresImage)} Icon={ImageIcon} label="사진 제출" />
-              <TypeCard active={requiresNumeric} onClick={() => setRequiresNumeric(!requiresNumeric)} Icon={BarChart3} label="숫자 입력" />
+              {!isDietCat && <TypeCard active={requiresNumeric} onClick={() => setRequiresNumeric(!requiresNumeric)} Icon={BarChart3} label="숫자 입력" />}
               <TypeCard active={requiresNote} onClick={() => setRequiresNote(!requiresNote)} Icon={MessageSquare} label="소감 작성" />
             </div>
           </div>
@@ -728,18 +770,18 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
 
           {/* ── 4단계: 점수 ── */}
           {step === 4 && (<>
-          {isMed ? (
-          /* 명상 완료 점수 (단일) */
+          {(isMed || isMeal) ? (
+          /* 명상·식단 완료 점수 (단일) */
           <div className="mb-4">
             <div className="relative flex items-center gap-1.5 mb-2 mt-1">
               <h3 className="text-[18px] font-bold text-gray-900 break-keep">완료하면 몇 점을 줄까요?</h3>
               <InfoTip tipKey="medpoint" tipOpen={tipOpen} onToggle={toggleTip}>
-                명상 타이머를 끝까지 마치면 받는 점수예요. 습관 형성이 목적이라 부담 없는 점수를 권해요.
+                {isMeal ? '식단을 기록하면 받는 점수예요. 습관 형성이 목적이라 부담 없는 점수를 권해요.' : '명상 타이머를 끝까지 마치면 받는 점수예요. 습관 형성이 목적이라 부담 없는 점수를 권해요.'}
               </InfoTip>
             </div>
-            <p className="text-[15px] text-gray-600 mb-6 break-keep">명상을 완료하면 주는 점수</p>
+            <p className="text-[15px] text-gray-600 mb-6 break-keep">{isMeal ? '식단을 기록하면 주는 점수' : '명상을 완료하면 주는 점수'}</p>
             <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1 text-sm font-medium text-gray-700"><img src="/icons/meditation/meditate.png" alt="" className="w-5 h-5 object-contain" /> 완료 점수</span>
+              <span className="inline-flex items-center gap-1 text-sm font-medium text-gray-700">{isMeal ? <span className="text-[18px] leading-none">🍱</span> : <img src="/icons/meditation/meditate.png" alt="" className="w-5 h-5 object-contain" />} 완료 점수</span>
               <div className="relative w-[5rem]">
                 <input type="number" min={1} value={medPoint} onChange={(e) => setMedPoint(e.target.value)} disabled={isSaving}
                   className="w-full pl-2 pr-6 py-1.5 text-sm text-right border border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 disabled:bg-gray-50" />

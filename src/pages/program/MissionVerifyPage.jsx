@@ -18,6 +18,7 @@ import { thumbPathOf } from '../../lib/signedUrls'
 import { primeAudio } from '../../lib/sound'
 import LoadingState from '../../components/common/LoadingState'
 import MeditationPlayer from '../../components/program/MeditationPlayer'
+import MealVerify from '../../components/meal/MealVerify'
 import ImageCropModal from '../../components/common/ImageCropModal'
 import NotificationBell from '../../components/common/NotificationBell'
 import Confetti from '../../components/common/Confetti'
@@ -293,7 +294,7 @@ function MissionVerifyPage() {
   })
   const isRecordableMission = (m, counts = recTodayCounts) => {
     // 명상형은 입력 없이 타이머 완료로 인증 → 입력 체크 건너뜀
-    if (m.verify_style !== 'meditation' && !(m.requires_image || m.requires_numeric || m.requires_note)) return false
+    if (m.verify_style !== 'meditation' && m.verify_style !== 'meal' && !(m.requires_image || m.requires_numeric || m.requires_note)) return false
     const now = new Date()
     if (m.active_from && now < new Date(m.active_from)) return false
     if (m.active_until && now > new Date(m.active_until)) return false
@@ -322,6 +323,14 @@ function MissionVerifyPage() {
   const needsNumeric = !!mission?.requires_numeric
   const needsNote = !!mission?.requires_note
   const isMeditation = mission?.verify_style === 'meditation'   // 명상(타이머) 인증
+  const isMeal = mission?.verify_style === 'meal'               // 식단(검색·AI사진) 인증
+  const mealDataRef = useRef(null)   // MealVerify 제출 payload(items/totals/source)
+  const mealPhotoRef = useRef(null)  // 식단 AI 사진 File(있으면 image_path 업로드)
+  const handleMealSubmit = (payload) => {
+    mealDataRef.current = { items: payload.items, totals: payload.totals, source: payload.source }
+    mealPhotoRef.current = payload.photoFile || null
+    submitMutation.mutate()
+  }
   // 다중 지표 (122) — 정의돼 있으면 지표별 입력, 없으면 레거시 단일 numeric
   const metricList = Array.isArray(mission?.metrics) ? mission.metrics : []
   const hasMetrics = metricList.length > 0
@@ -445,10 +454,12 @@ function MissionVerifyPage() {
         user_id: session.user.id,
       }
       let imagePath = null
+      // 업로드할 사진 — 일반 미션=선택 사진, 식단 미션=AI 사진(있을 때만)
+      const uploadFile = isMeal ? mealPhotoRef.current : ((needsImage && selectedFile) ? selectedFile : null)
 
-      if (needsImage && selectedFile) {
+      if (uploadFile) {
         // 1) 원본 해시 — 중복 차단 (압축은 deterministic X 라 반드시 원본으로)
-        const buffer = await selectedFile.arrayBuffer()
+        const buffer = await uploadFile.arrayBuffer()
         const hashBuffer = await crypto.subtle.digest('SHA-256', buffer)
         const hashArray = Array.from(new Uint8Array(hashBuffer))
         const imageHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
@@ -456,7 +467,7 @@ function MissionVerifyPage() {
 
         // 2) 압축 — 인증 사진은 피드(max-h-500)에서만 쓰여 1280px·0.6MB 면 충분.
         //    모바일 로딩·Egress 절감 (1920·1MB → 1280·0.6MB, Day 66).
-        const compressed = await compressImage(selectedFile, {
+        const compressed = await compressImage(uploadFile, {
           maxWidthOrHeight: 1280,
           maxSizeMB: 0.6,
         })
@@ -474,10 +485,21 @@ function MissionVerifyPage() {
 
         // 3-1) 목록용 썸네일(400px) 동반 업로드 — 실패해도 인증 제출은 진행(목록은 원본 폴백)
         try {
-          const thumb = await compressThumbnail(selectedFile)
+          const thumb = await compressThumbnail(uploadFile)
           if (thumb) await supabase.storage.from('verification-images')
             .upload(thumbPathOf(path), thumb, { contentType: 'image/jpeg' })
         } catch (e) { console.warn('[썸네일 업로드 생략]', e?.message) }
+      }
+
+      // 식단 인증 — 영양치 + 담은 목록 저장(마이그 213)
+      if (isMeal && mealDataRef.current) {
+        const md = mealDataRef.current
+        insertData.meal_kcal = md.totals.kcal
+        insertData.meal_carb = md.totals.carb
+        insertData.meal_protein = md.totals.protein
+        insertData.meal_fat = md.totals.fat
+        insertData.meal_items = md.items
+        insertData.meal_source = md.source
       }
 
       // 선택 입력 미작성 시 저장하지 않음 → 채점 합산에서 제외
@@ -532,6 +554,7 @@ function MissionVerifyPage() {
       queryClient.invalidateQueries({ queryKey: ['feed'] })
       queryClient.invalidateQueries({ queryKey: ['metricSummary'] })
       queryClient.invalidateQueries({ queryKey: ['home-stats'] })  // 대시보드 「오늘의 활동」(미션 완료·점수) 즉시 갱신
+      queryClient.invalidateQueries({ queryKey: ['diet-meals'] })  // 식단 개요(오늘 섭취·끼니별·주간추이) 즉시 갱신
 
       // Day 65 — 마일스톤 토스트 + 연속 인증일 캡처 (완료 화면 표시용).
       let streak = 0
@@ -962,6 +985,20 @@ function MissionVerifyPage() {
         onClose={handleClose}
         submitting={submitMutation.isPending}
       />
+    )
+  }
+
+  if (isMeal) {
+    return (
+      <div className="-mx-4 -mt-2 min-h-[100dvh] flex flex-col" style={{ background: '#fdfbf7' }}>
+        <div className="flex items-center gap-2 px-4 pt-3 pb-2 flex-shrink-0">
+          <button type="button" onClick={handleClose} className="w-9 h-9 rounded-full bg-white shadow-sm flex items-center justify-center flex-shrink-0"><ChevronLeft className="w-5 h-5 text-gray-700" /></button>
+          <span className="text-[14px] font-bold text-gray-700 truncate">{mission.title}</span>
+        </div>
+        <div className="flex-1 min-h-0 px-4 pb-4">
+          <MealVerify mealType={mission.meal_type || 'breakfast'} submitting={submitMutation.isPending} onSubmit={handleMealSubmit} onCancel={handleClose} />
+        </div>
+      </div>
     )
   }
 
