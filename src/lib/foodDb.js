@@ -45,19 +45,24 @@ function searchMock(q) {
   return MOCK_FOODS.filter((f) => f.name.toLowerCase().includes(lc)).slice(0, 20)
 }
 
-// 검색 — 엣지함수(food-search) 프록시 → data.go.kr 통합식품영양성분DB.
-//   함수 미배포/미설정/오류 시 목데이터로 폴백(전환기 안전망).
+// 검색 — 3단계: ① foods 테이블 부분일치 RPC(제조사 포함·인기순) → ② 엣지함수 프록시(적재 전/미매칭)
+//   → ③ 목데이터. 적재 완료 후엔 ①이 거의 다 처리.
 export async function searchFoods(query) {
   const q = (query || '').trim()
   if (!q) return []
+  // ① foods 테이블 부분일치(RPC) — "우유"→저지방우유, "하림"→하림 제품, 인기순
+  try {
+    const { data, error } = await supabase.rpc('search_foods', { q, lim: 30 })
+    if (error) throw error
+    if (Array.isArray(data) && data.length > 0) return data
+  } catch { /* 다음 단계 */ }
+  // ② 적재 전/미매칭 — 정부 API 프록시(prefix 한계 있음)
   try {
     const { data, error } = await supabase.functions.invoke('food-search', { body: { q } })
     if (error) throw error
     if (Array.isArray(data?.foods) && data.foods.length > 0) return data.foods
-    // foods 비어도(검색결과 0 or not_configured) → 폴백으로 UX 유지
-  } catch {
-    /* 폴백 */
-  }
+  } catch { /* 다음 단계 */ }
+  // ③ 최종 폴백
   return searchMock(q)
 }
 
