@@ -86,6 +86,7 @@ const UpdateDemoPage = lazy(() => import('./pages/UpdateDemoPage'))
 const CommentSheetDemo = lazy(() => import('./pages/CommentSheetDemo'))
 const HealthPocPage = lazy(() => import('./pages/dev/HealthPocPage'))  // 🔧 걸음 연동 PoC(숨김)
 const MealLoggerDemo = lazy(() => import('./pages/dev/MealLoggerDemo'))  // 🔧 식단 입력 UX 데모(숨김)
+const MealPhotoDemo = lazy(() => import('./pages/dev/MealPhotoDemo'))  // 🔧 사진 인식 PoC(숨김)
 
 // 가입 승인 알림(/programs/:id/participants) → 프로그램 상세 + 승인 심사 모달 자동 오픈
 function ApprovalsRedirect() {
@@ -285,6 +286,7 @@ function AppShell() {
             <Route path="/comment-sheet-demo" element={<CommentSheetDemo />} />
             <Route path="/dev/health" element={<HealthPocPage />} />
             <Route path="/dev/meal" element={<MealLoggerDemo />} />
+            <Route path="/dev/meal-photo" element={<MealPhotoDemo />} />
             <Route path="/support" element={
               <ProtectedRoute><SupportPage /></ProtectedRoute>
             } />

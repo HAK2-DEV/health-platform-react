@@ -66,6 +66,15 @@ export async function searchFoods(query) {
   return searchMock(q)
 }
 
+// 음식 사진 → 인식(음식 + 추정 그램 + 대략 kcal). 엣지함수 food-vision(Gemini) 프록시.
+//   반환: [{ name, grams, kcal, confidence }]  — 양은 근사치(사용자가 최종 확정).
+export async function recognizeFoodPhoto(imageDataUrl) {
+  const { data, error } = await supabase.functions.invoke('food-vision', { body: { image: imageDataUrl } })
+  if (error) throw error
+  if (data?.error) throw new Error(data.error)
+  return Array.isArray(data?.foods) ? data.foods : []
+}
+
 // 담을 때 호출 — 인기순(pick_count) 집계. 커스텀(직접입력)/목데이터는 건너뜀. fire-and-forget.
 export function recordPick(foodId) {
   const id = String(foodId || '')
