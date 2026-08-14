@@ -16,6 +16,7 @@ const ROWS = 1000
 const keyParam = () => (KEY.includes('%') ? KEY : encodeURIComponent(KEY))
 const pick = (r: Record<string, unknown>, k: string) => (r[k] != null && r[k] !== '' ? String(r[k]) : '')
 const num = (s: string) => { const n = parseFloat((s || '').replace(/[^\d.-]/g, '')); return Number.isFinite(n) ? Math.round(n) : null }
+const num2 = (s: string) => { const n = parseFloat((s || '').replace(/[^\d.-]/g, '')); return Number.isFinite(n) ? Math.round(n * 100) / 100 : null }  // 소수 2자리 보존(그램 영양소)
 
 async function fetchPage(ep: string, page: number) {
   const url = `${ep}?serviceKey=${keyParam()}&pageNo=${page}&numOfRows=${ROWS}&type=json`
@@ -45,6 +46,11 @@ function mapRow(r: Record<string, unknown>) {
     protein: num(pick(r, 'prot')),
     fat: num(pick(r, 'fatce')),
     sodium: num(pick(r, 'nat')),
+    sugar: num2(pick(r, 'sugar')),        // 당류(g)
+    sat_fat: num2(pick(r, 'fasat')),      // 포화지방(g)
+    trans_fat: num2(pick(r, 'fatrn')),    // 트랜스지방(g)
+    cholesterol: num(pick(r, 'chole')),   // 콜레스테롤(mg)
+    fiber: num2(pick(r, 'fibtg')),        // 식이섬유(g)
   }
 }
 
@@ -72,6 +78,13 @@ Deno.serve(async (req) => {
     const pages = Math.max(1, Math.min(40, Number(b.pages ?? 20)))
     const ep = ENDPOINTS[epIndex]
     if (!ep) return json({ error: 'bad epIndex' }, 400)
+
+    // 디버그 — 원본 응답 첫 행의 키/값 반환(적재 안 함). 필드키 확인용.
+    if (b.debug) {
+      const { rows } = await fetchPage(ep, startPage)
+      const first = (rows[0] ?? {}) as Record<string, unknown>
+      return json({ epIndex, keys: Object.keys(first), sample: first })
+    }
 
     let upserted = 0, total = 0, page = startPage
     for (let i = 0; i < pages; i++) {

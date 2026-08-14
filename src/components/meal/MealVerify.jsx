@@ -695,7 +695,7 @@ export default function MealVerify({ mealType = 'breakfast', onSubmit, submittin
         </div>
       )}
 
-      {/* ── 영양 상세 시트 ─────────────────────────── */}
+      {/* ── 영양 상세 시트 (+ 베타 안내) ───────────── */}
       {detailEntry && (() => {
         const dn = computeNutrients(detailEntry.food, detailEntry.amount)
         const db = foodBasis(detailEntry.food)
@@ -730,7 +730,12 @@ export default function MealVerify({ mealType = 'breakfast', onSubmit, submittin
                     )
                   })}
                 </div>
-                <p className="text-[10.5px] text-gray-400 text-center mt-4 leading-relaxed">나트륨·당류·포화/트랜스지방 등 상세 영양소는 준비 중이에요<br />※ 1일 영양성분 기준치 대비 · 참고용</p>
+                <div className="mt-4 p-2.5 rounded-xl bg-gray-50 border border-gray-100">
+                  <p className="text-[10.5px] text-gray-500 text-center leading-relaxed">
+                    베타 버전은 <b className="font-semibold text-gray-700">탄·단·지</b>만 제공해요<br />유료 서비스 개시 시 나트륨·당류·포화지방 등으로 확대됩니다
+                  </p>
+                </div>
+                <p className="text-[10px] text-gray-400 text-center mt-2">※ 1일 영양성분 기준치 대비 · 참고용</p>
               </div>
             </div>
           </div>
