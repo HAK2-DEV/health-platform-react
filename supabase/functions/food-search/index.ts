@@ -1,18 +1,18 @@
-// food-search — 식품영양성분 검색 프록시 (data.go.kr 「전국통합식품영양성분정보」)
+// food-search — 식품영양성분 검색 프록시 (data.go.kr 「전국통합식품영양성분정보」 tn_pubr_public API)
 //   목적: 정부 API 를 서버에서 호출(CORS 우회 + 서비스키 숨김) → 우리 앱 형태로 매핑해 반환.
 //   요청(POST): { q: string }  → 응답: { foods: [{ id, name, serving, kcal, carb, protein, fat }] }
 //
 //   시크릿(Edge Function secrets, 대시보드에서 설정):
-//     FOOD_API_KEY   = data.go.kr 서비스키 **Decoding(디코딩) 값** (%2F 없는 원문)
-//     FOOD_ENDPOINTS = 3개 데이터셋 엔드포인트 URL 을 쉼표(,)로 구분
-//                      (전국통합식품영양성분정보 음식/가공식품/원재료성식품 — serviceKey 없이 base URL만)
-//   표준데이터는 odcloud(api.odcloud.kr) 규격 가정:
-//     GET {endpoint}?serviceKey=..&page=1&perPage=..&cond[식품명::LIKE]={q}
-//     응답 { data: [ { "식품명":.., "에너지(kcal)":.., "탄수화물(g)":.., ... } ] }
+//     FOOD_API_KEY   = data.go.kr 서비스키 (Encoding/Decoding 어느 쪽이든 OK — 아래서 자동 처리)
+//     FOOD_ENDPOINTS = 데이터셋 엔드포인트 URL 을 쉼표(,)로 (지금은 음식 1개, 나중에 가공식품/원재료성 추가)
+//       예) https://api.data.go.kr/openapi/tn_pubr_public_nutri_food_info_api
+//
+//   실제 응답 형식(확인됨): { body: { items: { item: [ { foodNm, enerc, chocdf, prot, fatce, nat,
+//     nutConSrtrQua, foodSize, foodCd, ... } ] }, totalCount } }.  영양치는 nutConSrtrQua(보통 100g) 기준.
 
 const KEY = Deno.env.get('FOOD_API_KEY') ?? ''
 const ENDPOINTS = (Deno.env.get('FOOD_ENDPOINTS') ?? '').split(',').map((s) => s.trim()).filter(Boolean)
-const PER = 12   // 데이터셋당 최대 결과
+const PER = 20   // 데이터셋당 최대 결과
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -20,11 +20,11 @@ const CORS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-// 여러 후보 키 중 첫 값 (odcloud 는 컬럼명이 곧 키)
-function pick(row: Record<string, unknown>, keys: string[]): string {
-  for (const k of keys) {
-    if (row[k] != null && row[k] !== '') return String(row[k])
-  }
+// 키가 이미 인코딩(%포함)이면 그대로, 아니면 인코딩 — 어느 쪽 저장이든 동작
+const keyParam = () => (KEY.includes('%') ? KEY : encodeURIComponent(KEY))
+
+const pick = (row: Record<string, unknown>, keys: string[]): string => {
+  for (const k of keys) if (row[k] != null && row[k] !== '') return String(row[k])
   return ''
 }
 const num = (s: string) => {
@@ -34,15 +34,16 @@ const num = (s: string) => {
 
 async function queryEndpoint(base: string, q: string) {
   const sep = base.includes('?') ? '&' : '?'
-  const url = `${base}${sep}serviceKey=${encodeURIComponent(KEY)}&page=1&perPage=${PER}`
-    + `&cond[식품명::LIKE]=${encodeURIComponent(q)}`
+  const url = `${base}${sep}serviceKey=${keyParam()}&pageNo=1&numOfRows=${PER}&type=json`
+    + `&foodNm=${encodeURIComponent(q)}`
   try {
     const res = await fetch(url, { headers: { Accept: 'application/json' } })
     if (!res.ok) return []
-    const json = await res.json()
-    const rows: Record<string, unknown>[] = Array.isArray(json?.data) ? json.data
-      : Array.isArray(json?.items) ? json.items : []
-    return rows
+    const jsonBody = await res.json()
+    let items = jsonBody?.body?.items?.item
+    if (!items) return []
+    if (!Array.isArray(items)) items = [items]   // 결과 1건이면 객체 → 배열화
+    return items as Record<string, unknown>[]
   } catch {
     return []
   }
@@ -57,30 +58,25 @@ Deno.serve(async (req) => {
     if (!KEY || ENDPOINTS.length === 0) return json({ foods: [], error: 'not_configured' })
 
     const batches = await Promise.all(ENDPOINTS.map((ep) => queryEndpoint(ep, query)))
-    const seen = new Set<string>()
+    const byName = new Set<string>()   // 같은 이름 중복 제거(대표 1개)
     const foods: unknown[] = []
     for (const rows of batches) {
       for (const row of rows) {
-        const name = pick(row, ['식품명', 'FOOD_NM_KR'])
-        if (!name) continue
-        const basis = pick(row, ['영양성분함량기준량', '영양성분함량 기준량'])
-        const weight = pick(row, ['식품중량', '1회 섭취참고량', '1회섭취참고량'])
-        const id = pick(row, ['식품코드', 'FOOD_CD']) || name
-        const dedup = `${name}|${id}`
-        if (seen.has(dedup)) continue
-        seen.add(dedup)
+        const name = pick(row, ['foodNm', '식품명'])
+        if (!name || byName.has(name)) continue
+        byName.add(name)
         foods.push({
-          id,
+          id: pick(row, ['foodCd', '식품코드']) || name,
           name,
-          serving: weight || basis || '1회 제공량',
-          kcal: num(pick(row, ['에너지(kcal)', '에너지', 'AMT_NUM1'])),
-          carb: num(pick(row, ['탄수화물(g)', '탄수화물'])),
-          protein: num(pick(row, ['단백질(g)', '단백질'])),
-          fat: num(pick(row, ['지방(g)', '지방'])),
+          serving: pick(row, ['nutConSrtrQua', '영양성분함량기준량']) || '100g',
+          kcal: num(pick(row, ['enerc', '에너지(kcal)'])),
+          carb: num(pick(row, ['chocdf', '탄수화물(g)'])),
+          protein: num(pick(row, ['prot', '단백질(g)'])),
+          fat: num(pick(row, ['fatce', '지방(g)'])),
         })
-        if (foods.length >= 20) break
+        if (foods.length >= 25) break
       }
-      if (foods.length >= 20) break
+      if (foods.length >= 25) break
     }
     return json({ foods })
   } catch (e) {
