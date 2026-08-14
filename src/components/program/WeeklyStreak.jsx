@@ -22,7 +22,7 @@ const PARTICLES = Array.from({ length: 8 }, (_, i) => {
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms))
 
-const WeeklyStreak = forwardRef(function WeeklyStreak({ count = 0, days = [], icon = null, showTest = false, variant = 'card', bestStreak = 0, clickReplay = true }, ref) {
+const WeeklyStreak = forwardRef(function WeeklyStreak({ count = 0, days = [], icon = null, showTest = false, variant = 'card', bestStreak = 0, clickReplay = true, iconBg = 'bg-orange-50', title = '주간 스트릭' }, ref) {
   const doneFromProps = () => new Set(days.map((d, i) => (d.done ? i : -1)).filter((i) => i >= 0))
   const [doneSet, setDoneSet] = useState(doneFromProps)
   const [streak, setStreak] = useState(count)
@@ -158,7 +158,7 @@ const WeeklyStreak = forwardRef(function WeeklyStreak({ count = 0, days = [], ic
 
   // 불꽃 아이콘 (도장 시 flicker)
   const flameEl = (
-    <span className="w-9 h-9 rounded-full bg-orange-50 flex items-center justify-center flex-shrink-0">
+    <span className={`w-9 h-9 rounded-full ${iconBg} flex items-center justify-center flex-shrink-0`}>
       <motion.span animate={flameCtrl} style={{ transformOrigin: '50% 90%', display: 'inline-flex' }}>
         {flameNode}
       </motion.span>
@@ -262,11 +262,11 @@ const WeeklyStreak = forwardRef(function WeeklyStreak({ count = 0, days = [], ic
           // 아이콘 + 컬럼(제목/부제 들여쓰기 정렬) — 추천 페이스 카드와 동일 구조로 제목 높이·정렬 일치
           <>
             <div className="flex items-start gap-2.5">
-              <span className="w-9 h-9 rounded-full bg-orange-50 flex items-center justify-center flex-shrink-0">
+              <span className={`w-9 h-9 rounded-full ${iconBg} flex items-center justify-center flex-shrink-0`}>
                 <motion.span animate={flameCtrl} style={{ transformOrigin: '50% 90%', display: 'inline-flex' }}>{flameNode}</motion.span>
               </span>
               <div className="min-w-0 flex-1">
-                <span className="text-[13px] font-bold text-gray-800 whitespace-nowrap">주간 스트릭</span>
+                <span className="text-[13px] font-bold text-gray-800 whitespace-nowrap">{title}</span>
                 <p className="text-[10px] text-gray-500 mt-1.5 truncate">{streak}일 연속 성공 중</p>
               </div>
             </div>

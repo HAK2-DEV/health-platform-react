@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Search, Plus, Minus, X, Camera, Loader2, Heart, Check, Flag, Pencil, Trash2 } from 'lucide-react'
 import { searchFoods, computeNutrients, foodBasis, defaultAmount, recordPick, recognizeFoodPhoto, recordUse, setFavorite, getUserFoods, rowToFood, logSearchMiss, submitFood, setFoodPublic, reportFood, readNutritionLabel, markFoodVerified, getMyRegisteredFoods, updateFood, deleteFood } from '../../lib/foodDb'
+import { Icon3D } from '../program/ProgramHome'
+import { MEAL_ICON } from '../../lib/mealIcons'
 
 // 식단 미션 인증 — 한 끼니(아침/점심/저녁/간식) 기록.
 //   두 방법: 🔍 검색(32만 DB) · 📷 AI 사진(food-vision → 프리필). 그램 확정 → 영양치와 함께 제출.
@@ -338,7 +340,7 @@ export default function MealVerify({ mealType = 'breakfast', onSubmit, submittin
     <div className="relative flex flex-col h-full">
       {/* 헤더 — 끼니 */}
       <div className="flex-shrink-0 flex items-center gap-2 mb-2">
-        <span className="text-[18px]">{MEAL_EMOJI[mealType] || '🍽️'}</span>
+        <Icon3D src={MEAL_ICON[mealType]} emoji={MEAL_EMOJI[mealType] || '🍽️'} className="w-6 h-6" />
         <h2 className="text-[16px] font-extrabold text-gray-900">{MEAL_LABEL[mealType] || '식단'} 기록</h2>
         <span className="text-[11px] text-gray-400 ml-auto">검색 또는 사진으로 담아요</span>
       </div>

@@ -5,6 +5,8 @@ import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 import { supabase } from '../../supabaseClient'
 import { Image as ImageIcon, BarChart3, MessageSquare, ChevronDown, ChevronUp, ChevronLeft, Plus, X, Check, Info } from 'lucide-react'
 import MissionIconPicker from './MissionIconPicker'
+import { Icon3D } from './ProgramHome'
+import { MEAL_ICON } from '../../lib/mealIcons'
 import { SCHEDULE_MODES, WEEKDAY_OPTIONS } from '../../lib/constants'
 import { toKSTDateString } from '../../lib/formatters'
 
@@ -742,7 +744,7 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
                 return (
                   <button key={o.v} type="button" onClick={() => setMealType(o.v)} disabled={isSaving}
                     className={`rounded-xl border-2 py-3 flex flex-col items-center gap-1 transition ${on ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
-                    <span className="text-xl leading-none">{o.e}</span>
+                    <Icon3D src={MEAL_ICON[o.v]} emoji={o.e} className="w-7 h-7" />
                     <span className={`text-[13px] font-bold ${on ? 'text-emerald-700' : 'text-gray-600'}`}>{o.l}</span>
                   </button>
                 )
