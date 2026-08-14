@@ -22,32 +22,47 @@ const CORS = {
 }
 
 const PROMPT = [
-  '이 사진은 한 사람이 먹는(먹으려는) 음식입니다.',
-  '보이는 음식·음료를 각각 한국어 일반 명칭으로 식별하세요(브랜드보다 일반명 우선, 예: "닭가슴살", "흰쌀밥", "아메리카노").',
-  '각 항목의 1회 섭취량을 그램(음료는 ml를 g로 간주)으로 현실적으로 추정하세요 — 접시·식기·손 크기를 단서로.',
-  '각 항목의 대략 칼로리도 추정하세요.',
-  '확신도(confidence)는 high/mid/low 중 하나. 잘 안 보이거나 애매하면 low.',
-  '음식이 아니면 빈 배열. 추측성 항목은 넣지 마세요.',
-].join(' ')
+  '당신은 꼼꼼한 임상영양사입니다. 사진 속 사람이 먹는(먹으려는) 음식의 양을 신중히 추정하세요.',
+  '',
+  '[추론 절차] reasoning 필드에 아래를 먼저 서술한 뒤 foods를 채우세요:',
+  '1) 스케일 기준 잡기 — 사진 속 기준물의 실제 크기로 음식 크기를 보정.',
+  '   기준물 예: 숟가락 길이~15cm, 젓가락~23cm, 밥공기 지름~11.5cm·높이~5.5cm, 종이컵~200ml, 신용카드~8.6cm, 성인 손 한 뼘~18cm.',
+  '2) 각 음식의 부피를 어림하고, 음식 밀도로 그램을 환산.',
+  '3) 한국 표준 1인분과 교차검증.',
+  '',
+  '[한국 표준 1인분 참고]',
+  '공기밥 1공기≈210g, 국·찌개 1대접≈350g, 김치 1접시≈40g, 구이 고기 1인분≈150~200g,',
+  '라면 1봉(조리후)≈550g, 우유 1잔≈200ml, 계란 1개≈50g, 바나나 1개≈120g, 사과 1개≈240g, 식빵 1장≈35g.',
+  '',
+  '[출력 규칙]',
+  '- 음식·음료는 한국어 일반 명칭으로(브랜드보다 일반명: "닭가슴살", "흰쌀밥", "아메리카노").',
+  '- grams: 1회 섭취량(음료 ml는 g로 간주). portion: 사람이 이해할 표현("밥 1공기", "약 반 접시").',
+  '- kcal: 대략 칼로리. confidence: high/mid/low (안 보이거나 애매하면 low).',
+  '- 접시에 실제 보이는 것만. 추측으로 항목을 늘리지 말 것. 음식이 없으면 foods는 빈 배열.',
+].join('\n')
 
 const SCHEMA = {
   type: 'object',
   properties: {
+    reasoning: { type: 'string' },   // 먼저 스케일·판단 근거를 서술 → 이후 숫자가 정확해짐
     foods: {
       type: 'array',
       items: {
         type: 'object',
         properties: {
           name: { type: 'string' },
+          portion: { type: 'string' },
           grams: { type: 'number' },
           kcal: { type: 'number' },
           confidence: { type: 'string', enum: ['high', 'mid', 'low'] },
         },
+        propertyOrdering: ['name', 'portion', 'grams', 'kcal', 'confidence'],
         required: ['name', 'grams'],
       },
     },
   },
-  required: ['foods'],
+  propertyOrdering: ['reasoning', 'foods'],   // reasoning 을 반드시 먼저 생성(think-then-answer)
+  required: ['reasoning', 'foods'],
 }
 
 Deno.serve(async (req) => {
@@ -70,9 +85,10 @@ Deno.serve(async (req) => {
         ],
       }],
       generationConfig: {
-        temperature: 0.2,
+        temperature: 0,
         responseMimeType: 'application/json',
         responseSchema: SCHEMA,
+        maxOutputTokens: 1400,
       },
     }
     // 모델 폴백 — 404(세대교체)/503(과부하)/429(레이트)면 다음 모델로
@@ -103,6 +119,7 @@ Deno.serve(async (req) => {
         if (!name) return null
         return {
           name,
+          portion: String(o.portion ?? '').trim(),
           grams: Math.max(0, Math.round(Number(o.grams) || 0)),
           kcal: Math.max(0, Math.round(Number(o.kcal) || 0)),
           confidence: ['high', 'mid', 'low'].includes(String(o.confidence)) ? String(o.confidence) : 'mid',

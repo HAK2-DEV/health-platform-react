@@ -83,6 +83,12 @@ export default function MealPhotoDemo() {
         <input type="file" accept="image/*" capture="environment" onChange={onFile} className="hidden" />
       </label>
 
+      {/* 촬영 가이드 — 정확한 양 추정을 돕는 한 줄 */}
+      <p className="mt-2 text-[11px] text-gray-400 leading-relaxed flex items-start gap-1.5">
+        <span className="flex-shrink-0">📐</span>
+        <span><b className="font-semibold text-gray-600">위에서 · 접시 전체</b>가 보이게, <b className="font-semibold text-gray-600">숟가락·손</b>을 함께 찍으면 양을 더 정확히 추정해요.</span>
+      </p>
+
       {preview && (
         <img src={preview} alt="선택한 음식" className="mt-3 w-full max-h-56 object-cover rounded-2xl border border-gray-100" />
       )}
@@ -130,7 +136,9 @@ export default function MealPhotoDemo() {
                         className="w-14 h-full text-[13px] font-semibold text-gray-800 text-right bg-transparent focus:outline-none tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
                       <span className="text-[11px] text-gray-400 font-semibold pr-2 pl-0.5">g</span>
                     </span>
-                    {it.origGrams > 0 && <span className="text-[10px] text-gray-300">추정 {it.origGrams}g</span>}
+                    {(it.portion || it.origGrams > 0) && (
+                      <span className="text-[10px] text-gray-300">추정 {it.portion ? `${it.portion} · ${it.origGrams}g` : `${it.origGrams}g`}</span>
+                    )}
                   </div>
                 </div>
               )
