@@ -86,6 +86,7 @@ Deno.serve(async (req) => {
       }],
       generationConfig: {
         temperature: 0,
+        seed: 7,   // 고정 시드 — 같은 사진이면 매번 같은 결과(재현성)
         responseMimeType: 'application/json',
         responseSchema: SCHEMA,
         maxOutputTokens: 1400,
