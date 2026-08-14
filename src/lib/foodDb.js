@@ -54,13 +54,13 @@ export async function searchFoods(query) {
   try {
     const { data, error } = await supabase.rpc('search_foods', { q, lim: 30 })
     if (error) throw error
-    if (Array.isArray(data) && data.length > 0) return data
+    if (Array.isArray(data) && data.length > 0) return data.map((f) => ({ ...f, basis: 'per100' }))
   } catch { /* 다음 단계 */ }
   // ② 적재 전/미매칭 — 정부 API 프록시(prefix 한계 있음)
   try {
     const { data, error } = await supabase.functions.invoke('food-search', { body: { q } })
     if (error) throw error
-    if (Array.isArray(data?.foods) && data.foods.length > 0) return data.foods
+    if (Array.isArray(data?.foods) && data.foods.length > 0) return data.foods.map((f) => ({ ...f, basis: 'per100' }))
   } catch { /* 다음 단계 */ }
   // ③ 최종 폴백
   return searchMock(q)
@@ -73,7 +73,37 @@ export function recordPick(foodId) {
   try { supabase.rpc('increment_food_pick', { p_id: id }) } catch { /* 무시 */ }
 }
 
-// 음식 × 배수(qty) → 반올림 영양치
+// 음식 기준(basis) 판별.
+//   per100 = 정부DB(kcal/탄단지가 100g·100ml당) → 그램 입력(mode:'gram', base=100).
+//   그 외(목·직접입력) = 1회 제공량 수치 → 배수 입력(mode:'unit', base=1).
+export function foodBasis(food) {
+  if (food?.basis === 'per100') {
+    const s = String(food.serving || '')
+    const m = s.match(/(\d+(?:\.\d+)?)\s*(g|ml|㎖|그램|밀리)/i)
+    const base = m ? parseFloat(m[1]) : 100
+    const unit = /ml|㎖|밀리/i.test(s) ? 'ml' : 'g'
+    return { mode: 'gram', base: base > 0 ? base : 100, unit }
+  }
+  return { mode: 'unit', base: 1, unit: '' }
+}
+
+// 먹은 양(amount) → 반올림 영양치.
+//   gram 기준: amount = 그램수 → factor = amount / base(100).
+//   unit 기준: amount = 배수 → factor = amount.
+export function computeNutrients(food, amount) {
+  const b = foodBasis(food)
+  const factor = b.mode === 'gram' ? (Number(amount) || 0) / b.base : (Number(amount) || 0)
+  const r = (n) => Math.round((Number(n) || 0) * factor)
+  return { kcal: r(food.kcal), carb: r(food.carb), protein: r(food.protein), fat: r(food.fat) }
+}
+
+// 담을 때 기본 양 — gram 기준=base(100g), unit 기준=1(1회분)
+export function defaultAmount(food) {
+  const b = foodBasis(food)
+  return b.mode === 'gram' ? b.base : 1
+}
+
+// (구) 배수 스케일 — 하위호환 유지
 export function scaleNutrients(food, qty) {
   const r = (n) => Math.round((Number(n) || 0) * qty)
   return { kcal: r(food.kcal), carb: r(food.carb), protein: r(food.protein), fat: r(food.fat) }

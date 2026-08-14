@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Search, Plus, X, Minus } from 'lucide-react'
-import { searchFoods, scaleNutrients, recordPick } from '../../lib/foodDb'
+import { searchFoods, computeNutrients, foodBasis, defaultAmount, recordPick } from '../../lib/foodDb'
 
 // 식단 입력 로거 — 끼니 선택 → 검색 → 담기 → 수량조절 → 끼니별 그룹 + 실시간 합계(칼로리+탄단지).
 //   UX 검증용(러프 UI). 데이터 소스는 lib/foodDb(현재 목, 나중에 실제 API로 스왑).
@@ -24,7 +24,7 @@ function MealLogger({ onComplete }) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
   const [searching, setSearching] = useState(false)
-  const [entries, setEntries] = useState([])   // [{ key, meal, food, qty }]
+  const [entries, setEntries] = useState([])   // [{ key, meal, food, amount }] amount=그램(per100) 또는 배수(unit)
   const [customKcal, setCustomKcal] = useState('')   // 직접입력 칼로리
   const seq = useRef(0)
 
@@ -39,41 +39,54 @@ function MealLogger({ onComplete }) {
   }, [query])
 
   const addFood = (food) => {
+    const step = defaultAmount(food)   // gram=100(g/ml), unit=1(배수)
     setEntries((prev) => {
-      // 같은 끼니에 같은 음식이면 수량 +1
+      // 같은 끼니에 같은 음식이면 한 번 더 담기(그램=+100, 배수=+1)
       const idx = prev.findIndex((e) => e.food.id === food.id && e.meal === meal)
       if (idx >= 0) {
         const next = [...prev]
-        next[idx] = { ...next[idx], qty: +(next[idx].qty + 1).toFixed(1) }
+        next[idx] = { ...next[idx], amount: +(next[idx].amount + step).toFixed(1) }
         return next
       }
-      return [...prev, { key: ++seq.current, meal, food, qty: 1 }]
+      return [...prev, { key: ++seq.current, meal, food, amount: step }]
     })
     recordPick(food.id)   // 인기순(pick_count) 집계
     setQuery('')
     setResults([])
   }
-  // 검색결과 없을 때 — 직접 입력(이름=검색어 + 칼로리)
+  // 검색결과 없을 때 — 직접 입력(이름=검색어 + 칼로리). 1회분 기준(배수 조절).
   const addCustom = () => {
     const kc = parseInt(customKcal, 10)
     const nm = query.trim()
     if (!nm || !(kc >= 1)) return
     const n = ++seq.current
     const food = { id: `custom-${n}`, name: nm, maker: '직접입력', serving: '1인분', kcal: kc, carb: 0, protein: 0, fat: 0 }
-    setEntries((prev) => [...prev, { key: n, meal, food, qty: 1 }])
+    setEntries((prev) => [...prev, { key: n, meal, food, amount: 1 }])
     setQuery(''); setResults([]); setCustomKcal('')
   }
-  const changeQty = (key, delta) => setEntries((prev) =>
-    prev.map((e) => e.key === key ? { ...e, qty: Math.max(0.5, +(e.qty + delta).toFixed(1)) } : e))
+  // 양 조절 — gram 기준은 그램 단위(최소 5), unit 기준은 배수(최소 0.5)
+  const stepAmount = (key, dir) => setEntries((prev) => prev.map((e) => {
+    if (e.key !== key) return e
+    const g = foodBasis(e.food).mode === 'gram'
+    const delta = g ? dir * 10 : dir * 0.5
+    const min = g ? 5 : 0.5
+    return { ...e, amount: Math.max(min, +(e.amount + delta).toFixed(1)) }
+  }))
+  // 그램 직접 입력
+  const setGrams = (key, val) => setEntries((prev) => prev.map((e) => {
+    if (e.key !== key) return e
+    const g = Math.max(0, Math.round(Number(val) || 0))
+    return { ...e, amount: g }
+  }))
   const removeEntry = (key) => setEntries((prev) => prev.filter((e) => e.key !== key))
 
   const totals = useMemo(() => entries.reduce((t, e) => {
-    const n = scaleNutrients(e.food, e.qty)
+    const n = computeNutrients(e.food, e.amount)
     return { kcal: t.kcal + n.kcal, carb: t.carb + n.carb, protein: t.protein + n.protein, fat: t.fat + n.fat }
   }, { kcal: 0, carb: 0, protein: 0, fat: 0 }), [entries])
 
   const mealKcal = (mealKey) => entries.filter((e) => e.meal === mealKey)
-    .reduce((s, e) => s + scaleNutrients(e.food, e.qty).kcal, 0)
+    .reduce((s, e) => s + computeNutrients(e.food, e.amount).kcal, 0)
 
   return (
     <div className="flex flex-col h-full">
@@ -130,7 +143,9 @@ function MealLogger({ onComplete }) {
                 <span className="block text-[13px] font-bold text-gray-800 truncate">
                   {f.name}{f.maker ? <span className="font-medium text-gray-400"> · {f.maker}</span> : null}
                 </span>
-                <span className="block text-[11px] text-gray-400">{f.serving} · {f.kcal}kcal</span>
+                <span className="block text-[11px] text-gray-400">
+                  {foodBasis(f).mode === 'gram' ? `${f.serving || '100g'}당 ${f.kcal}kcal` : `${f.serving} · ${f.kcal}kcal`}
+                </span>
               </span>
               <span className="w-7 h-7 rounded-lg bg-emerald-500 text-white flex items-center justify-center flex-shrink-0"><Plus className="w-4 h-4" /></span>
             </button>
@@ -156,7 +171,9 @@ function MealLogger({ onComplete }) {
               </div>
               <div className="space-y-2">
                 {list.map((e) => {
-                  const n = scaleNutrients(e.food, e.qty)
+                  const n = computeNutrients(e.food, e.amount)
+                  const basis = foodBasis(e.food)
+                  const isGram = basis.mode === 'gram'
                   return (
                     <div key={e.key} className="flex items-center gap-2.5 rounded-xl border border-gray-100 bg-white shadow-soft px-3 py-2.5">
                       <div className="flex-1 min-w-0">
@@ -172,10 +189,19 @@ function MealLogger({ onComplete }) {
                           ))}
                         </p>
                       </div>
-                      <div className="flex items-center gap-1.5 flex-shrink-0">
-                        <button type="button" onClick={() => changeQty(e.key, -0.5)} className="w-6 h-6 rounded-md bg-gray-100 text-gray-600 flex items-center justify-center"><Minus className="w-3.5 h-3.5" /></button>
-                        <span className="text-[12px] font-bold text-gray-700 w-8 text-center tabular-nums">×{e.qty}</span>
-                        <button type="button" onClick={() => changeQty(e.key, +0.5)} className="w-6 h-6 rounded-md bg-gray-100 text-gray-600 flex items-center justify-center"><Plus className="w-3.5 h-3.5" /></button>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <button type="button" onClick={() => stepAmount(e.key, -1)} className="w-6 h-6 rounded-md bg-gray-100 text-gray-600 flex items-center justify-center"><Minus className="w-3.5 h-3.5" /></button>
+                        {isGram ? (
+                          <span className="inline-flex items-center border-2 border-gray-200 rounded-md h-6 focus-within:border-emerald-500">
+                            <input type="number" inputMode="numeric" min={0} value={e.amount}
+                              onChange={(ev) => setGrams(e.key, ev.target.value)}
+                              className="w-9 h-full text-[12px] font-bold text-gray-700 text-right bg-transparent focus:outline-none tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                            <span className="text-[10px] text-gray-400 font-semibold pr-1 pl-0.5">{basis.unit}</span>
+                          </span>
+                        ) : (
+                          <span className="text-[12px] font-bold text-gray-700 w-8 text-center tabular-nums">×{e.amount}</span>
+                        )}
+                        <button type="button" onClick={() => stepAmount(e.key, +1)} className="w-6 h-6 rounded-md bg-gray-100 text-gray-600 flex items-center justify-center"><Plus className="w-3.5 h-3.5" /></button>
                       </div>
                       <button type="button" onClick={() => removeEntry(e.key)} className="w-6 h-6 rounded-md text-gray-300 hover:text-red-500 flex items-center justify-center flex-shrink-0"><X className="w-4 h-4" /></button>
                     </div>
@@ -209,7 +235,11 @@ function MealLogger({ onComplete }) {
         </div>
         <button type="button" disabled={entries.length === 0}
           onClick={() => onComplete?.({
-            entries: entries.map((e) => ({ meal: e.meal, ...e.food, qty: e.qty, ...scaleNutrients(e.food, e.qty) })),
+            entries: entries.map((e) => ({
+              meal: e.meal, ...e.food, amount: e.amount,
+              amountLabel: foodBasis(e.food).mode === 'gram' ? `${e.amount}${foodBasis(e.food).unit}` : `×${e.amount}`,
+              ...computeNutrients(e.food, e.amount),
+            })),
             totals,
             byMeal: MEALS.map((m) => ({ meal: m.key, kcal: mealKcal(m.key) })).filter((x) => x.kcal > 0),
           })}
