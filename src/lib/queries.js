@@ -3567,3 +3567,109 @@ export const createProgramFromPreset = async ({ presetKey, userId, selectedKeys,
 
   return newId
 }
+
+// ═══════════════════════════════════════════════════════════
+// 식단 「내 변화」 — 체중/허리둘레(weight_logs) + 목표달성 히트맵·장기 영양(verifications 집계)
+// ═══════════════════════════════════════════════════════════
+
+// 순수 달력 날짜 연산(TZ 무관) — 'YYYY-MM-DD'
+const _addDays = (ds, n) => { const [y, m, d] = ds.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10) }
+const _dowMon = (ds) => { const [y, m, d] = ds.split('-').map(Number); return (new Date(Date.UTC(y, m - 1, d)).getUTCDay() + 6) % 7 } // 0=월
+
+// 체중 기록 조회(본인만). 테이블 미적용/권한 → graceful [].
+export const fetchWeightLogs = async ({ programId, userId }) => {
+  if (!programId || !userId) return []
+  const { data, error } = await supabase
+    .from('weight_logs')
+    .select('logged_date, weight, waist, mood, memo')
+    .eq('program_id', programId)
+    .eq('user_id', userId)
+    .order('logged_date', { ascending: true })
+  if (error) return []
+  return (data || []).map((r) => ({
+    date: r.logged_date,
+    weight: r.weight != null ? Number(r.weight) : null,
+    waist: r.waist != null ? Number(r.waist) : null,
+    mood: r.mood, memo: r.memo,
+  }))
+}
+
+// 오늘(또는 지정일) 체중 기록 upsert(본인 행). 유니크(user,program,date).
+export const upsertWeightLog = async ({ programId, userId, date, weight, waist, mood, memo }) => {
+  const row = { user_id: userId, program_id: programId, logged_date: date, weight, waist, mood, memo, updated_at: new Date().toISOString() }
+  const { error } = await supabase.from('weight_logs').upsert(row, { onConflict: 'user_id,program_id,logged_date' })
+  if (error) throw error
+}
+
+// 목표 체중 설정(본인)
+export const setWeightGoal = async ({ programId, target }) => {
+  const { error } = await supabase.rpc('set_weight_goal', { p_program: programId, p_target: target })
+  if (error) throw error
+}
+
+// 목표달성 히트맵 + 장기 영양 추이 (기존 verifications 집계)
+export const fetchDietProgress = async ({ programId, userId, startDate }) => {
+  const empty = { adherence: [], nutrition: { week: [], month: [] } }
+  if (!programId || !userId) return empty
+  const windowStart = new Date(Date.now() - 200 * 86400000)
+  const startStr = startDate ? formatKstDate(new Date(startDate)) : formatKstDate(windowStart)
+  const since = new Date(Math.max(new Date(startStr + 'T00:00:00Z').getTime(), windowStart.getTime()))
+  const { data, error } = await supabase
+    .from('verifications')
+    .select('meal_kcal, meal_carb, meal_protein, meal_fat, submitted_at, missions!inner(program_id, meal_type)')
+    .eq('user_id', userId)
+    .eq('missions.program_id', programId)
+    .not('meal_kcal', 'is', null)
+    .gte('submitted_at', since.toISOString())
+  if (error) return empty
+  // 일별 집계
+  const byDay = new Map() // date -> { meals:Set, kcal, carb, protein, fat }
+  for (const v of (data || [])) {
+    const ds = formatKstDate(new Date(v.submitted_at))
+    let e = byDay.get(ds); if (!e) { e = { meals: new Set(), kcal: 0, carb: 0, protein: 0, fat: 0 }; byDay.set(ds, e) }
+    if (v.missions?.meal_type) e.meals.add(v.missions.meal_type)
+    e.kcal += v.meal_kcal || 0; e.carb += v.meal_carb || 0; e.protein += v.meal_protein || 0; e.fat += v.meal_fat || 0
+  }
+  // 히트맵: 시작일~오늘 전 구간(미기록=0)
+  const todayStr = formatKstDate(new Date())
+  const adherence = []
+  for (let ds = startStr, i = 0; i < 400; ds = _addDays(ds, 1), i++) {
+    adherence.push({ date: ds, level: Math.min(4, byDay.get(ds)?.meals.size || 0) })
+    if (ds >= todayStr) break
+  }
+  // 주별(최근 8주) — 일평균 kcal + 매크로. 앞쪽 빈 주는 트림.
+  const todayMon = _addDays(todayStr, -_dowMon(todayStr))
+  const week = []
+  for (let w = 7; w >= 0; w--) {
+    const mon = _addDays(todayMon, -7 * w)
+    let kcal = 0, carb = 0, protein = 0, fat = 0, days = 0
+    for (let i = 0; i < 7; i++) { const e = byDay.get(_addDays(mon, i)); if (e) { kcal += e.kcal; carb += e.carb; protein += e.protein; fat += e.fat; days++ } }
+    const sun = _addDays(mon, 6)
+    week.push({ label: `${+mon.slice(5, 7)}/${+mon.slice(8, 10)}~${+sun.slice(5, 7)}/${+sun.slice(8, 10)}`, kcal: days ? Math.round(kcal / days) : 0, carb: days ? Math.round(carb / days) : 0, protein: days ? Math.round(protein / days) : 0, fat: days ? Math.round(fat / days) : 0, _days: days })
+  }
+  while (week.length > 1 && week[0]._days === 0) week.shift()
+  week.forEach((x) => delete x._days)
+  // 월별(최근 6개월)
+  const monthMap = new Map()
+  for (const [ds, e] of byDay) { const ym = ds.slice(0, 7); let m = monthMap.get(ym); if (!m) { m = { kcal: 0, carb: 0, protein: 0, fat: 0, days: 0 }; monthMap.set(ym, m) } m.kcal += e.kcal; m.carb += e.carb; m.protein += e.protein; m.fat += e.fat; m.days++ }
+  const month = [...monthMap.entries()].sort((a, b) => a[0].localeCompare(b[0])).slice(-6)
+    .map(([ym, m]) => ({ label: `${+ym.slice(5, 7)}월`, kcal: Math.round(m.kcal / m.days), carb: Math.round(m.carb / m.days), protein: Math.round(m.protein / m.days), fat: Math.round(m.fat / m.days) }))
+  return { adherence, nutrition: { week, month } }
+}
+
+// 식단 「내 변화」 통합 로더 — DietChangeTab data prop 형태로 반환.
+export const fetchDietChangeData = async ({ programId, userId, startDate }) => {
+  // 칼로리 목표(참여자 행) + 목표 체중(weight_goals, 참여 여부 무관 — 운영자도 설정 가능)
+  let goalKcal = 1800, goalWeight = null
+  const { data: part } = await supabase.from('program_participants').select('daily_kcal_goal').eq('program_id', programId).eq('user_id', userId).maybeSingle()
+  if (part) goalKcal = part.daily_kcal_goal || 1800
+  const wg = await supabase.from('weight_goals').select('target_weight').eq('program_id', programId).eq('user_id', userId).maybeSingle()
+  if (!wg.error && wg.data?.target_weight != null) goalWeight = Number(wg.data.target_weight)
+
+  const [weight, prog] = await Promise.all([
+    fetchWeightLogs({ programId, userId }),
+    fetchDietProgress({ programId, userId, startDate }),
+  ])
+  const startWeight = weight.find((w) => w.weight != null)?.weight ?? null
+  return { weight, adherence: prog.adherence, nutrition: prog.nutrition, goalKcal, goalWeight, startWeight }
+}
