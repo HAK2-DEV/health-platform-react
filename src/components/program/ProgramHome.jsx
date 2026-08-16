@@ -80,7 +80,18 @@ export function Icon3D({ src, emoji, className = 'w-[22px] h-[22px]' }) {
 }
 
 // 가로 배치 메뉴 카드 — 아이콘 상단 중앙 + 제목 + 설명 + 버튼 (레퍼런스: 달리기 홈 하단 카드).
-export function NavCard({ iconSrc, iconEmoji, title, desc, actionLabel, onClick, newCount = 0 }) {
+export function NavCard({ iconSrc, iconEmoji, title, desc, actionLabel, onClick, newCount = 0, compact = false }) {
+  // 컴팩트 — 메뉴가 5개 이상일 때 1줄 유지용. 아이콘+라벨만, 카드 전체가 탭.
+  if (compact) {
+    return (
+      <button type="button" onClick={onClick}
+        className="relative rounded-2xl px-1 py-2.5 bg-white border border-gray-100 shadow-soft flex flex-col items-center text-center gap-1 active:scale-95 transition">
+        {newCount > 0 && <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500 shadow-sm" />}
+        <Icon3D src={iconSrc} emoji={iconEmoji} className="w-8 h-8" />
+        <span className="text-[11px] font-bold text-gray-800 leading-tight">{title}</span>
+      </button>
+    )
+  }
   return (
     <div className="relative rounded-2xl p-2 pt-3 bg-white border border-gray-100 shadow-soft flex flex-col items-center text-center gap-1">
       {newCount > 0 && (
@@ -188,6 +199,7 @@ function ProgramHome({
   participantCount = null,
   journeyText = '',            // 히어로 여정 문구 "D+N · M일 여정"
   ownerName = null,            // 히어로 메타 "운영 X"
+  onParticipantsClick = null,  // 「참여자 N명」 클릭 → 명단 모달
   myRank = null,
   notice = '',
   metrics = [],
@@ -417,6 +429,7 @@ function ProgramHome({
         onHeroChange={onHeroChange}
         onBack={onBack}
         onSettings={onSettings}
+        onParticipantsClick={onParticipantsClick}
         pendingCount={pendingCount}
       />
 

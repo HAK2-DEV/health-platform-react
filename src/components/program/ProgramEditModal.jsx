@@ -574,8 +574,8 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
           )}
 
           {/* 「나의 진행 현황」 카드 표시 (145, 개요 흡수) — 이 카드가 있는 테마(표준/레거시)에서만.
-              러닝(러닝 인사이트로 대체)·금연(카드 없음)에선 토글 숨김. */}
-          {program?.theme !== 'RUNNING' && (
+              러닝(러닝 인사이트로 대체)·금연(카드 없음)·식단(자체 도넛 사용)에선 토글 숨김. */}
+          {program?.theme !== 'RUNNING' && program?.categories?.[0] !== 'DIET' && (
             <button
               type="button"
               onClick={() => setProgressEnabled(!progressEnabled)}

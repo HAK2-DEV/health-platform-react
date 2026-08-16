@@ -26,6 +26,7 @@ function ProgramHomeHero({
   journeyText = '',
   ownerName = null,
   ownerId = null,
+  onParticipantsClick = null,  // 「참여자 N명」 클릭 → 명단 모달
   onHeroChange = null,
   onBack = null,               // immersive — 히어로 위 뒤로가기
   onSettings = null,           // immersive — 운영자 설정(메뉴)
@@ -125,7 +126,13 @@ function ProgramHomeHero({
           </div>
           <h1 className="text-[27px] font-extrabold text-gray-900 leading-[1.16] tracking-[-.02em] break-keep">{programName}</h1>
           <p className="text-[12.5px] font-semibold text-gray-600 mt-1.5">
-            참여자 {participantCount ?? 0}명{ownerName ? ` · 운영 ${ownerName}` : ''}
+            {onParticipantsClick ? (
+              <button type="button" onClick={onParticipantsClick}
+                className="pointer-events-auto underline underline-offset-2 decoration-gray-400 hover:text-emerald-700 transition">참여자 {participantCount ?? 0}명</button>
+            ) : (
+              <>참여자 {participantCount ?? 0}명</>
+            )}
+            {ownerName ? ` · 운영 ${ownerName}` : ''}
           </p>
         </div>
       </div>

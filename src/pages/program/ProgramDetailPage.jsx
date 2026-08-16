@@ -34,6 +34,7 @@ import ProgramHomeLayoutEditor from '../../components/program/ProgramHomeLayoutE
 import { resolveMissionIcon } from '../../lib/missionIcons'
 import { getSignedUrls, thumbPathOf } from '../../lib/signedUrls'
 import ProgramChangeTab from '../../components/program/ProgramChangeTab'
+import ParticipantListModal from '../../components/program/ParticipantListModal'
 import PodiumTop3 from '../../components/program/PodiumTop3'
 import TeamRankingPanel from '../../components/program/TeamRankingPanel'
 import ScoreSparkline from '../../components/program/ScoreSparkline'
@@ -123,7 +124,12 @@ import {
   updateProgramHomeHero,
   updateProgramHomeGoal,
   invalidateParticipation,
+  fetchDietChangeData,
+  upsertWeightLog,
+  setWeightGoal,
+  formatKstDate,
 } from '../../lib/queries'
+import DietChangeTab from '../../components/program/DietChangeTab'
 
 // 기간 필터 옵션 (period_filter_enabled 옵션 시) — period → ISO 시작점
 const PERIOD_OPTIONS = [
@@ -351,7 +357,7 @@ function ProgramDetailPage() {
       const since = new Date(Date.now() - 8 * 86400000).toISOString()
       const { data } = await supabase
         .from('verifications')
-        .select('meal_kcal, meal_carb, meal_protein, meal_fat, submitted_at, missions!inner(program_id, meal_type)')
+        .select('meal_kcal, meal_carb, meal_protein, meal_fat, meal_items, meal_source, image_path, submitted_at, missions!inner(program_id, meal_type)')
         .eq('user_id', userId)
         .eq('missions.program_id', id)
         .not('meal_kcal', 'is', null)
@@ -359,6 +365,23 @@ function ProgramDetailPage() {
       return data || []
     },
     enabled: !!session && !!id && !!userId && program?.categories?.[0] === 'DIET',
+  })
+  // 식단 「내 변화」 — 체중/허리둘레 + 목표달성 히트맵 + 장기 영양 추이 (탭 진입 시)
+  const { data: dietChangeData } = useQuery({
+    queryKey: ['diet-change', id, userId],
+    queryFn: () => fetchDietChangeData({ programId: id, userId, startDate: program?.start_date }),
+    enabled: !!session && !!id && !!userId && program?.categories?.[0] === 'DIET' && activeTab === 'dietchange',
+  })
+  const addWeightMutation = useMutation({
+    mutationFn: (entry) => upsertWeightLog({
+      programId: id, userId, date: formatKstDate(new Date()),
+      weight: entry.weight, waist: entry.waist, mood: entry.mood, memo: entry.memo,
+    }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['diet-change', id, userId] }),
+  })
+  const setWeightGoalMutation = useMutation({
+    mutationFn: (target) => setWeightGoal({ programId: id, target }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['diet-change', id, userId] }),
   })
 
   // 주간 스트릭 있는 프로그램(달리기 + 카드홈) — 오늘 인증이 승인되면(자동/수동 무관)
@@ -759,6 +782,7 @@ function ProgramDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   const [quizLibOpen, setQuizLibOpen] = useState(false)                // 퀴즈 라이브러리 모달
+  const [participantsOpen, setParticipantsOpen] = useState(false)      // 참여자 명단 모달(중앙)
   const [completionOpen, setCompletionOpen] = useState(false)          // 참여자 완주 축하 (종료 시)
   // 완주 리포트 부가 지표 — 받은 응원 + 내 등수 + 팀 순위 (종료 참여자일 때만)
   const { data: completionExtras } = useQuery({
@@ -1010,6 +1034,7 @@ function ProgramDetailPage() {
     else if (activeTab === 'community' && program.community_enabled === false) setActiveTab('overview')
     else if (activeTab === 'ranking' && program.ranking_enabled === false) setActiveTab('overview')
     else if (activeTab === 'change' && !(program.theme === PROGRAM_THEME.QUIT_SMOKING && program.change_tab_enabled === true)) setActiveTab('overview')
+    else if (activeTab === 'dietchange' && program.categories?.[0] !== 'DIET') setActiveTab('overview')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [program, activeTab])
 
@@ -1619,24 +1644,16 @@ function ProgramDetailPage() {
                 </div>
               )}
               <div className="flex items-center gap-3 sm:gap-4 text-xs sm:text-sm text-gray-600 flex-wrap">
-                {isOwner ? (
-                  <button
-                    type="button"
-                    onClick={() => navigate(`/programs/${id}/stats/users`)}
-                    className="inline-flex items-center gap-1 hover:text-emerald-700 transition"
-                    title="참여 유저 관리로 이동"
-                  >
-                    <UsersSolid className="w-3.5 h-3.5 text-gray-400" />
-                    <span className="text-gray-500">참여자</span>
-                    <span className="text-gray-800 font-semibold underline underline-offset-2 decoration-gray-300">{ranking.length}명</span>
-                  </button>
-                ) : (
-                  <span className="inline-flex items-center gap-1">
-                    <UsersSolid className="w-3.5 h-3.5 text-gray-400" />
-                    <span className="text-gray-500">참여자</span>
-                    <span className="text-gray-800 font-semibold">{ranking.length}명</span>
-                  </span>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setParticipantsOpen(true)}
+                  className="inline-flex items-center gap-1 hover:text-emerald-700 transition"
+                  title="참여자 명단 보기"
+                >
+                  <UsersSolid className="w-3.5 h-3.5 text-gray-400" />
+                  <span className="text-gray-500">참여자</span>
+                  <span className="text-gray-800 font-semibold underline underline-offset-2 decoration-gray-300">{ranking.length}명</span>
+                </button>
                 {program.ranking_enabled !== false && myRank && (
                   <span className="inline-flex items-center gap-1">
                     <TrophySolid className="w-3.5 h-3.5 text-amber-400" />
@@ -1708,6 +1725,8 @@ function ProgramDetailPage() {
           ...(communityEnabled ? [{ key: 'community', label: isQuit ? '응원' : '커뮤니티' }] : []),
           // 금연 「내 변화」(참가자) / 「참가자 추세」(운영자) — 운영자 토글 ON 일 때만
           ...((isQuit && program.change_tab_enabled === true) ? [{ key: 'change', label: isOwner ? '참가자 추세' : '내 변화' }] : []),
+          // 식단 「내 변화」 — 참여자 본인 체중/영양 변화(민감정보 → 열람자 제외)
+          ...((isDiet && !isViewer) ? [{ key: 'dietchange', label: '내 변화' }] : []),
           ...(growthLabel ? [{ key: 'ranking', label: growthLabel }] : []),
         ]
         // 방어: 현재 탭이 사라진 탭이면 overview 로 fallback
@@ -1715,6 +1734,7 @@ function ProgramDetailPage() {
           || (activeTab === 'quizzes' && (isViewer || !quizEnabled))
           || (activeTab === 'community' && !communityEnabled)
           || (activeTab === 'change' && !(isQuit && program.change_tab_enabled === true))
+          || (activeTab === 'dietchange' && !(isDiet && !isViewer))
         const safeActiveTab = tabGone ? 'overview' : activeTab
         return (
           // 메뉴 선택 바 — 풀폭 언더라인 탭 (모서리 0)
@@ -1859,6 +1879,7 @@ function ProgramDetailPage() {
           { iconSrc: '/icons/feature/mission.png', iconEmoji: '📋', title: '미션', desc: '식단을 기록해요', actionLabel: '기록하기', onClick: () => setActiveTab('missions'), newCount: newMissionCount },
           (quizEnabled && !isViewer) ? { iconSrc: '/icons/feature/quiz.png', iconEmoji: '❓', title: '퀴즈', desc: '건강 지식을 배워요', actionLabel: '풀어보기', onClick: () => setActiveTab('quizzes'), newCount: newQuizCount } : null,
           communityEnabled ? { iconSrc: '/icons/feature/community.png', iconEmoji: '💬', title: '커뮤니티', desc: '함께 응원해요', actionLabel: '바로가기', onClick: () => setActiveTab('community') } : null,
+          !isViewer ? { iconSrc: '/illustrations/change/chart.png', iconEmoji: '📈', title: '내 변화', desc: '체중·영양 변화를 봐요', actionLabel: '보러가기', onClick: () => setActiveTab('dietchange') } : null,
           (program.ranking_enabled !== false) ? { iconSrc: '/icons/reward/ranking.png', iconEmoji: '🏆', title: '랭킹', desc: '순위를 확인해요', actionLabel: '확인하기', onClick: () => setActiveTab('ranking') } : null,
         ].filter(Boolean)
         // 식단 인증(meal) 집계 — 오늘 섭취 / 끼니별 / 주간 추이 (KST 기준)
@@ -1870,8 +1891,14 @@ function ProgramDetailPage() {
           { key: 'breakfast', label: '아침', emoji: '🌅' }, { key: 'lunch', label: '점심', emoji: '☀️' },
           { key: 'dinner', label: '저녁', emoji: '🌙' }, { key: 'snack', label: '간식', emoji: '🍪' },
         ].map((m) => {
-          const kc = todayV.filter((v) => v.missions?.meal_type === m.key).reduce((s, v) => s + (v.meal_kcal || 0), 0)
-          return { ...m, kcal: kc, done: kc > 0 }
+          const vs = todayV.filter((v) => v.missions?.meal_type === m.key)
+          const sum = (f) => vs.reduce((s, v) => s + (v[f] || 0), 0)
+          const items = vs.flatMap((v) => (Array.isArray(v.meal_items) ? v.meal_items : []))
+          return {
+            ...m, kcal: sum('meal_kcal'), carb: sum('meal_carb'), protein: sum('meal_protein'), fat: sum('meal_fat'),
+            items, imagePath: vs.find((v) => v.image_path)?.image_path || null,
+            source: vs.find((v) => v.meal_source)?.meal_source || null, done: sum('meal_kcal') > 0,
+          }
         })
         const dietWeek = []
         for (let i = 6; i >= 0; i--) {
@@ -1896,6 +1923,7 @@ function ProgramDetailPage() {
               onHeroChange={(cfg) => homeHeroMutation.mutate(cfg)}
               onBack={handleHeaderBack}
               onSettings={isOwner ? () => setIsPanelOpen(true) : null}
+              onParticipantsClick={() => setParticipantsOpen(true)}
               pendingCount={pendingReviews.length}
             />
             <div className="relative -mt-[22px] rounded-t-[26px] px-4 pt-5 pb-6 space-y-[9px]" style={{ background: '#fdfbf7' }}>
@@ -2062,6 +2090,7 @@ function ProgramDetailPage() {
               return tot ? `D+${dplus} · ${tot}일 여정` : `D+${dplus}`
             })()}
             ownerName={program.owner_nickname || program.owner?.nickname || null}
+            onParticipantsClick={() => setParticipantsOpen(true)}
             myRank={program.ranking_enabled !== false ? myRow?.rank : null}
             notice={homeNotice || (isOwner ? '공지를 작성해보세요' : '등록된 공지가 없어요')}
             metrics={homeMetrics}
@@ -2720,6 +2749,21 @@ function ProgramDetailPage() {
         const periodDays = Math.max(14, Math.min(t.elapsedDays || 0, t.programDays || 0))
         return <ProgramChangeTab programId={id} userId={userId} isOwner={isOwner} periodDays={periodDays} />
       })()}
+
+      {/* ─── 식단 「내 변화」 탭 — 참여자 본인 체중/영양 변화 ───────────────────── */}
+      {activeTab === 'dietchange' && isDiet && !isViewer && (
+        <DietChangeTab data={dietChangeData} onAddEntry={(entry) => addWeightMutation.mutate(entry)} onSetGoalWeight={(v) => setWeightGoalMutation.mutate(v)} />
+      )}
+
+      {/* ─── 참여자 명단 (중앙 모달) — 운영자/참가자 공통 ───────────────────── */}
+      <ParticipantListModal
+        isOpen={participantsOpen}
+        onClose={() => setParticipantsOpen(false)}
+        participants={ranking}
+        myUserId={userId}
+        showScore={program.ranking_enabled !== false}
+        onManage={isOwner ? () => { setParticipantsOpen(false); navigate(`/programs/${id}/stats/users`) } : null}
+      />
 
       {/* ─── 클래스 일정 — 전체 목록 ↔ 상세(?class=) ───────────────────── */}
       {activeTab === 'classes' && (() => {
