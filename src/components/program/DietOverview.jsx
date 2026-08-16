@@ -1,10 +1,18 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronRight, ChevronDown, Pencil, X } from 'lucide-react'
 import { NavCard, Icon3D } from './ProgramHome'
 import { MEAL_ICON, MEAL_STREAK_ICON } from '../../lib/mealIcons'
 import { Reveal, useBarGrow, barGrowStyle, SPRING_EASE } from './statsAnim'
+import { getSignedUrls } from '../../lib/signedUrls'
 import WeeklyStreak from './WeeklyStreak'
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
+
+const MEAL_MACROS = [
+  { key: 'carb', label: '탄수', text: 'text-amber-600', dot: 'bg-amber-400' },
+  { key: 'protein', label: '단백', text: 'text-sky-600', dot: 'bg-sky-400' },
+  { key: 'fat', label: '지방', text: 'text-rose-500', dot: 'bg-rose-400' },
+]
 
 const MACRO = {
   carb: { name: '탄수화물', hex: '#fbbf24' },
@@ -214,22 +222,108 @@ function WeeklyTrendModal({ open, onClose, week }) {
   )
 }
 
-function MealStatus({ meals }) {
+function MealStatus({ meals, onMealClick }) {
   return (
     <div className="rounded-2xl p-4 bg-white border border-gray-100 shadow-soft">
-      <h3 className="text-[13px] font-bold text-gray-800 mb-3">끼니별 현황</h3>
+      <h3 className="text-[13px] font-bold text-gray-800 mb-3">끼니별 현황 <span className="text-[10px] font-normal text-gray-400">· 탭하면 상세</span></h3>
       <div className="grid grid-cols-4 gap-2">
         {meals.map((m) => (
-          <div key={m.key} className={`rounded-xl py-2.5 flex flex-col items-center gap-1 border ${m.done ? 'border-emerald-100 bg-emerald-50/50' : 'border-gray-100 bg-gray-50'}`}>
+          <button key={m.key} type="button" onClick={m.done ? () => onMealClick(m) : undefined} disabled={!m.done}
+            className={`rounded-xl py-2.5 flex flex-col items-center gap-1 border transition ${m.done ? 'border-emerald-100 bg-emerald-50/50 active:scale-95 cursor-pointer' : 'border-gray-100 bg-gray-50 cursor-default'}`}>
             <Icon3D src={MEAL_ICON[m.key]} emoji={m.emoji} className="w-7 h-7" />
             <span className={`text-[11px] font-semibold ${m.done ? 'text-gray-600' : 'text-gray-400'}`}>{m.label}</span>
             {m.done
               ? <span className="text-[10px] font-bold text-emerald-600 tabular-nums">{m.kcal}kcal</span>
               : <span className="text-[10px] leading-none">&nbsp;</span>}
-          </div>
+          </button>
         ))}
       </div>
     </div>
+  )
+}
+
+// 끼니 상세 — 화면 중앙 팝업(부드럽게). 사진 → 음식 카드 → 하단 칼로리·탄단지.
+function MealDetailModal({ meal, onClose }) {
+  const [imgUrl, setImgUrl] = useState(null)
+  useBodyScrollLock(!!meal)
+  const imgPath = meal?.imagePath || null
+  useEffect(() => {
+    if (!imgPath) return
+    let alive = true
+    getSignedUrls('verification-images', [imgPath]).then((mm) => { if (alive) setImgUrl(mm[imgPath] || null) })
+    return () => { alive = false }
+  }, [imgPath])
+  return (
+    <AnimatePresence>
+      {meal && (
+        <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-5" style={{ background: 'rgba(15,23,42,0.45)' }} onClick={onClose}
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+          <motion.div className="w-full max-w-sm rounded-3xl bg-white shadow-2xl overflow-hidden max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}
+            initial={{ scale: 0.85, opacity: 0, y: 12 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0 }}
+            transition={{ duration: 0.4, ease: [0.34, 1.56, 0.64, 1] }}>
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 flex-shrink-0">
+              <Icon3D src={MEAL_ICON[meal.key]} emoji={meal.emoji} className="w-6 h-6" />
+              <h3 className="text-[15px] font-extrabold text-gray-900">{meal.label} 식단</h3>
+              <button type="button" onClick={onClose} aria-label="닫기" className="ml-auto w-7 h-7 rounded-full text-gray-400 hover:bg-gray-100 flex items-center justify-center"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="overflow-y-auto flex-1">
+              {meal.done ? (
+                <>
+                  {meal.imagePath && (
+                    <div className="bg-gray-50">
+                      {imgUrl
+                        ? <img src={imgUrl} alt="" className="w-full max-h-64 object-cover" />
+                        : <div className="py-12 text-center text-gray-300 text-[12px]">사진 불러오는 중…</div>}
+                    </div>
+                  )}
+                  <div className="p-4 space-y-1.5">
+                    {meal.items?.length > 0 ? meal.items.map((it, i) => (
+                      <div key={i} className="rounded-xl bg-gray-50 px-3 py-2.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-[13px] font-semibold text-gray-900 truncate min-w-0">{it.name}{it.maker ? <span className="font-normal text-gray-400"> · {it.maker}</span> : null}</p>
+                          <span className="text-[12px] font-bold text-gray-700 tabular-nums flex-shrink-0">{it.kcal}kcal</span>
+                        </div>
+                        <div className="flex items-center gap-2.5 mt-1">
+                          <span className="text-[10.5px] text-gray-400 tabular-nums">{it.amount}{it.unit || 'g'}</span>
+                          {MEAL_MACROS.map((nu) => (
+                            <span key={nu.key} className={`inline-flex items-center gap-1 text-[10.5px] font-semibold ${nu.text} tabular-nums`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${nu.dot}`} />{it[nu.key] ?? 0}<span className="text-gray-300 font-normal">g</span>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )) : <p className="text-[12px] text-gray-400 text-center py-4">담은 음식 정보가 없어요</p>}
+                  </div>
+                </>
+              ) : (
+                <div className="py-14 text-center">
+                  <p className="text-[13px] text-gray-400 leading-relaxed">아직 이 끼니를 기록하지 않았어요.</p>
+                </div>
+              )}
+            </div>
+            {meal.done && (
+              <div className="flex-shrink-0 border-t border-gray-100 p-4">
+                <div className="flex items-end justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] font-medium text-gray-400">{meal.label} 합계</p>
+                    <p className="text-[24px] font-extrabold text-gray-900 leading-none mt-1 tabular-nums">{(meal.kcal || 0).toLocaleString()}<span className="text-[13px] text-gray-400 font-bold ml-1">kcal</span></p>
+                  </div>
+                  <div className="flex items-start gap-3 pb-1">
+                    {MEAL_MACROS.map((nu) => (
+                      <div key={nu.key} className="text-right">
+                        <p className="text-[10px] font-medium text-gray-400 flex items-center gap-1 justify-end leading-none"><span className={`w-1.5 h-1.5 rounded-full ${nu.dot}`} />{nu.label}</p>
+                        <p className={`text-[14px] font-bold ${nu.text} tabular-nums leading-none mt-1`}>{meal[nu.key] || 0}<span className="text-[10px] font-medium text-gray-400">g</span></p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {meal.source === 'photo' && <p className="text-[10px] text-gray-400 mt-2">📷 AI 추정 · 참고용</p>}
+              </div>
+            )}
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   )
 }
 
@@ -306,6 +400,7 @@ export default function DietOverview({
 }) {
   const [detailOpen, setDetailOpen] = useState(false)
   const [trendOpen, setTrendOpen] = useState(false)
+  const [mealDetail, setMealDetail] = useState(null)   // 끼니 상세 팝업 대상
   const weekData = week.length === 7 ? week
     : ['월', '화', '수', '목', '금', '토', '일'].map((l, i) => ({ label: l, kcal: week[i]?.kcal || 0 }))
 
@@ -329,20 +424,25 @@ export default function DietOverview({
         </div>
       </Reveal>
 
-      <Reveal index={1}><MealStatus meals={meals} /></Reveal>
+      <Reveal index={1}><MealStatus meals={meals} onMealClick={setMealDetail} /></Reveal>
 
       <Reveal index={2}><NutritionReport today={today} /></Reveal>
 
-      {menu.length > 0 && (
-        <Reveal index={3}>
-          <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${menu.length}, minmax(0, 1fr))` }}>
-            {menu.map((c) => <NavCard key={c.title} {...c} />)}
-          </div>
-        </Reveal>
-      )}
+      {menu.length > 0 && (() => {
+        // 4개까진 리치 카드로 1줄, 5개 이상은 컴팩트(아이콘+라벨)로 1줄 유지
+        const compact = menu.length >= 5
+        return (
+          <Reveal index={3}>
+            <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${menu.length}, minmax(0, 1fr))` }}>
+              {menu.map((c) => <NavCard key={c.title} {...c} compact={compact} />)}
+            </div>
+          </Reveal>
+        )
+      })()}
 
       <DonutDetailModal open={detailOpen} onClose={() => setDetailOpen(false)} today={today} goal={goal} />
       <WeeklyTrendModal open={trendOpen} onClose={() => setTrendOpen(false)} week={weekData} />
+      <MealDetailModal meal={mealDetail} onClose={() => setMealDetail(null)} />
     </div>
   )
 }
