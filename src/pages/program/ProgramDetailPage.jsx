@@ -3208,7 +3208,7 @@ function ProgramDetailPage() {
                   {!isEnded && (
                     <PanelMenuBox icon="🔔" title="알림" desc="새 소식 알림(미션·퀴즈·클래스·공지) 보내기" chevron onClick={() => setPanelView('notifications')} />
                   )}
-                  <PanelMenuBox icon="📊" title="통계" desc="참여·인증·미션별 현황" onClick={() => { closePanel(); navigate(`/programs/${id}/stats`, { state: { backToOpMenu: 'root' } }) }} />
+                  <PanelMenuBox icon="📊" title="통계" desc="참여·미션·퀴즈·설문 현황 + 종료 리포트" onClick={() => { closePanel(); navigate(`/programs/${id}/stats`, { state: { backToOpMenu: 'root' } }) }} />
                   {communityEnabled && (
                     <PanelMenuBox iconSrc="/icons/operator/report-flag.png" icon="🚩" title="신고 · 숨김 관리" desc="신고된 글·인증 · 가려진 인증 관리" chevron badge={unresolvedReportCount || undefined} onClick={() => setPanelView('reports')} />
                   )}

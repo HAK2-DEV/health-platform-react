@@ -192,6 +192,8 @@ function ProgramEndReportPage() {
     enabled: !!session && !!id,
   })
   const isOwner = program?.owner_id === userId
+  // 진행 중(종료 전) 진입 = 미리보기 → 마무리 액션은 블러(종료 후 활성)
+  const isEnded = !!program?.end_date && new Date(`${program.end_date}T23:59:59+09:00`) < new Date()
 
   const { data: stats, isLoading: isStatsLoading } = useQuery({
     queryKey: queryKeys.programStats(id),
@@ -381,7 +383,7 @@ function ProgramEndReportPage() {
           )}
 
           {/* ─── 다음 액션 ─── */}
-          <Reveal index={9}><NextActionsCard programId={id} feedEnabled={!!program.feed_enabled} navigate={navigate} onClone={() => setCloneOpen(true)}
+          <Reveal index={9}><NextActionsCard programId={id} feedEnabled={!!program.feed_enabled} isEnded={isEnded} navigate={navigate} onClone={() => setCloneOpen(true)}
             onThanks={() => navigate(`/programs/${id}?tab=community`, { state: { composeThanks: buildThanksDraft(program, report) } })}
             onExport={async (includeDetail) => {
               const [pu, scoreBreakdown, teamRanking, distance, metricsByUser, scoreLedger, classRoster] = await Promise.all([
@@ -1376,9 +1378,10 @@ function buildThanksDraft(program, report) {
 }
 
 // ─── 다음 액션 ───
-function NextActionsCard({ programId, feedEnabled, navigate, onClone, onExport, onThanks }) {
+function NextActionsCard({ programId, feedEnabled, isEnded, navigate, onClone, onExport, onThanks }) {
   const [exporting, setExporting] = useState(false)
   const [includeDetail, setIncludeDetail] = useState(false)
+  const [shakeKey, setShakeKey] = useState(0)   // 잠금 박스 흔들기 트리거(클릭마다 +1 → 리마운트로 재생)
   const handleExport = async () => {
     if (exporting) return
     setExporting(true)
@@ -1387,8 +1390,9 @@ function NextActionsCard({ programId, feedEnabled, navigate, onClone, onExport, 
   return (
     <div className="bg-white border border-[#e6e9e6] rounded-card-lg p-5">
       <h3 className="text-base font-bold text-gray-900 mb-1">수고하셨어요! 다음은?</h3>
-      <p className="text-[12px] text-gray-500 mb-3">이 프로그램을 이어가거나, 참여자에게 인사를 전해보세요.</p>
-      <div className="space-y-2">
+      <p className="text-[12px] text-gray-500 mb-3">{isEnded ? '이 프로그램을 이어가거나, 참여자에게 인사를 전해보세요.' : '프로그램이 끝나면 이어가기·감사 인사·내보내기를 할 수 있어요.'}</p>
+      <div className="relative">
+      <div className={`space-y-2 ${isEnded ? '' : 'blur-[1.5px] pointer-events-none select-none opacity-80'}`}>
         {/* 다음 기수 열기 — 같은 구성으로 새 프로그램 (운영자 리텐션 핵심) */}
         <button
           type="button"
@@ -1424,14 +1428,14 @@ function NextActionsCard({ programId, feedEnabled, navigate, onClone, onExport, 
           type="button"
           onClick={handleExport}
           disabled={exporting}
-          className="w-full flex items-center gap-3 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition text-left disabled:opacity-60"
+          className="w-full flex items-center gap-3 p-3 rounded-xl bg-amber-50 hover:bg-amber-100/70 border border-amber-200 transition text-left disabled:opacity-60"
         >
-          <span className="w-9 h-9 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center flex-shrink-0">
+          <span className="w-9 h-9 rounded-full bg-amber-500 text-white flex items-center justify-center flex-shrink-0">
             <Download className="w-5 h-5" />
           </span>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-gray-800">{exporting ? '내보내는 중…' : '리포트 내보내기 (엑셀)'}</p>
-            <p className="text-[11px] text-gray-500">요약·참여자(개인별)·미션·퀴즈 시트로 저장해요</p>
+            <p className="text-sm font-bold text-amber-900">{exporting ? '내보내는 중…' : '리포트 내보내기 (엑셀)'}</p>
+            <p className="text-[11px] text-amber-700/80">요약·참여자(개인별)·미션·퀴즈 시트로 저장해요</p>
           </div>
         </button>
         {/* 상세 포함 옵션 — 켜면 참여자별 댓글·퀴즈 답변 시트 2장 추가(파일이 커질 수 있음) */}
@@ -1448,6 +1452,20 @@ function NextActionsCard({ programId, feedEnabled, navigate, onClone, onExport, 
             <span className="block text-[11px] text-gray-400 leading-snug">참여자가 쓴 댓글과 문항별 답을 시트로 추가해요. 활동이 많으면 파일이 커져요.</span>
           </span>
         </label>
+      </div>
+      {!isEnded && (
+        <div className="absolute inset-0 flex items-center justify-center px-4 cursor-default" onClick={() => setShakeKey((k) => k + 1)}>
+          <motion.span
+            key={shakeKey}
+            initial={{ x: 0 }}
+            animate={shakeKey ? { x: [0, -7, 7, -6, 6, -3, 3, 0] } : { x: 0 }}
+            transition={{ duration: 0.42, ease: 'easeInOut' }}
+            className="text-[12px] font-bold text-gray-700 bg-white/90 border border-gray-200 rounded-full px-3.5 py-2 shadow-sm text-center break-keep"
+          >
+            🔒 프로그램 종료 후 사용할 수 있어요
+          </motion.span>
+        </div>
+      )}
       </div>
     </div>
   )

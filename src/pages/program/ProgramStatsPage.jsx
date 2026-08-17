@@ -57,6 +57,8 @@ function ProgramStatsPage() {
 
   // 클래스 요약 — 클래스 기능 ON 일 때만. 카드 미리보기 + 디테일 페이지 공유 캐시
   const classEnabled = !!program?.class_feature_enabled
+  // 종료 여부 — 진행 중이면 종료 리포트를 「미리보기」로 표기
+  const isEnded = !!program?.end_date && new Date(`${program.end_date}T23:59:59+09:00`) < new Date()
   const { data: classStats } = useQuery({
     queryKey: ['program-class-stats', id],
     queryFn: () => fetchProgramClassStats(id),
@@ -253,6 +255,23 @@ function ProgramStatsPage() {
               <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
             </button>
           )}
+
+          {/* 종료 리포트 — 종료 후 배너로만 열리던 걸 통계에서도 (진행 중엔 미리보기) */}
+          <button
+            type="button"
+            onClick={() => navigate(`/programs/${id}/report`)}
+            className="w-full flex items-center gap-4 p-5 bg-white border border-gray-200 rounded-2xl hover:bg-gray-50 hover:border-emerald-300 transition text-left"
+          >
+            <img src="/icons/reward/report.png" alt="" aria-hidden="true" className="w-12 h-12 flex-shrink-0 object-contain" />
+            <div className="flex-1 min-w-0">
+              <h3 className="font-medium text-gray-800 mb-0.5">
+                종료 리포트
+                {!isEnded && <span className="ml-1.5 text-[10px] font-semibold text-emerald-600 align-middle">미리보기</span>}
+              </h3>
+              <p className="text-xs text-gray-500">완주율·참여 여정 퍼널·성과 요약{!isEnded && ' (현재까지)'}</p>
+            </div>
+            <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
+          </button>
         </motion.div>
         </>
       )}
