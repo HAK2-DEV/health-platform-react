@@ -389,6 +389,17 @@ function NutritionReport({ today }) {
   )
 }
 
+// 식단 개요 커스터마이즈 박스 — 순서·숨김 편집 대상(메뉴는 내비라 숨김 불가).
+export const DIET_BOX_ORDER = ['summary', 'meals', 'nutrition', 'todayMissions', 'recent', 'menu']
+export const DIET_BOX_LABELS = {
+  summary: '진행 현황 · 주간',
+  meals: '끼니별 현황',
+  nutrition: '오늘의 영양 평가',
+  todayMissions: '오늘의 미션',
+  recent: '최근 인증',
+  menu: '메뉴',
+}
+
 export default function DietOverview({
   today = { kcal: 0, carb: 0, protein: 0, fat: 0 },
   goal = 1800,
@@ -397,6 +408,13 @@ export default function DietOverview({
   meals = MEAL_DEFAULT,
   streak = null,
   menu = [],
+  todayMissions = [],
+  recentItems = [],
+  onRecord = () => {},
+  boxOrder = null,
+  hiddenBoxes = [],
+  onEditLayout = () => {},
+  editable = false,
 }) {
   const [detailOpen, setDetailOpen] = useState(false)
   const [trendOpen, setTrendOpen] = useState(false)
@@ -404,41 +422,94 @@ export default function DietOverview({
   const weekData = week.length === 7 ? week
     : ['월', '화', '수', '목', '금', '토', '일'].map((l, i) => ({ label: l, kcal: week[i]?.kcal || 0 }))
 
+  // 박스 레지스트리 — 순서·숨김 커스터마이즈 대상(ProgramHome 과 동일 패턴)
+  const BOXES = {
+    summary: () => (
+      <div className="grid grid-cols-2 gap-2.5 items-stretch">
+        <div className="rounded-2xl p-4 bg-white border border-gray-100 shadow-soft h-full flex flex-col items-center">
+          <p className="text-[12px] font-bold text-gray-700 self-start">오늘의 진행 현황</p>
+          <div className="flex-1 flex flex-col items-center justify-center py-1">
+            <DonutCompact today={today} goal={goal} onClick={() => setDetailOpen(true)} />
+          </div>
+          <GoalEditor goal={goal} onChange={onGoalChange} />
+        </div>
+        <div className="flex flex-col gap-2.5">
+          <WeeklyStreak count={streak?.count || 0}
+            days={streak?.days?.length ? streak.days : ['월', '화', '수', '목', '금', '토', '일'].map((l) => ({ label: l, done: false }))}
+            icon={<Icon3D src={MEAL_STREAK_ICON} emoji="🌱" className="w-6 h-6" />} iconBg="bg-emerald-50" />
+          <WeeklyTrendMini week={weekData} onOpen={() => setTrendOpen(true)} />
+        </div>
+      </div>
+    ),
+    meals: () => <MealStatus meals={meals} onMealClick={setMealDetail} />,
+    nutrition: () => <NutritionReport today={today} />,
+    // 오늘의 미션 (최대 3개 미리보기) — ProgramHome 과 동일
+    todayMissions: () => !(todayMissions?.length) ? null : (
+      <div>
+        <div className="flex items-center justify-between mb-1.5 px-0.5">
+          <p className="text-[13px] font-bold text-gray-700">오늘의 미션</p>
+          <button type="button" onClick={onRecord} className="text-[11px] text-gray-400">전체 보기 ›</button>
+        </div>
+        <div className="space-y-2">
+          {todayMissions.slice(0, 3).map((m) => (
+            <div key={m.id} className="bg-white rounded-2xl shadow-soft border border-gray-100 p-3 flex items-center gap-3">
+              {m.thumb ? <img src={m.thumb} alt="" className="w-11 h-11 rounded-xl object-contain bg-gray-50 flex-shrink-0" /> : <span className="w-11 h-11 rounded-xl bg-emerald-50 flex items-center justify-center text-xl flex-shrink-0">📋</span>}
+              <div className="flex-1 min-w-0"><p className="text-[13px] font-bold text-gray-800 truncate">{m.title}</p><p className="text-[10px] text-emerald-600 font-bold mt-0.5">+{m.pt}P</p></div>
+              {m.done
+                ? <span className="text-[11px] font-bold text-emerald-600 flex-shrink-0">✓ 완료</span>
+                : <button type="button" onClick={onRecord} className="text-[11px] font-bold text-white bg-emerald-500 rounded px-3 py-1.5 flex-shrink-0">인증</button>}
+            </div>
+          ))}
+        </div>
+      </div>
+    ),
+    // 최근 인증 (최대 3개)
+    recent: () => !(recentItems?.length) ? null : (
+      <div>
+        <p className="text-[13px] font-bold text-gray-700 mb-1.5 px-0.5">최근 인증 기록</p>
+        <div className="bg-white rounded-2xl shadow-soft border border-gray-100 divide-y divide-gray-50">
+          {recentItems.slice(0, 3).map((r) => (
+            <div key={r.id} className="flex items-center gap-3 px-3 py-2.5">
+              <span className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center text-base flex-shrink-0">✅</span>
+              <div className="flex-1 min-w-0"><p className="text-[12px] font-bold text-gray-700 truncate">{r.title}</p><p className="text-[10px] text-gray-400">{r.time}</p></div>
+              <span className="text-[11px] font-bold text-emerald-600 flex-shrink-0">+{r.point}P</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    ),
+    menu: () => {
+      if (!menu.length) return null
+      const compact = menu.length >= 5   // 4개까진 리치 카드, 5개 이상은 컴팩트로 1줄 유지
+      return (
+        <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${menu.length}, minmax(0, 1fr))` }}>
+          {menu.map((c) => <NavCard key={c.title} {...c} compact={compact} />)}
+        </div>
+      )
+    },
+  }
+
+  const savedOrder = (boxOrder && boxOrder.length ? boxOrder : DIET_BOX_ORDER).filter((k) => BOXES[k])
+  DIET_BOX_ORDER.forEach((k) => { if (BOXES[k] && !savedOrder.includes(k)) savedOrder.push(k) })  // 신규 박스 뒤 append
+  const hidden = new Set(hiddenBoxes)
+  const orderedKeys = savedOrder.filter((k) => !hidden.has(k))
+
   return (
     <div className="space-y-2.5">
-      <Reveal index={0}>
-        <div className="grid grid-cols-2 gap-2.5 items-stretch">
-          <div className="rounded-2xl p-4 bg-white border border-gray-100 shadow-soft h-full flex flex-col items-center">
-            <p className="text-[12px] font-bold text-gray-700 self-start">오늘의 진행 현황</p>
-            <div className="flex-1 flex flex-col items-center justify-center py-1">
-              <DonutCompact today={today} goal={goal} onClick={() => setDetailOpen(true)} />
-            </div>
-            <GoalEditor goal={goal} onChange={onGoalChange} />
-          </div>
-          <div className="flex flex-col gap-2.5">
-            <WeeklyStreak count={streak?.count || 0}
-              days={streak?.days?.length ? streak.days : ['월', '화', '수', '목', '금', '토', '일'].map((l) => ({ label: l, done: false }))}
-              icon={<Icon3D src={MEAL_STREAK_ICON} emoji="🌱" className="w-6 h-6" />} iconBg="bg-emerald-50" />
-            <WeeklyTrendMini week={weekData} onOpen={() => setTrendOpen(true)} />
-          </div>
+      {orderedKeys.map((k, i) => {
+        const content = BOXES[k]()
+        return content ? <Reveal key={k} index={Math.min(i, 5)}>{content}</Reveal> : null
+      })}
+
+      {/* [운영자] 개요 화면 편집 — 가장 아래·중앙·옅은 회색 */}
+      {editable && (
+        <div className="flex justify-center pt-1">
+          <button type="button" onClick={onEditLayout}
+            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-2xl bg-gray-100 text-gray-500 text-[13px] font-semibold hover:bg-gray-200 transition">
+            ✏️ 개요 화면 편집
+          </button>
         </div>
-      </Reveal>
-
-      <Reveal index={1}><MealStatus meals={meals} onMealClick={setMealDetail} /></Reveal>
-
-      <Reveal index={2}><NutritionReport today={today} /></Reveal>
-
-      {menu.length > 0 && (() => {
-        // 4개까진 리치 카드로 1줄, 5개 이상은 컴팩트(아이콘+라벨)로 1줄 유지
-        const compact = menu.length >= 5
-        return (
-          <Reveal index={3}>
-            <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${menu.length}, minmax(0, 1fr))` }}>
-              {menu.map((c) => <NavCard key={c.title} {...c} compact={compact} />)}
-            </div>
-          </Reveal>
-        )
-      })()}
+      )}
 
       <DonutDetailModal open={detailOpen} onClose={() => setDetailOpen(false)} today={today} goal={goal} />
       <WeeklyTrendModal open={trendOpen} onClose={() => setTrendOpen(false)} week={weekData} />

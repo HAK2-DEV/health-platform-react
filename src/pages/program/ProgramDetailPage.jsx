@@ -19,7 +19,7 @@ import MoodCheck from '../../components/program/MoodCheck'
 import QuitSmokingTip from '../../components/program/QuitSmokingTip'
 import QuitSmokingCheer from '../../components/program/QuitSmokingCheer'
 import CheerBoard from '../../components/program/CheerBoard'
-import RunningHome from '../../components/program/RunningHome'
+import RunningHome, { RUN_BOX_ORDER, RUN_BOX_LABELS } from '../../components/program/RunningHome'
 import RunningMissionHero from '../../components/program/RunningMissionHero'
 import RunningMissionCard from '../../components/program/RunningMissionCard'
 import RunningQuizHero from '../../components/program/RunningQuizHero'
@@ -29,7 +29,7 @@ import FlameIcon from '../../components/common/FlameIcon'
 import MetricSummaryCard from '../../components/program/MetricSummaryCard'
 import ProgramHome, { HOME_BOX_ORDER, HOME_BOX_LABELS, Icon3D } from '../../components/program/ProgramHome'
 import ProgramHomeHero from '../../components/program/ProgramHomeHero'
-import DietOverview from '../../components/program/DietOverview'
+import DietOverview, { DIET_BOX_ORDER, DIET_BOX_LABELS } from '../../components/program/DietOverview'
 import ProgramHomeLayoutEditor from '../../components/program/ProgramHomeLayoutEditor'
 import { resolveMissionIcon } from '../../lib/missionIcons'
 import { getSignedUrls, thumbPathOf } from '../../lib/signedUrls'
@@ -1997,6 +1997,14 @@ function ProgramDetailPage() {
           const kc = mealVerifs.filter((v) => kstDateStr(v.submitted_at) === ds).reduce((s, v) => s + (v.meal_kcal || 0), 0)
           dietWeek.push({ label: new Date(ts).toLocaleDateString('ko-KR', { weekday: 'short', timeZone: 'Asia/Seoul' }), kcal: kc })
         }
+        // 오늘의 미션 · 최근 인증 (카드홈과 동일 파생)
+        const dietTodayMissions = (missions || []).filter((m) => checkMissionToday(m).active).map((m) => ({
+          id: m.id, title: m.title, thumb: m.icon_path ? resolveMissionIcon(m.icon_path) : null,
+          done: (todayCounts[m.id]?.total || 0) >= (m.daily_limit || 1), pt: m.point || 0,
+        }))
+        const dietRecentItems = (overviewData?.recent || []).map((r) => ({
+          id: r.id, title: r.title, point: r.point, time: formatRelativeKstDay(r.submitted_at),
+        }))
         return (
           <div className="-mx-[11px]" style={{ marginTop: 'calc(-0.5rem - max(env(safe-area-inset-top, 0px), 0.75rem))' }}>
             <ProgramHomeHero
@@ -2036,6 +2044,13 @@ function ProgramDetailPage() {
                 streak={streakData}
                 streakIcon="leaf"
                 menu={menu}
+                todayMissions={dietTodayMissions}
+                recentItems={dietRecentItems}
+                onRecord={() => setActiveTab('missions')}
+                boxOrder={program.home_layout?.order || null}
+                hiddenBoxes={program.home_layout?.hidden || []}
+                onEditLayout={() => setHomeEditOpen(true)}
+                editable={isOwner && !isEnded}
               />
             </div>
           </div>
@@ -2091,6 +2106,14 @@ function ProgramDetailPage() {
         if (activeDows.size === 0) [1, 2, 3, 4, 5, 6, 7].forEach(d => activeDows.add(d))
         // weekDays 는 월(0)~일(6) 순 → ISO dow = i+1
         const weekDays = (overviewData?.weekDays || []).filter((_, i) => activeDows.has(i + 1))
+        // 오늘의 미션 · 최근 인증 (카드홈과 동일 파생)
+        const runTodayMissions = (missions || []).filter((m) => checkMissionToday(m).active).map((m) => ({
+          id: m.id, title: m.title, thumb: m.icon_path ? resolveMissionIcon(m.icon_path) : null,
+          done: (todayCounts[m.id]?.total || 0) >= (m.daily_limit || 1), pt: m.point || 0,
+        }))
+        const runRecentItems = (overviewData?.recent || []).map((r) => ({
+          id: r.id, title: r.title, point: r.point, time: formatRelativeKstDay(r.submitted_at),
+        }))
         return (
           <RunningHome
             programName={program.title}
@@ -2131,6 +2154,12 @@ function ProgramDetailPage() {
             newQuizCount={newQuizCount}
             classSlot={classOverviewSlot}
             topSlot={<>{cardTopSlot}{surveyBannerEl}</>}
+            todayMissions={runTodayMissions}
+            recentItems={runRecentItems}
+            boxOrder={program.home_layout?.order || null}
+            hiddenBoxes={program.home_layout?.hidden || []}
+            onEditLayout={() => setHomeEditOpen(true)}
+            editable={isOwner && !isEnded}
           />
         )
       })()}
@@ -2259,6 +2288,32 @@ function ProgramDetailPage() {
           currentOrder={program.home_layout?.order || null}
           currentHidden={program.home_layout?.hidden || []}
           menuLabels={['미션', (quizEnabled && !isViewer) ? '퀴즈' : null, communityEnabled ? '응원' : null, (program.change_tab_enabled === true) ? '내 변화' : null].filter(Boolean)}
+          saving={homeLayoutMutation.isPending}
+          onClose={() => setHomeEditOpen(false)}
+          onSave={(layout) => homeLayoutMutation.mutate(layout)}
+        />
+      )}
+      {/* 식단 카드홈 — 전용 박스(진행현황·주간/끼니별/영양평가/메뉴) 편집기 */}
+      {usesDietHome && isOwner && homeEditOpen && (
+        <ProgramHomeLayoutEditor
+          boxKeys={DIET_BOX_ORDER}
+          boxLabels={DIET_BOX_LABELS}
+          currentOrder={program.home_layout?.order || null}
+          currentHidden={program.home_layout?.hidden || []}
+          menuLabels={['미션', (quizEnabled && !isViewer) ? '퀴즈' : null, communityEnabled ? '커뮤니티' : null, !isViewer ? '내 변화' : null, (program.ranking_enabled !== false) ? '랭킹' : null].filter(Boolean)}
+          saving={homeLayoutMutation.isPending}
+          onClose={() => setHomeEditOpen(false)}
+          onSave={(layout) => homeLayoutMutation.mutate(layout)}
+        />
+      )}
+      {/* 달리기 카드홈 — 전용 박스(추천페이스·주간/공지/주요기록/코스/메뉴/배너) 편집기 */}
+      {isRunningTheme && isOwner && homeEditOpen && (
+        <ProgramHomeLayoutEditor
+          boxKeys={program.class_feature_enabled ? RUN_BOX_ORDER : RUN_BOX_ORDER.filter(k => k !== 'classes')}
+          boxLabels={RUN_BOX_LABELS}
+          currentOrder={program.home_layout?.order || null}
+          currentHidden={program.home_layout?.hidden || []}
+          menuLabels={['미션', (quizEnabled && !isViewer) ? '퀴즈' : null, communityEnabled ? '커뮤니티' : null, (program.ranking_enabled !== false) ? '랭킹' : null].filter(Boolean)}
           saving={homeLayoutMutation.isPending}
           onClose={() => setHomeEditOpen(false)}
           onSave={(layout) => homeLayoutMutation.mutate(layout)}

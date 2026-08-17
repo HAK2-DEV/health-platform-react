@@ -294,6 +294,20 @@ function RunningHeroBlock({ hero, editable, onHeroChange }) {
   )
 }
 
+// 달리기 개요 커스터마이즈 박스 — 순서·숨김 편집 대상(메뉴는 내비라 숨김 불가).
+export const RUN_BOX_ORDER = ['summary', 'notice', 'dailyLog', 'course', 'menu', 'classes', 'todayMissions', 'recent', 'banner']
+export const RUN_BOX_LABELS = {
+  summary: '추천 페이스 · 주간',
+  notice: '공지사항',
+  dailyLog: '주요 기록 요약',
+  course: '프로그램 진행률',
+  todayMissions: '오늘의 미션',
+  recent: '최근 인증',
+  menu: '메뉴',
+  classes: '클래스',
+  banner: '격려 배너',
+}
+
 function RunningHome({
   programName = '러닝 프로그램',
   startDate = '2026.06.29',
@@ -321,6 +335,12 @@ function RunningHome({
   hero = null,                   // 운영자 커스텀 히어로(run_hero) — null이면 기본 디자인
   heroEditable = false,          // 운영자 — 히어로 편집 가능
   onHeroChange = null,           // (heroConfig) => void
+  boxOrder = null,               // 개요 박스 순서(null=기본)
+  hiddenBoxes = [],              // 숨긴 박스 키
+  onEditLayout = () => {},       // 개요 편집 열기
+  editable = false,              // 운영자
+  todayMissions = [],            // 오늘의 미션 미리보기
+  recentItems = [],              // 최근 인증
 }) {
   const fmt = (n) => Number(n || 0).toLocaleString('ko-KR', { maximumFractionDigits: 3 })
   // 연도 4자리 → 2자리 (2026.06.29 → 26.06.29)
@@ -336,16 +356,10 @@ function RunningHome({
     setEditingPace(false)
   }
 
-  return (
-    <div className="-mx-[11px] px-4 pb-6 space-y-[9px]">
-      {topSlot}
-      {/* 1) 히어로 — 운영자 편집(텍스트/크기/볼드/색) */}
-      <Reveal index={0}><RunningHeroBlock hero={hero} editable={heroEditable} onHeroChange={onHeroChange} /></Reveal>
-
-      {/* 2) 추천 페이스 / 주간 스트릭 — 별도 박스 */}
-      <Reveal index={1}>
+  // 박스 레지스트리 — 순서·숨김 커스터마이즈 대상(ProgramHome 과 동일 패턴). 히어로는 고정(제외).
+  const BOXES = {
+    summary: () => (
       <div className="grid grid-cols-2 gap-3">
-        {/* 추천 페이스 — 아이콘 + 컬럼(제목/값/안내 들여쓰기 정렬) */}
         <div className="rounded-2xl p-3.5 bg-white border border-gray-100 shadow-soft">
           <div className="flex items-start gap-2.5">
             <span className="w-9 h-9 rounded-full bg-emerald-50 flex items-center justify-center flex-shrink-0">
@@ -366,19 +380,10 @@ function RunningHome({
             </div>
           </div>
         </div>
-        {/* 주간 스트릭 — 도장 찍기 연출 전용 컴포넌트 */}
-        <WeeklyStreak
-          ref={streakRef}
-          count={weekStreak.count}
-          days={weekStreak.days}
-          icon={<FlameIcon />}
-          showTest={showStampTest}
-        />
+        <WeeklyStreak ref={streakRef} count={weekStreak.count} days={weekStreak.days} icon={<FlameIcon />} showTest={showStampTest} />
       </div>
-      </Reveal>
-
-      {/* 2) 공지사항 */}
-      <Reveal index={2}>
+    ),
+    notice: () => (
       <button type="button" onClick={onNotice || (() => onOpenTab('community'))}
         className="w-full flex items-center gap-3 rounded-2xl p-3.5 bg-white border border-gray-100 shadow-soft text-left hover:bg-gray-50 transition">
         <span className="relative inline-flex flex-shrink-0">
@@ -391,10 +396,8 @@ function RunningHome({
         </div>
         <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
       </button>
-      </Reveal>
-
-      {/* 3) 데일리 로그 — 거리/시간/연속/칼로리 */}
-      <Reveal index={3}>
+    ),
+    dailyLog: () => (
       <div className="rounded-2xl p-4 bg-white border border-gray-100 shadow-soft">
         <h3 className="text-[13px] font-bold text-gray-800 mb-3">주요 기록 요약</h3>
         <div className="flex">
@@ -414,54 +417,107 @@ function RunningHome({
           ))}
         </div>
       </div>
-      </Reveal>
-
-      {/* 4) 마라톤 코스 = 프로그램 진행률 — 레퍼런스: 좌 텍스트 / 우 맵(풀블리드) */}
-      <Reveal index={4}>
+    ),
+    course: () => (
       <div className="rounded-2xl bg-white border border-gray-100 shadow-soft overflow-hidden flex items-stretch">
-        {/* 좌: 제목(상단) + 기간 */}
         <div className="w-[42%] flex-shrink-0 px-4 py-3 flex flex-col justify-center">
           <div className="flex items-center gap-1.5 mb-0.5">
-            {/* 탭하면 달리는 러너(30프레임) — 원래 이모지(~16px)와 동일 크기. 탭할수록 가속+상체 숙임. */}
             <TapRunner size={16} />
             <h3 className="text-[13px] font-bold text-gray-800 truncate">프로그램 진행률</h3>
           </div>
           <p className="text-[11px] text-gray-400 leading-snug">{yy(startDate)} ~ {yy(endDate)}</p>
         </div>
-        {/* 우: 코스 맵(지도 사진 그대로) + 그 위에 코스 진행 라인·핀 오버레이. 사진 없으면 SVG 폴백 */}
         <div className="flex-1 relative bg-gradient-to-br from-emerald-50 to-sky-50">
           <AssetImg src={`${RUN}/course-map.jpg`} className="absolute inset-0 w-full h-full object-cover object-top" fallback={<CourseRoute progress={progress} />} />
-          {/* 진행률(0~100%)만큼 코스가 초록으로 채워지고 위치 핀이 경로를 따라 이동 */}
           <RunningCourseMini progress={progress} showTest={showStampTest} />
         </div>
       </div>
-      </Reveal>
+    ),
+    // 오늘의 미션 (최대 3개) — ProgramHome 과 동일
+    todayMissions: () => !(todayMissions?.length) ? null : (
+      <div>
+        <div className="flex items-center justify-between mb-1.5 px-0.5">
+          <p className="text-[13px] font-bold text-gray-700">오늘의 미션</p>
+          <button type="button" onClick={onRecord} className="text-[11px] text-gray-400">전체 보기 ›</button>
+        </div>
+        <div className="space-y-2">
+          {todayMissions.slice(0, 3).map((m) => (
+            <div key={m.id} className="bg-white rounded-2xl shadow-soft border border-gray-100 p-3 flex items-center gap-3">
+              {m.thumb ? <img src={m.thumb} alt="" className="w-11 h-11 rounded-xl object-contain bg-gray-50 flex-shrink-0" /> : <span className="w-11 h-11 rounded-xl bg-emerald-50 flex items-center justify-center text-xl flex-shrink-0">📋</span>}
+              <div className="flex-1 min-w-0"><p className="text-[13px] font-bold text-gray-800 truncate">{m.title}</p><p className="text-[10px] text-emerald-600 font-bold mt-0.5">+{m.pt}P</p></div>
+              {m.done
+                ? <span className="text-[11px] font-bold text-emerald-600 flex-shrink-0">✓ 완료</span>
+                : <button type="button" onClick={onRecord} className="text-[11px] font-bold text-white bg-emerald-500 rounded px-3 py-1.5 flex-shrink-0">인증</button>}
+            </div>
+          ))}
+        </div>
+      </div>
+    ),
+    // 최근 인증 (최대 3개)
+    recent: () => !(recentItems?.length) ? null : (
+      <div>
+        <p className="text-[13px] font-bold text-gray-700 mb-1.5 px-0.5">최근 인증 기록</p>
+        <div className="bg-white rounded-2xl shadow-soft border border-gray-100 divide-y divide-gray-50">
+          {recentItems.slice(0, 3).map((r) => (
+            <div key={r.id} className="flex items-center gap-3 px-3 py-2.5">
+              <span className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center text-base flex-shrink-0">✅</span>
+              <div className="flex-1 min-w-0"><p className="text-[12px] font-bold text-gray-700 truncate">{r.title}</p><p className="text-[10px] text-gray-400">{r.time}</p></div>
+              <span className="text-[11px] font-bold text-emerald-600 flex-shrink-0">+{r.point}P</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    ),
+    menu: () => {
+      const cards = [
+        { key: 'mission', iconSrc: '/icons/feature/mission.png', iconEmoji: '📋', title: '미션', desc: '목표를 달성해요', actionLabel: '기록하기', onClick: onRecord, newCount: newMissionCount },
+        quizEnabled && { key: 'quiz', iconSrc: '/icons/feature/quiz.png', iconEmoji: '❓', title: '퀴즈', desc: '건강 지식을 배워요', actionLabel: '풀어보기', onClick: () => onOpenTab('quizzes'), newCount: newQuizCount },
+        communityEnabled && { key: 'community', iconSrc: '/icons/feature/community.png', iconEmoji: '💬', title: '커뮤니티', desc: '함께 응원해요', actionLabel: '바로가기', onClick: () => onOpenTab('community') },
+        rankingEnabled && { key: 'ranking', iconSrc: '/icons/reward/ranking.png', iconEmoji: '🏆', title: '랭킹', desc: '순위를 확인해요', actionLabel: '확인하기', onClick: () => onOpenTab('ranking') },
+      ].filter(Boolean)
+      return (
+        <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${cards.length}, minmax(0,1fr))` }}>
+          {cards.map((c) => (
+            <NavCard key={c.key} iconSrc={c.iconSrc} iconEmoji={c.iconEmoji} title={c.title} desc={c.desc} actionLabel={c.actionLabel} onClick={c.onClick} newCount={c.newCount} />
+          ))}
+        </div>
+      )
+    },
+    classes: () => classSlot || null,
+    banner: () => <BottomBanner />,
+  }
 
-      {/* 5) 미션 / 퀴즈 / 커뮤니티 / 랭킹 — ProgramHome 카드형 메뉴와 완전 동일(NavCard 공유).
-          비활성 메뉴는 박스 제거, 활성 개수에 맞춰 균등 그리드 */}
-      <Reveal index={5}>
-      {(() => {
-        const cards = [
-          { key: 'mission', iconSrc: '/icons/feature/mission.png', iconEmoji: '📋', title: '미션', desc: '목표를 달성해요', actionLabel: '기록하기', onClick: onRecord, newCount: newMissionCount },
-          quizEnabled && { key: 'quiz', iconSrc: '/icons/feature/quiz.png', iconEmoji: '❓', title: '퀴즈', desc: '건강 지식을 배워요', actionLabel: '풀어보기', onClick: () => onOpenTab('quizzes'), newCount: newQuizCount },
-          communityEnabled && { key: 'community', iconSrc: '/icons/feature/community.png', iconEmoji: '💬', title: '커뮤니티', desc: '함께 응원해요', actionLabel: '바로가기', onClick: () => onOpenTab('community') },
-          rankingEnabled && { key: 'ranking', iconSrc: '/icons/reward/ranking.png', iconEmoji: '🏆', title: '랭킹', desc: '순위를 확인해요', actionLabel: '확인하기', onClick: () => onOpenTab('ranking') },
-        ].filter(Boolean)
-        return (
-          <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${cards.length}, minmax(0,1fr))` }}>
-            {cards.map((c) => (
-              <NavCard key={c.key} iconSrc={c.iconSrc} iconEmoji={c.iconEmoji} title={c.title} desc={c.desc} actionLabel={c.actionLabel} onClick={c.onClick} newCount={c.newCount} />
-            ))}
-          </div>
-        )
-      })()}
-      </Reveal>
+  const savedOrder = (boxOrder && boxOrder.length ? boxOrder : RUN_BOX_ORDER).filter((k) => BOXES[k])
+  RUN_BOX_ORDER.forEach((k) => { if (BOXES[k] && !savedOrder.includes(k)) savedOrder.push(k) })  // 신규 박스 append
+  const order = savedOrder.filter((k) => k !== 'classes' || classSlot)  // 클래스는 기능 ON 일 때만
+  const hidden = new Set(hiddenBoxes)
+  const visibleKeys = order.filter((k) => !hidden.has(k))
+  // 격려 배너는 항상 최하단
+  const orderedKeys = visibleKeys.includes('banner')
+    ? [...visibleKeys.filter((k) => k !== 'banner'), 'banner']
+    : visibleKeys
 
-      {/* 강사 클래스 — 개요 진입 카드 (기능 ON 시 주입) */}
-      {classSlot && <Reveal index={5}>{classSlot}</Reveal>}
+  return (
+    <div className="-mx-[11px] px-4 pb-6 space-y-[9px]">
+      {topSlot}
+      {/* [고정] 히어로 — 운영자 편집(텍스트/크기/볼드/색) */}
+      <Reveal index={0}><RunningHeroBlock hero={hero} editable={heroEditable} onHeroChange={onHeroChange} /></Reveal>
 
-      {/* 6) 하단 격려 배너 — 배경 5초 슬라이드 + 화분 고정 오버레이 */}
-      <Reveal index={5}><BottomBanner /></Reveal>
+      {/* [커스터마이즈] 운영자 순서·숨김 반영 */}
+      {orderedKeys.map((k, i) => {
+        const content = BOXES[k]()
+        return content ? <Reveal key={k} index={Math.min(i + 1, 5)}>{content}</Reveal> : null
+      })}
+
+      {/* [운영자] 개요 화면 편집 — 가장 아래·중앙·옅은 회색 */}
+      {editable && (
+        <div className="flex justify-center pt-1">
+          <button type="button" onClick={onEditLayout}
+            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-2xl bg-gray-100 text-gray-500 text-[13px] font-semibold hover:bg-gray-200 transition">
+            ✏️ 개요 화면 편집
+          </button>
+        </div>
+      )}
       {/* 추천 페이스 편집 — 화면 중앙 모달 */}
       {editingPace && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-6" style={{ background: 'rgba(15,23,42,0.45)' }}
