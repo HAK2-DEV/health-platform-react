@@ -223,7 +223,7 @@ function ProgramStatsPage() {
               onClick={() => navigate(`/programs/${id}/stats/survey`)}
               className="w-full flex items-center gap-4 p-5 bg-white border border-gray-200 rounded-2xl hover:bg-gray-50 hover:border-teal-300 transition text-left"
             >
-              <span className="w-12 h-12 flex-shrink-0 flex items-center justify-center text-3xl">📋</span>
+              <img src="/icons/feature/survey.png" alt="" aria-hidden="true" className="w-12 h-12 flex-shrink-0 object-contain" />
               <div className="flex-1 min-w-0">
                 <h3 className="font-medium text-gray-800 mb-0.5">설문 결과</h3>
                 <p className="text-xs text-gray-500">시작·종료 응답과 변화 모아보기</p>

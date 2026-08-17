@@ -3673,6 +3673,15 @@ export const submitSurveyResponse = async ({ programId, userId, phase = 'start',
   if (error) throw error
 }
 
+// 운영자 — 응답자 성별·연령대 맵(형평성 분해용). users select 는 전체 허용(정책1).
+export const fetchUserDemographics = async (userIds = []) => {
+  const ids = [...new Set(userIds)].filter(Boolean)
+  if (!ids.length) return {}
+  const { data, error } = await supabase.from('users').select('id, gender, age_range').in('id', ids)
+  if (error) throw error
+  return Object.fromEntries((data || []).map((u) => [u.id, { gender: u.gender, age_range: u.age_range }]))
+}
+
 // 운영자 — 종료 설문 시작(확정). 이 시각 이후 참여자에게 종료 설문 노출.
 export const startEndSurvey = async (programId) => {
   const { error } = await supabase.from('programs').update({ end_survey_started_at: new Date().toISOString() }).eq('id', programId)

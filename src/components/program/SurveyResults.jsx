@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X } from 'lucide-react'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
+import { Reveal, CountUp, useInViewOnce, STATS_EASE } from './statsAnim'
 
 // 설문 응답 집계 뷰(공통) — 척도: 평균 + 분포 막대 / 단답: 상위 5개 + 「전체 보기」 중앙 팝업.
 //   props: questions[{id,type,q,min,max,minLabel,maxLabel}], responses[{answers:{qid:value}}]
@@ -16,18 +17,21 @@ function ScaleAgg({ q, vals }) {
   for (let i = min; i <= max; i++) counts[i] = 0
   nums.forEach((v) => { if (counts[v] != null) counts[v]++ })
   const maxCount = Math.max(1, ...Object.values(counts))
+  const [barsRef, grown] = useInViewOnce()
   return (
     <div>
       <div className="flex items-baseline gap-1.5 mb-2.5">
-        <span className="text-[22px] font-extrabold text-emerald-600 tabular-nums">{nums.length ? avg.toFixed(1) : '–'}</span>
+        {nums.length
+          ? <CountUp value={avg} duration={800} className="text-[22px] font-extrabold text-emerald-600 tabular-nums" format={(x) => x.toFixed(1)} />
+          : <span className="text-[22px] font-extrabold text-emerald-600 tabular-nums">–</span>}
         <span className="text-[11px] text-gray-400">/ {max} 평균</span>
       </div>
-      <div className="space-y-1.5">
-        {Array.from({ length: max - min + 1 }, (_, i) => min + i).map((n) => (
+      <div ref={barsRef} className="space-y-1.5">
+        {Array.from({ length: max - min + 1 }, (_, i) => min + i).map((n, i) => (
           <div key={n} className="flex items-center gap-2">
             <span className="w-4 text-[11px] text-gray-500 tabular-nums text-right">{n}</span>
             <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
-              <div className="h-full rounded-full bg-emerald-400" style={{ width: `${(counts[n] / maxCount) * 100}%` }} />
+              <div className="h-full rounded-full bg-emerald-400" style={{ width: grown ? `${(counts[n] / maxCount) * 100}%` : '0%', transition: `width .55s ${STATS_EASE} ${i * 0.05}s` }} />
             </div>
             <span className="w-9 text-[11px] text-gray-500 tabular-nums text-right">{counts[n]}명</span>
           </div>
@@ -89,14 +93,14 @@ function TextAgg({ q, vals }) {
 export default function SurveyResults({ questions = [], responses = [] }) {
   return (
     <div className="space-y-3">
-      {questions.map((q) => {
+      {questions.map((q, i) => {
         const vals = responses.map((r) => r?.answers?.[q.id]).filter((v) => v != null && v !== '')
         return (
-          <div key={q.id} className="rounded-2xl p-4 bg-white border border-gray-100 shadow-soft">
+          <Reveal key={q.id} index={i} className="rounded-2xl p-4 bg-white border border-gray-100 shadow-soft">
             <p className="text-[14px] font-bold text-gray-800 mb-1 break-keep">{q.q}</p>
             <p className="text-[11px] text-gray-400 mb-3">{vals.length}명 응답</p>
             {q.type === 'scale' ? <ScaleAgg q={q} vals={vals} /> : <TextAgg q={q} vals={vals} />}
-          </div>
+          </Reveal>
         )
       })}
     </div>
