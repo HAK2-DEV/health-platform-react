@@ -152,9 +152,9 @@ function WelcomeOperatorModal({ isOpen, onClose, programId }) {
                 <p className="mt-3 text-[15px] leading-relaxed text-gray-500 max-w-[300px]">
                   이제 첫 미션을 추가하고 참여자를 초대해볼까요?<br />하다 보면 금방 익숙해져요.
                 </p>
-                <button type="button" onClick={() => finish(programId ? `/programs/${programId}` : '/programs')}
+                <button type="button" onClick={() => finish(programId ? `/programs/${programId}?addmission=1` : '/programs')}
                   className="mt-8 w-full max-w-[300px] py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold transition">
-                  내 프로그램으로 가기 →
+                  첫 미션 만들러 가기 →
                 </button>
                 <button type="button" onClick={() => finish()}
                   className="mt-2 w-full max-w-[300px] py-3 rounded-2xl bg-emerald-50 text-emerald-700 font-bold transition">

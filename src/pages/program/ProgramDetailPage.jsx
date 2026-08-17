@@ -645,7 +645,19 @@ function ProgramDetailPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+  // 환영 투어 CTA(?addmission=1)로 진입 → 소유자 확정 후 미션 추가 모달 자동 오픈 (1회)
+  const addMissionHandledRef = useRef(false)
+  useEffect(() => {
+    if (addMissionHandledRef.current || searchParams.get('addmission') !== '1' || !isOwner) return
+    addMissionHandledRef.current = true
+    const next = new URLSearchParams(searchParams)
+    next.delete('addmission')
+    setSearchParams(next, { replace: true })
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setIsLibraryOpen(true)
+  }, [isOwner, searchParams, setSearchParams])
   const [isInviteOpen, setIsInviteOpen] = useState(false)
+  const [inviteWarnOpen, setInviteWarnOpen] = useState(false)  // 미션 0개인데 초대 시도 → 경고(후 허용)
   const [isPanelOpen, setIsPanelOpen] = useState(false)
   const [notifyFlagsLocal, setNotifyFlagsLocal] = useState({})  // 새 소식 알림 유형별 보내기(낙관적)
   const [panelView, setPanelView] = useState('root')   // 운영자 메뉴 시트 단계: root | settings | menubar
@@ -790,6 +802,19 @@ function ProgramDetailPage() {
   // 활성화 넛지 배너 — 조건 만족 시 렌더(재사용). 슬롯/페이지레벨 공통.
   const activationNudgeEl = activationEnabled && activationState ? (
     <ActivationNudge state={activationState} onInvite={handleActivationInvite} onCheer={() => setCheerOpen(true)} />
+  ) : null
+  // 미션 0개 넛지 — 발행됐는데 미션이 없으면(빈 껍데기) 활성화보다 먼저 "첫 미션"으로 강하게 유도.
+  const missionNudgeEl = (isOwner && program?.status === 'PUBLISHED'
+    && progressUrgency(calcProgress(program?.start_date, program?.end_date)).urgency !== 'ended'
+    && missions.length === 0) ? (
+    <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50 p-4 shadow-soft">
+      <p className="text-[14px] font-extrabold text-emerald-900 mb-0.5">🚀 첫 미션을 추가하면 프로그램이 시작돼요</p>
+      <p className="text-[12px] text-emerald-800/80 leading-snug break-keep mb-3">참여자는 미션을 인증하며 참여해요. 하나만 만들어볼까요?</p>
+      <button type="button" onClick={() => setIsLibraryOpen(true)}
+        className="w-full h-10 rounded-xl bg-emerald-500 text-white text-[14px] font-bold active:scale-[0.98] transition">
+        첫 미션 만들기 →
+      </button>
+    </div>
   ) : null
 
   // 운영자 메뉴 「신고 관리」 배지 — 미처리 신고가 있는 콘텐츠 수
@@ -1853,7 +1878,7 @@ function ProgramDetailPage() {
       })()}
 
       {/* 활성화 넛지 — 개요 최상단(운영자·개요탭·비관리·비immersive). immersive 는 슬롯 주입. */}
-      {activeTab === 'overview' && !immersiveHome && !inManager && activationNudgeEl}
+      {activeTab === 'overview' && !immersiveHome && !inManager && (missionNudgeEl || activationNudgeEl)}
       {activeTab === 'overview' && !immersiveHome && !inManager && surveyBannerEl}
       {activeTab === 'overview' && !immersiveHome && !inManager && weeklyHighlightEl}
       {activeTab === 'overview' && !immersiveHome && !inManager && participantReportEl}
@@ -1924,7 +1949,7 @@ function ProgramDetailPage() {
           <QuitSmokingHome
             programId={id} programName={program.name} categories={program.categories}
             streak={qStreak} savedAmount={qSaved} smokedToday={qSmokedToday} statusLabel={cardStatusLabel}
-            viewerSlot={<>{cardTopSlot}{surveyBannerEl}</>}
+            viewerSlot={<>{cardTopSlot}{missionNudgeEl}{surveyBannerEl}</>}
             notice={qNotice}
             progressData={qProgress} progress={calcProgress(program.start_date, program.end_date)}
             streakData={{ count: qStreak, days: overviewData?.weekDays || [] }}
@@ -2026,7 +2051,7 @@ function ProgramDetailPage() {
             />
             <div className="relative -mt-[22px] rounded-t-[26px] px-4 pt-5 pb-6 space-y-[9px]" style={{ background: '#fdfbf7' }}>
               {cardTopSlot}
-              {activationNudgeEl}
+              {missionNudgeEl || activationNudgeEl}
               {surveyBannerEl}
               {isOwner && cardEnded && (
                 <EndReportBanner onClick={() => navigate(`/programs/${id}/report`)} playIntro={playEndReportIntro} onIntroDone={() => setPlayEndReportIntro(false)} />
@@ -2153,7 +2178,7 @@ function ProgramDetailPage() {
             newMissionCount={newMissionCount}
             newQuizCount={newQuizCount}
             classSlot={classOverviewSlot}
-            topSlot={<>{cardTopSlot}{surveyBannerEl}</>}
+            topSlot={<>{cardTopSlot}{missionNudgeEl}{surveyBannerEl}</>}
             todayMissions={runTodayMissions}
             recentItems={runRecentItems}
             boxOrder={program.home_layout?.order || null}
@@ -2251,7 +2276,7 @@ function ProgramDetailPage() {
                 centerOffset={pendingReviews.length > 0 ? -46 : 0}
               />
             ) : null}
-            activationSlot={activationNudgeEl}
+            activationSlot={missionNudgeEl || activationNudgeEl}
             weeklySlot={weeklyHighlightEl || participantReportEl || completionBannerEl}
             classSlot={classOverviewSlot}
             quizEnabled={quizEnabled && !isViewer}
@@ -3223,6 +3248,15 @@ function ProgramDetailPage() {
             onClose={() => setIsInviteOpen(false)}
           />
         )}
+        {/* 미션 0개 초대 경고 — 경고 후 허용 */}
+        <ConfirmModal
+          isOpen={inviteWarnOpen}
+          onClose={() => setInviteWarnOpen(false)}
+          onConfirm={() => { setInviteWarnOpen(false); setIsInviteOpen(true) }}
+          title="미션 없이 초대할까요?"
+          message={<><span className="font-semibold">아직 미션이 없어요.<br />참여자가 들어와도 인증할 게 없어요.</span><span className="block mt-2 text-[14px] font-bold text-emerald-700">💡 미션을 먼저 추가하는 걸 권해요</span></>}
+          confirmLabel="그래도 초대"
+        />
         {cheerOpen && activationState?.participantIds?.length > 0 && (
           <CheerModal
             programId={id}
@@ -3276,7 +3310,7 @@ function ProgramDetailPage() {
                     <PanelMenuBox iconSrc="/icons/operator/report-flag.png" icon="🚩" title="신고 · 숨김 관리" desc="신고된 글·인증 · 가려진 인증 관리" chevron badge={unresolvedReportCount || undefined} onClick={() => setPanelView('reports')} />
                   )}
                   {canInvite && !isEnded && (
-                    <PanelMenuBox icon="🎟️" title="초대하기" desc="링크로 참여자 초대" onClick={() => { closePanel(); setIsInviteOpen(true) }} />
+                    <PanelMenuBox icon="🎟️" title="초대하기" desc="링크로 참여자 초대" onClick={() => { closePanel(); missions.length === 0 ? setInviteWarnOpen(true) : setIsInviteOpen(true) }} />
                   )}
                   {pendingCount > 0 && !isEnded && (
                     <PanelMenuBox icon="🙋" title="참여 승인 심사" desc="신청자 답변 확인 · 승인/거절" badge={pendingCount} onClick={() => { closePanel(); setIsApprovalsOpen(true) }} />
