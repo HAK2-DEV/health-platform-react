@@ -1,4 +1,4 @@
-// 공용 안내 글 렌더러 — OverviewEditModal 미리보기 / ProgramDetailPage 개요 탭 공유.
+// 공용 안내 글 렌더러 — ProgramDetailPage 개요 탭 등에서 공유.
 //
 // Day 65 본인 결정: 마크다운 파싱 제거. 단순 텍스트 + whitespace-pre-wrap 으로 변경.
 //   이유: 본인 베타 운영자가 마크다운 문법(빈 줄 단락, 순서 목록 escape 등) 학습 부담 큼.

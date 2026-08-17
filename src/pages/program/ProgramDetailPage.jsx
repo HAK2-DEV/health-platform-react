@@ -57,7 +57,6 @@ import NotificationBell from '../../components/common/NotificationBell'
 import EmptyState from '../../components/common/EmptyState'
 import LoadingState from '../../components/common/LoadingState'
 import ProgramCover from '../../components/common/ProgramCover'
-import OverviewManagePanel from '../../components/program/OverviewManagePanel'
 import MissionManagePanel from '../../components/program/MissionManagePanel'
 import QuizManagePanel from '../../components/program/QuizManagePanel'
 import QuizLibraryModal from '../../components/program/QuizLibraryModal'
@@ -92,12 +91,10 @@ const TrophySolid = ({ className }) => (
 // lazy 분리 — 실제 사용 시점에 chunk 다운로드 (Day 65 본인 결정)
 //   FeedContent: 커뮤니티 탭 진입 시
 //   모달 4개: 운영자가 해당 액션 클릭 시
-//   react-markdown 은 MarkdownView 와 OverviewEditModal 둘 다 사용 → 공통 chunk 로 분리됨
 const FeedContent = lazy(() => import('../../components/program/FeedContent'))
 const ProgramEditModal = lazy(() => import('../../components/program/ProgramEditModal'))
 const MissionCreateModal = lazy(() => import('../../components/program/MissionCreateModal'))
 const MissionLibraryModal = lazy(() => import('../../components/program/MissionLibraryModal'))
-const OverviewEditModal = lazy(() => import('../../components/program/OverviewEditModal'))
 const ProgramDetailModal = lazy(() => import('../../components/program/ProgramDetailModal'))
 const ParticipantApprovalModal = lazy(() => import('../../components/program/ParticipantApprovalModal'))
 const InviteModal = lazy(() => import('../../components/program/InviteModal'))
@@ -208,7 +205,6 @@ function ProgramDetailPage() {
 
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)   // 프로그램 삭제 2단계 확인 모달
-  const [isOverviewEditOpen, setIsOverviewEditOpen] = useState(false)
   const [isLibraryOpen, setIsLibraryOpen] = useState(false)
   const [isMissionCreateOpen, setIsMissionCreateOpen] = useState(false)
   const [editingMission, setEditingMission] = useState(null)  // 미션 수정 — null 이면 생성 모드
@@ -667,7 +663,6 @@ function ProgramDetailPage() {
   const closePanel = () => { setIsPanelOpen(false); setPanelView('root') }
   const handleRankingClose = () => { setIsRankingOpen(false); setPanelView('menubar'); setIsPanelOpen(true) }
   const [homeEditOpen, setHomeEditOpen] = useState(false)  // 카드홈 레이아웃 편집기 (운영자)
-  const [overviewManageOpen, setOverviewManageOpen] = useState(false)  // 개요 관리자 인라인 패널
   const [missionManageOpen, setMissionManageOpen] = useState(false)    // 미션 관리자 작업 페이지
   const [missionPreview, setMissionPreview] = useState(false)
   const quizManageOpen = !isEnded && searchParams.get('panel') === 'quiz'  // 퀴즈 관리자 — URL 유지. 종료 프로그램은 조회전용이라 강제 off
@@ -891,36 +886,11 @@ function ProgramDetailPage() {
     }
   }
 
-  const [overviewPreview, setOverviewPreview] = useState(false)  // 개요 관리자 — 참여자 화면 미리보기
   const [panelSaving, setPanelSaving] = useState(false)
   const [panelError, setPanelError] = useState(null)
-  const [managedCover, setManagedCover] = useState(undefined)  // 개요 편집 중 표지(저장 전에도 프로필 카드/미리보기에 즉시 반영). undefined=변경 없음
-  const managePanelRef = useRef(null)
 
-  // 개요 관리자 열면 운영자 패널 버튼이 헤더 바로 아래로 오도록 스크롤 (프로필 카드 가림 → 편집 공간 확보)
-  useEffect(() => {
-    if (overviewManageOpen) {
-      requestAnimationFrame(() => requestAnimationFrame(() => opPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })))
-    } else {
-      setOverviewPreview(false)
-      setPanelError(null)
-      setManagedCover(undefined)
-    }
-  }, [overviewManageOpen])
-
-  // 미리보기 토글 — 진입 시 스크롤 위치 저장, 복귀 시 그 위치로 복원 (편집 중이던 자리 유지)
+  // 인라인 관리자(미션/응원) 미리보기 토글 — 진입 시 스크롤 위치 저장, 복귀 시 그 위치로 복원
   const previewScrollRef = useRef(0)
-  const toggleOverviewPreview = () => {
-    setOverviewPreview(prev => {
-      if (!prev) {
-        previewScrollRef.current = window.scrollY
-        return true
-      }
-      const y = previewScrollRef.current
-      requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, y)))
-      return false
-    })
-  }
 
   // 개요 관리자 열기/닫기 — 열기 전 스크롤 저장 → 닫을 때 원래 화면으로 복원
   const preOpenScrollRef = useRef(0)
@@ -951,17 +921,6 @@ function ProgramDetailPage() {
       setPanelView(view)
       setIsPanelOpen(true)
     }
-  }
-  const openOverviewManage = () => {
-    if (isEnded) return   // 종료 프로그램은 조회 전용
-    preOpenScrollRef.current = window.scrollY
-    setOverviewManageOpen(true)
-  }
-  const closeOverviewManage = () => {
-    setOverviewManageOpen(false)
-    afterManagerClose()
-    const y = preOpenScrollRef.current
-    requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, y)))
   }
 
   // 클래스 관리 — 전체화면 오버레이(탭 무관). 닫으면 운영자 메뉴 복귀(afterManagerClose).
@@ -1146,22 +1105,11 @@ function ProgramDetailPage() {
   }
 
   // 하드웨어/브라우저 뒤로가기 = 인라인 관리자 닫기 (공용 훅 — 서브모달과 같은 스택 공유). [[useBackButtonClose]]
-  //   개요/미션/응원/클래스 관리에 적용(퀴즈 관리는 ?panel= URL 복원 결합이라 제외).
+  //   미션/응원/클래스 관리에 적용(퀴즈 관리는 ?panel= URL 복원 결합이라 제외).
   //   통계 「클래스 현황」에서 진입한 클래스 관리는 hook 비활성 → 하드웨어 뒤로가 통계 라우트로 자연 복귀.
-  useBackButtonClose(overviewManageOpen, closeOverviewManage)
   useBackButtonClose(missionManageOpen, closeMissionManage)
   useBackButtonClose(communityManageOpen, closeCommunityManage)
   useBackButtonClose(classManageOpen && !classFromStatsRef.current, closeClassManage)
-
-  // 부모 저장 바 → 패널 ref.save() 호출
-  const handleOverviewSave = async (close) => {
-    setPanelError(null)
-    setPanelSaving(true)
-    const err = await managePanelRef.current?.save()
-    setPanelSaving(false)
-    if (err) { setPanelError(err); return }
-    if (close) closeOverviewManage()
-  }
 
   // 승인 대기 신청자 수 — 운영자 패널 「참여자 승인 심사」 배지
   const { data: pendingCount = 0 } = useQuery({
@@ -1366,7 +1314,7 @@ function ProgramDetailPage() {
   }
 
   // 인라인 관리자(개요/미션/퀴즈/커뮤니티)가 열린 상태 — 프로그램 프로필·탭 바 숨김(집중 편집 화면)
-  const inManager = overviewManageOpen || missionManageOpen || quizManageOpen || communityManageOpen
+  const inManager = missionManageOpen || quizManageOpen || communityManageOpen
   // 헤더 뒤로 — 관리자 열려 있으면 그 관리자를 닫고(탭 화면 복귀), 아니면 이전 화면
   // 둘러보기(preview 모달)로 들어온 뷰어의 종료 — 호스트 페이지로 복귀하며 그 모달 재오픈 신호 전달.
   //   sessionStorage 사용(탭 전환 시 location.state 유실 회피). 저장된 id 가 현재 프로그램일 때만.
@@ -1380,7 +1328,6 @@ function ProgramDetailPage() {
     return true
   }
   const handleHeaderBack = () => {
-    if (overviewManageOpen) return closeOverviewManage()
     if (missionManageOpen) return closeMissionManage()
     if (quizManageOpen) return closeQuizManage()
     if (communityManageOpen) return closeCommunityManage()
@@ -1496,8 +1443,7 @@ function ProgramDetailPage() {
     if (key === 'ranking') { setIsRankingOpen(true); return }   // 랭킹 전용 설정 모달, 닫으면 메뉴바로
     preManagerTabRef.current = activeTab                         // 닫을 때 직전 탭으로 복귀
     returnMenuViewRef.current = 'menubar'                        // 닫으면 「메뉴바 설정」으로 재진입
-    if (key === 'overview') { setActiveTab('overview'); openOverviewManage() }
-    else if (key === 'missions') { setActiveTab('missions'); openMissionManage() }
+    if (key === 'missions') { setActiveTab('missions'); openMissionManage() }
     else if (key === 'quizzes') { openQuizManage() }            // openQuizManage 가 tab=quizzes 까지 설정
     else if (key === 'community') { setActiveTab('community'); openCommunityManage() }
     else if (key === 'classes') { openClassManage() }   // 전체화면 오버레이(탭 전환 없음)
@@ -1723,7 +1669,7 @@ function ProgramDetailPage() {
                 (업로드사진 → 카테고리 일러스트 → 이모지). */}
             <div className="absolute inset-y-0 left-0 w-[38%]">
               <ProgramCover
-                imagePath={overviewManageOpen && managedCover !== undefined ? managedCover : program.cover_image_path}
+                imagePath={program.cover_image_path}
                 categories={program.categories}
                 name={program.name}
                 variant="hero"
@@ -1919,22 +1865,8 @@ function ProgramDetailPage() {
       {/* 운영자 할 일 배너 — 참여 승인·인증 심사·퀴즈 채점 대기 통합 (개요·미션 탭) */}
       {(activeTab === 'overview' || activeTab === 'missions') && !immersiveHome && !inManager && todoBannerEl}
 
-      {/* ─── 개요 탭 — 관리자 편집 폼 (미리보기 중엔 숨김, mounted 유지) ─── */}
-      {activeTab === 'overview' && overviewManageOpen && (
-        <div className={overviewPreview ? 'hidden' : ''}>
-          <OverviewManagePanel
-            ref={managePanelRef}
-            program={program}
-            participantCount={ranking.length}
-            progress={calcProgress(program.start_date, program.end_date)}
-            onCoverChange={setManagedCover}
-            onSaved={() => queryClient.invalidateQueries({ queryKey: queryKeys.program(id) })}
-          />
-        </div>
-      )}
-
       {/* ─── 개요 탭 (일반 콘텐츠) ─────────────────────────── */}
-      {activeTab === 'overview' && (!overviewManageOpen || overviewPreview) && (<>
+      {activeTab === 'overview' && (<>
 
       {/* 금연 카드형 홈(절충) — QuitSmokingHero + 기분체크 + 카드메뉴(미션·퀴즈·응원·내변화) + 목표/스트릭 + 팁 + 진행현황 + 배너 */}
       {usesQuitHome && (() => {
@@ -2455,23 +2387,6 @@ function ProgramDetailPage() {
 
       </>)}
 
-      {/* 개요 관리자 — 하단 고정 바 (미리보기/임시저장/개요 저장) */}
-      {activeTab === 'overview' && overviewManageOpen && (
-        <div className="sticky bottom-0 -mx-[11px] px-[11px] pt-2 pb-3 bg-white border-t border-gray-100 z-20">
-          {panelError && <p className="text-[12px] text-red-600 text-center mb-2">{panelError}</p>}
-          <div className="flex gap-2">
-            <button type="button" onClick={toggleOverviewPreview} className="flex-1 h-11 rounded-xl border border-emerald-200 text-emerald-700 text-sm font-bold hover:bg-emerald-50 transition">
-              {overviewPreview ? '✏️ 편집으로' : '👁 미리보기'}
-            </button>
-            <button type="button" onClick={() => handleOverviewSave(false)} disabled={panelSaving} className="flex-1 h-11 rounded-xl border border-emerald-200 text-emerald-700 text-sm font-bold hover:bg-emerald-50 transition disabled:opacity-50">
-              임시저장
-            </button>
-            <button type="button" onClick={() => handleOverviewSave(true)} disabled={panelSaving} className="flex-[1.4] h-11 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold transition disabled:opacity-50">
-              {panelSaving ? '저장 중...' : '개요 저장'}
-            </button>
-          </div>
-        </div>
-      )}
       {/* ─── /개요 탭 ──────────────────────────────────── */}
 
       {/* ─── 미션 탭 — 관리자 작업 페이지 (미리보기 중엔 숨김) ─── */}
@@ -3168,14 +3083,6 @@ function ProgramDetailPage() {
             program={program}
             isOpen={true}
             onClose={handleRankingClose}
-            onSuccess={invalidateProgramData}
-          />
-        )}
-        {isOverviewEditOpen && (
-          <OverviewEditModal
-            program={program}
-            isOpen={true}
-            onClose={() => setIsOverviewEditOpen(false)}
             onSuccess={invalidateProgramData}
           />
         )}
