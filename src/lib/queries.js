@@ -3657,6 +3657,22 @@ export const fetchDietProgress = async ({ programId, userId, startDate }) => {
   return { adherence, nutrition: { week, month } }
 }
 
+// ─── 프로그램 참여 설문(시작/종료) ─────────────────────────
+export const fetchSurveyResponse = async ({ programId, userId, phase = 'start' }) => {
+  if (!programId || !userId) return null
+  const { data, error } = await supabase.from('survey_responses')
+    .select('answers').eq('program_id', programId).eq('user_id', userId).eq('phase', phase).maybeSingle()
+  if (error) return null
+  return data?.answers ?? null
+}
+
+export const submitSurveyResponse = async ({ programId, userId, phase = 'start', answers }) => {
+  const { error } = await supabase.from('survey_responses').upsert(
+    { user_id: userId, program_id: programId, phase, answers, updated_at: new Date().toISOString() },
+    { onConflict: 'user_id,program_id,phase' })
+  if (error) throw error
+}
+
 // 식단 「내 변화」 통합 로더 — DietChangeTab data prop 형태로 반환.
 export const fetchDietChangeData = async ({ programId, userId, startDate }) => {
   // 칼로리 목표(참여자 행) + 목표 체중(weight_goals, 참여 여부 무관 — 운영자도 설정 가능)

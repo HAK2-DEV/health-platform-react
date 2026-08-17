@@ -6,6 +6,7 @@ import { useAuth } from '../../../hooks/useAuth'
 import { queryKeys } from '../../../lib/queries'
 import { CATEGORY, PROGRAM_TYPE, JOIN_TYPE } from '../../../lib/constants'
 import { formatKoreanDate } from '../../../lib/formatters'
+import InfoTip from '../../common/InfoTip'
 
 // 마법사 Step4 (구 Step5Complete 의 요약 + 게시 부분)
 // 본인 (가) 진화 — 미션은 게시 후 운영자가 직접 추가
@@ -14,6 +15,7 @@ function Step4Summary({ initialData, programId, onPrev }) {
   const queryClient = useQueryClient()
   const { session } = useAuth()
   const [isPublishing, setIsPublishing] = useState(false)
+  const [surveyEnabled, setSurveyEnabled] = useState(initialData?.survey_enabled ?? true)  // 신규 = 기본 ON
   const [error, setError] = useState(null)
 
   const handlePublish = async () => {
@@ -26,6 +28,7 @@ function Step4Summary({ initialData, programId, onPrev }) {
         .update({
           status: 'PUBLISHED',
           published_at: new Date().toISOString(),
+          survey_enabled: surveyEnabled,
         })
         .eq('id', programId)
 
@@ -136,6 +139,21 @@ function Step4Summary({ initialData, programId, onPrev }) {
             </div>
           )}
         </dl>
+      </div>
+
+      {/* 참여 설문 — 시작·종료 설문(기본 ON). 상세는 툴팁. */}
+      <div className={`w-full mb-6 p-4 rounded-xl border-2 transition ${surveyEnabled ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 bg-white'}`}>
+        <div className="flex items-center gap-2.5">
+          <span className="text-xl">📋</span>
+          <span className={`flex-1 flex items-center gap-1 text-sm font-medium ${surveyEnabled ? 'text-emerald-700' : 'text-gray-800'}`}>
+            시작·종료 설문 받기
+            <InfoTip>시작·종료에 참가자에게 목표·실천 정도를 물어 <b>변화</b>를 리포트로 보여줘요. 참가자는 스킵할 수 있어요.</InfoTip>
+          </span>
+          <button type="button" onClick={() => setSurveyEnabled((v) => !v)} aria-label="시작·종료 설문 토글"
+            className={`relative w-10 h-6 rounded-full flex-shrink-0 transition ${surveyEnabled ? 'bg-emerald-500' : 'bg-gray-300'}`}>
+            <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${surveyEnabled ? 'left-[18px]' : 'left-0.5'}`} />
+          </button>
+        </div>
       </div>
 
       {/* 미션 추가 안내 */}

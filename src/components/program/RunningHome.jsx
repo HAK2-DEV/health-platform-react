@@ -310,6 +310,7 @@ function RunningHome({
   onNotice = null,               // 공지 클릭 동작(미지정 시 커뮤니티 탭으로)
   noticeUnread = false,          // 새 공지 미열람 → 공지 아이콘에 빨간 점(콩닥)
   classSlot = null,              // 강사 클래스 개요 진입 카드 (기능 ON 시 주입)
+  topSlot = null,                // 상단 배너 슬롯 (임시저장 완성 안내·시작 설문 칩 등)
   quizEnabled = true,            // 마법사 「퀴즈」 토글
   communityEnabled = true,       // 마법사 「커뮤니티」 토글
   rankingEnabled = false,        // 랭킹 메뉴 표시 (달리기도 랭킹 카드 노출)
@@ -337,6 +338,7 @@ function RunningHome({
 
   return (
     <div className="-mx-[11px] px-4 pb-6 space-y-[9px]">
+      {topSlot}
       {/* 1) 히어로 — 운영자 편집(텍스트/크기/볼드/색) */}
       <Reveal index={0}><RunningHeroBlock hero={hero} editable={heroEditable} onHeroChange={onHeroChange} /></Reveal>
 

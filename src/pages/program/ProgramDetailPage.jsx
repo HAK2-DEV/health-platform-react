@@ -35,6 +35,8 @@ import { resolveMissionIcon } from '../../lib/missionIcons'
 import { getSignedUrls, thumbPathOf } from '../../lib/signedUrls'
 import ProgramChangeTab from '../../components/program/ProgramChangeTab'
 import ParticipantListModal from '../../components/program/ParticipantListModal'
+import SurveySheet from '../../components/program/SurveySheet'
+import { getProgramSurvey } from '../../lib/surveyDefaults'
 import PodiumTop3 from '../../components/program/PodiumTop3'
 import TeamRankingPanel from '../../components/program/TeamRankingPanel'
 import ScoreSparkline from '../../components/program/ScoreSparkline'
@@ -128,6 +130,8 @@ import {
   upsertWeightLog,
   setWeightGoal,
   formatKstDate,
+  fetchSurveyResponse,
+  submitSurveyResponse,
 } from '../../lib/queries'
 import DietChangeTab from '../../components/program/DietChangeTab'
 
@@ -383,6 +387,17 @@ function ProgramDetailPage() {
     mutationFn: (target) => setWeightGoal({ programId: id, target }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['diet-change', id, userId] }),
   })
+  // 참여 설문(시작) — 프로그램이 설문 ON 일 때 본인 응답 여부 조회
+  const { data: surveyStartAnswers } = useQuery({
+    queryKey: ['survey-start', id, userId],
+    queryFn: () => fetchSurveyResponse({ programId: id, userId, phase: 'start' }),
+    enabled: !!session && !!id && !!userId && program?.survey_enabled === true,
+  })
+  const submitSurveyMutation = useMutation({
+    mutationFn: (answers) => submitSurveyResponse({ programId: id, userId, phase: 'start', answers }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['survey-start', id, userId] }),
+  })
+  const [surveyOpen, setSurveyOpen] = useState(false)
 
   // 주간 스트릭 있는 프로그램(달리기 + 카드홈) — 오늘 인증이 승인되면(자동/수동 무관)
   //   개요 진입 시 「도장」 1회 재생. 하루·프로그램 단위 localStorage 플래그로 중복 방지
@@ -578,6 +593,15 @@ function ProgramDetailPage() {
   // 열람 모드 — 미리보기 허용(preview_enabled) 프로그램의 비참여자. 보기만, 쓰기 차단.
   //   is_public(검색 노출)과 무관 — 내부 열람은 preview_enabled 가 결정.
   const isViewer = !!program && !isOwner && !isActiveParticipant && program.preview_enabled && program.status === 'PUBLISHED'
+  // 참여 설문 — 첫 진입 시 1회 자동 오픈(이후엔 얇은 칩으로만). 미응답 참여자에게.
+  useEffect(() => {
+    if (!(program?.survey_enabled && isActiveParticipant && surveyStartAnswers === null)) return
+    const key = `survey_start_prompted_${id}_${userId}`
+    if (localStorage.getItem(key)) return
+    localStorage.setItem(key, '1')
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSurveyOpen(true)
+  }, [program?.survey_enabled, isActiveParticipant, surveyStartAnswers, id, userId])
   // 종료된 프로그램 — 관리자 외 조회 전용(DB 마이그 190 강제). 클라도 쓰기 UI 숨김.
   const isEnded = !!program && progressUrgency(calcProgress(program.start_date, program.end_date)).urgency === 'ended'
   const [joinOpen, setJoinOpen] = useState(false)
@@ -1363,6 +1387,13 @@ function ProgramDetailPage() {
       <span className="flex-shrink-0 px-3 py-2 bg-amber-500 text-white text-xs font-semibold rounded-full">완료하기</span>
     </button>
   ) : null)
+  // 참여 설문(시작) — 첫 진입 1회 시트로 유도하고, 미응답이면 얇은 한 줄 칩만 남김(실수 닫힘·미입력 대비)
+  const surveyBannerEl = (program.survey_enabled && !isOwner && !isViewer && surveyStartAnswers === null) ? (
+    <button type="button" onClick={() => setSurveyOpen(true)}
+      className="w-full flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50/70 text-emerald-700 text-[12px] font-medium active:bg-emerald-100 transition">
+      <span>📋</span> 시작 설문 (30초) <span className="ml-auto text-emerald-600 font-semibold">답하기 ›</span>
+    </button>
+  ) : null
   // 운영자 메뉴 시트 「내 프로그램 설정」 → 각 설정 클릭 시 탭 전환 + 인라인 관리자 열기
   const openManagerFromMenu = (key) => {
     closePanel()
@@ -1765,6 +1796,7 @@ function ProgramDetailPage() {
 
       {/* 활성화 넛지 — 개요 최상단(운영자·개요탭·비관리·비immersive). immersive 는 슬롯 주입. */}
       {activeTab === 'overview' && !immersiveHome && !inManager && activationNudgeEl}
+      {activeTab === 'overview' && !immersiveHome && !inManager && surveyBannerEl}
       {activeTab === 'overview' && !immersiveHome && !inManager && weeklyHighlightEl}
       {activeTab === 'overview' && !immersiveHome && !inManager && participantReportEl}
       {activeTab === 'overview' && !immersiveHome && !inManager && completionBannerEl}
@@ -1929,6 +1961,7 @@ function ProgramDetailPage() {
             <div className="relative -mt-[22px] rounded-t-[26px] px-4 pt-5 pb-6 space-y-[9px]" style={{ background: '#fdfbf7' }}>
               {cardTopSlot}
               {activationNudgeEl}
+              {surveyBannerEl}
               {isOwner && cardEnded && (
                 <EndReportBanner onClick={() => navigate(`/programs/${id}/report`)} playIntro={playEndReportIntro} onIntroDone={() => setPlayEndReportIntro(false)} />
               )}
@@ -2039,6 +2072,7 @@ function ProgramDetailPage() {
             newMissionCount={newMissionCount}
             newQuizCount={newQuizCount}
             classSlot={classOverviewSlot}
+            topSlot={<>{cardTopSlot}{surveyBannerEl}</>}
           />
         )
       })()}
@@ -2763,6 +2797,16 @@ function ProgramDetailPage() {
         myUserId={userId}
         showScore={program.ranking_enabled !== false}
         onManage={isOwner ? () => { setParticipantsOpen(false); navigate(`/programs/${id}/stats/users`) } : null}
+      />
+
+      {/* ─── 참여 설문(시작) 시트 ───────────────────── */}
+      <SurveySheet
+        open={surveyOpen}
+        title="시작 설문"
+        questions={getProgramSurvey(program)}
+        initial={surveyStartAnswers}
+        onClose={() => setSurveyOpen(false)}
+        onSubmit={(answers) => { submitSurveyMutation.mutate(answers); setSurveyOpen(false) }}
       />
 
       {/* ─── 클래스 일정 — 전체 목록 ↔ 상세(?class=) ───────────────────── */}

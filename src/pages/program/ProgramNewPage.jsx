@@ -112,6 +112,7 @@ function ProgramNewPage() {
             owner_id: session.user.id,
             status: 'DRAFT',
             card_home: true,   // 신규 생성 프로그램 = 카드형 홈(개편 2026-07-07). 표준 테마에만 코드에서 적용.
+            survey_enabled: true,   // 신규 = 시작·종료 설문 기본 ON(마법사 Step4에서 끌 수 있음)
             ...stepData,
           })
           .select()
