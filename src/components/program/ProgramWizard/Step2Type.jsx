@@ -610,6 +610,7 @@ function Step2Type({ initialData, onNext, onSave, onPrev, enterAtEnd = false }) 
   const [subStep, setSubStep] = useState(enterAtEnd ? TOTAL - 1 : 0)
   const [dir, setDir] = useState(enterAtEnd ? -1 : 1)
   const cur = featureSteps[Math.min(subStep, TOTAL - 1)]
+  const [tipSignal, setTipSignal] = useState(0)   // 팀 「네」 클릭 시 상단 툴팁 자동 오픈 신호
 
   const collectData = () => {
     const base = {
@@ -679,7 +680,7 @@ function Step2Type({ initialData, onNext, onSave, onPrev, enterAtEnd = false }) 
     },
     team: {
       q: '팀을 짜서 같이 도전할까요?',
-      sub: '참여자끼리 팀을 만들어 함께 점수를 모아요.\n순위표에 팀 순위도 함께 보여요.',
+      sub: '참여자끼리 팀을 만들어 함께 점수를 모아요. 팀 생성·초대는 참여자가 해요.\n운영자는 점수·정원 규칙만 정하고, 순위표에 팀 순위가 보여요.',
     },
     quiz: {
       q: '건강 퀴즈를 낼까요?',
@@ -717,7 +718,7 @@ function Step2Type({ initialData, onNext, onSave, onPrev, enterAtEnd = false }) 
           >
             <h2 className="text-xl font-bold text-gray-800 break-keep flex items-center gap-1.5" style={{ marginBottom: '16px' }}>
               <span>{META[cur].q}</span>
-              <InfoTip>{META[cur].sub}</InfoTip>
+              <InfoTip key={cur} openSignal={tipSignal}>{META[cur].sub}</InfoTip>
             </h2>
 
             {/* ── 소통(커뮤니티/응원) ── */}
@@ -759,7 +760,7 @@ function Step2Type({ initialData, onNext, onSave, onPrev, enterAtEnd = false }) 
               <Preview>
                 <TeamDemo />
               </Preview>
-              <YesNo value={teamEnabled} onChange={setTeamEnabled} />
+              <YesNo value={teamEnabled} onChange={(v) => { setTeamEnabled(v); if (v) setTipSignal((s) => s + 1) }} />
 
               {teamEnabled && !rankingEnabled && (
                 <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-[10px] px-3 py-2 break-keep" style={{ marginTop: '9px' }}>

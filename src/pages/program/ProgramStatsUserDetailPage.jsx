@@ -480,6 +480,12 @@ function ProgramStatsUserDetailPage() {
         </button>
       </div>
 
+      {/* 개인 건강 기록은 운영자 비노출(RLS) — 프라이버시 경계 안내 */}
+      <p className="mt-5 text-[11px] text-gray-400 leading-relaxed break-keep flex items-start gap-1 px-1">
+        <span className="flex-shrink-0">🔒</span>
+        <span>체중·목표 같은 개인 건강 기록은 프라이버시상 참여자 본인만 볼 수 있어요. 여기선 미션·인증 활동을 보여줘요.</span>
+      </p>
+
       {/* 내보내기 — 중앙 카드 2단계 확인 */}
       <ConfirmModal
         isOpen={removeStep > 0}

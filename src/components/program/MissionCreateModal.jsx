@@ -927,6 +927,16 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
             <FieldLabel title="승인 방식" tipKey="approve" tipOpen={tipOpen} onToggle={toggleTip}>
               <b className="text-emerald-300">자동 승인</b> = 제출 즉시 점수 지급.<br /><b className="text-emerald-300">운영자 심사</b> = 운영자가 확인한 뒤 점수 지급.
             </FieldLabel>
+            {(isMed || isMeal) ? (
+              /* 명상·식단은 자기보고 신뢰 → 자동 승인 고정. 심사 선택을 열어두면 저장 시 무효라 아예 잠금 */
+              <div className="p-3 rounded-xl bg-gray-50 border border-gray-200">
+                <p className="text-sm font-medium text-gray-700 flex items-center gap-1.5"><span>🔒</span> 자동 승인 (고정)</p>
+                <p className="text-xs text-gray-500 mt-1 leading-relaxed break-keep">
+                  {isMed ? '명상' : '식단'} 인증은 자기보고 기반이라 <b>자동 승인만 가능해요.</b> 제출 즉시 점수가 지급돼요.
+                  {' '}(부적절한 인증은 나중에 피드에서 「점수 제외」할 수 있어요.)
+                </p>
+              </div>
+            ) : (<>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
@@ -967,6 +977,7 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
                 </p>
               </>
             )}
+            </>)}
           </div>
 
 

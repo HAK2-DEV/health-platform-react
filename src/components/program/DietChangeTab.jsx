@@ -462,10 +462,11 @@ function LoggerSheet({ open, onClose, onSave, last }) {
           onClick={onClose} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
           <motion.div className="w-full max-w-md bg-white rounded-t-3xl p-5 pb-8" onClick={(e) => e.stopPropagation()}
             initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', damping: 30, stiffness: 300 }}>
-            <div className="flex items-center mb-4">
+            <div className="flex items-center mb-1">
               <h3 className="text-[16px] font-extrabold text-gray-900">오늘 기록</h3>
               <button type="button" onClick={onClose} className="ml-auto w-8 h-8 rounded-full text-gray-400 hover:bg-gray-100 flex items-center justify-center"><X className="w-4 h-4" /></button>
             </div>
+            <p className="text-[11px] text-gray-400 flex items-center gap-1 mb-3.5"><span>🔒</span><span>나만 볼 수 있어요 · 운영자·다른 참여자에겐 비공개</span></p>
             <div className="grid grid-cols-2 gap-3 mb-3">
               <label className="block">
                 <span className="text-[12px] font-semibold text-gray-500">체중 (kg)</span>
@@ -524,6 +525,12 @@ export default function DietChangeTab({ data, onAddEntry, onSetGoalWeight }) {
       {showBeforeAfter && <Reveal index={4}><BeforeAfter weight={sorted} nutrition={nutrition} /></Reveal>}
       {hasMood && <Reveal index={5}><MoodTrend weight={sorted} /></Reveal>}
       {hasMemo && <Reveal index={6}><Memos weight={sorted} /></Reveal>}
+
+      {/* 참여자 안심 — 개인 건강 기록은 본인만(운영자 비노출, RLS) */}
+      <p className="text-[11px] text-gray-400 leading-relaxed break-keep flex items-start gap-1 px-1 pt-1">
+        <span className="flex-shrink-0">🔒</span>
+        <span>체중·목표·컨디션은 <b className="font-semibold text-gray-500">나만 볼 수 있어요.</b> 운영자와 다른 참여자에겐 보이지 않아요.</span>
+      </p>
 
       <LoggerSheet open={loggerOpen} onClose={() => setLoggerOpen(false)} last={last}
         onSave={(entry) => onAddEntry?.(entry)} />

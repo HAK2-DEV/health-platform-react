@@ -495,7 +495,7 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
               <span className="text-xl">👥</span>
               <div className="flex-1 min-w-0">
                 <p className={`text-sm font-medium ${teamEnabled ? 'text-violet-700' : 'text-gray-800'}`}>팀 기능 사용</p>
-                <p className="text-xs text-gray-500 mt-0.5">참여자끼리 팀을 만들어 함께 도전해요. 랭킹 탭에 팀 랭킹이 함께 보여요.</p>
+                <p className="text-xs text-gray-500 mt-0.5">팀 생성·초대는 참여자가 해요. 운영자는 규칙만 정하고, 랭킹 탭에 팀 순위가 보여요.</p>
               </div>
               <div className={`relative w-9 h-5 rounded-full flex-shrink-0 transition mt-0.5 ${teamEnabled ? 'bg-violet-500' : 'bg-gray-300'}`}>
                 <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${teamEnabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
