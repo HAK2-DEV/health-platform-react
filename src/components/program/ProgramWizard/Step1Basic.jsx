@@ -24,11 +24,19 @@ import InfoTip from '../../common/InfoTip'
 const SUB = [
   { q: '프로그램 이름을 정해볼까요?', sub: '참여자에게 보이는 이름이에요.' },
   { q: '한 줄 설명을 적어볼까요?', sub: '프로그램을 한 문장으로 소개해요.\n(선택 — 비워도 돼요)' },
-  { q: '어떤 카테고리인가요?', sub: '하나만 골라주세요. 메뉴 구성이 여기에 맞춰져요.\n⚠️ 생성 후에는 바꿀 수 없어요.', danger: true },
+  { q: '어떤 카테고리인가요?', sub: '하나만 골라주세요. 식단·달리기·금연은 전용 화면이, 그 외엔 기본 화면이 제공돼요.\n⚠️ 생성 후에는 바꿀 수 없어요.', danger: true },
   { q: '언제부터 언제까지 진행하나요?', sub: '⚠️ 시작 후엔 시작일을 바꿀 수 없어요.\n(종료일은 수정 가능)', danger: true },
   { q: '대표 사진을 더해요', sub: '선택이에요 — 비워도 괜찮아요.' },
 ]
 const TOTAL = SUB.length
+
+// 카테고리별 "무엇을 받는지" 힌트 — 전용 화면 3종만 특별, 그 외엔 기본.
+//   금연은 순위표·팀이 빠지는 걸(비가역) 선택 전에 알린다.
+const CAT_HINT = {
+  DIET: { emoji: '🍱', text: '식단 전용 화면이 제공돼요 — 끼니 기록·영양 요약.' },
+  RUNNING: { emoji: '🏃', text: '달리기 전용 화면이 제공돼요 — 코스·기록 중심.' },
+  NO_SMOKING: { emoji: '🚭', text: '순위표·팀 대신 「내 변화」 화면이 제공돼요.' },
+}
 
 const slideVariants = {
   enter: (d) => ({ x: d > 0 ? 40 : -40, opacity: 0 }),
@@ -68,6 +76,8 @@ function Step1Basic({ initialData, onNext, onSave, enterAtEnd = false }) {
   // 2단계에서 「이전」으로 돌아오면 마지막 서브스텝(소개·사진)부터 보이게
   const [subStep, setSubStep] = useState(enterAtEnd ? TOTAL - 1 : 0)
   const [dir, setDir] = useState(enterAtEnd ? -1 : 1)
+  // 라이브러리 프리셋으로 시작하면 카테고리가 이미 정해짐 → 카테고리 서브스텝(2)을 건너뜀
+  const skipCategory = !!(initialData?.source_preset_key && initialData?.categories?.length)
 
   // 단일 선택 — 카테고리 1개만 (카테고리가 메뉴/테마를 결정하므로)
   const toggleCategory = (key) => {
@@ -108,10 +118,20 @@ function Step1Basic({ initialData, onNext, onSave, enterAtEnd = false }) {
     const err = validateSub(subStep)
     if (err) { setError(err); return }
     setError(null)
-    if (subStep < TOTAL - 1) { setDir(1); setSubStep(s => s + 1) }
-    else onNext(collectData())
+    if (subStep < TOTAL - 1) {
+      let n = subStep + 1
+      if (skipCategory && n === 2) n = 3   // 카테고리 스텝 건너뛰기
+      setDir(1); setSubStep(n)
+    } else onNext(collectData())
   }
-  const goPrev = () => { setError(null); setDir(-1); setSubStep(s => Math.max(0, s - 1)) }
+  const goPrev = () => {
+    setError(null); setDir(-1)
+    setSubStep(s => {
+      let p = s - 1
+      if (skipCategory && p === 2) p = 1   // 카테고리 스텝 건너뛰기
+      return Math.max(0, p)
+    })
+  }
 
   const handleSave = () => {
     if (!name.trim()) { setError('임시저장하려면 이름을 입력해주세요'); return }
@@ -125,7 +145,7 @@ function Step1Basic({ initialData, onNext, onSave, enterAtEnd = false }) {
     <div>
       {/* 서브스텝 진행 바 */}
       <div className="flex gap-1.5" style={{ marginBottom: '9px' }}>
-        {SUB.map((_, i) => (
+        {SUB.map((_, i) => (skipCategory && i === 2) ? null : (
           <span key={i} className={`h-1 flex-1 rounded-full transition-colors ${i <= subStep ? 'bg-emerald-500' : 'bg-gray-200'}`} />
         ))}
       </div>
@@ -195,6 +215,7 @@ function Step1Basic({ initialData, onNext, onSave, enterAtEnd = false }) {
 
             {/* 2: 카테고리 */}
             {subStep === 2 && (
+              <>
               <div className="grid grid-cols-3" style={{ gap: '9px' }}>
                 {CATEGORY_LIST.map(category => {
                   const on = categories.includes(category.key)
@@ -212,6 +233,13 @@ function Step1Basic({ initialData, onNext, onSave, enterAtEnd = false }) {
                   )
                 })}
               </div>
+              {categories[0] && (
+                <p className="mt-3 text-[12px] leading-relaxed break-keep flex items-start gap-1.5 rounded-lg px-3 py-2 bg-gray-50 text-gray-600">
+                  <span className="flex-shrink-0">{CAT_HINT[categories[0]]?.emoji || '📋'}</span>
+                  <span>{CAT_HINT[categories[0]]?.text || '기본 화면이 제공돼요. 기능(미션·퀴즈·커뮤니티·랭킹 등)은 다음 단계에서 골라요.'}</span>
+                </p>
+              )}
+              </>
             )}
 
             {/* 3: 기간 */}
