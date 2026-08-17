@@ -378,7 +378,7 @@ function ProgramEndReportPage() {
               <HP2030Report program={program}
                 startQuestions={getProgramSurvey(program, 'start')} endQuestions={getProgramSurvey(program, 'end')}
                 startResponses={surveyStart} endResponses={surveyEnd} demographics={surveyDemo}
-                partCount={report.totalParticipants} />
+                partCount={report.totalParticipants} locked={!isEnded} />
             </>
           )}
 

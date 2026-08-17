@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { motion } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
 import { hp2030Mapping, NATIONAL_BENCHMARK_ENABLED } from '../../lib/hp2030'
 import { fetchNationalIndicator } from '../../lib/queries'
@@ -23,8 +24,9 @@ function DeltaTag({ s, e }) {
   return <span className={`tabular-nums text-[12px] font-bold ${up ? 'text-emerald-600' : down ? 'text-rose-500' : 'text-gray-400'}`}>{up ? '▲' : down ? '▼' : '–'} {d > 0 ? '+' : ''}{d.toFixed(1)}</span>
 }
 
-export default function HP2030Report({ program, startQuestions = [], endQuestions = [], startResponses = [], endResponses = [], demographics = {}, partCount = 0 }) {
+export default function HP2030Report({ program, startQuestions = [], endQuestions = [], startResponses = [], endResponses = [], demographics = {}, partCount = 0, locked = false }) {
   const [copied, setCopied] = useState(false)
+  const [shakeKey, setShakeKey] = useState(0)   // 잠금(미리보기) 시 흔들기 트리거
   const map = hp2030Mapping(program)
   // 전국 참고값(국립암센터) — 매핑에 지표가 있을 때만. 연 단위라 하루 캐시.
   const { data: national } = useQuery({
@@ -167,10 +169,30 @@ export default function HP2030Report({ program, startQuestions = [], endQuestion
       <p className="text-[11px] text-gray-400 px-1 leading-relaxed break-keep">
         ※ 자기보고 설문 기반이며 인과관계를 뜻하지 않습니다. 개인 식별 방지를 위해 5명 미만 하위그룹은 수치를 숨깁니다.
       </p>
-      <button type="button" onClick={copy}
-        className="w-full h-11 rounded-xl bg-gray-900 text-white text-[14px] font-bold active:scale-[0.99] transition">
-        {copied ? '복사됐어요 ✓' : '요약 텍스트 복사'}
-      </button>
+      {locked ? (
+        <div className="relative cursor-default" onClick={() => setShakeKey((k) => k + 1)}>
+          <button type="button" disabled aria-disabled
+            className="w-full h-11 rounded-xl bg-gray-900 text-white text-[14px] font-bold blur-[1.5px] opacity-80 pointer-events-none select-none">
+            요약 텍스트 복사
+          </button>
+          <div className="absolute inset-0 flex items-center justify-center px-4">
+            <motion.span
+              key={shakeKey}
+              initial={{ x: 0 }}
+              animate={shakeKey ? { x: [0, -7, 7, -6, 6, -3, 3, 0] } : { x: 0 }}
+              transition={{ duration: 0.42, ease: 'easeInOut' }}
+              className="text-[12px] font-bold text-gray-700 bg-white/90 border border-gray-200 rounded-full px-3.5 py-2 shadow-sm text-center break-keep"
+            >
+              🔒 프로그램 종료 후 사용할 수 있어요
+            </motion.span>
+          </div>
+        </div>
+      ) : (
+        <button type="button" onClick={copy}
+          className="w-full h-11 rounded-xl bg-gray-900 text-white text-[14px] font-bold active:scale-[0.99] transition">
+          {copied ? '복사됐어요 ✓' : '요약 텍스트 복사'}
+        </button>
+      )}
     </div>
   )
 }
