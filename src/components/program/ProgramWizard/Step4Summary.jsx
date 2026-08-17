@@ -95,9 +95,13 @@ function Step4Summary({ initialData, programId, onPrev }) {
 
       {/* 설정 요약 */}
       <div className="bg-gray-50 p-4 rounded-xl mb-6">
-        <h3 className="text-sm font-medium text-gray-700 mb-3">
+        <h3 className="text-sm font-medium text-gray-700 mb-1">
           📋 프로그램 설정 요약
         </h3>
+        <p className="text-[11px] text-amber-700 mb-3 flex items-start gap-1 break-keep">
+          <span className="flex-shrink-0">🔒</span>
+          <span>표시된 항목은 게시 후 바꿀 수 없어요. 한 번 더 확인해주세요.</span>
+        </p>
         <dl className="space-y-2 text-sm">
           <div className="flex">
             <dt className="w-24 text-gray-600 flex-shrink-0">이름</dt>
@@ -118,7 +122,7 @@ function Step4Summary({ initialData, programId, onPrev }) {
           )}
           <div className="flex">
             <dt className="w-24 text-gray-600 flex-shrink-0">카테고리</dt>
-            <dd className="flex-1 text-gray-800">{categoryLabels || '-'}</dd>
+            <dd className="flex-1 text-gray-800">{categoryLabels || '-'}<span className="ml-1.5 inline-flex items-center text-[10px] font-bold text-amber-700 bg-amber-100 rounded px-1.5 py-0.5 whitespace-nowrap align-middle">🔒 수정 불가</span></dd>
           </div>
           <div className="flex">
             <dt className="w-24 text-gray-600 flex-shrink-0">옵션</dt>
@@ -131,13 +135,14 @@ function Step4Summary({ initialData, programId, onPrev }) {
           </div>
           <div className="flex">
             <dt className="w-24 text-gray-600 flex-shrink-0">참여 방식</dt>
-            <dd className="flex-1 text-gray-800">{joinTypeLabel}</dd>
+            <dd className="flex-1 text-gray-800">{joinTypeLabel}<span className="ml-1.5 inline-flex items-center text-[10px] font-bold text-amber-700 bg-amber-100 rounded px-1.5 py-0.5 whitespace-nowrap align-middle">🔒 수정 불가</span></dd>
           </div>
-          {initialData?.join_type === 'APPROVAL' && initialData?.entry_question && (
+          {initialData?.entry_question && (
             <div className="flex">
               <dt className="w-24 text-gray-600 flex-shrink-0">입장 질문</dt>
               <dd className="flex-1 text-gray-800 break-words whitespace-pre-wrap">
                 {initialData.entry_question}
+                <span className="ml-1.5 inline-flex items-center text-[10px] font-bold text-amber-700 bg-amber-100 rounded px-1.5 py-0.5 whitespace-nowrap align-middle">🔒 수정 불가</span>
               </dd>
             </div>
           )}

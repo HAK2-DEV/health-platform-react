@@ -599,9 +599,12 @@ function Step2Type({ initialData, onNext, onSave, onPrev, enterAtEnd = false }) 
   )
 
   // 서브스텝 구성 — 테마별. 각 key 가 한 화면(질문 하나).
+  //   시상대·팀은 순위표에 종속 → 랭킹 OFF면 물음 자체를 건너뛴다(모순 선택 방지).
   const featureSteps = isQuitCat
     ? ['community', 'change', 'quiz', 'class']
-    : ['community', 'ranking', 'podium', 'team', 'quiz', 'class']
+    : rankingEnabled
+      ? ['community', 'ranking', 'podium', 'team', 'quiz', 'class']
+      : ['community', 'ranking', 'quiz', 'class']
   const TOTAL = featureSteps.length
 
   const [subStep, setSubStep] = useState(enterAtEnd ? TOTAL - 1 : 0)
@@ -638,12 +641,12 @@ function Step2Type({ initialData, onNext, onSave, onPrev, enterAtEnd = false }) 
       ranking_enabled: rankingEnabled,
       podium_enabled: rankingEnabled ? podiumEnabled : false,  // 시상대는 순위표가 켜져야 의미
       change_tab_enabled: false,
-      team_enabled: teamEnabled,
-      team_score_mode: teamEnabled ? teamScoreMode : null,
-      team_size_type: teamEnabled ? teamSizeType : null,
-      team_size_min: teamEnabled && teamSizeType === 'range' ? teamSizeMin : null,
-      team_size_max: teamEnabled && teamSizeType === 'range' ? teamSizeMax : null,
-      team_size_fixed: teamEnabled && teamSizeType === 'fixed' ? teamSizeFixed : null,
+      team_enabled: rankingEnabled && teamEnabled,  // 팀도 순위표 종속 — 랭킹 OFF면 완전 OFF
+      team_score_mode: rankingEnabled && teamEnabled ? teamScoreMode : null,
+      team_size_type: rankingEnabled && teamEnabled ? teamSizeType : null,
+      team_size_min: rankingEnabled && teamEnabled && teamSizeType === 'range' ? teamSizeMin : null,
+      team_size_max: rankingEnabled && teamEnabled && teamSizeType === 'range' ? teamSizeMax : null,
+      team_size_fixed: rankingEnabled && teamEnabled && teamSizeType === 'fixed' ? teamSizeFixed : null,
     }
   }
 
@@ -854,10 +857,10 @@ function Step2Type({ initialData, onNext, onSave, onPrev, enterAtEnd = false }) 
 
             {/* ── 강사 클래스 ── */}
             {cur === 'class' && (<>
-              <div className="flex items-start gap-2 p-3 rounded-[10px] bg-amber-50 border border-amber-200" style={{ marginBottom: '12px' }}>
-                <span className="text-base flex-shrink-0">⚠️</span>
-                <p className="text-[12px] text-amber-800 leading-relaxed break-keep">
-                  강사 클래스는 <span className="font-bold">프로그램을 만든 뒤에는 켜고 끌 수 없어요.</span> 신중히 골라주세요.
+              <div className="flex items-start gap-2 p-3 rounded-[10px] bg-emerald-50 border border-emerald-200" style={{ marginBottom: '12px' }}>
+                <span className="text-base flex-shrink-0">💡</span>
+                <p className="text-[12px] text-emerald-800 leading-relaxed break-keep">
+                  강사 클래스는 강사 프로필·일정·출석 기능을 더해요. <span className="font-bold">나중에 설정에서도 켜고 끌 수 있어요.</span>
                 </p>
               </div>
               <Preview>
