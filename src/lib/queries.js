@@ -3673,6 +3673,13 @@ export const submitSurveyResponse = async ({ programId, userId, phase = 'start',
   if (error) throw error
 }
 
+// 전국 건강지표 참고값(국립암센터 프록시 엣지 함수). indicator: 'smoking' 등.
+export const fetchNationalIndicator = async (indicator) => {
+  const { data, error } = await supabase.functions.invoke('health-indicators', { body: { indicator } })
+  if (error) throw error
+  return data
+}
+
 // 운영자 — 응답자 성별·연령대 맵(형평성 분해용). users select 는 전체 허용(정책1).
 export const fetchUserDemographics = async (userIds = []) => {
   const ids = [...new Set(userIds)].filter(Boolean)

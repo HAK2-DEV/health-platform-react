@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import { hp2030Mapping } from '../../lib/hp2030'
+import { useQuery } from '@tanstack/react-query'
+import { hp2030Mapping, NATIONAL_BENCHMARK_ENABLED } from '../../lib/hp2030'
+import { fetchNationalIndicator } from '../../lib/queries'
 import { Reveal, CountUp } from './statsAnim'
 
 // 운영자 — HP2030 성과 기여 반출뷰. 자기보고 시작→종료 변화 + 형평성(성별·연령).
@@ -24,6 +26,13 @@ function DeltaTag({ s, e }) {
 export default function HP2030Report({ program, startQuestions = [], endQuestions = [], startResponses = [], endResponses = [], demographics = {}, partCount = 0 }) {
   const [copied, setCopied] = useState(false)
   const map = hp2030Mapping(program)
+  // 전국 참고값(국립암센터) — 매핑에 지표가 있을 때만. 연 단위라 하루 캐시.
+  const { data: national } = useQuery({
+    queryKey: ['national-indicator', map.nationalIndicator],
+    queryFn: () => fetchNationalIndicator(map.nationalIndicator),
+    enabled: NATIONAL_BENCHMARK_ENABLED && !!map.nationalIndicator,
+    staleTime: 1000 * 60 * 60 * 24,
+  })
   const endById = new Map(endQuestions.map((q) => [q.id, q]))
   const scaleQs = startQuestions.filter((q) => q.type === 'scale' && endById.get(q.id)?.type === 'scale')
   const primaryQ = scaleQs.find((q) => q.id === map.primary) || scaleQs[0] || null
@@ -98,6 +107,23 @@ export default function HP2030Report({ program, startQuestions = [], endQuestion
           🏛 국가 건강지표(HP2030) · {map.area} · {map.indicator} 기여
         </div>
       </Reveal>
+
+      {/* 국가 통계 참고 — 전국 지표(있을 때만). 자기보고 척도와 단위가 달라 '참고선'으로만. */}
+      {national?.series?.length > 0 && (
+        <Reveal index={1} className="rounded-2xl p-4 bg-white border border-gray-100 shadow-soft">
+          <p className="text-[11px] font-bold text-gray-400 mb-1">국가 통계 참고</p>
+          <p className="text-[13px] font-semibold text-gray-800 mb-2.5">전국 {national.label} <span className="text-gray-400 font-normal">({national.year}년)</span></p>
+          <div className="flex gap-2">
+            {national.series.map((s) => (
+              <div key={s.name} className="flex-1 rounded-xl bg-gray-50 px-2 py-2.5 text-center">
+                <p className="text-[11px] text-gray-500 mb-0.5">{s.name}</p>
+                <p className="text-[18px] font-extrabold text-gray-800 tabular-nums leading-none">{s.value}<span className="text-[11px] font-normal text-gray-400">{national.unit}</span></p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-2 text-[11px] text-gray-400 break-keep">출처: {national.source} · 참고용(자기보고 척도와 단위가 달라 직접 비교 아님)</p>
+        </Reveal>
+      )}
 
       {/* 핵심 지표 변화 */}
       {primaryQ && (
