@@ -12,7 +12,6 @@ import {
   fetchProgramClassStats,
 } from '../../lib/queries'
 import LoadingState from '../../components/common/LoadingState'
-import EmptyState from '../../components/common/EmptyState'
 import ProgramInsightsSummary from '../../components/program/ProgramInsightsSummary'
 import CarePeopleSection from '../../components/program/CarePeopleSection'
 const CheerModal = lazy(() => import('../../components/program/CheerModal'))
@@ -217,7 +216,7 @@ function ProgramStatsPage() {
             <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
           </button>
 
-          {/* 사전 설문 결과 카드 — 설문 기능 ON 일 때만 */}
+          {/* 설문 결과 카드 — 설문 기능 ON 일 때만 (시작·종료·변화) */}
           {program.survey_enabled && (
             <button
               type="button"
@@ -226,8 +225,8 @@ function ProgramStatsPage() {
             >
               <span className="w-12 h-12 flex-shrink-0 flex items-center justify-center text-3xl">📋</span>
               <div className="flex-1 min-w-0">
-                <h3 className="font-medium text-gray-800 mb-0.5">사전 설문 결과</h3>
-                <p className="text-xs text-gray-500">참가자 목표·실천 정도 응답 모아보기</p>
+                <h3 className="font-medium text-gray-800 mb-0.5">설문 결과</h3>
+                <p className="text-xs text-gray-500">시작·종료 응답과 변화 모아보기</p>
               </div>
               <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
             </button>

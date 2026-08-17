@@ -4,8 +4,13 @@
 //   척도는 "높을수록 건강한 방향" 으로 통일 → 시작·종료 비교(변화)에 그대로 사용.
 import { PROGRAM_THEME } from './constants'
 
-// 공통 문항 — 목표(단답)·자신감(척도)은 카테고리와 무관하게 고정
-const GOAL = { id: 'goal', type: 'text', q: '이 프로그램에서 이루고 싶은 목표를 한 줄로 적어주세요' }
+// 공통 문항 — 목표(단답)는 시작=다짐, 종료=돌아보기로 문구가 달라짐. 자신감(척도)은 고정.
+const goalQuestion = (phase) => ({
+  id: 'goal', type: 'text',
+  q: phase === 'end'
+    ? '프로그램을 돌아보면, 목표에 얼마나 다가갔나요? 한 줄로 적어주세요'
+    : '이 프로그램에서 이루고 싶은 목표를 한 줄로 적어주세요',
+})
 const CONFIDENCE = { id: 'confidence', type: 'scale', q: '목표를 이룰 수 있다는 자신감은 어느 정도인가요?', min: 1, max: 5, minLabel: '낮음', maxLabel: '높음' }
 
 // 카테고리/테마별 중간 문항(그 활동에 맞춘 기준선 측정)
@@ -40,14 +45,26 @@ function middleQuestions(categories = [], theme = null) {
   ]
 }
 
-// 기본 설문 = 목표 + 카테고리 특화 문항 + 자신감
-export function defaultSurvey({ categories, theme } = {}) {
-  return [GOAL, ...middleQuestions(categories, theme), CONFIDENCE]
+// 기본 설문 = 목표(phase별 문구) + 카테고리 특화 문항 + 자신감
+export function defaultSurvey({ categories, theme, phase = 'start' } = {}) {
+  return [goalQuestion(phase), ...middleQuestions(categories, theme), CONFIDENCE]
 }
 
-// 프로그램에 커스텀 문항이 있으면 그걸, 없으면 카테고리 기본 문항
-export function getProgramSurvey(program) {
-  const custom = program?.survey_questions
-  if (Array.isArray(custom) && custom.length) return custom
-  return defaultSurvey({ categories: program?.categories, theme: program?.theme })
+// 프로그램의 phase별 문항.
+//   시작: survey_questions(커스텀) or 기본(start)
+//   종료: survey_questions_end(커스텀) or 시작 커스텀(있으면 변화 측정 위해 동일 문항) or 기본(end)
+export function getProgramSurvey(program, phase = 'start') {
+  const start = program?.survey_questions
+  if (phase === 'end') {
+    const end = program?.survey_questions_end
+    if (Array.isArray(end) && end.length) return end
+    // 종료 미편집 → 시작 커스텀을 그대로 쓰되, 목표 문항만 종료 "돌아보기" 문구로 치환
+    if (Array.isArray(start) && start.length) {
+      const endGoal = goalQuestion('end').q
+      return start.map((q) => (q.id === 'goal' && q.type === 'text') ? { ...q, q: endGoal } : q)
+    }
+    return defaultSurvey({ categories: program?.categories, theme: program?.theme, phase: 'end' })
+  }
+  if (Array.isArray(start) && start.length) return start
+  return defaultSurvey({ categories: program?.categories, theme: program?.theme, phase: 'start' })
 }

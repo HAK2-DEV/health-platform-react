@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronLeft } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
@@ -7,10 +7,12 @@ import LoadingState from '../../components/common/LoadingState'
 import StickyBackBar from '../../components/common/StickyBackBar'
 import SurveyEditor from '../../components/program/SurveyEditor'
 
-// 운영자 — 설문 문항 편집 페이지. 라우트: /programs/:id/survey/edit
+// 운영자 — 설문 문항 편집 페이지. 라우트: /programs/:id/survey/edit  (?phase=end → 종료 문구)
 function ProgramSurveyEditPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const [sp] = useSearchParams()
+  const phase = sp.get('phase') === 'end' ? 'end' : 'start'
   const { session } = useAuth()
   const userId = session?.user?.id
 
@@ -22,8 +24,8 @@ function ProgramSurveyEditPage() {
   const isOwner = program?.owner_id === userId
 
   const { data: responses = [] } = useQuery({
-    queryKey: ['survey-results', id, 'start'],
-    queryFn: () => fetchProgramSurveyResults({ programId: id, phase: 'start' }),
+    queryKey: ['survey-results', id, phase],
+    queryFn: () => fetchProgramSurveyResults({ programId: id, phase }),
     enabled: !!session && !!id && isOwner,
   })
 
@@ -40,12 +42,12 @@ function ProgramSurveyEditPage() {
 
   return (
     <div className="px-4 pt-2 pb-8 max-w-4xl mx-auto">
-      <StickyBackBar fallbackPath={`/programs/${id}/stats/survey`} title="설문 결과로" breadcrumb={[program.name, '설문 문항 편집']} />
+      <StickyBackBar fallbackPath={`/programs/${id}/stats/survey`} title="설문 결과로" breadcrumb={[program.name, phase === 'end' ? '종료 문항 편집' : '시작 문항 편집']} />
 
-      <h1 className="text-lg font-extrabold text-gray-900 mb-1">설문 문항 편집</h1>
-      <p className="text-[12px] text-gray-500 mb-3">시작·종료에 참가자에게 물을 문항이에요. (단답 / 척도 1~5)</p>
+      <h1 className="text-lg font-extrabold text-gray-900 mb-1">{phase === 'end' ? '종료 설문 문항 편집' : '시작 설문 문항 편집'}</h1>
+      <p className="text-[12px] text-gray-500 mb-3">참가자에게 물을 문항이에요. (단답 / 척도 1~5)</p>
 
-      <SurveyEditor program={program} responseCount={responses.length} onDone={() => navigate(-1)} />
+      <SurveyEditor program={program} responseCount={responses.length} phase={phase} onDone={() => navigate(-1)} />
     </div>
   )
 }

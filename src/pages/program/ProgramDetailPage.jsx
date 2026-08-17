@@ -398,6 +398,18 @@ function ProgramDetailPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['survey-start', id, userId] }),
   })
   const [surveyOpen, setSurveyOpen] = useState(false)
+  // 참여 설문(종료) — 마무리 임박(진행 90%+)/종료 시 시작과 같은 문항을 다시 받아 변화 측정
+  const nearEnd = !!program && calcProgress(program.start_date, program.end_date) >= 90
+  const { data: surveyEndAnswers } = useQuery({
+    queryKey: ['survey-end', id, userId],
+    queryFn: () => fetchSurveyResponse({ programId: id, userId, phase: 'end' }),
+    enabled: !!session && !!id && !!userId && program?.survey_enabled === true && nearEnd,
+  })
+  const submitEndSurveyMutation = useMutation({
+    mutationFn: (answers) => submitSurveyResponse({ programId: id, userId, phase: 'end', answers }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['survey-end', id, userId] }),
+  })
+  const [endSurveyOpen, setEndSurveyOpen] = useState(false)
 
   // 주간 스트릭 있는 프로그램(달리기 + 카드홈) — 오늘 인증이 승인되면(자동/수동 무관)
   //   개요 진입 시 「도장」 1회 재생. 하루·프로그램 단위 localStorage 플래그로 중복 방지
@@ -595,13 +607,22 @@ function ProgramDetailPage() {
   const isViewer = !!program && !isOwner && !isActiveParticipant && program.preview_enabled && program.status === 'PUBLISHED'
   // 참여 설문 — 첫 진입 시 1회 자동 오픈(이후엔 얇은 칩으로만). 미응답 참여자에게.
   useEffect(() => {
-    if (!(program?.survey_enabled && isActiveParticipant && surveyStartAnswers === null)) return
+    if (!(program?.survey_enabled && !nearEnd && isActiveParticipant && surveyStartAnswers === null)) return
     const key = `survey_start_prompted_${id}_${userId}`
     if (localStorage.getItem(key)) return
     localStorage.setItem(key, '1')
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSurveyOpen(true)
-  }, [program?.survey_enabled, isActiveParticipant, surveyStartAnswers, id, userId])
+  }, [program?.survey_enabled, nearEnd, isActiveParticipant, surveyStartAnswers, id, userId])
+  // 종료 설문 — 마무리 임박/종료 시 1회 자동 오픈(이후엔 칩). 미응답 참여자에게.
+  useEffect(() => {
+    if (!(program?.survey_enabled && nearEnd && isActiveParticipant && surveyEndAnswers === null)) return
+    const key = `survey_end_prompted_${id}_${userId}`
+    if (localStorage.getItem(key)) return
+    localStorage.setItem(key, '1')
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setEndSurveyOpen(true)
+  }, [program?.survey_enabled, nearEnd, isActiveParticipant, surveyEndAnswers, id, userId])
   // 종료된 프로그램 — 관리자 외 조회 전용(DB 마이그 190 강제). 클라도 쓰기 UI 숨김.
   const isEnded = !!program && progressUrgency(calcProgress(program.start_date, program.end_date)).urgency === 'ended'
   const [joinOpen, setJoinOpen] = useState(false)
@@ -1387,8 +1408,15 @@ function ProgramDetailPage() {
       <span className="flex-shrink-0 px-3 py-2 bg-amber-500 text-white text-xs font-semibold rounded-full">완료하기</span>
     </button>
   ) : null)
-  // 참여 설문(시작) — 첫 진입 1회 시트로 유도하고, 미응답이면 얇은 한 줄 칩만 남김(실수 닫힘·미입력 대비)
-  const surveyBannerEl = (program.survey_enabled && !isOwner && !isViewer && surveyStartAnswers === null) ? (
+  // 참여 설문 — 마무리 임박이면 종료 설문, 아니면 시작 설문. 첫 진입 시트 유도 후 미응답이면 얇은 칩.
+  const showEndSurvey = program.survey_enabled && !isOwner && !isViewer && nearEnd && surveyEndAnswers === null
+  const showStartSurvey = program.survey_enabled && !isOwner && !isViewer && !nearEnd && surveyStartAnswers === null
+  const surveyBannerEl = showEndSurvey ? (
+    <button type="button" onClick={() => setEndSurveyOpen(true)}
+      className="w-full flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-50/80 text-amber-700 text-[12px] font-medium active:bg-amber-100 transition">
+      <span>📋</span> 종료 설문 (30초) — 얼마나 달라졌는지 <span className="ml-auto text-amber-600 font-semibold">답하기 ›</span>
+    </button>
+  ) : showStartSurvey ? (
     <button type="button" onClick={() => setSurveyOpen(true)}
       className="w-full flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50/70 text-emerald-700 text-[12px] font-medium active:bg-emerald-100 transition">
       <span>📋</span> 시작 설문 (30초) <span className="ml-auto text-emerald-600 font-semibold">답하기 ›</span>
@@ -2807,6 +2835,16 @@ function ProgramDetailPage() {
         initial={surveyStartAnswers}
         onClose={() => setSurveyOpen(false)}
         onSubmit={(answers) => { submitSurveyMutation.mutate(answers); setSurveyOpen(false) }}
+      />
+
+      {/* ─── 참여 설문(종료) 시트 ───────────────────── */}
+      <SurveySheet
+        open={endSurveyOpen}
+        title="종료 설문"
+        questions={getProgramSurvey(program, 'end')}
+        initial={surveyEndAnswers}
+        onClose={() => setEndSurveyOpen(false)}
+        onSubmit={(answers) => { submitEndSurveyMutation.mutate(answers); setEndSurveyOpen(false) }}
       />
 
       {/* ─── 클래스 일정 — 전체 목록 ↔ 상세(?class=) ───────────────────── */}

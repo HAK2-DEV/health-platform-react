@@ -6,11 +6,11 @@ import { getProgramSurvey } from '../../lib/surveyDefaults'
 
 const nid = () => 'q_' + Math.random().toString(36).slice(2, 8)
 
-// 설문 문항 편집 본체(공용) — 마법사 모달 / 통계 편집 페이지에서 재사용.
-//   props: program{ id, categories, theme, survey_questions }, responseCount, onDone(questions|null)
-export default function SurveyEditor({ program, responseCount = 0, onDone }) {
+// 설문 문항 편집 본체(공용). phase='start'|'end' 로 시작/종료 문항 세트를 각각 편집(동일 UI).
+//   props: program{ id, categories, theme, survey_questions, survey_questions_end }, responseCount, onDone(questions|null), phase
+export default function SurveyEditor({ program, responseCount = 0, onDone, phase = 'start' }) {
   const queryClient = useQueryClient()
-  const [questions, setQuestions] = useState(() => getProgramSurvey(program).map((q) => ({ ...q, id: q.id || nid() })))
+  const [questions, setQuestions] = useState(() => getProgramSurvey(program, phase).map((q) => ({ ...q, id: q.id || nid() })))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
 
@@ -35,7 +35,7 @@ export default function SurveyEditor({ program, responseCount = 0, onDone }) {
       const clean = questions.map((q) => q.type === 'scale'
         ? { id: q.id, type: 'scale', q: q.q.trim(), min: 1, max: 5, minLabel: (q.minLabel || '').trim(), maxLabel: (q.maxLabel || '').trim() }
         : { id: q.id, type: 'text', q: q.q.trim() })
-      await saveProgramSurvey({ programId: program.id, questions: clean })
+      await saveProgramSurvey({ programId: program.id, questions: clean, phase })
       queryClient.invalidateQueries({ queryKey: queryKeys.program(program.id) })
       onDone?.(clean)
     } catch (err) { setError(err.message) } finally { setSaving(false) }
@@ -45,7 +45,7 @@ export default function SurveyEditor({ program, responseCount = 0, onDone }) {
     if (!window.confirm('기본 문항으로 되돌릴까요? 지금까지 편집한 커스텀 문항은 사라져요.')) return
     setSaving(true); setError(null)
     try {
-      await saveProgramSurvey({ programId: program.id, questions: null })
+      await saveProgramSurvey({ programId: program.id, questions: null, phase })
       queryClient.invalidateQueries({ queryKey: queryKeys.program(program.id) })
       onDone?.(null)
     } catch (err) { setError(err.message) } finally { setSaving(false) }
@@ -57,7 +57,7 @@ export default function SurveyEditor({ program, responseCount = 0, onDone }) {
     <div>
       {responseCount > 0 && (
         <div className="mb-3 p-3 rounded-xl bg-amber-50 border border-amber-200 text-[12px] text-amber-800 leading-snug break-keep">
-          ⚠️ 이미 <b>{responseCount}명</b>이 응답했어요. 문항을 바꾸면 기존 응답과 어긋날 수 있으니 되도록 시작 전에 편집하세요.
+          ⚠️ 이미 <b>{responseCount}명</b>이 {phase === 'end' ? '종료' : '시작'} 설문에 응답했어요. 문항을 바꾸면 기존 응답과 어긋날 수 있어요.
         </div>
       )}
 

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronLeft, Pencil } from 'lucide-react'
@@ -9,13 +10,15 @@ import LoadingState from '../../components/common/LoadingState'
 import EmptyState from '../../components/common/EmptyState'
 import StickyBackBar from '../../components/common/StickyBackBar'
 import SurveyResults from '../../components/program/SurveyResults'
+import SurveyChange from '../../components/program/SurveyChange'
 
-// 운영자 — 사전(시작) 설문 결과. 라우트: /programs/:id/stats/survey
+// 운영자 — 설문 결과(시작·종료·변화). 라우트: /programs/:id/stats/survey
 function ProgramStatsSurveyPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { session } = useAuth()
   const userId = session?.user?.id
+  const [view, setView] = useState(null)  // null → 데이터 따라 기본값 결정
 
   const { data: program, isLoading: isProgramLoading } = useQuery({
     queryKey: queryKeys.program(id),
@@ -24,9 +27,14 @@ function ProgramStatsSurveyPage() {
   })
   const isOwner = program?.owner_id === userId
 
-  const { data: responses = [], isLoading } = useQuery({
+  const { data: startResponses = [], isLoading: isStartLoading } = useQuery({
     queryKey: ['survey-results', id, 'start'],
     queryFn: () => fetchProgramSurveyResults({ programId: id, phase: 'start' }),
+    enabled: !!session && !!id && isOwner,
+  })
+  const { data: endResponses = [], isLoading: isEndLoading } = useQuery({
+    queryKey: ['survey-results', id, 'end'],
+    queryFn: () => fetchProgramSurveyResults({ programId: id, phase: 'end' }),
     enabled: !!session && !!id && isOwner,
   })
   const { data: partCount = 0 } = useQuery({
@@ -49,32 +57,61 @@ function ProgramStatsSurveyPage() {
     )
   }
 
-  const questions = getProgramSurvey(program)
-  const rate = partCount > 0 ? Math.round((responses.length / partCount) * 100) : null
+  const startQuestions = getProgramSurvey(program, 'start')
+  const endQuestions = getProgramSurvey(program, 'end')
+  const hasEnd = endResponses.length > 0
+  const isLoading = isStartLoading || isEndLoading
+  // 기본 뷰: 종료 응답이 있으면 「변화」, 없으면 「시작」
+  const effView = view ?? (hasEnd ? 'change' : 'start')
+  const shownResponses = effView === 'end' ? endResponses : startResponses
+  const shownCount = shownResponses.length
+  const rate = partCount > 0 ? Math.round((shownCount / partCount) * 100) : null
+
+  // 탭 — 시작·종료는 항상(사전 편집 위해), 변화는 종료 응답이 있을 때만
+  const tabs = [{ key: 'start', label: '시작' }, { key: 'end', label: '종료' }, ...(hasEnd ? [{ key: 'change', label: '변화' }] : [])]
 
   return (
     <div className="px-4 pt-2 pb-8 max-w-4xl mx-auto">
-      <StickyBackBar fallbackPath={`/programs/${id}/stats`} title="통계로" breadcrumb={[program.name, '통계', '사전 설문 결과']} />
+      <StickyBackBar fallbackPath={`/programs/${id}/stats`} title="통계로" breadcrumb={[program.name, '통계', '설문 결과']} />
 
       <div className="flex items-start gap-2 mb-3">
         <div className="flex-1 min-w-0">
-          <h1 className="text-lg font-extrabold text-gray-900">사전 설문 결과</h1>
+          <h1 className="text-lg font-extrabold text-gray-900">설문 결과</h1>
           <p className="text-[12px] text-gray-500 mt-0.5">
-            {responses.length}명 응답{rate != null ? ` · 참여 ${partCount}명 중 ${rate}%` : ''}
+            {effView === 'change'
+              ? `시작 ${startResponses.length}명 · 종료 ${endResponses.length}명`
+              : `${shownCount}명 응답${rate != null ? ` · 참여 ${partCount}명 중 ${rate}%` : ''}`}
           </p>
         </div>
-        <button type="button" onClick={() => navigate(`/programs/${id}/survey/edit`)}
-          className="flex-shrink-0 inline-flex items-center gap-1 h-9 px-3 rounded-full bg-gray-100 text-gray-600 text-[13px] font-semibold hover:bg-gray-200 transition">
-          <Pencil className="w-3.5 h-3.5" /> 문항 편집
-        </button>
+        {effView !== 'change' && (
+          <button type="button" onClick={() => navigate(`/programs/${id}/survey/edit${effView === 'end' ? '?phase=end' : ''}`)}
+            className="flex-shrink-0 inline-flex items-center gap-1 h-9 px-3 rounded-full bg-gray-100 text-gray-600 text-[13px] font-semibold hover:bg-gray-200 transition">
+            <Pencil className="w-3.5 h-3.5" /> {effView === 'end' ? '종료 문항 편집' : '문항 편집'}
+          </button>
+        )}
       </div>
+
+      {/* 시작 / 종료 / 변화 전환 */}
+      {tabs.length > 1 && (
+        <div className="flex gap-1 p-1 mb-4 rounded-xl bg-gray-100">
+          {tabs.map((t) => (
+            <button key={t.key} type="button" onClick={() => setView(t.key)}
+              className={`flex-1 h-8 rounded-lg text-[13px] font-semibold transition ${effView === t.key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {isLoading ? (
         <LoadingState />
-      ) : responses.length === 0 ? (
-        <EmptyState icon="📋" title="아직 응답이 없어요" description="참가자가 시작 설문에 답하면 여기에 모여요." />
+      ) : effView === 'change' ? (
+        <SurveyChange startQuestions={startQuestions} endQuestions={endQuestions} startResponses={startResponses} endResponses={endResponses} />
+      ) : shownResponses.length === 0 ? (
+        <EmptyState icon="📋" title="아직 응답이 없어요"
+          description={effView === 'end' ? '참가자가 종료 설문에 답하면 여기 모여요. 위 「종료 문항 편집」으로 미리 문항을 정할 수 있어요.' : '참가자가 설문에 답하면 여기에 모여요.'} />
       ) : (
-        <SurveyResults questions={questions} responses={responses} />
+        <SurveyResults questions={effView === 'end' ? endQuestions : startQuestions} responses={shownResponses} />
       )}
     </div>
   )

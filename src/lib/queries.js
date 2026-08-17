@@ -3673,9 +3673,10 @@ export const submitSurveyResponse = async ({ programId, userId, phase = 'start',
   if (error) throw error
 }
 
-// 운영자 — 설문 문항 저장(커스텀). null 이면 카테고리 기본 문항으로 되돌림.
-export const saveProgramSurvey = async ({ programId, questions }) => {
-  const { error } = await supabase.from('programs').update({ survey_questions: questions }).eq('id', programId)
+// 운영자 — 설문 문항 저장(커스텀). phase별 컬럼. null 이면 기본/시작 fallback 으로 되돌림.
+export const saveProgramSurvey = async ({ programId, questions, phase = 'start' }) => {
+  const col = phase === 'end' ? 'survey_questions_end' : 'survey_questions'
+  const { error } = await supabase.from('programs').update({ [col]: questions }).eq('id', programId)
   if (error) throw error
 }
 
