@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 import { supabase } from '../../supabaseClient'
@@ -55,10 +55,25 @@ const VARIANTS = {
       '마감 전에 오늘 미션 완료해봐요 💪',
     ],
   },
+  quizReminder: {
+    title: '리마인드 보내기',
+    desc: '퀴즈 리마인드를 보내요',
+    send: '리마인드 보내기',
+    bulkSend: '일괄 리마인드 보내기',
+    notifTitle: '❓ 아직 안 푼 퀴즈가 있어요',
+    done: '리마인드를 보냈어요 ❓',
+    emoji: '❓',
+    presets: [
+      '아직 안 푼 퀴즈가 있어요! 풀어봐요 ❓',
+      '잠깐 시간 내서 퀴즈 어때요? 🧠',
+      '오늘 퀴즈도 함께해요, 기다릴게요 🌱',
+      '마감 전에 퀴즈 완료해봐요 💪',
+    ],
+  },
 }
 const MAX = 200
 
-export default function CheerModal({ programId, targetUserId, targetNickname, targetUserIds, groupLabel, variant = 'cheer', onClose }) {
+export default function CheerModal({ programId, targetUserId, targetNickname, targetUserIds, targetNames, groupLabel, variant = 'cheer', onClose }) {
   useBodyScrollLock(true)  // 마운트=열림 → iOS 배경 스크롤 방지
   useBackButtonClose(true, onClose)  // 하드웨어 뒤로가기 = 닫기
   const toast = useToast()
@@ -67,6 +82,14 @@ export default function CheerModal({ programId, targetUserId, targetNickname, ta
   const [msg, setMsg] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState(null)
+  // 일괄 대상 이름 — 한 줄 넘으면 접고 「모두 보기」로 펼침
+  const namesRef = useRef(null)
+  const [namesOverflow, setNamesOverflow] = useState(false)
+  const [namesExpanded, setNamesExpanded] = useState(false)
+  useEffect(() => {
+    const el = namesRef.current
+    if (el) setNamesOverflow(el.scrollHeight > 30)
+  }, [targetNames])
   // 키보드가 올라오면 보이는 영역(visualViewport) 기준으로 모달을 가운데 정렬 → 상단 잘림 방지.
   const [vv, setVv] = useState({ top: 0, height: null })
   useEffect(() => {
@@ -128,11 +151,35 @@ export default function CheerModal({ programId, targetUserId, targetNickname, ta
         style={{ top: vv.top, height: vv.height ?? '100%' }}>
         <div className="w-full max-w-[340px] max-h-full overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <h3 className="text-[15px] font-bold text-gray-800">{v.emoji} {v.title}</h3>
-        <p className="text-[12px] text-gray-500 mt-0.5 mb-3">
+        <p className="text-[12px] text-gray-500 mt-0.5 mb-2">
           {isBulk
-            ? <><b className="text-gray-700">{groupLabel}</b>에게 같은 {v.desc.replace('를 보내요', '')}를 보내요. (오늘 이미 받은 분은 제외)</>
+            ? <><b className="text-gray-700">{groupLabel}</b>에게 같은 {v.desc.replace('를 보내요', '')}를 보내요.<br /><span className="text-gray-400">(오늘 이미 받은 분은 제외)</span></>
             : <><b className="text-gray-700">{targetNickname}</b> 님에게 {v.desc}. (하루 1회)</>}
         </p>
+
+        {/* 일괄 대상 이름 — 누구에게 가는지 확인. 여러 줄이면 접고 「모두 보기」 */}
+        {isBulk && Array.isArray(targetNames) && targetNames.length > 0 && (
+          <div className="mb-3">
+            <div
+              ref={namesRef}
+              className="flex flex-wrap gap-1 overflow-hidden transition-[max-height] duration-200"
+              style={{ maxHeight: namesExpanded ? 240 : 24 }}
+            >
+              {targetNames.map((n, i) => (
+                <span key={i} className="text-[11px] bg-gray-100 text-gray-600 rounded-full px-2 py-0.5 whitespace-nowrap">{n}</span>
+              ))}
+            </div>
+            {namesOverflow && (
+              <button
+                type="button"
+                onClick={() => setNamesExpanded((v) => !v)}
+                className="mt-1 text-[11px] font-semibold text-emerald-600 hover:text-emerald-700"
+              >
+                {namesExpanded ? '접기 ▴' : `모두 보기 (${targetNames.length}명) ▾`}
+              </button>
+            )}
+          </div>
+        )}
 
         {/* 프리셋 빠른문구 */}
         <div className="flex flex-wrap gap-1.5 mb-3">
@@ -157,7 +204,6 @@ export default function CheerModal({ programId, targetUserId, targetNickname, ta
             onChange={(e) => { setMsg(e.target.value.slice(0, MAX)); setError(null) }}
             placeholder="직접 메시지를 적어도 좋아요"
             rows={3}
-            autoFocus
             className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-500 text-sm resize-none"
           />
           <span className="absolute right-2.5 bottom-2 text-[11px] text-gray-400">{msg.length}/{MAX}</span>

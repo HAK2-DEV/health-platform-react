@@ -1,7 +1,9 @@
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronRight } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
+import { supabase } from '../../supabaseClient'
 import {
   queryKeys,
   fetchProgram,
@@ -10,6 +12,7 @@ import {
 import StickyBackBar from '../../components/common/StickyBackBar'
 import LoadingState from '../../components/common/LoadingState'
 import EmptyState from '../../components/common/EmptyState'
+import CheerModal from '../../components/program/CheerModal'
 import { Reveal, CountUp, useCountUp } from '../../components/program/statsAnim'
 
 // 운영자 통계 — 퀴즈별 요약 목록
@@ -34,6 +37,17 @@ function ProgramStatsQuizzesPage() {
     queryFn: () => fetchProgramQuizStats(id),
     enabled: !!session && !!id && isOwner,
   })
+
+  // 리마인드 대상 산출용 — ACTIVE 참여자(닉네임 포함)
+  const { data: activeParts = [] } = useQuery({
+    queryKey: ['active-participants', id],
+    queryFn: async () => {
+      const { data } = await supabase.from('program_participants').select('user_id, user:users(nickname)').eq('program_id', id).eq('status', 'ACTIVE')
+      return (data || []).map((r) => ({ userId: r.user_id, nickname: r.user?.nickname || '참여자' }))
+    },
+    enabled: !!session && !!id && isOwner,
+  })
+  const [reminderQuiz, setReminderQuiz] = useState(null)
 
   if (!isOwner && program) {
     return (
@@ -152,7 +166,7 @@ function ProgramStatsQuizzesPage() {
                     <div className="flex justify-end mt-2">
                       <button
                         type="button"
-                        onClick={() => navigate(`/programs/${id}?tab=community`)}
+                        onClick={() => setReminderQuiz(q)}
                         className="text-[13px] font-bold text-amber-700 inline-flex items-center gap-1 hover:text-amber-800"
                       >
                         리마인드 보내기 →
@@ -174,6 +188,22 @@ function ProgramStatsQuizzesPage() {
           </button>
         </div>
       )}
+
+      {/* 퀴즈 미제출자에게 리마인드 일괄 발송 */}
+      {reminderQuiz && (() => {
+        const subs = new Set(reminderQuiz.submitterIds || [])
+        const nonSub = activeParts.filter((p) => !subs.has(p.userId))
+        return (
+          <CheerModal
+            programId={id}
+            targetUserIds={nonSub.map((p) => p.userId)}
+            targetNames={nonSub.map((p) => p.nickname)}
+            groupLabel={`이 퀴즈 안 푼 ${nonSub.length}명`}
+            variant="quizReminder"
+            onClose={() => setReminderQuiz(null)}
+          />
+        )
+      })()}
     </div>
   )
 }
