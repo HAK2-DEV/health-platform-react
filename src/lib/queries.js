@@ -3673,6 +3673,12 @@ export const submitSurveyResponse = async ({ programId, userId, phase = 'start',
   if (error) throw error
 }
 
+// 운영자 — 종료 설문 시작(확정). 이 시각 이후 참여자에게 종료 설문 노출.
+export const startEndSurvey = async (programId) => {
+  const { error } = await supabase.from('programs').update({ end_survey_started_at: new Date().toISOString() }).eq('id', programId)
+  if (error) throw error
+}
+
 // 운영자 — 설문 문항 저장(커스텀). phase별 컬럼. null 이면 기본/시작 fallback 으로 되돌림.
 export const saveProgramSurvey = async ({ programId, questions, phase = 'start' }) => {
   const col = phase === 'end' ? 'survey_questions_end' : 'survey_questions'
