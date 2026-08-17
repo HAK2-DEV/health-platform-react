@@ -217,6 +217,22 @@ function ProgramStatsPage() {
             <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
           </button>
 
+          {/* 사전 설문 결과 카드 — 설문 기능 ON 일 때만 */}
+          {program.survey_enabled && (
+            <button
+              type="button"
+              onClick={() => navigate(`/programs/${id}/stats/survey`)}
+              className="w-full flex items-center gap-4 p-5 bg-white border border-gray-200 rounded-2xl hover:bg-gray-50 hover:border-teal-300 transition text-left"
+            >
+              <span className="w-12 h-12 flex-shrink-0 flex items-center justify-center text-3xl">📋</span>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-medium text-gray-800 mb-0.5">사전 설문 결과</h3>
+                <p className="text-xs text-gray-500">참가자 목표·실천 정도 응답 모아보기</p>
+              </div>
+              <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
+            </button>
+          )}
+
           {/* 클래스 카드 — 클래스 기능 ON 일 때만 */}
           {classEnabled && (
             <button

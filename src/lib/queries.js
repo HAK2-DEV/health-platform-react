@@ -3673,6 +3673,21 @@ export const submitSurveyResponse = async ({ programId, userId, phase = 'start',
   if (error) throw error
 }
 
+// 운영자 — 설문 문항 저장(커스텀). null 이면 카테고리 기본 문항으로 되돌림.
+export const saveProgramSurvey = async ({ programId, questions }) => {
+  const { error } = await supabase.from('programs').update({ survey_questions: questions }).eq('id', programId)
+  if (error) throw error
+}
+
+// 운영자 — 프로그램 설문 응답 전체(집계용). RLS 소유자 조회 정책으로 접근.
+export const fetchProgramSurveyResults = async ({ programId, phase = 'start' }) => {
+  if (!programId) return []
+  const { data, error } = await supabase.from('survey_responses')
+    .select('user_id, answers').eq('program_id', programId).eq('phase', phase)
+  if (error) return []
+  return data || []
+}
+
 // 식단 「내 변화」 통합 로더 — DietChangeTab data prop 형태로 반환.
 export const fetchDietChangeData = async ({ programId, userId, startDate }) => {
   // 칼로리 목표(참여자 행) + 목표 체중(weight_goals, 참여 여부 무관 — 운영자도 설정 가능)

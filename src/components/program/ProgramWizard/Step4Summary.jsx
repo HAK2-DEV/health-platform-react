@@ -1,12 +1,16 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
+import { Pencil, X } from 'lucide-react'
 import { supabase } from '../../../supabaseClient'
 import { useAuth } from '../../../hooks/useAuth'
 import { queryKeys } from '../../../lib/queries'
 import { CATEGORY, PROGRAM_TYPE, JOIN_TYPE } from '../../../lib/constants'
 import { formatKoreanDate } from '../../../lib/formatters'
+import { getProgramSurvey } from '../../../lib/surveyDefaults'
+import { useBodyScrollLock } from '../../../hooks/useBodyScrollLock'
 import InfoTip from '../../common/InfoTip'
+import SurveyEditor from '../SurveyEditor'
 
 // 마법사 Step4 (구 Step5Complete 의 요약 + 게시 부분)
 // 본인 (가) 진화 — 미션은 게시 후 운영자가 직접 추가
@@ -16,7 +20,18 @@ function Step4Summary({ initialData, programId, onPrev }) {
   const { session } = useAuth()
   const [isPublishing, setIsPublishing] = useState(false)
   const [surveyEnabled, setSurveyEnabled] = useState(initialData?.survey_enabled ?? true)  // 신규 = 기본 ON
+  const [surveyQuestions, setSurveyQuestions] = useState(initialData?.survey_questions ?? null)  // null = 카테고리 기본
+  const [editorOpen, setEditorOpen] = useState(false)
   const [error, setError] = useState(null)
+
+  useBodyScrollLock(editorOpen)
+
+  // 설문 ON 시 실제로 물어볼 문항(커스텀 or 카테고리 기본) — 미리보기·편집 초기값
+  const previewQuestions = getProgramSurvey({
+    categories: initialData?.categories,
+    theme: initialData?.theme,
+    survey_questions: surveyQuestions,
+  })
 
   const handlePublish = async () => {
     setIsPublishing(true)
@@ -154,6 +169,27 @@ function Step4Summary({ initialData, programId, onPrev }) {
             <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${surveyEnabled ? 'left-[18px]' : 'left-0.5'}`} />
           </button>
         </div>
+
+        {/* 문항 미리보기 + 편집 — 뭘 물어볼지 여기서 바로 확인·수정(발견성·투명성) */}
+        {surveyEnabled && (
+          <div className="mt-3 pt-3 border-t border-emerald-200/70">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-[12px] font-semibold text-emerald-800">이런 문항으로 물어봐요</span>
+              <button type="button" onClick={() => setEditorOpen(true)}
+                className="ml-auto inline-flex items-center gap-1 h-7 px-2.5 rounded-full bg-white text-emerald-700 border border-emerald-300 text-[12px] font-semibold hover:bg-emerald-100 transition">
+                <Pencil className="w-3 h-3" /> 문항 편집
+              </button>
+            </div>
+            <ol className="space-y-1">
+              {previewQuestions.map((q, i) => (
+                <li key={q.id || i} className="text-[12px] text-gray-700 break-keep leading-snug">
+                  <span className="text-emerald-600 font-semibold">{i + 1}.</span> {q.q}
+                  <span className="text-gray-400"> · {q.type === 'scale' ? '1~5 점수' : '단답'}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
       </div>
 
       {/* 미션 추가 안내 */}
@@ -193,6 +229,27 @@ function Step4Summary({ initialData, programId, onPrev }) {
           {isPublishing ? '게시 중...' : '🎉 프로그램 만들기'}
         </button>
       </div>
+
+      {/* 문항 편집 모달 — 마법사 이탈 없이 그 자리에서 */}
+      {editorOpen && (
+        <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
+          <div className="max-w-4xl mx-auto px-4 py-4 pb-10">
+            <div className="flex items-center gap-2 mb-1 sticky top-0 bg-white py-2 -mt-2 z-10">
+              <h2 className="text-lg font-extrabold text-gray-900">설문 문항 편집</h2>
+              <button type="button" onClick={() => setEditorOpen(false)} aria-label="닫기"
+                className="ml-auto flex items-center justify-center w-9 h-9 rounded-full hover:bg-gray-100 transition">
+                <X className="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
+            <p className="text-[12px] text-gray-500 mb-3">시작·종료에 참가자에게 물을 문항이에요. (단답 / 척도 1~5)</p>
+            <SurveyEditor
+              program={{ id: programId, categories: initialData?.categories, theme: initialData?.theme, survey_questions: surveyQuestions }}
+              responseCount={0}
+              onDone={(qs) => { setSurveyQuestions(qs); setEditorOpen(false) }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
