@@ -43,7 +43,7 @@ import ScoreSparkline from '../../components/program/ScoreSparkline'
 import StickyBackBar from '../../components/common/StickyBackBar'
 import Modal from '../../components/common/Modal'
 import DeleteProgramModal from '../../components/program/DeleteProgramModal'
-import OperatorReviewBanner from '../../components/program/OperatorReviewBanner'
+import OperatorTodoBanner from '../../components/program/OperatorTodoBanner'
 import EndReportBanner from '../../components/program/EndReportBanner'
 import ActivationNudge from '../../components/program/ActivationNudge'
 import WeeklyHighlight from '../../components/program/WeeklyHighlight'
@@ -105,6 +105,7 @@ const CheerModal = lazy(() => import('../../components/program/CheerModal'))
 import {
   queryKeys,
   fetchProgram,
+  fetchProgramQuizStats,
   fetchProgramMissions,
   fetchProgramScores,
   fetchProgramRanking,
@@ -830,16 +831,13 @@ function ProgramDetailPage() {
     enabled: !!session && !!id && !!program && !!userId,
   })
   const [vreviewOpen, setVreviewOpen] = useState(false)
-  // 인증 심사 대기 배너 강조 연출 — 진입(마운트) 후 심사 대기가 처음 감지될 때 1회만.
-  //   ref 가드로 탭 전환/재검증 시 중복 재생 방지. 실제 재진입(remount) 시엔 ref 초기화되어 다시 재생.
-  const reviewIntroPlayedRef = useRef(false)
-  const [playReviewIntro, setPlayReviewIntro] = useState(false)
-  useEffect(() => {
-    if (!reviewIntroPlayedRef.current && isOwner && pendingReviews.length > 0) {
-      reviewIntroPlayedRef.current = true
-      setPlayReviewIntro(true)
-    }
-  }, [isOwner, pendingReviews.length])
+  // 퀴즈 채점 대기 — 운영자 「할 일」 배너용(각 퀴즈 pendingCount 합). 퀴즈 기능 ON 일 때만.
+  const { data: quizPendingStats = [] } = useQuery({
+    queryKey: ['program-quiz-pending', id],
+    queryFn: () => fetchProgramQuizStats(id),
+    enabled: !!session && !!id && isOwner && program?.quiz_enabled !== false,
+  })
+  const quizPendingCount = quizPendingStats.reduce((s, q) => s + (q.pendingCount || 0), 0)
   // 종료 리포트 배너 강조 연출 — 운영자 + 프로그램 종료 첫 감지 시 1회.
   const endReportIntroPlayedRef = useRef(false)
   const [playEndReportIntro, setPlayEndReportIntro] = useState(false)
@@ -1180,6 +1178,18 @@ function ProgramDetailPage() {
     enabled: !!session && !!id && isOwner,
   })
 
+  // 운영자 「할 일」 배너 — 참여 승인·인증 심사·퀴즈 채점 대기 통합(0인 항목 숨김). 미처리로 프로그램 멈추는 것 방지.
+  const todoBannerEl = (isOwner && !isEnded && (pendingCount + pendingReviews.length + quizPendingCount) > 0) ? (
+    <OperatorTodoBanner
+      approve={pendingCount}
+      review={pendingReviews.length}
+      grade={quizPendingCount}
+      onApprove={() => setIsApprovalsOpen(true)}
+      onReview={() => setVreviewOpen(true)}
+      onGrade={() => navigate(`/programs/${id}/stats/quizzes`)}
+    />
+  ) : null
+
   // 참여자 자가 탈퇴 — status='LEFT' (RLS: 본인 행 UPDATE 허용). 랭킹·집계서 제외, 기록 보존.
   const leaveMutation = useMutation({
     mutationFn: async () => {
@@ -1448,7 +1458,10 @@ function ProgramDetailPage() {
       // 마무리 단계(진행 80%+)·미시작이면 검토+시작 배너
       if (endSurveyLaunched || calcProgress(program.start_date, program.end_date) < 80) return null
       return (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3.5">
+        <motion.div
+          animate={{ boxShadow: ['0 0 0px rgba(251,191,36,0)', '0 0 16px 2px rgba(251,191,36,0.55)', '0 0 0px rgba(251,191,36,0)'] }}
+          transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+          className="rounded-2xl border border-amber-200 bg-amber-50 p-3.5">
           <p className="text-[13px] font-bold text-amber-900 mb-0.5">⏳ 종료 설문 준비</p>
           <p className="text-[12px] text-amber-800 leading-snug break-keep mb-2.5">마무리가 다가와요. 시작하면 참여자에게 종료 설문이 나가요. 먼저 문항을 확인하세요.</p>
           <div className="flex gap-2">
@@ -1457,7 +1470,7 @@ function ProgramDetailPage() {
             <button type="button" onClick={() => setEndSurveyConfirmOpen(true)}
               className="flex-1 h-9 rounded-lg bg-amber-500 text-white text-[13px] font-bold active:scale-[0.98] transition">종료 설문 시작</button>
           </div>
-        </div>
+        </motion.div>
       )
     }
     if (isViewer) return null
@@ -1903,17 +1916,8 @@ function ProgramDetailPage() {
         />
       )}
 
-      {/* 인증 심사 대기 배너 — 운영자 + 검토 필요 인증 (개요·미션 탭). 탭하면 인증 검토 큐.
-          진입 시 1회 강조 연출(정중앙 팝업 → 원위치). */}
-      {isOwner && !isEnded && pendingReviews.length > 0 && (activeTab === 'overview' || activeTab === 'missions') && !immersiveHome && !inManager && (
-        <OperatorReviewBanner
-          count={pendingReviews.length}
-          onClick={() => setVreviewOpen(true)}
-          playIntro={playReviewIntro}
-          onIntroDone={() => setPlayReviewIntro(false)}
-          centerOffset={activeTab === 'overview' && progressUrgency(calcProgress(program.start_date, program.end_date)).urgency === 'ended' ? 46 : 0}  // 종료 리포트와 겹칠 때 아래로
-        />
-      )}
+      {/* 운영자 할 일 배너 — 참여 승인·인증 심사·퀴즈 채점 대기 통합 (개요·미션 탭) */}
+      {(activeTab === 'overview' || activeTab === 'missions') && !immersiveHome && !inManager && todoBannerEl}
 
       {/* ─── 개요 탭 — 관리자 편집 폼 (미리보기 중엔 숨김, mounted 유지) ─── */}
       {activeTab === 'overview' && overviewManageOpen && (
@@ -2056,9 +2060,7 @@ function ProgramDetailPage() {
               {isOwner && cardEnded && (
                 <EndReportBanner onClick={() => navigate(`/programs/${id}/report`)} playIntro={playEndReportIntro} onIntroDone={() => setPlayEndReportIntro(false)} />
               )}
-              {isOwner && !isEnded && pendingReviews.length > 0 && (
-                <OperatorReviewBanner count={pendingReviews.length} onClick={() => setVreviewOpen(true)} playIntro={playReviewIntro} onIntroDone={() => setPlayReviewIntro(false)} />
-              )}
+              {todoBannerEl}
               {weeklyHighlightEl || participantReportEl || completionBannerEl}
               <DietOverview
                 today={dietToday}
@@ -2259,15 +2261,7 @@ function ProgramDetailPage() {
             onBack={handleHeaderBack}
             onSettings={isOwner ? () => setIsPanelOpen(true) : null}
             pendingCount={pendingCount}
-            reviewSlot={isOwner && !isEnded && pendingReviews.length > 0 ? (
-              <OperatorReviewBanner
-                count={pendingReviews.length}
-                onClick={() => setVreviewOpen(true)}
-                playIntro={playReviewIntro}
-                onIntroDone={() => setPlayReviewIntro(false)}
-                centerOffset={progressUrgency(calcProgress(program.start_date, program.end_date)).urgency === 'ended' ? 46 : 0}
-              />
-            ) : null}
+            reviewSlot={todoBannerEl}
             endReportSlot={isOwner && progressUrgency(calcProgress(program.start_date, program.end_date)).urgency === 'ended' ? (
               <EndReportBanner
                 onClick={() => navigate(`/programs/${id}/report`)}
