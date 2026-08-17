@@ -657,11 +657,11 @@ function ProgramDetailPage() {
   const [inviteWarnOpen, setInviteWarnOpen] = useState(false)  // 미션 0개인데 초대 시도 → 경고(후 허용)
   const [isPanelOpen, setIsPanelOpen] = useState(false)
   const [notifyFlagsLocal, setNotifyFlagsLocal] = useState({})  // 새 소식 알림 유형별 보내기(낙관적)
-  const [panelView, setPanelView] = useState('root')   // 운영자 메뉴 시트 단계: root | settings | menubar
+  const [panelView, setPanelView] = useState('root')   // 운영자 메뉴 시트 단계: root | settings | survey | notifications | reports
   const [isRankingOpen, setIsRankingOpen] = useState(false)  // 랭킹 설정 모달
   const noticeMarkedRef = useRef(false)                          // 이번 진입에서 공지 열람 처리했는지(미열람 배지 즉시 해제)
   const closePanel = () => { setIsPanelOpen(false); setPanelView('root') }
-  const handleRankingClose = () => { setIsRankingOpen(false); setPanelView('menubar'); setIsPanelOpen(true) }
+  const handleRankingClose = () => { setIsRankingOpen(false); setPanelView('settings'); setIsPanelOpen(true) }
   const [homeEditOpen, setHomeEditOpen] = useState(false)  // 카드홈 레이아웃 편집기 (운영자)
   const [missionManageOpen, setMissionManageOpen] = useState(false)    // 미션 관리자 작업 페이지
   const [missionPreview, setMissionPreview] = useState(false)
@@ -1055,7 +1055,7 @@ function ProgramDetailPage() {
       classFromStatsRef.current = true   // 통계 「클래스 현황」 진입 → 닫을 때 통계로 복귀
       openClassManage()   // 통계 등에서 「클래스 관리」 직행 딥링크 → 전체화면 오버레이 바로 오픈
     } else {
-      setPanelView(['root', 'settings', 'menubar', 'reports'].includes(om) ? om : 'root')
+      setPanelView(om === 'menubar' ? 'settings' : (['root', 'settings', 'survey', 'reports'].includes(om) ? om : 'root'))
       setIsPanelOpen(true)
     }
     setSearchParams(prev => { const n = new URLSearchParams(prev); n.delete('opmenu'); return n }, { replace: true })
@@ -1127,14 +1127,16 @@ function ProgramDetailPage() {
   })
 
   // 운영자 「할 일」 배너 — 참여 승인·인증 심사·퀴즈 채점 대기 통합(0인 항목 숨김). 미처리로 프로그램 멈추는 것 방지.
-  const todoBannerEl = (isOwner && !isEnded && (pendingCount + pendingReviews.length + quizPendingCount) > 0) ? (
+  const todoBannerEl = (isOwner && !isEnded && (pendingCount + pendingReviews.length + quizPendingCount + unresolvedReportCount) > 0) ? (
     <OperatorTodoBanner
       approve={pendingCount}
       review={pendingReviews.length}
       grade={quizPendingCount}
+      report={unresolvedReportCount}
       onApprove={() => setIsApprovalsOpen(true)}
       onReview={() => setVreviewOpen(true)}
       onGrade={() => navigate(`/programs/${id}/stats/quizzes`)}
+      onReport={() => { setPanelView('reports'); setIsPanelOpen(true) }}
     />
   ) : null
 
@@ -1442,7 +1444,7 @@ function ProgramDetailPage() {
     closePanel()
     if (key === 'ranking') { setIsRankingOpen(true); return }   // 랭킹 전용 설정 모달, 닫으면 메뉴바로
     preManagerTabRef.current = activeTab                         // 닫을 때 직전 탭으로 복귀
-    returnMenuViewRef.current = 'menubar'                        // 닫으면 「메뉴바 설정」으로 재진입
+    returnMenuViewRef.current = 'settings'                       // 닫으면 「내 프로그램 설정」으로 재진입
     if (key === 'missions') { setActiveTab('missions'); openMissionManage() }
     else if (key === 'quizzes') { openQuizManage() }            // openQuizManage 가 tab=quizzes 까지 설정
     else if (key === 'community') { setActiveTab('community'); openCommunityManage() }
@@ -3234,7 +3236,31 @@ function ProgramDetailPage() {
                 </div>
                 <div className="grid grid-cols-1 gap-2.5">
                   <PanelMenuBox icon="📋" title="프로그램 설정" desc="이름·기간·카테고리·공개 + 퀴즈/커뮤니티 사용" onClick={() => { closePanel(); editReturnViewRef.current = 'settings'; setIsEditOpen(true) }} />
-                  <PanelMenuBox icon="🗂️" title="메뉴바 설정" desc="미션·퀴즈·커뮤니티·랭킹·클래스" chevron onClick={() => setPanelView('menubar')} />
+                </div>
+                <div className="mt-5 mb-2.5 flex items-center gap-2">
+                  <span className="text-[12px] font-bold text-gray-400">메뉴 기능</span>
+                  <span className="flex-1 h-px bg-gray-100" />
+                </div>
+                <div className="grid grid-cols-1 gap-2.5">
+                  <PanelMenuBox iconSrc="/icons/feature/mission.png" icon="📋" title="미션 설정" desc="미션 추가·수정·순서" onClick={() => openManagerFromMenu('missions')} />
+                  {quizEnabled && (
+                    <PanelMenuBox iconSrc="/icons/feature/quiz.png" icon="📋" title="퀴즈 설정" desc="퀴즈 생성·수정·결과" onClick={() => openManagerFromMenu('quizzes')} />
+                  )}
+                  {communityEnabled && (
+                    <PanelMenuBox iconSrc="/icons/feature/community.png" icon="💬" title={program.theme === PROGRAM_THEME.QUIT_SMOKING ? '응원 설정' : '커뮤니티 설정'} desc="게시판·피드·신고 관리" onClick={() => openManagerFromMenu('community')} />
+                  )}
+                  {/* 참여 설문 ON 일 때만 — 문항 편집이 통계 속에 묻히지 않게 여기서 직행 */}
+                  {program.survey_enabled && (
+                    <PanelMenuBox iconSrc="/icons/action/record.png" icon="📝" title="설문 설정" desc="시작·종료 문항 편집 · 결과 보기" chevron onClick={() => setPanelView('survey')} />
+                  )}
+                  {/* 금연 테마 — 랭킹 설정 항목 숨김 (랭킹 메뉴 자체가 없으므로) */}
+                  {program.theme !== PROGRAM_THEME.QUIT_SMOKING && (
+                    <PanelMenuBox iconSrc="/icons/reward/ranking.png" icon="🏆" title="랭킹 설정" desc="랭킹 표시·시상대·공개 등" onClick={() => openManagerFromMenu('ranking')} />
+                  )}
+                  {/* 강사 클래스 운영 ON 일 때만 (마이그 158) */}
+                  {program.class_feature_enabled && (
+                    <PanelMenuBox iconSrc="/icons/class/yoga.png" icon="🧘" title="클래스 관리" desc="강사 프로필 · 클래스 일정" onClick={() => openManagerFromMenu('classes')} />
+                  )}
                 </div>
               </>
             )}
@@ -3279,30 +3305,19 @@ function ProgramDetailPage() {
               </>
             )}
 
-            {panelView === 'menubar' && (
+            {panelView === 'survey' && (
               <>
                 <div className="flex items-center gap-1.5 mb-4">
                   <button type="button" onClick={() => setPanelView('settings')} className="p-1 -ml-1 text-gray-500 hover:text-gray-800" aria-label="뒤로">
                     <ChevronLeft className="w-5 h-5" />
                   </button>
-                  <h2 className="text-lg font-bold text-gray-800">메뉴바 설정</h2>
+                  <h2 className="text-lg font-bold text-gray-800">설문 설정</h2>
                 </div>
+                <p className="text-[13px] text-gray-500 leading-relaxed mb-3 break-keep">참여자에게 나갈 <b className="font-semibold text-gray-700">시작·종료 설문 문항</b>을 편집하고, 모인 응답을 확인해요.</p>
                 <div className="grid grid-cols-1 gap-2.5">
-                  <PanelMenuBox iconSrc="/icons/feature/mission.png" icon="📋" title="미션 설정" desc="미션 추가·수정·순서" onClick={() => openManagerFromMenu('missions')} />
-                  {quizEnabled && (
-                    <PanelMenuBox iconSrc="/icons/feature/quiz.png" icon="📋" title="퀴즈 설정" desc="퀴즈 생성·수정·결과" onClick={() => openManagerFromMenu('quizzes')} />
-                  )}
-                  {communityEnabled && (
-                    <PanelMenuBox iconSrc="/icons/feature/community.png" icon="💬" title={program.theme === PROGRAM_THEME.QUIT_SMOKING ? '응원 설정' : '커뮤니티 설정'} desc="게시판·피드·신고 관리" onClick={() => openManagerFromMenu('community')} />
-                  )}
-                  {/* 금연 테마 — 랭킹 설정 항목 숨김 (랭킹 메뉴 자체가 없으므로) */}
-                  {program.theme !== PROGRAM_THEME.QUIT_SMOKING && (
-                    <PanelMenuBox iconSrc="/icons/reward/ranking.png" icon="🏆" title="랭킹 설정" desc="랭킹 표시·시상대·공개 등" onClick={() => openManagerFromMenu('ranking')} />
-                  )}
-                  {/* 강사 클래스 운영 ON 일 때만 (마이그 158) */}
-                  {program.class_feature_enabled && (
-                    <PanelMenuBox iconSrc="/icons/class/yoga.png" icon="🧘" title="클래스 관리" desc="강사 프로필 · 클래스 일정" onClick={() => openManagerFromMenu('classes')} />
-                  )}
+                  <PanelMenuBox icon="📝" title="시작 문항 편집" desc="참여 시작 때 묻는 설문" onClick={() => { closePanel(); navigate(`/programs/${id}/survey/edit?phase=start`, { state: { backToOpMenu: 'survey' } }) }} />
+                  <PanelMenuBox icon="🏁" title="종료 문항 편집" desc="프로그램 종료 때 묻는 설문" onClick={() => { closePanel(); navigate(`/programs/${id}/survey/edit?phase=end`, { state: { backToOpMenu: 'survey' } }) }} />
+                  <PanelMenuBox icon="📊" title="설문 결과 보기" desc="시작·종료·변화 응답 현황" onClick={() => { closePanel(); navigate(`/programs/${id}/stats/survey`, { state: { backToOpMenu: 'survey' } }) }} />
                 </div>
               </>
             )}

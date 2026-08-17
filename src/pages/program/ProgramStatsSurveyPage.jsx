@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronLeft, Pencil } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
@@ -17,6 +17,10 @@ import HP2030Report from '../../components/program/HP2030Report'
 function ProgramStatsSurveyPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
+  // 운영자 메뉴(설문 설정)에서 진입했으면 뒤로가기 = 그 메뉴 시트로 복귀
+  const backOp = location.state?.backToOpMenu
+  const goBack = backOp ? () => navigate(`/programs/${id}?opmenu=${backOp}`, { replace: true }) : undefined
   const { session } = useAuth()
   const userId = session?.user?.id
   const [view, setView] = useState(null)  // null → 데이터 따라 기본값 결정
@@ -80,7 +84,7 @@ function ProgramStatsSurveyPage() {
 
   return (
     <div className="px-4 pt-2 pb-8 max-w-4xl mx-auto">
-      <StickyBackBar fallbackPath={`/programs/${id}/stats`} title="통계로" breadcrumb={[program.name, '통계', '설문 결과']} />
+      <StickyBackBar onClick={goBack} fallbackPath={backOp ? `/programs/${id}?opmenu=${backOp}` : `/programs/${id}/stats`} title={backOp === 'survey' ? '설문 설정으로' : '통계로'} breadcrumb={backOp === 'survey' ? [program.name, '설문 설정', '설문 결과'] : [program.name, '통계', '설문 결과']} />
 
       <div className="flex items-start gap-2 mb-3">
         <div className="flex-1 min-w-0">

@@ -1,4 +1,4 @@
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronLeft } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
@@ -12,7 +12,11 @@ function ProgramSurveyEditPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [sp] = useSearchParams()
+  const location = useLocation()
   const phase = sp.get('phase') === 'end' ? 'end' : 'start'
+  // 운영자 메뉴(설문 설정)에서 진입했으면 뒤로가기 = 그 메뉴 시트로 복귀
+  const backOp = location.state?.backToOpMenu
+  const goBack = backOp ? () => navigate(`/programs/${id}?opmenu=${backOp}`, { replace: true }) : undefined
   const { session } = useAuth()
   const userId = session?.user?.id
 
@@ -42,12 +46,12 @@ function ProgramSurveyEditPage() {
 
   return (
     <div className="px-4 pt-2 pb-8 max-w-4xl mx-auto">
-      <StickyBackBar fallbackPath={`/programs/${id}/stats/survey`} title="설문 결과로" breadcrumb={[program.name, phase === 'end' ? '종료 문항 편집' : '시작 문항 편집']} />
+      <StickyBackBar onClick={goBack} fallbackPath={backOp ? `/programs/${id}?opmenu=${backOp}` : `/programs/${id}/stats/survey`} title={backOp === 'survey' ? '설문 설정으로' : '설문 결과로'} breadcrumb={backOp === 'survey' ? [program.name, '설문 설정', phase === 'end' ? '종료 문항 편집' : '시작 문항 편집'] : [program.name, phase === 'end' ? '종료 문항 편집' : '시작 문항 편집']} />
 
       <h1 className="text-lg font-extrabold text-gray-900 mb-1">{phase === 'end' ? '종료 설문 문항 편집' : '시작 설문 문항 편집'}</h1>
       <p className="text-[12px] text-gray-500 mb-3">참가자에게 물을 문항이에요. (단답 / 척도 1~5)</p>
 
-      <SurveyEditor program={program} responseCount={responses.length} phase={phase} onDone={() => navigate(-1)} />
+      <SurveyEditor program={program} responseCount={responses.length} phase={phase} onDone={goBack || (() => navigate(-1))} />
     </div>
   )
 }
