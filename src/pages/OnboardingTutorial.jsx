@@ -31,11 +31,12 @@ const JOURNEY = {
     ], tab: '화면 맨 아래 <b>탭바</b> — 🏠 대시보드 · 🚩 프로그램 · ＋ 기록 · 🌿 성장 · 👤 마이', mini: '🏠🚩🌿👤' },
   o: { badge: '운영자', cls: 'o', title: '프로그램, 이렇게 운영해요',
     steps: [
-      { st: 'STEP 1', pv: 'o_create', imgs: ['/onboarding/journey/o1-create1.png', '/onboarding/journey/o1-create2.png', '/onboarding/journey/o1-create3.png'], h: '프로그램 만들기', p: '하단 가운데 <b>＋</b> → 마법사로 이름·기간·카테고리 설정. <b>프리셋</b>이면 4분 완성!' },
-      { st: 'STEP 2', pv: 'o_mission', imgs: ['/onboarding/journey/o2-mission.png'], h: '미션·퀴즈 구성', p: '매일 인증할 <b>미션</b>과 <b>퀴즈</b>를 추가. 점수·인증 방식(자동/심사)을 정해요.' },
-      { st: 'STEP 3', pv: 'o_invite', imgs: ['/onboarding/journey/o3-invite1.png', '/onboarding/journey/o3-invite2.png'], h: '참여자 초대', p: '<b>코드·링크·카카오톡</b>으로 초대. 공개로 두면 둘러보기에 노출돼요.' },
-      { st: 'STEP 4', pv: 'o_manage', imgs: ['/onboarding/journey/o4-manage.png'], fit: 'contain', h: '운영하기', p: '인증 <b>승인</b>·공지·신고 처리를 한 화면에서. 실시간 참여 현황 확인.' },
-      { st: 'STEP 5', pv: 'o_report', imgs: ['/onboarding/journey/o5-report1.png', '/onboarding/journey/o5-report2.png'], h: '통계·종료 리포트', p: '참여율·미션 성과·랭킹을 <b>통계</b>로. 종료 시 완주율·<b>여정 퍼널</b> 리포트까지!' },
+      { st: 'STEP 1', imgs: ['/onboarding/journey/o1-plus.png'], h: '프로그램은 여기서 만들어요', p: '화면 <b>하단 가운데 ＋</b>를 누르면 <b>「✨ 프로그램 생성」</b>이 떠요. 그걸 눌러서 시작해요.' },
+      { st: 'STEP 2', pv: 'o_create', imgs: ['/onboarding/journey/o1-create1.png', '/onboarding/journey/o1-create2.png', '/onboarding/journey/o1-create3.png'], h: '프로그램 만들기', p: '<b>직접 만들기</b>나 <b>라이브러리</b>를 골라, 마법사로 이름·기간·카테고리만 정하면 끝. <b>프리셋</b>이면 4분 완성!' },
+      { st: 'STEP 3', pv: 'o_mission', imgs: ['/onboarding/journey/o2-mission.png'], h: '미션·퀴즈 구성', p: '매일 인증할 <b>미션</b>과 <b>퀴즈</b>를 추가. 점수·인증 방식(자동/심사)을 정해요.' },
+      { st: 'STEP 4', pv: 'o_invite', imgs: ['/onboarding/journey/o3-invite1.png', '/onboarding/journey/o3-invite2.png'], h: '참여자 초대', p: '<b>코드·링크·카카오톡</b>으로 초대. 공개로 두면 둘러보기에 노출돼요.' },
+      { st: 'STEP 5', pv: 'o_manage', imgs: ['/onboarding/journey/o4-manage.png'], fit: 'contain', h: '운영하기', p: '인증 <b>승인</b>·공지·신고 처리를 한 화면에서. 실시간 참여 현황 확인.' },
+      { st: 'STEP 6', pv: 'o_report', imgs: ['/onboarding/journey/o5-report1.png', '/onboarding/journey/o5-report2.png'], h: '통계·종료 리포트', p: '참여율·미션 성과·랭킹을 <b>통계</b>로. 종료 시 완주율·<b>여정 퍼널</b> 리포트까지!' },
     ], tab: '상단 <b>⚙️ 운영자 메뉴</b>에서 미션·퀴즈·공지·통계·초대에 바로 접근', mini: '⚙️' },
 }
 
