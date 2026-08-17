@@ -229,43 +229,39 @@ function RankRing({ rank, total }) {
 
 // 신규 사용자 콜드스타트 가이드 — 운영·참여 프로그램이 0개일 때 대표/활동/랭킹 3섹션을 대체.
 // 죽은 0/0/0 카드 대신 둘러보기→참여→인증 「시작 3단계」 동선을 안내한다 (참여자 온보딩 A).
-function ColdStartGuide({ onBrowse }) {
-  const steps = [
-    { n: 1, emoji: '🔍', title: '프로그램 둘러보기', body: '관심 있는 건강 프로그램을 찾아봐요.' },
-    { n: 2, emoji: '🙌', title: '마음에 드는 곳에 참여', body: '공개 프로그램은 바로, 비공개는 초대코드로 참여해요.' },
-    { n: 3, emoji: '✅', title: '매일 미션 인증', body: '사진·기록으로 인증하며 건강 습관을 쌓아요.' },
+function ColdStartGuide({ onBrowse, onCreate }) {
+  // 참여 / 운영 — 대등한 두 갈래(북극성: 누구나 참여도 운영도)
+  const paths = [
+    { emoji: '🔍', title: '프로그램 참여하기', body: '관심 있는 건강 프로그램을 찾아 참여해요.', onClick: onBrowse },
+    { emoji: '✨', title: '프로그램 만들기', body: '직접 만들어 사람들과 함께 운영해요.', onClick: onCreate },
   ]
   return (
     <SectionCard>
       <div className="text-center mb-5">
         <img src="/icons/growth/sprout.png" alt="" aria-hidden="true" className="w-32 h-32 object-contain mx-auto -mt-12 mb-1" />
         <h2 className="text-lg font-extrabold text-gray-900 leading-tight">건강 습관, 여기서 시작해요!</h2>
-        <p className="text-[13.5px] font-semibold text-gray-600 mt-2.5">3단계면 충분해요. 첫 프로그램을 찾아볼까요?</p>
+        <p className="text-[13.5px] font-semibold text-gray-600 mt-2.5">참여할 수도, 직접 운영할 수도 있어요.</p>
       </div>
-      <ol className="space-y-4 mb-5">
-        {steps.map((s, i) => (
-          <motion.li
-            key={s.n}
-            className="flex items-start gap-3"
+      <div className="space-y-3">
+        {paths.map((p, i) => (
+          <motion.button
+            key={p.title}
+            type="button"
+            onClick={p.onClick}
+            className="w-full flex items-center gap-3.5 p-4 rounded-2xl border border-gray-200 hover:border-emerald-300 hover:bg-emerald-50/40 active:scale-[0.99] transition text-left"
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.1 + i * 0.1 }}
           >
-            <span className="flex-shrink-0 w-7 h-7 rounded-full bg-emerald-100 text-emerald-700 text-sm font-bold flex items-center justify-center">{s.n}</span>
-            <div className="min-w-0">
-              <p className="text-[15px] font-bold text-gray-800">{s.emoji} {s.title}</p>
-              <p className="text-[13px] text-gray-500 leading-snug mt-1">{s.body}</p>
+            <span className="flex-shrink-0 w-11 h-11 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-[22px]">{p.emoji}</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-[15px] font-bold text-gray-800">{p.title}</p>
+              <p className="text-[12.5px] text-gray-500 leading-snug mt-0.5 break-keep">{p.body}</p>
             </div>
-          </motion.li>
+            <ChevronRight className="w-5 h-5 text-gray-300 flex-shrink-0" />
+          </motion.button>
         ))}
-      </ol>
-      <button
-        type="button"
-        onClick={onBrowse}
-        className="w-full py-3 rounded-card-lg bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-semibold transition flex items-center justify-center gap-1"
-      >
-        프로그램 둘러보기 <ChevronRight className="w-4 h-4" />
-      </button>
+      </div>
     </SectionCard>
   )
 }
@@ -597,7 +593,7 @@ function DashboardPage() {
 
         {/* 신규 사용자 — 죽은 0/0/0 섹션 대신 시작 가이드 히어로 */}
         {isColdStart ? (
-        <ColdStartGuide onBrowse={() => setBrowseOpen(true)} />
+        <ColdStartGuide onBrowse={() => setBrowseOpen(true)} onCreate={() => navigate('/programs/new')} />
         ) : (<>
         {/* ─── 운영중/참여중 전환 3개 섹션 — 섹션 간격 16px(위 콘텐츠와 균일) ─── */}
         <div className="space-y-4">
