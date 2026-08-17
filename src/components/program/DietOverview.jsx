@@ -390,7 +390,7 @@ function NutritionReport({ today }) {
 }
 
 // 식단 개요 커스터마이즈 박스 — 순서·숨김 편집 대상(메뉴는 내비라 숨김 불가).
-export const DIET_BOX_ORDER = ['summary', 'meals', 'nutrition', 'todayMissions', 'recent', 'menu']
+export const DIET_BOX_ORDER = ['summary', 'meals', 'nutrition', 'menu', 'todayMissions', 'recent']
 export const DIET_BOX_LABELS = {
   summary: '진행 현황 · 주간',
   meals: '끼니별 현황',
