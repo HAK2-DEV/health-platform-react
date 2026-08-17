@@ -76,7 +76,7 @@ function ProgramStatsSurveyPage() {
   const rate = partCount > 0 ? Math.round((shownCount / partCount) * 100) : null
 
   // 탭 — 시작·종료는 항상(사전 편집 위해), 변화·HP2030은 종료 응답이 있을 때만
-  const tabs = [{ key: 'start', label: '시작' }, { key: 'end', label: '종료' }, ...(hasEnd ? [{ key: 'change', label: '변화' }, { key: 'hp2030', label: 'HP2030' }] : [])]
+  const tabs = [{ key: 'start', label: '시작' }, { key: 'end', label: '종료' }, ...(hasEnd ? [{ key: 'change', label: '변화' }, { key: 'hp2030', label: '설문 리포트' }] : [])]
 
   return (
     <div className="px-4 pt-2 pb-8 max-w-4xl mx-auto">

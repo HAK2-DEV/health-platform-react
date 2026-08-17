@@ -4,7 +4,9 @@ import { useQuery } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronLeft, ChevronDown, ChevronRight, Trophy, MessageSquare, Copy, Download } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
-import { queryKeys, fetchProgram, fetchProgramStats, fetchProgramOperatorLoad, fetchProgramQuizStats, fetchProgramCommunityStats, fetchProgramReports, fetchEndReportPerUser, fetchProgramScoreBreakdown, fetchProgramTeamRanking, fetchProgramDistanceByUser, fetchProgramMetricsByUser, fetchProgramCommentsDetail, fetchProgramQuizAnswersDetail, fetchProgramClassStats, fetchProgramClassRoster, fetchProgramScoreLedger, REPORT_REASON_PRESETS, formatKstDate } from '../../lib/queries'
+import { queryKeys, fetchProgram, fetchProgramStats, fetchProgramOperatorLoad, fetchProgramQuizStats, fetchProgramCommunityStats, fetchProgramReports, fetchEndReportPerUser, fetchProgramScoreBreakdown, fetchProgramTeamRanking, fetchProgramDistanceByUser, fetchProgramMetricsByUser, fetchProgramCommentsDetail, fetchProgramQuizAnswersDetail, fetchProgramClassStats, fetchProgramClassRoster, fetchProgramScoreLedger, fetchProgramSurveyResults, fetchUserDemographics, REPORT_REASON_PRESETS, formatKstDate } from '../../lib/queries'
+import { getProgramSurvey } from '../../lib/surveyDefaults'
+import HP2030Report from '../../components/program/HP2030Report'
 import { catOf } from '../../lib/classCategories'
 import { PROGRAM_THEME } from '../../lib/constants'
 import { formatKoreanDate } from '../../lib/formatters'
@@ -249,6 +251,24 @@ function ProgramEndReportPage() {
     enabled: !!session && !!id && isOwner && !!program?.class_feature_enabled,
   })
 
+  // 설문 리포트 — 설문 ON 프로그램의 시작/종료 응답 + 인구통계(형평성)
+  const { data: surveyStart = [] } = useQuery({
+    queryKey: ['survey-results', id, 'start'],
+    queryFn: () => fetchProgramSurveyResults({ programId: id, phase: 'start' }),
+    enabled: !!session && !!id && isOwner && program?.survey_enabled === true,
+  })
+  const { data: surveyEnd = [] } = useQuery({
+    queryKey: ['survey-results', id, 'end'],
+    queryFn: () => fetchProgramSurveyResults({ programId: id, phase: 'end' }),
+    enabled: !!session && !!id && isOwner && program?.survey_enabled === true,
+  })
+  const surveyRespIds = [...new Set([...surveyStart, ...surveyEnd].map((r) => r.user_id))]
+  const { data: surveyDemo = {} } = useQuery({
+    queryKey: ['survey-demographics', id, surveyRespIds.length],
+    queryFn: () => fetchUserDemographics(surveyRespIds),
+    enabled: !!session && !!id && isOwner && surveyRespIds.length > 0,
+  })
+
   const report = useMemo(() => computeReport(stats, program), [stats, program])
   const [cloneOpen, setCloneOpen] = useState(false)
 
@@ -348,6 +368,17 @@ function ProgramEndReportPage() {
 
           {/* ─── 운영 부하 (있는 데이터만 · 정산은 보류) ─── */}
           <Reveal index={8}><OperatorLoadCard load={opLoad} /></Reveal>
+
+          {/* ─── 설문 리포트 (설문 ON + 종료 응답 있을 때) ─── */}
+          {program.survey_enabled && surveyEnd.length > 0 && (
+            <>
+              <Reveal index={9}><h2 className="text-[16px] font-extrabold text-gray-900 px-1 pt-2">설문 리포트</h2></Reveal>
+              <HP2030Report program={program}
+                startQuestions={getProgramSurvey(program, 'start')} endQuestions={getProgramSurvey(program, 'end')}
+                startResponses={surveyStart} endResponses={surveyEnd} demographics={surveyDemo}
+                partCount={report.totalParticipants} />
+            </>
+          )}
 
           {/* ─── 다음 액션 ─── */}
           <Reveal index={9}><NextActionsCard programId={id} feedEnabled={!!program.feed_enabled} navigate={navigate} onClone={() => setCloneOpen(true)}

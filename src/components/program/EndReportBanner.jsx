@@ -46,12 +46,14 @@ function EndReportBanner({ onClick, playIntro = false, onIntroDone, centerOffset
 
   return (
     <div className="mb-[9px]">
-      {/* 인라인 버튼 — 연출 중엔 자리만(숨김), 완료 후 실제 클릭 대상 */}
-      <button type="button" onClick={onClick} ref={slotRef}
-        className="w-full block active:scale-[0.99] transition"
-        style={{ visibility: phase === 'done' ? 'visible' : 'hidden' }}>
+      {/* 인라인 버튼 — 연출 중엔 자리만(숨김), 완료 후 실제 클릭 대상 (은은한 형광 글로우) */}
+      <motion.button type="button" onClick={onClick} ref={slotRef}
+        className="w-full block rounded-2xl active:scale-[0.99] transition"
+        style={{ visibility: phase === 'done' ? 'visible' : 'hidden' }}
+        animate={{ boxShadow: ['0 0 0px rgba(16,185,129,0)', '0 0 16px 2px rgba(16,185,129,0.55)', '0 0 0px rgba(16,185,129,0)'] }}
+        transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}>
         <BannerInner />
-      </button>
+      </motion.button>
 
       {animating && (
         <>

@@ -90,11 +90,13 @@ export default function HP2030Report({ program, startQuestions = [], endQuestion
 
   return (
     <div className="space-y-3">
-      {/* 지표 카드 */}
+      {/* 성과 요약 카드 — 헤드라인은 누구나 이해, 국가지표(HP2030)는 은은한 배지 */}
       <Reveal index={0} className="rounded-2xl p-4 bg-gradient-to-br from-teal-50 to-emerald-50 border border-emerald-100">
-        <p className="text-[11px] font-bold text-emerald-600 mb-0.5">HP2030 · {map.area}</p>
-        <p className="text-[15px] font-extrabold text-gray-900 break-keep leading-snug">{map.indicator}에 기여</p>
-        <p className="text-[12px] text-gray-500 mt-1">활성 참여 {partCount}명 · 응답 시작 {startResponses.length} / 종료 {endResponses.length}</p>
+        <p className="text-[11px] font-bold text-emerald-600 mb-0.5">성과 요약</p>
+        <p className="text-[15px] font-extrabold text-gray-900 break-keep leading-snug">활성 참여 {partCount}명 · 시작 {startResponses.length} / 종료 {endResponses.length} 응답</p>
+        <div className="mt-2 inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-white/70 border border-emerald-100 text-[11px] text-gray-500 break-keep">
+          🏛 국가 건강지표(HP2030) · {map.area} · {map.indicator} 기여
+        </div>
       </Reveal>
 
       {/* 핵심 지표 변화 */}
