@@ -90,11 +90,14 @@ export default function OnboardingTutorial() {
   }
   const pickRole = (r) => { setRole(r); setSeen(s => ({ ...s, [r]: true })); go(5) }
 
-  // 완주 기준 — 마지막 화면(step 6)에 도달하면 "끝까지 봄"으로 1회 완료 처리.
-  // (진입 즉시가 아니라 완주 시에만 마킹 → 중간에 나가면 다음 접속에 다시 노출)
+  // 완료 처리 — 마지막 화면(step 6) 도달 시, 그리고 온보딩을 떠날 때(언마운트: 뒤로가기·건너뛰기·이동 등).
+  //   한 번 진입 후 이탈하면 완료로 간주 → 접속마다 재노출되던 문제 해결(G38). 다시 보려면 마이페이지 등에서.
   useEffect(() => {
     if (step === 6) { try { localStorage.setItem('onboarding-done', '1') } catch { /* 무시 */ } }
   }, [step])
+  useEffect(() => {
+    return () => { try { localStorage.setItem('onboarding-done', '1') } catch { /* 무시 */ } }
+  }, [])
 
   // 설치 안내 이미지 프리로드 — 진입 시 초록 화살표만 먼저 뜨고 사진이 늦게 뜨는 문제 방지.
   useEffect(() => {

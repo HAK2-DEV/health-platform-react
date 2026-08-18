@@ -142,7 +142,7 @@ function QuizCreatePage() {
       window.scrollBy({ top: 400, behavior: 'smooth' })
     })
   }
-  const [revealAnswers, setRevealAnswers] = useState(false)
+  const [revealMode, setRevealMode] = useState('AFTER_CLOSE')  // IMMEDIATE | AFTER_CLOSE | NEVER
   const [questions, setQuestions] = useState(
     prefillTopic ? prefillTopic.questions.map(mapLibQuestion) : [newQuestion()]
   )
@@ -174,7 +174,7 @@ function QuizCreatePage() {
     setDescription(q.description || '')
     setStartAt(toLocalInput(q.start_at))
     setDueAt(toLocalInput(q.due_at))
-    setRevealAnswers(!!q.reveal_answers)
+    setRevealMode(q.reveal_mode || (q.reveal_answers ? 'IMMEDIATE' : 'AFTER_CLOSE'))
     setQuestions((editData.questions || []).map(mapDbQuestion))
   }, [editData])
 
@@ -271,7 +271,8 @@ function QuizCreatePage() {
             description: description.trim() || null,
             start_at: startAt ? new Date(startAt).toISOString() : null,
             due_at: dueAt ? new Date(dueAt).toISOString() : null,
-            reveal_answers: revealAnswers,
+            reveal_mode: revealMode,
+            reveal_answers: revealMode === 'IMMEDIATE',   // 레거시 동기화
           })
           .eq('id', quizId)
         if (upErr) throw upErr
@@ -297,7 +298,8 @@ function QuizCreatePage() {
           description: description.trim() || null,
           start_at: startAt ? new Date(startAt).toISOString() : null,
           due_at: dueAt ? new Date(dueAt).toISOString() : null,
-          reveal_answers: revealAnswers,
+          reveal_mode: revealMode,
+          reveal_answers: revealMode === 'IMMEDIATE',   // 레거시 동기화
           created_by: userId,
         })
         .select()
@@ -454,10 +456,27 @@ function QuizCreatePage() {
                 </div>
                 <p className="text-xs text-gray-400 mt-1">시작 비우면 즉시 시작 / 종료 비우면 무기한</p>
               </div>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={revealAnswers} onChange={(e) => setRevealAnswers(e.target.checked)} className="w-4 h-4 accent-emerald-500" />
-                <span className="text-sm text-gray-700">제출 후 참가자에게 정답 공개</span>
-              </label>
+              <div>
+                <p className="text-sm text-gray-700 mb-1.5">참가자에게 정답 공개</p>
+                <div className="flex gap-1.5">
+                  {[
+                    { v: 'IMMEDIATE', label: '즉시 공개' },
+                    { v: 'AFTER_CLOSE', label: '마감 후 공개' },
+                    { v: 'NEVER', label: '비공개' },
+                  ].map(m => (
+                    <button key={m.v} type="button" onClick={() => setRevealMode(m.v)}
+                      className={`flex-1 py-1.5 text-xs font-medium rounded-lg border-2 transition
+                        ${revealMode === m.v ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}>
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[11px] text-gray-400 mt-1">
+                  {revealMode === 'IMMEDIATE' ? '제출 직후 본인이 정답·해설을 봐요.'
+                    : revealMode === 'AFTER_CLOSE' ? '마감(종료일) 후, 응시한 본인이 자기 답·정답을 복습해요(전체 공개 아님).'
+                    : '참가자에겐 정답·해설을 공개하지 않아요(운영자만 확인).'}
+                </p>
+              </div>
             </div>
           )}
 
@@ -505,7 +524,7 @@ function QuizCreatePage() {
                 <div className="flex justify-between"><span className="text-gray-500">발행 문항</span><span className="font-medium text-gray-800">{includedQuestions.length}개</span></div>
                 <div className="flex justify-between"><span className="text-gray-500">총점</span><span className="font-bold text-emerald-600">{totalPoint}점</span></div>
                 <div className="flex justify-between"><span className="text-gray-500">기한</span><span className="font-medium text-gray-800">{startAt || dueAt ? `${startAt ? '시작 지정' : '즉시'} ~ ${dueAt ? '종료 지정' : '무기한'}` : '제한 없음'}</span></div>
-                <div className="flex justify-between"><span className="text-gray-500">정답 공개</span><span className="font-medium text-gray-800">{revealAnswers ? '공개' : '비공개'}</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">정답 공개</span><span className="font-medium text-gray-800">{revealMode === 'IMMEDIATE' ? '즉시 공개' : revealMode === 'AFTER_CLOSE' ? '마감 후 공개' : '비공개'}</span></div>
               </div>
               <LockedNotice />
             </div>
