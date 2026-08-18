@@ -1432,20 +1432,37 @@ function ProgramDetailPage() {
   const surveyBannerEl = (() => {
     if (!program.survey_enabled) return null
     if (isOwner) {
-      // 마무리 단계(진행 80%+)·미시작이면 검토+시작 배너
-      if (endSurveyLaunched || calcProgress(program.start_date, program.end_date) < 80) return null
+      // 미시작이면 검토+시작 배너. 진행 80%+ 부터 종료 후 7일 유예까지 노출, 종료 후엔 긴급(rose)로 점증.
+      if (endSurveyLaunched) return null
+      const kstToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date())
+      const daysPastEnd = program.end_date
+        ? Math.round((new Date(`${kstToday}T00:00:00+09:00`).getTime() - new Date(`${program.end_date}T00:00:00+09:00`).getTime()) / 86400000)
+        : -999
+      if (calcProgress(program.start_date, program.end_date) < 80 && daysPastEnd <= 0) return null  // 종료 전 80% 미만 미노출
+      if (daysPastEnd > 7) return null                                                              // 유예(7일) 지나면 시작 불가 → 숨김
+      const postEnd = daysPastEnd > 0
+      const graceLeft = Math.max(0, 7 - daysPastEnd)
+      const glow = postEnd
+        ? ['0 0 0px rgba(244,63,94,0)', '0 0 18px 3px rgba(244,63,94,0.6)', '0 0 0px rgba(244,63,94,0)']
+        : ['0 0 0px rgba(251,191,36,0)', '0 0 16px 2px rgba(251,191,36,0.55)', '0 0 0px rgba(251,191,36,0)']
       return (
         <motion.div
-          animate={{ boxShadow: ['0 0 0px rgba(251,191,36,0)', '0 0 16px 2px rgba(251,191,36,0.55)', '0 0 0px rgba(251,191,36,0)'] }}
+          animate={{ boxShadow: glow }}
           transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
-          className="rounded-2xl border border-amber-200 bg-amber-50 p-3.5">
-          <p className="text-[13px] font-bold text-amber-900 mb-0.5">⏳ 종료 설문 준비</p>
-          <p className="text-[12px] text-amber-800 leading-snug break-keep mb-2.5">마무리가 다가와요. 시작하면 참여자에게 종료 설문이 나가요. 먼저 문항을 확인하세요.</p>
+          className={`rounded-2xl border p-3.5 ${postEnd ? 'border-rose-300 bg-rose-50' : 'border-amber-200 bg-amber-50'}`}>
+          <p className={`text-[13px] font-bold mb-0.5 ${postEnd ? 'text-rose-900' : 'text-amber-900'}`}>
+            {postEnd ? '🚨 종료 설문을 아직 시작 안 했어요' : '⏳ 종료 설문 준비'}
+          </p>
+          <p className={`text-[12px] leading-snug break-keep mb-2.5 ${postEnd ? 'text-rose-800' : 'text-amber-800'}`}>
+            {postEnd
+              ? `종료됐지만 지금 시작하면 아직 참여자 응답을 받을 수 있어요. 종료 후 ${graceLeft}일 안에 시작하세요 — 지나면 영영 못 받아요.`
+              : '마무리가 다가와요. 시작하면 참여자에게 종료 설문이 나가요. 먼저 문항을 확인하세요.'}
+          </p>
           <div className="flex gap-2">
             <button type="button" onClick={() => navigate(`/programs/${id}/survey/edit?phase=end`)}
-              className="flex-1 h-9 rounded-lg bg-white border border-amber-300 text-amber-800 text-[13px] font-semibold active:scale-[0.98] transition">종료 문항 검토</button>
+              className={`flex-1 h-9 rounded-lg bg-white border text-[13px] font-semibold active:scale-[0.98] transition ${postEnd ? 'border-rose-300 text-rose-800' : 'border-amber-300 text-amber-800'}`}>종료 문항 검토</button>
             <button type="button" onClick={() => setEndSurveyConfirmOpen(true)}
-              className="flex-1 h-9 rounded-lg bg-amber-500 text-white text-[13px] font-bold active:scale-[0.98] transition">종료 설문 시작</button>
+              className={`flex-1 h-9 rounded-lg text-white text-[13px] font-bold active:scale-[0.98] transition ${postEnd ? 'bg-rose-500' : 'bg-amber-500'}`}>종료 설문 시작</button>
           </div>
         </motion.div>
       )
