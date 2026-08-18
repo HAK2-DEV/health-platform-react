@@ -33,10 +33,10 @@ const TOUR = [
   { src: '/onboarding/operator-tour/16-class.png', flag: 'class_feature_enabled' },
 ]
 
-function WelcomeOperatorModal({ isOpen, onClose, programId }) {
+function WelcomeOperatorModal({ isOpen, onClose, programId, initialStep = 0 }) {
   useBodyScrollLock(isOpen)
   const navigate = useNavigate()
-  const [step, setStep] = useState(0)
+  const [step, setStep] = useState(initialStep)
   const [dir, setDir] = useState(1)
   const startX = useRef(null)
 
@@ -149,8 +149,11 @@ function WelcomeOperatorModal({ isOpen, onClose, programId }) {
                 className="absolute inset-0 flex flex-col items-center justify-center text-center px-8">
                 <div className="text-6xl mb-4">🎉</div>
                 <h1 className="text-[26px] font-extrabold text-gray-900 leading-tight">준비 완료!</h1>
-                <p className="mt-3 text-[15px] leading-relaxed text-gray-500 max-w-[300px]">
-                  이제 첫 미션을 추가하고 참여자를 초대해볼까요?<br />하다 보면 금방 익숙해져요.
+                <p className="mt-3 text-[19px] font-extrabold leading-snug text-gray-900 max-w-[300px] break-keep">
+                  미션을 만들어야<br />참여자가 인증할 수 있어요.
+                </p>
+                <p className="mt-2.5 text-[14px] leading-relaxed text-gray-500 max-w-[300px]">
+                  먼저 첫 미션을 추가하고 초대해볼까요?
                 </p>
                 <button type="button" onClick={() => finish(programId ? `/programs/${programId}?addmission=1` : '/programs')}
                   className="mt-8 w-full max-w-[300px] py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold transition">

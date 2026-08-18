@@ -693,6 +693,12 @@ function QuestionEditor({ index, question: q, canRemove, onChange, onRemove, onU
               className="w-full px-3 py-1.5 border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 text-sm"
             />
           )}
+          {q.grading_mode === 'MANUAL' && (q.award_mode || 'CORRECT_ONLY') === 'CORRECT_ONLY' && (
+            <p className="flex items-start gap-1.5 px-0.5 text-[11px] leading-snug text-amber-700 break-keep">
+              <span className="flex-shrink-0">💡</span>
+              <span>이 조합은 <b>매 제출마다 직접 채점</b>해야 점수·랭킹에 반영돼요. 방치하면 제출이 「채점 대기」로 멈춰요.</span>
+            </p>
+          )}
         </div>
       )}
 
