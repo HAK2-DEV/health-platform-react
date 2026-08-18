@@ -448,13 +448,13 @@ function ProgramHome({
           return content ? <Reveal key={k} index={Math.min(i, 5)}>{content}</Reveal> : null
         })}
 
-        {/* [운영자] 개요 화면 편집 — 가장 아래·중앙·옅은 회색 */}
+        {/* [운영자] 개요 화면 편집 — 하단·중앙. 액션 버튼처럼(에메랄드 테두리) 발견성↑(G14) */}
         {editable && (
           <div className="flex justify-center pt-1">
             <button
               type="button"
               onClick={onEditLayout}
-              className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-2xl bg-gray-100 text-gray-500 text-[13px] font-semibold hover:bg-gray-200 transition"
+              className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-2xl bg-white border border-emerald-200 text-emerald-700 text-[13px] font-semibold hover:bg-emerald-50 transition shadow-sm"
             >
               ✏️ 개요 화면 편집
             </button>
