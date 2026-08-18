@@ -8,6 +8,13 @@ import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 //   탭 → 화면 중앙 팝업(각 카드 개별 스프링). 성취(축하)는 이 덱에 안 넣음(별도 독립).
 //   카드 1개면 덱 없이 그대로 렌더(전체 인터랙티브). props: cards = [{ id, tone: 'amber'|'emerald', node }]
 
+// peek 카드 색 — 뒤 카드가 어떤 배너인지 힌트(톤별)
+const TONE = {
+  emerald: 'bg-emerald-50 border-emerald-200',
+  rose: 'bg-rose-50 border-rose-200',
+  amber: 'bg-amber-50 border-amber-200',
+}
+
 // 접힌 덱 — top 카드(가장 급함)만 실제 렌더, 뒤 카드는 색·인셋·둥근모서리로 peek(컨테이너 padding 안에 예약)
 function CollapsedDeck({ cards, onOpen }) {
   const behind = cards.slice(1, 3)
@@ -16,7 +23,7 @@ function CollapsedDeck({ cards, onOpen }) {
     <div className="relative" style={{ paddingBottom: pad }}>
       {behind.map((c, i) => (
         <div key={c.id}
-          className={`absolute rounded-2xl border shadow-sm ${c.tone === 'emerald' ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'}`}
+          className={`absolute rounded-2xl border shadow-sm ${TONE[c.tone] || TONE.amber}`}
           style={{ left: (i + 1) * 13, right: (i + 1) * 13, top: (i + 1) * 7, bottom: pad - (i + 1) * 7, zIndex: 2 - i }} />
       ))}
       <button type="button" onClick={onOpen} aria-label="처리할 일 전체 보기"

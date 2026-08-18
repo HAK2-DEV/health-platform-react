@@ -49,6 +49,7 @@ import ActivationNudge from '../../components/program/ActivationNudge'
 import OperatorMilestoneCard from '../../components/program/OperatorMilestoneCard'
 import WeeklyHighlight from '../../components/program/WeeklyHighlight'
 import OperatorBannerDeck from '../../components/program/OperatorBannerDeck'
+import OperatorAtRiskBanner from '../../components/program/OperatorAtRiskBanner'
 import { weeklyHighlightVisible } from '../../lib/weeklyHighlightSeen'
 import ParticipantWeeklyReport from '../../components/program/ParticipantWeeklyReport'
 import { useToast } from '../../contexts/ToastContext'
@@ -120,6 +121,7 @@ import {
   fetchCommunityPendingPosts,
   fetchPendingReviews,
   fetchActivationState,
+  fetchAtRiskParticipants,
   fetchProgramOverview,
   fetchUnresolvedReportCount,
   fetchMyMetricSummary,
@@ -771,6 +773,15 @@ function ProgramDetailPage() {
   })
   const toast = useToast()
   const [cheerOpen, setCheerOpen] = useState(false)
+  const [atRiskCheerOpen, setAtRiskCheerOpen] = useState(false)
+
+  // 이탈 조짐 — 3일+ 미인증 ACTIVE 참여자(운영자 복귀 격려용). RPC(마이그 234). 진행중·운영자만.
+  const { data: atRiskList = [] } = useQuery({
+    queryKey: ['at-risk', id],
+    queryFn: () => fetchAtRiskParticipants(id, 3),
+    enabled: activationEnabled,
+    staleTime: 5 * 60 * 1000,
+  })
 
   // 주간 리포트 넛지 — 운영자·발행·진행중일 때 개요 상단 배너 → 탭하면 통계로.
   //   갓 만든/막 시작한 프로그램은 볼 데이터가 없어 넛지가 오해를 줌 → 최소 3일 지났을 때만.
@@ -1456,11 +1467,18 @@ function ProgramDetailPage() {
     )
     return null
   })()
-  // 배너 덱 — 처리할일·종료설문·리포트를 하나의 접힘 덱으로(2개+면 top만+팝업, 1개면 그대로). 성취는 별도 독립.
+  // 이탈 조짐 배너 — 3일+ 미인증 참여자에게 원터치 복귀 격려. 덱 카드로.
+  const atRiskBannerEl = (isOwner && !isEnded && atRiskList.length > 0) ? (
+    <OperatorAtRiskBanner count={atRiskList.length} thresholdDays={3}
+      onRemind={() => setAtRiskCheerOpen(true)}
+      onList={() => navigate(`/programs/${id}/stats/users`)} />
+  ) : null
+  // 배너 덱 — 처리할일·이탈조짐·종료설문·리포트를 하나의 접힘 덱으로(2개+면 top만+팝업, 1개면 그대로). 성취는 별도 독립.
   //   weekly 는 컴포넌트 내부 seen 으로 null 렌더될 수 있어, 부모에서 노출 여부(weeklyHighlightVisible)를 미리 판별.
   const weeklyDeckShow = weeklyEnabled && weeklyHighlightVisible(id)
   const bannerDeckCards = []
   if (todoBannerEl) bannerDeckCards.push({ id: 'todo', tone: 'amber', node: todoBannerEl })
+  if (atRiskBannerEl) bannerDeckCards.push({ id: 'atrisk', tone: 'rose', node: atRiskBannerEl })
   if (surveyBannerEl) bannerDeckCards.push({ id: 'survey', tone: 'amber', node: surveyBannerEl })
   if (weeklyDeckShow) bannerDeckCards.push({ id: 'weekly', tone: 'emerald', node: weeklyHighlightEl })
   const operatorDeckEl = bannerDeckCards.length ? <OperatorBannerDeck cards={bannerDeckCards} /> : null
@@ -1890,8 +1908,6 @@ function ProgramDetailPage() {
         />
       )}
 
-      {/* 운영자 할 일 배너 — 미션 탭에서만(개요는 operatorActionEl 우선순위에 통합) */}
-      {activeTab === 'missions' && !immersiveHome && !inManager && todoBannerEl}
 
       {/* ─── 개요 탭 (일반 콘텐츠) ─────────────────────────── */}
       {activeTab === 'overview' && (<>
@@ -3193,6 +3209,16 @@ function ProgramDetailPage() {
             groupLabel="참여자 전원"
             variant="cheer"
             onClose={() => setCheerOpen(false)}
+          />
+        )}
+        {atRiskCheerOpen && atRiskList.length > 0 && (
+          <CheerModal
+            programId={id}
+            targetUserIds={atRiskList.map((p) => p.userId)}
+            targetNames={atRiskList.map((p) => p.nickname)}
+            groupLabel="멀어지고 있는 참여자"
+            variant="comeback"
+            onClose={() => setAtRiskCheerOpen(false)}
           />
         )}
       </Suspense>

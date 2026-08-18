@@ -412,6 +412,24 @@ export const fetchActivationState = async (programId) => {
   return { participantCount: participantIds.length, participantIds, hasMission: missionIds.length > 0, hasActivity, verificationCount }
 }
 
+// 이탈 조짐 참여자 — 마지막 인증이 thresholdDays 일 이상 지난 ACTIVE 참여자(운영자 리마인드용).
+//   RPC get_at_risk_participants(마이그 234) — SECURITY DEFINER, 소유자/admin 만. 오래된 순.
+//   thresholdDays 기본 3(추후 운영자 커스텀 여지). 반환 [{ userId, nickname, lastActiveAt, daysSince }]
+export const fetchAtRiskParticipants = async (programId, thresholdDays = 3) => {
+  if (!programId) return []
+  const { data, error } = await supabase.rpc('get_at_risk_participants', {
+    p_program_id: programId,
+    p_threshold_days: thresholdDays,
+  })
+  if (error) throw error
+  return (data || []).map(r => ({
+    userId: r.user_id,
+    nickname: r.nickname,
+    lastActiveAt: r.last_active_at,
+    daysSince: r.days_since,
+  }))
+}
+
 export const fetchProgramParticipants = async (programId) => {
   if (!programId) return []
   const { data, error } = await supabase
