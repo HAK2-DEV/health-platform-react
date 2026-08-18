@@ -2238,7 +2238,7 @@ function ProgramDetailPage() {
             boxOrder={program.home_layout?.order || null}
             hiddenBoxes={program.home_layout?.hidden || []}
             streakData={streakData}
-            progressData={(isViewer || program.overview_progress_enabled === false) ? null : progressData}
+            progressData={(isViewer || isOwner || program.overview_progress_enabled === false) ? null : progressData}
             viewerSlot={<>{cardTopSlot}</>}
             todayMissions={todayMissionsData}
             recentItems={recentItemsData}

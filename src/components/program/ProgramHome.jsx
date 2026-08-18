@@ -3,7 +3,7 @@ import { useKeyboardInset } from '../../hooks/useKeyboardInset'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 import { motion } from 'framer-motion'
-import { ChevronRight, Calendar, Activity, Award, Flame, Pencil } from 'lucide-react'
+import { ChevronRight, Calendar, Activity, Award, Pencil } from 'lucide-react'
 import WeeklyStreak from './WeeklyStreak'
 import ProgramHomeHero from './ProgramHomeHero'
 import FlameIcon from '../common/FlameIcon'
@@ -315,12 +315,11 @@ function ProgramHome({
     progress: () => !progressData ? null : (
       <div className="rounded-2xl p-4 bg-white border border-gray-100 shadow-soft">
         <h3 className="text-[13px] font-bold text-emerald-600 mb-3">나의 진행 현황</h3>
-        <div className="grid grid-cols-4 gap-2 mb-3">
+        <div className="grid grid-cols-3 gap-2 mb-3">
           {[
             { Icon: Calendar, ic: 'text-emerald-500', lbl: '전체 진행', v: progressData.activeDays, prefix: '', u: `/${progressData.totalDays || '-'}일` },
             { Icon: Activity, ic: 'text-emerald-500', lbl: '참여율', v: progressData.participationRate, prefix: '', u: '%' },
             { Icon: Award, ic: 'text-amber-500', lbl: '획득 포인트', v: progressData.points, prefix: '+', u: 'P', c: 'text-emerald-700' },
-            { Icon: Flame, ic: 'text-orange-500', lbl: '연속', v: progressData.streak, prefix: '', u: '일', c: 'text-orange-600' },
           ].map((s) => (
             <div key={s.lbl}>
               <div className="flex items-center gap-0.5 mb-1">
