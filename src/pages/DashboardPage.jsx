@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { motion, useInView } from 'framer-motion'
+import { motion, useInView, useReducedMotion } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../hooks/useAuth'
 import { Bell, ChevronRight } from 'lucide-react'
@@ -270,6 +270,7 @@ function DashboardPage() {
   const { session } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+  const reduceMotion = useReducedMotion()
   const userId = session?.user?.id
 
   const [selectedPublicId, setSelectedPublicId] = useState(null)
@@ -578,18 +579,52 @@ function DashboardPage() {
 
         {/* 첫 인증 넛지 — 참여했지만 아직 한 번도 인증 안 한 사용자를 미션 탭으로 (활성화) */}
         {firstVerifyNudge && (
-          <button
+          <motion.button
             type="button"
             onClick={() => navigate(`/programs/${featured.id}?tab=missions`)}
-            className="w-full flex items-center gap-3 p-3.5 rounded-[10px] bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-left shadow-elevated active:scale-[0.99] transition"
+            initial={{ opacity: 0, y: 10 }}
+            animate={reduceMotion
+              ? { opacity: 1, y: 0 }
+              : { opacity: 1, y: 0, boxShadow: ['0 6px 16px -6px rgba(16,185,129,0.45)', '0 10px 26px -4px rgba(16,185,129,0.75)', '0 6px 16px -6px rgba(16,185,129,0.45)'] }}
+            transition={{ opacity: { duration: 0.4 }, y: { duration: 0.4 }, boxShadow: { duration: 2.4, repeat: Infinity, ease: 'easeInOut' } }}
+            whileTap={{ scale: 0.98 }}
+            className="relative overflow-hidden w-full flex items-center gap-3 p-3.5 rounded-[10px] bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-left"
           >
-            <span className="flex-shrink-0 w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-xl">🎯</span>
-            <div className="flex-1 min-w-0">
+            {/* 샤인 스윕 — 주기적으로 빛줄기가 대각선으로 훑고 지나감 */}
+            {!reduceMotion && (
+              <motion.span aria-hidden
+                className="pointer-events-none absolute top-0 -left-1/3 h-full w-1/3 skew-x-[-20deg]"
+                style={{ background: 'linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.38) 50%, rgba(255,255,255,0) 100%)' }}
+                animate={{ x: ['0%', '450%'] }}
+                transition={{ duration: 1.1, ease: 'easeInOut', repeat: Infinity, repeatDelay: 2.6 }}
+              />
+            )}
+            {/* 아이콘 — 레이더 핑 링 + 은은한 스케일 펄스 */}
+            <span className="relative flex-shrink-0 w-10 h-10 flex items-center justify-center">
+              {!reduceMotion && (
+                <motion.span aria-hidden
+                  className="absolute inset-0 rounded-full border-2 border-white/60"
+                  animate={{ scale: [1, 1.5], opacity: [0.6, 0] }}
+                  transition={{ duration: 1.6, ease: 'easeOut', repeat: Infinity, repeatDelay: 0.4 }}
+                />
+              )}
+              <motion.span
+                className="relative w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-xl"
+                animate={reduceMotion ? {} : { scale: [1, 1.12, 1] }}
+                transition={{ duration: 1.8, ease: 'easeInOut', repeat: Infinity }}
+              >🎯</motion.span>
+            </span>
+            <div className="relative flex-1 min-w-0">
               <p className="text-sm font-bold leading-tight">아직 첫 인증 전이에요!</p>
               <p className="text-[12px] text-white/85 leading-snug mt-0.5 truncate">{featured.name}에서 첫 미션을 인증하고 습관을 시작해보세요</p>
             </div>
-            <ChevronRight className="w-5 h-5 flex-shrink-0 text-white/90" />
-          </button>
+            <motion.span className="relative flex-shrink-0"
+              animate={reduceMotion ? {} : { x: [0, 4, 0] }}
+              transition={{ duration: 1.2, ease: 'easeInOut', repeat: Infinity }}
+            >
+              <ChevronRight className="w-5 h-5 text-white/90" />
+            </motion.span>
+          </motion.button>
         )}
 
         {/* 신규 사용자 — 죽은 0/0/0 섹션 대신 시작 가이드 히어로 */}
