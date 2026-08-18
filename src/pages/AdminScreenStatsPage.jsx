@@ -24,6 +24,9 @@ const SCREEN_LABELS = {
   '/nickname-setup': '닉네임 설정',
   '/auth/callback': '로그인 처리',
   '/dashboard': '대시보드',
+  '/growth': '성장',
+  '/onboarding': '온보딩 튜토리얼',
+  '/todos': '할 일',
   '/admin/screen-stats': '관리자 · 화면 체류 분석',
   '/programs': '프로그램 목록',
   '/programs?tab=browse': '프로그램 · 둘러보기',
@@ -56,11 +59,16 @@ const SCREEN_LABELS = {
   '/programs/:id/reviews': '프로그램 · 심사함',
   '/programs/:id/feed': '프로그램 · 피드',
   '/programs/:id/participants': '프로그램 · 참여 승인',
+  '/programs/:id/operator-today': '오늘의 운영',
+  '/programs/:id/survey/edit': '설문 · 문항 편집',
+  '/programs/:id/posts': '프로그램 · 게시판',
   '/programs/:id/posts/quiz/new': '퀴즈 · 만들기',
   // 통계
   '/programs/:id/stats': '통계 · 개요',
   '/programs/:id/stats/missions': '통계 · 미션별',
   '/programs/:id/stats/quizzes': '통계 · 퀴즈',
+  '/programs/:id/stats/survey': '통계 · 설문 결과',
+  '/programs/:id/stats/classes': '통계 · 클래스',
   '/programs/:id/stats/users': '통계 · 참여자 목록',
   '/programs/:id/stats/users/:id': '통계 · 참여자 상세',
   '/programs/:id/stats/users/:id/missions': '참여자 · 미션',
@@ -68,12 +76,19 @@ const SCREEN_LABELS = {
   '/programs/:id/stats/users/:id/posts': '참여자 · 게시글',
   '/programs/:id/stats/users/:id/points': '참여자 · 점수',
   '/programs/:id/stats/users/:id/comments': '참여자 · 댓글',
+  '/programs/:id/stats/users/:id/quizzes': '참여자 · 퀴즈',
+  '/programs/:id/stats/users/:id/classes': '참여자 · 클래스',
   // 퀴즈/미션 상세
   '/programs/:id/quiz/:id': '퀴즈 · 풀기',
   '/programs/:id/missions/:id': '미션 · 인증',
   // 내 활동
   '/profile/activity/:id/missions': '내 활동 · 미션',
   '/profile/activity/:id/verifications': '내 활동 · 인증',
+  '/profile/activity/:id/quizzes': '내 활동 · 퀴즈',
+  '/profile/activity/:id/posts': '내 활동 · 게시글',
+  '/profile/activity/:id/comments': '내 활동 · 댓글',
+  '/profile/activity/:id/classes': '내 활동 · 클래스',
+  '/profile/activity/today': '내 활동 · 오늘',
 }
 // 가변 뒤꼬리(묶음 param 등) — 접두 패턴 매칭
 const SCREEN_LABEL_PATTERNS = [
