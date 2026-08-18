@@ -478,6 +478,7 @@ function DashboardPage() {
   //   진행률·남은 기간은 날짜로 클라 계산, 참여자 수는 activeCounts 에 이미 전량 있음.
 
   const featuredParticipants = featured ? (activeCounts[featured.id] ?? null) : null
+  const rankingOn = featured?.ranking_enabled !== false   // 랭킹 OFF 프로그램이면 대시보드에서도 랭킹 숨김
 
   // 첫 인증 넛지 — 참여자(운영 모드 아님)인데 대표 프로그램에 승인된 인증이 0건(활성화 전).
   //   featuredOverview 로딩 중엔 undefined → 조건 false 라 깜빡임 없음.
@@ -708,10 +709,12 @@ function DashboardPage() {
              pt-1(4px): 본인 요청으로 이 섹션만 살짝 더 내림(space-y 마진과 충돌 없게 padding 사용) ─── */}
         <Reveal index={2}><section className="pt-1">
           <div className="flex items-center justify-between gap-2 mb-3">
-            <h2 className="text-lg font-bold text-gray-800">내 점수 및 랭킹</h2>
-            <button type="button" onClick={() => navigate('/rankings')} className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700">
-              전체 랭킹<ChevronRight className="w-3 h-3" />
-            </button>
+            <h2 className="text-lg font-bold text-gray-800">내 점수{rankingOn ? ' 및 랭킹' : ''}</h2>
+            {rankingOn && (
+              <button type="button" onClick={() => navigate('/rankings')} className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-700">
+                전체 랭킹<ChevronRight className="w-3 h-3" />
+              </button>
+            )}
           </div>
           <div className="bg-white rounded-[10px] shadow-elevated p-4">
             <ModeSlide mode={effectiveMode} dir={modeDir}>
@@ -730,7 +733,7 @@ function DashboardPage() {
                     <p className="text-[11px] font-semibold text-emerald-600 mt-0.5">이번주 ↑{pStats.weekPoints}P</p>
                   )}
                 </div>
-                <RankRing rank={featuredRank?.current_rank} total={featuredParticipants} />
+                {rankingOn && <RankRing rank={featuredRank?.current_rank} total={featuredParticipants} />}
               </div>
             </div>
             </ModeSlide>
