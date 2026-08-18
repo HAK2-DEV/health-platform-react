@@ -46,7 +46,10 @@ import DeleteProgramModal from '../../components/program/DeleteProgramModal'
 import OperatorTodoBanner from '../../components/program/OperatorTodoBanner'
 import EndReportBanner from '../../components/program/EndReportBanner'
 import ActivationNudge from '../../components/program/ActivationNudge'
+import OperatorMilestoneCard from '../../components/program/OperatorMilestoneCard'
 import WeeklyHighlight from '../../components/program/WeeklyHighlight'
+import OperatorBannerDeck from '../../components/program/OperatorBannerDeck'
+import { weeklyHighlightVisible } from '../../lib/weeklyHighlightSeen'
 import ParticipantWeeklyReport from '../../components/program/ParticipantWeeklyReport'
 import { useToast } from '../../contexts/ToastContext'
 import { markSeen, countNew, getLastSeen, isNewSince } from '../../lib/newContent'
@@ -796,7 +799,11 @@ function ProgramDetailPage() {
     } catch { /* 공유 취소 등 무시 */ }
   }
   // 활성화 넛지 배너 — 조건 만족 시 렌더(재사용). 슬롯/페이지레벨 공통.
-  const activationNudgeEl = activationEnabled && activationState ? (
+  // ActivationNudge 는 건강하면 내부 null 을 렌더하지만 element 는 truthy → operatorActionEl 우선순위(||)에서
+  //   빈 걸 골라 뒤(처리할 일)를 막음. 실제 표시 조건(참여자0 · 미션있고 활동0)일 때만 el 을 만든다.
+  const activationNudgeShow = !!activationState
+    && (activationState.participantCount === 0 || (activationState.hasMission && !activationState.hasActivity))
+  const activationNudgeEl = activationEnabled && activationNudgeShow ? (
     <ActivationNudge state={activationState} onInvite={handleActivationInvite} onCheer={() => setCheerOpen(true)} />
   ) : null
   // 미션 0개 넛지 — 발행됐는데 미션이 없으면(빈 껍데기) 활성화보다 먼저 "첫 미션"으로 강하게 유도.
@@ -811,6 +818,13 @@ function ProgramDetailPage() {
         첫 미션 만들기 →
       </button>
     </div>
+  ) : null
+  // 운영자 성취 축하 — 마일스톤 처음 넘을 때 1회 격려(노동 신호와 별개의 보상)
+  const operatorMilestoneEl = (isOwner && program?.status === 'PUBLISHED'
+    && progressUrgency(calcProgress(program?.start_date, program?.end_date)).urgency !== 'ended'
+    && activationState) ? (
+    <OperatorMilestoneCard programId={id} participantCount={activationState.participantCount} verificationCount={activationState.verificationCount}
+      onClick={() => navigate(`/programs/${id}/stats?report=1`)} />
   ) : null
 
   // 운영자 메뉴 「신고 관리」 배지 — 미처리 신고가 있는 콘텐츠 수
@@ -1139,6 +1153,9 @@ function ProgramDetailPage() {
       onReport={() => { setPanelView('reports'); setIsPanelOpen(true) }}
     />
   ) : null
+  // 운영자 개요 「활성화 CTA」 — 프로그램을 굴리는 주요 버튼(독립·전체 노출). 미션0 > 활성화(초대·응원).
+  //   처리할 일·종료설문·리포트는 operatorDeckEl(덱)로 분리. 참여자0+신청자 케이스는 CTA(초대)+덱(승인)로 자연 처리.
+  const operatorActionEl = missionNudgeEl || activationNudgeEl
 
   // 참여자 자가 탈퇴 — status='LEFT' (RLS: 본인 행 UPDATE 허용). 랭킹·집계서 제외, 기록 보존.
   const leaveMutation = useMutation({
@@ -1439,6 +1456,14 @@ function ProgramDetailPage() {
     )
     return null
   })()
+  // 배너 덱 — 처리할일·종료설문·리포트를 하나의 접힘 덱으로(2개+면 top만+팝업, 1개면 그대로). 성취는 별도 독립.
+  //   weekly 는 컴포넌트 내부 seen 으로 null 렌더될 수 있어, 부모에서 노출 여부(weeklyHighlightVisible)를 미리 판별.
+  const weeklyDeckShow = weeklyEnabled && weeklyHighlightVisible(id)
+  const bannerDeckCards = []
+  if (todoBannerEl) bannerDeckCards.push({ id: 'todo', tone: 'amber', node: todoBannerEl })
+  if (surveyBannerEl) bannerDeckCards.push({ id: 'survey', tone: 'amber', node: surveyBannerEl })
+  if (weeklyDeckShow) bannerDeckCards.push({ id: 'weekly', tone: 'emerald', node: weeklyHighlightEl })
+  const operatorDeckEl = bannerDeckCards.length ? <OperatorBannerDeck cards={bannerDeckCards} /> : null
   // 운영자 메뉴 시트 「내 프로그램 설정」 → 각 설정 클릭 시 탭 전환 + 인라인 관리자 열기
   const openManagerFromMenu = (key) => {
     closePanel()
@@ -1838,10 +1863,11 @@ function ProgramDetailPage() {
         )
       })()}
 
-      {/* 활성화 넛지 — 개요 최상단(운영자·개요탭·비관리·비immersive). immersive 는 슬롯 주입. */}
-      {activeTab === 'overview' && !immersiveHome && !inManager && (missionNudgeEl || activationNudgeEl)}
-      {activeTab === 'overview' && !immersiveHome && !inManager && surveyBannerEl}
-      {activeTab === 'overview' && !immersiveHome && !inManager && weeklyHighlightEl}
+      {/* 성취·활성화·덱 — 개요 최상단. 모든 카드홈(cardhome·diet·running·quit)은 슬롯으로 주입하므로
+          페이지 레벨은 !cardHome 일 때만(이전 !immersiveHome 은 running/quit 을 놓쳐 이중 렌더됐음). */}
+      {activeTab === 'overview' && !cardHome && !inManager && operatorMilestoneEl}
+      {activeTab === 'overview' && !cardHome && !inManager && operatorActionEl}
+      {activeTab === 'overview' && !cardHome && !inManager && operatorDeckEl}
       {activeTab === 'overview' && !immersiveHome && !inManager && participantReportEl}
       {activeTab === 'overview' && !immersiveHome && !inManager && completionBannerEl}
       {/* 종료 프로그램 — 조회 전용 안내 (관리자 외 쓰기 잠김, 마이그 190) */}
@@ -1864,8 +1890,8 @@ function ProgramDetailPage() {
         />
       )}
 
-      {/* 운영자 할 일 배너 — 참여 승인·인증 심사·퀴즈 채점 대기 통합 (개요·미션 탭) */}
-      {(activeTab === 'overview' || activeTab === 'missions') && !immersiveHome && !inManager && todoBannerEl}
+      {/* 운영자 할 일 배너 — 미션 탭에서만(개요는 operatorActionEl 우선순위에 통합) */}
+      {activeTab === 'missions' && !immersiveHome && !inManager && todoBannerEl}
 
       {/* ─── 개요 탭 (일반 콘텐츠) ─────────────────────────── */}
       {activeTab === 'overview' && (<>
@@ -1887,7 +1913,7 @@ function ProgramDetailPage() {
           <QuitSmokingHome
             programId={id} programName={program.name} categories={program.categories}
             streak={qStreak} savedAmount={qSaved} smokedToday={qSmokedToday} statusLabel={cardStatusLabel}
-            viewerSlot={<>{cardTopSlot}{missionNudgeEl}{surveyBannerEl}</>}
+            viewerSlot={<>{cardTopSlot}{operatorMilestoneEl}{operatorActionEl}{operatorDeckEl}</>}
             notice={qNotice}
             progressData={qProgress} progress={calcProgress(program.start_date, program.end_date)}
             streakData={{ count: qStreak, days: overviewData?.weekDays || [] }}
@@ -1989,13 +2015,13 @@ function ProgramDetailPage() {
             />
             <div className="relative -mt-[22px] rounded-t-[26px] px-4 pt-5 pb-6 space-y-[9px]" style={{ background: '#fdfbf7' }}>
               {cardTopSlot}
-              {missionNudgeEl || activationNudgeEl}
-              {surveyBannerEl}
+              {operatorMilestoneEl}
+              {operatorActionEl}
+              {operatorDeckEl}
               {isOwner && cardEnded && (
                 <EndReportBanner onClick={() => navigate(`/programs/${id}/report`)} playIntro={playEndReportIntro} onIntroDone={() => setPlayEndReportIntro(false)} />
               )}
-              {todoBannerEl}
-              {weeklyHighlightEl || participantReportEl || completionBannerEl}
+              {participantReportEl || completionBannerEl}
               <DietOverview
                 today={dietToday}
                 goal={dGoal}
@@ -2114,7 +2140,7 @@ function ProgramDetailPage() {
             newMissionCount={newMissionCount}
             newQuizCount={newQuizCount}
             classSlot={classOverviewSlot}
-            topSlot={<>{cardTopSlot}{missionNudgeEl}{surveyBannerEl}</>}
+            topSlot={<>{cardTopSlot}{operatorMilestoneEl}{operatorActionEl}{operatorDeckEl}</>}
             todayMissions={runTodayMissions}
             recentItems={runRecentItems}
             boxOrder={program.home_layout?.order || null}
@@ -2180,7 +2206,7 @@ function ProgramDetailPage() {
             hiddenBoxes={program.home_layout?.hidden || []}
             streakData={streakData}
             progressData={(isViewer || program.overview_progress_enabled === false) ? null : progressData}
-            viewerSlot={<>{cardTopSlot}{surveyBannerEl}</>}
+            viewerSlot={<>{cardTopSlot}</>}
             todayMissions={todayMissionsData}
             recentItems={recentItemsData}
             pace={program.run_pace}
@@ -2195,7 +2221,7 @@ function ProgramDetailPage() {
             onBack={handleHeaderBack}
             onSettings={isOwner ? () => setIsPanelOpen(true) : null}
             pendingCount={pendingCount}
-            reviewSlot={todoBannerEl}
+            reviewSlot={null}
             endReportSlot={isOwner && progressUrgency(calcProgress(program.start_date, program.end_date)).urgency === 'ended' ? (
               <EndReportBanner
                 onClick={() => navigate(`/programs/${id}/report`)}
@@ -2204,8 +2230,8 @@ function ProgramDetailPage() {
                 centerOffset={pendingReviews.length > 0 ? -46 : 0}
               />
             ) : null}
-            activationSlot={missionNudgeEl || activationNudgeEl}
-            weeklySlot={weeklyHighlightEl || participantReportEl || completionBannerEl}
+            activationSlot={<>{operatorMilestoneEl}{operatorActionEl}{operatorDeckEl}</>}
+            weeklySlot={participantReportEl || completionBannerEl}
             classSlot={classOverviewSlot}
             quizEnabled={quizEnabled && !isViewer}
             communityEnabled={communityEnabled}

@@ -393,14 +393,23 @@ export const fetchActivationState = async (programId) => {
   if (misRes.error) throw misRes.error
   const participantIds = (partRes.data || []).map(p => p.user_id)
   const missionIds = (misRes.data || []).map(m => m.id)
+  // verificationCount(성취 마일스톤) = 승인된 인증만(AUTO 즉시 / MANUAL은 승인 시). 대기·거절 제외.
+  // hasActivity(넛지) = 제출 포함 아무 인증이든 있으면 true(이미 제출했는데 "첫 인증 유도" 방지).
+  let verificationCount = 0
   let hasActivity = false
   if (missionIds.length) {
     const { count, error } = await supabase.from('verifications')
-      .select('id', { count: 'exact', head: true }).in('mission_id', missionIds)
+      .select('id', { count: 'exact', head: true }).in('mission_id', missionIds).eq('status', 'APPROVED')
     if (error) throw error
-    hasActivity = (count || 0) > 0
+    verificationCount = count || 0
+    if (verificationCount > 0) hasActivity = true
+    else {
+      const { count: anyCount } = await supabase.from('verifications')
+        .select('id', { count: 'exact', head: true }).in('mission_id', missionIds)
+      hasActivity = (anyCount || 0) > 0
+    }
   }
-  return { participantCount: participantIds.length, participantIds, hasMission: missionIds.length > 0, hasActivity }
+  return { participantCount: participantIds.length, participantIds, hasMission: missionIds.length > 0, hasActivity, verificationCount }
 }
 
 export const fetchProgramParticipants = async (programId) => {

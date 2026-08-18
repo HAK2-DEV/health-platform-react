@@ -47,6 +47,7 @@ export function useRealtimeSync() {
           queryClient.invalidateQueries({ queryKey: ['programs', 'active', userId] })
           queryClient.invalidateQueries({ queryKey: ['program-pending'] })         // 참여 승인 대기 목록(운영자 모달)
           queryClient.invalidateQueries({ queryKey: ['program-pending-count'] })   // 승인 대기 카운트 뱃지
+          queryClient.invalidateQueries({ queryKey: ['activationState'] })         // 운영자 마일스톤 축하(참여자 수)
         }),
       )
       .subscribe()
@@ -203,6 +204,7 @@ export function useRealtimeSync() {
           queryClient.invalidateQueries({ queryKey: ['feed'] })           // 인증 피드
           queryClient.invalidateQueries({ queryKey: ['stats'] })
           queryClient.invalidateQueries({ queryKey: ['home-stats'] })
+          queryClient.invalidateQueries({ queryKey: ['activationState'] })  // 운영자 마일스톤 축하(누적 인증 수)
         }),
       )
       .on(

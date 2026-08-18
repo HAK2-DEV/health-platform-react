@@ -200,6 +200,16 @@ function computeInsights(stats, program) {
 
   // 자동 추천 메시지 — 따뜻한 톤 (본인 정체성 반영)
   const highlights = []
+  // 함께 만든 성과 — 홈 성취 축하 카드(OperatorMilestoneCard)와 연결되는 하이라이트. 맨 앞.
+  const totalVerifs = verifications.length
+  if (participantsCount > 0 || totalVerifs > 0) {
+    const achText = (participantsCount > 0 && totalVerifs > 0)
+      ? `참여자 ${participantsCount}명이 함께하고, 누적 인증 ${totalVerifs}건을 쌓았어요. 잘 이끌고 계세요! 👏`
+      : participantsCount > 0
+        ? `참여자 ${participantsCount}명이 함께하고 있어요. 잘 이끌고 계세요! 👏`
+        : `누적 인증 ${totalVerifs}건을 쌓았어요. 잘 이끌고 계세요! 👏`
+    highlights.push({ kind: 'positive', emoji: '🏆', chip: '함께 만든 성과', text: achText })
+  }
   if (newComersCount > 0) {
     highlights.push({
       kind: 'positive',

@@ -19,6 +19,21 @@ export const primeAudio = () => {
   if (ctx && ctx.state === 'suspended') ctx.resume().catch(() => {})
 }
 
+// 앱 최초 사용자 제스처(어디든 첫 탭/키)에서 오디오 잠금 1회 해제 —
+//   자동 재생되는 효과음(운영자 마일스톤 축하 등)이 첫 상호작용 뒤엔 소리 나도록.
+export const installAudioPrimer = () => {
+  if (typeof window === 'undefined') return
+  const prime = () => {
+    primeAudio()
+    window.removeEventListener('pointerdown', prime)
+    window.removeEventListener('touchstart', prime)
+    window.removeEventListener('keydown', prime)
+  }
+  window.addEventListener('pointerdown', prime, { passive: true })
+  window.addEventListener('touchstart', prime, { passive: true })
+  window.addEventListener('keydown', prime)
+}
+
 // 성공 차임 — C5·E5·G5 짧은 상승 아르페지오
 export const playSuccessChime = () => {
   const ctx = getCtx()

@@ -1,16 +1,11 @@
 import { useState, useEffect } from 'react'
 import { Lightbulb, ChevronRight } from 'lucide-react'
+import { weekKey, seenKey } from '../../lib/weeklyHighlightSeen'
 
 // 주간 리포트 넛지 배너 — 개요 상단. 이번 주 미열람 시 노출 → 탭하면 통계(이번 주 하이라이트)로 이동.
 //   재방문 유도만 담당(리포트 본체는 통계에 있음 — 중복 제거). 이번 주 열람하면 사라짐.
 //   props: programId, onOpen(통계로 이동), show(노출 조건 — 운영자·진행중·참여자 있음)
-function weekKey() {
-  const d = new Date()
-  const day = (d.getDay() + 6) % 7
-  d.setDate(d.getDate() - day)
-  return d.toISOString().slice(0, 10)
-}
-const seenKey = (pid) => `whl-seen:${pid}`
+//   노출 판별(weeklyHighlightVisible)은 lib/weeklyHighlightSeen 에 분리(부모 덱 멤버십과 공유).
 
 // 개발(dev)에선 열람 처리 없이 항상 노출 — 테스트 편의. 프로덕션은 주 1회(열람 시 사라짐).
 const DEV = import.meta.env.DEV
