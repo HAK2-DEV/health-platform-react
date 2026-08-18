@@ -21,6 +21,7 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
   const [isPublic, setIsPublic] = useState(false)
   const [previewEnabled, setPreviewEnabled] = useState(false)
   const [inviteRequiresApproval, setInviteRequiresApproval] = useState(false)
+  const [publicRequiresApproval, setPublicRequiresApproval] = useState(false)  // 공개 프로그램 FREE↔APPROVAL(G27)
   const [quizEnabled, setQuizEnabled] = useState(true)        // 메뉴바 퀴즈 사용 (102)
   const [communityEnabled, setCommunityEnabled] = useState(true)  // 메뉴바 커뮤니티 사용 (102) = 피드 활성
   const [rankingEnabled, setRankingEnabled] = useState(true)  // 랭킹 메뉴 표시 (세부는 랭킹 설정)
@@ -51,6 +52,7 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
       setIsPublic(!!program.is_public)
       setPreviewEnabled(!!program.preview_enabled)
       setInviteRequiresApproval(!!program.invite_requires_approval)
+      setPublicRequiresApproval(program.join_type === 'APPROVAL')
       setQuizEnabled(program.quiz_enabled !== false)
       // 커뮤니티 메뉴 = 피드 활성. 102 미적용(컬럼 없음) 프로그램은 기존 feed_enabled 로 판단
       setCommunityEnabled(
@@ -123,6 +125,7 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
         is_public: isPublic,
         preview_enabled: previewEnabled,
         ...(program.join_type === 'INVITE_CODE' ? { invite_requires_approval: inviteRequiresApproval } : {}),
+        ...(program.join_type !== 'INVITE_CODE' ? { join_type: publicRequiresApproval ? 'APPROVAL' : 'FREE' } : {}),  // G27 — 공개 승인 전환
         // 커뮤니티 메뉴 사용 = 피드 활성 (둘을 하나로 통합)
         feed_enabled: communityEnabled,
         // 102 컬럼 — 마이그레이션 적용 후에만 저장(미적용 시 스킵, 하위호환)
@@ -307,6 +310,25 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
               비참여자도 참여 전 미션·커뮤니티·랭킹을 볼 수 있어요 (인증·작성은 참여 후)
             </p>
           </div>
+
+          {/* 공개 프로그램 승인 — join_type FREE↔APPROVAL 전환(G27) */}
+          {program.join_type !== 'INVITE_CODE' && (
+            <div className="mb-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={publicRequiresApproval}
+                  onChange={(e) => setPublicRequiresApproval(e.target.checked)}
+                  disabled={isSaving}
+                  className="w-4 h-4 text-emerald-500"
+                />
+                <span className="text-sm text-gray-700">참여 시 운영자 승인 필요</span>
+              </label>
+              <p className="text-xs text-gray-500 mt-1 ml-6 break-keep leading-relaxed">
+                켜면 참여 신청이 바로 승인되지 않고 승인 대기로 들어가요. 이미 참여 중인 사람은 그대로예요.
+              </p>
+            </div>
+          )}
 
           {/* 초대코드 승인 — 비공개(INVITE_CODE) 프로그램만 */}
           {program.join_type === 'INVITE_CODE' && (
