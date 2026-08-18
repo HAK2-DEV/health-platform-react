@@ -433,7 +433,7 @@ function ProgramHome({
       />
 
       {/* 콘텐츠 시트 — 히어로 위로 -22px 겹치며 26px 라운드로 시작 */}
-      <div className="relative -mt-[22px] rounded-t-[26px] px-4 pt-5 pb-6 space-y-[9px]" style={{ background: '#fdfbf7' }}>
+      <div className="relative -mt-[22px] rounded-t-[26px] px-4 pt-3 pb-6 space-y-[9px]" style={{ background: '#fdfbf7' }}>
         {/* 둘러보기(비참여자) 참여 신청 배너 — 히어로와 겹치지 않게 시트 최상단 */}
         {viewerSlot}
         {/* 활성화 넛지 / 종료 리포트 / 인증 심사 배너 (운영자) — immersive 에선 히어로 아래 시트 최상단 */}

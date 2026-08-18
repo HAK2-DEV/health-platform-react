@@ -151,8 +151,8 @@ function ProgramHomeHero({
           </button>
         )}
 
-        {/* 타이틀 블록 (밝은 페이드 위, 어두운 텍스트) */}
-        <div className="absolute left-5 right-5 bottom-8 pointer-events-none">
+        {/* 타이틀 블록 (밝은 페이드 위, 어두운 텍스트) — bottom-6: 시트 겹침(22px) 바로 위까지 내려 축하/배너와 밀착 */}
+        <div className="absolute left-5 right-5 bottom-6 pointer-events-none">
           <div className="flex items-center gap-2 mb-2">
             <span className="inline-flex items-center gap-1 text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">
               <span className="text-[7px]">●</span>{statusLabel}
