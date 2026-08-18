@@ -6,6 +6,8 @@ import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronLeft, ChevronRight, Check, Bell } from 'lucide-react'
 import { getPushState, subscribeToPush } from '../../lib/push'
+import Confetti from '../common/Confetti'
+import { playSuccessChime } from '../../lib/sound'
 
 // 첫 프로그램 발행 직후 1회 표시되는 운영자 환영 투어 (전체화면 A안).
 //   구조: 감정 환영(코드) → 전체화면 코치마크 이미지들 → 행동 CTA(코드).
@@ -60,6 +62,13 @@ function WelcomeOperatorModal({ isOpen, onClose, programId, initialStep = 0 }) {
     if (!isOpen) return
     getPushState().then(setPushState).catch(() => {})
   }, [isOpen])
+
+  // 인트로 진입 시 빵빠레 합성음 1회 — 팝인/컨페티와 싱크되게 살짝 지연
+  useEffect(() => {
+    if (!isOpen || initialStep !== 0) return
+    const t = setTimeout(() => playSuccessChime(), 350)
+    return () => clearTimeout(t)
+  }, [isOpen, initialStep])
   const enablePush = async () => {
     setPushMsg(''); setPushBusy(true)
     try {
@@ -132,7 +141,12 @@ function WelcomeOperatorModal({ isOpen, onClose, programId, initialStep = 0 }) {
             {isIntro ? (
               <motion.div key="intro" custom={dir} variants={slide} initial="initial" animate="animate" exit="exit" transition={{ duration: 0.28 }}
                 className="absolute inset-0 flex flex-col items-center justify-center text-center px-8">
-                <img src="/icons/growth/sprout.png" alt="" className="w-44 h-44 object-contain mb-5" draggable="false" />
+                <motion.img src="/icons/operator/celebrate1.png" alt="" draggable="false"
+                  className="w-44 h-44 object-contain mb-5"
+                  initial={{ scale: 0.4, opacity: 0, rotate: -12 }}
+                  animate={{ scale: 1, opacity: 1, rotate: 0 }}
+                  transition={{ type: 'spring', stiffness: 240, damping: 14, delay: 0.1 }}
+                  onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/icons/growth/sprout.png' }} />
                 <h1 className="text-[30px] font-extrabold text-gray-900 leading-tight">첫 프로그램을 만드셨어요</h1>
                 <p className="mt-4 text-[17px] leading-relaxed text-gray-500 max-w-[320px]">
                   이제 당신은 누군가의 <b className="text-emerald-600 font-bold">건강 동행자</b>예요.<br />
@@ -143,11 +157,18 @@ function WelcomeOperatorModal({ isOpen, onClose, programId, initialStep = 0 }) {
                   className="mt-9 w-full max-w-[320px] py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-[16px] transition">
                   둘러보기 시작 →
                 </button>
+                {/* 빵빠레 — 인트로에서만, 5초간 흩날림(위로 겹쳐도 클릭 통과) */}
+                <Confetti count={26} fall={700} durationMs={5000} />
               </motion.div>
             ) : isOutro ? (
               <motion.div key="outro" custom={dir} variants={slide} initial="initial" animate="animate" exit="exit" transition={{ duration: 0.28 }}
                 className="absolute inset-0 flex flex-col items-center justify-center text-center px-8">
-                <div className="text-6xl mb-4">🎉</div>
+                <motion.img src="/icons/operator/celebrate2.png" alt="" draggable="false"
+                  className="w-36 h-36 object-contain mb-4"
+                  initial={{ scale: 0.4, opacity: 0, rotate: -12 }}
+                  animate={{ scale: 1, opacity: 1, rotate: 0 }}
+                  transition={{ type: 'spring', stiffness: 260, damping: 15, delay: 0.05 }}
+                  onError={(e) => { e.currentTarget.replaceWith(Object.assign(document.createElement('div'), { textContent: '🎉', className: 'text-6xl mb-4' })) }} />
                 <h1 className="text-[26px] font-extrabold text-gray-900 leading-tight">준비 완료!</h1>
                 <p className="mt-3 text-[19px] font-extrabold leading-snug text-gray-900 max-w-[300px] break-keep">
                   미션을 만들어야<br />참여자가 인증할 수 있어요.
