@@ -45,15 +45,36 @@ window.addEventListener('vite:preloadError', () => {
 //   사용자가 「새로고침」 누르면 브랜드 스플래시 뒤 updateSW(true)로 skipWaiting+reload.
 //   오래 켜둔 세션도 15분마다 + 앱이 다시 포커스될 때 update() 로 새 배포 확인 → 기기 간
 //   배너 노출 시점 편차 축소. 청크404 는 vite:preloadError 자가복구.
+// 대기 중인 새 SW 를 '안전한 시점'에 자동 적용 — skipWaiting + reload 로 최신 빌드 로드.
+//   활성 사용 중(visible) 갑작스런 리로드로 입력을 날리지 않도록, 재실행/새로고침·재포커스에서만 적용.
+let _updateApplied = false
+const applyPendingUpdate = () => {
+  if (_updateApplied) return
+  _updateApplied = true
+  // reload 후 SplashScreen 이 이 플래그로 초기 스플래시 생략(업데이트 스플래시 중복 방지)
+  try { sessionStorage.setItem('pwa-updating', '1') } catch { /* 미지원 */ }
+  if (updateSW) updateSW(true)
+}
+
 const updateSW = registerSW({
   immediate: true,
-  onNeedRefresh() { notifyNeedRefresh() },
+  // 새 SW 가 대기 상태가 됨(prompt 모드) — 사용 중이면 배너로 '지금 새로고침' 옵션 제공,
+  //   숨겨진 상태면 방해 없이 바로 적용(다음에 열면 최신).
+  onNeedRefresh() {
+    notifyNeedRefresh()
+    if (document.visibilityState === 'hidden') applyPendingUpdate()
+  },
   onRegisteredSW(_swUrl, registration) {
     if (!registration) return
-    setInterval(() => { registration.update() }, 15 * 60_000)   // 15분 주기
-    // 앱으로 돌아오는 순간 확인 → 사용자가 배너를 볼 자연스러운 시점에 즉시 감지
+    // 직전 세션에서 받아둔 업데이트가 대기 중이면, 방금 새로 로드한 지금 자동 적용
+    //   → "앱을 다시 열거나 새로고침하면 최신" (탭 불필요).
+    if (registration.waiting) { applyPendingUpdate(); return }
+    setInterval(() => { registration.update() }, 15 * 60_000)   // 15분 주기 확인
+    // 앱으로 돌아오는 순간: 대기 중이면 적용(재실행=업데이트), 아니면 새 배포 확인
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') registration.update()
+      if (document.visibilityState !== 'visible') return
+      if (registration.waiting) applyPendingUpdate()
+      else registration.update()
     })
   },
 })
