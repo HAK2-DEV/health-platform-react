@@ -135,8 +135,6 @@ function QuitSmokingHome({
 
   return (
     <div className="-mx-[11px] px-4 pb-6 space-y-[9px]">
-      {/* 둘러보기(비참여) 참여 CTA / DRAFT 완료 CTA — 시트 최상단 */}
-      {viewerSlot}
       {/* [변형] 편집형 히어로 — extras 만 */}
       {showEditHero && (
         <ProgramHomeHero hero={homeHero} editable={editable} coverImagePath={coverImagePath}
@@ -146,6 +144,9 @@ function QuitSmokingHome({
       {/* [고정] 금연 지표 히어로 — 진행중 배지는 페이지 헤더에 이미 있어 제외(제목과 겹침 방지) */}
       <QuitSmokingHero programId={programId} streak={streak} savedAmount={savedAmount}
         smokedToday={smokedToday} onAction={onRecord} />
+
+      {/* 운영자 카드(성취·초대·처리할일) + 둘러보기/DRAFT CTA — 히어로 아래 */}
+      {viewerSlot}
 
       {/* [커스터마이즈] 운영자 순서·숨김 반영 (클래스 일정 포함) — 스크롤 진입 시 페이드업(Reveal) */}
       {orderedKeys.map((k, i) => {

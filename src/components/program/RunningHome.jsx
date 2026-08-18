@@ -499,9 +499,10 @@ function RunningHome({
 
   return (
     <div className="-mx-[11px] px-4 pb-6 space-y-[9px]">
-      {topSlot}
       {/* [고정] 히어로 — 운영자 편집(텍스트/크기/볼드/색) */}
       <Reveal index={0}><RunningHeroBlock hero={hero} editable={heroEditable} onHeroChange={onHeroChange} /></Reveal>
+      {/* 운영자 카드(성취·이탈·처리할일) + 둘러보기/DRAFT CTA — 히어로 아래 */}
+      {topSlot}
 
       {/* [커스터마이즈] 운영자 순서·숨김 반영 */}
       {orderedKeys.map((k, i) => {
