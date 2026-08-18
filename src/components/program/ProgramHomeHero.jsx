@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { ImagePlus, ChevronLeft, Settings } from 'lucide-react'
 import ProgramCover from '../common/ProgramCover'
 import ImageCropModal from '../common/ImageCropModal'
+import { compressImage } from '../../lib/cropImage'
 import { supabase } from '../../supabaseClient'
 
 // 프로그램 개요 히어로 (커버 사진형) — 데모 2026-07 기준.
@@ -37,27 +38,61 @@ function ProgramHomeHero({
   const [cropSrc, setCropSrc] = useState(null)
   const [isCropOpen, setIsCropOpen] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [pendingOriginal, setPendingOriginal] = useState(null)   // 새로 고른 압축 원본(업로드 대기). null=기존 원본 재사용
+  const [cropInitial, setCropInitial] = useState({ crop: { x: 0, y: 0 }, zoom: 1 })
 
-  const pickFile = (e) => {
+  // 새 사진 고르기 — 원본을 압축(용량↓)해서 크롭 소스 + 원본 보관용으로
+  const pickFile = async (e) => {
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
     if (file.size > MAX_SIZE_BYTES || !file.type.startsWith('image/')) return
-    setCropSrc(URL.createObjectURL(file))
-    setIsCropOpen(true)
+    try {
+      const compressed = await compressImage(file)
+      setPendingOriginal(compressed)
+      setCropSrc((prev) => { if (prev) URL.revokeObjectURL(prev); return URL.createObjectURL(compressed) })
+      setCropInitial({ crop: { x: 0, y: 0 }, zoom: 1 })   // 새 사진은 기본 위치에서
+      setIsCropOpen(true)
+    } catch (err) { console.error('이미지 준비 실패:', err) }
+  }
+  // 위치 조정 — 다시 고르지 않고 기존 원본 위에서 위치만 재조정(저장된 crop 위치로 열림)
+  const openReposition = async () => {
+    if (!hero?.originalUrl) { fileRef.current?.click(); return }
+    try {
+      const res = await fetch(hero.originalUrl)
+      const blob = await res.blob()
+      setPendingOriginal(null)   // 원본 재사용 — 재업로드 안 함
+      setCropSrc((prev) => { if (prev) URL.revokeObjectURL(prev); return URL.createObjectURL(blob) })
+      setCropInitial({ crop: { x: hero.crop?.x || 0, y: hero.crop?.y || 0 }, zoom: hero.crop?.zoom || 1 })
+      setIsCropOpen(true)
+    } catch (err) { console.error('원본 로드 실패:', err); fileRef.current?.click() }
   }
   const closeCrop = () => {
     setIsCropOpen(false)
+    setPendingOriginal(null)
     setCropSrc((prev) => { if (prev) URL.revokeObjectURL(prev); return null })
   }
-  const onCropDone = async (blob) => {
+  const onCropDone = async (blob, state) => {
     setUploading(true)
     try {
+      let originalUrl = hero?.originalUrl || null
+      if (pendingOriginal) {   // 새로 고른 경우만 압축 원본 업로드
+        const opath = `${ownerId || 'anon'}/hero-orig-${Date.now()}.jpg`
+        const { error: oErr } = await supabase.storage.from('program-covers').upload(opath, pendingOriginal, { upsert: false, contentType: 'image/jpeg' })
+        if (oErr) throw oErr
+        originalUrl = supabase.storage.from('program-covers').getPublicUrl(opath).data.publicUrl
+      }
       const path = `${ownerId || 'anon'}/hero-${Date.now()}.jpg`
       const { error: upErr } = await supabase.storage.from('program-covers').upload(path, blob, { upsert: false, contentType: 'image/jpeg' })
       if (upErr) throw upErr
       const { data } = supabase.storage.from('program-covers').getPublicUrl(path)
-      onHeroChange?.({ ...(hero || {}), imageUrl: data.publicUrl, useImage: true })
+      onHeroChange?.({
+        ...(hero || {}),
+        imageUrl: data.publicUrl,
+        originalUrl,
+        crop: { x: state?.crop?.x || 0, y: state?.crop?.y || 0, zoom: state?.zoom || 1 },
+        useImage: true,
+      })
       closeCrop()
     } catch (err) {
       console.error('히어로 커버 업로드 실패:', err)
@@ -84,7 +119,7 @@ function ProgramHomeHero({
         {/* ② 상단 스크림 (상태바 가독성) — 안전영역만큼 더 내려옴 */}
         <div className="absolute inset-x-0 top-0 pointer-events-none" style={{ height: `calc(70px + ${safeTop})`, background: 'linear-gradient(180deg,rgba(24,21,16,.42),rgba(24,21,16,0))' }} />
         {/* ③ 하단 밝은 페이드 (이미지 → 시트 배경색으로 녹임) */}
-        <div className="absolute inset-x-0 bottom-0 h-[200px] pointer-events-none" style={{ background: `linear-gradient(180deg,${SHEET_BG}00,${SHEET_BG} 46%)` }} />
+        <div className="absolute inset-x-0 bottom-0 h-[150px] pointer-events-none" style={{ background: `linear-gradient(180deg,${SHEET_BG}00,${SHEET_BG} 70%)` }} />
 
         {/* 뒤로가기 (좌상단, 상태바 아래) */}
         {onBack && (
@@ -109,7 +144,7 @@ function ProgramHomeHero({
         )}
         {/* 커버 변경 버튼 (운영자) — 이 버튼으로만 사진 선택 (커버 전체 탭 제거) */}
         {editable && (
-          <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
+          <button type="button" onClick={() => (bgUrl && hero?.originalUrl) ? openReposition() : fileRef.current?.click()} disabled={uploading}
             className="absolute left-1/2 -translate-x-1/2 z-20 inline-flex items-center gap-1 text-[11px] font-bold text-white bg-black/40 hover:bg-black/55 active:bg-black/60 px-3 py-1.5 rounded-full backdrop-blur-sm shadow-sm transition disabled:opacity-60"
             style={{ top: `calc(0.85rem + ${safeTop})` }}>
             <ImagePlus className="w-3.5 h-3.5" /> {uploading ? '업로드 중…' : '커버 변경'}
@@ -145,6 +180,9 @@ function ProgramHomeHero({
         onComplete={onCropDone}
         isUploading={uploading}
         aspect={HERO_ASPECT}
+        initialCrop={cropInitial.crop}
+        initialZoom={cropInitial.zoom}
+        onPickNew={() => fileRef.current?.click()}
         cropShape="rect"
         outputWidth={1170}
         outputHeight={Math.round(1170 / HERO_ASPECT)}
@@ -155,7 +193,7 @@ function ProgramHomeHero({
           <>
             {/* 실제 개요와 동일 비율의 상단 스크림(70/252) + 하단 밝은 페이드(200/252) */}
             <div className="absolute inset-x-0 top-0" style={{ height: `${(70 / HERO_H) * 100}%`, background: 'linear-gradient(180deg,rgba(24,21,16,.42),rgba(24,21,16,0))' }} />
-            <div className="absolute inset-x-0 bottom-0" style={{ height: `${(200 / HERO_H) * 100}%`, background: `linear-gradient(180deg,${SHEET_BG}00,${SHEET_BG} 46%)` }} />
+            <div className="absolute inset-x-0 bottom-0" style={{ height: `${(150 / HERO_H) * 100}%`, background: `linear-gradient(180deg,${SHEET_BG}00,${SHEET_BG} 70%)` }} />
           </>
         }
       />

@@ -22,6 +22,8 @@ function ImageCropModal({
   onComplete,
   isUploading,
   aspect = 1,
+  initialCrop = { x: 0, y: 0 },   // 재진입(위치 조정) 시 이전 위치로 열기
+  initialZoom = 1,
   aspectOptions,  // [{label, value}] — 주면 비율 토글 노출 + 출력 크기 자동(최장변 1280)
   cropShape = 'round',
   outputWidth = 512,
@@ -33,23 +35,24 @@ function ImageCropModal({
   onDelete,    // 주면 「삭제」 버튼 노출
   cropOverlay, // 주면 크롭 영역(저장될 사각형)에 정확히 겹쳐 렌더 — 실제 표시 미리보기(페이드 등). pointer-events-none.
 }) {
-  const [crop, setCrop] = useState({ x: 0, y: 0 })
-  const [zoom, setZoom] = useState(1)
+  const [crop, setCrop] = useState(initialCrop)
+  const [zoom, setZoom] = useState(initialZoom)
   const [activeAspect, setActiveAspect] = useState(aspect)
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null)
   const [processing, setProcessing] = useState(false)
   const [error, setError] = useState(null)
 
-  // 새 이미지로 모달 열릴 때마다 crop/zoom 초기화
+  // 새 이미지로 모달 열릴 때마다 crop/zoom 초기화(재진입이면 initialCrop/Zoom 으로)
   useEffect(() => {
     if (isOpen) {
-      setCrop({ x: 0, y: 0 })
-      setZoom(1)
+      setCrop(initialCrop)
+      setZoom(initialZoom)
       setActiveAspect(aspect)
       setCroppedAreaPixels(null)
       setProcessing(false)
       setError(null)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, imageSrc])
 
   const onCropComplete = useCallback((_, areaPixels) => {
@@ -71,7 +74,7 @@ function ImageCropModal({
         else { outH = maxDim; outW = Math.round(maxDim * activeAspect) }
       }
       const blob = await getCroppedImg(imageSrc, croppedAreaPixels, outW, outH)
-      onComplete(blob)
+      onComplete(blob, { crop, zoom })   // 크롭 위치·확대값 함께 반환(위치 조정 재진입용)
     } catch (err) {
       console.error('이미지 crop 실패:', err)
       setError(err.message || '이미지 처리에 실패했어요')

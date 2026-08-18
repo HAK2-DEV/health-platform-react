@@ -15,6 +15,30 @@ const createImage = (url) =>
 // croppedAreaPixels: { x, y, width, height } (react-easy-crop onCropComplete 두 번째 인자)
 // outputWidth/outputHeight: 출력 크기 (기본 512x512)
 // 반환: JPEG Blob
+// 원본 보관용 — 최장변 maxDim 이하로 다운스케일 + JPEG 압축. 원본을 저장하되 용량은 줄임.
+//   반환: JPEG Blob (실패 시 throw)
+export async function compressImage(file, maxDim = 1600, quality = 0.82) {
+  const url = URL.createObjectURL(file)
+  try {
+    const image = await createImage(url)
+    const scale = Math.min(1, maxDim / Math.max(image.width, image.height))
+    const w = Math.max(1, Math.round(image.width * scale))
+    const h = Math.max(1, Math.round(image.height * scale))
+    const canvas = document.createElement('canvas')
+    canvas.width = w
+    canvas.height = h
+    const ctx = canvas.getContext('2d')
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, w, h)
+    ctx.drawImage(image, 0, 0, w, h)
+    return await new Promise((resolve, reject) => {
+      canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('이미지 압축에 실패했어요')), 'image/jpeg', quality)
+    })
+  } finally {
+    URL.revokeObjectURL(url)
+  }
+}
+
 export async function getCroppedImg(imageSrc, croppedAreaPixels, outputWidth = 512, outputHeight = 512) {
   const image = await createImage(imageSrc)
   const canvas = document.createElement('canvas')
