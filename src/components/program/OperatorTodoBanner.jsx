@@ -19,7 +19,8 @@ export default function OperatorTodoBanner({ approve = 0, review = 0, grade = 0,
       transition={{ opacity: { duration: 0.35 }, y: { duration: 0.35 }, boxShadow: { duration: 1.8, repeat: Infinity, ease: 'easeInOut' } }}
       className="rounded-2xl border border-amber-200 bg-amber-50 p-3.5">
       <div className="flex items-center gap-2 mb-2.5">
-        <span className="text-[15px]">🔔</span>
+        <img src="/icons/operator/bell.png" alt="" aria-hidden="true" className="w-9 h-9 object-contain flex-shrink-0 -my-1"
+          onError={(e) => { e.currentTarget.replaceWith(Object.assign(document.createElement('span'), { textContent: '🔔', className: 'text-[15px]' })) }} />
         <p className="text-[13px] font-extrabold text-amber-900">처리할 일 {total}건</p>
         <span className="ml-auto text-[11px] text-amber-700/70 break-keep">지금 처리하면 프로그램이 원활해요</span>
       </div>

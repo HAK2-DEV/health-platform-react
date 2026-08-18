@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Lightbulb, ChevronRight, Check, Info } from 'lucide-react'
+import { ChevronRight, Check, Info } from 'lucide-react'
 import Modal from '../common/Modal'
 import { Icon3D } from './ProgramHome'
 import { fetchMyWeeklyReport, formatKstDate } from '../../lib/queries'
@@ -65,7 +65,8 @@ export default function ParticipantWeeklyReport({ programId, userId, classEnable
       {placement === 'overview' && !seen && (
         <button type="button" onClick={openFromBanner}
           className="mb-3 w-full flex items-center gap-2.5 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-left hover:bg-emerald-100/60 transition">
-          <Lightbulb className="w-5 h-5 text-emerald-500 flex-shrink-0" />
+          <img src="/icons/operator/bulb.png" alt="" aria-hidden="true" className="w-9 h-9 object-contain flex-shrink-0 -my-1"
+            onError={(e) => { e.currentTarget.replaceWith(Object.assign(document.createElement('span'), { textContent: '💡', className: 'text-[15px]' })) }} />
           <span className="flex-1 text-[13px] font-bold text-gray-700">지난 주 리포트가 도착했어요</span>
           <ChevronRight className="w-4 h-4 text-emerald-500 flex-shrink-0" />
         </button>
@@ -73,7 +74,8 @@ export default function ParticipantWeeklyReport({ programId, userId, classEnable
       {placement === 'mypage' && (
         <button type="button" onClick={() => setOpen(true)}
           className="mb-3 w-full flex items-center gap-2.5 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-left hover:bg-emerald-100/60 transition">
-          <Lightbulb className="w-5 h-5 text-emerald-500 flex-shrink-0" />
+          <img src="/icons/operator/bulb.png" alt="" aria-hidden="true" className="w-9 h-9 object-contain flex-shrink-0 -my-1"
+            onError={(e) => { e.currentTarget.replaceWith(Object.assign(document.createElement('span'), { textContent: '💡', className: 'text-[15px]' })) }} />
           <span className="flex-1 text-[13px] font-bold text-gray-700">지난 주 기록 보기</span>
           <ChevronRight className="w-4 h-4 text-emerald-500 flex-shrink-0" />
         </button>
@@ -82,7 +84,8 @@ export default function ParticipantWeeklyReport({ programId, userId, classEnable
       <Modal isOpen={open} onClose={() => setOpen(false)}>
         <div className="p-5">
           <div className="relative flex items-center gap-2 mb-3">
-            <Lightbulb className="w-5 h-5 text-amber-500" />
+            <img src="/icons/operator/bulb.png" alt="" aria-hidden="true" className="w-7 h-7 object-contain flex-shrink-0"
+              onError={(e) => { e.currentTarget.replaceWith(Object.assign(document.createElement('span'), { textContent: '💡', className: 'text-[15px]' })) }} />
             <h2 className="text-lg font-bold text-gray-800">지난 주 나의 기록</h2>
             {placement === 'overview' && (
               <button type="button" onClick={() => setTipOpen(v => !v)} className="text-gray-300 hover:text-gray-500 transition" aria-label="안내">

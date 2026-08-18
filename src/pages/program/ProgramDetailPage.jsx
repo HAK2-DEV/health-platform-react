@@ -1450,9 +1450,13 @@ function ProgramDetailPage() {
           animate={{ boxShadow: glow }}
           transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
           className={`rounded-2xl border p-3.5 ${postEnd ? 'border-rose-300 bg-rose-50' : 'border-amber-200 bg-amber-50'}`}>
-          <p className={`text-[13px] font-bold mb-0.5 ${postEnd ? 'text-rose-900' : 'text-amber-900'}`}>
-            {postEnd ? '🚨 종료 설문을 아직 시작 안 했어요' : '⏳ 종료 설문 준비'}
-          </p>
+          <div className="flex items-center gap-2 mb-0.5">
+            <img src="/icons/operator/hourglass.png" alt="" aria-hidden="true" className="w-9 h-9 object-contain flex-shrink-0 -my-1"
+              onError={(e) => { e.currentTarget.replaceWith(Object.assign(document.createElement('span'), { textContent: postEnd ? '🚨' : '⏳', className: 'text-[15px]' })) }} />
+            <p className={`text-[13px] font-bold ${postEnd ? 'text-rose-900' : 'text-amber-900'}`}>
+              {postEnd ? '종료 설문을 아직 시작 안 했어요' : '종료 설문 준비'}
+            </p>
+          </div>
           <p className={`text-[12px] leading-snug break-keep mb-2.5 ${postEnd ? 'text-rose-800' : 'text-amber-800'}`}>
             {postEnd
               ? `종료됐지만 지금 시작하면 아직 참여자 응답을 받을 수 있어요. 종료 후 ${graceLeft}일 안에 시작하세요 — 지나면 영영 못 받아요.`
@@ -1473,13 +1477,15 @@ function ProgramDetailPage() {
         animate={{ boxShadow: ['0 0 0px rgba(251,191,36,0)', '0 0 14px 2px rgba(251,191,36,0.6)', '0 0 0px rgba(251,191,36,0)'] }}
         transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
         className="w-full flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-50 border border-amber-300 text-amber-700 text-[12px] font-semibold active:bg-amber-100 transition">
-        <span>📋</span> 종료 설문 (30초) · 여정을 돌아볼 시간이에요 <span className="ml-auto text-amber-600 font-bold">답하기 ›</span>
+        <img src="/icons/feature/survey.png" alt="" aria-hidden="true" className="w-6 h-6 object-contain flex-shrink-0 -my-1"
+          onError={(e) => { e.currentTarget.replaceWith(Object.assign(document.createElement('span'), { textContent: '📋', className: '' })) }} /> 종료 설문 (30초) · 여정을 돌아볼 시간이에요 <span className="ml-auto text-amber-600 font-bold">답하기 ›</span>
       </motion.button>
     )
     if (!endSurveyLaunched && surveyStartAnswers === null) return (
       <button type="button" onClick={() => setSurveyOpen(true)}
         className="w-full flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50/70 text-emerald-700 text-[12px] font-medium active:bg-emerald-100 transition">
-        <span>📋</span> 시작 설문 (30초) <span className="ml-auto text-emerald-600 font-semibold">답하기 ›</span>
+        <img src="/icons/feature/survey.png" alt="" aria-hidden="true" className="w-6 h-6 object-contain flex-shrink-0 -my-1"
+          onError={(e) => { e.currentTarget.replaceWith(Object.assign(document.createElement('span'), { textContent: '📋', className: '' })) }} /> 시작 설문 (30초) <span className="ml-auto text-emerald-600 font-semibold">답하기 ›</span>
       </button>
     )
     return null

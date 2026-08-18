@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Lightbulb, ChevronRight } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import { weekKey, seenKey } from '../../lib/weeklyHighlightSeen'
 
 // 주간 리포트 넛지 배너 — 개요 상단. 이번 주 미열람 시 노출 → 탭하면 통계(이번 주 하이라이트)로 이동.
@@ -30,7 +30,8 @@ export default function WeeklyHighlight({ programId, onOpen, show = true }) {
   return (
     <button type="button" onClick={handle}
       className="mb-3 w-full flex items-center gap-2.5 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-left hover:bg-emerald-100/60 transition">
-      <Lightbulb className="w-5 h-5 text-emerald-500 flex-shrink-0" />
+      <img src="/icons/operator/bulb.png" alt="" aria-hidden="true" className="w-9 h-9 object-contain flex-shrink-0 -my-1"
+        onError={(e) => { e.currentTarget.replaceWith(Object.assign(document.createElement('span'), { textContent: '💡', className: 'text-[15px]' })) }} />
       <span className="flex-1 text-[13px] font-bold text-gray-700">이번 주 리포트가 도착했어요</span>
       <ChevronRight className="w-4 h-4 text-emerald-500 flex-shrink-0" />
     </button>

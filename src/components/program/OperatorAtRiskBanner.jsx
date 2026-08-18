@@ -5,7 +5,8 @@ export default function OperatorAtRiskBanner({ count, thresholdDays = 3, onRemin
   return (
     <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3.5">
       <div className="flex items-center gap-2 mb-2.5">
-        <span className="text-[15px]">🌡️</span>
+        <img src="/icons/operator/decline.png" alt="" aria-hidden="true" className="w-9 h-9 object-contain flex-shrink-0 -my-1"
+          onError={(e) => { e.currentTarget.replaceWith(Object.assign(document.createElement('span'), { textContent: '🌡️', className: 'text-[15px]' })) }} />
         <p className="text-[13px] font-extrabold text-rose-900">{count}명이 멀어지고 있어요</p>
         <span className="ml-auto text-[11px] text-rose-700/70 break-keep">{thresholdDays}일+ 미인증</span>
       </div>
