@@ -22,6 +22,7 @@ import {
   queryKeys,
   fetchMyPrograms,
   fetchActivePrograms,
+  fetchPendingPrograms,
   fetchActiveParticipantCounts,
   fetchPublicPrograms,
   fetchUnreadNotificationsCount,
@@ -60,7 +61,10 @@ export function ProgramSlideCard({ program, participants, onClick, active = fals
   const daysLeft = program.end_date
     ? Math.max(0, Math.ceil((new Date(`${program.end_date}T23:59:59+09:00`) - new Date()) / 86400000))
     : null
-  const status = program.status === 'DRAFT'
+  const isPending = program._status === 'PENDING'
+  const status = isPending
+    ? { label: '대기중', cls: 'bg-amber-100 text-amber-700' }
+    : program.status === 'DRAFT'
     ? { label: '임시저장', cls: 'bg-gray-100 text-gray-500' }
     : notStarted
       ? { label: '준비중', cls: 'bg-sky-100 text-sky-700' }
@@ -125,7 +129,9 @@ export function ProgramSlideCard({ program, participants, onClick, active = fals
           )}
         </div>
 
-        {program.status === 'DRAFT' ? (
+        {isPending ? (
+          <p className="text-[13px] font-semibold text-amber-600">운영자 승인을 기다리고 있어요</p>
+        ) : program.status === 'DRAFT' ? (
           <p className="text-[13px] font-semibold text-gray-500">{hasPeriod ? `${md(program.start_date)}~${md(program.end_date)}` : '작성 미완성'}</p>
         ) : !hasPeriod ? (
           <p className="text-[13px] font-semibold text-gray-500">상시 운영</p>
@@ -155,7 +161,7 @@ export function ProgramSlideCard({ program, participants, onClick, active = fals
           <span className="w-px h-3 bg-gray-200 flex-shrink-0" />
           <span className="inline-flex items-center gap-1 whitespace-nowrap">
             <CalendarSolid className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-            {program.status === 'DRAFT' ? '작성 중' : ended ? '종료됨' : daysLeft != null ? `${daysLeft}일 남음` : '상시'}
+            {isPending ? '승인 대기' : program.status === 'DRAFT' ? '작성 중' : ended ? '종료됨' : daysLeft != null ? `${daysLeft}일 남음` : '상시'}
           </span>
         </div>
       </div>
@@ -344,8 +350,20 @@ function DashboardPage() {
     enabled: !!userId,
   })
 
+  // 승인 대기(PENDING) 참여 프로그램 — 「참여중」 목록에 「대기중」 칩으로 함께 노출.
+  const { data: pendingPrograms = [], isLoading: isPendingLoading } = useQuery({
+    queryKey: queryKeys.pendingPrograms(userId),
+    queryFn: () => fetchPendingPrograms(userId),
+    enabled: !!userId,
+  })
+  // 참여자 캐러셀 = 활성 + 대기(뒤에 붙임). ACTIVE 를 먼저, PENDING 을 뒤에.
+  const participantPrograms = useMemo(
+    () => [...activePrograms, ...pendingPrograms],
+    [activePrograms, pendingPrograms],
+  )
+
   // 참여자 수 — 참여 프로그램 + 운영 프로그램(대표 카드가 운영중일 때 참여자 수 표시) 모두 집계
-  const activeProgramIds = [...new Set([...activePrograms.map(p => p.id), ...myPrograms.map(p => p.id)])]
+  const activeProgramIds = [...new Set([...participantPrograms.map(p => p.id), ...myPrograms.map(p => p.id)])]
   const { data: activeCounts = {} } = useQuery({
     queryKey: queryKeys.activeParticipantCounts(activeProgramIds),
     queryFn: () => fetchActiveParticipantCounts(activeProgramIds),
@@ -378,12 +396,12 @@ function DashboardPage() {
   const isOperator = myPrograms.length > 0
   // 신규 사용자 콜드스타트 — 운영·참여 프로그램이 하나도 없고 로딩도 끝난 상태.
   // 죽은 0/0/0 대시보드 대신 「시작 3단계」 가이드로 전환 (참여자 온보딩).
-  const isColdStart = !isMyLoading && !isActiveLoading && myPrograms.length === 0 && activePrograms.length === 0
-  const canToggleMode = myPrograms.length > 0 && activePrograms.length > 0
+  const isColdStart = !isMyLoading && !isActiveLoading && !isPendingLoading && myPrograms.length === 0 && participantPrograms.length === 0
+  const canToggleMode = myPrograms.length > 0 && participantPrograms.length > 0
   const effectiveMode = canToggleMode ? viewMode : (isOperator ? 'operator' : 'participant')
   const showOperator = effectiveMode === 'operator'
   // 캐러셀에 깔 목록 = 현재 모드의 프로그램 전부.
-  const slideList = showOperator ? myPrograms : activePrograms
+  const slideList = showOperator ? myPrograms : participantPrograms
   // featured = 캐러셀에서 지금 보고 있는 슬라이드(넛지·랭킹·참여자수 등이 선택 프로그램을 따라감).
   //   slide 가 목록 범위를 벗어나면(모드전환 직후 등) 첫 장으로 폴백.
   const featured = slideList[slide] || slideList[0] || null
@@ -484,7 +502,8 @@ function DashboardPage() {
   // 첫 인증 넛지 — 참여자(운영 모드 아님)인데 대표 프로그램에 승인된 인증이 0건(활성화 전).
   //   featuredOverview 로딩 중엔 undefined → 조건 false 라 깜빡임 없음.
   //   종료된 프로그램에선 "첫 인증하라"는 넛지가 무의미(이미 끝남) → ended 제외.
-  const firstVerifyNudge = !isColdStart && !showOperator && !!featured && featuredOverview?.totalCount === 0
+  // 대기중(승인 대기) 프로그램은 아직 인증 자체가 불가 → "첫 인증 전" 넛지 제외
+  const firstVerifyNudge = !isColdStart && !showOperator && !!featured && featured._status !== 'PENDING' && featuredOverview?.totalCount === 0
     && progressUrgency(calcProgress(featured.start_date, featured.end_date)).urgency !== 'ended'
 
   // 오늘의 활동 (값 / 소프트 캡 → 막대 비율)

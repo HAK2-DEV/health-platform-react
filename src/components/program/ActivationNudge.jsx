@@ -12,6 +12,7 @@ export default function ActivationNudge({ state, onInvite, onCheer }) {
   if (participantCount === 0) {
     nudge = {
       emoji: '🙌',
+      iconSrc: '/icons/onboarding/invite.png',
       title: '아직 함께할 사람이 없어요',
       desc: '프로그램은 같이할 때 힘이 나요. 지금 첫 참여자를 초대해볼까요?',
       label: '초대하기',
@@ -31,7 +32,10 @@ export default function ActivationNudge({ state, onInvite, onCheer }) {
   return (
     <div className="w-full rounded-2xl p-4 mb-[9px] bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 shadow-soft">
       <div className="flex items-start gap-3">
-        <span className="text-2xl flex-shrink-0 leading-none mt-0.5" aria-hidden="true">{nudge.emoji}</span>
+        {nudge.iconSrc
+          ? <img src={nudge.iconSrc} alt="" aria-hidden="true" className="w-8 h-8 flex-shrink-0 mt-0.5 object-contain"
+              onError={(e) => { e.currentTarget.replaceWith(Object.assign(document.createElement('span'), { textContent: nudge.emoji, className: 'text-2xl flex-shrink-0 leading-none' })) }} />
+          : <span className="text-2xl flex-shrink-0 leading-none mt-0.5" aria-hidden="true">{nudge.emoji}</span>}
         <div className="flex-1 min-w-0">
           <p className="text-[13.5px] font-bold text-gray-800">{nudge.title}</p>
           <p className="text-[12px] text-gray-500 mt-0.5 leading-relaxed break-keep">{nudge.desc}</p>

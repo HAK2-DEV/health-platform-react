@@ -14,6 +14,7 @@ export const queryKeys = {
   myPrograms: (userId) => ['programs', 'mine', userId],
   // 본인이 참여 중인 프로그램 (대시보드 "참여 중" / 랭킹 / 오늘의 미션 기준)
   activePrograms: (userId) => ['programs', 'active', userId],
+  pendingPrograms: (userId) => ['programs', 'pending', userId],
   // 여러 프로그램의 ACTIVE 참여자 수 (Dashboard 카드용) — programIds 정렬 후 키 생성
   activeParticipantCounts: (programIds) => ['programs', 'participant-counts', [...(programIds || [])].sort().join(',')],
   // 공개 프로그램 (둘러보기) — 대시보드는 본인 것 제외, 프로그램 탭은 전체. excludeUserId 로 캐시 분리.
@@ -167,6 +168,20 @@ export const fetchActivePrograms = async (userId) => {
   if (error) throw error
   // 가입 시각(_joinedAt) 첨부 — "최근 참여 프로그램" 정렬용. 다른 소비자는 무시.
   return (data || []).map(row => ({ ...row.programs, _joinedAt: row.joined_at }))
+}
+
+// 승인 대기(PENDING) 참여 프로그램 — 승인제 프로그램에 참여 신청 후 운영자 승인 대기 상태.
+//   대시보드 「참여중」 목록에 「대기중」 칩으로 노출 + 클릭 시 둘러보기(열람) 전용.
+//   ACTIVE 와 분리한 이유: fetchActivePrograms 소비처(랭킹·기록·탭바 등)가 ACTIVE 전제라
+//   PENDING 이 새면 오작동. 대시보드에서만 병합해 쓴다.
+export const fetchPendingPrograms = async (userId) => {
+  const { data, error } = await supabase
+    .from('program_participants')
+    .select('program_id, joined_at, programs!inner(*)')
+    .eq('user_id', userId)
+    .eq('status', 'PENDING')
+  if (error) throw error
+  return (data || []).map(row => ({ ...row.programs, _joinedAt: row.joined_at, _status: 'PENDING' }))
 }
 
 // 본인의 프로그램별 마지막 인증 시각 맵 { program_id: ISO } — "최근 인증순" 정렬용.
@@ -1104,6 +1119,68 @@ export const fetchProgramOverview = async (programId, userId) => {
   }
 
   return { streak, maxStreak, hasToday, activeDays, recent, totalCount, weekDays }
+}
+
+// 「내 활동 추이」 카드 — 참여자 개요(층1, 전 프로그램 공용).
+//   인증(APPROVED) 기록에서: 누적 일별 시계열 + 롤링 7일 버킷(보는날 기준) + 이번주/지난주 + 연속.
+//   지표=인증이라 모든 프로그램 유형 자동. 종료 리포트가 아니라 "진행 중" 언제나 열람.
+export const fetchMyActivitySeries = async (programId, userId) => {
+  const [progRes, vRes] = await Promise.all([
+    supabase.from('programs').select('start_date').eq('id', programId).maybeSingle(),
+    supabase.from('verifications')
+      .select('submitted_at, missions!inner(program_id)')
+      .eq('user_id', userId).eq('status', 'APPROVED').eq('missions.program_id', programId),
+  ])
+  if (vRes.error) throw vRes.error
+  const rows = vRes.data || []
+  const byDate = new Map()
+  for (const v of rows) { const d = formatKstDate(new Date(v.submitted_at)); byDate.set(d, (byDate.get(d) || 0) + 1) }
+  const totalCount = rows.length
+  const activeDays = byDate.size
+
+  const todayKst = formatKstDate(new Date())
+  const t0 = new Date(`${todayKst}T00:00:00+09:00`)
+  const dnum = (ds) => byDate.get(ds) || 0
+  const dayBack = (n) => { const d = new Date(t0); d.setDate(d.getDate() - n); return formatKstDate(d) }
+
+  // 타임라인: 프로그램 시작(있으면) ~ 오늘. 없으면 첫 활동일. 최대 180일 캡.
+  const firstActivity = byDate.size ? [...byDate.keys()].sort()[0] : todayKst
+  let startKst = progRes.data?.start_date || firstActivity
+  // 인증이 시작일보다 이르면(예정 프로그램·이른 인증) 인증 첫날부터 — 안 그러면 누적이 0으로 빠짐
+  if (byDate.size && firstActivity < startKst) startKst = firstActivity
+  if (startKst > todayKst) startKst = todayKst
+  // 0 기준선 하루 — 시작(또는 첫 인증) 전날부터 그린다. 첫날부터 인증이 있으면 누적이
+  //   1로 시작해 그래프가 평평해 보였음(0→1 상승이 안 보임). 전날 0을 두면 확실히 올라옴.
+  { const b = new Date(`${startKst}T00:00:00+09:00`); b.setDate(b.getDate() - 1); startKst = formatKstDate(b) }
+  const days = []
+  { let d = new Date(`${startKst}T00:00:00+09:00`); let guard = 0
+    while (d <= t0 && guard++ < 400) { days.push(formatKstDate(d)); d.setDate(d.getDate() + 1) } }
+  const trimmed = days.slice(-180)
+  let cum = 0
+  // 캡으로 잘린 앞부분 인증도 누적에 반영
+  const before = days.length - trimmed.length
+  for (let i = 0; i < before; i++) cum += dnum(days[i])
+  const cumulative = trimmed.map((ds) => { cum += dnum(ds); return { date: ds, count: cum } })
+
+  // 롤링 7일 버킷(오늘 기준 뒤로), 최대 8개. label=버킷 시작일.
+  const nWeeks = Math.min(8, Math.max(1, Math.ceil(days.length / 7)))
+  const weekly = []
+  for (let w = nWeeks - 1; w >= 0; w--) {
+    let c = 0, startDs = dayBack(w * 7 + 6)
+    for (let i = 0; i < 7; i++) c += dnum(dayBack(w * 7 + i))
+    weekly.push({ date: startDs, count: c })
+  }
+  const windowCount = (endOffset) => { let c = 0; for (let i = 0; i < 7; i++) c += dnum(dayBack(endOffset + i)); return c }
+  const thisWeek = windowCount(0)   // 오늘~6일 전
+  const lastWeek = windowCount(7)   // 7~13일 전
+
+  // 연속(오늘 or 어제부터 역산)
+  const hasToday = byDate.has(todayKst)
+  let cursor = new Date(t0); if (!hasToday) cursor.setDate(cursor.getDate() - 1)
+  let streak = 0
+  for (let i = 0; i < 400; i++) { if (byDate.has(formatKstDate(cursor))) { streak++; cursor.setDate(cursor.getDate() - 1) } else break }
+
+  return { cumulative, weekly, totalCount, activeDays, streak, thisWeek, lastWeek }
 }
 
 // 프로그램 참여 모달용 정보 (Day 65 본인 결정 — UX 강화)
@@ -2141,6 +2218,34 @@ export const fetchMyWeeklyReport = async (programId, userId) => {
     weekPoints: (ledgerRes.data || []).reduce((s, l) => s + (l.point || 0), 0),
     activeDays: doneDates.size,
     weekDays,
+  }
+}
+
+// 「전체 활동」 레이더용 — 활동 종류별 누적 카운트 (미션 인증·게시글·댓글·좋아요).
+//   좋아요는 「내가 누른」 것 = community_post_likes(글) + post_likes(인증 피드), 이 프로그램 범위.
+//   인증 신호를 흐리지 않으려 「인증」 뷰와 분리된 별도 뷰의 데이터.
+export const fetchMyActivityBreakdown = async (programId, userId) => {
+  const head = { count: 'exact', head: true }
+  const [mission, quiz, post, comment, postLike, feedLike] = await Promise.all([
+    supabase.from('verifications').select('id, missions!inner(program_id)', head)
+      .eq('user_id', userId).eq('status', 'APPROVED').eq('missions.program_id', programId),
+    supabase.from('quiz_submissions').select('id, quiz:quizzes!inner(program_id)', head)
+      .eq('user_id', userId).eq('quiz.program_id', programId),
+    supabase.from('community_posts').select('id', head)
+      .eq('author_id', userId).eq('program_id', programId),
+    supabase.from('community_post_comments').select('id, community_posts!inner(program_id)', head)
+      .eq('user_id', userId).eq('community_posts.program_id', programId),
+    supabase.from('community_post_likes').select('post_id, community_posts!inner(program_id)', head)
+      .eq('user_id', userId).eq('community_posts.program_id', programId),
+    supabase.from('post_likes').select('verification_id, verifications!inner(missions!inner(program_id))', head)
+      .eq('user_id', userId).eq('verifications.missions.program_id', programId),
+  ])
+  return {
+    mission: mission.count || 0,
+    quiz: quiz.count || 0,
+    post: post.count || 0,
+    comment: comment.count || 0,
+    like: (postLike.count || 0) + (feedLike.count || 0),
   }
 }
 

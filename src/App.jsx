@@ -13,6 +13,7 @@ import SplashScreen from './components/common/SplashScreen'
 import BottomTabBar from './components/common/BottomTabBar'
 import InAppBrowserBanner from './components/common/InAppBrowserBanner'
 import InAppBrowserGate from './components/common/InAppBrowserGate'
+import KickWatcher from './components/common/KickWatcher'
 import { useRealtimeSync } from './hooks/useRealtimeSync'
 
 // 코드 스플리팅 — 페이지별 lazy chunk 분리 (Day 65 본인 결정)
@@ -59,6 +60,9 @@ const ProgramListPage = lazy(() => import('./pages/program/ProgramListPage'))
 const RecordPage = lazy(() => import('./pages/RecordPage'))
 const RankingsPage = lazy(() => import('./pages/RankingsPage'))
 const GrowthPage = lazy(() => import('./pages/GrowthPage'))
+// 성장 탭 v1 개발용 — 숨긴 라우트(참여자 비노출). 완성 시 /growth 로 승격.
+const DevGrowthBiome = lazy(() => import('./pages/DevGrowthBiome'))
+const DevGrowthDemo = lazy(() => import('./pages/DevGrowthDemo'))
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage'))
 const ProfilePage = lazy(() => import('./pages/ProfilePage'))
 const AdminScreenStatsPage = lazy(() => import('./pages/AdminScreenStatsPage'))
@@ -141,6 +145,8 @@ function AppShell() {
       <InAppBrowserBanner />
       {/* 온보딩(초대/로그인/가입) 경로에서만 — 인앱 브라우저 강한 전체화면 게이트(외부 브라우저 유도) */}
       <InAppBrowserGate />
+      {/* 전역 강퇴 감지 — 어느 화면(대시보드 포함)에서도 운영자 내보내기 시 안내 팝업 */}
+      <KickWatcher />
       <main
         className={`app-main ${showTabBar ? 'pb-24' : 'pb-4'}`}
         style={{ paddingTop: 'max(env(safe-area-inset-top), 0.75rem)' }}
@@ -273,6 +279,12 @@ function AppShell() {
             } />
             <Route path="/growth" element={
               <ProtectedRoute><GrowthPage /></ProtectedRoute>
+            } />
+            <Route path="/dev/growth" element={
+              <ProtectedRoute><DevGrowthBiome /></ProtectedRoute>
+            } />
+            <Route path="/dev/growth-demo" element={
+              <ProtectedRoute><DevGrowthDemo /></ProtectedRoute>
             } />
             <Route path="/notifications" element={
               <ProtectedRoute><NotificationsPage /></ProtectedRoute>

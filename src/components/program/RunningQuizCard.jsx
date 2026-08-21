@@ -17,12 +17,13 @@ function typeChips(breakdown, questionCount) {
   return chips.length ? chips : [`${questionCount || 0}문제`]
 }
 
-function RunningQuizCard({ quiz, index = 0, programId, quizPreview, isOwner, onEdit, onDelete, isNew = false }) {
+function RunningQuizCard({ quiz, index = 0, programId, quizPreview, isOwner, onEdit, onDelete, isNew = false, reserved = false, ended = false }) {
   const navigate = useNavigate()
   const [shake, setShake] = useState(false)
   const sub = quiz.mySubmission
   const now = new Date()
-  const isNotStarted = quiz.start_at && new Date(quiz.start_at) > now
+  // 프로그램 예약중(시작 전) 이거나 퀴즈 자체 미시작이면 잠금(참여자). reserved 는 참여자에게만 전달됨.
+  const isNotStarted = (quiz.start_at && new Date(quiz.start_at) > now) || reserved
   const isExpired = quiz.due_at && new Date(quiz.due_at) < now
   const lockedNotStarted = isNotStarted && !quizPreview
   const done = !!sub && sub.status !== 'PENDING'
@@ -35,6 +36,7 @@ function RunningQuizCard({ quiz, index = 0, programId, quizPreview, isOwner, onE
 
   const renderAction = () => {
     if (done || pending) return null
+    if (ended && !isOwner) return <span className="px-2.5 py-1 bg-gray-100 text-gray-500 text-[11px] rounded-md font-bold whitespace-nowrap">🔒 종료</span>
     if (isNotStarted) return <span className="px-2.5 py-1 bg-amber-100 text-amber-700 text-[11px] rounded-md font-bold whitespace-nowrap">🔒 예정</span>
     if (isExpired) return <span className="px-2.5 py-1 bg-gray-100 text-gray-500 text-[11px] rounded-md font-bold whitespace-nowrap">마감</span>
     return (
@@ -65,7 +67,7 @@ function RunningQuizCard({ quiz, index = 0, programId, quizPreview, isOwner, onE
           {quiz.description && <p className="text-[11px] text-gray-400 mt-0.5 leading-snug line-clamp-2 break-keep">{quiz.description}</p>}
           <div className="flex items-center justify-between gap-2 mt-2">
             {isNotStarted ? (
-              <span className="text-[10.5px] text-gray-500 bg-gray-50 rounded px-1.5 py-0.5 truncate">예정 · {formatKoreanDateTime(quiz.start_at)}부터</span>
+              <span className="text-[10.5px] text-gray-500 bg-gray-50 rounded px-1.5 py-0.5 truncate">예정 · {quiz.start_at ? `${formatKoreanDateTime(quiz.start_at)}부터` : '프로그램 시작 후'}</span>
             ) : (
               <div className="flex flex-wrap items-center gap-1 min-w-0">
                 {typeChips(quiz.typeBreakdown, quiz.questionCount).map((c, i) => (

@@ -6,7 +6,7 @@ import { supabase } from '../../../supabaseClient'
 import { useAuth } from '../../../hooks/useAuth'
 import { queryKeys } from '../../../lib/queries'
 import { CATEGORY, PROGRAM_TYPE, JOIN_TYPE } from '../../../lib/constants'
-import { formatKoreanDate } from '../../../lib/formatters'
+import { formatKoreanDate, isUpcomingByStartDate } from '../../../lib/formatters'
 import { getProgramSurvey } from '../../../lib/surveyDefaults'
 import { useBodyScrollLock } from '../../../hooks/useBodyScrollLock'
 import InfoTip from '../../common/InfoTip'
@@ -23,6 +23,7 @@ function Step4Summary({ initialData, programId, onPrev }) {
   const [surveyQuestions, setSurveyQuestions] = useState(initialData?.survey_questions ?? null)  // null = 카테고리 기본
   const [editorOpen, setEditorOpen] = useState(false)
   const [error, setError] = useState(null)
+  const [showUpcomingConfirm, setShowUpcomingConfirm] = useState(false)
 
   useBodyScrollLock(editorOpen)
 
@@ -33,7 +34,13 @@ function Step4Summary({ initialData, programId, onPrev }) {
     survey_questions: surveyQuestions,
   })
 
-  const handlePublish = async () => {
+  // 미래 시작일이면 게시 전에 확인 모달 — 실수 방지(참여자는 그때까지 예약중)
+  const handlePublish = () => {
+    if (isUpcomingByStartDate(initialData?.start_date)) { setShowUpcomingConfirm(true); return }
+    doPublish()
+  }
+
+  const doPublish = async () => {
     setIsPublishing(true)
     setError(null)
 
@@ -252,6 +259,24 @@ function Step4Summary({ initialData, programId, onPrev }) {
               responseCount={0}
               onDone={(qs) => { setSurveyQuestions(qs); setEditorOpen(false) }}
             />
+          </div>
+        </div>
+      )}
+      {/* 미래 시작일 확인 — 게시 클릭 시 중앙 팝업 (강조). 실수 방지 */}
+      {showUpcomingConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-black/45">
+          <div className="w-full max-w-sm bg-white rounded-2xl p-5 text-center shadow-xl">
+            <div className="text-4xl mb-2 leading-none">⏰</div>
+            <h3 className="text-lg font-extrabold text-gray-900">시작일이 미래예요</h3>
+            <p className="text-sm text-gray-600 mt-2 leading-relaxed break-keep">
+              <b className="text-gray-800">{formatKoreanDate(initialData?.start_date)}</b> (D-{Math.max(1, Math.ceil((new Date(`${initialData?.start_date}T00:00:00+09:00`) - Date.now()) / 86400000))}) 전까지 참여자는 <b>예약 상태</b>가 되어 미션을 인증할 수 없어요.<br />실수로 미래 날짜를 고른 게 아닌가요?
+            </p>
+            <div className="mt-5 flex flex-col gap-2">
+              <button type="button" onClick={() => { setShowUpcomingConfirm(false); onPrev() }}
+                className="w-full h-11 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[14px] font-bold transition">시작일 수정하기</button>
+              <button type="button" onClick={() => { setShowUpcomingConfirm(false); doPublish() }}
+                className="w-full h-11 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-600 text-[14px] font-bold transition">이대로 계속하기</button>
+            </div>
           </div>
         </div>
       )}

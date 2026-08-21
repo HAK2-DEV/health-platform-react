@@ -163,7 +163,24 @@ function ProgramStatsUserDetailPage() {
       queryClient.invalidateQueries({ queryKey: queryKeys.program(id) })   // 참여자 수 배지 등
       queryClient.invalidateQueries({ queryKey: ['rankings'] })
       queryClient.invalidateQueries({ queryKey: ['stats'] })
-      navigate(`/programs/${id}/stats/users`)
+      // 목록으로 복귀 — 새 항목을 push 하면 스택이 [users, detail, users] 가 돼
+      //   뒤로가기가 상세→목록으로 "2번 반복"됨. 상세(그리고 프로드의 모달 가드)를
+      //   pop 해서 이미 스택에 있는 목록으로 돌아간다.
+      const st = window.history.state
+      if (st?.__bk != null) {
+        // 프로드 — 최상단이 ConfirmModal 뒤로가기 더미. go(-2) 의 popstate 가
+        //   더미 팝(모달 닫힘) + 상세 팝을 함께 처리. 여기서 setRemoveStep 을 직접
+        //   부르면 모달 cleanup 의 history.back 과 go(-2) 가 경합하므로 부르지 않는다.
+        navigate(-2)
+      } else if (typeof st?.idx === 'number' && st.idx > 0) {
+        // dev/일반 — 가드 없음. 모달 닫고 상세 항목만 pop → 목록.
+        setRemoveStep(0)
+        navigate(-1)
+      } else {
+        // 딥링크 등 히스토리 없음 → 목록으로 replace(중복 없음).
+        setRemoveStep(0)
+        navigate(`/programs/${id}/stats/users`, { replace: true })
+      }
     },
     onError: (err) => {
       console.error('참여자 내보내기 실패:', err)

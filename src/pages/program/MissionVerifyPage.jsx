@@ -9,7 +9,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useKeyboardInset } from '../../hooks/useKeyboardInset'
 import { supabase } from '../../supabaseClient'
 import { CATEGORY } from '../../lib/constants'
-import { checkMissionToday } from '../../lib/formatters'
+import { checkMissionToday, isUpcomingByStartDate, formatKoreanDate } from '../../lib/formatters'
 import { resolveMissionIcon } from '../../lib/missionIcons'
 import { queryKeys, fetchMission, fetchProgramOverview, fetchProgram, fetchActivePrograms, fetchTodayMissions, fetchTodayCounts } from '../../lib/queries'
 import { detectMilestonesReached, resolveStreakMilestones, computeStage } from '../../lib/gamification'
@@ -773,6 +773,40 @@ function MissionVerifyPage() {
         <p className="p-4 bg-red-50 text-red-700 rounded-xl text-center">
           미션을 찾을 수 없어요
         </p>
+      </div>
+    )
+  }
+
+  // 예정(시작 전)·종료 프로그램 — 참여자는 인증 잠금(조회만). 운영자는 테스트 위해 허용.
+  const programUpcoming = program?.status === 'PUBLISHED' && isUpcomingByStartDate(program?.start_date)
+  const programEnded = program?.status === 'PUBLISHED' && program?.end_date && new Date(`${program.end_date}T23:59:59+09:00`) < new Date()
+  if (!isOwner && (programUpcoming || programEnded)) {
+    return (
+      <div className="px-4 pt-4">
+        <button type="button" onClick={handleClose} className="flex items-center justify-center w-9 h-9 rounded-full hover:bg-gray-100 transition mb-4">
+          <ChevronLeft className="w-5 h-5 text-gray-600" />
+        </button>
+        <div className="text-center py-12">
+          {programUpcoming
+            ? <img src="/icons/status/upcoming.png" alt="" className="w-16 h-16 object-contain mx-auto mb-3" onError={(e) => { e.currentTarget.replaceWith(Object.assign(document.createElement('div'), { textContent: '🎫', className: 'text-5xl mb-3 leading-none' })) }} />
+            : <img src="/icons/status/ended.png" alt="" className="w-16 h-16 object-contain mx-auto mb-3" onError={(e) => { e.currentTarget.replaceWith(Object.assign(document.createElement('div'), { textContent: '🏁', className: 'text-5xl mb-3 leading-none' })) }} />}
+          {programUpcoming ? (
+            <>
+              <p className="text-lg font-bold text-gray-800 mb-1">아직 시작 전이에요</p>
+              <p className="text-sm text-gray-500 mb-1"><b className="text-gray-700">{formatKoreanDate(program.start_date)}</b>에 미션이 열려요.</p>
+              <p className="text-[15px] font-extrabold text-emerald-600 mb-5">시작까지 D-{Math.max(1, Math.ceil((new Date(`${program.start_date}T00:00:00+09:00`) - Date.now()) / 86400000))}</p>
+            </>
+          ) : (
+            <>
+              <p className="text-lg font-bold text-gray-800 mb-1">종료된 프로그램이에요</p>
+              <p className="text-sm text-gray-500 mb-5">지금부터는 조회만 가능해요.</p>
+            </>
+          )}
+          <button type="button" onClick={() => navigate(`/programs/${programId}`)}
+            className="inline-flex items-center gap-1 px-6 py-2.5 bg-gradient-to-r from-emerald-400 to-teal-500 text-white text-sm font-semibold rounded-full transition shadow-sm">
+            프로그램으로 가기
+          </button>
+        </div>
       </div>
     )
   }

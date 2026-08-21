@@ -28,6 +28,11 @@ import WeeklyStreak from '../../components/program/WeeklyStreak'
 import FlameIcon from '../../components/common/FlameIcon'
 import MetricSummaryCard from '../../components/program/MetricSummaryCard'
 import ProgramHome, { HOME_BOX_ORDER, HOME_BOX_LABELS, Icon3D } from '../../components/program/ProgramHome'
+import ActivityTrendCard from '../../components/program/ActivityTrendCard'
+import ParticipantWelcomeSheet from '../../components/program/ParticipantWelcomeSheet'
+import WelcomeMessageModal from '../../components/program/WelcomeMessageModal'
+import OperatorSetupModal from '../../components/program/OperatorSetupModal'
+import ParticipantPendingSheet from '../../components/program/ParticipantPendingSheet'
 import ProgramHomeHero from '../../components/program/ProgramHomeHero'
 import DietOverview, { DIET_BOX_ORDER, DIET_BOX_LABELS } from '../../components/program/DietOverview'
 import ProgramHomeLayoutEditor from '../../components/program/ProgramHomeLayoutEditor'
@@ -79,6 +84,7 @@ import MarkdownView from '../../components/common/MarkdownView'
 import ConfirmModal from '../../components/common/ConfirmModal'
 import RankingSettingsModal from '../../components/program/RankingSettingsModal'
 import { calcProgress, progressUrgency, calcProgramTiming } from '../../lib/programVisuals'
+import { markSelfLeft } from '../../lib/kickState'
 
 // 홈 화면과 동일한 채워진(solid) 아이콘 — 참여자/내순위용 (heroicons solid, MIT)
 const UsersSolid = ({ className }) => (
@@ -583,6 +589,9 @@ function ProgramDetailPage() {
     enabled: !!session && !!id && !!userId && !isOwner,
   })
   const isActiveParticipant = myPart?.status === 'ACTIVE'
+  // 승인 대기(PENDING) 참여자 — 승인제 프로그램에 신청 후 대기 중. 열람(둘러보기)만 허용, 쓰기 차단.
+  const isPendingParticipant = myPart?.status === 'PENDING'
+  // 운영자 강퇴 감지는 전역 KickWatcher(App)로 이전 — 프로그램 화면 밖(대시보드 등)에서도 안내.
 
   // 「새 미션/퀴즈」 강조 — 기준(lastSeen 없으면 참여시각) 이후 생성분 개수. 미션/퀴즈 탭 열면 seen 처리(배지 사라짐).
   const quizzesForNew = isOwner ? programQuizzes : participantQuizzes
@@ -614,7 +623,8 @@ function ProgramDetailPage() {
 
   // 열람 모드 — 미리보기 허용(preview_enabled) 프로그램의 비참여자. 보기만, 쓰기 차단.
   //   is_public(검색 노출)과 무관 — 내부 열람은 preview_enabled 가 결정.
-  const isViewer = !!program && !isOwner && !isActiveParticipant && program.preview_enabled && program.status === 'PUBLISHED'
+  //   승인 대기(PENDING) 참여자도 preview_enabled 무관하게 열람 허용 — 대시보드에서 「둘러보기」 진입.
+  const isViewer = !!program && !isOwner && !isActiveParticipant && program.status === 'PUBLISHED' && (program.preview_enabled || isPendingParticipant)
   // 참여 설문 — 첫 진입 시 1회 자동 오픈(이후엔 얇은 칩으로만). 미응답 참여자에게.
   useEffect(() => {
     if (!(program?.survey_enabled && !endSurveyLaunched && isActiveParticipant && surveyStartAnswers === null)) return
@@ -670,6 +680,20 @@ function ProgramDetailPage() {
   const [homeEditOpen, setHomeEditOpen] = useState(false)  // 카드홈 레이아웃 편집기 (운영자)
   const [missionManageOpen, setMissionManageOpen] = useState(false)    // 미션 관리자 작업 페이지
   const [missionPreview, setMissionPreview] = useState(false)
+  const [reservedBrowsing, setReservedBrowsing] = useState(false)   // 예정 프로그램 참여자 — 「구경하기」 선택 시 true
+  const [endedBrowsing, setEndedBrowsing] = useState(false)         // 종료 프로그램 참여자 — 「계속 보기」 선택 시 true
+  const [welcomeOpen, setWelcomeOpen] = useState(false)             // 참여자 첫 진입 환영 시트
+  const [pendingWelcomeOpen, setPendingWelcomeOpen] = useState(false)  // 승인 대기 참여자 첫 진입 시트
+  const [welcomeMsgModalOpen, setWelcomeMsgModalOpen] = useState(false)   // 운영자 환영 메시지 작성
+  // 운영자 시작 셋업 센터 모달(미션 후 「설문→환영→초대」 안내)
+  const [setupOpen, setSetupOpen] = useState(false)
+  const [setupDismissed, setSetupDismissed] = useState(false)   // 「나중에」 → 얇은 바로 최소화(이번 진입)
+  // 환영 메시지 「완료」 표시 — 빈 채로 저장(=기본 문구 선택)해도 운영자가 결정했으면 완료로 침.
+  const welcomeConfiguredK = `welcome-configured:${id}`
+  const [welcomeConfigured, setWelcomeConfigured] = useState(() => { try { return localStorage.getItem(welcomeConfiguredK) === '1' } catch { return false } })
+  const markWelcomeConfigured = () => { setWelcomeConfigured(true); try { localStorage.setItem(welcomeConfiguredK, '1') } catch { /* 미지원 */ } }
+  const setupAutoOpenedRef = useRef(false)   // 이번 진입에서 자동 1회 열림 가드
+  const resumeSetupRef = useRef(false)        // 설문 패널 닫으면 셋업 모달 재오픈
   const quizManageOpen = !isEnded && searchParams.get('panel') === 'quiz'  // 퀴즈 관리자 — URL 유지. 종료 프로그램은 조회전용이라 강제 off
   const [quizPreview, setQuizPreview] = useState(false)
   const [communityManageOpen, setCommunityManageOpen] = useState(false) // 커뮤니티 관리자 작업 페이지
@@ -800,6 +824,72 @@ function ProgramDetailPage() {
     && progressUrgency(calcProgress(program?.start_date, program?.end_date)).urgency !== 'ended') ? (
     <ParticipantWeeklyReport programId={id} userId={userId} classEnabled={!!program?.class_feature_enabled} joinedAt={myPart?.joined_at} />
   ) : null
+  // 예정(시작 전) 프로그램 — 참여자는 예약중(시작일까지 인증 잠금).
+  const programUpcoming = program?.status === 'PUBLISHED' && isUpcomingByStartDate(program?.start_date)
+  // 오늘 인증 상태 → 카드 CTA 적응형. total=APPROVED+PENDING_REVIEW 합이라 pending을 별도 분리.
+  //   open(더 제출 가능) / pending(제출했고 심사 대기) / done(오늘 다 승인) / none(오늘 미션 없음)
+  const _todayActive = (missions || []).filter((m) => checkMissionToday(m).active)
+  const _todayOpen = _todayActive.some((m) => (todayCounts[m.id]?.total || 0) < (m.daily_limit || 1))
+  const _todayPending = _todayActive.some((m) => (todayCounts[m.id]?.pending || 0) > 0)
+  const todayMissionState = (isEnded || _todayActive.length === 0) ? 'none'
+    : _todayOpen ? 'open' : _todayPending ? 'pending' : 'done'
+  // 「내 활동 추이」 카드 — 참여자 개요(층1). 시작 후 진행 중 언제나 누적/주간 추이 + 재개 넛지.
+  const activityCardEl = (!isOwner && isActiveParticipant && program?.status === 'PUBLISHED' && !programUpcoming) ? (
+    <ActivityTrendCard programId={id} userId={userId} todayState={todayMissionState} onCertify={() => setActiveTab('missions')}
+      quizEnabled={program?.quiz_enabled !== false} communityEnabled={program?.community_enabled !== false && program?.feed_enabled !== false} />
+  ) : null
+
+  // 참여자 첫 진입 환영 시트 — 승인/가입 직후 처음 들어온 활성 참여자에게 1회.
+  //   조건: 활성 참여 + 진행 중(예정·종료 제외) + 최근 가입(3일 내) + 미열람.
+  //   기존 회원엔 안 뜨게 가입 최근성으로 게이팅(잔소리 방지).
+  const welcomeSeenK = `welcome-seen:${id}:${userId}`
+  const markWelcomeSeen = () => { try { localStorage.setItem(welcomeSeenK, '1') } catch { /* 미지원 */ } }
+  useEffect(() => {
+    if (isOwner || !isActiveParticipant || program?.status !== 'PUBLISHED' || programUpcoming || isEnded) return
+    if (!myPart?.joined_at) return
+    const joinedRecent = (Date.now() - new Date(myPart.joined_at).getTime()) < 3 * 86400000
+    let seen = true
+    try { seen = localStorage.getItem(welcomeSeenK) === '1' } catch { seen = false }
+    if (!seen && joinedRecent) setWelcomeOpen(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOwner, isActiveParticipant, program?.status, programUpcoming, isEnded, myPart?.joined_at, id, userId])
+
+  // 승인 대기 참여자 시트 — PENDING 인 동안엔 진입할 때마다 안내(승인되면 자동으로 안 뜸).
+  //   같은 방문에서 닫으면 그 방문엔 다시 안 띄우고, 재진입(리마운트) 때 다시 뜬다.
+  const pendingShownRef = useRef(false)
+  useEffect(() => {
+    if (isOwner || !isPendingParticipant || !program) { pendingShownRef.current = false; return }
+    if (pendingShownRef.current) return
+    pendingShownRef.current = true
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPendingWelcomeOpen(true)
+  }, [isOwner, isPendingParticipant, program])
+
+  // 「오늘 할 일」 히어로(행동 우선) — 참여자 개요 최상단. 오늘 상태에 따라 인증 유도/대기/완료.
+  const _todayOpenCount = _todayActive.filter((m) => (todayCounts[m.id]?.total || 0) < (m.daily_limit || 1)).length
+  const todayActionEl = (!isOwner && isActiveParticipant && program?.status === 'PUBLISHED' && !programUpcoming && todayMissionState !== 'none') ? (
+    todayMissionState === 'open' ? (
+      <button type="button" onClick={() => setActiveTab('missions')}
+        className="relative w-full overflow-hidden rounded-[20px] p-[18px] text-center text-white active:scale-[0.99] transition shadow-[0_16px_34px_-16px_rgba(6,78,59,0.6)]"
+        style={{ background: 'linear-gradient(135deg,#10a675 0%,#0c7f66 56%,#0a6a5c 100%)' }}>
+        <span aria-hidden className="pointer-events-none absolute -top-12 -right-10 w-40 h-40 rounded-full bg-white/10 blur-2xl" />
+        <span aria-hidden className="pointer-events-none absolute inset-0 rounded-[20px] ring-1 ring-inset ring-white/10" />
+        <p className="relative text-[11px] font-bold text-white/65 tracking-[0.14em]">오늘 할 일</p>
+        <p className="relative text-[18px] font-extrabold mt-1 mb-4 leading-snug">인증할 미션 {_todayOpenCount}개 남았어요</p>
+        <span className="relative flex items-center justify-center gap-1 w-full bg-white text-emerald-700 text-[14px] font-extrabold py-3 rounded-[13px] shadow-[0_5px_14px_-6px_rgba(0,0,0,0.2)]">오늘 인증하기 <ChevronRight className="w-4 h-4" /></span>
+      </button>
+    ) : todayMissionState === 'pending' ? (
+      <div className="w-full rounded-2xl p-4 bg-amber-50 border border-amber-200">
+        <p className="text-[15px] font-extrabold text-amber-800">⏳ 인증 심사 대기 중</p>
+        <p className="text-[12.5px] text-amber-700/80 mt-0.5">제출 완료! 운영자 확인을 기다리고 있어요.</p>
+      </div>
+    ) : (
+      <div className="w-full rounded-2xl p-4 bg-emerald-50 border border-emerald-200 text-center">
+        <p className="text-[15px] font-extrabold text-emerald-800">오늘 인증 완료! 🎉</p>
+        <p className="text-[12.5px] text-emerald-700/80 mt-0.5">잘하고 있어요. 내일 또 만나요!</p>
+      </div>
+    )
+  ) : null
   // 넛지 초대 액션 — 초대코드형이면 InviteModal, 공개형이면 링크 공유/복사.
   const handleActivationInvite = async () => {
     if (program?.join_type === 'INVITE_CODE' && program?.invite_code) { setIsInviteOpen(true); return }
@@ -812,8 +902,9 @@ function ProgramDetailPage() {
   // 활성화 넛지 배너 — 조건 만족 시 렌더(재사용). 슬롯/페이지레벨 공통.
   // ActivationNudge 는 건강하면 내부 null 을 렌더하지만 element 는 truthy → operatorActionEl 우선순위(||)에서
   //   빈 걸 골라 뒤(처리할 일)를 막음. 실제 표시 조건(참여자0 · 미션있고 활동0)일 때만 el 을 만든다.
+  // 참여자 0(초대 전) 케이스는 이제 센터 셋업 모달이 담당 → 인라인 넛지는 「응원(참여자 있고 활동 0)」만.
   const activationNudgeShow = !!activationState
-    && (activationState.participantCount === 0 || (activationState.hasMission && !activationState.hasActivity))
+    && activationState.participantCount > 0 && activationState.hasMission && !activationState.hasActivity
   const activationNudgeEl = activationEnabled && activationNudgeShow ? (
     <ActivationNudge state={activationState} onInvite={handleActivationInvite} onCheer={() => setCheerOpen(true)} />
   ) : null
@@ -830,6 +921,60 @@ function ProgramDetailPage() {
       </button>
     </div>
   ) : null
+  // 운영자 시작 셋업 — 미션 생성 후 「설문(설문ON) → 환영 → 초대」를 화면 중앙에서 안내(강조).
+  const hasWelcomeField = Object.prototype.hasOwnProperty.call(program || {}, 'welcome_message')
+  const welcomeHasText = !!(program?.welcome_message && program.welcome_message.trim())
+  const welcomeSet = welcomeHasText || welcomeConfigured   // 실제 문구 or 기본 문구로 확정
+  const welcomeIsDefault = welcomeSet && !welcomeHasText   // 완료지만 기본 문구
+  const setupEligible = isOwner && program?.status === 'PUBLISHED'
+    && progressUrgency(calcProgress(program?.start_date, program?.end_date)).urgency !== 'ended'
+    && missions.length > 0 && !!activationState && activationState.participantCount === 0
+  // 설문 「완료」 = 열었을 때가 아니라 실제 커스텀 문항을 저장했을 때(기본값만 쓰면 미완료로 둠).
+  const surveyDone = !!(program?.survey_questions || program?.survey_questions_end)
+  const openSurveyEditor = () => {
+    resumeSetupRef.current = true
+    setSetupOpen(false)
+    setPanelView('survey'); setIsPanelOpen(true)
+  }
+  const setupSteps = [
+    ...(program?.survey_enabled ? [{
+      key: 'survey', title: '설문 만들기', desc: '참여 전후 변화를 측정해요',
+      done: surveyDone, ctaLabel: '설문 설정', onAction: openSurveyEditor,
+    }] : []),
+    ...(hasWelcomeField ? [{
+      key: 'welcome', title: '환영 메시지', desc: welcomeIsDefault ? '기본 문구로 설정됨' : '첫 참여자를 따뜻하게 맞이해요',
+      done: welcomeSet, ctaLabel: '작성하기', onAction: () => setWelcomeMsgModalOpen(true),
+    }] : []),
+    { key: 'invite', title: '참여자 초대', desc: '함께할 사람을 불러요',
+      done: false, guard: true, ctaLabel: '초대하기', onAction: () => { setSetupOpen(false); setSetupDismissed(true); handleActivationInvite() } },
+  ]
+  const setupProgress = setupSteps.filter((s) => s.done).length
+  // 자동 1회 오픈(진입/미션 생성 직후). 「나중에」로 최소화했으면 안 뜸(얇은 바로 대체).
+  useEffect(() => {
+    if (!setupEligible) { setupAutoOpenedRef.current = false; return }
+    if (setupAutoOpenedRef.current || setupDismissed) return
+    setupAutoOpenedRef.current = true
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSetupOpen(true)
+  }, [setupEligible, setupDismissed])
+  // 「나중에」 후 최소화된 얇은 바 — 클릭하면 셋업 모달 재오픈(내 활동 바와 같은 형태).
+  const setupBarEl = (setupEligible && setupDismissed && !setupOpen) ? (
+    <button type="button" onClick={() => setSetupOpen(true)}
+      className="w-full flex items-center gap-2.5 p-3 rounded-xl bg-white border border-emerald-100 shadow-soft text-left hover:bg-emerald-50/40 transition">
+      <span className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center text-[15px] flex-shrink-0">🚀</span>
+      <p className="flex-1 min-w-0 text-[13px] font-bold text-gray-800">시작 셋업 이어서 하기</p>
+      <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full flex-shrink-0">{setupProgress}/{setupSteps.length}</span>
+      <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
+    </button>
+  ) : null
+  // 설문 패널을 닫고 돌아오면 셋업 모달 재오픈(설문→환영→초대 흐름 유지).
+  useEffect(() => {
+    if (!isPanelOpen && resumeSetupRef.current) {
+      resumeSetupRef.current = false
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSetupOpen(true)
+    }
+  }, [isPanelOpen])
   // 운영자 성취 축하 — 마일스톤 처음 넘을 때 1회 격려(노동 신호와 별개의 보상)
   const operatorMilestoneEl = (isOwner && program?.status === 'PUBLISHED'
     && progressUrgency(calcProgress(program?.start_date, program?.end_date)).urgency !== 'ended'
@@ -1166,10 +1311,11 @@ function ProgramDetailPage() {
   ) : null
   // 운영자 개요 「활성화 CTA」 — 프로그램을 굴리는 주요 버튼(독립·전체 노출). 미션0 > 활성화(초대·응원).
   //   처리할 일·종료설문·리포트는 operatorDeckEl(덱)로 분리. 참여자0+신청자 케이스는 CTA(초대)+덱(승인)로 자연 처리.
-  const operatorActionEl = missionNudgeEl || activationNudgeEl
+  const operatorActionEl = setupBarEl || missionNudgeEl || activationNudgeEl
 
   // 참여자 자가 탈퇴 — status='LEFT' (RLS: 본인 행 UPDATE 허용). 랭킹·집계서 제외, 기록 보존.
   const leaveMutation = useMutation({
+    onMutate: () => { markSelfLeft(userId, id) },   // 본인 탈퇴 — 전역 강퇴 감지에서 제외
     mutationFn: async () => {
       const { error } = await supabase
         .from('program_participants')
@@ -1401,7 +1547,15 @@ function ProgramDetailPage() {
       : (program.status === 'PUBLISHED' && isUpcomingByStartDate(program.start_date)) ? '예정'
         : '진행중'
   // 카드형 홈 시트 최상단 배너 — 둘러보기(비참여) 참여 CTA 또는 DRAFT 완료 CTA (히어로와 겹치지 않게 시트 안)
-  const cardTopSlot = isViewer ? (
+  const cardTopSlot = isPendingParticipant ? (
+    <div className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-2xl">
+      <img src="/icons/operator/hourglass.png" alt="" className="w-7 h-7 object-contain flex-shrink-0"
+        onError={(e) => { e.currentTarget.replaceWith(Object.assign(document.createElement('span'), { textContent: '⏳', className: 'text-xl flex-shrink-0' })) }} />
+      <p className="flex-1 min-w-0 text-xs text-amber-800 leading-snug">
+        <span className="font-bold">승인 대기 중이에요.</span><br />운영자가 승인하면 인증·작성·랭킹 참여가 가능해요.
+      </p>
+    </div>
+  ) : isViewer ? (
     <div className="flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-2xl">
       <span className="text-xl flex-shrink-0">👀</span>
       <p className="flex-1 min-w-0 text-xs text-emerald-800 leading-snug">
@@ -1554,9 +1708,11 @@ function ProgramDetailPage() {
   // 현재 게시판의 실효 레이아웃 — 게시판별 override(boards[].layout) 우선, 없으면 프로그램 전체
   const activeBoardObj = communityBoards.find(b => b.id === communityBoard)
   const activeBoardLayout = activeBoardObj?.layout || program.community_layout || 'feed'
-  // 좋아요/댓글 가능 여부 — 「반응 허용」 + 참여자/운영자(둘러보기 제외). 댓글은 commentPerm 도 따름.
+  // 예약중(예정 프로그램 참여자) — 시작 전엔 모든 쓰기 잠금(둘러보기만). 운영자 제외.
+  const participantReserved = programUpcoming && !isOwner
+  // 좋아요/댓글 가능 여부 — 「반응 허용」 + 참여자/운영자(둘러보기·예약중 제외). 댓글은 commentPerm 도 따름.
   const reactionsEnabled = program.community_settings?.reactionAuto !== false
-  const canReact = reactionsEnabled && (isOwner || isActiveParticipant) && !isEnded
+  const canReact = reactionsEnabled && (isOwner || isActiveParticipant) && !isEnded && !participantReserved
   const canComment = canReact && (activeBoardObj?.commentPerm || 'free') !== 'readonly'
   // 작성 가능 게시판 — 전체/인증 제외, 참여자는 읽기전용 제외(운영자는 전부)
   const writableBoards = communityBoards.filter(b => {
@@ -1725,7 +1881,7 @@ function ProgramDetailPage() {
                 : null}
               actionLabel={activeTab === 'community' ? '응원하기' : '기록하기'}
               onAction={activeTab === 'community'
-                ? () => { setEditingPost(null); setIsPostModalOpen(true) }
+                ? () => { if (participantReserved) { toast.show('시작 전이에요. 시작 후 이용할 수 있어요'); return } setEditingPost(null); setIsPostModalOpen(true) }
                 : () => navigate(`/programs/${id}?tab=missions`)}
             />
           )
@@ -1808,8 +1964,18 @@ function ProgramDetailPage() {
         )
       })()}
 
+      {/* 승인 대기 배너 — 신청 후 운영자 승인 대기 중인 참여자(둘러보기 진입) */}
+      {isPendingParticipant && !cardHome && (
+        <div className="flex items-center gap-3 mb-[6px] p-3 bg-amber-50 border border-amber-200 rounded-2xl">
+          <img src="/icons/operator/hourglass.png" alt="" className="w-7 h-7 object-contain flex-shrink-0"
+        onError={(e) => { e.currentTarget.replaceWith(Object.assign(document.createElement('span'), { textContent: '⏳', className: 'text-xl flex-shrink-0' })) }} />
+          <p className="flex-1 min-w-0 text-xs text-amber-800 leading-snug">
+            <span className="font-bold">승인 대기 중이에요.</span><br />운영자가 승인하면 인증·작성·랭킹 참여가 가능해요.
+          </p>
+        </div>
+      )}
       {/* 열람 모드 배너 — 공개 프로그램 비참여자. cardHome 에선 히어로와 겹쳐 시트 안(viewerSlot)으로 이동 */}
-      {isViewer && !cardHome && (
+      {isViewer && !isPendingParticipant && !cardHome && (
         <div className="flex items-center gap-3 mb-[6px] p-3 bg-emerald-50 border border-emerald-200 rounded-2xl">
           <span className="text-xl flex-shrink-0">👀</span>
           <p className="flex-1 min-w-0 text-xs text-emerald-800 leading-snug">
@@ -1911,13 +2077,6 @@ function ProgramDetailPage() {
       {activeTab === 'overview' && !cardHome && !inManager && operatorDeckEl}
       {activeTab === 'overview' && !immersiveHome && !inManager && participantReportEl}
       {activeTab === 'overview' && !immersiveHome && !inManager && completionBannerEl}
-      {/* 종료 프로그램 — 조회 전용 안내 (관리자 외 쓰기 잠김, 마이그 190) */}
-      {activeTab === 'overview' && !immersiveHome && !inManager && isEnded && (
-        <div className="flex items-center gap-2 p-3 mb-[9px] rounded-2xl bg-gray-100 border border-gray-200">
-          <span className="text-base flex-shrink-0">🏁</span>
-          <p className="text-[12px] text-gray-600 font-medium break-keep">종료된 프로그램이에요 — 지금부터는 <span className="font-bold">조회만</span> 가능해요. (수정·작성·좋아요는 잠겨요)</p>
-        </div>
-      )}
 
       {/* 종료 리포트 진입 — 운영자 + 프로그램 종료 (개요 최상단, 인트로 연출). immersive 는 슬롯으로 주입.
           관리 폼(inManager)에선 immersiveHome 이 false 가 되므로 !inManager 로 제외. */}
@@ -2245,6 +2404,7 @@ function ProgramDetailPage() {
             hiddenBoxes={program.home_layout?.hidden || []}
             streakData={streakData}
             progressData={(isViewer || isOwner || program.overview_progress_enabled === false) ? null : progressData}
+            activitySlot={activityCardEl}
             viewerSlot={<>{cardTopSlot}</>}
             todayMissions={todayMissionsData}
             recentItems={recentItemsData}
@@ -2270,7 +2430,7 @@ function ProgramDetailPage() {
               />
             ) : null}
             activationSlot={<>{operatorMilestoneEl}{operatorActionEl}{operatorDeckEl}</>}
-            weeklySlot={participantReportEl || completionBannerEl}
+            weeklySlot={completionBannerEl}
             classSlot={classOverviewSlot}
             quizEnabled={quizEnabled && !isViewer}
             communityEnabled={communityEnabled}
@@ -2284,6 +2444,87 @@ function ProgramDetailPage() {
           />
         )
       })()}
+
+      {/* 예정(시작 전) 프로그램 참여자 — 강제 선택 팝업(배경 페이드, 배경 탭으로 안 닫힘) */}
+      {programUpcoming && isActiveParticipant && !isOwner && !reservedBrowsing && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-black/50" />
+          <motion.div className="relative w-full max-w-sm bg-white rounded-3xl p-6 text-center shadow-2xl"
+            initial={{ opacity: 0, scale: 0.9, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ type: 'spring', stiffness: 320, damping: 26 }}>
+            <img src="/icons/status/upcoming.png" alt="" className="w-16 h-16 object-contain mx-auto mb-2"
+              onError={(e) => { e.currentTarget.replaceWith(Object.assign(document.createElement('div'), { textContent: '🎫', className: 'text-4xl mb-2 leading-none' })) }} />
+            <h3 className="text-lg font-extrabold text-gray-900">아직 시작 전이에요</h3>
+            <p className="text-sm text-gray-600 mt-2 leading-relaxed">
+              <b className="text-gray-800">{formatKoreanDate(program.start_date)}</b>에 미션이 열려요.<br />
+              시작까지 <b className="text-emerald-600">D-{Math.max(1, Math.ceil((new Date(`${program.start_date}T00:00:00+09:00`) - Date.now()) / 86400000))}</b>
+            </p>
+            <div className="mt-5 flex flex-col gap-2">
+              <button type="button" onClick={() => navigate('/dashboard')}
+                className="w-full h-11 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[14px] font-bold transition">대시보드 가기</button>
+              <button type="button" onClick={() => setReservedBrowsing(true)}
+                className="w-full h-11 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-600 text-[14px] font-bold transition">구경하기</button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* 운영자 강퇴 — 참여 중 상태가 LEFT 로 바뀌면 안내 팝업 후 대시보드로 */}
+      {/* 운영자 시작 셋업 — 미션 후 「설문→환영→초대」 센터 안내 */}
+      {setupOpen && (
+        <OperatorSetupModal steps={setupSteps} onClose={() => { setSetupOpen(false); setSetupDismissed(true) }} />
+      )}
+
+      {/* 운영자 환영 메시지 작성 — 셋업 위에 겹쳐 열림 */}
+      {welcomeMsgModalOpen && (
+        <WelcomeMessageModal
+          programId={id}
+          initial={program?.welcome_message || ''}
+          onClose={() => setWelcomeMsgModalOpen(false)}
+          onSaved={() => { setWelcomeMsgModalOpen(false); markWelcomeConfigured() }}
+        />
+      )}
+
+      {/* 승인 대기 참여자 첫 진입 시트 — 신청 완료 안심 + 승인 후 미리보기 */}
+      {pendingWelcomeOpen && (
+        <ParticipantPendingSheet
+          program={program}
+          userId={userId}
+          onClose={() => setPendingWelcomeOpen(false)}
+        />
+      )}
+
+      {/* 참여자 첫 진입 환영 시트 — 승인/가입 직후 1회 */}
+      {welcomeOpen && (
+        <ParticipantWelcomeSheet
+          program={program}
+          userId={userId}
+          canCertify={todayMissionState === 'open'}
+          onCertify={() => { markWelcomeSeen(); setWelcomeOpen(false); setActiveTab('missions') }}
+          onClose={() => { markWelcomeSeen(); setWelcomeOpen(false) }}
+        />
+      )}
+
+      {/* 종료 프로그램 참여자 — 진입 시 안내 팝업(예정과 동일 형식). 조회만 가능. */}
+      {isEnded && isActiveParticipant && !isOwner && !endedBrowsing && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-black/50" />
+          <motion.div className="relative w-full max-w-sm bg-white rounded-3xl p-6 text-center shadow-2xl"
+            initial={{ opacity: 0, scale: 0.9, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ type: 'spring', stiffness: 320, damping: 26 }}>
+            <img src="/icons/status/ended.png" alt="" className="w-16 h-16 object-contain mx-auto mb-2"
+              onError={(e) => { e.currentTarget.replaceWith(Object.assign(document.createElement('div'), { textContent: '🏁', className: 'text-4xl mb-2 leading-none' })) }} />
+            <h3 className="text-lg font-extrabold text-gray-900">프로그램이 종료됐어요</h3>
+            <p className="text-sm text-gray-600 mt-2 leading-relaxed">수고했어요! 지금부터는 <b className="text-gray-800">조회만</b> 가능해요.<br />내 완주 요약을 확인해보세요.</p>
+            <div className="mt-5 flex flex-col gap-2">
+              <button type="button" onClick={() => navigate('/dashboard')}
+                className="w-full h-11 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[14px] font-bold transition">대시보드 가기</button>
+              <button type="button" onClick={() => setEndedBrowsing(true)}
+                className="w-full h-11 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-600 text-[14px] font-bold transition">계속 보기</button>
+            </div>
+          </motion.div>
+        </div>
+      )}
 
       {/* 카드홈 레이아웃 편집기 (운영자 전용, 풀스크린 오버레이) */}
       {usesCardHome && isOwner && homeEditOpen && (
@@ -2723,11 +2964,13 @@ function ProgramDetailPage() {
                     quizPreview={quizPreview}
                     isOwner={isOwner && !isEnded}
                     isNew={isNewSince(quiz, quizzesSinceRef.current)}
+                    reserved={participantReserved}
+                    ended={isEnded && !isOwner}
                     onEdit={(q) => navigate(`/programs/${id}/posts/quiz/${q.id}/edit`)}
                     onDelete={handleQuizDelete}
                   />
                 ) : (
-                  <QuizListItem key={quiz.id} quiz={quiz} programId={id} quizPreview={quizPreview} isNew={isNewSince(quiz, quizzesSinceRef.current)} />
+                  <QuizListItem key={quiz.id} quiz={quiz} programId={id} quizPreview={quizPreview} isNew={isNewSince(quiz, quizzesSinceRef.current)} reserved={participantReserved} ended={isEnded && !isOwner} />
                 )
               ))}
             </div>
@@ -2857,11 +3100,15 @@ function ProgramDetailPage() {
               예: 참여자가 공지(readonly) 칩에선 글쓰기 바가 안 뜸 → 혼란 방지 */}
           {!isViewer && !isEnded && writableBoards.some(b => b.id === communityBoard) && (
             <div className="sticky bottom-0 -mx-[11px] px-[11px] pt-3 pb-3 bg-gradient-to-t from-white via-white/95 to-transparent z-20">
-              <button type="button"
-                onClick={() => { setEditingPost(null); setIsPostModalOpen(true) }}
-                className="w-full h-12 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/20 transition">
-                <Pencil className="w-4 h-4" /> {program.theme === PROGRAM_THEME.QUIT_SMOKING ? '응원 한마디' : '글쓰기'}
-              </button>
+              {participantReserved ? (
+                <div className="w-full h-12 rounded-2xl bg-amber-50 border border-amber-200 text-amber-700 text-sm font-bold flex items-center justify-center gap-1.5">🔒 프로그램 시작 후 글쓰기 가능</div>
+              ) : (
+                <button type="button"
+                  onClick={() => { setEditingPost(null); setIsPostModalOpen(true) }}
+                  className="w-full h-12 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/20 transition">
+                  <Pencil className="w-4 h-4" /> {program.theme === PROGRAM_THEME.QUIT_SMOKING ? '응원 한마디' : '글쓰기'}
+                </button>
+              )}
             </div>
           )}
           </>)}
@@ -3489,16 +3736,17 @@ function ProgramDetailPage() {
 // 퀴즈 목록 1행 — 예정(미시작) 퀴즈는 입장 차단 + 클릭 시 좌우 흔들기.
 //   shake 를 카드 로컬 state 로 둬서 부모(ProgramDetailPage) 리렌더에 끊기지 않고
 //   끝까지 재생되도록 함 → 예정 미션 카드(MissionCard)와 동일한 흔들림 세기.
-function QuizListItem({ quiz, programId, quizPreview, isNew = false }) {
+function QuizListItem({ quiz, programId, quizPreview, isNew = false, reserved = false, ended = false }) {
   const navigate = useNavigate()
   const [shake, setShake] = useState(false)
   const sub = quiz.mySubmission
   const now = new Date()
-  const isNotStarted = quiz.start_at && new Date(quiz.start_at) > now
+  const isNotStarted = (quiz.start_at && new Date(quiz.start_at) > now) || reserved
   const isExpired = quiz.due_at && new Date(quiz.due_at) < now
   const lockedNotStarted = isNotStarted && !quizPreview
+  const locked = lockedNotStarted || (ended && !quizPreview)
   const handleClick = () => {
-    if (lockedNotStarted) {
+    if (locked) {
       setShake(true)
       setTimeout(() => setShake(false), 600)
       return
@@ -3515,7 +3763,7 @@ function QuizListItem({ quiz, programId, quizPreview, isNew = false }) {
         lockedNotStarted ? 'border border-amber-200 cursor-not-allowed' : 'hover:bg-gray-50'
       }`}
     >
-      <span className="text-2xl flex-shrink-0">{lockedNotStarted ? '🔒' : '📝'}</span>
+      <span className="text-2xl flex-shrink-0">{locked ? '🔒' : '📝'}</span>
       <div className="flex-1 min-w-0">
         <h3 className="font-medium text-gray-800 flex items-center gap-1.5 min-w-0">
           <span className="truncate">{quiz.title}</span>
@@ -3525,7 +3773,7 @@ function QuizListItem({ quiz, programId, quizPreview, isNew = false }) {
           {sub
             ? (sub.status === 'PENDING' ? '채점 중' : `완료 · ${sub.total_score}점`)
             : isNotStarted
-              ? `예정중 · ${formatKoreanDateTime(quiz.start_at)}부터 열려요`
+              ? (quiz.start_at ? `예정중 · ${formatKoreanDateTime(quiz.start_at)}부터 열려요` : '예정중 · 프로그램 시작 후 열려요')
               : isExpired
                 ? '마감됨'
                 : quiz.due_at ? `~ ${formatKoreanDateTime(quiz.due_at)}` : '미응시'}
@@ -3533,6 +3781,8 @@ function QuizListItem({ quiz, programId, quizPreview, isNew = false }) {
       </div>
       {sub ? (
         <span className="px-2 py-0.5 rounded text-xs bg-emerald-100 text-emerald-700 flex-shrink-0">완료</span>
+      ) : (ended && !quizPreview) ? (
+        <span className="px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-500 flex-shrink-0">종료</span>
       ) : isNotStarted ? (
         <span className="px-2 py-0.5 rounded text-xs bg-amber-100 text-amber-700 flex-shrink-0">예정</span>
       ) : isExpired ? (

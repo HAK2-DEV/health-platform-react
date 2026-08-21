@@ -18,7 +18,7 @@ import ConfirmModal from '../../components/common/ConfirmModal'
 import Confetti from '../../components/common/Confetti'
 import SubmitCelebration from '../../components/common/SubmitCelebration'
 import { primeAudio } from '../../lib/sound'
-import { formatKoreanDateTime } from '../../lib/formatters'
+import { formatKoreanDateTime, formatKoreanDate, isUpcomingByStartDate } from '../../lib/formatters'
 import { PROGRAM_THEME } from '../../lib/constants'
 
 // 참가자 퀴즈 풀이/결과 페이지
@@ -88,6 +88,33 @@ function QuizSolvePage() {
         <p className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-2xl text-center">
           퀴즈를 불러올 수 없어요
         </p>
+      </div>
+    )
+  }
+
+  // 예정(시작 전)·종료 프로그램 — 참여자는 퀴즈 풀이 잠금(조회만). 운영자 미리보기·소유자는 허용.
+  const programUpcoming = program?.status === 'PUBLISHED' && isUpcomingByStartDate(program?.start_date)
+  const programEnded = program?.status === 'PUBLISHED' && program?.end_date && new Date(`${program.end_date}T23:59:59+09:00`) < new Date()
+  if ((programUpcoming || programEnded) && !isPreview && program?.owner_id !== userId) {
+    return (
+      <div className="px-4 pt-2 pb-6 max-w-2xl mx-auto">
+        <StickyBackBar fallbackPath={`/programs/${id}`} title="프로그램으로" />
+        <div className="text-center py-16">
+          {programUpcoming
+            ? <img src="/icons/status/upcoming.png" alt="" className="w-16 h-16 object-contain mx-auto mb-3" onError={(e) => { e.currentTarget.replaceWith(Object.assign(document.createElement('div'), { textContent: '🎫', className: 'text-5xl mb-3 leading-none' })) }} />
+            : <img src="/icons/status/ended.png" alt="" className="w-16 h-16 object-contain mx-auto mb-3" onError={(e) => { e.currentTarget.replaceWith(Object.assign(document.createElement('div'), { textContent: '🏁', className: 'text-5xl mb-3 leading-none' })) }} />}
+          {programUpcoming ? (
+            <>
+              <p className="text-lg font-bold text-gray-800 mb-1">아직 시작 전이에요</p>
+              <p className="text-sm text-gray-500"><b className="text-gray-700">{formatKoreanDate(program.start_date)}</b>에 열려요 · 시작까지 D-{Math.max(1, Math.ceil((new Date(`${program.start_date}T00:00:00+09:00`) - Date.now()) / 86400000))}</p>
+            </>
+          ) : (
+            <>
+              <p className="text-lg font-bold text-gray-800 mb-1">종료된 프로그램이에요</p>
+              <p className="text-sm text-gray-500">지금부터는 조회만 가능해요.</p>
+            </>
+          )}
+        </div>
       </div>
     )
   }

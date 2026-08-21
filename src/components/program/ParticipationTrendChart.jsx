@@ -9,7 +9,7 @@ import { useRef, useEffect } from 'react'
 //     maxCap = y축 상한 (참여율 100, 건수 등 무제한이면 Infinity)
 //     subField/subUnit = 툴팁·최고/최저 라벨에 괄호로 덧붙일 보조값 (예: 참여율에 '(2명)')
 //     interaction = 'pan'(기본: 드래그로 기간 이동) | 'scrub'(드래그로 손가락 위치의 날짜·값 툴팁 표시)
-export default function ParticipationTrendChart({ data, height = 200, field = 'rate', unit = '%', maxCap = 100, subField = null, subUnit = '', interaction = 'pan' }) {
+export default function ParticipationTrendChart({ data, height = 200, field = 'rate', unit = '%', maxCap = 100, subField = null, subUnit = '', interaction = 'pan', fitAll = false }) {
   const cvRef = useRef(null)
 
   useEffect(() => {
@@ -25,11 +25,13 @@ export default function ParticipationTrendChart({ data, height = 200, field = 'r
     const dowOf = (ds) => DOW[new Date(ds + 'T00:00:00+09:00').getDay()]
 
     let W = 0, H = 0, dpr = 1
-    let count = Math.min(14, N), start = Math.max(0, N - count)
+    let count = fitAll ? N : Math.min(14, N), start = Math.max(0, N - count)
     let active = null, yLo = 0, yHi = 100
     let drag = null, pinch = null
 
-    const clampView = () => { count = Math.max(5, Math.min(N, Math.round(count))); start = Math.max(0, Math.min(N - count, start)) }
+    // count 최소값은 min(5, N) — 데이터가 5개 미만이면 그 개수로. (5 고정 시 N<5 에서 마지막 인덱스가
+    //   여러 틱에 중복 배정돼 x축 라벨이 겹쳐 그려지고 플롯이 왼쪽으로 눌리던 버그 수정)
+    const clampView = () => { count = Math.max(Math.min(5, N), Math.min(N, Math.round(count))); start = Math.max(0, Math.min(N - count, start)) }
     const xOf = (i) => PAD.l + (i - start) * ((W - PAD.l - PAD.r) / Math.max(1, count - 1))
     const yOf = (r) => PAD.t + (1 - (r - yLo) / (yHi - yLo)) * (H - PAD.t - PAD.b)
     const rr = (x, y, w, h, r) => { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath() }
@@ -128,7 +130,7 @@ export default function ParticipationTrendChart({ data, height = 200, field = 'r
         cv.removeEventListener('wheel', onWheel); cv.removeEventListener('touchstart', onTStart); cv.removeEventListener('touchmove', onTMove); cv.removeEventListener('touchend', onTEnd)
       }
     }
-  }, [data, field, unit, maxCap, subField, subUnit, interaction])
+  }, [data, field, unit, maxCap, subField, subUnit, interaction, fitAll])
 
   // 스크럽/탭=세로 스크롤 허용(pan-y), 비대화형=auto(탭 통과), 기본(pan)=none
   const touchAction = (interaction === 'scrub' || interaction === 'tap') ? 'pan-y' : interaction === 'none' ? 'auto' : 'none'

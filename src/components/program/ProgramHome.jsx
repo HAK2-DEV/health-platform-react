@@ -26,7 +26,7 @@ import { Reveal } from './statsAnim'
 //   onOpenTab(key), onRecord(), onNotice()
 
 // 커스터마이즈 가능한 박스 — 기본 순서 + 라벨(편집 화면·Phase 2 에서 재사용). 고정(hero/menu) 제외.
-export const HOME_BOX_ORDER = ['notice', 'summary', 'menu', 'classes', 'progress', 'metrics', 'todayMissions', 'recent', 'banner']
+export const HOME_BOX_ORDER = ['todayaction', 'notice', 'summary', 'menu', 'classes', 'activity', 'progress', 'metrics', 'todayMissions', 'recent', 'banner']
 export const HOME_BOX_LABELS = {
   notice: '공지사항',
   summary: '요약 지표',
@@ -210,6 +210,8 @@ function ProgramHome({
   hiddenBoxes = [],
   streakData = null,          // { count, days:[{label,done,today}] } — 주간 스트릭
   progressData = null,        // { activeDays, totalDays, participationRate, points, streak } — 진행 현황
+  activitySlot = null,        // 「내 활동 추이」 카드(참여자) — 렌더된 엘리먼트 주입
+  todayActionSlot = null,     // 「오늘 할 일」 히어로(행동 우선) — 최상단
   todayMissions = [],         // [{ id, title, thumb, done, pt }] — 오늘의 미션
   recentItems = [],           // [{ id, title, point, time }] — 최근 인증
   pace = null,                // 달리기 추천 페이스 (요약 지표 좌측)
@@ -311,6 +313,10 @@ function ProgramHome({
         </div>
       )
     },
+    // 오늘 할 일 히어로 (참여자) — 최상단
+    todayaction: () => todayActionSlot || null,
+    // 내 활동 추이 카드 (참여자) — 렌더된 엘리먼트 주입
+    activity: () => activitySlot || null,
     // 진행 현황 (Wide)
     progress: () => !progressData ? null : (
       <div className="rounded-2xl p-4 bg-white border border-gray-100 shadow-soft">
@@ -406,10 +412,12 @@ function ProgramHome({
   const order = savedOrder.filter((k) => k !== 'classes' || classSlot)
   const hidden = new Set(hiddenBoxes)
   const visibleKeys = order.filter((k) => !hidden.has(k))
-  // 응원 배너는 항상 최하단 (레이아웃 편집·신규 박스와 무관하게 고정)
-  const orderedKeys = visibleKeys.includes('banner')
+  // 응원 배너는 항상 최하단, 내 활동 추이는 항상 최상단(공지사항 위) — 저장 레이아웃과 무관하게 고정
+  let orderedKeys = visibleKeys.includes('banner')
     ? [...visibleKeys.filter((k) => k !== 'banner'), 'banner']
     : visibleKeys
+  if (orderedKeys.includes('activity')) orderedKeys = ['activity', ...orderedKeys.filter((k) => k !== 'activity')]
+  if (orderedKeys.includes('todayaction')) orderedKeys = ['todayaction', ...orderedKeys.filter((k) => k !== 'todayaction')]
 
   return (
     <div className="-mx-[11px]" style={{ marginTop: 'calc(-0.5rem - max(env(safe-area-inset-top, 0px), 0.75rem))' }}>

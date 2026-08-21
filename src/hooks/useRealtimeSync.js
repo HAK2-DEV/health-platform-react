@@ -41,10 +41,13 @@ export function useRealtimeSync() {
         { event: '*', schema: 'public', table: 'program_participants' },
         () => debounce('participants', () => {
           queryClient.invalidateQueries({ queryKey: ['programs', 'participant-counts'] })
+          queryClient.invalidateQueries({ queryKey: ['my-part-status'] })   // 강퇴/탈퇴 시 본인 참여 상태 즉시 갱신
           queryClient.invalidateQueries({ queryKey: ['stats'] })
           queryClient.invalidateQueries({ queryKey: ['home-stats'] })
           queryClient.invalidateQueries({ queryKey: ['rankings'] })
           queryClient.invalidateQueries({ queryKey: ['programs', 'active', userId] })
+          queryClient.invalidateQueries({ queryKey: ['programs', 'pending', userId] })  // 승인되면 대시보드 「대기중」 칩 → 활성으로 전환
+          queryClient.invalidateQueries({ queryKey: ['program-left'] })            // 내보냄/재참여 시 「내보낸 참여자」 목록 즉시 갱신
           queryClient.invalidateQueries({ queryKey: ['program-pending'] })         // 참여 승인 대기 목록(운영자 모달)
           queryClient.invalidateQueries({ queryKey: ['program-pending-count'] })   // 승인 대기 카운트 뱃지
           queryClient.invalidateQueries({ queryKey: ['activationState'] })         // 운영자 마일스톤 축하(참여자 수)
@@ -200,6 +203,7 @@ export function useRealtimeSync() {
         { event: '*', schema: 'public', table: 'verifications' },
         () => debounce('verifications', () => {
           queryClient.invalidateQueries({ queryKey: ['verifications'] })  // 심사 대기 / todayCounts
+          queryClient.invalidateQueries({ queryKey: ['my-activity-series'] })  // 내 활동 추이(누적/주간) — 승인 시 갱신
           queryClient.invalidateQueries({ queryKey: ['missions'] })       // 오늘 미션 완료 상태
           queryClient.invalidateQueries({ queryKey: ['feed'] })           // 인증 피드
           queryClient.invalidateQueries({ queryKey: ['stats'] })

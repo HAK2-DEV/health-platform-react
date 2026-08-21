@@ -54,6 +54,19 @@ function WelcomeOperatorModal({ isOpen, onClose, programId, initialStep = 0 }) {
     enabled: isOpen && !!programId,
   })
 
+  // 템플릿에서 만든 프로그램은 미션이 이미 있음 → 아웃트로 CTA 를 "미션 만들기"가 아니라
+  //   "프로그램으로 가기"로 바꿔 중복 미션 생성 방지.
+  const { data: missionCount = 0 } = useQuery({
+    queryKey: ['welcome-mission-count', programId],
+    queryFn: async () => {
+      const { count } = await supabase.from('missions')
+        .select('id', { count: 'exact', head: true }).eq('program_id', programId)
+      return count || 0
+    },
+    enabled: isOpen && !!programId,
+  })
+  const hasMissions = missionCount > 0
+
   // 알림 슬라이드 — 실제 폰 푸시 켜기(권한 요청 + 구독). 설명만 하던 슬라이드에 CTA 추가.
   const [pushState, setPushState] = useState(null)   // 'subscribed' | 'unsubscribed' | 'denied' | 'unsupported' | 'nokey'
   const [pushBusy, setPushBusy] = useState(false)
@@ -170,15 +183,28 @@ function WelcomeOperatorModal({ isOpen, onClose, programId, initialStep = 0 }) {
                   transition={{ type: 'spring', stiffness: 260, damping: 15, delay: 0.05 }}
                   onError={(e) => { e.currentTarget.replaceWith(Object.assign(document.createElement('div'), { textContent: '🎉', className: 'text-6xl mb-4' })) }} />
                 <h1 className="text-[26px] font-extrabold text-gray-900 leading-tight">준비 완료!</h1>
-                <p className="mt-3 text-[19px] font-extrabold leading-snug text-gray-900 max-w-[300px] break-keep">
-                  미션을 만들어야<br />참여자가 인증할 수 있어요.
-                </p>
-                <p className="mt-2.5 text-[14px] leading-relaxed text-gray-500 max-w-[300px]">
-                  먼저 첫 미션을 추가하고 초대해볼까요?
-                </p>
-                <button type="button" onClick={() => finish(programId ? `/programs/${programId}?addmission=1` : '/programs')}
+                {hasMissions ? (
+                  <>
+                    <p className="mt-3 text-[19px] font-extrabold leading-snug text-gray-900 max-w-[300px] break-keep">
+                      미션까지 준비됐어요!<br />이제 참여자를 초대해볼까요?
+                    </p>
+                    <p className="mt-2.5 text-[14px] leading-relaxed text-gray-500 max-w-[300px]">
+                      참여자가 들어오면 바로 인증을 시작할 수 있어요.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="mt-3 text-[19px] font-extrabold leading-snug text-gray-900 max-w-[300px] break-keep">
+                      미션을 만들어야<br />참여자가 인증할 수 있어요.
+                    </p>
+                    <p className="mt-2.5 text-[14px] leading-relaxed text-gray-500 max-w-[300px]">
+                      먼저 첫 미션을 추가하고 초대해볼까요?
+                    </p>
+                  </>
+                )}
+                <button type="button" onClick={() => finish(programId ? (hasMissions ? `/programs/${programId}` : `/programs/${programId}?addmission=1`) : '/programs')}
                   className="mt-8 w-full max-w-[300px] py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold transition">
-                  첫 미션 만들러 가기 →
+                  {hasMissions ? '프로그램으로 가기 →' : '첫 미션 만들러 가기 →'}
                 </button>
                 <button type="button" onClick={() => finish()}
                   className="mt-2 w-full max-w-[300px] py-3 rounded-2xl bg-emerald-50 text-emerald-700 font-bold transition">
