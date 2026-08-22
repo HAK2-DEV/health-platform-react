@@ -17,8 +17,8 @@
 | 512×512 앱 아이콘 | ✅ | `public/app-icon.png` (리프 로고) |
 | 개인정보처리방침 URL | ✅ | `https://healthplatform-pi.vercel.app/privacy` |
 | 서비스 약관 URL | ✅ | `https://healthplatform-pi.vercel.app/terms` |
-| **업로드 키스토어 + 서명 설정** | ⬜ | 「3」 — 나중에 (분실 시 업데이트 불가, 백업 필수) |
-| **서명된 릴리스 AAB** | ⬜ | 키스토어 후 `bundleRelease` |
+| **업로드 키스토어 + 서명 설정** | ✅ | `android/dodam-upload.jks` (gitignore). ⚠️ jks+비번 **백업 필수** |
+| **서명된 릴리스 AAB** | ✅ | `android/app/build/outputs/bundle/release/app-release.aab` (30.6MB) — 업로드 대기 |
 | **피처 그래픽 1024×500** | ✅ | `docs/store-screenshots/feature-graphic-1024x500.png` |
 | **폰 스크린샷 5장** | ✅ | `docs/store-screenshots/01~05*.png` (에뮬레이터 캡처) |
 | **개발자 계정 ($25)** | ⬜ | 본인 — 신원확인 며칠 소요 |
