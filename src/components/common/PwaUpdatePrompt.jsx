@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { RefreshCw, X } from 'lucide-react'
 import { onNeedRefresh, applyUpdate } from '../../lib/pwaUpdate'
+import { isNativePlatform } from '../../lib/health'
 import UpdateSplash from './UpdateSplash'
 
 // 새 버전 알림 배너 — 새 SW 가 대기하면(onNeedRefresh) 하단에 노출.
@@ -16,6 +17,7 @@ function PwaUpdatePrompt({ demo = false, forceShow = false }) {
 
   useEffect(() => {
     if (demo) return          // 데모는 SW 이벤트 구독 안 함
+    if (isNativePlatform()) return   // 네이티브(Capacitor)는 APK/스토어로 업데이트 → SW 「새 버전」 배너 불필요
     return onNeedRefresh(() => setShow(true))
   }, [demo])
 
