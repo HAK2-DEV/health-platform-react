@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Check, X, ChevronDown, Users, FileText, AlertCircle } from 'lucide-react'
@@ -39,6 +39,12 @@ function QuizResultsPage() {
   })
 
   const [expandedId, setExpandedId] = useState(null)
+  // 펼친 제출을 화면 상단으로 — 문항이 많아도 아래로 스크롤할 필요 없이 바로 채점.
+  useEffect(() => {
+    if (!expandedId) return
+    const el = document.getElementById(`quizsub-${expandedId}`)
+    if (el) requestAnimationFrame(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+  }, [expandedId])
 
   const gradeMutation = useMutation({
     mutationFn: ({ answerId, isCorrect }) => gradeQuizAnswer(answerId, isCorrect),
@@ -75,6 +81,11 @@ function QuizResultsPage() {
   const pendingCount = submissions.filter(s => s.status === 'PENDING').length
 
   const qMap = new Map(questions.map(q => [q.id, q]))
+  // 수동 채점 필요(SHORT·MANUAL·CORRECT_ONLY·미채점) 판별 — 답안 정렬(채점 대상 먼저)에 사용.
+  const needsGradingOf = (a) => {
+    const q = qMap.get(a.question_id)
+    return !!q && q.type === 'SHORT' && q.grading_mode === 'MANUAL' && q.award_mode === 'CORRECT_ONLY' && a.is_correct === null
+  }
 
   const displayAnswer = (q, raw) => {
     if (raw == null || raw === '') return '(무응답)'
@@ -89,7 +100,11 @@ function QuizResultsPage() {
       {/* 헤더 */}
       <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-4">
         <p className="text-xs text-gray-500 mb-1">{program?.name}</p>
-        <h1 className="text-2xl font-medium text-gray-800 mb-3">📊 {quiz.title}</h1>
+        <h1 className="text-2xl font-medium text-gray-800 mb-3 flex items-center gap-2">
+          <img src="/icons/feature/quiz.png" alt="" aria-hidden="true" className="w-8 h-8 object-contain flex-shrink-0"
+            onError={(e) => { e.currentTarget.replaceWith(Object.assign(document.createElement('span'), { textContent: '📊' })) }} />
+          {quiz.title}
+        </h1>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
           <span className="inline-flex items-center gap-1 text-gray-600">
             <Users className="w-3.5 h-3.5" /> 제출 {totalSubs}명
@@ -112,7 +127,7 @@ function QuizResultsPage() {
           {submissions.map(sub => {
             const expanded = expandedId === sub.id
             return (
-              <div key={sub.id} className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+              <div key={sub.id} id={`quizsub-${sub.id}`} className="bg-white border border-gray-200 rounded-2xl overflow-hidden scroll-mt-16">
                 <button
                   type="button"
                   onClick={() => setExpandedId(expanded ? null : sub.id)}
@@ -143,13 +158,11 @@ function QuizResultsPage() {
 
                 {expanded && (
                   <div className="border-t border-gray-100 p-3 space-y-2 bg-gray-50">
-                    {sub.answers.map(a => {
+                    {/* 채점해야 할 문항(정답 인정/오답 버튼)을 맨 위로 — 아래로 스크롤 불필요. 안정 정렬로 나머지는 원래 순서 유지. */}
+                    {[...sub.answers].sort((a, b) => (needsGradingOf(b) ? 1 : 0) - (needsGradingOf(a) ? 1 : 0)).map(a => {
                       const q = qMap.get(a.question_id)
                       if (!q) return null
-                      const needsGrading = q.type === 'SHORT'
-                        && q.grading_mode === 'MANUAL'
-                        && q.award_mode === 'CORRECT_ONLY'
-                        && a.is_correct === null
+                      const needsGrading = needsGradingOf(a)
                       return (
                         <div key={a.id} className="p-3 bg-white border border-gray-200 rounded-lg">
                           <p className="text-sm font-medium text-gray-800 mb-1.5">

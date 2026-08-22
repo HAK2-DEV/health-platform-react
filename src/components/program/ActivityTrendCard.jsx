@@ -132,6 +132,14 @@ export default function ActivityTrendCard({ programId, userId, onCertify, todayS
   }, [])
   const seenK = `atc-report-seen:${programId}`
   const [reportSeen, setReportSeen] = useState(() => { try { return localStorage.getItem(seenK) === weekKey() } catch { return true } })
+  // 지난 주 리포트를 실제로 보면(배지 클릭 or 토글) 배지 해제.
+  useEffect(() => {
+    if (open && mode === 'lastweek' && !reportSeen) {
+      try { localStorage.setItem(seenK, weekKey()) } catch { /* noop */ }
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setReportSeen(true)
+    }
+  }, [open, mode, reportSeen, seenK])
 
   const { data, isLoading } = useQuery({
     queryKey: ['my-activity-series', programId, userId],
@@ -170,7 +178,8 @@ export default function ActivityTrendCard({ programId, userId, onCertify, todayS
         ? { tone: 'good', icon: '🔥', text: <>이번 주도 꾸준해요. 이대로면 <b>완주까지 순항</b>이에요!</> }
         : { tone: 'slow', icon: '🌱', text: <>이번 주 페이스가 조금 느려졌어요. <b>오늘 하나만</b> 다시 시작해볼까요?</> }
 
-  const openPopup = () => { if (reportBadge) setMode('lastweek'); setOpen(true); try { localStorage.setItem(seenK, weekKey()) } catch { /* noop */ }; setReportSeen(true) }
+  // 바 클릭 = 누적으로 열림. 「리포트 ✨」 배지만 지난 주 리포트로.
+  const openPopup = (targetMode = 'cumulative') => { setMode(targetMode); setOpen(true) }
 
   const cta = todayState === 'open' ? (
     <button type="button" onClick={onCertify}
@@ -190,7 +199,7 @@ export default function ActivityTrendCard({ programId, userId, onCertify, todayS
   return (
     <>
       {/* 얇은 한 줄 바 — 클릭 시 중앙 팝업. 등장 시 아이콘만 감싼 상태 → 옆으로 펼쳐짐 */}
-      <motion.button type="button" onClick={openPopup}
+      <motion.button type="button" onClick={() => openPopup('cumulative')}
         initial={false}
         animate={{ width: expanded ? '100%' : 44 }}
         transition={{ type: 'spring', stiffness: 140, damping: 26 }}
@@ -203,7 +212,14 @@ export default function ActivityTrendCard({ programId, userId, onCertify, todayS
           <span className="flex-1 min-w-0 text-[13px] font-bold text-gray-800">내 활동</span>
           {todayState === 'pending' && <span className="text-[10.5px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full flex-shrink-0 whitespace-nowrap">⏳ 심사 대기</span>}
           {todayState === 'done' && <span className="inline-flex items-center gap-0.5 text-[10.5px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full flex-shrink-0 whitespace-nowrap"><Check className="w-3 h-3" />인증 완료</span>}
-          {reportBadge && <span className="text-[10.5px] font-bold text-violet-700 bg-violet-50 px-2 py-0.5 rounded-full flex-shrink-0 whitespace-nowrap">리포트 ✨</span>}
+          {reportBadge && (
+            <span role="button" tabIndex={0}
+              onClick={(e) => { e.stopPropagation(); openPopup('lastweek') }}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); e.preventDefault(); openPopup('lastweek') } }}
+              className="text-[10.5px] font-bold text-violet-700 bg-violet-50 px-2 py-0.5 rounded-full flex-shrink-0 whitespace-nowrap cursor-pointer hover:bg-violet-100 transition">
+              리포트 ✨
+            </span>
+          )}
           <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
         </motion.div>
       </motion.button>
