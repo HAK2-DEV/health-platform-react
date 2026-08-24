@@ -70,7 +70,8 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
   const [noteRequired, setNoteRequired] = useState(true)
 
   // ── 명상(타이머) 인증 — 마음관리(MINDCARE) 전용 4번째 스타일 ──
-  const [verifyStyle, setVerifyStyle] = useState('standard')   // 'standard' | 'meditation'
+  const [verifyStyle, setVerifyStyle] = useState('standard')   // 'standard' | 'meditation' | 'meal' | 'steps'
+  const [stepGoal, setStepGoal] = useState(8000)               // 걸음 자동 인증 — 목표 걸음
   const [medMinutes, setMedMinutes] = useState(3)              // 명상 길이(분)
   const [mealType, setMealType] = useState('breakfast')        // 식단 인증 — 끼니(breakfast/lunch/dinner/snack)
   const [medPattern, setMedPattern] = useState({ inhale: 4, hold1: 4, exhale: 4, hold2: 4 })  // 박스호흡 기본(운영자 커스텀)
@@ -170,6 +171,7 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
       setNumericRequired(editMission.numeric_required ?? true)
       setNoteRequired(editMission.note_required ?? true)
       setVerifyStyle(editMission.verify_style || 'standard')
+      setStepGoal(editMission.step_goal || 8000)
       setMealType(editMission.meal_type || 'breakfast')
       setMedMinutes(editMission.meditation_seconds ? Math.max(1, Math.round(editMission.meditation_seconds / 60)) : 3)
       setMedPattern(editMission.meditation_pattern || { inhale: 4, hold1: 4, exhale: 4, hold2: 4 })
@@ -239,14 +241,15 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
   }
   const isMed = verifyStyle === 'meditation'   // 명상(타이머) 인증 스타일
   const isMeal = verifyStyle === 'meal'        // 식단 인증(검색·AI사진) 스타일
+  const isSteps = verifyStyle === 'steps'      // 걸음(Health Connect) 자동 인증 스타일
   const isDietCat = Array.isArray(program.categories) && program.categories.includes('DIET')  // 식단 카테고리(숫자입력 미사용)
   const validateMethod = () => {
-    if (isMed || isMeal) return null   // 명상=타이머, 식단=음식기록이 인증 → 사진/기록/소감 불필요
+    if (isMed || isMeal || isSteps) return null   // 명상=타이머, 식단=음식기록, 걸음=자동 → 사진/기록/소감 불필요
     if (!requiresImage && !requiresNumeric && !requiresNote) return '인증 방법을 최소 1개 선택해주세요'
     return null
   }
   const validatePoints = () => {
-    if (isMed || isMeal) { if ((parseInt(medPoint) || 0) < 1) return '완료 점수는 1 이상이어야 합니다'; return null }
+    if (isMed || isMeal || isSteps) { if ((parseInt(medPoint) || 0) < 1) return '완료 점수는 1 이상이어야 합니다'; return null }
     if (totalPoint < 1) return '점수 합계는 1 이상이어야 합니다'
     const anyRequired =
       (requiresImage && imageRequired) || (requiresNumeric && numericRequired) || (requiresNote && noteRequired)
@@ -278,8 +281,8 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
       title: title.trim(),
       instruction: instruction.trim() || null,
       icon_path: iconPath || null,
-      verification_type: (isMed || isMeal) ? 'AUTO' : verificationType,   // 명상·식단은 자기보고 신뢰 → AUTO
-      point: (isMed || isMeal) ? (parseInt(medPoint) || 0) : totalPoint,
+      verification_type: (isMed || isMeal || isSteps) ? 'AUTO' : verificationType,   // 명상·식단·걸음은 자동 → AUTO
+      point: (isMed || isMeal || isSteps) ? (parseInt(medPoint) || 0) : totalPoint,
       daily_limit: dailyLimit ? parseInt(dailyLimit) : null,
       // 명상(타이머) 인증 — 스타일/시간/호흡패턴. 아니면 standard.
       verify_style: verifyStyle,
@@ -288,10 +291,12 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
       meditation_music: null,
       // 식단 인증 — 끼니(아침/점심/저녁/간식)
       meal_type: isMeal ? mealType : null,
+      // 걸음 자동 인증 — 목표 걸음
+      step_goal: isSteps ? Math.max(1, parseInt(stepGoal) || 8000) : null,
       // 명상·식단형은 사진/기록/소감 없음(자체 입력 화면)
-      requires_image: (isMed || isMeal) ? false : requiresImage,
-      requires_numeric: (isMed || isMeal || isDietCat) ? false : requiresNumeric,
-      requires_note: (isMed || isMeal) ? false : requiresNote,
+      requires_image: (isMed || isMeal || isSteps) ? false : requiresImage,
+      requires_numeric: (isMed || isMeal || isSteps || isDietCat) ? false : requiresNumeric,
+      requires_note: (isMed || isMeal || isSteps) ? false : requiresNote,
       // 084 — 입력별 점수/필수 (미사용 입력은 point NULL → 채점 합산서 제외)
       image_point: (!isMed && !isMeal && requiresImage) ? (parseInt(imagePoint) || 0) : null,
       numeric_point: (!isMed && !isMeal && requiresNumeric) ? (parseInt(numericPoint) || 0) : null,
@@ -378,6 +383,7 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
 
   if (!isOpen || !program) return null
   const isMindcare = Array.isArray(program.categories) && program.categories.includes('MINDCARE')  // 명상형 노출 조건
+  const isStepCat = Array.isArray(program.categories) && (program.categories.includes('WALKING') || program.categories.includes('RUNNING'))  // 걸음 자동 인증 노출(운동·달리기)
   return (
     <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-5" style={{ paddingBottom: kbInset ? kbInset + 20 : undefined, transition: 'padding-bottom .2s ease' }} onClick={onClose}>
       <div className="w-full max-w-md max-h-[88vh] overflow-y-auto bg-white rounded-2xl p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
@@ -648,16 +654,21 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
           {/* ── 인증 방식 — 1단계(제목·설명) 아래에 병합 렌더 ── */}
           {step === 1 && (<>
           {/* 인증 스타일 선택 — 마음관리=명상, 식단=식단 기록 */}
-          {(isMindcare || isDietCat) && (
+          {(isMindcare || isDietCat || isStepCat) && (
             <div className="grid grid-cols-2 gap-2 mb-5 mt-1">
               {(isDietCat
                 ? [
                     { v: 'standard', emoji: '📷', label: '인증샷 제출', desc: '식사 사진 제출', tip: '오늘 먹은 식사 사진을 제출해요.' },
                     { v: 'meal', emoji: '🍱', label: '칼로리 기록', desc: 'AI 자동 계산·입력', tip: '음식 사진을 올리면 AI가 칼로리를 자동으로 계산해줘요. 음식을 직접 검색해 담거나, 칼로리를 수기로 입력할 수도 있어요.' },
                   ]
-                : [
+                : isMindcare
+                ? [
                     { v: 'standard', emoji: '📷', label: '일반 인증', desc: '사진·기록·소감' },
                     { v: 'meditation', img: '/icons/meditation/meditate.png', label: '명상 타이머', desc: '앉아서 명상 후 완료' },
+                  ]
+                : [
+                    { v: 'standard', emoji: '📷', label: '일반 인증', desc: '사진·기록·소감' },
+                    { v: 'steps', emoji: '👣', label: '걸음 자동 인증', desc: '삼성헬스 연동·자동', tip: '안드로이드 앱에서 Health Connect(삼성헬스)의 오늘 걸음이 목표를 넘으면 사진 없이 자동 인증돼요. 웹에서는 안내만 표시돼요.' },
                   ]
               ).map((o, i) => {
                 const on = verifyStyle === o.v
@@ -668,8 +679,8 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
                       {o.img
                         ? <img src={o.img} alt="" draggable="false" className="w-9 h-9 mx-auto mb-1 object-contain" />
                         : <span className="block text-2xl leading-none mb-1">{o.emoji}</span>}
-                      <span className={`block text-[15px] font-bold ${on ? 'text-emerald-700' : 'text-gray-600'}`}>{o.label}</span>
-                      <span className="block text-[11px] text-gray-400 mt-0.5">{o.desc}</span>
+                      <span className={`block text-[15px] font-bold break-keep ${on ? 'text-emerald-700' : 'text-gray-600'}`}>{o.label}</span>
+                      <span className="block text-[11px] text-gray-400 mt-0.5 break-keep">{o.desc}</span>
                     </button>
                     {o.tip && (<>
                       <button type="button" onClick={() => toggleTip(`vs_${o.v}`)} className="absolute top-1.5 right-1.5 text-gray-400 hover:text-emerald-500 transition z-10" aria-label="도움말">
@@ -687,7 +698,23 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
             </div>
           )}
 
-          {isMed ? (
+          {isSteps ? (
+          /* 걸음 자동 인증 — 목표 걸음 */
+          <div className="mb-4">
+            <h3 className="text-[18px] font-bold text-gray-900 break-keep mb-2 mt-1">몇 걸음이 목표인가요?</h3>
+            <p className="text-[15px] text-gray-600 mb-4 break-keep">안드로이드 앱에서 오늘 걸음이 목표를 넘으면 <b className="text-emerald-600">사진 없이 자동 인증</b>돼요 (Health Connect·삼성헬스 연동).</p>
+            <div className="flex gap-2 mb-3">
+              {[5000, 8000, 10000].map(g => (
+                <button key={g} type="button" onClick={() => setStepGoal(g)} disabled={isSaving}
+                  className={`flex-1 py-2.5 rounded-xl border-2 text-[15px] font-bold transition ${Number(stepGoal) === g ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}>
+                  {g.toLocaleString()}보
+                </button>
+              ))}
+            </div>
+            <input type="number" inputMode="numeric" value={stepGoal} onChange={(e) => setStepGoal(e.target.value)} disabled={isSaving}
+              className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl text-[15px] focus:outline-none focus:border-emerald-500" placeholder="직접 입력 (보)" />
+          </div>
+          ) : isMed ? (
           /* 명상형 설정 — 시간 + 호흡 패턴 */
           <div className="mb-4">
             <div className="relative flex items-center gap-1.5 mb-2">
@@ -772,18 +799,18 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
 
           {/* ── 4단계: 점수 ── */}
           {step === 4 && (<>
-          {(isMed || isMeal) ? (
-          /* 명상·식단 완료 점수 (단일) */
+          {(isMed || isMeal || isSteps) ? (
+          /* 명상·식단·걸음 완료 점수 (단일) */
           <div className="mb-4">
             <div className="relative flex items-center gap-1.5 mb-2 mt-1">
               <h3 className="text-[18px] font-bold text-gray-900 break-keep">완료하면 몇 점을 줄까요?</h3>
               <InfoTip tipKey="medpoint" tipOpen={tipOpen} onToggle={toggleTip}>
-                {isMeal ? '식단을 기록하면 받는 점수예요. 습관 형성이 목적이라 부담 없는 점수를 권해요.' : '명상 타이머를 끝까지 마치면 받는 점수예요. 습관 형성이 목적이라 부담 없는 점수를 권해요.'}
+                {isMeal ? '식단을 기록하면 받는 점수예요.' : isSteps ? '걸음 목표를 달성하면 받는 점수예요.' : '명상 타이머를 끝까지 마치면 받는 점수예요.'} 습관 형성이 목적이라 부담 없는 점수를 권해요.
               </InfoTip>
             </div>
-            <p className="text-[15px] text-gray-600 mb-6 break-keep">{isMeal ? '식단을 기록하면 주는 점수' : '명상을 완료하면 주는 점수'}</p>
+            <p className="text-[15px] text-gray-600 mb-6 break-keep">{isMeal ? '식단을 기록하면 주는 점수' : isSteps ? '걸음 목표를 달성하면 주는 점수' : '명상을 완료하면 주는 점수'}</p>
             <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1 text-sm font-medium text-gray-700">{isMeal ? <span className="text-[18px] leading-none">🍱</span> : <img src="/icons/meditation/meditate.png" alt="" className="w-5 h-5 object-contain" />} 완료 점수</span>
+              <span className="inline-flex items-center gap-1 text-sm font-medium text-gray-700">{isMeal ? <span className="text-[18px] leading-none">🍱</span> : isSteps ? <span className="text-[18px] leading-none">👣</span> : <img src="/icons/meditation/meditate.png" alt="" className="w-5 h-5 object-contain" />} 완료 점수</span>
               <div className="relative w-[5rem]">
                 <input type="number" min={1} value={medPoint} onChange={(e) => setMedPoint(e.target.value)} disabled={isSaving}
                   className="w-full pl-2 pr-6 py-1.5 text-sm text-right border border-gray-200 rounded-md focus:outline-none focus:border-emerald-500 disabled:bg-gray-50" />
@@ -927,12 +954,12 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
             <FieldLabel title="승인 방식" tipKey="approve" tipOpen={tipOpen} onToggle={toggleTip}>
               <b className="text-emerald-300">자동 승인</b> = 제출 즉시 점수 지급.<br /><b className="text-emerald-300">운영자 심사</b> = 운영자가 확인한 뒤 점수 지급.
             </FieldLabel>
-            {(isMed || isMeal) ? (
-              /* 명상·식단은 자기보고 신뢰 → 자동 승인 고정. 심사 선택을 열어두면 저장 시 무효라 아예 잠금 */
+            {(isMed || isMeal || isSteps) ? (
+              /* 명상·식단·걸음은 자동 승인 고정 */
               <div className="p-3 rounded-xl bg-gray-50 border border-gray-200">
                 <p className="text-sm font-medium text-gray-700 flex items-center gap-1.5"><span>🔒</span> 자동 승인 (고정)</p>
                 <p className="text-xs text-gray-500 mt-1 leading-relaxed break-keep">
-                  {isMed ? '명상' : '식단'} 인증은 자기보고 기반이라 <b>자동 승인만 가능해요.</b> 제출 즉시 점수가 지급돼요.
+                  {isMed ? '명상' : isSteps ? '걸음' : '식단'} 인증은 {isSteps ? '건강 데이터 기반이라' : '자기보고 기반이라'} <b>자동 승인만 가능해요.</b> {isSteps ? '목표 달성 시' : '제출 즉시'} 점수가 지급돼요.
                   {' '}(부적절한 인증은 나중에 피드에서 「점수 제외」할 수 있어요.)
                 </p>
               </div>

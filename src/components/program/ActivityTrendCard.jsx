@@ -14,7 +14,9 @@ import { Icon3D } from './ProgramHome'
 const DEV = import.meta.env.DEV
 const md = (ds) => { const p = String(ds).split('-'); return `${+p[1]}/${+p[2]}` }
 function weekKey() { const d = new Date(); const day = (d.getDay() + 6) % 7; d.setDate(d.getDate() - day); return d.toISOString().slice(0, 10) }
-function encourage(r) {
+function encourage(r, ended) {
+  // 종료된 프로그램 — 미래형 응원("이번 주도 화이팅") 대신 마무리 인사.
+  if (ended) return '프로그램이 끝났어요. 그동안 꾸준히 함께해줘서 정말 고마웠어요 🎉'
   const acted = r.missionCount + r.quizCount + r.postCount + r.commentCount + r.classCount
   if (acted === 0) return '지난 주는 잠깐 쉬어갔네요. 이번 주 가볍게 다시 시작해봐요 🌱'
   if (r.activeDays >= 5) return `지난 주 ${r.activeDays}일이나 함께했어요 🔥 이번 주도 화이팅!`
@@ -78,7 +80,7 @@ function RecapRow({ src, emoji, label, n, unit }) {
   )
 }
 
-function WeeklyRecap({ r }) {
+function WeeklyRecap({ r, ended }) {
   return (
     <div>
       <div className="grid grid-cols-2 gap-2.5 mb-3 items-stretch">
@@ -106,12 +108,12 @@ function WeeklyRecap({ r }) {
         <RecapRow src="/icons/mypage/comments.png" emoji="✍️" label="댓글" n={r.commentCount} unit="개" />
         {r.classCount > 0 && <RecapRow src="/icons/feature/attendance.png" emoji="📅" label="클래스 출석" n={r.classCount} unit="회" />}
       </div>
-      <p className="text-[12px] text-gray-600 leading-relaxed bg-gray-50 rounded-lg px-3 py-2.5 mt-3 break-keep">{encourage(r)}</p>
+      <p className="text-[12px] text-gray-600 leading-relaxed bg-gray-50 rounded-lg px-3 py-2.5 mt-3 break-keep">{encourage(r, ended)}</p>
     </div>
   )
 }
 
-export default function ActivityTrendCard({ programId, userId, onCertify, todayState = 'open', quizEnabled = false, communityEnabled = true }) {
+export default function ActivityTrendCard({ programId, userId, onCertify, todayState = 'open', ended = false, quizEnabled = false, communityEnabled = true }) {
   const [mode, setMode] = useState('cumulative')
   const [open, setOpen] = useState(false)
   const [chartPage, setChartPage] = useState(0)   // 0=누적 추이, 1=활동 구성 레이더 (좌우 슬라이드)
@@ -170,7 +172,10 @@ export default function ActivityTrendCard({ programId, userId, onCertify, todayS
   const lowData = totalCount < 4
   const up = thisWeek >= lastWeek
   const stalled = thisWeek === 0
-  const note = lowData
+  const note = ended
+    // 종료된 프로그램 — 미래형 넛지 대신 마무리 인사.
+    ? { tone: 'good', icon: '🎉', text: <>프로그램이 끝났어요. <b>그동안 정말 수고 많으셨어요!</b></> }
+    : lowData
     ? { tone: 'good', icon: '🌱', text: <>좋은 시작이에요! <b>오늘도</b> 이어가볼까요?</> }
     : stalled
       ? { tone: 'slow', icon: '🌱', text: <>이번 주 아직이에요. <b>오늘 하나만</b> 다시 시작해볼까요?</> }
@@ -239,7 +244,7 @@ export default function ActivityTrendCard({ programId, userId, onCertify, todayS
           </div>
 
           {mode === 'lastweek' ? (
-            hasReport ? <WeeklyRecap r={report} />
+            hasReport ? <WeeklyRecap r={report} ended={ended} />
               : <p className="text-[13px] text-gray-400 py-10 text-center">지난 주 기록이 없어요.</p>
           ) : totalCount === 0 ? (
             <p className="text-[13px] text-gray-500 mb-4 leading-relaxed">첫 인증을 하면 여기에 <b className="text-emerald-600">활동 추이</b>가 쌓여요.</p>

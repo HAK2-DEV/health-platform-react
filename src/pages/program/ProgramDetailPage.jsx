@@ -835,7 +835,7 @@ function ProgramDetailPage() {
     : _todayOpen ? 'open' : _todayPending ? 'pending' : 'done'
   // 「내 활동 추이」 카드 — 참여자 개요(층1). 시작 후 진행 중 언제나 누적/주간 추이 + 재개 넛지.
   const activityCardEl = (!isOwner && isActiveParticipant && program?.status === 'PUBLISHED' && !programUpcoming) ? (
-    <ActivityTrendCard programId={id} userId={userId} todayState={todayMissionState} onCertify={() => setActiveTab('missions')}
+    <ActivityTrendCard programId={id} userId={userId} todayState={todayMissionState} ended={isEnded} onCertify={() => setActiveTab('missions')}
       quizEnabled={program?.quiz_enabled !== false} communityEnabled={program?.community_enabled !== false && program?.feed_enabled !== false} />
   ) : null
 

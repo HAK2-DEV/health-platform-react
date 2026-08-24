@@ -20,6 +20,7 @@ import { primeAudio } from '../../lib/sound'
 import LoadingState from '../../components/common/LoadingState'
 import MeditationPlayer from '../../components/program/MeditationPlayer'
 import MealVerify from '../../components/meal/MealVerify'
+import StepsVerify from '../../components/program/StepsVerify'
 import ImageCropModal from '../../components/common/ImageCropModal'
 import NotificationBell from '../../components/common/NotificationBell'
 import Confetti from '../../components/common/Confetti'
@@ -297,7 +298,7 @@ function MissionVerifyPage() {
   })
   const isRecordableMission = (m, counts = recTodayCounts) => {
     // 명상형은 입력 없이 타이머 완료로 인증 → 입력 체크 건너뜀
-    if (m.verify_style !== 'meditation' && m.verify_style !== 'meal' && !(m.requires_image || m.requires_numeric || m.requires_note)) return false
+    if (m.verify_style !== 'meditation' && m.verify_style !== 'meal' && m.verify_style !== 'steps' && !(m.requires_image || m.requires_numeric || m.requires_note)) return false
     const now = new Date()
     if (m.active_from && now < new Date(m.active_from)) return false
     if (m.active_until && now > new Date(m.active_until)) return false
@@ -327,6 +328,8 @@ function MissionVerifyPage() {
   const needsNote = !!mission?.requires_note
   const isMeditation = mission?.verify_style === 'meditation'   // 명상(타이머) 인증
   const isMeal = mission?.verify_style === 'meal'               // 식단(검색·AI사진) 인증
+  const isSteps = mission?.verify_style === 'steps'             // 걸음(Health Connect) 자동 인증
+  const stepsRef = useRef(null)
   const mealDataRef = useRef(null)   // MealVerify 제출 payload(items/totals/source)
   const mealPhotoRef = useRef(null)  // 식단 AI 사진 File(있으면 image_path 업로드)
   const handleMealSubmit = (payload) => {
@@ -380,11 +383,20 @@ function MissionVerifyPage() {
       const dataUrl = await activityFileToDataUrl(file)
       const d = await readActivityScreenshot(dataUrl)
       const { updates, labels } = mapActivityToMetrics(metricList, d)
+      // 자동입력에 쓴 스크린샷을 인증 사진으로도 첨부 — 사진을 따로 두 번 올리지 않게.
+      //   기록 스크린샷은 자르면 데이터가 잘리므로 크롭 없이 그대로 사용(제출 시 자동 압축).
+      let photoAttached = false
+      if (needsImage) {
+        if (previewUrl) URL.revokeObjectURL(previewUrl)
+        setSelectedFile(file)
+        setPreviewUrl(URL.createObjectURL(file))
+        photoAttached = true
+      }
       if (Object.keys(updates).length) {
         setMetricValues(v => ({ ...v, ...updates }))
-        setOcrHint(`사진에서 읽었어요 · ${labels.join(' · ')} (확인 후 제출)`)
+        setOcrHint(`사진에서 읽었어요 · ${labels.join(' · ')}${photoAttached ? ' · 사진도 첨부됨' : ''} (확인 후 제출)`)
       } else {
-        setOcrHint('값을 읽지 못했어요. 직접 입력해 주세요.')
+        setOcrHint(photoAttached ? '사진은 첨부했어요. 값은 못 읽어 직접 입력해 주세요.' : '값을 읽지 못했어요. 직접 입력해 주세요.')
       }
     } catch {
       setOcrHint('사진을 읽지 못했어요. 직접 입력해 주세요.')
@@ -544,6 +556,7 @@ function MissionVerifyPage() {
         insertData.numeric_value = parseFloat(numericValue)
       }
       if (needsNote && noteText.trim()) insertData.note = noteText.trim()
+      if (isSteps && stepsRef.current != null) insertData.numeric_value = stepsRef.current   // 걸음 자동 인증 — 달성 걸음 수 기록
       // 피드 노출 여부 — 정책(강제 공개/비공개)이면 강제값, 개인 선택이면 토글값
       if (program?.feed_enabled) insertData.feed_visible = effectiveFeedVisible
 
@@ -1042,6 +1055,17 @@ function MissionVerifyPage() {
         onComplete={() => { primeAudio(); submitMutation.mutate() }}
         onClose={handleClose}
         submitting={submitMutation.isPending}
+      />
+    )
+  }
+
+  if (isSteps) {
+    return (
+      <StepsVerify
+        mission={mission}
+        submitting={submitMutation.isPending}
+        onSubmit={(s) => { stepsRef.current = s; primeAudio(); submitMutation.mutate() }}
+        onCancel={handleClose}
       />
     )
   }

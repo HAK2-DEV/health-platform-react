@@ -26,11 +26,11 @@ export default function ClassOverviewCard({ programId, joinedAt = null, onOpenAl
   return (
     <div className="rounded-2xl bg-white border border-gray-100 shadow-soft p-4 mb-[9px] mx-auto w-[398px] max-w-full">
       <button type="button" onClick={onOpenAll} className="w-full flex items-center gap-2 mb-3 text-left">
-        <img src="/icons/feature/attendance.png" alt="" aria-hidden="true" className="w-6 h-6 object-contain" />
-        <h3 className="text-sm font-bold text-gray-800">클래스 일정</h3>
-        {newCount > 0 && <span className="px-1.5 py-[1px] rounded-full bg-red-500 text-white text-[9px] font-extrabold tracking-wide">NEW</span>}
-        {thisWeek > 0 && <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 rounded-full px-2 py-0.5">이번 주 {thisWeek}</span>}
-        <span className="ml-auto inline-flex items-center text-[12px] text-gray-400">전체 보기 <ChevronRight className="w-4 h-4" /></span>
+        <img src="/icons/feature/attendance.png" alt="" aria-hidden="true" className="w-6 h-6 object-contain flex-shrink-0" />
+        <h3 className="text-sm font-bold text-gray-800 whitespace-nowrap flex-shrink-0">클래스 일정</h3>
+        {newCount > 0 && <span className="px-1.5 py-[1px] rounded-full bg-red-500 text-white text-[9px] font-extrabold tracking-wide flex-shrink-0">NEW</span>}
+        {thisWeek > 0 && <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 rounded-full px-2 py-0.5 whitespace-nowrap flex-shrink-0">이번 주 {thisWeek}</span>}
+        <span className="ml-auto inline-flex items-center text-[11px] text-gray-400 whitespace-nowrap flex-shrink-0">전체보기 <ChevronRight className="w-4 h-4 flex-shrink-0" /></span>
       </button>
       {isSessLoading ? (
         <p className="text-[13px] text-gray-300 py-2 text-center">불러오는 중…</p>

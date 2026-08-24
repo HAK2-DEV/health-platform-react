@@ -2,13 +2,14 @@ import { Check, X, Loader2 } from 'lucide-react'
 import { useNicknameCheck } from '../../hooks/useNicknameCheck'
 import { NICKNAME } from '../../lib/constants'
 
-function NicknameInput({ value, onChange, currentUserId = null }) {
+function NicknameInput({ value, onChange, currentUserId = null, required = false }) {
   const status = useNicknameCheck(value, currentUserId)
-  
+
   return (
     <div className="w-full">
-      <label className="block text-sm font-medium text-gray-700 mb-1">
+      <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1">
         닉네임 ({NICKNAME.MIN_LENGTH}-{NICKNAME.MAX_LENGTH}자)
+        {required && <span className="text-[11px] font-bold text-rose-500 bg-rose-50 px-1.5 py-0.5 rounded">필수</span>}
       </label>
       
       <div className="relative">

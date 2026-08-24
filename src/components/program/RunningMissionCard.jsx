@@ -20,9 +20,11 @@ function RunningMissionCard({
 
   const isMeditation = mission.verify_style === 'meditation'   // 명상(타이머) — 입력 없이 완료로 인증
   const isMeal = mission.verify_style === 'meal'               // 식단(검색·AI사진)
+  const isSteps = mission.verify_style === 'steps'             // 걸음(Health Connect) — 목표 걸음 자동 인증
   const types = []
   if (isMeditation) types.push('명상')
   if (isMeal) types.push('식단')
+  if (isSteps) types.push('걸음')
   if (mission.requires_image) types.push('업로드')
   if (mission.requires_numeric) types.push('기록')
   if (mission.requires_note) types.push('소감')
