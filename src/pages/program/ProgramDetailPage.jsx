@@ -1232,6 +1232,20 @@ function ProgramDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams])
 
+  // 셋업 모달이 열리면 뒤에 남아있던 운영자 설정 패널은 닫는다.
+  //   설문 문항 편집 후 `?opmenu=survey` 로 돌아오면 위의 effect 가 설문 패널을 되살리는데,
+  //   같은 시점에 셋업 모달도 자동 오픈돼 **둘이 겹쳤다** — 셋업 뒤에 설문 패널이 깔리고,
+  //   초대 단계에서는 그 패널이 초대 모달을 가려 "설문을 닫아야 초대가 뜨는" 상태가 됐다.
+  //   설문을 다시 보고 싶으면 셋업의 「설문 설정」을 누르면 되므로 여기선 정리하는 게 맞다.
+  //   ※ 위 opmenu effect 보다 **뒤에** 있어야 같은 커밋에서 마지막에 실행돼 이긴다.
+  useEffect(() => {
+    if (!setupOpen) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setIsPanelOpen(false)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPanelView('root')
+  }, [setupOpen])
+
   // 사용 OFF 된 메뉴 탭이 URL(activeTab)로 열려 있으면 개요로 정규화 (콘텐츠가 activeTab 기반)
   useEffect(() => {
     if (!program) return
