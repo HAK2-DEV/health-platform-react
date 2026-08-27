@@ -21,6 +21,7 @@ function SignupPage() {
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [emailSent, setEmailSent] = useState(false)   // 이메일 인증 켜짐 → 확인 안내 화면
   const { session } = useAuth()
 
   // 동의 체크박스 상태
@@ -53,14 +54,24 @@ function SignupPage() {
       setError('필수 약관 동의가 필요해요')
       return
     }
+    const em = email.trim()
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) {
+      setError('올바른 이메일 주소를 입력해주세요 (예: name@example.com)')
+      return
+    }
+    if (password.length < 6) {
+      setError('비밀번호는 6자 이상이어야 해요')
+      return
+    }
     setIsLoading(true)
     setError(null)
 
     try {
-      const { error: signUpError } = await supabase.auth.signUp({
-        email,
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: em,
         password,
         options: {
+          emailRedirectTo: window.location.origin,   // 인증 메일 링크가 앱으로 복귀(대시보드 Redirect URLs 에 등록 필요)
           data: {
             // 동의 시점·항목 추적 — user_metadata 에 저장
             agreed_terms_at: new Date().toISOString(),
@@ -71,13 +82,35 @@ function SignupPage() {
       })
 
       if (signUpError) throw signUpError
-      navigate('/nickname-setup')
+      // 이메일 인증 ON → 세션 없음(확인 대기): 안내 화면. OFF → 세션 있음: 바로 닉네임 설정.
+      if (data?.session) navigate('/nickname-setup')
+      else setEmailSent(true)
     } catch (err) {
       console.error('회원가입 실패:', err)
       setError(err.message)
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // 이메일 인증 대기 화면
+  if (emailSent) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[80vh] p-6 text-center">
+        <div className="w-16 h-16 rounded-full bg-emerald-50 flex items-center justify-center mb-4">
+          <Check className="w-8 h-8 text-emerald-500" strokeWidth={2.5} />
+        </div>
+        <h2 className="text-xl font-bold text-gray-900 mb-2">이메일을 확인해주세요 📧</h2>
+        <p className="text-[14px] text-gray-600 leading-relaxed break-keep max-w-xs">
+          <b className="text-emerald-600">{email}</b> 으로<br />인증 메일을 보냈어요.
+          메일의 <b>링크를 눌러</b> 가입을 완료해주세요.
+        </p>
+        <p className="text-[12px] text-gray-400 mt-4 break-keep max-w-xs leading-relaxed">
+          메일이 안 보이면 <b>스팸함</b>도 확인해주세요.<br />링크를 누르면 자동으로 로그인돼요.
+        </p>
+        <Link to="/login" className="mt-6 text-[13px] font-bold text-emerald-600">로그인 화면으로</Link>
+      </div>
+    )
   }
 
   return (

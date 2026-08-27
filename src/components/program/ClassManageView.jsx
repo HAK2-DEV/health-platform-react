@@ -180,6 +180,8 @@ function SessionForm({ instructors, initial, isEdit = false, onSave, onClose, bu
   const [signup, setSignup] = useState(initial?.signup_mode || 'rsvp')
   const [points, setPoints] = useState(initial?.points != null ? String(initial.points) : '0')
   const [desc, setDesc] = useState(initial?.description || '')
+  const [repeatCount, setRepeatCount] = useState(1)   // 매주 반복 생성 횟수(새 클래스만)
+  const [leadDays, setLeadDays] = useState(initial?.signup_lead_days ?? null)   // 이 클래스 신청 개방(null=프로그램 기본)
 
   const [step, setStep] = useState(1)
   const [dir, setDir] = useState(1)
@@ -208,16 +210,23 @@ function SessionForm({ instructors, initial, isEdit = false, onSave, onClose, bu
 
   const save = () => {
     if (!canSave) return
-    const startsAt = new Date(`${date}T${start}`).toISOString()
-    const endsAt = end ? new Date(`${date}T${end}`).toISOString() : null
-    onSave({
+    const n = isEdit ? 1 : Math.max(1, Math.min(10, repeatCount))
+    const base = {
       title: title.trim(), category, instructor_id: instructorId || null,
-      starts_at: startsAt, ends_at: endsAt,
       place_name: placeName.trim() || null, place_address: placeAddr.trim() || null,
       capacity: capacity ? Number(capacity) : null,
       signup_mode: signup, points: Number(points) || 0,
       description: desc.trim() || null,
+      signup_lead_days: leadDays,   // null=프로그램 기본, 0=항상, N=시작 N일 전
+    }
+    // 매주 반복 — 시작일에 i*7일 더해 N개 생성
+    const payloads = Array.from({ length: n }, (_, i) => {
+      const ds = new Date(`${date}T${start}`); ds.setDate(ds.getDate() + i * 7)
+      let endsAt = null
+      if (end) { const de = new Date(`${date}T${end}`); de.setDate(de.getDate() + i * 7); endsAt = de.toISOString() }
+      return { ...base, starts_at: ds.toISOString(), ends_at: endsAt }
     })
+    onSave(payloads.length === 1 ? payloads[0] : payloads)
   }
 
   return (
@@ -255,6 +264,19 @@ function SessionForm({ instructors, initial, isEdit = false, onSave, onClose, bu
                   <Field label="시작 *"><input type="time" className={dtCls} value={start} onChange={e => setStart(e.target.value)} /></Field>
                   <Field label="종료"><input type="time" className={dtCls} value={end} onChange={e => setEnd(e.target.value)} /></Field>
                 </div>
+                {!isEdit && (
+                  <div className="mt-2.5 p-3 rounded-lg border border-gray-200 bg-gray-50/70">
+                    <p className="text-[12px] font-bold text-gray-600" style={{ marginBottom: 6 }}>매주 반복 — 한 번에 여러 주 등록</p>
+                    <div className="flex items-center gap-2">
+                      <select className={inputCls} value={repeatCount} onChange={e => setRepeatCount(Number(e.target.value))} style={{ maxWidth: 110 }}>
+                        {Array.from({ length: 10 }, (_, i) => i + 1).map(nn => <option key={nn} value={nn}>{nn}회</option>)}
+                      </select>
+                      <span className="text-[12px] text-gray-500 break-keep">
+                        {repeatCount > 1 ? `같은 요일·시간으로 ${repeatCount}주치가 생성돼요` : '반복 안 함 (1개만 생성)'}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </>
             )}
             {step === 3 && (
@@ -282,6 +304,19 @@ function SessionForm({ instructors, initial, isEdit = false, onSave, onClose, bu
                     <span className="text-sm font-semibold text-gray-500">P</span>
                   </div>
                 </Field>
+                {signup === 'rsvp' && (
+                  <Field label="신청은 언제부터?">
+                    <select className={inputCls} value={leadDays === null ? 'default' : String(leadDays)}
+                      onChange={e => setLeadDays(e.target.value === 'default' ? null : Number(e.target.value))}>
+                      <option value="default">프로그램 기본값 따름</option>
+                      <option value="0">항상 열림 (만들면 바로)</option>
+                      <option value="1">시작 1일 전부터</option>
+                      <option value="3">시작 3일 전부터</option>
+                      <option value="7">시작 1주 전부터</option>
+                      <option value="14">시작 2주 전부터</option>
+                    </select>
+                  </Field>
+                )}
               </>
             )}
             {step === 5 && (

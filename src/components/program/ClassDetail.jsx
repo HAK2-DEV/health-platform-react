@@ -65,7 +65,7 @@ function CapacityBlock({ joined, capacity, points }) {
   )
 }
 
-export default function ClassDetail({ sessionId, programId, userId, isOwner = false, attendanceMode = 'operator_roll', checkinBeforeMin = 30, programEnded = false }) {
+export default function ClassDetail({ sessionId, programId, userId, isOwner = false, attendanceMode = 'operator_roll', checkinBeforeMin = 30, signupLeadDays = null, programEnded = false }) {
   const qc = useQueryClient()
   const { open: openAvatar } = useAvatarViewer()
   const { data: s, isLoading } = useQuery({ queryKey: ['session', sessionId], queryFn: () => fetchSession(sessionId), enabled: !!sessionId })
@@ -127,6 +127,10 @@ export default function ClassDetail({ sessionId, programId, userId, isOwner = fa
   const nowMs = Date.now()
   const openMs = startMs - (checkinBeforeMin || 30) * 60000
   const closeMs = endMs + 3 * 3600000
+  // 신청 개방 — 이 클래스 설정 우선(세션), 없으면 프로그램 기본. 0/미설정 = 항상 열림.
+  const effLeadDays = s.signup_lead_days ?? signupLeadDays
+  const signupOpensMs = effLeadDays > 0 ? startMs - effLeadDays * 86400000 : null
+  const signupNotYet = signupOpensMs != null && nowMs < signupOpensMs
   const attended = myAtt === 'confirmed'                       // 출석 확정 후 → 취소 불가
   const signupClosed = nowMs > endMs || programEnded           // 세션 종료·프로그램 종료 후 → 취소 불가
   const registered = !isRsvp || mine        // open 클래스는 신청 불필요
@@ -220,6 +224,11 @@ export default function ClassDetail({ sessionId, programId, userId, isOwner = fa
             {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : null}신청 취소 (신청됨 ✓)
           </button>
         )
+      ) : signupNotYet ? (
+        <div className="w-full h-12 rounded-2xl bg-gray-100 text-gray-500 font-bold flex flex-col items-center justify-center leading-tight text-center px-3 break-keep">
+          <span className="text-[13px]">{dLabel(new Date(signupOpensMs).toISOString())} {tLabel(new Date(signupOpensMs).toISOString())}부터 신청 가능</span>
+          <span className="text-[11px] text-gray-400 font-semibold">아직 신청 기간이 아니에요</span>
+        </div>
       ) : full ? (
         <div className="w-full h-12 rounded-2xl bg-gray-100 text-gray-400 font-bold flex items-center justify-center">정원 마감</div>
       ) : (

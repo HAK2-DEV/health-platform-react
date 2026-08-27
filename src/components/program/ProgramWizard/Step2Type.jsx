@@ -583,6 +583,7 @@ function Step2Type({ initialData, onNext, onSave, onPrev, enterAtEnd = false }) 
   const [classEnabled, setClassEnabled] = useState(!!initialData?.class_feature_enabled)
   const [attendanceMode, setAttendanceMode] = useState(initialData?.class_attendance_mode || 'operator_roll')
   const [checkinBeforeMin, setCheckinBeforeMin] = useState(initialData?.class_checkin_before_min ?? 30)
+  const [signupLeadDays, setSignupLeadDays] = useState(initialData?.class_signup_lead_days ?? null)   // 신청 개방(시작 N일 전). null=항상
 
   const [missionPreviewOpen, setMissionPreviewOpen] = useState(false)
   const classAnchorRef = useRef(null)  // 「네, 클래스가 있어요」 → 이 버튼을 화면 상단으로 스크롤
@@ -623,6 +624,7 @@ function Step2Type({ initialData, onNext, onSave, onPrev, enterAtEnd = false }) 
       class_feature_enabled: classEnabled,
       class_attendance_mode: attendanceMode,
       class_checkin_before_min: Number(checkinBeforeMin) || 30,
+      class_signup_lead_days: signupLeadDays || null,   // null/0 = 항상 열림
     }
     if (isQuitCat) {
       return {
@@ -896,6 +898,21 @@ function Step2Type({ initialData, onNext, onSave, onPrev, enterAtEnd = false }) 
                       </select>
                     </div>
                   )}
+                  {/* 신청 개방 시점 — 미리 만든 주차별 클래스가 너무 일찍 신청되지 않게 */}
+                  <div className="rounded-[10px] border border-gray-200 bg-white p-3" style={{ marginTop: '3px' }}>
+                    <p className="text-sm font-bold text-gray-800" style={{ marginBottom: '2px' }}>신청은 언제부터 열까요?</p>
+                    <p className="text-xs text-gray-500 break-keep" style={{ marginBottom: '8px' }}>
+                      주차별 클래스를 미리 만들어도, <b className="text-emerald-700">시작 며칠 전부터</b> 신청이 열려요. (너무 먼 미래 클래스 미리 신청 방지)
+                    </p>
+                    <select value={signupLeadDays ?? 0} onChange={(e) => setSignupLeadDays(Number(e.target.value) || null)}
+                      className="w-full h-10 px-2.5 rounded-lg border-2 border-gray-200 bg-white text-sm text-gray-700 focus:border-emerald-400 focus:outline-none">
+                      <option value={0}>항상 열림 (만들면 바로 신청)</option>
+                      <option value={1}>시작 1일 전부터</option>
+                      <option value={3}>시작 3일 전부터</option>
+                      <option value={7}>시작 1주 전부터</option>
+                      <option value={14}>시작 2주 전부터</option>
+                    </select>
+                  </div>
                 </div>
               )}
 

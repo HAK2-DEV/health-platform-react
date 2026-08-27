@@ -3194,7 +3194,7 @@ function ProgramDetailPage() {
       {/* ─── 클래스 일정 — 전체 목록 ↔ 상세(?class=) ───────────────────── */}
       {activeTab === 'classes' && (() => {
         const selClass = searchParams.get('class')
-        if (selClass) return <ClassDetail sessionId={selClass} programId={id} userId={userId} isOwner={isOwner} attendanceMode={program.class_attendance_mode} checkinBeforeMin={program.class_checkin_before_min ?? 30} programEnded={progressUrgency(calcProgress(program.start_date, program.end_date)).urgency === 'ended'} />
+        if (selClass) return <ClassDetail sessionId={selClass} programId={id} userId={userId} isOwner={isOwner} attendanceMode={program.class_attendance_mode} checkinBeforeMin={program.class_checkin_before_min ?? 30} signupLeadDays={program.class_signup_lead_days ?? null} programEnded={progressUrgency(calcProgress(program.start_date, program.end_date)).urgency === 'ended'} />
         return <ClassScheduleList programId={id} userId={userId} joinedAt={myPart?.joined_at}
           onOpenSession={(sid) => setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('class', sid); return n })} />
       })()}

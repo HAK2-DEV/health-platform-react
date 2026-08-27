@@ -10,6 +10,7 @@ const WD = ['일', '월', '화', '수', '목', '금', '토']
 const dLabel = (iso) => { const d = new Date(iso); return `${d.getMonth() + 1}/${d.getDate()}(${WD[d.getDay()]})` }
 const tLabel = (iso) => { const d = new Date(iso); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` }
 const DAY = 24 * 3600 * 1000
+const UPCOMING_CAP = 5   // 다가오는 클래스 5개까지 보이고 나머지는 펼쳐보기
 
 function SessionCard({ s, mine, att, isPast, isNew, onOpen }) {
   const c = catOf(s.category)
@@ -43,6 +44,7 @@ function SessionCard({ s, mine, att, isPast, isNew, onOpen }) {
 
 export default function ClassScheduleList({ programId, userId, joinedAt = null, onOpenSession = () => {} }) {
   const [pastOpen, setPastOpen] = useState(false)
+  const [showAllUpcoming, setShowAllUpcoming] = useState(false)
   const { data: sessions = [], isLoading: isSessLoading } = useQuery({
     queryKey: ['sessions', programId], queryFn: () => fetchSessions(programId), enabled: !!programId,
   })
@@ -71,6 +73,10 @@ export default function ClassScheduleList({ programId, userId, joinedAt = null, 
     { label: '다음 주', items: upcoming.filter(s => { const t = new Date(s.starts_at).getTime(); return t > now + 7 * DAY && t <= now + 14 * DAY }) },
     { label: '이후', items: upcoming.filter(s => new Date(s.starts_at).getTime() > now + 14 * DAY) },
   ].filter(g => g.items.length > 0)
+  // 5개 초과면 앞 5개만 보이고 나머지는 펼쳐보기 (그룹 라벨 유지하며 잘라냄)
+  let _rem = showAllUpcoming ? Infinity : UPCOMING_CAP
+  const visGroups = groups.map(g => { const items = g.items.slice(0, Math.max(0, _rem)); _rem -= items.length; return { ...g, items } }).filter(g => g.items.length > 0)
+  const hiddenUpcoming = upcoming.length - Math.min(upcoming.length, showAllUpcoming ? upcoming.length : UPCOMING_CAP)
 
   if (isSessLoading) {
     return <p className="text-[13px] text-gray-400 py-16 text-center">불러오는 중…</p>
@@ -83,14 +89,28 @@ export default function ClassScheduleList({ programId, userId, joinedAt = null, 
     <div className="space-y-3">
       {/* 다가오는 클래스 */}
       {upcoming.length > 0 ? (
-        groups.map(g => (
-          <div key={g.label}>
-            <p className="text-[12px] font-bold text-gray-400 mb-2 px-0.5">{g.label}</p>
-            <div className="space-y-2.5">
-              {g.items.map(s => <SessionCard key={s.id} s={s} mine={myRegs[s.id] === 'registered'} att={myAtt[s.id]} isNew={isNewSession(s)} onOpen={() => onOpenSession(s.id)} />)}
+        <>
+          {visGroups.map(g => (
+            <div key={g.label}>
+              <p className="text-[12px] font-bold text-gray-400 mb-2 px-0.5">{g.label}</p>
+              <div className="space-y-2.5">
+                {g.items.map(s => <SessionCard key={s.id} s={s} mine={myRegs[s.id] === 'registered'} att={myAtt[s.id]} isNew={isNewSession(s)} onOpen={() => onOpenSession(s.id)} />)}
+              </div>
             </div>
-          </div>
-        ))
+          ))}
+          {hiddenUpcoming > 0 && !showAllUpcoming && (
+            <button type="button" onClick={() => setShowAllUpcoming(true)}
+              className="w-full flex items-center justify-center gap-1 py-2.5 text-[13px] font-bold text-emerald-600 bg-emerald-50/70 rounded-xl hover:bg-emerald-50 transition">
+              <ChevronDown className="w-4 h-4" />클래스 {hiddenUpcoming}개 더 보기
+            </button>
+          )}
+          {showAllUpcoming && upcoming.length > UPCOMING_CAP && (
+            <button type="button" onClick={() => setShowAllUpcoming(false)}
+              className="w-full flex items-center justify-center gap-1 py-2 text-[12px] font-bold text-gray-400 hover:text-gray-600 transition">
+              <ChevronDown className="w-4 h-4 rotate-180" />접기
+            </button>
+          )}
+        </>
       ) : (
         <p className="text-[13px] text-gray-400 py-6 text-center">다가오는 클래스가 없어요.</p>
       )}

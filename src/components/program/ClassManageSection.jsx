@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   fetchInstructors, createInstructor, updateInstructor, deleteInstructor,
-  fetchSessions, createSession, updateSession, deleteSession,
+  fetchSessions, createSession, createSessions, updateSession, deleteSession,
 } from '../../lib/queries'
 import ClassManageView from './ClassManageView'
 import AttendanceRosterModal from './AttendanceRosterModal'
@@ -22,7 +22,12 @@ export default function ClassManageSection({ programId, userId = null, attendanc
   const mCreateInstr = useMutation({ mutationFn: (p) => createInstructor({ programId, ...p }), onSuccess: invalidate })
   const mUpdateInstr = useMutation({ mutationFn: ({ id, patch }) => updateInstructor(id, patch), onSuccess: invalidate })
   const mDeleteInstr = useMutation({ mutationFn: (id) => deleteInstructor(id), onSuccess: invalidate })
-  const mCreateSess = useMutation({ mutationFn: (p) => createSession({ program_id: programId, ...p }), onSuccess: invalidate })
+  const mCreateSess = useMutation({
+    mutationFn: (p) => Array.isArray(p)
+      ? createSessions(p.map(x => ({ program_id: programId, ...x })))   // 매주 반복 배치
+      : createSession({ program_id: programId, ...p }),
+    onSuccess: invalidate,
+  })
   const mUpdateSess = useMutation({ mutationFn: ({ id, patch }) => updateSession(id, patch), onSuccess: invalidate })
   const mDeleteSess = useMutation({ mutationFn: (id) => deleteSession(id), onSuccess: invalidate })
   const busy = [mCreateInstr, mUpdateInstr, mDeleteInstr, mCreateSess, mUpdateSess, mDeleteSess].some(m => m.isPending)

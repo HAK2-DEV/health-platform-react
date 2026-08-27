@@ -1,4 +1,5 @@
 import { Suspense, useMemo } from 'react'
+import * as THREE from 'three'
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls, Float, useGLTF } from '@react-three/drei'
 
@@ -37,6 +38,27 @@ function Tree({ pos, scale, grown }) {
   )
 }
 
+// Tripo 식물 glb — 임의 스케일/피벗을 바운딩박스로 정규화(높이 targetH, 밑동 y=0).
+//   테스트용: rose.glb(무료·고폴리 61MB). 실제 배포엔 로우폴리+2K 로 재생성 필요.
+useGLTF.preload('/models/rose.glb')
+function PlantModel({ url = '/models/rose.glb', targetH = 1.1 }) {
+  const { scene } = useGLTF(url)
+  const model = useMemo(() => {
+    const s = scene.clone(true)
+    s.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true } })
+    const box = new THREE.Box3().setFromObject(s)
+    const size = new THREE.Vector3(); box.getSize(size)
+    const k = size.y > 0 ? targetH / size.y : 1
+    s.scale.setScalar(k)
+    const box2 = new THREE.Box3().setFromObject(s)
+    s.position.x -= (box2.min.x + box2.max.x) / 2   // 가로 중앙
+    s.position.z -= (box2.min.z + box2.max.z) / 2
+    s.position.y -= box2.min.y                       // 밑동을 원점에
+    return s
+  }, [scene, targetH])
+  return <primitive object={model} />
+}
+
 // 섬 — 실제 clay glb(public/models/island.glb). 절차적 도형 완전 대체.
 useGLTF.preload('/models/island.glb')
 function IslandModel() {
@@ -62,10 +84,15 @@ function Island({ plantCount, growthRatio }) {
   return (
     <Float speed={1.4} rotationIntensity={0} floatIntensity={0.5}>
       <IslandModel />
-      {/* 나무 — 활동(인증)만큼 심김. 추후 tree.glb 로 교체 예정(현재 절차적) */}
+      {/* ── 파이프라인 테스트: Tripo 장미 1송이를 섬 중앙에 심음(스케일은 성장률에 비례) ──
+          검증되면 여러 송이/레이캐스트 심기로 확장. 기존 절차적 나무는 잠시 비활성. */}
+      <group position={[0, domeY(0) - 0.05, 0]} scale={0.75 + 0.5 * growthRatio}>
+        <PlantModel url="/models/rose.glb" targetH={1.1} />
+      </group>
+      {/* 나무(절차적) — 테스트 중 숨김. 필요 시 복구.
       {trees.map((t) => (
         <Tree key={t.key} pos={t.pos} scale={t.scale} grown={growthRatio} />
-      ))}
+      ))} */}
     </Float>
   )
 }
@@ -80,7 +107,8 @@ export default function ClayIslandScene({ plantCount = 1, growthRatio = 0 }) {
         <directionalLight position={[4, 7, 3]} intensity={1.15} castShadow
           shadow-mapSize={[1024, 1024]} shadow-bias={-0.0004} />
         <Island plantCount={plantCount} growthRatio={growthRatio} />
-        <OrbitControls enablePan={false} enableZoom={false}
+        <OrbitControls enablePan={false} enableZoom
+          minDistance={3} maxDistance={11} zoomSpeed={0.8}
           minPolarAngle={0.55} maxPolarAngle={1.55} target={[0, 1.0, 0]}
           autoRotate autoRotateSpeed={0.55} />
       </Suspense>

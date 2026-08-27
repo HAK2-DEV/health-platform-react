@@ -884,6 +884,12 @@ export const createSession = async (payload) => {
   if (error) throw error
   return data
 }
+// 여러 클래스 한 번에 생성(매주 반복 등). payloads: 배열.
+export const createSessions = async (payloads) => {
+  const { data, error } = await supabase.from('sessions').insert(payloads).select()
+  if (error) throw error
+  return data || []
+}
 export const updateSession = async (id, patch) => {
   const { error } = await supabase.from('sessions').update(patch).eq('id', id)
   if (error) throw error

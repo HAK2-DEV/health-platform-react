@@ -45,10 +45,13 @@ export default function DevGrowthBiome() {
     enabled: !!program?.id && !!userId,
   })
 
-  const biome = biomeForCategories(program?.categories)
-  const activeDays = overview?.activeDays || 0
-  const totalCount = overview?.totalCount || 0
-  const programDays = programLengthDays(program)
+  // 개발 테스트: 참여 프로그램이 없어도 씬을 띄우도록 목 데이터로 폴백(3D 파이프라인 확인용).
+  const usingMock = !loadingPrograms && !program
+  const eff = program || (usingMock ? { id: '__mock__', name: '테스트 섬', categories: ['WALKING'] } : null)
+  const biome = biomeForCategories(eff?.categories)
+  const activeDays = usingMock ? 4 : (overview?.activeDays || 0)
+  const totalCount = usingMock ? 6 : (overview?.totalCount || 0)
+  const programDays = programLengthDays(eff)
   const stage = computeStage({ activeDays, totalCount, programDays })
   const ratio = computeGrowthRatio({ activeDays, totalCount, programDays })
   const plantCount = Math.max(1, Math.min(12, 1 + Math.floor(totalCount / 2)))
@@ -70,7 +73,7 @@ export default function DevGrowthBiome() {
       </div>
 
       {/* 빈 상태 / 로딩 */}
-      {!loading && !program ? (
+      {!loading && !eff ? (
         <div className="flex-1 flex flex-col items-center justify-center text-center px-8">
           <img src="/icons/growth/seed.png" alt="" className="w-24 h-24 object-contain mb-3 opacity-80" />
           <p className="text-[15px] font-bold text-emerald-900">아직 가꿀 섬이 없어요</p>
@@ -90,7 +93,7 @@ export default function DevGrowthBiome() {
                 ))}
               </div>
             )}
-            <p className="text-[12px] font-bold text-emerald-800/60">{biome.name} · {program?.name}</p>
+            <p className="text-[12px] font-bold text-emerald-800/60">{biome.name} · {eff?.name}</p>
             <h1 className="text-[22px] font-extrabold text-emerald-950 leading-tight mt-0.5 break-keep">
               {loading ? ' ' : STAGE_MSG[stage]}
             </h1>
@@ -130,7 +133,7 @@ export default function DevGrowthBiome() {
                     <p className="text-[17px] font-extrabold text-amber-800 tabular-nums leading-tight">{activeDays}</p></div>
                 </div>
               </div>
-              <button type="button" onClick={() => navigate(`/programs/${program.id}?tab=missions`)}
+              <button type="button" onClick={() => eff.id !== '__mock__' && navigate(`/programs/${eff.id}?tab=missions`)}
                 className="mt-3 w-full h-12 rounded-2xl text-white text-[15px] font-extrabold active:scale-[0.99] transition"
                 style={{ background: `linear-gradient(135deg, ${biome.ground[0]}, ${biome.accent})` }}>
                 오늘 인증하고 물 주기 💧
