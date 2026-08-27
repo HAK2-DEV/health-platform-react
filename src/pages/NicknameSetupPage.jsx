@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 import { useAuth } from '../hooks/useAuth'
 import { useNicknameCheck } from '../hooks/useNicknameCheck'
-import { UserPlus, Camera } from 'lucide-react'
+import { UserPlus, Camera, Loader2 } from 'lucide-react'
 import NicknameInput from '../components/auth/NicknameInput'
 import ImageCropModal from '../components/common/ImageCropModal'
 import { takePendingInvite } from '../lib/pendingInvite'
@@ -25,9 +25,14 @@ function NicknameSetupPage() {
   const [ageRange, setAgeRange] = useState(null)  // '10s'~'70s' | null — 선택
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState(null)
-  // 프로필 사진(아바타) — 선택. 크롭 후 blob 을 들고 있다가 저장 시 업로드.
-  const [avatarBlob, setAvatarBlob] = useState(null)
-  const [avatarPreview, setAvatarPreview] = useState(null)
+  // 프로필 사진(아바타) — 선택. **크롭 직후 바로 업로드**한다 (2026-08-28 수정).
+  //   이전엔 blob 을 state 에 들고 있다가 「시작하기」 때 한꺼번에 올렸는데,
+  //   미리보기(blob: objectURL)도 안 뜨고 사진도 저장되지 않는 문제가 있었다.
+  //   같은 크롭·업로드를 쓰는 ProfilePage 는 "크롭 즉시 업로드" 방식이고 정상 동작하므로,
+  //   검증된 그 경로로 통일했다. 곁들여 업로드 실패를 제출까지 기다리지 않고 그 자리에서 알린다.
+  const [avatarPath, setAvatarPath] = useState(null)   // 업로드된 스토리지 경로 (저장 시 users.avatar_path 로)
+  const [avatarUrl, setAvatarUrl] = useState(null)     // 미리보기용 public URL
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
   const [cropImageSrc, setCropImageSrc] = useState(null)
   const [isCropOpen, setIsCropOpen] = useState(false)
   const fileInputRef = useRef(null)
@@ -55,10 +60,31 @@ function NicknameSetupPage() {
     setIsCropOpen(true)
   }
   const closeCropModal = () => { setIsCropOpen(false); setCropImageSrc(prev => { if (prev) URL.revokeObjectURL(prev); return null }) }
-  const handleCropComplete = (blob) => {
-    setAvatarBlob(blob)
-    setAvatarPreview(prev => { if (prev) URL.revokeObjectURL(prev); return URL.createObjectURL(blob) })
+
+  // 크롭 완료 → 곧바로 스토리지 업로드. 미리보기는 업로드된 public URL 을 쓴다.
+  const handleCropComplete = async (blob) => {
     closeCropModal()
+    setIsUploadingAvatar(true)
+    setError(null)
+    try {
+      const newPath = `${session.user.id}/${Date.now()}.jpg`
+      const { error: upErr } = await supabase.storage
+        .from('profile-avatars')
+        .upload(newPath, blob, { upsert: false, contentType: 'image/jpeg' })
+      if (upErr) throw new Error(`프로필 사진 업로드 실패: ${upErr.message}`)
+
+      // 저장 전에 사진을 여러 번 바꾼 경우 직전 파일 정리 (고아 파일 방지)
+      if (avatarPath) {
+        await supabase.storage.from('profile-avatars').remove([avatarPath]).catch(() => {})
+      }
+      setAvatarPath(newPath)
+      setAvatarUrl(supabase.storage.from('profile-avatars').getPublicUrl(newPath).data?.publicUrl ?? null)
+    } catch (err) {
+      console.error('프로필 사진 업로드 실패:', err)
+      setError(err.message)
+    } finally {
+      setIsUploadingAvatar(false)
+    }
   }
 
   const status = useNicknameCheck(nickname)
@@ -113,17 +139,7 @@ const handleSubmit = async (e) => {
       if (consentErr) throw new Error(`약관 동의 저장 실패: ${consentErr.message}`)
     }
 
-    // 프로필 사진 있으면 먼저 업로드 → avatar_path
-    let avatarPath
-    if (avatarBlob) {
-      const newPath = `${session.user.id}/${Date.now()}.jpg`
-      const { error: upErr } = await supabase.storage
-        .from('profile-avatars')
-        .upload(newPath, avatarBlob, { upsert: false, contentType: 'image/jpeg' })
-      if (upErr) throw new Error(`프로필 사진 업로드 실패: ${upErr.message}`)
-      avatarPath = newPath
-    }
-
+    // 프로필 사진은 크롭 시점에 이미 업로드됐다 — 여기선 경로만 users 에 반영.
     const { error: updateError } = await supabase
       .from('users')
       .update({ nickname, gender, age_range: ageRange, ...(avatarPath ? { avatar_path: avatarPath } : {}) })
@@ -163,11 +179,16 @@ const handleSubmit = async (e) => {
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           {/* 프로필 사진 — 선택. 탭하면 파일 선택 → 크롭 */}
           <div className="flex flex-col items-center gap-1.5">
-            <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isSaving}
+            <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isSaving || isUploadingAvatar}
               className="relative w-24 h-24 rounded-full border-2 border-emerald-100 bg-emerald-50/60 overflow-hidden flex items-center justify-center group">
-              {avatarPreview
-                ? <img src={avatarPreview} alt="" className="w-full h-full object-cover" />
+              {avatarUrl
+                ? <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
                 : <Camera className="w-8 h-8 text-emerald-400" />}
+              {isUploadingAvatar && (
+                <span className="absolute inset-0 bg-white/70 flex items-center justify-center">
+                  <Loader2 className="w-6 h-6 text-emerald-500 animate-spin" />
+                </span>
+              )}
               <span className="absolute bottom-0 inset-x-0 h-7 bg-black/45 text-white text-[10px] font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition">변경</span>
             </button>
             <span className="text-[11.5px] text-gray-400">프로필 사진 <b className="font-semibold">(선택)</b></span>
@@ -228,7 +249,7 @@ const handleSubmit = async (e) => {
 
           <button
             type="submit"
-            disabled={!status.available || isSaving || !consentOk}
+            disabled={!status.available || isSaving || isUploadingAvatar || !consentOk}
             className="px-4 py-2 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-medium rounded-md disabled:bg-gray-400 disabled:cursor-not-allowed transition"
           >
             {isSaving ? '저장 중...' : '시작하기'}
