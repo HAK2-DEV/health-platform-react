@@ -140,12 +140,19 @@ const handleSubmit = async (e) => {
     }
 
     // 프로필 사진은 크롭 시점에 이미 업로드됐다 — 여기선 경로만 users 에 반영.
-    const { error: updateError } = await supabase
+    const { data: updated, error: updateError } = await supabase
       .from('users')
       .update({ nickname, gender, age_range: ageRange, ...(avatarPath ? { avatar_path: avatarPath } : {}) })
       .eq('id', session.user.id)
+      .select('id')
 
     if (updateError) throw updateError
+    // ⚠️ 대상 행이 없으면 0행이 갱신되고 **error 는 null** 이다. 그냥 넘어가면 닉네임도 사진도
+    //   저장되지 않은 채 다음 화면으로 가버린다 — 실제로 public.users 행이 없는 계정에서
+    //   "프로필이 저장 안 되고 마이페이지에 ? 로 뜨는" 증상으로 나타났다. 조용히 지나치지 않는다.
+    if (!updated?.length) {
+      throw new Error('계정 정보를 찾지 못했어요. 로그아웃 후 다시 로그인해주세요.')
+    }
     
     await refreshNickname()
     // 초대링크로 들어온 신규 유저면 온보딩보다 초대 참여를 우선(없으면 온보딩 튜토리얼).

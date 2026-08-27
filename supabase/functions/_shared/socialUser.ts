@@ -35,6 +35,36 @@ function isAlreadyRegistered(err: unknown): boolean {
 export type SocialUserMetadata = Record<string, unknown>
 
 /**
+ * public.users 행 존재 보장 — handle_new_user 트리거가 만들었어야 할 행이 없는 계정 복구.
+ *
+ * 왜 필요한가 (2026-08-28):
+ *   auth 사용자는 있는데 public.users 행이 없는 계정이 실제로 발견됐다. 그 상태에서는
+ *     - 닉네임·아바타 저장이 `UPDATE ... WHERE id=` 로 **0행** → 에러 없이 조용히 실패
+ *     - 프로그램 참여 시 program_participants_user_id_fkey 위반
+ *     - 마이페이지 프로필이 비어 '?' 로 표시
+ *   로 이어지는데, 사용자에게는 원인이 전혀 드러나지 않는다.
+ *   소셜 로그인은 매번 이 경로를 지나므로, 여기서 행을 보장해두면 **재로그인만으로 복구**된다.
+ *
+ * ignoreDuplicates — 이미 있는 행은 절대 덮어쓰지 않는다(닉네임·role·아바타 보존).
+ */
+export async function ensurePublicUserRow(
+  supabase: SupabaseClient,
+  userId: string | undefined,
+  email: string,
+): Promise<void> {
+  if (!userId) {
+    console.warn('[socialUser] userId 없음 — public.users 행 보장 건너뜀')
+    return
+  }
+  const { error } = await supabase
+    .from('users')
+    .upsert({ id: userId, email, role: 'USER' }, { onConflict: 'id', ignoreDuplicates: true })
+
+  // 로그인 자체를 막지는 않는다 — 다만 조용히 넘어가면 원인 추적이 불가능하므로 반드시 남긴다.
+  if (error) console.error('[socialUser] public.users 행 보장 실패:', error)
+}
+
+/**
  * 소셜 계정에 대응하는 auth 사용자를 보장한다(없으면 생성).
  * @returns created — 이번 호출로 새로 만들어졌으면 true (신규 가입)
  * @throws 조회/생성이 "이미 존재" 이외의 이유로 실패한 경우

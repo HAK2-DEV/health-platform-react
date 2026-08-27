@@ -20,7 +20,7 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders, jsonResponse, jsonError } from '../_shared/cors.ts'
-import { ensureSocialUser } from '../_shared/socialUser.ts'
+import { ensureSocialUser, ensurePublicUserRow } from '../_shared/socialUser.ts'
 
 const NAVER_TOKEN_URL = 'https://nid.naver.com/oauth2.0/token'
 const NAVER_USER_URL = 'https://openapi.naver.com/v1/nid/me'
@@ -141,6 +141,10 @@ serve(async (req) => {
       console.error('generateLink 실패:', linkErr)
       return jsonError(`로그인 토큰 생성 실패: ${linkErr?.message ?? '알 수 없음'}`, 500)
     }
+
+    // 트리거가 만들었어야 할 public.users 행이 없는 계정을 여기서 복구 — 재로그인만으로 정상화된다.
+    //   generateLink 응답이 대상 사용자를 함께 돌려주므로 추가 조회 없이 id 를 얻는다.
+    await ensurePublicUserRow(supabase, linkData?.user?.id, email)
 
     return jsonResponse({
       email,
