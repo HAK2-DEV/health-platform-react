@@ -7,6 +7,15 @@ import { UserPlus, Camera } from 'lucide-react'
 import NicknameInput from '../components/auth/NicknameInput'
 import ImageCropModal from '../components/common/ImageCropModal'
 import { takePendingInvite } from '../lib/pendingInvite'
+import ConsentBox from '../components/legal/ConsentBox'
+import { EMPTY_CONSENT, isAllRequiredAgreed, consentMetadata } from '../lib/consent'
+
+// 2026-08-27 — 소셜 가입자 약관 동의를 여기서 받는다.
+//   회원가입 폼(SignupPage)의 동의 박스는 이메일 가입자만 거치므로, Kakao/Google/Naver 로
+//   들어온 사용자는 만 14세 확인·이용약관·개인정보 동의를 **한 번도 거치지 않았다**.
+//   이 페이지는 신규 가입자만 지나가는 길목이라(닉네임이 있으면 '/' 로 튕김) 기존 사용자의
+//   로그인을 방해하지 않으면서 동의를 받을 수 있다.
+//   판별은 user_metadata.agreed_terms_at 유무 — 이메일 가입자는 signUp 시 이미 박혀 온다.
 
 function NicknameSetupPage() {
   const { session, refreshNickname } = useAuth()
@@ -22,6 +31,17 @@ function NicknameSetupPage() {
   const [cropImageSrc, setCropImageSrc] = useState(null)
   const [isCropOpen, setIsCropOpen] = useState(false)
   const fileInputRef = useRef(null)
+
+  // 약관 동의 — 아직 동의 기록이 없는 사용자(=소셜 가입자)에게만 노출.
+  const [consent, setConsent] = useState(EMPTY_CONSENT)
+  const needsConsent = Boolean(session) && !session.user?.user_metadata?.agreed_terms_at
+  const consentOk = !needsConsent || isAllRequiredAgreed(consent)
+
+  // 동의하지 않고 나가기 — 계정은 이미 만들어졌지만 프로필 미완성 상태로 남는다.
+  const handleDecline = async () => {
+    await supabase.auth.signOut()
+    navigate('/login', { replace: true })
+  }
 
   const handleFileSelect = (e) => {
     const file = e.target.files?.[0]
@@ -76,11 +96,23 @@ const handleSubmit = async (e) => {
     setError('사용 가능한 닉네임을 입력해주세요')
     return
   }
-  
+
+  if (needsConsent && !isAllRequiredAgreed(consent)) {
+    setError('필수 약관에 동의해주세요')
+    return
+  }
+
   setIsSaving(true)
   setError(null)
-  
+
   try {
+    // 동의 기록을 가장 먼저 남긴다 — 이후 단계가 실패해도 동의 사실은 보존되고,
+    //   반대로 동의 저장이 실패하면 가입을 진행시키지 않는다.
+    if (needsConsent) {
+      const { error: consentErr } = await supabase.auth.updateUser({ data: consentMetadata(consent) })
+      if (consentErr) throw new Error(`약관 동의 저장 실패: ${consentErr.message}`)
+    }
+
     // 프로필 사진 있으면 먼저 업로드 → avatar_path
     let avatarPath
     if (avatarBlob) {
@@ -170,15 +202,33 @@ const handleSubmit = async (e) => {
             </div>
           </div>
 
+          {/* 약관 동의 — 소셜 가입자만. 이메일 가입자는 회원가입 폼에서 이미 동의했다. */}
+          {needsConsent && (
+            <div className="border-t border-gray-200 pt-4">
+              <p className="text-xs text-gray-500">
+                서비스 이용을 위해 <b className="text-gray-600">약관 동의</b>가 필요해요
+              </p>
+              <ConsentBox value={consent} onChange={setConsent} />
+              <button
+                type="button"
+                onClick={handleDecline}
+                disabled={isSaving}
+                className="mt-2 w-full text-[12px] text-gray-400 underline py-1"
+              >
+                동의하지 않고 나가기
+              </button>
+            </div>
+          )}
+
           {error && (
             <p className="p-2 text-center bg-red-100 text-red-700 rounded-xl text-sm">
               {error}
             </p>
           )}
-          
+
           <button
             type="submit"
-            disabled={!status.available || isSaving}
+            disabled={!status.available || isSaving || !consentOk}
             className="px-4 py-2 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-medium rounded-md disabled:bg-gray-400 disabled:cursor-not-allowed transition"
           >
             {isSaving ? '저장 중...' : '시작하기'}
