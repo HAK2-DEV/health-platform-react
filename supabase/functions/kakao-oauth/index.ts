@@ -19,6 +19,7 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders, jsonResponse, jsonError } from '../_shared/cors.ts'
+import { ensureSocialUser } from '../_shared/socialUser.ts'
 
 const KAKAO_TOKEN_URL = 'https://kauth.kakao.com/oauth/token'
 const KAKAO_USER_URL = 'https://kapi.kakao.com/v2/user/me'
@@ -109,39 +110,19 @@ serve(async (req) => {
       { auth: { autoRefreshToken: false, persistSession: false } }
     )
 
-    // listUsers 는 페이지네이션 — email 매칭은 작은 규모에서 충분.
-    // 사용자 수 늘면 별도 인덱싱(이메일 컬럼 직접 조회) 고려.
-    let user: { id: string; email: string | null } | null = null
-    {
-      const { data, error } = await supabase.auth.admin.listUsers({
-        page: 1,
-        perPage: 1000,
+    // 사용자 수와 무관하게 동작 — 이전의 listUsers 1페이지(1000명) 스캔은
+    //   1000명을 넘는 순간 기존 사용자를 못 찾아 로그인이 막혔다. (_shared/socialUser.ts 주석 참고)
+    try {
+      await ensureSocialUser(supabase, email, {
+        full_name: nickname ?? null,
+        avatar_url: avatarUrl ?? null,
+        provider: 'kakao',
+        kakao_id: kakaoId,
+        // 가상 이메일 여부 — 나중에 비즈 앱 전환 후 진짜 이메일로 마이그레이션 시 식별용
+        placeholder_email: isPlaceholderEmail,
       })
-      if (error) {
-        console.error('listUsers 실패:', error)
-        return jsonError(`사용자 조회 실패: ${error.message}`, 500)
-      }
-      user = data.users.find((u) => u.email === email) ?? null
-    }
-
-    if (!user) {
-      const { data: created, error: createErr } = await supabase.auth.admin.createUser({
-        email,
-        email_confirm: true, // 소셜 가입은 이메일 검증 skip
-        user_metadata: {
-          full_name: nickname ?? null,
-          avatar_url: avatarUrl ?? null,
-          provider: 'kakao',
-          kakao_id: kakaoId,
-          // 가상 이메일 여부 — 나중에 비즈 앱 전환 후 진짜 이메일로 마이그레이션 시 식별용
-          placeholder_email: isPlaceholderEmail,
-        },
-      })
-      if (createErr) {
-        console.error('createUser 실패:', createErr)
-        return jsonError(`사용자 생성 실패: ${createErr.message}`, 500)
-      }
-      user = created.user
+    } catch (e) {
+      return jsonError(e instanceof Error ? e.message : String(e), 500)
     }
 
     // ─── 4) magic link 토큰 생성 → 프론트가 verifyOtp 로 로그인 ──

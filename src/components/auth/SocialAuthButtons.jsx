@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../../supabaseClient'
 import { detectInAppBrowser, IN_APP_BROWSER_NAME, openExternalBrowser } from '../../lib/inAppBrowser'
 import GoogleSignInButton from './GoogleSignInButton'
+import { startOAuthState } from '../../lib/oauthState'
 
 // GIS 인페이지 로그인용 — 있으면 리다이렉트 없는 GIS 버튼, 없으면 기존 리다이렉트 폴백
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
@@ -83,14 +84,15 @@ function SocialAuthButtons() {
     //   ※ Kakao Developers > 카카오 로그인 > 동의항목 에서 위 2개 항목 필수 동의로 설정해둬야 함.
     //   ※ account_email 은 비즈 앱 전환 후 추가 가능 — 현재는 가상 이메일(kakao_{id}@kakao.local)로 가입.
     // redirect_uri 에 쿼리스트링 X — Kakao 가 자동 제거하는 경우가 있어 정확 일치 보장 위해 path-only.
-    // 어떤 provider 인지는 sessionStorage 로 callback 페이지에 전달.
-    sessionStorage.setItem('oauth_provider', 'kakao')
+    // provider 는 state 에 실어 보낸다 — 저장소(탭 단위)가 끊겨도 콜백에서 판별되도록. (lib/oauthState.js)
+    const state = startOAuthState('kakao')
     const redirectUri = `${window.location.origin}/auth/callback`
     const params = new URLSearchParams({
       response_type: 'code',
       client_id: restApiKey,
       redirect_uri: redirectUri,
       scope: 'profile_nickname profile_image',
+      state,
     })
     window.location.href = `https://kauth.kakao.com/oauth/authorize?${params.toString()}`
   }
@@ -102,10 +104,8 @@ function SocialAuthButtons() {
       return
     }
     setLoading('naver')
-    // 네이버는 CSRF 방지용 state 필수 — 랜덤 생성해 보내고, 콜백에서 일치 검증.
-    const state = (crypto?.randomUUID?.() || String(Math.random()).slice(2))
-    sessionStorage.setItem('oauth_provider', 'naver')
-    sessionStorage.setItem('oauth_state', state)
+    // 네이버는 CSRF 방지용 state 필수 — provider + nonce 를 함께 담아 보내고 콜백에서 검증. (lib/oauthState.js)
+    const state = startOAuthState('naver')
     const redirectUri = `${window.location.origin}/auth/callback`
     const params = new URLSearchParams({
       response_type: 'code',

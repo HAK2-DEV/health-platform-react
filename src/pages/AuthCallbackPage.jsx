@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Loader2, AlertCircle } from 'lucide-react'
 import { supabase } from '../supabaseClient'
+import { parseOAuthState, verifyOAuthNonce } from '../lib/oauthState'
 
 // Day 65 — 소셜 OAuth callback 처리 페이지.
 // Kakao/Naver 등 커스텀 OAuth 흐름에서 provider 가 이 경로로 code 를 돌려줌.
@@ -20,6 +21,19 @@ const PROVIDER_FN = {
   naver: 'naver-oauth',
 }
 
+// 하위호환 — 이전 버전(provider 를 sessionStorage 로 넘기던 방식)으로 시작된 로그인 구제.
+//   새 방식이 자리 잡으면(배포 후 몇 분) 항상 null 이 된다.
+function readAndClearLegacyProvider() {
+  try {
+    const p = sessionStorage.getItem('oauth_provider')
+    sessionStorage.removeItem('oauth_provider')
+    sessionStorage.removeItem('oauth_state')
+    return p
+  } catch {
+    return null
+  }
+}
+
 function AuthCallbackPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -31,14 +45,14 @@ function AuthCallbackPage() {
     if (handledRef.current) return
     handledRef.current = true
 
-    // provider 는 SocialAuthButtons 에서 sessionStorage 에 저장 — Kakao Redirect URI 정확 일치 위해 쿼리 X.
-    const provider = sessionStorage.getItem('oauth_provider')
-    const storedState = sessionStorage.getItem('oauth_state')  // Naver CSRF 검증용
-    sessionStorage.removeItem('oauth_provider')  // 한 번만 사용
-    sessionStorage.removeItem('oauth_state')
     const code = searchParams.get('code')
-    const state = searchParams.get('state')      // Naver 는 state 를 되돌려줌(토큰 교환에 필요)
+    const state = searchParams.get('state')      // provider 가 그대로 돌려준다(토큰 교환에도 필요)
     const providerError = searchParams.get('error')
+
+    // provider 판별 — state 에 실어 보냈으므로 저장소가 끊겨도(새 탭·브라우저 전환) 알아낼 수 있다.
+    //   sessionStorage 는 이전 버전으로 시작한 로그인을 위한 하위호환 폴백(배포 직후 몇 분간만 의미).
+    const parsed = parseOAuthState(state)
+    const provider = parsed?.provider || readAndClearLegacyProvider()
 
     // provider 가 에러 응답 (사용자가 동의 취소 등)
     if (providerError) {
@@ -48,14 +62,26 @@ function AuthCallbackPage() {
     }
     if (!provider || !code) {
       setStatus('error')
-      setErrorMsg('잘못된 접근이에요 (provider/code 누락)')
+      setErrorMsg('로그인 정보가 없어요. 로그인 화면에서 다시 시도해주세요.')
       return
     }
-    // Naver CSRF — 되돌아온 state 가 우리가 보낸 state 와 일치해야 함
-    if (provider === 'naver' && (!state || state !== storedState)) {
-      setStatus('error')
-      setErrorMsg('보안 검증에 실패했어요 (state 불일치) — 다시 시도해주세요')
-      return
+
+    // CSRF — 카카오·네이버 모두 검증(예전엔 네이버만 했다).
+    //   검증 실패를 두 가지로 나눠 안내가 달라지게 한다:
+    //     mismatch    = 우리가 보낸 값과 다름 → 의심스러운 요청
+    //     unavailable = 저장한 값 자체가 없음 → 만료됐거나 로그인을 시작한 브라우저가 아님
+    if (parsed) {
+      const nonceCheck = verifyOAuthNonce(parsed.nonce)
+      if (nonceCheck === 'mismatch') {
+        setStatus('error')
+        setErrorMsg('보안 검증에 실패했어요 (state 불일치) — 다시 시도해주세요')
+        return
+      }
+      if (nonceCheck === 'unavailable') {
+        setStatus('error')
+        setErrorMsg('로그인을 시작한 브라우저와 다른 곳에서 열렸어요. 처음 눌렀던 브라우저(또는 앱)에서 다시 로그인해주세요.')
+        return
+      }
     }
     const fnName = PROVIDER_FN[provider]
     if (!fnName) {
