@@ -73,7 +73,10 @@ export async function getCroppedImg(imageSrc, croppedAreaPixels, outputWidth = 5
         resolve(blob)
       },
       'image/jpeg',
-      0.9
+      // JPEG 품질 — 0.9 → 0.85 (2026-08-28 본인 결정).
+      //   커버·표지·인증 사진 등 크롭을 거치는 모든 이미지에 적용된다.
+      //   장당 20%쯤 가벼워지는데 육안 차이는 사실상 없다(0.8 아래로 내리면 매끈한 면에 얼룩이 보인다).
+      0.85
     )
   })
 }

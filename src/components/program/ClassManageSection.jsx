@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   fetchInstructors, createInstructor, updateInstructor, deleteInstructor,
-  fetchSessions, createSession, createSessions, updateSession, deleteSession,
+  fetchSessions, createSession, createSessions, updateSession, deleteSession, copySessionCover,
 } from '../../lib/queries'
 import ClassManageView from './ClassManageView'
 import AttendanceRosterModal from './AttendanceRosterModal'
@@ -22,10 +22,23 @@ export default function ClassManageSection({ programId, userId = null, attendanc
   const mCreateInstr = useMutation({ mutationFn: (p) => createInstructor({ programId, ...p }), onSuccess: invalidate })
   const mUpdateInstr = useMutation({ mutationFn: ({ id, patch }) => updateInstructor(id, patch), onSuccess: invalidate })
   const mDeleteInstr = useMutation({ mutationFn: (id) => deleteInstructor(id), onSuccess: invalidate })
+  // 「클래스 복사」로 만든 경우 _copyCoverFrom 이 붙어 온다 → 사진 파일을 실제 복제한 뒤 cover_path 로 채운다.
+  //   경로를 공유하면 원본에서 커버를 교체할 때 사본이 깨진다(queries.copySessionCover 주석 참고).
+  //   복제가 실패해도 클래스 생성 자체는 진행한다 — 사진 하나 때문에 등록을 막을 이유는 없다.
+  const withCopiedCover = async (x) => {
+    const { _copyCoverFrom, ...rest } = x
+    if (!_copyCoverFrom) return rest
+    const cover = await copySessionCover(_copyCoverFrom, userId)
+    return cover ? { ...rest, cover_path: cover } : rest
+  }
   const mCreateSess = useMutation({
-    mutationFn: (p) => Array.isArray(p)
-      ? createSessions(p.map(x => ({ program_id: programId, ...x })))   // 매주 반복 배치
-      : createSession({ program_id: programId, ...p }),
+    mutationFn: async (p) => {
+      if (Array.isArray(p)) {
+        const prepared = await Promise.all(p.map(withCopiedCover))   // 매주 반복 배치
+        return createSessions(prepared.map(x => ({ program_id: programId, ...x })))
+      }
+      return createSession({ program_id: programId, ...(await withCopiedCover(p)) })
+    },
     onSuccess: invalidate,
   })
   const mUpdateSess = useMutation({ mutationFn: ({ id, patch }) => updateSession(id, patch), onSuccess: invalidate })

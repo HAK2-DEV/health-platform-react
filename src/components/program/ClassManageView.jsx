@@ -222,6 +222,10 @@ function SessionForm({ instructors, initial, isEdit = false, onSave, onClose, bu
       description: desc.trim() || null,
       signup_lead_days: leadDays,   // null=프로그램 기본, 0=항상, N=시작 N일 전
       signup_open_time: openTime || null,   // null=프로그램 기본 시각(그것도 없으면 클래스 시작 시각)
+      // 「복사」로 만든 경우 원본 사진도 가져간다. 컨테이너가 이 경로를 보고 파일을 실제 복제한 뒤
+      //   cover_path 를 채워 넣는다(경로 공유 금지 — queries.copySessionCover 주석 참고).
+      //   수정 모드는 cover_path 를 payload 에 안 넣으므로 기존 사진이 그대로 유지된다.
+      ...(initial?._copy && initial?.cover_path ? { _copyCoverFrom: initial.cover_path } : {}),
     }
     // 매주 반복 — 시작일에 i*7일 더해 N개 생성
     const payloads = Array.from({ length: n }, (_, i) => {

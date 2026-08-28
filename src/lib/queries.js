@@ -8,6 +8,7 @@
 import { supabase } from '../supabaseClient'
 import { getPreset, expandPresetMission } from './programLibrary'
 import { QUIZ_AUDIENCES } from './quizLibrary'
+import { thumbPathOf } from './signedUrls'
 
 export const queryKeys = {
   // 본인이 만든 프로그램 (대시보드 "내 프로그램" 섹션)
@@ -894,9 +895,34 @@ export const updateSession = async (id, patch) => {
   const { error } = await supabase.from('sessions').update(patch).eq('id', id)
   if (error) throw error
 }
+// 클래스 커버 복제 — 「클래스 복사」 시 사진도 함께 가져간다.
+//   ⚠️ 경로를 «공유»하면 안 된다: 원본 클래스에서 커버를 교체하는 순간
+//   CoverImageUploader 가 이전 파일을 지우므로 사본의 사진이 깨진다.
+//   그래서 실제로 복제한다 — 서버 측 copy 라 다운로드/업로드 왕복이 없다.
+export const copySessionCover = async (srcPath, ownerId) => {
+  if (!srcPath || !ownerId) return null
+  const dstPath = `${ownerId}/${Date.now()}-copy.jpg`
+  const { error } = await supabase.storage.from('program-covers').copy(srcPath, dstPath)
+  if (error) {
+    console.warn('클래스 커버 복제 실패(사진 없이 생성):', error.message)
+    return null
+  }
+  // 썸네일도 함께. 없거나 실패해도 원본으로 폴백되므로 치명적이지 않다.
+  await supabase.storage.from('program-covers').copy(thumbPathOf(srcPath), thumbPathOf(dstPath))
+  return dstPath
+}
+
 export const deleteSession = async (id) => {
+  // 커버 파일은 FK CASCADE 대상이 아니다 — 행을 지우기 전에 경로를 읽어 스토리지까지 정리한다.
+  //   (안 그러면 클래스를 지워도 사진이 영영 남아 용량만 먹는다)
+  const { data: row } = await supabase.from('sessions').select('cover_path').eq('id', id).maybeSingle()
   const { error } = await supabase.from('sessions').delete().eq('id', id)
   if (error) throw error
+  if (row?.cover_path) {
+    const { error: rmErr } = await supabase.storage.from('program-covers')
+      .remove([row.cover_path, thumbPathOf(row.cover_path)])
+    if (rmErr) console.warn('클래스 커버 정리 실패(행은 삭제됨):', rmErr.message)
+  }
 }
 
 // 프로그램 이름 중복 검사(전역) — RPC(마이그 163). 종료된 건 무관. p_exclude_id=편집 중 자신 제외.
