@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useKeyboardInset } from '../../hooks/useKeyboardInset'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { useBackButtonClose } from '../../hooks/useBackButtonClose'
-import { Plus, Calendar, MapPin, Users, Pencil, Trash2, Copy, X, ChevronDown, ChevronUp, Camera, Loader2 } from 'lucide-react'
+import { Plus, Calendar, MapPin, Users, Pencil, Trash2, Copy, X, ChevronDown, ChevronUp, Camera, Loader2, Clock } from 'lucide-react'
+import { resolveSignupOpen } from '../../lib/classSignup'
 import { CLASS_CAT_LIST, catOf } from '../../lib/classCategories'
 import ConfirmModal from '../common/ConfirmModal'
 import ImageCropModal from '../common/ImageCropModal'
@@ -400,6 +401,7 @@ export default function ClassManageView({
   onCreateInstructor, onUpdateInstructor, onDeleteInstructor,
   onCreateSession, onUpdateSession, onDeleteSession,
   renderRoster = null,   // (session, onClose) => ReactNode — 출석부 모달(운영자)
+  programLeadDays = null, programOpenTime = null,   // 프로그램 기본 신청 개방 설정(클래스별 값이 없을 때 적용)
 }) {
   const [instrForm, setInstrForm] = useState(null)   // { } (new) | instructor (edit) | null
   const [sessForm, setSessForm] = useState(null)     // { } (new) | session (edit) | null
@@ -468,6 +470,19 @@ export default function ClassManageView({
                   <p className="text-[15px] font-bold text-gray-900 mb-1.5">{s.title}</p>
                   <div className="space-y-1 text-[12px] text-gray-500">
                     <p className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5 text-gray-400" />{dLabel(s.starts_at)} {tLabel(s.starts_at)}{s.ends_at ? `~${tLabel(s.ends_at)}` : ''}</p>
+                    {/* 사전 신청 개방 시점 — 참여자 화면과 같은 규칙(lib/classSignup)으로 계산.
+                        자유 참여이거나 «항상 열림» 이면 표시할 게 없어 null 이 온다. */}
+                    {(() => {
+                      const so = resolveSignupOpen(s, programLeadDays, programOpenTime)
+                      if (!so) return null
+                      const iso = new Date(so.opensMs).toISOString()
+                      return (
+                        <p className={`flex items-center gap-1.5 ${so.notYet ? 'text-emerald-700 font-semibold' : ''}`}>
+                          <Clock className={`w-3.5 h-3.5 ${so.notYet ? 'text-emerald-500' : 'text-gray-400'}`} />
+                          신청 {dLabel(iso)} {tLabel(iso)} {so.notYet ? '개방 예정' : '개방됨'}
+                        </p>
+                      )
+                    })()}
                     {s.place_name && <p className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-gray-400" />{s.place_name}</p>}
                     <p className="flex items-center gap-1.5"><Users className="w-3.5 h-3.5 text-gray-400" />{s.instructor?.name || '강사 미지정'} · 신청 {s.joined ?? 0}{s.capacity ? `/${s.capacity}` : ''}명{s.points ? ` · +${s.points}P` : ''}</p>
                   </div>

@@ -3519,7 +3519,7 @@ function ProgramDetailPage() {
             </div>
           </header>
           <div className="px-[11px] py-3 max-w-4xl mx-auto">
-            <ClassManageSection programId={id} userId={userId} attendanceMode={program.class_attendance_mode} />
+            <ClassManageSection programId={id} userId={userId} attendanceMode={program.class_attendance_mode} programLeadDays={program.class_signup_lead_days ?? null} programOpenTime={program.class_signup_open_time ?? null} />
           </div>
         </div>
       )}

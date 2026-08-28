@@ -9,6 +9,7 @@ import { catOf } from '../../lib/classCategories'
 import { useAvatarViewer } from '../../contexts/AvatarViewerContext'
 import AttendanceRosterModal from './AttendanceRosterModal'
 import CoverImageUploader from '../common/CoverImageUploader'
+import { signupOpenAt } from '../../lib/classSignup'
 
 const CODE_ERR = {
   wrong_code: '코드가 일치하지 않아요.',
@@ -63,19 +64,6 @@ function CapacityBlock({ joined, capacity, points }) {
       </div>
     </div>
   )
-}
-
-// 신청 개방 시각 = 클래스 시작일에서 leadDays 일 전.
-//   openTime('HH:MM' 또는 'HH:MM:SS')이 지정돼 있으면 그날의 그 시각으로 맞추고,
-//   없으면 클래스 시작 시각을 그대로 유지한다(기존 동작 — 저녁 클래스는 저녁에 열림).
-//   로컬(KST) 기준으로 setHours — 저장된 TIME 에는 타임존이 없고 사용자층이 KST 단일이다.
-function signupOpenAt(startMs, leadDays, openTime) {
-  const d = new Date(startMs - leadDays * 86400000)
-  if (openTime) {
-    const [h, m] = String(openTime).split(':')
-    d.setHours(Number(h) || 0, Number(m) || 0, 0, 0)
-  }
-  return d.getTime()
 }
 
 export default function ClassDetail({ sessionId, programId, userId, isOwner = false, attendanceMode = 'operator_roll', checkinBeforeMin = 30, signupLeadDays = null, signupOpenTime = null, programEnded = false }) {

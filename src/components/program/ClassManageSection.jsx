@@ -7,7 +7,7 @@ import ClassManageView from './ClassManageView'
 import AttendanceRosterModal from './AttendanceRosterModal'
 
 // 운영자 「클래스 관리」 컨테이너 — 실쿼리 배선. class_feature_enabled && isOwner 일 때 노출.
-export default function ClassManageSection({ programId, userId = null, attendanceMode = 'operator_roll' }) {
+export default function ClassManageSection({ programId, userId = null, attendanceMode = 'operator_roll', programLeadDays = null, programOpenTime = null }) {
   const qc = useQueryClient()
   const { data: instructors = [] } = useQuery({
     queryKey: ['instructors', programId], queryFn: () => fetchInstructors(programId), enabled: !!programId,
@@ -37,6 +37,8 @@ export default function ClassManageSection({ programId, userId = null, attendanc
       instructors={instructors}
       sessions={sessions}
       busy={busy}
+      programLeadDays={programLeadDays}
+      programOpenTime={programOpenTime}
       onCreateInstructor={(p) => mCreateInstr.mutate(p)}
       onUpdateInstructor={(id, patch) => mUpdateInstr.mutate({ id, patch })}
       onDeleteInstructor={(id) => mDeleteInstr.mutate(id)}
