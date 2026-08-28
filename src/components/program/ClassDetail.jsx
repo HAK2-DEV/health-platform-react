@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Calendar, MapPin, Users, Loader2, Check, Pencil, X } from 'lucide-react'
+import { MapPin, Users, Loader2, Check, Pencil, X } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
 import { fetchSession, fetchMyRegistrations, registerSession, cancelSessionRegistration, fetchMyAttendance, requestSelfAttendance, checkInWithCode, updateSession, formatKstDate } from '../../lib/queries'
 import { catOf } from '../../lib/classCategories'
@@ -142,24 +142,73 @@ export default function ClassDetail({ sessionId, programId, userId, isOwner = fa
     : nowMs > closeMs ? '출석 가능 시간이 지났어요'
     : null                                   // null = 출석 가능
   const grayBox = 'w-full h-11 rounded-xl bg-gray-100 text-gray-500 font-bold flex items-center justify-center text-[13px] break-keep px-3 text-center'
+  // 히어로 배지 — "지금 이 클래스는 어떤 상태인가" 를 한 단어로. 아래 CTA 와 같은 순서로 판단한다.
+  const heroStatus =
+    signupClosed ? { label: '종료', cls: 'bg-gray-100 text-gray-500' }
+    : !isRsvp ? { label: '자유 참여', cls: 'bg-emerald-50 text-emerald-700' }
+    : mine ? { label: '신청됨', cls: 'bg-emerald-50 text-emerald-700' }
+    : signupNotYet ? { label: '신청 예정', cls: 'bg-amber-50 text-amber-700' }
+    : full ? { label: '마감', cls: 'bg-red-50 text-red-600' }
+    : { label: '신청 가능', cls: 'bg-emerald-50 text-emerald-700' }
 
   return (
     <div className="space-y-[9px]">
-      {/* 히어로 — 고정 높이(사진 유무 무관). 기본 흰 배경, 제목 좌상단. 사진 있으면 그 위에 오버레이. */}
-      <div className="relative h-[132px] rounded-2xl overflow-hidden shadow-elevated bg-white border border-gray-100">
-        {coverUrl && (
-          <>
-            <img src={coverUrl} alt="" aria-hidden="true" className="absolute inset-0 w-full h-full object-cover" />
-            <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/10 to-transparent" />
-          </>
-        )}
-        {isOwner && !programEnded && (
-          <button type="button" onClick={() => setHeroEditOpen(true)}
-            className="absolute top-2.5 right-2.5 z-10 w-8 h-8 rounded-full bg-white/90 shadow flex items-center justify-center text-gray-500 hover:text-emerald-600 transition" aria-label="대표 사진 편집">
-            <Pencil className="w-4 h-4" />
-          </button>
-        )}
-        <h2 className={`absolute top-4 left-4 right-14 text-xl font-extrabold leading-tight break-keep line-clamp-2 ${coverUrl ? 'text-white' : 'text-gray-900'}`}>{s.title}</h2>
+      {/* 히어로 — 프로그램 카드홈(ProgramHomeHero)과 같은 구조:
+          전체폭 커버 → 하단을 흰색으로 녹이는 페이드 → 그 위에 어두운 글씨의 타이틀 블록.
+          이전엔 사진 없는 흰 박스에 제목만 있어 화면 위쪽이 텅 비어 보였다.
+          사진이 없으면 종목 그라데이션 + 아이콘이 커버를 채우므로 항상 꽉 찬다. */}
+      {/* 테두리 없음 — 제목 블록을 페이드 위로 끌어올리다 보니 하단 테두리가 제목에 바짝 붙어
+          「제목만 담긴 흰 띠」처럼 보였다. 사진이 배경으로 녹아드는 결을 살린다.
+          그림자도 shadow-soft — shadow-elevated 는 초록빛(16 185 129)이 3px 아래로 깔려
+          흰 배경에서 카드 하단이 «연한 초록 선»으로 보였다. 아래 카드들과 같은 그림자로 맞춘다. */}
+      <div className="relative rounded-2xl overflow-hidden shadow-soft bg-white">
+        <div className="relative h-[178px]">
+          {coverUrl ? (
+            /* 히어로는 첫 화면이라 lazy 는 부적절(늦게 뜬다). decoding=async 로 디코딩만 메인스레드에서 뺀다. */
+            <img src={coverUrl} alt="" aria-hidden="true" decoding="async"
+              className="absolute inset-0 w-full h-full object-cover" />
+          ) : (
+            /* 사진 없을 때 — 흰 바탕에 종목 아이콘만. (종목 그라데이션은 본인 결정으로 뺐다) */
+            <div className="absolute inset-0 bg-white flex items-center justify-center">
+              {c.icon
+                ? <img src={c.icon} alt="" aria-hidden="true" className="w-16 h-16 object-contain opacity-90" />
+                : <span className="text-5xl" aria-hidden="true">{c.emoji}</span>}
+            </div>
+          )}
+          {/* 하단 밝은 페이드 — 사진을 카드 배경(흰색)으로 녹여 아래 타이틀이 어두운 글씨로 읽히게.
+              ⚠️ 시작색은 반드시 rgba(255,255,255,0) — `#ffffff00`(8자리 hex)을 못 읽는 브라우저는
+                 이를 `transparent`= «투명한 검정»으로 폴백해, 흰색으로 보간되는 구간에 회색 띠가 생긴다.
+                 (사진 아래에 경계선이 보이던 원인)
+              끝색을 -1px 넘겨 이미지 하단을 확실히 덮는다(서브픽셀 반올림으로 1px 남는 것 방지). */}
+          <div className="absolute inset-x-0 bottom-[-1px] h-[119px] pointer-events-none"
+            style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(255,255,255,1) 72%)' }} />
+
+          {isOwner && !programEnded && (
+            <button type="button" onClick={() => setHeroEditOpen(true)}
+              className="absolute top-3 right-3 z-20 w-9 h-9 rounded-full bg-white/85 backdrop-blur-sm shadow-md flex items-center justify-center text-gray-600 hover:bg-white hover:text-emerald-600 transition" aria-label="대표 사진 편집">
+              <Pencil className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        {/* 타이틀 블록 — 페이드 위로 끌어올려 겹친다 */}
+        <div className="relative -mt-[74px] px-4 pb-4">
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className={`inline-flex items-center gap-1 text-[11px] font-extrabold px-2 py-0.5 rounded-full ${heroStatus.cls}`}>
+              <span className="text-[7px]">●</span>{heroStatus.label}
+            </span>
+            <span className="text-[11.5px] font-semibold text-gray-600">
+              {dLabel(s.starts_at)} {tLabel(s.starts_at)}{s.ends_at ? `~${tLabel(s.ends_at)}` : ''}
+            </span>
+          </div>
+          <h2 className="text-[22px] font-extrabold text-gray-900 leading-[1.18] tracking-[-.02em] break-keep">{s.title}</h2>
+          <p className="text-[12.5px] font-semibold text-gray-600 mt-1.5">
+            {isRsvp
+              ? `신청 ${s.joined ?? 0}${s.capacity ? `/${s.capacity}` : ''}명`
+              : '자유 참여'}
+            {s.instructor?.name ? ` · ${s.instructor.name} 강사` : ''}
+          </p>
+        </div>
       </div>
 
       {/* 강사 카드 */}
@@ -184,10 +233,8 @@ export default function ClassDetail({ sessionId, programId, userId, isOwner = fa
         </div>
       )}
 
-      {/* 정보 — 종목 뱃지 + 일시·장소·정원 */}
+      {/* 정보 — 장소·정원. (종목 뱃지·일시는 히어로로 올라가 여기선 뺐다 — 같은 걸 두 번 읽히지 않게) */}
       <div className="rounded-2xl bg-white border border-gray-100 shadow-soft p-4 space-y-2.5">
-        <span className={`inline-flex w-fit items-center gap-1 pl-1 pr-2 h-6 rounded-lg text-[11px] font-bold ${c.pill}`}>{c.icon ? <img src={c.icon} alt="" aria-hidden="true" className="w-4 h-4 object-contain" /> : c.emoji} {c.label}</span>
-        <p className="flex items-center gap-2 text-[13px] text-gray-700"><Calendar className="w-4 h-4 text-emerald-500 flex-shrink-0" />{dLabel(s.starts_at)} {tLabel(s.starts_at)}{s.ends_at ? `~${tLabel(s.ends_at)}` : ''}</p>
         {(s.place_name || s.place_address) && (
           <p className="flex items-center gap-2 text-[13px] text-gray-700"><MapPin className="w-4 h-4 text-emerald-500 flex-shrink-0" />{[s.place_name, s.place_address].filter(Boolean).join(' · ')}</p>
         )}

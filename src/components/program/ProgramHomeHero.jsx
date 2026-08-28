@@ -12,7 +12,13 @@ import { supabase } from '../../supabaseClient'
 //   ※ 콘텐츠 시트(-22px 겹침·26px 라운드)는 ProgramHome 에서 감쌈.
 
 const HERO_H = 252
-const SHEET_BG = '#fdfbf7'
+// 하단 페이드 — 시작색을 rgba 로 «명시» 한다. 시트 배경색 #fdfbf7 = rgb(253,251,247).
+//   예전엔 `${SHEET_BG}00` 처럼 8자리 hex 로 투명색을 만들었는데, 이를 못 읽는 브라우저는
+//   `transparent`= «투명한 검정»으로 폴백해 배경색으로 보간되는 구간에 회색 띠를 만든다
+//   (사진 아래 경계선처럼 보임). 클래스 상세 히어로에서 실제로 재현돼 원인을 확정하고
+//   같은 패턴인 여기도 함께 고쳤다. (2026-08-28)
+const SHEET_BG_RGB = '253,251,247'
+const SHEET_FADE = `linear-gradient(180deg, rgba(${SHEET_BG_RGB},0) 0%, rgba(${SHEET_BG_RGB},1) 70%)`
 const HERO_ASPECT = 390 / HERO_H        // 커버 크롭 비율(≈1.55)
 const MAX_SIZE_BYTES = 10 * 1024 * 1024
 
@@ -119,7 +125,7 @@ function ProgramHomeHero({
         {/* ② 상단 스크림 (상태바 가독성) — 안전영역만큼 더 내려옴 */}
         <div className="absolute inset-x-0 top-0 pointer-events-none" style={{ height: `calc(70px + ${safeTop})`, background: 'linear-gradient(180deg,rgba(24,21,16,.42),rgba(24,21,16,0))' }} />
         {/* ③ 하단 밝은 페이드 (이미지 → 시트 배경색으로 녹임) */}
-        <div className="absolute inset-x-0 bottom-0 h-[150px] pointer-events-none" style={{ background: `linear-gradient(180deg,${SHEET_BG}00,${SHEET_BG} 70%)` }} />
+        <div className="absolute inset-x-0 bottom-0 h-[150px] pointer-events-none" style={{ background: SHEET_FADE }} />
 
         {/* 뒤로가기 (좌상단, 상태바 아래) */}
         {onBack && (
@@ -193,7 +199,7 @@ function ProgramHomeHero({
           <>
             {/* 실제 개요와 동일 비율의 상단 스크림(70/252) + 하단 밝은 페이드(200/252) */}
             <div className="absolute inset-x-0 top-0" style={{ height: `${(70 / HERO_H) * 100}%`, background: 'linear-gradient(180deg,rgba(24,21,16,.42),rgba(24,21,16,0))' }} />
-            <div className="absolute inset-x-0 bottom-0" style={{ height: `${(150 / HERO_H) * 100}%`, background: `linear-gradient(180deg,${SHEET_BG}00,${SHEET_BG} 70%)` }} />
+            <div className="absolute inset-x-0 bottom-0" style={{ height: `${(150 / HERO_H) * 100}%`, background: SHEET_FADE }} />
           </>
         }
       />
