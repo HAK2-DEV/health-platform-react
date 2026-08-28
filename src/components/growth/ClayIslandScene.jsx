@@ -39,9 +39,9 @@ function Tree({ pos, scale, grown }) {
 }
 
 // Tripo 식물 glb — 임의 스케일/피벗을 바운딩박스로 정규화(높이 targetH, 밑동 y=0).
-//   테스트용: rose.glb(무료·고폴리 61MB). 실제 배포엔 로우폴리+2K 로 재생성 필요.
-useGLTF.preload('/models/rose.glb')
-function PlantModel({ url = '/models/rose.glb', targetH = 1.1 }) {
+//   예전엔 테스트용 rose.glb(61MB)를 썼다 — 배포 용량 때문에 압축본 daisy_s5 로 교체.
+useGLTF.preload('/models/daisy_s5.glb')
+function PlantModel({ url = '/models/daisy_s5.glb', targetH = 1.1 }) {
   const { scene } = useGLTF(url)
   const model = useMemo(() => {
     const s = scene.clone(true)
@@ -87,7 +87,7 @@ function Island({ plantCount, growthRatio }) {
       {/* ── 파이프라인 테스트: Tripo 장미 1송이를 섬 중앙에 심음(스케일은 성장률에 비례) ──
           검증되면 여러 송이/레이캐스트 심기로 확장. 기존 절차적 나무는 잠시 비활성. */}
       <group position={[0, domeY(0) - 0.05, 0]} scale={0.75 + 0.5 * growthRatio}>
-        <PlantModel url="/models/rose.glb" targetH={1.1} />
+        <PlantModel url="/models/daisy_s5.glb" targetH={1.1} />
       </group>
       {/* 나무(절차적) — 테스트 중 숨김. 필요 시 복구.
       {trees.map((t) => (

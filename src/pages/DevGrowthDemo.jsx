@@ -6,7 +6,7 @@ import * as THREE from 'three'
 import { ChevronLeft } from 'lucide-react'
 import { IslandModel } from '../components/growth/IslandModel'
 
-// 성장 공동 모델 데모 — A(공유 섬)·B(개인+이웃방문)·C(군도 줌). 참여자=꽃 1송이(임시 절차적, flower.glb 오면 교체).
+// 성장 공동 모델 데모 — A(공유 섬)·B(개인+이웃방문)·C(군도 줌). 참여자=꽃 1송이.
 //   숨긴 /dev/growth-demo. 목적: "다른 사람 식물 어떻게 보지"의 세 답을 실제로 비교.
 
 const domeY = (r) => 1.0 * Math.sqrt(Math.max(0, 1 - (r / 2) ** 2))
@@ -24,10 +24,10 @@ const PEOPLE = [
 ]
 const flowerScale = (stage) => 0.75 + stage * 0.12
 
-// ── 클레이 꽃 (public/models/flower.glb, 화분 데이지). 피벗 중앙이라 바닥을 접지로 올림 ──
+// ── 클레이 꽃. 피벗이 어디든 런타임 bbox 로 접지시키므로 모델을 갈아끼워도 된다 ──
 const FLOWER_BASE = 0.72   // 2유닛 모델을 섬(반경2)에 맞게 축소
 function Flower({ scale = 1, highlight = false }) {
-  const { scene } = useGLTF('/models/flower.glb')
+  const { scene } = useGLTF('/models/daisy_s5.glb')
   const model = useMemo(() => {
     const s = scene.clone(true)
     s.traverse((o) => { if (o.isMesh) o.castShadow = true })
@@ -51,7 +51,7 @@ function Flower({ scale = 1, highlight = false }) {
     </group>
   )
 }
-useGLTF.preload('/models/flower.glb')
+useGLTF.preload('/models/daisy_s5.glb')
 
 function NameTag({ text, me }) {
   return (
