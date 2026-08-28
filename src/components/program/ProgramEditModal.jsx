@@ -27,6 +27,7 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
   const [rankingEnabled, setRankingEnabled] = useState(true)  // 랭킹 메뉴 표시 (세부는 랭킹 설정)
   const [classFeatureEnabled, setClassFeatureEnabled] = useState(false)  // 클래스 메뉴 사용 — 생성 후에도 토글 가능(기존엔 2단계에서만 설정)
   const [signupLeadDays, setSignupLeadDays] = useState(null)  // 클래스 신청 개방(시작 N일 전). null=항상
+  const [signupOpenTime, setSignupOpenTime] = useState('')    // 개방 시각 'HH:MM'. 빈값=클래스 시작 시각과 동일(기존 동작)
   // 팀 기능 (126) — 랭킹이 켜져 있어야 동작
   const [teamEnabled, setTeamEnabled] = useState(false)
   const [teamScoreMode, setTeamScoreMode] = useState('sum')
@@ -65,6 +66,10 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
       setRankingEnabled(program.ranking_enabled !== false)
       setClassFeatureEnabled(!!program.class_feature_enabled)
       setSignupLeadDays(program.class_signup_lead_days ?? null)
+      // TIME 은 'HH:MM:SS' 로 오는데 input[type=time] 은 'HH:MM' 을 받는다
+      setSignupOpenTime((program.class_signup_open_time || '').slice(0, 5))
+      // TIME 은 'HH:MM:SS' 로 오는데 input[type=time] 은 'HH:MM' 을 받는다
+      setSignupOpenTime((program.class_signup_open_time || '').slice(0, 5))
       setChangeTabEnabled(program.change_tab_enabled === true)
       setProgressEnabled(program.overview_progress_enabled !== false)
       setSavingSubtract(program.saving_subtract_smoking !== false)
@@ -136,6 +141,7 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
         // 클래스 메뉴 사용 — 생성 후에도 켜고 끌 수 있게 (기존엔 2단계에서만 설정됨)
         class_feature_enabled: classFeatureEnabled,
         class_signup_lead_days: signupLeadDays || null,   // 클래스 신청 개방(null/0=항상)
+        class_signup_open_time: signupOpenTime || null,   // 개방 시각(null=클래스 시작 시각과 동일)
         // 랭킹 메뉴 표시 — OFF 면 세부(시상대/추세/기간필터)도 자동 OFF. 세부 설정은 「랭킹 설정」.
         ranking_enabled: rankingEnabled,
         ...(rankingEnabled ? {} : { podium_enabled: false, trend_enabled: false, period_filter_enabled: false }),
@@ -442,6 +448,33 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
                 <option value={7}>시작 1주 전부터</option>
                 <option value={14}>시작 2주 전부터</option>
               </select>
+
+              {/* 개방 «시각» — 안 정하면 클래스 시작 시각과 같은 시각에 열린다.
+                  (저녁 7시 클래스는 3일 전 저녁 7시에야 열려서 "그날 아침부터" 라는 기대와 어긋났다.
+                   시각을 고정하면 오전·저녁 클래스가 모두 같은 시각에 열려 선착순이 공평해진다) */}
+              {signupLeadDays > 0 && (
+                <div className="mt-2.5 pt-2.5 border-t border-gray-100">
+                  <p className="text-sm font-medium text-gray-800">그날 몇 시에 열까요?</p>
+                  <p className="text-xs text-gray-500 mt-0.5 mb-2 break-keep">
+                    비워두면 <b className="text-gray-600">클래스 시작 시각</b>과 같은 시각에 열려요
+                    (저녁 7시 클래스 → 저녁 7시 개방). 시각을 정하면 모든 클래스가 그 시각에 함께 열려요.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="time"
+                      value={signupOpenTime}
+                      onChange={(e) => setSignupOpenTime(e.target.value)}
+                      className="flex-1 min-w-0 h-10 px-2.5 rounded-lg border-2 border-gray-200 bg-white text-sm text-gray-700 focus:border-emerald-400 focus:outline-none"
+                    />
+                    {signupOpenTime && (
+                      <button type="button" onClick={() => setSignupOpenTime('')}
+                        className="flex-shrink-0 h-10 px-3 rounded-lg border-2 border-gray-200 text-xs font-semibold text-gray-500 hover:bg-gray-50 transition">
+                        지우기
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

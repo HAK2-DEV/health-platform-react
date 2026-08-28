@@ -182,6 +182,8 @@ function SessionForm({ instructors, initial, isEdit = false, onSave, onClose, bu
   const [desc, setDesc] = useState(initial?.description || '')
   const [repeatCount, setRepeatCount] = useState(1)   // 매주 반복 생성 횟수(새 클래스만)
   const [leadDays, setLeadDays] = useState(initial?.signup_lead_days ?? null)   // 이 클래스 신청 개방(null=프로그램 기본)
+  // 개방 시각 'HH:MM' — 빈값이면 프로그램 기본값을 따른다(프로그램에도 없으면 클래스 시작 시각).
+  const [openTime, setOpenTime] = useState((initial?.signup_open_time || '').slice(0, 5))
 
   const [step, setStep] = useState(1)
   const [dir, setDir] = useState(1)
@@ -218,6 +220,7 @@ function SessionForm({ instructors, initial, isEdit = false, onSave, onClose, bu
       signup_mode: signup, points: Number(points) || 0,
       description: desc.trim() || null,
       signup_lead_days: leadDays,   // null=프로그램 기본, 0=항상, N=시작 N일 전
+      signup_open_time: openTime || null,   // null=프로그램 기본 시각(그것도 없으면 클래스 시작 시각)
     }
     // 매주 반복 — 시작일에 i*7일 더해 N개 생성
     const payloads = Array.from({ length: n }, (_, i) => {
@@ -315,6 +318,19 @@ function SessionForm({ instructors, initial, isEdit = false, onSave, onClose, bu
                       <option value="7">시작 1주 전부터</option>
                       <option value="14">시작 2주 전부터</option>
                     </select>
+                  </Field>
+                )}
+                {/* 개방 시각 — 「항상 열림」이면 게이팅 자체가 없어 의미가 없으므로 숨긴다. */}
+                {signup === 'rsvp' && leadDays !== 0 && (
+                  <Field label="그날 몇 시에?">
+                    <div className="flex items-center gap-2">
+                      <input type="time" className={`${inputCls} flex-1 min-w-0`} value={openTime} onChange={e => setOpenTime(e.target.value)} />
+                      {openTime && (
+                        <button type="button" onClick={() => setOpenTime('')}
+                          className="flex-shrink-0 h-10 px-3 rounded-lg border border-gray-200 text-xs font-semibold text-gray-500">지우기</button>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-gray-400 mt-1 break-keep">비워두면 프로그램 기본 설정을 따라요</p>
                   </Field>
                 )}
               </>

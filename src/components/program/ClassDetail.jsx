@@ -65,7 +65,20 @@ function CapacityBlock({ joined, capacity, points }) {
   )
 }
 
-export default function ClassDetail({ sessionId, programId, userId, isOwner = false, attendanceMode = 'operator_roll', checkinBeforeMin = 30, signupLeadDays = null, programEnded = false }) {
+// 신청 개방 시각 = 클래스 시작일에서 leadDays 일 전.
+//   openTime('HH:MM' 또는 'HH:MM:SS')이 지정돼 있으면 그날의 그 시각으로 맞추고,
+//   없으면 클래스 시작 시각을 그대로 유지한다(기존 동작 — 저녁 클래스는 저녁에 열림).
+//   로컬(KST) 기준으로 setHours — 저장된 TIME 에는 타임존이 없고 사용자층이 KST 단일이다.
+function signupOpenAt(startMs, leadDays, openTime) {
+  const d = new Date(startMs - leadDays * 86400000)
+  if (openTime) {
+    const [h, m] = String(openTime).split(':')
+    d.setHours(Number(h) || 0, Number(m) || 0, 0, 0)
+  }
+  return d.getTime()
+}
+
+export default function ClassDetail({ sessionId, programId, userId, isOwner = false, attendanceMode = 'operator_roll', checkinBeforeMin = 30, signupLeadDays = null, signupOpenTime = null, programEnded = false }) {
   const qc = useQueryClient()
   const { open: openAvatar } = useAvatarViewer()
   const { data: s, isLoading } = useQuery({ queryKey: ['session', sessionId], queryFn: () => fetchSession(sessionId), enabled: !!sessionId })
@@ -129,7 +142,9 @@ export default function ClassDetail({ sessionId, programId, userId, isOwner = fa
   const closeMs = endMs + 3 * 3600000
   // 신청 개방 — 이 클래스 설정 우선(세션), 없으면 프로그램 기본. 0/미설정 = 항상 열림.
   const effLeadDays = s.signup_lead_days ?? signupLeadDays
-  const signupOpensMs = effLeadDays > 0 ? startMs - effLeadDays * 86400000 : null
+  // 개방 시각도 같은 2단 구조 — 이 클래스 설정 우선, 없으면 프로그램 기본. 둘 다 없으면 시작 시각.
+  const effOpenTime = s.signup_open_time ?? signupOpenTime
+  const signupOpensMs = effLeadDays > 0 ? signupOpenAt(startMs, effLeadDays, effOpenTime) : null
   const signupNotYet = signupOpensMs != null && nowMs < signupOpensMs
   const attended = myAtt === 'confirmed'                       // 출석 확정 후 → 취소 불가
   const signupClosed = nowMs > endMs || programEnded           // 세션 종료·프로그램 종료 후 → 취소 불가
