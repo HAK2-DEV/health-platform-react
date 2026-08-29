@@ -3926,6 +3926,15 @@ export const sendGardenCheer = async (programId, toUserId) => {
   return data
 }
 
+// 오늘 응원을 몇 마리 더 보낼 수 있나(252).
+//   ⚠️ 한도 규칙(참여자 3 / 운영자 10)은 서버에만 둔다 — 클라에 복사해두면 언젠가 어긋난다.
+export const fetchMyCheerQuota = async (programId) => {
+  const { data, error } = await supabase.rpc('get_my_cheer_quota', { p_program_id: programId })
+  if (error) throw error
+  const r = (data || [])[0] || {}
+  return { isOperator: !!r.is_operator, limit: r.daily_limit ?? 3, used: r.used_today ?? 0 }
+}
+
 // 개발용 — 내가 보낸(아직 안 닿은) 응원을 지워 하루 한도를 되돌린다.
 //   ⚠️ /dev/growth 반복 테스트 전용. 성장 탭 노출 전에 마이그 251 을 되돌려 제거할 것.
 export const devClearMyGardenCheers = async (programId) => {
@@ -3946,6 +3955,7 @@ export const fetchMyGardenCheers = async (programId) => {
     nickname: r.nickname,
     avatarPath: r.avatar_path,
     wasDormant: r.was_dormant,
+    isOperator: r.is_operator || false,   // 운영자가 보낸 응원(252) — 금색 나비
     createdAt: r.created_at,
     landedAt: r.landed_at,
     points: r.points,

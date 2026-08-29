@@ -63,6 +63,7 @@ const GrowthPage = lazy(() => import('./pages/GrowthPage'))
 // 성장 탭 v1 개발용 — 숨긴 라우트(참여자 비노출). 완성 시 /growth 로 승격.
 const DevGrowthBiome = lazy(() => import('./pages/DevGrowthBiome'))
 const DevGrowthLab = lazy(() => import('./pages/DevGrowthLab'))
+const DevGrowthOperator = lazy(() => import('./pages/DevGrowthOperator'))
 const DevGrowthDemo = lazy(() => import('./pages/DevGrowthDemo'))
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage'))
 const ProfilePage = lazy(() => import('./pages/ProfilePage'))
@@ -283,6 +284,9 @@ function AppShell() {
             } />
             <Route path="/dev/growth" element={
               <ProtectedRoute><DevGrowthLab /></ProtectedRoute>
+            } />
+            <Route path="/dev/growth-operator" element={
+              <ProtectedRoute><DevGrowthOperator /></ProtectedRoute>
             } />
             <Route path="/dev/growth-biome" element={
               <ProtectedRoute><DevGrowthBiome /></ProtectedRoute>

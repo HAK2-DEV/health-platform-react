@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect, Suspense } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, X, Wind } from 'lucide-react'
 import { playSuccessChime, primeAudio } from '../lib/sound'
-import { fetchProgramGarden, fetchMyPrograms, fetchActivePrograms, sendGardenCheer, fetchMyGardenCheers, devClearMyGardenCheers } from '../lib/queries'
+import { fetchProgramGarden, fetchMyPrograms, fetchActivePrograms, sendGardenCheer, fetchMyGardenCheers, devClearMyGardenCheers, fetchMyCheerQuota } from '../lib/queries'
 import { useAuth } from '../hooks/useAuth'
 import { useSearchParams } from 'react-router-dom'
 import { Canvas, useThree, useFrame } from '@react-three/fiber'
@@ -315,6 +315,8 @@ function useGarden(programId) {
   const [data, setData] = useState(null)
   const [err, setErr] = useState(null)
   const [tick, setTick] = useState(0)          // 응원을 보낸 뒤 다시 읽으려고
+  const [busy, setBusy] = useState(false)      // 읽는 중인지 — 눌러도 반응이 없으면 «안 된다» 로 보인다
+  const [readAt, setReadAt] = useState(null)   // 마지막으로 읽은 시각
   // ⚠️ 서버에서 받은 응원은 «원래 있던 것» 과 «방금 새로 온 것» 을 구분해야 한다.
   //    구분 없이 그리면 방금 보낸 나비가 날아오지 않고 그 자리에 툭 나타난다.
   //    첫 조회분은 이미 앉아 있는 것으로 치고(-999), 그 뒤에 «새로 보이는» 것만 지금 시각을 준다.
@@ -323,8 +325,9 @@ function useGarden(programId) {
   useEffect(() => {
     if (!programId) return
     let alive = true
-    Promise.all([fetchProgramGarden(programId), fetchMyGardenCheers(programId).catch(() => [])])
-      .then(([g, mine]) => {
+    Promise.all([fetchProgramGarden(programId), fetchMyGardenCheers(programId).catch(() => []),
+                 fetchMyCheerQuota(programId).catch(() => null)])
+      .then(([g, mine, quota]) => {
         if (!alive) return
         // ⚠️ 「오늘」 판정은 여기(이펙트)에서 한다 — 렌더 중 Date.now() 는 순수하지 않다.
         const kst = (v) => new Date(new Date(v).getTime() + 9 * 3600000).toISOString().slice(0, 10)
@@ -341,7 +344,7 @@ function useGarden(programId) {
         mine.forEach((c) => {
           if (c.dir !== 'out' || c.landedAt) return
           sentPending.set(c.otherId, (sentPending.get(c.otherId) || 0) + 1)
-          rows.push({ key: c.id, toUser: c.otherId, fromMe: true, wasDormant: c.wasDormant })
+          rows.push({ key: c.id, toUser: c.otherId, fromMe: true, wasDormant: c.wasDormant, isOp: c.isOperator })
         })
         g.members.forEach((m) => {
           const mineCount = sentPending.get(m.userId) || 0
@@ -364,20 +367,25 @@ function useGarden(programId) {
           const g2 = seen.get(k)
           const was = leftInfo.current.get(k)
           rows.push({ key: k, toUser: was ? was.toUser : null, fromMe: was ? was.fromMe : false,
+                      isOp: was ? was.isOp : false,
                       at: g2.at, leaveAt: g2.gone, goTo: was && was.fromMe ? 'me' : null })
         }
-        rows.forEach((r) => { if (r.toUser) leftInfo.current.set(r.key, { toUser: r.toUser, fromMe: r.fromMe }) })
+        rows.forEach((r) => { if (r.toUser) leftInfo.current.set(r.key, { toUser: r.toUser, fromMe: r.fromMe, isOp: r.isOp }) })
 
-        setData({ id: programId, ...g, mine, sentTodayIds, rows })
+        setData({ id: programId, ...g, mine, sentTodayIds, rows, quota })
+        setReadAt(new Date().toLocaleTimeString('ko-KR', { hour12: false }))
+        setBusy(false)
       })
-      .catch((e) => { if (alive) setErr({ id: programId, msg: e.message || String(e) }) })
+      .catch((e) => { if (alive) { setErr({ id: programId, msg: e.message || String(e) }); setBusy(false) } })
     return () => { alive = false }
   }, [programId, tick])
   // 이펙트에서 동기 setState 를 하면 렌더가 연쇄된다 — 대신 «지금 프로그램의 결과인지» 로 걸러 쓴다.
   return {
     garden: programId && data?.id === programId ? data : null,
     gardenErr: programId && err?.id === programId ? err.msg : null,
-    reload: () => setTick((v) => v + 1),
+    // busy 는 «누를 때» 켠다 — 이펙트 시작 시 동기 setState 를 하면 렌더가 연쇄된다.
+    reload: () => { setBusy(true); setTick((v) => v + 1) },
+    busy, readAt,
   }
 }
 
@@ -414,15 +422,32 @@ function useMock(n) {
 }
 // radii = 슬롯별 반경(월드). 단계마다 꽃 크기가 달라서 고정 간격으로는 만개끼리 겹친다
 // (만개 두 송이는 0.46 이 필요한데 옛 고정값은 0.42 였다).
+// 이 인원 이하면 섬 전체에 흩뿌리지 않고 «연못 가» 에 모아 심는다.
+// 넓은 섬에 몇 송이만 흩뿌리면 가장자리로 밀려 휑한 벌판이 되고, 꽃을 찾기도 어렵다.
+// 물가에 모여 있으면 한 화면에 들어오고 그림도 낫다.
+const HUG_N = 8
 function slots2D(n, fr, radii, pond) {
+  const rad = (i) => (Array.isArray(radii) ? radii[i] || 0.12 : radii / 2)
   const pts = []
+  const hug = pond && n <= HUG_N
   for (let i = 0; i < n; i++) {
     const rnd = (s) => { const v = Math.sin(i * 91.7 + s) * 43758.5; return v - Math.floor(v) }
+    if (hug) {
+      // 연못 «중심» 기준 둘레에 앉힌다. 아래 완화가 연못 안으로는 못 들어오게 막아준다.
+      // ⚠️ 가드(pond[2])가 아니라 «최대 반경»(pond[3])을 기준으로 앉혀야 물에 안 빠진다.
+      const ring = (pond[3] || pond[2]) + rad(i) + 0.12 + rnd(1) * 0.10
+      // ⚠️ 연못은 섬 «중심에서 비켜나» 있다(실측 0.75). 둘레를 한 바퀴 돌면 바깥쪽 절반은
+      //    섬을 벗어나고, 그러면 클램프가 섬 안으로 끌어당기는데 그 방향이 곧 연못 쪽이다 —
+      //    물에 빠지는 진짜 경로가 이것이었다. 그래서 «섬 안쪽을 향한 반원» 에만 앉힌다.
+      const inward = Math.atan2(-pond[1], -pond[0])
+      const th = inward + ((i + 0.5) / n - 0.5) * 2.4 + (rnd(2) - 0.5) * 0.25
+      pts.push([pond[0] + ring * Math.cos(th), pond[1] + ring * Math.sin(th)])
+      continue
+    }
     const r = fr * Math.sqrt((i + 0.5) / n) + (rnd(1) - 0.5) * 0.04 * fr   // 흩뿌림(약하게)
     const th = i * GOLDEN + (rnd(2) - 0.5) * 0.18
     pts.push([r * Math.cos(th), r * Math.sin(th)])
   }
-  const rad = (i) => (Array.isArray(radii) ? radii[i] || 0.12 : radii / 2)
   // 완화 반복. 순서가 중요하다 —
   //   ① 연못 밀어내기를 **먼저**(그리고 한 번에 안 밀고 80%씩만). 쌍 완화 뒤에 하면
   //      연못 가장자리로 밀린 꽃이 겹쳐도 고칠 기회가 없다(겹침의 주원인이었다).
@@ -627,7 +652,11 @@ function useField(n, slotR) {
         const waterY = Math.min(floorY + (med - floorY) * POND_FILL, brim - 0.015 * spread)
         // 물가 = 수면 위로 올라온 뒤 **계속 올라가 있는** 첫 지점. 그냥 '처음 올라온 곳'이면
         // 바닥 요철에 걸려 덜 차고, '그 방향 최고점'이면 웅덩이 밖까지 흘러간다.
-        const rs = prof.map((arr) => {
+        // ⚠️ 못 찾으면 «한계까지 갔다» 는 뜻이지 «물가가 거기» 라는 뜻이 아니다.
+        //    예전엔 실패도 step*(i+1) = lim 으로 돌려줘서, 실패한 방향이 그대로 «아주 넓은 연못» 이 됐다.
+        //    실측(field.glb, spread=1): 20방향 중 4개 이상 실패 → 80퍼센타일까지 lim(1.2) 으로 오염되고
+        //    가드가 1.438 이 되어 꽃 배치 반경(FR 1.4)을 넘겼다 — 만족 불가능한 제약이라 배치가 무너진다.
+        const raw = prof.map((arr) => {
           let i = 0
           for (; i < arr.length; i++) {
             if (!(arr[i] > waterY)) continue
@@ -635,10 +664,17 @@ function useField(n, slotR) {
             for (let k = 1; k <= 2 && i + k < arr.length; k++) if (arr[i + k] <= waterY) { sustained = false; break }
             if (sustained) break
           }
-          return step * (i + 1)
+          return i < arr.length ? step * (i + 1) : null      // 못 찾음 = null
         })
+        const ok = raw.filter((v) => v != null).sort((a, b) => a - b)
+        const mid = ok.length ? ok[ok.length >> 1] : 0.4 * spread
+        // 실패한 방향은 «성공한 방향들의 중앙값» 으로 메운다(모양이 크게 안 틀어진다).
+        // ⚠️ rs 는 «그려지는 물의 모양» 이기도 하다 — 여기에 상한을 걸면 물 원반이 실제 구멍보다
+        //    작아져서 웅덩이 벽이 드러난다. 상한은 «배치용 가드» 에만 건다.
+        const rs = raw.map((v) => (v == null ? mid : v))
         const sorted = [...rs].sort((a, b) => a - b)
-        const guard = sorted[Math.floor(dirs * 0.8)]   // 최대값은 한 방향의 튄 값에 끌려가 과하게 넓어진다
+        // 가드는 밀어내기용이라 배치 반경(FR)을 넘으면 만족 불가능한 제약이 된다 — 절반으로 자른다.
+        const guard = Math.min(sorted[Math.floor(dirs * 0.8)], FR * spread * 0.5)
         base = {
           cx: cx / spread, cz: cz / spread,
           dy: (waterY - TOP_TARGET) / spread,           // 윗면이 TOP_TARGET 에 고정 → 상대 높이가 정비례
@@ -650,7 +686,11 @@ function useField(n, slotR) {
     }
     const pb = pondCache.current.base
     const water = pb && { x: pb.cx * spread, z: pb.cz * spread, y: TOP_TARGET + pb.dy * spread, radii: pb.radii.map((r) => r * spread) }
-    const pond = pb && [water.x, water.z, pb.guard * spread + POND_MARGIN]   // 물가 + 여유. 꽃 반경은 slots2D 가 더한다
+    // [x, z, 가드, 최대반경] — 가드는 방향별 반경의 80퍼센타일이라 «20% 방향은 물이 더 넓다».
+    // 흩뿌릴 땐 그 정도 오차가 티가 안 나지만, 소수를 물가에 «붙여» 심을 땐 그대로 물에 빠진다.
+    // 그래서 붙여 심을 때 쓸 «최대 반경» 을 따로 실어 보낸다.
+    const pond = pb && [water.x, water.z, pb.guard * spread + POND_MARGIN,
+                        Math.max(...water.radii) + POND_MARGIN]
 
     const normals = []
     const positions = slots2D(n, FR * spread, slotR, pond).map(([x, z]) => {
@@ -1163,6 +1203,10 @@ function Butterfly({ color, seed, target, targetQuat, air, arriveAt, leaveAt, aw
 
 // 꽃 위에 앉을 자리 — 머리 주변에 겹치지 않게 흩는다.
 const BF_COLORS = ['#F5A9C7', '#FFD98A', '#A8D8F0', '#C9AEE8', '#FFB59E']
+// 운영자 응원은 금색 한 가지로 고정한다 — «누가 보냈나» 가 아니라 «운영자가 보냈다» 가 정보다.
+// 참여자 나비는 색이 여럿이라 그 안에서 금색 하나가 눈에 띈다.
+const BF_GOLD = '#F7C948'
+const bfColor = (c) => (c.isOp ? BF_GOLD : BF_COLORS[c.seed % BF_COLORS.length])
 
 // lucide 에 나비가 없다 — 같은 규격(24 그리드 · 선 · round cap)으로 그려 Wind 와 톤을 맞춘다.
 const ButterflyIcon = ({ className }) => (
@@ -1315,7 +1359,7 @@ function GardenButterflies({ cheers, positions }) {
     const awayTo = bk ? new THREE.Vector3(bk[0] - p[0], bk[1] - p[1] + 0.95, bk[2] - p[2]) : null
     return (
       <group key={c.id} position={p}>
-        <Butterfly seed={c.seed} color={BF_COLORS[c.seed % BF_COLORS.length]}
+        <Butterfly seed={c.seed} color={bfColor(c)}
           arriveAt={c.at} leaveAt={c.leaveAt} awayTo={awayTo} scale={GB_SCALE} fadeable
           orbit={{ r: 0.17 + (i % 3) * 0.06, y: GB_YMIN + 0.09 + (i % 3) * 0.07,
                    ya: 0.42, ymin: GB_YMIN,
@@ -1371,7 +1415,7 @@ function Cheers({ cheers, template, bury, yaw, soil, headY, headR }) {
     })
   }, [cheers, spots, headY, headR])
   return cheers.slice(0, CHEER_SHOW).map((c, i) => (
-    <Butterfly key={c.id} seed={c.seed} color={BF_COLORS[c.seed % BF_COLORS.length]}
+    <Butterfly key={c.id} seed={c.seed} color={bfColor(c)}
       arriveAt={c.at} leaveAt={c.leaveAt} target={targets[i].pos} targetQuat={targets[i].quat} air={targets[i].air}
       orbit={targets[i].orbit} sway={targets[i].sway} />
   ))
@@ -1722,6 +1766,16 @@ function Rig({ selectedPos, gardenRef, soloRef, controlsRef, camGarden, soloScal
   return null
 }
 
+// 운영자 뷰(/dev/growth-operator)도 같은 정원을 쓴다 — 3D 를 복제하면 둘이 서로 어긋난다.
+// Scene 은 <Canvas> 까지 품고 있어서 그대로 재사용된다.
+// ⚠️ 참여자 → 꽃 변환(memberToPart)은 «여기서» 한다. 밖으로 내보내면
+//    이 파일이 컴포넌트 말고도 내보내게 되어 fast-refresh 가 깨진다.
+export function GardenCanvas({ members, cheers, selected, onSelect }) {
+  const live = useMemo(() => (members ? members.map(memberToPart) : null), [members])
+  return <Scene n={live ? live.length : 0} selected={selected} onSelect={onSelect}
+    mood="normal" spKey="mix" gain={{}} hold={null} live={live} cheers={cheers} />
+}
+
 function Scene({ n, selected, onSelect, mood, spKey, gain, hold, live, cheers }) {
   // spKey === 'mix' 면 참여자마다 제 종을 쓴다. 아니면 전부 그 종으로 덮어쓴다.
   const mock = useMock(n)
@@ -1749,7 +1803,7 @@ function Scene({ n, selected, onSelect, mood, spKey, gain, hold, live, cheers })
   // ⚠️ 배치는 «기준 데이터» 로만 계산한다. parts 로 계산하면 물을 한 번 누를 때마다 gain 이 바뀌어
   //    slotR 이 새로 생기고 → useField 가 통째로 다시 돈다(레이캐스팅 + 250회 완화 + 연못 밀어내기).
   //    성능 문제이기도 하지만, 애초에 «누가 물을 줬다고 정원 배치가 다시 섞이면» 안 된다.
-  const slotR = useMemo(() => layout.map((q, i) => SPECIES[q.sp].ext[stageIdx(q.stage)][1] * (0.3 + q.stage * 0.12) * (i === 0 ? HERO_BOOST : 1)), [layout])
+  const slotR = useMemo(() => layout.map((q, i) => SPECIES[q.sp].ext[stageIdx(q.stage)][1] * (0.3 + q.stage * 0.12) * ((q.me || (!q.me && i === 0 && !('me' in q))) ? HERO_BOOST : 1)), [layout])
   const { field, positions, normals, spread, water } = useField(n, slotR)
   const camGarden = useMemo(() => CAM_GARDEN.map((v) => v * spread), [spread])
   const byUrl = useAllTemplates()
@@ -1757,13 +1811,20 @@ function Scene({ n, selected, onSelect, mood, spKey, gain, hold, live, cheers })
   const meshSets = useMemo(() => Object.fromEntries(SPECIES_KEYS.map((k) =>
     [k, SPECIES[k].urls.map((u, si) => buildMeshes(byUrl[u], SPECIES[k].soil[si], satOf(k)))])), [byUrl])
   const tmplOf = (k, si) => byUrl[SPECIES[k].urls[si]]
-  const meIndex = 0
+  // ⚠️ «내 꽃» 을 0번으로 하드코딩하면 안 된다.
+  //    운영자는 그 프로그램의 참여자가 아닐 수 있고(252), 그러면 정원에 자기 꽃이 없다.
+  //    0번을 내 꽃으로 그리면 «남의 꽃» 이 크게·노란 링을 달고 나온다.
+  //    실데이터에선 서버가 is_me 를 준다. 없으면 -1(내 꽃 없음).
+  const meIndex = useMemo(() => {
+    const i = parts.findIndex((q) => q.me)
+    return i >= 0 ? i : (live ? -1 : 0)
+  }, [parts, live])
   const heroScale = parts[meIndex] ? (0.3 + parts[meIndex].stage * 0.12) * HERO_BOOST : 0.375
   const gardenRef = useRef(); const soloRef = useRef(); const controlsRef = useRef(); const soloInner = useRef()
   const selIdx = selected != null ? Math.min(selected, n - 1) : null
   const selPos = selIdx != null ? positions[selIdx] : null
   const sel = selIdx != null ? parts[selIdx] : null
-  const mePos = positions[meIndex]
+  const mePos = meIndex >= 0 ? positions[meIndex] : null
   const heroSink = mePos ? (soilSink(spOf(meIndex), stageIdx(parts[meIndex].stage)) + tiltResidual(spOf(meIndex), normals[meIndex], stageIdx(parts[meIndex].stage))) * heroScale : 0
   const faceAngle = selPos ? (Math.hypot(selPos[0], selPos[2]) < 0.15 ? 0 : Math.atan2(selPos[0], selPos[2])) : 0
   // 단계 «안» 에서도 연속적으로 자란다 — 물을 줄 때마다 꽃이 실제로 조금 커진다.
@@ -1813,7 +1874,7 @@ function Scene({ n, selected, onSelect, mood, spKey, gain, hold, live, cheers })
         ry: r(1) * Math.PI * 2, tx: (r(2) - 0.5) * 0.18, tz: (r(3) - 0.5) * 0.18 })
     })
     return gs
-  }, [parts, positions, normals])
+  }, [meIndex, parts, positions, normals])
 
   return (
     <Canvas shadows dpr={[1, 2]} gl={{ alpha: true, antialias: true }} camera={{ position: camGarden, fov: 34 }}
@@ -1883,7 +1944,7 @@ export default function DevGrowthLab() {
   const [sp, setSp] = useSearchParams()
   const programId = sp.get('program') || null
   const progOpts = useMyProgramOptions()
-  const { garden, gardenErr, reload } = useGarden(programId)
+  const { garden, gardenErr, reload, busy, readAt } = useGarden(programId)
   const live = useMemo(() => (garden ? garden.members.map(memberToPart) : null), [garden])
   // 실데이터의 나비 —
   //   · 남의 꽃: «누가 누구에게» 는 당사자만 볼 수 있으므로(RLS) 마릿수만 받아 익명 나비로 그린다
@@ -1895,7 +1956,7 @@ export default function DevGrowthLab() {
     const meIdx = live.findIndex((m) => m.me)
     return garden.rows.map((r, i) => ({
       id: r.key, seed: i + 1, at: r.at, to: byUser.get(r.toUser),
-      from: r.fromMe ? 0 : undefined, wasDormant: r.wasDormant,
+      from: r.fromMe ? 0 : undefined, wasDormant: r.wasDormant, isOp: r.isOp,
       leaveAt: r.leaveAt,
       // 내가 보낸 응원이 닿았으면 «내 꽃» 으로 돌아간다
       goTo: r.goTo === 'me' && meIdx >= 0 ? meIdx : undefined,
@@ -1925,6 +1986,9 @@ export default function DevGrowthLab() {
   // ⚠️ 아래는 전부 selIdx / base 에 기대므로 «그 선언 뒤» 에 있어야 한다.
   //    const 는 호이스팅돼도 선언 전 구간은 TDZ 라 읽는 순간 던진다("Cannot access ... before initialization").
   const shownCheers = liveCheers || cheers          // 실데이터가 있으면 그것, 없으면 목데이터
+  // 내가 받은(아직 안 닿은) 응원 — 누가 보냈는지는 실데이터에서만 안다(RLS).
+  const inbox = useMemo(() => (garden?.mine || []).filter((c) => c.dir === 'in' && !c.landedAt), [garden])
+  const inboxOp = inbox.filter((c) => c.isOperator)
   const myCheers = shownCheers.filter((c) => c.to === selIdx && c.leaveAt == null).length
   // 지금 붙어 있는 나비 보너스(다음 인증 때 한 번에 반영, 상한 있음)
   const cheerBonus = Math.min(CHEER_PT_MAX, myCheers * CHEER_PT)
@@ -1940,7 +2004,12 @@ export default function DevGrowthLab() {
     const byUser = new Map(live.map((m, i) => [m.id, i]))
     return (garden.sentTodayIds || []).map((uid) => byUser.get(uid)).filter((v) => v != null)
   }, [live, garden, sentToday])
-  const sentAll = sentIdx.length >= CHEER_DAILY
+  // 한도는 서버가 준다(참여자 3 / 운영자 10). 목데이터일 때만 상수를 쓴다.
+  const quota = live ? garden?.quota : null
+  const dailyLimit = quota ? quota.limit : CHEER_DAILY
+  const usedToday = quota ? quota.used : sentIdx.length
+  const isOperator = !!(quota && quota.isOperator)
+  const sentAll = usedToday >= dailyLimit
   const sentToThis = selIdx != null && sentIdx.includes(selIdx)
   const canSend = !isMine && !sentAll && !sentToThis
   const sendCheer = () => {
@@ -2101,12 +2170,26 @@ export default function DevGrowthLab() {
                       </div>
                     </div>
                   )}
+                  {inboxOp.length > 0 && (
+                    <div className="flex items-center gap-2.5 rounded-2xl bg-amber-50 px-3 py-2.5 mb-2.5">
+                      <ButterflyIcon className="w-5 h-5 text-amber-500 shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-extrabold text-amber-700">운영자가 응원을 보냈어요</p>
+                        <p className="text-[11px] text-amber-600/80 truncate">{inboxOp.map((c) => c.nickname).join(' · ')}님이 지켜보고 있어요</p>
+                      </div>
+                    </div>
+                  )}
                   {myCheers > 0 && (
                     <div className="flex items-center gap-2.5 rounded-2xl bg-pink-50 px-3 py-2.5 mb-2.5">
                       <ButterflyIcon className="w-5 h-5 text-pink-500 shrink-0" />
                       <div className="min-w-0">
                         <p className="text-[13px] font-extrabold text-pink-700">{myCheers}명이 응원을 보냈어요</p>
                         <p className="text-[11px] text-pink-600/80">오늘 인증하면 나비가 힘을 보태요 · +{cheerBonus}점</p>
+                        {inbox.length > 0 && (
+                          <p className="text-[11px] text-pink-500/70 mt-0.5 truncate">
+                            {inbox.slice(0, 3).map((c) => c.nickname).join(' · ')}{inbox.length > 3 ? ` 외 ${inbox.length - 3}명` : ''}
+                          </p>
+                        )}
                       </div>
                     </div>
                   )}
@@ -2120,16 +2203,20 @@ export default function DevGrowthLab() {
                   {/* 남의 꽃 — 참여자가 여기서 할 수 있는 건 응원 하나뿐이다.
                       «나비가 무엇인지» 를 버튼 옆에서 한 줄로 알려준다. 처음 보면 그냥 벌레다. */}
                   <button type="button" onClick={sendCheer} disabled={!canSend}
-                    className={`w-full rounded-2xl px-4 py-3 flex items-center gap-3 transition active:scale-[0.98] ${canSend ? 'bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-md' : 'bg-gray-100 text-gray-400'}`}>
+                    className={`w-full rounded-2xl px-4 py-3 flex items-center gap-3 transition active:scale-[0.98] ${
+                      !canSend ? 'bg-gray-100 text-gray-400'
+                        : isOperator ? 'bg-gradient-to-r from-amber-400 to-yellow-500 text-white shadow-md'
+                        : 'bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-md'}`}>
                     <ButterflyIcon className="w-6 h-6 shrink-0" />
                     <span className="text-left min-w-0">
                       <span className="block text-[14px] font-extrabold">
-                        {sentToThis ? '오늘 이미 응원했어요' : sentAll ? '오늘 나비를 다 보냈어요' : '응원 나비 보내기'}
+                        {sentToThis ? '오늘 이미 응원했어요' : sentAll ? '오늘 나비를 다 보냈어요'
+                          : isOperator ? '운영자 응원 보내기' : '응원 나비 보내기'}
                       </span>
                       <span className={`block text-[11px] ${canSend ? 'text-white/85' : 'text-gray-400'}`}>
                         {sentToThis ? '내일 다시 보낼 수 있어요'
-                          : sentAll ? '내일 다시 3마리를 보낼 수 있어요'
-                          : `${sel.nickname}님의 꽃에 나비가 앉아요 · 오늘 ${CHEER_DAILY - sentIdx.length}마리 남음`}
+                          : sentAll ? `내일 다시 ${dailyLimit}마리를 보낼 수 있어요`
+                          : `${sel.nickname}님의 꽃에 나비가 앉아요 · 오늘 ${Math.max(0, dailyLimit - usedToday)}마리 남음`}
                       </span>
                     </span>
                   </button>
@@ -2185,12 +2272,19 @@ export default function DevGrowthLab() {
                 {progOpts.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
               </select>
               {live && <span className="text-[11px] font-extrabold text-emerald-600 shrink-0">리듬 {garden.paceGap}일</span>}
+              {isOperator && (
+                <span className="text-[11px] font-extrabold text-amber-600 shrink-0">
+                  운영자 · 나비 {Math.max(0, dailyLimit - usedToday)}/{dailyLimit}
+                </span>
+              )}
               {shownCheers.length > 0 && <span className="text-[11px] font-extrabold text-pink-500 shrink-0">🦋 {shownCheers.filter((c) => c.leaveAt == null).length}</span>}
               {live && (
                 // ⚠️ 남이 인증한 건 실시간으로 안 내려온다 — 지금은 «진입할 때» 와 «보낸 직후» 에만 읽는다.
                 //    눌러서 다시 읽으면, 그 사이 닿은 나비가 «날아가는 모습» 으로 사라진다.
-                <button type="button" onClick={reload}
-                  className="text-[11px] font-extrabold text-emerald-600 shrink-0 underline">다시 읽기</button>
+                <button type="button" onClick={reload} disabled={busy}
+                  className="text-[11px] font-extrabold text-emerald-600 shrink-0 underline disabled:text-gray-300">
+                  {busy ? '읽는 중…' : `다시 읽기${readAt ? ' ' + readAt : ''}`}
+                </button>
               )}
               {gardenErr && <span className="text-[11px] font-extrabold text-rose-500 shrink-0">오류</span>}
             </div>
@@ -2201,7 +2295,9 @@ export default function DevGrowthLab() {
               </div>
             )}
             <p className="text-[10px] text-gray-400 mt-1 text-center">
-              {live ? `실데이터 ${live.length}명 · 인증일수로 단계 결정` : '🌱 활동별 단계(새싹~만개) · 큰 꽃=나 · 꽃 탭 → 단독 뷰(표정) · 빈 곳/✕ → 정원'}
+              {!live ? '🌱 활동별 단계(새싹~만개) · 큰 꽃=나 · 꽃 탭 → 단독 뷰(표정) · 빈 곳/✕ → 정원'
+                : isOperator ? `참여자 ${live.length}명의 정원 · 꽃을 탭해 응원 나비를 보내세요`
+                : `실데이터 ${live.length}명 · 인증일수로 단계 결정`}
             </p>
           </div>
         </div>
