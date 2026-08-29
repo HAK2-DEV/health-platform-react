@@ -3909,7 +3909,45 @@ export const fetchProgramGarden = async (programId) => {
       points: r.growth_points,
       streak: r.pace_streak,
       lastVerifiedOn: r.last_verified_on,
+      pendingCheers: r.pending_cheers ?? 0,   // 아직 «닿지 않은» 응원 마릿수(250)
       isMe: r.is_me,
     })),
   }
+}
+
+// 응원 나비 보내기 — 하루 3마리, 같은 사람에겐 하루 1마리. 한도·자격 검증은 전부 DB 에서 한다.
+//   반환값은 «오늘 남은 마릿수». 위반이면 예외가 오고 message 가 그대로 사용자에게 보여줄 문장이다.
+export const sendGardenCheer = async (programId, toUserId) => {
+  const { data, error } = await supabase.rpc('send_garden_cheer', {
+    p_program_id: programId,
+    p_to_user_id: toUserId,
+  })
+  if (error) throw error
+  return data
+}
+
+// 개발용 — 내가 보낸(아직 안 닿은) 응원을 지워 하루 한도를 되돌린다.
+//   ⚠️ /dev/growth 반복 테스트 전용. 성장 탭 노출 전에 마이그 251 을 되돌려 제거할 것.
+export const devClearMyGardenCheers = async (programId) => {
+  const { data, error } = await supabase.rpc('dev_clear_my_garden_cheers', { p_program_id: programId })
+  if (error) throw error
+  return data
+}
+
+// 내 응원 목록 — 받은 것(누가 보냈는지)과 보낸 것(닿았는지).
+//   «누가 누구에게» 는 당사자만 볼 수 있으므로(RLS) 남의 것은 정원의 «마릿수» 로만 내려온다.
+export const fetchMyGardenCheers = async (programId) => {
+  const { data, error } = await supabase.rpc('get_my_garden_cheers', { p_program_id: programId })
+  if (error) throw error
+  return (data || []).map((r) => ({
+    id: r.id,
+    dir: r.direction,               // 'in' = 받은 것, 'out' = 보낸 것
+    otherId: r.other_id,
+    nickname: r.nickname,
+    avatarPath: r.avatar_path,
+    wasDormant: r.was_dormant,
+    createdAt: r.created_at,
+    landedAt: r.landed_at,
+    points: r.points,
+  }))
 }

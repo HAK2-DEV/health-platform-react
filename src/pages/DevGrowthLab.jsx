@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect, Suspense } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, X, Wind } from 'lucide-react'
 import { playSuccessChime, primeAudio } from '../lib/sound'
-import { fetchProgramGarden, fetchMyPrograms, fetchActivePrograms } from '../lib/queries'
+import { fetchProgramGarden, fetchMyPrograms, fetchActivePrograms, sendGardenCheer, fetchMyGardenCheers, devClearMyGardenCheers } from '../lib/queries'
 import { useAuth } from '../hooks/useAuth'
 import { useSearchParams } from 'react-router-dom'
 import { Canvas, useThree, useFrame } from '@react-three/fiber'
@@ -45,6 +45,8 @@ const tiltResidual = (sp, nrm, si) => {
   return sp.ext[si][1] * Math.tan(Math.min(theta, TILT_MAX / TILT_FIT) * (1 - TILT_FIT)) * 1.6   // 1.6 = 지형 굴곡 여유
 }
 // 참여자 수 → 섬/배치 스케일(밀도 일정). 낮은 divisor = 넉넉한 간격.
+// 내 꽃은 남들과 «같은 규칙» 으로 커지되 조금만 크게 — 눈에 띄되 단계 차이를 덮지 않는 정도.
+const HERO_BOOST = 1.25
 const spreadFor = (n) => Math.min(2.6, Math.max(1, Math.sqrt(n / 22)))
 const POND_DROP = 0.15   // 주변 지면보다 이만큼(x spread) 꺼지면 연못으로 본다
 const POND_FILL = 0.80   // 물 높이 — 웅덩이 바닥(0)과 주변 지면(1) 사이 비율. 올리면 물가도 같이 넓어진다.
@@ -312,18 +314,70 @@ function useMyProgramOptions() {
 function useGarden(programId) {
   const [data, setData] = useState(null)
   const [err, setErr] = useState(null)
+  const [tick, setTick] = useState(0)          // 응원을 보낸 뒤 다시 읽으려고
+  // ⚠️ 서버에서 받은 응원은 «원래 있던 것» 과 «방금 새로 온 것» 을 구분해야 한다.
+  //    구분 없이 그리면 방금 보낸 나비가 날아오지 않고 그 자리에 툭 나타난다.
+  //    첫 조회분은 이미 앉아 있는 것으로 치고(-999), 그 뒤에 «새로 보이는» 것만 지금 시각을 준다.
+  const seenAt = useRef(null)
+  const leftInfo = useRef(new Map())   // 사라진 나비가 «어디 있었는지» 기억(날아가는 연출에 필요)
   useEffect(() => {
     if (!programId) return
     let alive = true
-    fetchProgramGarden(programId)
-      .then((g) => { if (alive) setData({ id: programId, ...g }) })
+    Promise.all([fetchProgramGarden(programId), fetchMyGardenCheers(programId).catch(() => [])])
+      .then(([g, mine]) => {
+        if (!alive) return
+        // ⚠️ 「오늘」 판정은 여기(이펙트)에서 한다 — 렌더 중 Date.now() 는 순수하지 않다.
+        const kst = (v) => new Date(new Date(v).getTime() + 9 * 3600000).toISOString().slice(0, 10)
+        const today = kst(Date.now())
+        const sentTodayIds = mine.filter((c) => c.dir === 'out' && kst(c.createdAt) === today).map((c) => c.otherId)
+
+        // 화면에 그릴 나비 목록을 여기서 만든다 — «언제 도착했는지» 를 붙여야 하는데
+        // 그건 이전 조회와 비교해야 알 수 있고, 그 비교는 렌더가 아니라 여기서 할 일이다.
+        const first = seenAt.current === null
+        if (first) seenAt.current = new Map()
+        const seen = seenAt.current
+        const rows = []
+        const sentPending = new Map()
+        mine.forEach((c) => {
+          if (c.dir !== 'out' || c.landedAt) return
+          sentPending.set(c.otherId, (sentPending.get(c.otherId) || 0) + 1)
+          rows.push({ key: c.id, toUser: c.otherId, fromMe: true, wasDormant: c.wasDormant })
+        })
+        g.members.forEach((m) => {
+          const mineCount = sentPending.get(m.userId) || 0
+          for (let k = mineCount; k < (m.pendingCheers || 0); k++) {
+            // 남이 보낸 응원 — 보낸 사람은 모른다(RLS). 마릿수만 맞춘다.
+            rows.push({ key: 'p:' + m.userId + ':' + k, toUser: m.userId, fromMe: false })
+          }
+        })
+        const alive2 = new Set(rows.map((r) => r.key))
+        rows.forEach((r) => {
+          if (!seen.has(r.key)) seen.set(r.key, first ? -999 : bfClock.t + 0.05)
+          r.at = seen.get(r.key)
+        })
+        // ⚠️ «닿아서» 목록에서 빠진 응원은 그냥 지우면 나비가 툭 사라진다 — 날아가는 모습을 보여준다.
+        //    서버는 사라진 사실만 알려주므로, 사라진 걸 붙잡아 두었다가 다 날아간 뒤에 버린다.
+        for (const [k, v] of [...seen.entries()]) {
+          if (alive2.has(k)) continue
+          if (v.gone) { if (bfClock.t - v.gone > BF_FLY + BF_STAY + BF_FADE) { seen.delete(k); continue } }
+          else seen.set(k, { at: v, gone: bfClock.t })
+          const g2 = seen.get(k)
+          const was = leftInfo.current.get(k)
+          rows.push({ key: k, toUser: was ? was.toUser : null, fromMe: was ? was.fromMe : false,
+                      at: g2.at, leaveAt: g2.gone, goTo: was && was.fromMe ? 'me' : null })
+        }
+        rows.forEach((r) => { if (r.toUser) leftInfo.current.set(r.key, { toUser: r.toUser, fromMe: r.fromMe }) })
+
+        setData({ id: programId, ...g, mine, sentTodayIds, rows })
+      })
       .catch((e) => { if (alive) setErr({ id: programId, msg: e.message || String(e) }) })
     return () => { alive = false }
-  }, [programId])
+  }, [programId, tick])
   // 이펙트에서 동기 setState 를 하면 렌더가 연쇄된다 — 대신 «지금 프로그램의 결과인지» 로 걸러 쓴다.
   return {
     garden: programId && data?.id === programId ? data : null,
     gardenErr: programId && err?.id === programId ? err.msg : null,
+    reload: () => setTick((v) => v + 1),
   }
 }
 
@@ -341,7 +395,7 @@ const memberToPart = (m, i) => {
            mood: m.lastVerifiedOn == null ? 'normal'
                  : (Date.now() - new Date(m.lastVerifiedOn + 'T00:00:00+09:00').getTime()) / 86400000 < 1 ? 'joy'
                  : (Date.now() - new Date(m.lastVerifiedOn + 'T00:00:00+09:00').getTime()) / 86400000 < 3 ? 'happy' : 'normal',
-           pt: m.points, streak: m.streak, me: m.isMe, idx: i }
+           pt: m.points, streak: m.streak, me: m.isMe, pending: m.pendingCheers || 0, userId: m.userId, idx: i }
 }
 
 function useMock(n) {
@@ -1688,11 +1742,14 @@ function Scene({ n, selected, onSelect, mood, spKey, gain, hold, live, cheers })
     })
   }, [layout, gain, hold])
   const spOf = (i) => SPECIES[parts[i].sp]
-  // 슬롯별 반경 = 그 단계의 반폭 x 그 꽃의 크기. 내 꽃(meIndex)만 scale 0.95 로 그린다.
+  // ⚠️ 내 꽃도 «단계에 따라» 커져야 한다. 예전엔 0.95 로 고정이라
+  //    새싹인데 남의 만개보다 커 보였고(3배), 내 꽃이 자라도 정원에서는 크기가 안 변했다.
+  //    크기는 «성장»을 뜻하는 자리다 — 내 꽃 표시는 크기가 아니라 노란 링이 맡는다.
+  // 슬롯별 반경 = 그 단계의 반폭 x 그 꽃의 크기.
   // ⚠️ 배치는 «기준 데이터» 로만 계산한다. parts 로 계산하면 물을 한 번 누를 때마다 gain 이 바뀌어
   //    slotR 이 새로 생기고 → useField 가 통째로 다시 돈다(레이캐스팅 + 250회 완화 + 연못 밀어내기).
   //    성능 문제이기도 하지만, 애초에 «누가 물을 줬다고 정원 배치가 다시 섞이면» 안 된다.
-  const slotR = useMemo(() => layout.map((q, i) => SPECIES[q.sp].ext[stageIdx(q.stage)][1] * (i === 0 ? 0.95 : 0.3 + q.stage * 0.12)), [layout])
+  const slotR = useMemo(() => layout.map((q, i) => SPECIES[q.sp].ext[stageIdx(q.stage)][1] * (0.3 + q.stage * 0.12) * (i === 0 ? HERO_BOOST : 1)), [layout])
   const { field, positions, normals, spread, water } = useField(n, slotR)
   const camGarden = useMemo(() => CAM_GARDEN.map((v) => v * spread), [spread])
   const byUrl = useAllTemplates()
@@ -1701,12 +1758,13 @@ function Scene({ n, selected, onSelect, mood, spKey, gain, hold, live, cheers })
     [k, SPECIES[k].urls.map((u, si) => buildMeshes(byUrl[u], SPECIES[k].soil[si], satOf(k)))])), [byUrl])
   const tmplOf = (k, si) => byUrl[SPECIES[k].urls[si]]
   const meIndex = 0
+  const heroScale = parts[meIndex] ? (0.3 + parts[meIndex].stage * 0.12) * HERO_BOOST : 0.375
   const gardenRef = useRef(); const soloRef = useRef(); const controlsRef = useRef(); const soloInner = useRef()
   const selIdx = selected != null ? Math.min(selected, n - 1) : null
   const selPos = selIdx != null ? positions[selIdx] : null
   const sel = selIdx != null ? parts[selIdx] : null
   const mePos = positions[meIndex]
-  const heroSink = mePos ? (soilSink(spOf(meIndex), stageIdx(parts[meIndex].stage)) + tiltResidual(spOf(meIndex), normals[meIndex], stageIdx(parts[meIndex].stage))) * 0.95 : 0
+  const heroSink = mePos ? (soilSink(spOf(meIndex), stageIdx(parts[meIndex].stage)) + tiltResidual(spOf(meIndex), normals[meIndex], stageIdx(parts[meIndex].stage))) * heroScale : 0
   const faceAngle = selPos ? (Math.hypot(selPos[0], selPos[2]) < 0.15 ? 0 : Math.atan2(selPos[0], selPos[2])) : 0
   // 단계 «안» 에서도 연속적으로 자란다 — 물을 줄 때마다 꽃이 실제로 조금 커진다.
   const soloScale = sel
@@ -1771,7 +1829,7 @@ function Scene({ n, selected, onSelect, mood, spKey, gain, hold, live, cheers })
               <DaisyField key={k + si} meshes={meshes} items={groups[k][si]} onSelect={onSelect} soloActive={selIdx != null} />
             )))}
             {mePos && (
-              <group position={[mePos[0], mePos[1] - heroSink, mePos[2]]} quaternion={terrainQuat(normals[meIndex])} scale={0.95} onClick={(e) => { e.stopPropagation(); onSelect(selIdx != null ? null : meIndex) }}
+              <group position={[mePos[0], mePos[1] - heroSink, mePos[2]]} quaternion={terrainQuat(normals[meIndex])} scale={heroScale} onClick={(e) => { e.stopPropagation(); onSelect(selIdx != null ? null : meIndex) }}
                 onPointerOver={() => (document.body.style.cursor = 'pointer')} onPointerOut={() => (document.body.style.cursor = 'auto')}>
                 <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}><ringGeometry args={[0.3, 0.4, 32]} /><meshBasicMaterial color="#FFE58A" transparent opacity={0.7} side={THREE.DoubleSide} /></mesh>
                 <Daisy template={tmplOf(parts[meIndex].sp, stageIdx(parts[meIndex].stage))} opaque={false} soil={spOf(meIndex).soil[stageIdx(parts[meIndex].stage)]} sat={satOf(parts[meIndex].sp)} />
@@ -1825,12 +1883,29 @@ export default function DevGrowthLab() {
   const [sp, setSp] = useSearchParams()
   const programId = sp.get('program') || null
   const progOpts = useMyProgramOptions()
-  const { garden, gardenErr } = useGarden(programId)
+  const { garden, gardenErr, reload } = useGarden(programId)
   const live = useMemo(() => (garden ? garden.members.map(memberToPart) : null), [garden])
+  // 실데이터의 나비 —
+  //   · 남의 꽃: «누가 누구에게» 는 당사자만 볼 수 있으므로(RLS) 마릿수만 받아 익명 나비로 그린다
+  //   · 내 꽃  : get_my_garden_cheers 로 «누가 보냈는지» 까지 안다
+  //   · 내가 보낸 것 중 아직 안 닿은 건 그 사람 꽃에 앉아 있으므로 from 을 나로 표시해 왕복이 보이게 한다
+  const liveCheers = useMemo(() => {
+    if (!live || !garden || !garden.rows) return null
+    const byUser = new Map(live.map((m, i) => [m.id, i]))
+    const meIdx = live.findIndex((m) => m.me)
+    return garden.rows.map((r, i) => ({
+      id: r.key, seed: i + 1, at: r.at, to: byUser.get(r.toUser),
+      from: r.fromMe ? 0 : undefined, wasDormant: r.wasDormant,
+      leaveAt: r.leaveAt,
+      // 내가 보낸 응원이 닿았으면 «내 꽃» 으로 돌아간다
+      goTo: r.goTo === 'me' && meIdx >= 0 ? meIdx : undefined,
+    })).filter((c) => c.to != null)
+  }, [live, garden])
   const [n, setN] = useState(50)
   const [selected, setSelected] = useState(null)
   const [sentToday, setSentToday] = useState([])           // 오늘 응원을 보낸 상대(참여자 index)
   const [returned, setReturned] = useState(0)              // 방금 «내 응원이 닿아» 받은 점수(잠깐 표시)
+  const [sendErr, setSendErr] = useState(null)             // 보내기 실패 사유(DB 가 준 문장)
   const [spKey, setSpKey] = useState('mix')
   const [gain, setGain] = useState({})               // {참여자 index: 얻은 포인트}
   const [cheers, setCheers] = useState([])          // 개발용 — 실제로는 남이 보낸 응원이 내려온다
@@ -1849,7 +1924,8 @@ export default function DevGrowthLab() {
 
   // ⚠️ 아래는 전부 selIdx / base 에 기대므로 «그 선언 뒤» 에 있어야 한다.
   //    const 는 호이스팅돼도 선언 전 구간은 TDZ 라 읽는 순간 던진다("Cannot access ... before initialization").
-  const myCheers = cheers.filter((c) => c.to === selIdx && c.leaveAt == null).length
+  const shownCheers = liveCheers || cheers          // 실데이터가 있으면 그것, 없으면 목데이터
+  const myCheers = shownCheers.filter((c) => c.to === selIdx && c.leaveAt == null).length
   // 지금 붙어 있는 나비 보너스(다음 인증 때 한 번에 반영, 상한 있음)
   const cheerBonus = Math.min(CHEER_PT_MAX, myCheers * CHEER_PT)
   // 응원은 «받은 사람» 것만 날려보낸다. 정원에도 같은 기록이 그려지므로 거기서도 함께 날아간다.
@@ -1857,13 +1933,28 @@ export default function DevGrowthLab() {
   //   내 꽃  : 내가 키운다(인증 → 물). 받은 응원이 여기 앉아 있다.
   //   남의 꽃: 내가 할 수 있는 건 «응원 보내기» 하나뿐이다.
   const isMine = live ? !!(base && base.me) : selIdx === 0
-  const sentAll = sentToday.length >= CHEER_DAILY
-  const sentToThis = selIdx != null && sentToday.includes(selIdx)
+  // ⚠️ 실데이터에선 «오늘 누구에게 보냈나» 도 서버가 진실이다. 클라 state 만 보면
+  //    새로고침 뒤 버튼이 열려 보이고, 눌러야 DB 가 거절한다(뒤늦은 실패는 나쁜 UI다).
+  const sentIdx = useMemo(() => {
+    if (!live || !garden) return sentToday
+    const byUser = new Map(live.map((m, i) => [m.id, i]))
+    return (garden.sentTodayIds || []).map((uid) => byUser.get(uid)).filter((v) => v != null)
+  }, [live, garden, sentToday])
+  const sentAll = sentIdx.length >= CHEER_DAILY
+  const sentToThis = selIdx != null && sentIdx.includes(selIdx)
   const canSend = !isMine && !sentAll && !sentToThis
   const sendCheer = () => {
     if (!canSend) return
     primeAudio()
-    // «보낼 때» 의 상태를 박아둔다. 닿는 건 나중이라 그때 다시 재면 이미 인증해서 안 휴면이다.
+    if (live) {
+      // 실데이터 — 한도·자격·휴면 판정은 전부 DB 가 한다(250). 실패하면 그 문장을 그대로 보여준다.
+      setSendErr(null)
+      sendGardenCheer(programId, base.id)
+        .then(() => { setSentToday((a) => [...a, selIdx]); reload() })
+        .catch((e) => setSendErr(e.message || String(e)))
+      return
+    }
+    // 목데이터 — «보낼 때» 의 상태를 박아둔다(닿는 건 나중이라 그때 재면 이미 휴면이 아니다)
     const dormant = base ? base.mood === 'normal' : false
     setCheers((c) => [...c, { id: Date.now(), seed: c.length + 1, at: bfClock.t + 0.05, to: selIdx, from: 0, wasDormant: dormant }])
     setSentToday((a) => [...a, selIdx])
@@ -1954,7 +2045,7 @@ export default function DevGrowthLab() {
         <div className="absolute inset-0 pointer-events-none z-[5] transition-opacity duration-700"
           style={{ opacity: sunSky ? 1 : 0, background: 'radial-gradient(120% 70% at 50% -10%, rgba(255,214,120,0.55), rgba(255,236,175,0.18) 45%, transparent 70%)' }} />
         <Suspense fallback={<div className="absolute inset-0 grid place-items-center text-emerald-700/50 text-sm">불러오는 중…</div>}>
-          <Scene cheers={cheers} key={spKey + (programId || '')} n={live ? live.length : n} selected={selected} onSelect={setSelected} mood={mood} spKey={spKey} gain={gain} hold={hold} live={live} />
+          <Scene cheers={shownCheers} key={spKey + (programId || '')} n={live ? live.length : n} selected={selected} onSelect={setSelected} mood={mood} spKey={spKey} gain={gain} hold={hold} live={live} />
         </Suspense>
         {sel && (
           <>
@@ -1974,18 +2065,18 @@ export default function DevGrowthLab() {
                 )}
                 {/* 「받기」는 «내 꽃» 에서만 — 남의 꽃에서 누르면 내가 꾸며 넣은 가짜 발신자에게
                     나비가 돌아가서, 엉뚱한 식물에서 나비가 오가는 것처럼 보인다. */}
-                {isMine && (
+                {isMine && !live && (
                   <button type="button" aria-label="응원 나비 받기"
                     onClick={() => setCheers((c) => [...c, { id: Date.now(), seed: c.length + 1, at: bfClock.t + 0.05, to: selIdx, from: 1, wasDormant: false }])}
                     className="w-11 h-11 rounded-full bg-white/90 shadow-lg flex items-center justify-center text-pink-500 active:scale-90 transition">
                     <ButterflyIcon className="w-[22px] h-[22px]" />
                   </button>
                 )}
-                <button type="button" aria-label="나비 날려보내기" onClick={sendAway}
+                {!live && <button type="button" aria-label="나비 날려보내기" onClick={sendAway}
                   className="w-11 h-11 rounded-full bg-white/90 shadow-lg flex items-center justify-center text-sky-500 active:scale-90 transition disabled:opacity-40"
                   disabled={myCheers === 0}>
                   <Wind className="w-[22px] h-[22px]" />
-                </button>
+                </button>}
               </div>
             <div className="bg-white rounded-3xl p-4 shadow-xl">
               <div className="flex items-center justify-between mb-2">
@@ -2038,12 +2129,20 @@ export default function DevGrowthLab() {
                       <span className={`block text-[11px] ${canSend ? 'text-white/85' : 'text-gray-400'}`}>
                         {sentToThis ? '내일 다시 보낼 수 있어요'
                           : sentAll ? '내일 다시 3마리를 보낼 수 있어요'
-                          : `${sel.nickname}님의 꽃에 나비가 앉아요 · 오늘 ${CHEER_DAILY - sentToday.length}마리 남음`}
+                          : `${sel.nickname}님의 꽃에 나비가 앉아요 · 오늘 ${CHEER_DAILY - sentIdx.length}마리 남음`}
                       </span>
                     </span>
                   </button>
+                  {sendErr && (
+                    <p className="text-[11px] font-bold text-rose-500 mt-2">{sendErr}</p>
+                  )}
                   {!canSend && (
-                    <button type="button" onClick={() => setSentToday([])}
+                    <button type="button"
+                      onClick={() => {
+                        // 실데이터에선 서버가 진실이라 클라 상태를 지워봐야 소용없다 — DB 에서 지운다.
+                        if (live) { setSendErr(null); devClearMyGardenCheers(programId).then(reload).catch((e) => setSendErr(e.message || String(e))) }
+                        else setSentToday([])
+                      }}
                       className="mt-2 w-full text-[11px] font-bold text-pink-400 underline py-1">
                       개발용 · 오늘 보낸 기록 지우기 (다시 보내보기)
                     </button>
@@ -2053,11 +2152,17 @@ export default function DevGrowthLab() {
                     {sentToThis && ' 응원이 닿으면 나비가 내 꽃으로 돌아와요.'}
                   </p>
                   {/* 개발용 — 실제로는 그 사람이 자기 폰에서 인증한다. 여기선 «닿는» 순간을 눌러서 본다. */}
-                  <button type="button" onClick={() => landCheers(selIdx)}
-                    className="mt-2 w-full text-[11px] font-bold text-gray-400 underline py-1">
-                    개발용 · {sel.nickname}님이 인증했다고 치기
-                    <span className="block font-normal text-gray-300 mt-0.5">나비가 «보낸 사람» 꽃으로 돌아갑니다</span>
-                  </button>
+                  {live ? (
+                    <p className="text-[11px] text-gray-300 mt-2 text-center">
+                      실데이터 — {sel.nickname}님이 실제로 인증하면 나비가 닿습니다
+                    </p>
+                  ) : (
+                    <button type="button" onClick={() => landCheers(selIdx)}
+                      className="mt-2 w-full text-[11px] font-bold text-gray-400 underline py-1">
+                      개발용 · {sel.nickname}님이 인증했다고 치기
+                      <span className="block font-normal text-gray-300 mt-0.5">나비가 «보낸 사람» 꽃으로 돌아갑니다</span>
+                    </button>
+                  )}
                 </>
               )}
             </div>
@@ -2080,7 +2185,13 @@ export default function DevGrowthLab() {
                 {progOpts.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
               </select>
               {live && <span className="text-[11px] font-extrabold text-emerald-600 shrink-0">리듬 {garden.paceGap}일</span>}
-              {cheers.length > 0 && <span className="text-[11px] font-extrabold text-pink-500 shrink-0">🦋 {cheers.filter((c) => c.leaveAt == null).length}</span>}
+              {shownCheers.length > 0 && <span className="text-[11px] font-extrabold text-pink-500 shrink-0">🦋 {shownCheers.filter((c) => c.leaveAt == null).length}</span>}
+              {live && (
+                // ⚠️ 남이 인증한 건 실시간으로 안 내려온다 — 지금은 «진입할 때» 와 «보낸 직후» 에만 읽는다.
+                //    눌러서 다시 읽으면, 그 사이 닿은 나비가 «날아가는 모습» 으로 사라진다.
+                <button type="button" onClick={reload}
+                  className="text-[11px] font-extrabold text-emerald-600 shrink-0 underline">다시 읽기</button>
+              )}
               {gardenErr && <span className="text-[11px] font-extrabold text-rose-500 shrink-0">오류</span>}
             </div>
             {!live && (
