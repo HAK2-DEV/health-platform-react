@@ -1099,19 +1099,43 @@ function findPerchSpots(template, bury, yaw, soil) {
 //   · 받은 사람 꽃 «근처» 를 돈다. 섬 전체를 떠돌면 누구에게 온 응원인지 안 보인다.
 //   · 받은 사람이 인증하면 응원이 소비되고(leaveAt) 여기서도 날아가 사라진다.
 const GB_SCALE = 0.55        // 정원 꽃 배율(0.3~0.78)에 맞춘 크기
-const GB_MAX = 24            // 정원에 동시에 그리는 상한 — 프로그램이 커도 정원이 멎지 않게
+const GB_MAX = 10            // 정원에 동시에 그리는 상한
+// ⚠️ 앞에서부터 10개를 자르면 «한 사람에게 온 10마리» 만 보이기 쉽다.
+//    정원이 전할 말은 «여러 사람이 응원받고 있다» 이므로 받는 사람을 먼저 한 바퀴 돌린다.
+//    (떠나는 중인 나비는 날아가는 모습을 끝까지 보여줘야 하므로 무조건 남긴다)
+function pickGardenCheers(cheers) {
+  const leaving = cheers.filter((c) => c.leaveAt != null)
+  const byUser = new Map()
+  for (const c of cheers) {
+    if (c.leaveAt != null) continue
+    if (!byUser.has(c.to)) byUser.set(c.to, [])
+    byUser.get(c.to).push(c)
+  }
+  const lanes = [...byUser.values()]
+  const out = []
+  for (let round = 0; out.length < GB_MAX; round++) {
+    let added = false
+    for (const lane of lanes) {
+      if (round >= lane.length) continue
+      out.push(lane[round]); added = true
+      if (out.length >= GB_MAX) break
+    }
+    if (!added) break
+  }
+  return [...leaving, ...out]
+}
 // ⚠️ 정원 꽃은 최대 배율 0.78, 모델 높이 ~0.9 → 꼭대기가 약 0.70 이다.
 //    나비는 그 «위» 를 날아야 옆 꽃을 안 뚫는다. 꽃마다 일일이 피하는 것보다 훨씬 싸고 확실하다.
-const GB_YMIN = 0.76         // 이 아래로는 안 내려간다(정원 꽃 꼭대기보다 위)
+const GB_YMIN = 0.58         // 이 아래로는 안 내려간다(정원 꽃 꼭대기 바로 위)
 function GardenButterflies({ cheers, positions }) {
-  return cheers.slice(0, GB_MAX).map((c, i) => {
+  return cheers.map((c, i) => {
     const p = positions[c.to] || positions[0]
     if (!p) return null
     return (
       <group key={c.id} position={p}>
         <Butterfly seed={c.seed} color={BF_COLORS[c.seed % BF_COLORS.length]}
           arriveAt={c.at} leaveAt={c.leaveAt} scale={GB_SCALE} fadeable
-          orbit={{ r: 0.17 + (i % 3) * 0.06, y: GB_YMIN + 0.14 + (i % 3) * 0.09,
+          orbit={{ r: 0.17 + (i % 3) * 0.06, y: GB_YMIN + 0.09 + (i % 3) * 0.07,
                    ya: 0.42, ymin: GB_YMIN,
                    w: (i % 2 ? 1 : -1) * (0.5 + (i % 3) * 0.12), ph: i * 2.399963, amp: 0.8 }} />
       </group>
@@ -1603,7 +1627,9 @@ function Scene({ n, selected, onSelect, mood, spKey, gain, hold, live, cheers })
               </group>
             )}
             {/* 정원 나비 — gardenRef 안에 둬야 단독 뷰로 들어갈 때 정원과 함께 사라진다 */}
-            <GardenButterflies cheers={(cheers || []).filter((c) => c.leaveAt == null)} positions={positions} />
+            {/* leaveAt 이 붙은 것도 넘긴다 — 걸러내면 «날아가는» 게 아니라 그냥 사라진다.
+                다 날아간 뒤 cheers 목록에서 빠지면서 자연히 없어진다. */}
+            <GardenButterflies cheers={pickGardenCheers(cheers || [])} positions={positions} />
           </group>
           {/* ⚠️ 단독 식물도 Float «안» 이어야 한다. 밖에 두면 땅만 위아래로 떠다녀서
               가만히 있어도 밑동과 젖은 자국이 지면에 잠겼다 나왔다 한다. */}
@@ -1811,6 +1837,7 @@ export default function DevGrowthLab() {
                 {progOpts.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
               </select>
               {live && <span className="text-[11px] font-extrabold text-emerald-600 shrink-0">리듬 {garden.paceGap}일</span>}
+              {cheers.length > 0 && <span className="text-[11px] font-extrabold text-pink-500 shrink-0">🦋 {cheers.filter((c) => c.leaveAt == null).length}</span>}
               {gardenErr && <span className="text-[11px] font-extrabold text-rose-500 shrink-0">오류</span>}
             </div>
             {!live && (
