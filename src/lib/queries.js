@@ -3891,3 +3891,25 @@ export const fetchDietChangeData = async ({ programId, userId, startDate }) => {
   const startWeight = weight.find((w) => w.weight != null)?.weight ?? null
   return { weight, adherence: prog.adherence, nutrition: prog.nutrition, goalKcal, goalWeight, startWeight }
 }
+
+// 성장 탭(3D 정원) 실데이터 — 참여자 전원의 성장 상태 + 프로그램 리듬 G.
+//   program_participants 는 RLS 로 본인 row 만 보이므로 집계 RPC 로만 읽는다.
+//   ⚠️ 아직 참여자에게 노출하지 않는 개발 단계 기능(/dev/growth 전용).
+export const fetchProgramGarden = async (programId) => {
+  const { data, error } = await supabase.rpc('get_program_garden', { p_program_id: programId })
+  if (error) throw error
+  const rows = data || []
+  return {
+    paceGap: rows[0]?.pace_gap ?? 2,      // 모든 행에 같은 값이 실려 온다
+    members: rows.map((r) => ({
+      userId: r.user_id,
+      nickname: r.nickname,
+      avatarPath: r.avatar_path,
+      verifyDays: r.verify_days,
+      points: r.growth_points,
+      streak: r.pace_streak,
+      lastVerifiedOn: r.last_verified_on,
+      isMe: r.is_me,
+    })),
+  }
+}

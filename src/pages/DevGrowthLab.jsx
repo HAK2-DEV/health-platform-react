@@ -2,6 +2,9 @@ import { useState, useMemo, useRef, useEffect, Suspense } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, X } from 'lucide-react'
 import { playSuccessChime, primeAudio } from '../lib/sound'
+import { fetchProgramGarden, fetchMyPrograms, fetchActivePrograms } from '../lib/queries'
+import { useAuth } from '../hooks/useAuth'
+import { useSearchParams } from 'react-router-dom'
 import { Canvas, useThree, useFrame } from '@react-three/fiber'
 import { OrbitControls, Float, Merged, Decal, useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
@@ -126,6 +129,7 @@ const SPECIES = {
     },
   },
   rose: {
+    sat: 1.18,         // 빨강이 원본부터 진하다 — 전체(1.45)를 그대로 먹이면 형광처럼 뜬다
     tint: '#E4566E',   // 레벨업 때 흩날리는 조각 색
     label: '장미',
     fillH: 0.50,
@@ -243,6 +247,10 @@ const playFx = (kind, power = 1, tint) => {
 // 레벨업 타이밍. 애니메이션의 기본은 «웅크림 → 터짐 → 여운» 이다.
 // 웅크림 없이 바로 터지면 «파티클을 뿌렸다» 로만 보인다.
 const LV_ANTI = 0.15     // 웅크리는 시간(초)
+// 레벨업은 물·햇빛 연출이 «완전히 끝난 뒤» 한 박자 쉬고 터진다.
+// 겹치면 두 연출이 서로를 잡아먹어 무슨 일이 일어난 건지 안 읽힌다 —
+// 물을 다 주고, 잠깐 잠잠해지고, 그제서야 변신하는 편이 인과가 분명하다.
+const LV_DELAY = 0.55    // 연출이 끝나고 기다리는 시간(초)
 // ⚠️ 물의 «붓는 시간» 과 «한 방울이 떨어지는 시간» 은 따로 둔다.
 //    한 덩어리로 두면 연출을 늘렸을 때 방울까지 슬로모션이 된다. 낙하는 늘 0.8초, 나머지는 붓는 구간.
 const FX_FALL = 0.8
@@ -254,6 +262,65 @@ const waterHit = () => Math.max(0, Math.min(1, (fxU.t - FX_FALL) / Math.max(0.00
 const SOLO_SCALE = [0.72, 0.83, 0.94, 1.05, 1.16]
 
 const stageIdx = (s) => Math.min(4, Math.max(0, s))       // stage 0~4 → 모델 0~4(s1~s5) 1:1
+
+// 실데이터 — «?program=<uuid>» 가 있을 때만 쓴다.
+//   ⚠️ 이 화면은 아직 참여자에게 노출하지 않는다. 주소에 프로그램을 명시했을 때만 실데이터가 붙고,
+//      평소(/dev/growth) 에는 목데이터로 돈다. 정식 장착 전까지 이 조건을 풀지 말 것.
+// 개발용 프로그램 선택 목록 — 내가 «운영하는» 것 + «참여 중인» 것.
+// 둘 다 RPC 의 인가 게이트(_can_view_program)를 통과하는 범위라 고를 수 있는 것만 보여준다.
+function useMyProgramOptions() {
+  const { session } = useAuth()
+  const uid = session?.user?.id
+  const [opts, setOpts] = useState([])
+  useEffect(() => {
+    if (!uid) return
+    let alive = true
+    Promise.all([fetchMyPrograms(uid).catch(() => []), fetchActivePrograms(uid).catch(() => [])])
+      .then(([mine, joined]) => {
+        if (!alive) return
+        const seen = new Map()
+        ;[...mine, ...joined].forEach((p) => { if (p?.id && !seen.has(p.id)) seen.set(p.id, { id: p.id, name: p.name || p.title || '(이름 없음)' }) })
+        setOpts([...seen.values()])
+      })
+    return () => { alive = false }
+  }, [uid])
+  return opts
+}
+
+function useGarden(programId) {
+  const [data, setData] = useState(null)
+  const [err, setErr] = useState(null)
+  useEffect(() => {
+    if (!programId) return
+    let alive = true
+    fetchProgramGarden(programId)
+      .then((g) => { if (alive) setData({ id: programId, ...g }) })
+      .catch((e) => { if (alive) setErr({ id: programId, msg: e.message || String(e) }) })
+    return () => { alive = false }
+  }, [programId])
+  // 이펙트에서 동기 setState 를 하면 렌더가 연쇄된다 — 대신 «지금 프로그램의 결과인지» 로 걸러 쓴다.
+  return {
+    garden: programId && data?.id === programId ? data : null,
+    gardenErr: programId && err?.id === programId ? err.msg : null,
+  }
+}
+
+// 참여자 → 꽃 한 송이. 종은 아직 참여자가 고르지 않으므로 user_id 로 «고정 배정» 한다
+// (같은 사람은 늘 같은 꽃). 나중에 선택 기능이 생기면 그 값으로 대체.
+const speciesFor = (uid) => {
+  let h = 0
+  for (let i = 0; i < uid.length; i++) h = (h * 31 + uid.charCodeAt(i)) >>> 0
+  return SPECIES_KEYS[h % SPECIES_KEYS.length]
+}
+const memberToPart = (m, i) => {
+  const st = stageOf(m.points)
+  return { id: m.userId, nickname: m.nickname, stage: st, sp: speciesFor(m.userId),
+           // 표정은 «마지막 인증 이후 경과» 로 정한다 — 오늘 했으면 기쁨, 사흘 넘으면 보통.
+           mood: m.lastVerifiedOn == null ? 'normal'
+                 : (Date.now() - new Date(m.lastVerifiedOn + 'T00:00:00+09:00').getTime()) / 86400000 < 1 ? 'joy'
+                 : (Date.now() - new Date(m.lastVerifiedOn + 'T00:00:00+09:00').getTime()) / 86400000 < 3 ? 'happy' : 'normal',
+           pt: m.points, streak: m.streak, me: m.isMe, idx: i }
+}
 
 function useMock(n) {
   return useMemo(() => {
@@ -354,12 +421,15 @@ const WIND_SPEED = 1.15
 // dithering_fragment 는 basic/standard 재질 모두의 **마지막** include 라, 여기서 하면
 // 톤매핑·색공간 변환까지 끝난 최종 색에 적용된다(= 눈에 보이는 그대로의 채도).
 const SAT = 1.45
+// 종에 따라 원본 텍스처 자체가 이미 진한 경우가 있다(장미의 빨강). 전체를 낮추면 다른 종이 칙칙해지므로
+// 그 종만 따로 낮춘다. SPECIES[k].sat 이 없으면 SAT 을 쓴다.
+const satOf = (k) => (k && SPECIES[k] && SPECIES[k].sat != null ? SPECIES[k].sat : SAT)
 // 밝기는 곱하지 말고 감마(<1)로 들어올린다. 곱하면 밝은 데가 먼저 1.0 에 붙어 하얗게 뭉개지는데,
 // 감마는 1.0 을 1.0 에 그대로 두고 중간톤만 끌어올려서 흰 꽃잎의 음영이 살아남는다.
 const FX_GAMMA = 0.86
 // ⚠️ onBeforeCompile 은 재질당 하나뿐이다. 바람과 채도를 각각 걸면 나중 것이 앞의 것을 지운다 —
 //    그래서 한 함수에서 같이 처리한다. wind 를 안 넘기면 채도만 적용.
-function applyFx(mat, wind) {
+function applyFx(mat, wind, sat = SAT) {
   if (!mat || mat.userData.fx) return mat
   mat.userData.fx = true
   const base = wind ? wind.base : 0, amp = wind ? wind.amp : 0
@@ -368,7 +438,7 @@ function applyFx(mat, wind) {
     sh.fragmentShader = 'uniform float uWarm;' + String.fromCharCode(10) + sh.fragmentShader.replace('#include <dithering_fragment>', `#include <dithering_fragment>
       {
         float fxL = dot(gl_FragColor.rgb, vec3(0.2126, 0.7152, 0.0722));
-        vec3 fxC = mix(vec3(fxL), gl_FragColor.rgb, ${SAT.toFixed(2)});
+        vec3 fxC = mix(vec3(fxL), gl_FragColor.rgb, ${sat.toFixed(2)});
         fxC = clamp(pow(max(fxC, 0.0), vec3(${FX_GAMMA.toFixed(2)})), 0.0, 1.0);
         // 햇빛 — 노랗게 물들이고 살짝 들어올린다. 알갱이보다 이게 «쬐는» 느낌을 만든다.
         gl_FragColor.rgb = clamp(mix(fxC, fxC * vec3(1.12, 1.04, 0.86) + vec3(0.05, 0.035, 0.0), uWarm), 0.0, 1.0);
@@ -393,20 +463,20 @@ function applyFx(mat, wind) {
       transformed.x += sin(uTime * 13.0 + wPh * 3.1) * wJ;
       transformed.z += cos(uTime * 11.0 + wPh * 2.3) * wJ * 0.8;`)
   }
-  mat.customProgramCacheKey = () => 'fx' + SAT + '_' + FX_GAMMA + '_' + base.toFixed(4) + '_' + amp.toFixed(5)
+  mat.customProgramCacheKey = () => 'fx' + sat + '_' + FX_GAMMA + '_' + base.toFixed(4) + '_' + amp.toFixed(5)
   mat.needsUpdate = true
   return mat
 }
-const applyWind = (mat, base, amp = WIND_AMP) => applyFx(mat, { base, amp })
+const applyWind = (mat, base, amp = WIND_AMP, sat = SAT) => applyFx(mat, { base, amp }, sat)
 
 // 서브메시 월드변환 베이크 → Merged 인스턴싱용 mesh 맵
-function buildMeshes(template, soil) {
+function buildMeshes(template, soil, sat) {
   template.updateMatrixWorld(true)
   const out = {}; let i = 0
   template.traverse((o) => {
     if (o.isMesh) {
       const g = o.geometry.clone(); g.applyMatrix4(o.matrixWorld)
-      const m = applyWind(o.material.clone(), soil)   // 베이크했으므로 로컬 = 정규화
+      const m = applyWind(o.material.clone(), soil, WIND_AMP, sat)   // 베이크했으므로 로컬 = 정규화
       m.transparent = true
       out['p' + (i++)] = new THREE.Mesh(g, m)
     }
@@ -675,14 +745,14 @@ const FACE_PARAMS = Object.fromEntries(SPECIES_KEYS.map((k) =>
 const FACE_BOX = typeof location !== 'undefined' && location.search.includes('facebox')  // ?facebox=1 → 데칼 상자 표시
 
 // 단독 데이지 + 표정 데칼 — 표정이 표면에 직접 투영돼 '딱 박힘'. 회전해도 표면 따라감.
-function SoloDaisyFace({ template, face, soil, mood }) {
+function SoloDaisyFace({ template, face, soil, mood, sat }) {
   const tex = faceTexture(mood)
   const { geo, mat } = useMemo(() => {
     let g = null, m = null
     template.updateMatrixWorld(true)
     template.traverse((o) => { if (o.isMesh && !g) { g = o.geometry.clone(); g.applyMatrix4(o.matrixWorld); m = o.material.clone(); m.transparent = false } })
-    return { geo: g, mat: applyWind(m, soil) }
-  }, [template, soil])
+    return { geo: g, mat: applyWind(m, soil, WIND_AMP, sat) }
+  }, [template, soil, sat])
   // ⚠️ 데칼 재질에도 같은 바람을 먹여야 한다. 본체만 흔들면 표정이 제자리에 남아 떨어져 보인다.
   const decalMat = useMemo(() => applyWind(new THREE.MeshBasicMaterial({
     transparent: true, polygonOffset: true, polygonOffsetFactor: -3, depthWrite: false, toneMapped: false,
@@ -699,7 +769,7 @@ function SoloDaisyFace({ template, face, soil, mood }) {
 }
 
 // 단독/hero 데이지 — 복제마다 자기 재질. opaque=단독(불투명).
-function Daisy({ template, opaque, soil }) {
+function Daisy({ template, opaque, soil, sat }) {
   const obj = useMemo(() => {
     const c = template.clone(true)
     c.traverse((o) => {
@@ -708,10 +778,10 @@ function Daisy({ template, opaque, soil }) {
       // 이 메시는 원본 로컬 좌표라 높이가 1이 아니다 — 바람 상수를 로컬 단위로 환산한다.
       o.geometry.computeBoundingBox()
       const H = Math.max(1e-4, o.geometry.boundingBox.max.y - o.geometry.boundingBox.min.y)
-      applyWind(o.material, soil * H, WIND_AMP / H)
+      applyWind(o.material, soil * H, WIND_AMP / H, sat)
     })
     return c
-  }, [template, opaque, soil])
+  }, [template, opaque, soil, sat])
   return <primitive object={obj} />
 }
 
@@ -1062,16 +1132,17 @@ function Rig({ selectedPos, gardenRef, soloRef, controlsRef, camGarden, soloScal
   return null
 }
 
-function Scene({ n, selected, onSelect, mood, spKey, gain, hold }) {
+function Scene({ n, selected, onSelect, mood, spKey, gain, hold, live }) {
   // spKey === 'mix' 면 참여자마다 제 종을 쓴다. 아니면 전부 그 종으로 덮어쓴다.
-  const parts0 = useMock(n)
+  const mock = useMock(n)
+  const parts0 = live || mock          // live 가 있으면 실데이터, 없으면 목데이터
   // 배치 계산의 «입력» 은 물을 줘도 안 변해야 한다(아래 slotR 참고).
   const layout = useMemo(() => (spKey === 'mix' ? parts0 : parts0.map((q) => ({ ...q, sp: spKey }))), [parts0, spKey])
   const parts = useMemo(() => {
     const base = layout
     // 물·햇빛으로 얻은 포인트만큼 단계 + 그 단계 «안» 의 진행률까지 계산(개발용 · 실데이터 붙이면 서버 값)
     return base.map((q, i) => {
-      const pt = STAGE_PT[q.stage] + ((gain && gain[i]) || 0)
+      const pt = (q.pt != null ? q.pt : STAGE_PT[q.stage]) + ((gain && gain[i]) || 0)
       // ⚠️ 레벨업이 예약돼 있으면 «지금 단계» 에 붙들어 둔다.
       //    안 그러면 누르는 즉시 다음 단계 모델로 바뀌고 축하는 1.8초 뒤에 나온다 — 순서가 거꾸로다.
       //    붙들어 두면 그 단계 끝까지 자라 대기하다가, 터지는 순간 변신한다.
@@ -1091,7 +1162,7 @@ function Scene({ n, selected, onSelect, mood, spKey, gain, hold }) {
   const byUrl = useAllTemplates()
   // 종 x 단계 별 인스턴싱 메시. 종이 섞여도 같은 종·단계끼리는 한 번에 그린다.
   const meshSets = useMemo(() => Object.fromEntries(SPECIES_KEYS.map((k) =>
-    [k, SPECIES[k].urls.map((u, si) => buildMeshes(byUrl[u], SPECIES[k].soil[si]))])), [byUrl])
+    [k, SPECIES[k].urls.map((u, si) => buildMeshes(byUrl[u], SPECIES[k].soil[si], satOf(k)))])), [byUrl])
   const tmplOf = (k, si) => byUrl[SPECIES[k].urls[si]]
   const meIndex = 0
   const gardenRef = useRef(); const soloRef = useRef(); const controlsRef = useRef(); const soloInner = useRef()
@@ -1167,7 +1238,7 @@ function Scene({ n, selected, onSelect, mood, spKey, gain, hold }) {
               <group position={[mePos[0], mePos[1] - heroSink, mePos[2]]} quaternion={terrainQuat(normals[meIndex])} scale={0.95} onClick={(e) => { e.stopPropagation(); onSelect(selIdx != null ? null : meIndex) }}
                 onPointerOver={() => (document.body.style.cursor = 'pointer')} onPointerOut={() => (document.body.style.cursor = 'auto')}>
                 <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}><ringGeometry args={[0.3, 0.4, 32]} /><meshBasicMaterial color="#FFE58A" transparent opacity={0.7} side={THREE.DoubleSide} /></mesh>
-                <Daisy template={tmplOf(parts[meIndex].sp, stageIdx(parts[meIndex].stage))} opaque={false} soil={spOf(meIndex).soil[stageIdx(parts[meIndex].stage)]} />
+                <Daisy template={tmplOf(parts[meIndex].sp, stageIdx(parts[meIndex].stage))} opaque={false} soil={spOf(meIndex).soil[stageIdx(parts[meIndex].stage)]} sat={satOf(parts[meIndex].sp)} />
               </group>
             )}
           </group>
@@ -1182,8 +1253,8 @@ function Scene({ n, selected, onSelect, mood, spKey, gain, hold }) {
             {sel && soloSlots.map(({ si, warm }) => (
               <group key={sel.sp + ':' + si} scale={warm ? 0.001 : 1}>
                 {FACE_PARAMS[sel.sp][si]
-                  ? <SoloDaisyFace template={tmplOf(sel.sp, si)} face={FACE_PARAMS[sel.sp][si]} soil={selSp.soil[si]} mood={mood} />
-                  : <Daisy template={tmplOf(sel.sp, si)} opaque soil={selSp.soil[si]} />}
+                  ? <SoloDaisyFace template={tmplOf(sel.sp, si)} face={FACE_PARAMS[sel.sp][si]} soil={selSp.soil[si]} mood={mood} sat={satOf(sel.sp)} />
+                  : <Daisy template={tmplOf(sel.sp, si)} opaque soil={selSp.soil[si]} sat={satOf(sel.sp)} />}
               </group>
             ))}
           </group>
@@ -1204,20 +1275,26 @@ function Scene({ n, selected, onSelect, mood, spKey, gain, hold }) {
 
 export default function DevGrowthLab() {
   const navigate = useNavigate()
+  const [sp, setSp] = useSearchParams()
+  const programId = sp.get('program') || null
+  const progOpts = useMyProgramOptions()
+  const { garden, gardenErr } = useGarden(programId)
+  const live = useMemo(() => (garden ? garden.members.map(memberToPart) : null), [garden])
   const [n, setN] = useState(50)
   const [selected, setSelected] = useState(null)
   const [moodOverride, setMoodOverride] = useState(null)   // dev: 상태별 표정 미리보기
   const [spKey, setSpKey] = useState('mix')
   const [gain, setGain] = useState({})               // {참여자 index: 얻은 포인트}
   const [hold, setHold] = useState(null)          // 레벨업 연출 전까지 단계를 붙들어 둠 {idx, stage}
-  const [streak, setStreak] = useState(0)           // 개발용 연속 — 실데이터에선 «프로그램 리듬 G» 로 판정한다
-  const mult = multOf(streak)
+  const [streak, setStreak] = useState(0)           // 개발용 연속 — 실데이터가 있으면 서버 값을 쓴다
   const parts0 = useMock(n)
-  const selIdx = selected != null ? Math.min(selected, n - 1) : null
-  const base = selIdx != null ? parts0[selIdx] : null
-  const pt = base ? STAGE_PT[base.stage] + (gain[selIdx] || 0) : 0
+  const rows = live || parts0
+  const selIdx = selected != null ? Math.min(selected, rows.length - 1) : null
+  const base = selIdx != null ? rows[selIdx] : null
+  const pt = base ? (base.pt != null ? base.pt : STAGE_PT[base.stage]) + (gain[selIdx] || 0) : 0
   const stage = base ? Math.min(stageOf(pt), hold && hold.idx === selIdx ? hold.stage : 4) : 0
   const pct = base ? (stageOf(pt) > stage ? 100 : pctOf(pt)) : 0
+  const mult = multOf(live && base ? base.streak : streak)   // ⚠️ base 선언 뒤여야 한다(TDZ)
   const sel = base ? { ...base, stage } : null
   const [sunSky, setSunSky] = useState(false)      // 햇빛일 때 하늘도 같이 따뜻해진다
   const [moodFx, setMoodFx] = useState(null)          // 물·햇빛 반응 표정(개발용 미리보기보다 우선)
@@ -1240,7 +1317,7 @@ export default function DevGrowthLab() {
     setMoodFx('happy')
     if (kind === 'sun') { setSunSky(true); T(() => setSunSky(false), FX_DUR.sun * 1000) }
     if (up) {
-      const at = FX_DUR[kind] * 600
+      const at = (FX_DUR[kind] + LV_DELAY) * 1000     // 60% 지점이 아니라 «끝나고 한 박자» 뒤
       setHold({ idx: selIdx, stage })                       // 그 단계 끝까지 자라서 대기
       T(() => { playFx('level', 1, SPECIES[base.sp].tint); setMoodFx('joy'); playSuccessChime() }, at)
       T(() => setHold(null), at + LV_ANTI * 1000 + 60)      // 웅크렸다 «튀어오르는 그 순간» 변신
@@ -1262,7 +1339,9 @@ export default function DevGrowthLab() {
               {k === 'mix' ? '섞기' : SPECIES[k].label}
             </button>
           ))}
-          <span className="text-[10px] font-bold text-emerald-900/50 bg-white/50 px-2 py-1 rounded-full ml-1">/dev/growth</span>
+          <span className="text-[10px] font-bold text-emerald-900/50 bg-white/50 px-2 py-1 rounded-full ml-1">
+            {gardenErr ? '실데이터 오류' : live ? `실데이터 ${live.length}명 · 리듬 ${garden.paceGap}일` : '/dev/growth'}
+          </span>
         </div>
       </div>
 
@@ -1271,7 +1350,7 @@ export default function DevGrowthLab() {
         <div className="absolute inset-0 pointer-events-none z-[5] transition-opacity duration-700"
           style={{ opacity: sunSky ? 1 : 0, background: 'radial-gradient(120% 70% at 50% -10%, rgba(255,214,120,0.55), rgba(255,236,175,0.18) 45%, transparent 70%)' }} />
         <Suspense fallback={<div className="absolute inset-0 grid place-items-center text-emerald-700/50 text-sm">불러오는 중…</div>}>
-          <Scene key={spKey} n={n} selected={selected} onSelect={setSelected} mood={mood} spKey={spKey} gain={gain} hold={hold} />
+          <Scene key={spKey + (programId || '')} n={live ? live.length : n} selected={selected} onSelect={setSelected} mood={mood} spKey={spKey} gain={gain} hold={hold} live={live} />
         </Suspense>
         {sel && (
           <>
@@ -1313,11 +1392,28 @@ export default function DevGrowthLab() {
       {!sel && (
         <div className="px-4 pb-[max(env(safe-area-inset-bottom),1rem)] pt-2">
           <div className="bg-white/85 backdrop-blur rounded-2xl p-3 shadow-lg">
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-[12px] font-extrabold text-gray-800">참여자 {n}명</p>
-              <input type="range" min={3} max={200} value={n} onChange={(e) => { setN(+e.target.value); setSelected(null) }} className="flex-1 ml-3 accent-emerald-500" />
+            {/* 개발용 프로그램 선택 — 이 화면(/dev/growth)에만 있다. 고르면 ?program 이 붙어 실데이터로 돈다. */}
+            <div className="flex items-center gap-2 mb-2">
+              <select
+                value={programId || ''}
+                onChange={(e) => { const v = e.target.value; setSelected(null); setSp(v ? { program: v } : {}) }}
+                className="flex-1 min-w-0 text-[12px] font-bold text-gray-800 bg-gray-100 rounded-lg px-2 py-1.5 border-0"
+              >
+                <option value="">목데이터 ({n}명)</option>
+                {progOpts.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+              </select>
+              {live && <span className="text-[11px] font-extrabold text-emerald-600 shrink-0">리듬 {garden.paceGap}일</span>}
+              {gardenErr && <span className="text-[11px] font-extrabold text-rose-500 shrink-0">오류</span>}
             </div>
-            <p className="text-[10px] text-gray-400 mt-1 text-center">🌱 활동별 단계(새싹~만개) · 큰 꽃=나 · 꽃 탭 → 단독 뷰(표정) · 빈 곳/✕ → 정원</p>
+            {!live && (
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-[12px] font-extrabold text-gray-800">참여자 {n}명</p>
+                <input type="range" min={3} max={200} value={n} onChange={(e) => { setN(+e.target.value); setSelected(null) }} className="flex-1 ml-3 accent-emerald-500" />
+              </div>
+            )}
+            <p className="text-[10px] text-gray-400 mt-1 text-center">
+              {live ? `실데이터 ${live.length}명 · 인증일수로 단계 결정` : '🌱 활동별 단계(새싹~만개) · 큰 꽃=나 · 꽃 탭 → 단독 뷰(표정) · 빈 곳/✕ → 정원'}
+            </p>
           </div>
         </div>
       )}
