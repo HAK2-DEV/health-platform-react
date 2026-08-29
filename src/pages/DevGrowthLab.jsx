@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect, Suspense } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronLeft, X } from 'lucide-react'
+import { ChevronLeft, X, Wind } from 'lucide-react'
 import { playSuccessChime, primeAudio } from '../lib/sound'
 import { fetchProgramGarden, fetchMyPrograms, fetchActivePrograms } from '../lib/queries'
 import { useAuth } from '../hooks/useAuth'
@@ -218,7 +218,18 @@ for (const sp of Object.values(SPECIES)) sp.urls.forEach((u) => useGLTF.preload(
 // ── 성장 규칙 ────────────────────────────────────────────────
 // 물 = 인증(핵심 행동), 햇빛 = 그날 첫 방문(가벼운 습관). 물에 무게를 크게 둬서
 // «들여다보기만 해도 자란다» 가 되지 않게 하되, 햇빛만으로도 아주 느리게는 자라게 둔다.
-const PT_WATER = 3       // 인증 1건
+const PT_WATER = 3
+// ── 응원(나비) 상한 ────────────────────────────────────────────────
+// 보내는 쪽은 하루 3마리로 이미 막혀 있지만 «받는» 쪽이 무제한이면 성장이 활동이 아니라
+// 인기 순이 된다(사교적인 사람이 앞서가고 조용한 사람이 뒤처진다 — 앱의 방향과 반대다).
+// 그래서 «기록» 은 전부 남기되 «점수» 와 «화면» 에만 상한을 둔다.
+//   · 보낸 사람 보상은 몇 번째든 항상 지급된다 — 6번째 사람의 마음이 헛되면 아무도 안 보낸다
+//   · 받는 점수는 다음 인증 때 «한 번» 에 반영되고 상한 3점(= 물 한 번 더)
+//   · 인증하면 나비가 날아오른다. 보너스가 소비되니 누적되지 않고 마릿수도 저절로 리셋된다
+const CHEER_PT = 1          // 나비 한 마리가 더해주는 점수
+const CHEER_PT_MAX = 3      // 그 합의 상한
+const CHEER_SHOW = 5        // 화면에 동시에 보이는 나비
+const CHEER_PERCH = 3       // 그중 «앉는» 수 (나머지는 주위를 돈다)       // 인증 1건
 const PT_SUN = 1         // 그날 첫 방문(하루 1회)
 // 연속 배수 — «많이» 가 아니라 «꾸준히» 를 보상한다. 상한 2배로 막지 않으면 후반에 임계값이 무의미해진다.
 // 실데이터에선 연속 판정을 «프로그램 리듬 G» 로 한다(참여자 간격 중앙값, 최근 28일). 여기선 개발용으로 누른 횟수.
@@ -814,6 +825,348 @@ const FILL_W = 0.75      // 가로 상한. 새싹은 이 값에 걸려 거리가
 const CARD_COVER = 0.25  // 하단 카드가 가리는 화면 세로 비율. 카메라가 이만큼을 피해서 식물을 올려 잡는다.
 const CAM_ELEV = [0.25, 0.72]   // 카메라 고도 제한(rad ≒ 14°~41°).
                                 // 개화는 꽃이 66° 를 봐서 그대로 맞추면 식물을 위에서 내려다보게 된다.
+// ── 나비(응원) ──────────────────────────────────────────────────────
+// 모델을 쓰지 않고 절차적으로 만든다. 나비는 화면에서 아주 작게 보이고 «실루엣 + 날갯짓» 이 전부라
+// 수 MB 짜리 glb 를 얹을 이유가 없다. 실루엣이 약하면 그때 모델로 교체한다.
+//
+// 좌표 약속: 날개 단면은 XY 평면에 그리고 -90° 눕혀 XZ(수평)로 만든다.
+//   → 날갯짓 = 몸통 축(Z) 기준 회전. 오른쪽 날개는 x 를 -1 배 해서 «거울» 로 쓴다
+//     (거울 프레임에선 같은 각도가 반대로 보이므로 두 날개에 같은 값을 넣으면 대칭이 된다).
+const wingGeometry = () => {
+  const w = new THREE.Shape()
+  w.moveTo(0, 0.05)
+  w.bezierCurveTo(0.25, 0.62, 0.80, 0.74, 0.92, 0.34)    // 윗날개 바깥선
+  w.bezierCurveTo(1.00, 0.10, 0.62, 0.02, 0.44, 0.02)    // 윗날개 안쪽으로
+  w.bezierCurveTo(0.74, -0.12, 0.82, -0.50, 0.52, -0.62) // 아랫날개 바깥선
+  w.bezierCurveTo(0.28, -0.72, 0.06, -0.34, 0, -0.05)    // 몸통으로 복귀
+  const g = new THREE.ExtrudeGeometry(w, { depth: 0.03, bevelEnabled: true, bevelSize: 0.02, bevelThickness: 0.02, bevelSegments: 2, curveSegments: 10 })
+  g.center()
+  return g
+}
+
+// ⚠️ 지오메트리 로컬 폭은 약 2.12 다(경첩 0.06 + 날개 중심 0.5 + 날개 반폭 0.5, 양쪽).
+//    그룹 scale 을 그대로 «폭» 이라 부르면 실제 폭이 두 배 넘게 커져서 간격 계산이 전부 어긋난다.
+//    BF_SPAN 은 «진짜 날개 폭» 이고, 그룹 배율은 여기서 나눠 쓴다.
+const BF_LOCAL = 2.12
+const BF_SPAN = 0.26       // 실제 날개 폭(월드) — 꽃 높이 1.0 기준
+const BF_SCALE = BF_SPAN / BF_LOCAL
+const BF_FLY = 2.4          // 날아오는 시간(초)
+// 각속도 자체를 흔든다 — 일정하면 아무리 반경/고도를 흔들어도 «기계가 도는» 리듬이 남는다.
+const orbitAngle = (t, o, seed) => o.ph + t * o.w + Math.sin(t * 0.37 + seed) * o.amp
+// 궤도 위 한 점. 반경·고도를 크게 흔든다 — 주기를 서로 나눠떨어지지 않게 겹쳐 패턴이 안 보이게.
+// ya = 고도 흔들림 배율, ymin = 이 아래로는 안 내려간다.
+//   단독 뷰는 꽃 하나뿐이라 크게 오르내려도 되지만, 정원은 옆에 남의 꽃이 붙어 있다 —
+//   같은 진폭을 쓰면 아래로 스윙할 때 옆 꽃을 뚫고 지나간다.
+const orbitAt = (t, o, seed, out) => {
+  const a = orbitAngle(t, o, seed)
+  const r = o.r * (1 + Math.sin(t * 0.53 + seed * 1.7) * 0.34 + Math.sin(t * 0.29 + seed) * 0.20)
+  const ya = o.ya == null ? 1 : o.ya
+  const y = Math.max(o.ymin == null ? 0.14 : o.ymin,
+                     o.y + (Math.sin(t * 0.71 + seed) * 0.32 + Math.sin(t * 1.37 + seed * 2.1) * 0.13) * ya)
+  return out.set(Math.cos(a) * r, y, Math.sin(a) * r)
+}
+// ⚠️ Butterfly 는 useFrame 의 clock.elapsedTime 을 쓴다. 밖에서 «지금» 을 넣으려면 같은 시계여야
+//    하므로 Canvas 안에서 한 번 읽어 공유한다(performance.now 를 섞으면 도착 시각이 어긋난다).
+const bfClock = { t: 0 }
+function BfClock() { useFrame((st) => { bfClock.t = st.clock.elapsedTime }); return null }
+
+function Butterfly({ color, seed, target, targetQuat, arriveAt, leaveAt, orbit, sway, scale = 1, fadeable }) {
+  const g = useRef(), wl = useRef(), wr = useRef()
+  const yawQ = useMemo(() => new THREE.Quaternion(), [])
+  const orb = useMemo(() => new THREE.Vector3(), [])
+  const wof = useMemo(() => new THREE.Vector3(), [])
+  const nxt = useMemo(() => new THREE.Vector3(), [])
+  const geo = useMemo(() => wingGeometry(), [])
+  // fadeable — 정원 그룹은 단독 뷰로 들어갈 때 opacity 로 페이드된다. 그 대상이 되려면 transparent 여야 한다.
+  const mat = useMemo(() => applyFx(new THREE.MeshStandardMaterial({
+    color, roughness: 0.55, metalness: 0.0, side: THREE.DoubleSide, transparent: !!fadeable,
+  })), [color, fadeable])
+  const body = useMemo(() => applyFx(new THREE.MeshStandardMaterial({ color: '#4A3B52', roughness: 0.6, transparent: !!fadeable })), [fadeable])
+  // 출발점 — 시드마다 다른 방향에서 날아온다. 늘 같은 데서 오면 «연출» 로 보인다.
+  const from = useMemo(() => {
+    const a = (seed * 2.399963) % (Math.PI * 2)
+    return new THREE.Vector3(Math.cos(a) * 2.2, 1.5 + (seed % 3) * 0.35, Math.sin(a) * 2.2)
+  }, [seed])
+  // 떠나는 곳은 온 곳과 다르게 «위로» 잡는다. 왔던 길로 되돌아가면 되감기처럼 보인다.
+  const away = useMemo(() => {
+    const a = (seed * 2.399963 + 2.1) % (Math.PI * 2)
+    return new THREE.Vector3(Math.cos(a) * 2.0, 2.6 + (seed % 3) * 0.3, Math.sin(a) * 2.0)
+  }, [seed])
+
+  useFrame((st) => {
+    if (!g.current) return
+    const t = st.clock.elapsedTime
+    const age = t - arriveAt
+    const lv = leaveAt != null ? t - leaveAt : -1      // 떠나기 시작한 뒤 경과(초). 음수면 아직 머문다.
+    const leaving = lv >= 0
+    const flying = !leaving && age < BF_FLY
+    const p = flying ? Math.max(0, age) / BF_FLY : 1
+
+    // 날갯짓 — 실제 나비는 앉으면 날개를 «위로 모아 세운다». 눕힌 채 파닥이면 나방처럼 보인다.
+    //   rest 0 = 나는 중(빠르게 파닥), 1 = 앉은 중(세우고 아주 천천히 숨쉬듯)
+    //   앉는 순간 뚝 바뀌면 스냅으로 보여서 이어준다. 뜰 땐 빨리 펴야 하므로 더 짧게.
+    // 도는 나비는 앉지 않으므로 날개를 접지 않는다(rest 0 고정).
+    const rest = orbit ? 0
+      : leaving ? Math.max(0, 1 - lv / 0.30)
+      : flying ? 0
+      : Math.min(1, (age - BF_FLY) / 0.70)
+    // 실제 나비의 스트로크는 «아래로 내렸다 머리 위까지» 다. 얕게 파닥이면 나방이나 새처럼 보인다.
+    const flyFlap = -0.45 + (Math.sin(t * 15 + seed) * 0.5 + 0.5) * 1.95   // 약 -26° ~ +86°
+    const restFlap = 1.32 + Math.sin(t * 0.9 + seed) * 0.18                // 앉으면 세운 채 조금씩 여닫는다
+    const flap = flyFlap * (1 - rest) + restFlap * rest
+    // ⚠️ 오른쪽 날개는 scale=[-1,1,1] 거울이지만 «회전까지» 뒤집히진 않는다.
+    //    three 의 변환 순서는 T·R·S — S(거울)가 점에 먼저 먹고 그다음 R 이 돈다.
+    //    즉 두 날개가 «같은 방향» 으로 돌아 한쪽은 위, 한쪽은 아래로 간다. 부호를 직접 뒤집어야 한다.
+    wl.current.rotation.z = flap
+    wr.current.rotation.z = -flap
+
+    // 도는 나비의 «목표» 는 고정점이 아니라 매 프레임 움직이는 궤도 위의 점이다.
+    // 날아오는 동안 그 점으로 수렴시키면 자연스럽게 궤도에 올라탄다.
+    let tg = target
+    if (orbit) {
+      // 완전한 원 + 일정한 속도 = 드론이다. 실제 나비는 «맴돌긴 하되» 속도·반경·고도가 계속 변한다.
+      // 주기를 서로 나눠떨어지지 않게(0.37/0.53/0.29/0.71/1.37) 겹쳐서 패턴이 반복돼 보이지 않게 한다.
+      tg = orbitAt(t, orbit, seed, orb)
+    }
+    if (leaving) {
+      // 떠날 땐 «가속»(ease-in). 도착의 감속과 반대라야 «앉는다/떠난다» 가 구분된다.
+      // 실제 나비도 앉은 자리에서 톡 뜬 다음 점점 빨라지며 멀어진다.
+      const q = Math.min(1, lv / BF_FLY)
+      const e = Math.pow(q, 2.0)
+      g.current.position.lerpVectors(tg, away, e)
+      g.current.position.y += Math.sin(q * Math.PI) * 0.20                       // 톡 떠오르는 한 박자
+      g.current.position.x += Math.cos(q * Math.PI * 3.4 + seed * 2) * 0.16 * q  // 멀어질수록 크게 팔랑
+      g.current.position.z += Math.sin(q * Math.PI * 2.8 + seed) * 0.14 * q
+      g.current.rotation.set(0.22 * q, Math.atan2(away.x - tg.x, away.z - tg.z) + Math.sin(t * 3 + seed) * 0.3, 0)
+    } else if (flying) {
+      // 직선으로 오면 드론 같다. 가로로 흔들리며 «팔랑팔랑» 다가온다.
+      const e = 1 - Math.pow(1 - p, 2.2)
+      g.current.position.lerpVectors(from, tg, e)
+      g.current.position.y += Math.sin(p * Math.PI * 3.2 + seed) * 0.16 * (1 - p) + Math.sin(p * Math.PI) * 0.22
+      g.current.position.x += Math.cos(p * Math.PI * 2.6 + seed * 2) * 0.13 * (1 - p)
+      // 진행 방향을 본다
+      g.current.rotation.set(-0.25 * (1 - p), Math.atan2(tg.x - from.x, tg.z - from.z) + Math.sin(t * 3 + seed) * 0.25, 0)
+    } else if (orbit) {
+      // 계속 돈다 — 진행 방향을 본다. 다음 순간 위치와의 차이로 «실제» 진행 방향을 잡는다.
+      // 각도만으로 잡으면 반경·고도가 흔들릴 때 몸 방향이 궤적과 어긋난다.
+      g.current.position.copy(tg)
+      // 0.06초 뒤 위치와의 차이로 «실제» 진행 방향을 잡는다. 각도만 보면 반경·고도가 흔들릴 때 어긋난다.
+      orbitAt(t + 0.06, orbit, seed, nxt)
+      const dx = nxt.x - tg.x, dy = nxt.y - tg.y, dz = nxt.z - tg.z
+      const horiz = Math.hypot(dx, dz) || 1e-4
+      // 오르면 고개를 들고 내려가면 숙인다(pitch), 도는 쪽으로 몸을 기울인다(roll).
+      const pitch = -Math.atan2(dy, horiz) * 0.75
+      const roll = Math.sin(t * 1.6 + seed) * 0.35 + Math.sin(t * 0.37 + seed) * 0.30
+      g.current.rotation.set(pitch, Math.atan2(dx, dz), roll)
+    } else {
+      // 앉은 뒤 — 꽃 위에서 아주 조금 흔들린다. 완전히 굳으면 죽은 것처럼 보인다.
+      g.current.position.copy(tg)
+      if (sway) {
+        // 꽃이 흔들리는 만큼 «그대로» 따라간다. faceAngle 로 돌아간 좌표계라 오프셋도 같이 돌린다.
+        windOffsetAt(sway.y, sway.base, wof)
+        g.current.position.x += wof.x * sway.cos + wof.z * sway.sin
+        g.current.position.z += -wof.x * sway.sin + wof.z * sway.cos
+      }
+      g.current.position.y += Math.sin(t * 1.1 + seed) * 0.012
+      if (targetQuat) {
+        // 잎이 기울어 있으면 나비도 그만큼 기운다. 수평으로 두면 «표면에 붙어 있다» 로 안 읽힌다.
+        // 잎 기울기(quat) 를 먼저 먹이고, 그 위에서 제자리 회전(yaw)을 얹는다.
+        yawQ.setFromAxisAngle(UP, seed * 1.7 + Math.sin(t * 0.5 + seed) * 0.12)
+        g.current.quaternion.copy(targetQuat).multiply(yawQ)
+      } else {
+        g.current.rotation.set(0, seed * 1.7 + Math.sin(t * 0.5 + seed) * 0.12, 0)
+      }
+    }
+  })
+
+  return (
+    <group ref={g} scale={BF_SCALE * scale}>
+      {/* 캡슐의 기본 축은 Y(수직) 다. 날개는 XZ(수평) 라 그대로 두면 몸통만 기둥처럼 솟는다 —
+          X 로 90° 눕혀 날개와 같은 평면에서 앞뒤(Z)로 놓는다. */}
+      <mesh material={body} rotation={[Math.PI / 2, 0, 0]} castShadow>
+        <capsuleGeometry args={[0.075, 0.5, 4, 8]} />
+      </mesh>
+      <group ref={wl} position={[0.06, 0, 0]}>
+        <mesh geometry={geo} material={mat} rotation={[-Math.PI / 2, 0, 0]} position={[0.5, 0, 0]} castShadow />
+      </group>
+      <group ref={wr} position={[-0.06, 0, 0]} scale={[-1, 1, 1]}>
+        <mesh geometry={geo} material={mat} rotation={[-Math.PI / 2, 0, 0]} position={[0.5, 0, 0]} castShadow />
+      </group>
+    </group>
+  )
+}
+
+// 꽃 위에 앉을 자리 — 머리 주변에 겹치지 않게 흩는다.
+const BF_COLORS = ['#F5A9C7', '#FFD98A', '#A8D8F0', '#C9AEE8', '#FFB59E']
+
+// lucide 에 나비가 없다 — 같은 규격(24 그리드 · 선 · round cap)으로 그려 Wind 와 톤을 맞춘다.
+const ButterflyIcon = ({ className }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
+    strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M12 7.5v11" />
+    <path d="M12 7.5C11 5.4 9.1 4.2 7.1 4.2 4.8 4.2 3.2 5.8 3.2 8.1c0 2 1.3 3.7 3 4.6-1.3.8-2.1 2-2.1 3.4 0 1.7 1.2 2.7 2.6 2.7 2.4 0 4.5-2.2 5.3-4.4" />
+    <path d="M12 7.5c1-2.1 2.9-3.3 4.9-3.3 2.3 0 3.9 1.6 3.9 3.9 0 2-1.3 3.7-3 4.6 1.3.8 2.1 2 2.1 3.4 0 1.7-1.2 2.7-2.6 2.7-2.4 0-4.5-2.2-5.3-4.4" />
+    <path d="M12 7.5 10.1 4.4M12 7.5l1.9-3.1" />
+  </svg>
+)
+
+// 앉을 «후보» 를 모은다. 여기서 고르지는 않는다 — 누가 어디 앉을지는 Cheers 가
+// 한 마리씩 «이미 앉은 나비들과 겹치는지» 보고 정한다.
+//   · 위를 향한 면만: 법선 y 가 충분히 커야 한다(수직 벽이나 잎 뒷면엔 못 앉는다)
+//   · 잎은 둥글다. 평평한 나비를 접점에 놓으면 날개 끝이 곡률만큼 파고들므로 «법선 방향» 으로 띄운다
+//   · ⚠️ 안쪽 그룹의 faceAngle 회전을 결과에 먹인다. 레이는 회전 «전» 좌표계에서 쏘기 때문이다.
+//     빠뜨리면 잎이 돌아간 만큼 나비가 빈 공중에 남는다(높이는 맞고 가로 위치만 틀린다).
+const PERCH_MIN_UP = 0.55
+const PERCH_LIFT = 0.035
+// ⚠️ 흙받침 윗면도 «위를 향한 면» 이라 레이가 맞는다. 그런데 그 부분은 땅에 묻히므로
+//    거기 앉히면 나비가 지면 아래로 사라진다(새싹은 0.787 중 아래 0.385 가 묻힌다).
+//    지면보다 이만큼은 위여야 앉힌다.
+const PERCH_MIN_Y = 0.05
+// ⚠️ «위를 향한 면» 이라고 다 앉을 수 있는 게 아니다. 라벤더처럼 가늘고 높은 이삭은
+//    옆면 작은 꽃송이 윗면에 앉으면 바로 옆으로 이삭이 솟아 있어 나비가 그 안에 파묻힌다.
+//    그래서 자리마다 «주변에 빈 공간이 있는지» 를 레이로 확인한다.
+const PERCH_CLEAR = 0.15      // 이만큼은 사방이 비어 있어야 한다(나비 반폭 정도)
+// 앉은 나비는 꽃과 «같은 식» 으로 흔들려야 한다. 바람은 버텍스 셰이더에서 계산되므로
+// 나비(별도 오브젝트)는 그 식을 JS 로 똑같이 한 번 더 푼다. 근사하면 미세하게 어긋나 미끄러져 보인다.
+//   셰이더: wH = max(y - base, 0);  wA = wH^2 * amp * (1 + uGust*0.5)
+//           x += sin(uTime*SPEED)*wA;  z += cos(uTime*SPEED*0.8)*wA*0.6   (단독은 wPh = 0)
+function windOffsetAt(meshY, base, out) {
+  const wH = Math.max(meshY - base, 0)
+  const wA = wH * wH * WIND_AMP * (1 + fxG.gust.value * 0.5)
+  const ut = windU.uTime.value
+  const wJ = fxG.gust.value * wH * 0.030          // 물 맞았을 때의 떨림도 같이 탄다
+  out.set(Math.sin(ut * WIND_SPEED) * wA + Math.sin(ut * 13.0) * wJ,
+          0,
+          Math.cos(ut * WIND_SPEED * 0.8) * wA * 0.6 + Math.cos(ut * 11.0) * wJ * 0.8)
+  return out
+}
+
+function findPerchSpots(template, bury, yaw, soil) {
+  const rc = new THREE.Raycaster()
+  template.updateMatrixWorld(true)
+  const box = new THREE.Box3().setFromObject(template)
+  const top = box.max.y + 0.4, rad = Math.max(box.max.x - box.min.x, box.max.z - box.min.z) * 0.5
+
+  // ── 1) 위에서 훑어 «위를 향한 면» 을 모은다 (회전 전 좌표계 = 템플릿 공간) ──
+  const raw = []
+  const N = 180
+  for (let i = 0; i < N; i++) {
+    const a = i * 2.399963, r = rad * Math.sqrt((i + 0.5) / N)
+    rc.set(new THREE.Vector3(Math.cos(a) * r, top, Math.sin(a) * r), new THREE.Vector3(0, -1, 0))
+    const h = rc.intersectObject(template, true)[0]
+    if (!h || !h.face) continue
+    const n = h.face.normal.clone().transformDirection(h.object.matrixWorld)
+    if (n.y < PERCH_MIN_UP) continue
+    const p = new THREE.Vector3(h.point.x + n.x * PERCH_LIFT, h.point.y + n.y * PERCH_LIFT, h.point.z + n.z * PERCH_LIFT)
+    if (p.y - bury < PERCH_MIN_Y) continue          // 묻히는 부분엔 앉지 않는다
+    raw.push({ p, n, my: h.point.y })
+  }
+  raw.sort((x, y) => y.p.y - x.p.y)                 // 높은 자리가 잘 보인다
+
+  // ── 2) 솎기 — 아래 «빈 공간» 검사가 자리당 레이 5발이라 전부 검사하면 비싸다 ──
+  const thin = []
+  for (const c of raw) if (!thin.some((o) => o.p.distanceTo(c.p) < BF_SPAN * 0.5)) thin.push(c)
+
+  // ── 3) 빈 공간 검사 — ⚠️ 반드시 «회전 전» 좌표계에서 쏴야 한다(템플릿이 그 공간에 있다) ──
+  //     법선 방향과 그 둘레 4방향으로 쏴서 가까이 막힌 게 있으면 버린다.
+  const d = new THREE.Vector3(), sA = new THREE.Vector3(), sB = new THREE.Vector3()
+  const open = thin.filter((c) => {
+    sA.set(-c.n.z, 0, c.n.x)
+    if (sA.lengthSq() < 1e-6) sA.set(1, 0, 0)
+    sA.normalize(); sB.crossVectors(c.n, sA).normalize()
+    for (const [u, v] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      d.copy(c.n).addScaledVector(sA, u * 1.2).addScaledVector(sB, v * 1.2).normalize()
+      rc.set(c.p, d)
+      const h = rc.intersectObject(template, true)[0]
+      if (h && h.distance < PERCH_CLEAR) return false
+    }
+    return true
+  })
+
+  // ── 4) 이제 안쪽 그룹의 faceAngle 회전과 «묻는 깊이» 를 먹인다 ──
+  const yq = new THREE.Quaternion().setFromAxisAngle(UP, yaw || 0)
+  const cs = Math.cos(yaw || 0), sn = Math.sin(yaw || 0)
+  return open.map((c) => ({
+    pos: new THREE.Vector3(c.p.x, c.p.y - bury, c.p.z).applyQuaternion(yq),
+    quat: yq.clone().multiply(new THREE.Quaternion().setFromUnitVectors(UP, c.n)),
+    sway: { y: c.my, base: soil || 0, cos: cs, sin: sn },
+  }))
+}
+
+// 정원(전체 뷰) 나비 — 응원 «한 건당 한 마리». 받은 사람의 꽃 근처를 난다.
+//   · 앉히지는 않는다: 멀리서 보는 뷰라 앉은 나비는 어차피 점인데,
+//     앉을 자리를 찾는 레이캐스팅이 제일 비싸다(꽃 한 송이당 180발). 비용 최대, 효과 최소.
+//   · 받은 사람 꽃 «근처» 를 돈다. 섬 전체를 떠돌면 누구에게 온 응원인지 안 보인다.
+//   · 받은 사람이 인증하면 응원이 소비되고(leaveAt) 여기서도 날아가 사라진다.
+const GB_SCALE = 0.55        // 정원 꽃 배율(0.3~0.78)에 맞춘 크기
+const GB_MAX = 24            // 정원에 동시에 그리는 상한 — 프로그램이 커도 정원이 멎지 않게
+// ⚠️ 정원 꽃은 최대 배율 0.78, 모델 높이 ~0.9 → 꼭대기가 약 0.70 이다.
+//    나비는 그 «위» 를 날아야 옆 꽃을 안 뚫는다. 꽃마다 일일이 피하는 것보다 훨씬 싸고 확실하다.
+const GB_YMIN = 0.76         // 이 아래로는 안 내려간다(정원 꽃 꼭대기보다 위)
+function GardenButterflies({ cheers, positions }) {
+  return cheers.slice(0, GB_MAX).map((c, i) => {
+    const p = positions[c.to] || positions[0]
+    if (!p) return null
+    return (
+      <group key={c.id} position={p}>
+        <Butterfly seed={c.seed} color={BF_COLORS[c.seed % BF_COLORS.length]}
+          arriveAt={c.at} leaveAt={c.leaveAt} scale={GB_SCALE} fadeable
+          orbit={{ r: 0.17 + (i % 3) * 0.06, y: GB_YMIN + 0.14 + (i % 3) * 0.09,
+                   ya: 0.42, ymin: GB_YMIN,
+                   w: (i % 2 ? 1 : -1) * (0.5 + (i % 3) * 0.12), ph: i * 2.399963, amp: 0.8 }} />
+      </group>
+    )
+  })
+}
+
+function Cheers({ cheers, template, bury, yaw, soil, headY, headR }) {
+  // ⚠️ 훅은 map 콜백 안에서 못 부른다(호출 순서가 개수에 따라 달라진다) — 한 번에 계산한다.
+  // 레이 260발이라 단계가 바뀔 때만 다시 찾는다(캐시).
+  const spots = useMemo(() => (template ? findPerchSpots(template, bury, yaw, soil) : []), [template, bury, yaw, soil])
+  // ⚠️ 자리를 «미리» 정해 나눠주면 안 된다. 그러면 간격 조건을 한 번 느슨하게 푸는 순간
+  //    이미 겹치는 자리들이 만들어진다. 한 마리씩, «이미 앉은 나비들과 겹치는지» 보고 정한다.
+  //    두 나비가 나란히 앉아 안 겹치려면 중심 거리가 날개 폭만큼은 돼야 한다.
+  const targets = useMemo(() => {
+    const MIN = BF_SPAN * 0.95
+    const taken = []
+    // 1차 — 앉을지 돌지만 정한다(도는 마리 수를 알아야 궤도를 나눌 수 있다)
+    const plan = cheers.map(() => {
+      let best = null, bestD = -1
+      for (const sp of spots) {                       // 이미 앉은 자리들에서 «가장 먼» 후보
+        let d = Infinity
+        for (const o of taken) d = Math.min(d, o.pos.distanceTo(sp.pos))
+        if (d > bestD) { bestD = d; best = sp }
+      }
+      if (taken.length < CHEER_PERCH && best && (taken.length === 0 || bestD >= MIN)) { taken.push(best); return best }
+      return null                                     // 겹치지 않고 앉을 자리가 없다 → 돈다
+    })
+    // 2차 — 도는 나비들에게 «서로 안 겹치는» 궤도를 나눠준다.
+    //   ⚠️ 각속도가 마리마다 다르면 언젠가 서로를 따라잡아 겹친다.
+    //      기본 각속도는 «같게» 두고 시작 각도만 고르게 벌리면 상대 각도가 안 변한다.
+    //      거기에 흔들림 폭(amp)을 마리 수에 맞춰 줄여 최악의 경우에도 간격이 남게 한다.
+    const nh = plan.filter((x) => !x).length
+    // 각속도 흔들림 폭. 기본 각속도가 같으니 상대 각도는 «흔들림 두 배» 만큼만 벌어진다.
+    //   2A < (2π/N) - 여유  →  겹치지 않는 최대치까지 키운다.
+    const amp = Math.max(0.35, Math.min(1.1, ((Math.PI * 2) / Math.max(1, nh) - 0.6) / 2))
+    let k = -1
+    return plan.map((x) => {
+      if (x) return x
+      k++
+      return { hover: true, quat: null, pos: null,
+               orbit: { r: headR + BF_SPAN * 0.75 + 0.12 + (k % 2) * 0.22,   // 안쪽/바깥쪽 차선(넓게)
+                        y: headY * 0.55 + ((k + 1) % 3) * 0.20,              // 위아래로도 갈라 둔다
+                        w: 0.40,                                             // ← 모두 같은 각속도
+                        ph: (k / Math.max(1, nh)) * Math.PI * 2,             // 시작 각도만 고르게
+                        amp } }
+    })
+  }, [cheers, spots, headY, headR])
+  return cheers.slice(0, CHEER_SHOW).map((c, i) => (
+    <Butterfly key={c.id} seed={c.seed} color={BF_COLORS[c.seed % BF_COLORS.length]}
+      arriveAt={c.at} leaveAt={c.leaveAt} target={targets[i].pos} targetQuat={targets[i].quat}
+      orbit={targets[i].orbit} sway={targets[i].sway} />
+  ))
+}
+
 // 바닥 «젖음 지도». 큰 원 하나를 켰다 끄는 게 아니라 물방울이 «닿은 그 지점» 마다 칠한다.
 // 방울이 쌓일수록 자국이 이어붙어 저절로 불규칙한 얼룩이 되고, 지나면 서서히 마른다.
 const WET_S = 128          // 지도 해상도
@@ -1025,6 +1378,7 @@ function Rig({ selectedPos, gardenRef, soloRef, controlsRef, camGarden, soloScal
   const grow = useRef(0)   // 화면에 실제로 그려지는 배율. 목표로 «천천히» 따라가야 자라는 게 보인다.
   const fxSeen = useRef(-1), fxDist = useRef(0)   // 연출 시작 시점의 카메라 거리(뒤로 물러났다 제자리로)
   const bury = useRef(null), lastSel = useRef(null)   // 묻는 깊이도 이어줘야 레벨업 때 식물이 튀지 않는다
+  const settle = useRef(false)                       // 카메라가 «목표 위치에 도달할 때까지» 켜져 있는 플래그
   useFrame((_, dt) => {
     windU.uTime.value += dt
     const active = !!selectedPos; const target = active ? 1 : 0
@@ -1101,7 +1455,14 @@ function Rig({ selectedPos, gardenRef, soloRef, controlsRef, camGarden, soloScal
     // 목표에 채 도달하지 못했고, 출발 위치에 따라 최종 확대가 매번 달라졌다.
     const k = 1 - Math.exp(-6 * dt)
     controlsRef.current.target.lerp(gt.current, k)
-    if (Math.abs(target - f) > 0.001) camera.position.lerp(ct.current, k)
+    // ⚠️ 예전엔 «f 가 수렴하는 동안만» 카메라를 움직였다. 그런데 f 와 카메라는 감쇠 계수가 달라서
+    //    f 가 먼저 도착하면 카메라는 «가던 길에 멈춘다» — 출발 거리(연출이 남긴 위치, 전환 중 재선택 등)에
+    //    따라 최종 확대가 매번 달라진다. 진행도가 아니라 «도달했는지» 로 판정한다.
+    if (swapped || Math.abs(target - f) > 0.001) settle.current = true
+    if (settle.current) {
+      camera.position.lerp(ct.current, k)
+      if (camera.position.distanceTo(ct.current) < 0.012) settle.current = false
+    }
     // 물·햇빛 동안 한 발 물러선다 — 떨어지는 물과 하늘까지 들어와야 «세계가 반응» 하는 게 보인다.
     // ⚠️ ct(계산된 카메라 위치)로 되돌리면 사용자가 손으로 돌려둔 각도를 뺏는다.
     //    방향은 그대로 두고 «타깃까지의 거리» 만 늘렸다 줄인다.
@@ -1132,7 +1493,7 @@ function Rig({ selectedPos, gardenRef, soloRef, controlsRef, camGarden, soloScal
   return null
 }
 
-function Scene({ n, selected, onSelect, mood, spKey, gain, hold, live }) {
+function Scene({ n, selected, onSelect, mood, spKey, gain, hold, live, cheers }) {
   // spKey === 'mix' 면 참여자마다 제 종을 쓴다. 아니면 전부 그 종으로 덮어쓴다.
   const mock = useMock(n)
   const parts0 = live || mock          // live 가 있으면 실데이터, 없으면 목데이터
@@ -1241,6 +1602,8 @@ function Scene({ n, selected, onSelect, mood, spKey, gain, hold, live }) {
                 <Daisy template={tmplOf(parts[meIndex].sp, stageIdx(parts[meIndex].stage))} opaque={false} soil={spOf(meIndex).soil[stageIdx(parts[meIndex].stage)]} sat={satOf(parts[meIndex].sp)} />
               </group>
             )}
+            {/* 정원 나비 — gardenRef 안에 둬야 단독 뷰로 들어갈 때 정원과 함께 사라진다 */}
+            <GardenButterflies cheers={(cheers || []).filter((c) => c.leaveAt == null)} positions={positions} />
           </group>
           {/* ⚠️ 단독 식물도 Float «안» 이어야 한다. 밖에 두면 땅만 위아래로 떠다녀서
               가만히 있어도 밑동과 젖은 자국이 지면에 잠겼다 나왔다 한다. */}
@@ -1261,6 +1624,13 @@ function Scene({ n, selected, onSelect, mood, spKey, gain, hold, live }) {
           {/* ⚠️ «묻는» 안쪽 그룹 밖에 둔다. 안에 두면 흙받침이 큰 새싹(0.355)에서 물방울이
               땅속에서 출발해 지면 아래로 사라진다. 밖에 두면 y=0 이 늘 지면이다. */}
             <FxParticles />
+            {/* 응원 나비 — 꽃 «머리» 근처에 앉는다. 단독 뷰에서만 보인다. */}
+            <BfClock />
+            {/* ⚠️ ext[si][1] 은 «반경» 이지 높이가 아니다(0.2~0.5) — 그걸 쓰면 밑동에 앉는다.
+                얼굴 c[1] 이 실제 «머리» 높이다. 나비는 묻는 안쪽 그룹 밖이라 bury 만큼 빼준다. */}
+            <Cheers cheers={(cheers || []).filter((c) => c.to === selIdx)} template={sel ? tmplOf(sel.sp, soloSi) : null} bury={soloBury} yaw={faceAngle} soil={selSp.soil[soloSi]}
+              headY={(selSp.faces[soloSi] ? selSp.faces[soloSi].c[1] : 0.85) - soloBury}
+              headR={selSp.ext[soloSi] ? selSp.ext[soloSi][1] : 0.35} />
           </group>
         </Float>
 
@@ -1285,6 +1655,9 @@ export default function DevGrowthLab() {
   const [moodOverride, setMoodOverride] = useState(null)   // dev: 상태별 표정 미리보기
   const [spKey, setSpKey] = useState('mix')
   const [gain, setGain] = useState({})               // {참여자 index: 얻은 포인트}
+  const [cheers, setCheers] = useState([])          // 개발용 — 실제로는 남이 보낸 응원이 내려온다
+  // 지우지 않고 «떠나는 중» 으로 표시한 뒤, 다 날아간 다음에 목록에서 뺀다.
+  // 바로 지우면 사라지는 게 보인다 — 나가는 길을 보여줘야 한다.
   const [hold, setHold] = useState(null)          // 레벨업 연출 전까지 단계를 붙들어 둠 {idx, stage}
   const [streak, setStreak] = useState(0)           // 개발용 연속 — 실데이터가 있으면 서버 값을 쓴다
   const parts0 = useMock(n)
@@ -1295,6 +1668,18 @@ export default function DevGrowthLab() {
   const stage = base ? Math.min(stageOf(pt), hold && hold.idx === selIdx ? hold.stage : 4) : 0
   const pct = base ? (stageOf(pt) > stage ? 100 : pctOf(pt)) : 0
   const mult = multOf(live && base ? base.streak : streak)   // ⚠️ base 선언 뒤여야 한다(TDZ)
+
+  // ⚠️ 아래는 전부 selIdx / base 에 기대므로 «그 선언 뒤» 에 있어야 한다.
+  //    const 는 호이스팅돼도 선언 전 구간은 TDZ 라 읽는 순간 던진다("Cannot access ... before initialization").
+  const myCheers = cheers.filter((c) => c.to === selIdx && c.leaveAt == null).length
+  // 지금 붙어 있는 나비 보너스(다음 인증 때 한 번에 반영, 상한 있음)
+  const cheerBonus = Math.min(CHEER_PT_MAX, myCheers * CHEER_PT)
+  // 응원은 «받은 사람» 것만 날려보낸다. 정원에도 같은 기록이 그려지므로 거기서도 함께 날아간다.
+  const sendAway = () => {
+    const mine = (x) => x.to === selIdx && x.leaveAt == null
+    setCheers((c) => (c.some(mine) ? c.map((x) => (mine(x) ? { ...x, leaveAt: bfClock.t } : x)) : c))
+    window.setTimeout(() => setCheers((c) => c.filter((x) => x.leaveAt == null || x.to !== selIdx)), BF_FLY * 1000 + 200)
+  }
   const sel = base ? { ...base, stage } : null
   const [sunSky, setSunSky] = useState(false)      // 햇빛일 때 하늘도 같이 따뜻해진다
   const [moodFx, setMoodFx] = useState(null)          // 물·햇빛 반응 표정(개발용 미리보기보다 우선)
@@ -1306,7 +1691,7 @@ export default function DevGrowthLab() {
   const give = (kind) => {
     if (selIdx == null) return
     primeAudio()                                            // 모바일은 제스처 안에서 미리 풀어야 소리가 난다
-    const add = kind === 'water' ? Math.round(PT_WATER * mult) : PT_SUN
+    const add = kind === 'water' ? Math.round(PT_WATER * mult) + cheerBonus : PT_SUN
     const up = stageOf(pt + add) > stage
     if (kind === 'water') setStreak((k) => k + 1)
     playFx(kind, kind === 'water' ? mult : 1)
@@ -1315,6 +1700,8 @@ export default function DevGrowthLab() {
     moodTimers.current.forEach(clearTimeout); moodTimers.current = []
     const T = (fn, ms) => moodTimers.current.push(window.setTimeout(fn, ms))
     setMoodFx('happy')
+    // 물을 주면 응원이 «쓰인다» — 나비들이 날아오른다. 보너스가 소비되니 누적되지 않는다.
+    if (kind === 'water' && cheerBonus > 0) sendAway()
     if (kind === 'sun') { setSunSky(true); T(() => setSunSky(false), FX_DUR.sun * 1000) }
     if (up) {
       const at = (FX_DUR[kind] + LV_DELAY) * 1000     // 60% 지점이 아니라 «끝나고 한 박자» 뒤
@@ -1350,7 +1737,7 @@ export default function DevGrowthLab() {
         <div className="absolute inset-0 pointer-events-none z-[5] transition-opacity duration-700"
           style={{ opacity: sunSky ? 1 : 0, background: 'radial-gradient(120% 70% at 50% -10%, rgba(255,214,120,0.55), rgba(255,236,175,0.18) 45%, transparent 70%)' }} />
         <Suspense fallback={<div className="absolute inset-0 grid place-items-center text-emerald-700/50 text-sm">불러오는 중…</div>}>
-          <Scene key={spKey + (programId || '')} n={live ? live.length : n} selected={selected} onSelect={setSelected} mood={mood} spKey={spKey} gain={gain} hold={hold} live={live} />
+          <Scene cheers={cheers} key={spKey + (programId || '')} n={live ? live.length : n} selected={selected} onSelect={setSelected} mood={mood} spKey={spKey} gain={gain} hold={hold} live={live} />
         </Suspense>
         {sel && (
           <>
@@ -1359,7 +1746,27 @@ export default function DevGrowthLab() {
               <p className="text-[12px] font-bold text-emerald-600/80 mt-0.5">{sel.nickname}{selected === 0 ? ' (나)' : ''}의 꽃</p>
             </div>
             <button type="button" onClick={() => setSelected(null)} className="absolute top-3 right-3 w-9 h-9 rounded-full bg-white/85 shadow flex items-center justify-center text-gray-700 z-10"><X className="w-5 h-5" /></button>
-            <div className="absolute bottom-4 left-4 right-4 bg-white rounded-3xl p-4 shadow-xl z-10">
+            {/* 카드와 «카드 위 버튼» 을 한 덩어리로 둔다 — 카드 높이를 재지 않아도 항상 바로 위에 붙는다 */}
+            <div className="absolute bottom-4 left-4 right-4 z-10">
+              {/* 개발용 나비 조작. 실제로는 남이 보낸 응원이 내려온다 — 버튼이 아니라 알림으로. */}
+              <div className="flex items-center justify-end gap-2 mb-2.5">
+                {myCheers > 0 && (
+                  <span className="text-[11px] font-extrabold text-white px-2 py-1 rounded-full bg-black/30">
+                    {myCheers}마리{myCheers > CHEER_SHOW ? ` (+${myCheers - CHEER_SHOW})` : ''}
+                  </span>
+                )}
+                <button type="button" aria-label="응원 나비 받기"
+                  onClick={() => setCheers((c) => [...c, { id: Date.now(), seed: c.length + 1, at: bfClock.t + 0.05, to: selIdx }])}
+                  className="w-11 h-11 rounded-full bg-white/90 shadow-lg flex items-center justify-center text-pink-500 active:scale-90 transition">
+                  <ButterflyIcon className="w-[22px] h-[22px]" />
+                </button>
+                <button type="button" aria-label="나비 날려보내기" onClick={sendAway}
+                  className="w-11 h-11 rounded-full bg-white/90 shadow-lg flex items-center justify-center text-sky-500 active:scale-90 transition disabled:opacity-40"
+                  disabled={myCheers === 0}>
+                  <Wind className="w-[22px] h-[22px]" />
+                </button>
+              </div>
+            <div className="bg-white rounded-3xl p-4 shadow-xl">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-[15px] font-extrabold text-gray-900">레벨 {stage + 1} · {STAGE_LABEL[stage]}</p>
                 <p className="text-[15px] font-extrabold text-emerald-600">{stage >= 4 ? '완성' : pct + '%'}</p>
@@ -1380,10 +1787,11 @@ export default function DevGrowthLab() {
                 {/* 개발용 계기판 — 실제 화면엔 숫자 대신 «물방울 양» 으로만 전달한다 */}
                 <p className="text-[10px] font-bold text-gray-300">연속 {streak} · ×{mult.toFixed(1)}<button type="button" onClick={() => { setStreak(0); setGain({}) }} className="ml-1.5 underline">초기화</button></p>
               </div>
-              <div className="grid grid-cols-2 gap-2.5">
-                <button type="button" onClick={() => give('water')} className="rounded-2xl bg-sky-50 px-3 py-2.5 text-left active:scale-95 transition"><p className="text-[13px] font-extrabold text-sky-700">💧 물 주기</p><p className="text-[11px] text-sky-600/70">오늘 인증하기 · +{Math.round(PT_WATER * mult)}</p></button>
+              <div className="grid grid-cols-2 gap-2.5 mb-2">
+                <button type="button" onClick={() => give('water')} className="rounded-2xl bg-sky-50 px-3 py-2.5 text-left active:scale-95 transition"><p className="text-[13px] font-extrabold text-sky-700">💧 물 주기</p><p className="text-[11px] text-sky-600/70">오늘 인증하기 · +{Math.round(PT_WATER * mult)}{cheerBonus > 0 ? ` +${cheerBonus}🦋` : ''}</p></button>
                 <button type="button" onClick={() => give('sun')} className="rounded-2xl bg-amber-50 px-3 py-2.5 text-left active:scale-95 transition"><p className="text-[13px] font-extrabold text-amber-700">☀️ 햇빛 쬐기</p><p className="text-[11px] text-amber-600/70">오늘 들르기 · +{PT_SUN}</p></button>
               </div>
+            </div>
             </div>
           </>
         )}
