@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef, useEffect, Suspense } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, X } from 'lucide-react'
+import { playSuccessChime, primeAudio } from '../lib/sound'
 import { Canvas, useThree, useFrame } from '@react-three/fiber'
 import { OrbitControls, Float, Merged, Decal, useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
@@ -64,6 +65,7 @@ const STAGE_LABEL = ['새싹', '어린잎', '봉오리', '개화', '만개']
 //         depth 투영 깊이. 키우면 뒷면에도 표정이 찍힌다.
 const SPECIES = {
   daisy: {
+    tint: '#FFE07A',   // 레벨업 때 흩날리는 조각 색
     label: '데이지',
     fillH: 0.42,
     urls: ['/models/daisy_s1.glb', '/models/daisy_s2.glb', '/models/daisy_s3.glb', '/models/daisy_s4.glb', '/models/daisy_s5.glb'],
@@ -78,6 +80,7 @@ const SPECIES = {
     },
   },
   lavender: {
+    tint: '#B79CE8',   // 레벨업 때 흩날리는 조각 색
     label: '라벤더',
     // 키가 크고 얼굴(꽃대 아래 목)이 작아서, 데이지와 같은 값이면 표정이 화면의 3% 밖에 안 된다.
     // 더 당겨서 데이지(5~9%)와 비슷하게 맞춘다.
@@ -96,6 +99,7 @@ const SPECIES = {
     },
   },
   sunflower: {
+    tint: '#F5C542',   // 레벨업 때 흩날리는 조각 색
     label: '해바라기',
     // 숫자 하나 또는 단계별 배열. 만개는 꽃이 커서 0.50 이면 줄기 밑동이 하단 카드(화면의 약 25%)에 가린다.
     fillH: 0.46,
@@ -122,6 +126,7 @@ const SPECIES = {
     },
   },
   rose: {
+    tint: '#E4566E',   // 레벨업 때 흩날리는 조각 색
     label: '장미',
     fillH: 0.50,
     urls: ['/models/daisy_s1.glb', '/models/rose_s2.glb', '/models/rose_s3.glb', '/models/rose_s4.glb', '/models/rose_s5.glb'],
@@ -139,6 +144,7 @@ const SPECIES = {
     },
   },
   plumeria: {
+    tint: '#FFF0C9',   // 레벨업 때 흩날리는 조각 색
     label: '플루메리아',
     fillH: 0.50,
     urls: ['/models/daisy_s1.glb', '/models/plumeria_s2.glb', '/models/plumeria_s3.glb', '/models/plumeria_s4.glb', '/models/plumeria_s5.glb'],
@@ -159,6 +165,7 @@ const SPECIES = {
     },
   },
   iris: {
+    tint: '#5B62D6',   // 레벨업 때 흩날리는 조각 색
     label: '붓꽃',
     fillH: 0.56,
     urls: ['/models/daisy_s1.glb', '/models/iris_s2.glb', '/models/iris_s3.glb', '/models/iris_s4.glb', '/models/iris_s5.glb'],
@@ -176,6 +183,7 @@ const SPECIES = {
     },
   },
   cosmos: {
+    tint: '#F09BC0',   // 레벨업 때 흩날리는 조각 색
     label: '코스모스',
     fillH: 0.50,
     // ⚠️ 유일하게 «자기 새싹» 이 있는 종이다(다른 종은 데이지 새싹을 공유). 흙받침이 없으므로 soil 은 전부 0.
@@ -225,9 +233,16 @@ const pctOf = (pt) => {
 // ── 물·햇빛 이펙트 ───────────────────────────────────────────
 // 재생 상태는 모듈 전역 하나(windU 와 같은 방식). R3F 안팎으로 prop 을 끌고 다니지 않는다.
 const fxG = { warm: { value: 0 }, gust: { value: 0 } }   // 0~1. 모든 재질이 공유하는 «햇빛 물듦» 세기
-const fxU = { kind: null, t: 0, dur: 0, seed: 0, power: 1 }   // power = 연속 배수(1.0~2.0). 물방울 양·크기에 쓴다
+const fxU = { kind: null, t: 0, dur: 0, seed: 0, power: 1, tint: '#FFC33A' }   // power = 연속 배수(1.0~2.0). 물방울 양·크기에 쓴다
 const FX_DUR = { water: 3.0, sun: 2.1, level: 2.0 }
-const playFx = (kind, power = 1) => { fxU.kind = kind; fxU.t = 0; fxU.dur = FX_DUR[kind]; fxU.power = power; fxU.seed = (fxU.seed + 1) % 997 }
+const playFx = (kind, power = 1, tint) => {
+  fxU.kind = kind; fxU.t = 0; fxU.dur = FX_DUR[kind]; fxU.power = power
+  if (tint) fxU.tint = tint
+  fxU.seed = (fxU.seed + 1) % 997
+}
+// 레벨업 타이밍. 애니메이션의 기본은 «웅크림 → 터짐 → 여운» 이다.
+// 웅크림 없이 바로 터지면 «파티클을 뿌렸다» 로만 보인다.
+const LV_ANTI = 0.15     // 웅크리는 시간(초)
 // ⚠️ 물의 «붓는 시간» 과 «한 방울이 떨어지는 시간» 은 따로 둔다.
 //    한 덩어리로 두면 연출을 늘렸을 때 방울까지 슬로모션이 된다. 낙하는 늘 0.8초, 나머지는 붓는 구간.
 const FX_FALL = 0.8
@@ -732,7 +747,10 @@ const CAM_ELEV = [0.25, 0.72]   // 카메라 고도 제한(rad ≒ 14°~41°).
 // 바닥 «젖음 지도». 큰 원 하나를 켰다 끄는 게 아니라 물방울이 «닿은 그 지점» 마다 칠한다.
 // 방울이 쌓일수록 자국이 이어붙어 저절로 불규칙한 얼룩이 되고, 지나면 서서히 마른다.
 const WET_S = 128          // 지도 해상도
-const WET_W = 1.3          // 지도가 덮는 실제 폭(월드)
+const WET_W = 1.0          // 지도가 덮는 실제 폭(월드)
+// ⚠️ 섬은 둥근 언덕이다. 평평한 판을 넓게 깔면 가장자리가 지면 «아래» 로 들어가 그 부분만 자국이 안 보인다.
+//    반경 0.5 에서 처짐이 약 0.028 이라 그보다 넉넉히 띄운다(폭도 1.3 → 1.0 으로 줄여 처짐을 줄임).
+const WET_Y = 0.035
 function makeWetMap() {
   const cv = document.createElement('canvas'); cv.width = cv.height = WET_S
   const ctx = cv.getContext('2d')
@@ -776,7 +794,7 @@ function makeWetMap() {
 // 빛과 그림자가 움직이고, 바닥이 젖고, 맞은 잎이 흔들린다.
 const FX_N = 30
 function FxParticles() {
-  const ref = useRef(), mat = useRef(), wet = useRef()
+  const ref = useRef(), mat = useRef(), wet = useRef(), shock = useRef(), shockMat = useRef()
   const wetMap = useMemo(() => makeWetMap(), [])
   const landed = useRef(new Uint8Array(FX_N))
   const since = useRef(9)   // 물 연출이 끝난 뒤 경과(초)
@@ -784,7 +802,8 @@ function FxParticles() {
   const dummy = useMemo(() => new THREE.Object3D(), [])
   const seeds = useMemo(() => Array.from({ length: FX_N }, (_, i) => {
     const r = (k) => { const v = Math.sin(i * 71.3 + k * 13.7) * 43758.5; return v - Math.floor(v) }
-    const a = r(1) * Math.PI * 2, rad = 0.05 + r(2) * 0.30
+    const a = i * 2.399963 + r(1) * 0.5                       // 황금각 — 몇 개를 쓰든 고르게 퍼진다
+    const rad = 0.06 + 0.30 * Math.sqrt((i + 0.5) / FX_N)     // 면적 균일(안쪽에 몰리지 않게)
     return { ux: Math.cos(a), uz: Math.sin(a), rad,
              x: Math.cos(a) * rad, z: Math.sin(a) * rad,   // z 까지 퍼뜨려야 일부가 식물 «뒤» 로 지나간다
              d: r(3), s: 0.7 + r(4) * 0.6, sway: (r(5) - 0.5) * 0.12, up: 0.5 + r(6) * 0.9, tw: r(7) * 6.3 }
@@ -807,12 +826,23 @@ function FxParticles() {
     wetMap.dry(water ? dt * 0.10 : dt * 1.6)
     if (since.current > 1.8) wetMap.clear()      // 잔여 알파까지 완전히 지운다
 
+    // 레벨업 — 발밑에서 고리가 퍼진다. 조각만 뿌리는 것보다 «터졌다» 가 분명해진다.
+    if (shock.current) {
+      const lv = kind === 'level' ? Math.max(0, (fxU.t - LV_ANTI) / 0.70) : 2
+      shock.current.visible = lv > 0 && lv < 1
+      if (shock.current.visible) {
+        const e = Math.pow(lv, 0.45)
+        shock.current.scale.setScalar(0.10 + e * 0.95)
+        shockMat.current.opacity = (1 - lv) * 0.55
+        shockMat.current.color.set(fxU.tint)
+      }
+    }
     g.visible = !!kind
     if (!kind) return
-    mat.current.color.set(water ? '#6FC3EC' : sun ? '#FFEBB0' : '#FFC33A')
+    mat.current.color.set(water ? '#6FC3EC' : sun ? '#FFEBB0' : fxU.tint)
     mat.current.opacity = water ? 1 : 0.9
     const pw = Math.max(1, Math.min(2, fxU.power))
-    const live = water ? Math.round(14 + 16 * (pw - 1)) : sun ? 16 : FX_N
+    const live = water ? Math.round(14 + 16 * (pw - 1)) : sun ? 16 : 18
     for (let i = 0; i < FX_N; i++) {
       const sd = seeds[i]
       if (i >= live) { dummy.scale.setScalar(0); dummy.updateMatrix(); g.setMatrixAt(i, dummy.matrix); continue }
@@ -825,12 +855,12 @@ function FxParticles() {
         // 등속이 아니라 «가속», 그리고 빠를수록 길게 늘어난다 — 이 둘이 물처럼 보이게 하는 핵심.
         // 화면 밖 위에서 오는 물이라 살짝 비스듬히 떨어진다.
         const fall = q * q
-        y = 1.55 - fall * 1.57
+        y = 1.55 - fall * (1.55 - WET_Y)                 // 정확히 젖음 지도 높이에서 닿는다
         x += q * 0.10
         const v = Math.max(0.2, 2 * q)
         const base = 0.026 * sd.s * (0.85 + 0.5 * (pw - 1))
         sx = base * (1 - q * 0.25); sy = base * (1 + v * 1.9)
-        if (q > 0.94) {
+        if (q > 0.99) {                                  // 0.94 에서 끊으면 지면 0.16 위에서 사라진다
           sx = 0; sy = 0
           // 닿는 «그 지점» 에 자국을 남긴다. 방울마다 시간이 달라서 얼룩이 하나씩 번져 나간다.
           if (!landed.current[i]) { landed.current[i] = 1; wetMap.splat(x, z, 0.055 + sd.s * 0.035, 0.5) }
@@ -842,12 +872,21 @@ function FxParticles() {
         sx = sy = Math.sin(q * Math.PI) * 0.016 * sd.s * tw
         x += Math.sin(q * 3.2 + sd.tw) * 0.06; z += Math.cos(q * 2.6 + sd.tw) * 0.06
       } else {
-        const b = Math.max(0, Math.min(1, (p - sd.d * 0.12) / 0.88))
-        const rr = 0.05 + b * (0.34 + sd.s * 0.22)
+        // 레벨업 조각 — 사방으로 «똑같이» 퍼지면 기계 같다. 저마다 다르게 솟았다가 중력으로 떨어지고,
+        // 납작하게 눌러 회전시키면 구슬이 아니라 «꽃잎 조각» 으로 읽힌다.
+        const b = Math.max(0, Math.min(1, (fxU.t - LV_ANTI - sd.d * 0.09) / 0.85))
+        if (b <= 0) { dummy.scale.setScalar(0); dummy.updateMatrix(); g.setMatrixAt(i, dummy.matrix); continue }
+        const rr = 0.04 + b * (0.34 + sd.s * 0.30)
         x = sd.ux * rr; z = sd.uz * rr
-        y = 0.86 + b * sd.up * 0.42 - b * b * 0.30
-        sx = sy = Math.sin(Math.min(1, b * 1.35) * Math.PI) * 0.032 * sd.s
+        y = 0.78 + b * sd.up * 0.85 - b * b * 1.25
+        const k = (1 - b * b) * 0.034 * sd.s
+        dummy.position.set(x, y, z)
+        dummy.rotation.set(b * 7 * sd.s, b * 5 * sd.up, b * 6 * sd.d)
+        dummy.scale.set(Math.max(0, k * 1.7), Math.max(0, k * 0.45), Math.max(0, k))
+        dummy.updateMatrix(); g.setMatrixAt(i, dummy.matrix)
+        continue
       }
+      dummy.rotation.set(0, 0, 0)
       dummy.position.set(x, y, z)
       dummy.scale.set(Math.max(0, sx), Math.max(0, sy), Math.max(0, sx))
       dummy.updateMatrix(); g.setMatrixAt(i, dummy.matrix)
@@ -860,9 +899,15 @@ function FxParticles() {
         <sphereGeometry args={[1, 8, 6]} />
         <meshBasicMaterial ref={mat} transparent opacity={1} toneMapped={false} depthWrite={false} />
       </instancedMesh>
+      {/* 레벨업 충격파 */}
+      <mesh ref={shock} rotation={[-Math.PI / 2, 0, 0]} position={[0, WET_Y + 0.012, 0]} visible={false}>
+        <ringGeometry args={[0.55, 0.80, 44]} />
+        <meshBasicMaterial ref={shockMat} transparent opacity={0} depthWrite={false}
+          side={THREE.DoubleSide} toneMapped={false} blending={THREE.AdditiveBlending} />
+      </mesh>
       {/* 젖음 지도. 곱하기 합성이라 색을 덮지 않고 바닥색을 «누르기만» 한다 —
           잔디 위면 초록이 짙어지고, 흙받침 위면 흙이 짙어진다. 바닥이 뭐든 알아서 맞는다. */}
-      <mesh ref={wet} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.008, 0]}>
+      <mesh ref={wet} rotation={[-Math.PI / 2, 0, 0]} position={[0, WET_Y, 0]}>
         <planeGeometry args={[WET_W, WET_W]} />
         <meshBasicMaterial map={wetMap.tex} color="#6E8A5A" transparent depthWrite={false}
           toneMapped={false} blending={THREE.MultiplyBlending} />
@@ -904,11 +949,12 @@ function FxWorld({ spread }) {
 // ⚠️ soloScale(실제 배율)과 soloFrame(카메라 프레이밍용 배율)을 나눠 받는다.
 //    하나로 쓰면 카메라가 «자란 만큼» 뒤로 물러나서 화면에선 늘 같은 크기로 보인다 — 성장이 안 보인다.
 //    프레이밍은 «그 단계의 최대 크기» 로 고정하고, 그 안에서 식물이 실제로 커지게 한다.
-function Rig({ selectedPos, gardenRef, soloRef, controlsRef, camGarden, soloScale, soloFrame, head, soloExt, fillH }) {
+function Rig({ selectedPos, gardenRef, soloRef, controlsRef, camGarden, soloScale, soloFrame, head, soloExt, fillH, innerRef, soloBury, selKey }) {
   const { camera, size } = useThree()
   const focus = useRef(0); const gt = useRef(new THREE.Vector3()); const ct = useRef(new THREE.Vector3())
   const grow = useRef(0)   // 화면에 실제로 그려지는 배율. 목표로 «천천히» 따라가야 자라는 게 보인다.
   const fxSeen = useRef(-1), fxDist = useRef(0)   // 연출 시작 시점의 카메라 거리(뒤로 물러났다 제자리로)
+  const bury = useRef(null), lastSel = useRef(null)   // 묻는 깊이도 이어줘야 레벨업 때 식물이 튀지 않는다
   useFrame((_, dt) => {
     windU.uTime.value += dt
     const active = !!selectedPos; const target = active ? 1 : 0
@@ -930,14 +976,30 @@ function Rig({ selectedPos, gardenRef, soloRef, controlsRef, camGarden, soloScal
         const e = Math.sin(Math.min(1, p / 0.8) * Math.PI)
         by = 1 + e * 0.06; bx = 1 - e * 0.025
       } else {
-        // 단계가 오르면 모델 자체가 커진다 — 그 변화에 묻히지 않게 팝을 크게 준다.
-        const e = Math.sin(Math.min(1, p * 1.6) * Math.PI) * Math.exp(-p * 1.6)
-        by = 1 + e * 0.34; bx = 1 + e * 0.20
+        // 웅크렸다 튀어오르고, 지나쳤다가 탄성으로 잦아든다.
+        // sin 한 번으로 부풀렸다 꺼지면 «커졌다 작아졌다» 일 뿐 «튀어올랐다» 가 아니다.
+        if (fxU.t < LV_ANTI) {
+          const d = Math.sin((fxU.t / LV_ANTI) * Math.PI * 0.5) * 0.13
+          by = 1 - d; bx = 1 + d * 0.6
+        } else {
+          const u = (fxU.t - LV_ANTI) / 0.95
+          const osc = Math.exp(-u * 4.2) * Math.cos(u * Math.PI * 3.4)
+          by = 1 + osc * 0.36; bx = 1 - osc * 0.21
+        }
       }
     }
     // 물을 준 만큼 커지는 건 한 번에 3~4% 라 «툭» 바뀌면 눈에 안 띈다. 0.6초에 걸쳐 자라게 해서
     // «변화량» 이 아니라 «움직임» 으로 보이게 한다. 꽃을 바꿀 땐(차이가 크면) 즉시 맞춘다.
-    if (grow.current === 0 || Math.abs(soloScale - grow.current) > 0.08 || f < 0.05) grow.current = soloScale
+    // ⚠️ 단계마다 «흙받침을 묻는 깊이» 가 다르다(데이지 0.355→0.187, 나머지 종 0.355→0).
+    //    그대로 두면 레벨업 순간 식물이 위로 툭 솟는다. 크기와 마찬가지로 이어준다.
+    //    다른 꽃을 고른 거라면(선택 인덱스가 바뀌면) 이어주지 않고 즉시 맞춘다.
+    const swapped = lastSel.current !== selKey
+    lastSel.current = selKey
+    if (bury.current === null || swapped || f < 0.05) bury.current = soloBury
+    else bury.current += (soloBury - bury.current) * (1 - Math.exp(-6 * dt))
+    if (innerRef.current) innerRef.current.position.y = -bury.current
+
+    if (grow.current === 0 || swapped || f < 0.05) grow.current = soloScale
     else grow.current += (soloScale - grow.current) * (1 - Math.exp(-4 * dt))
     if (soloRef.current) { const S = grow.current * f; soloRef.current.scale.set(S * bx, S * by, S * bx); soloRef.current.visible = f > 0.02 }
     if (!controlsRef.current) return
@@ -973,13 +1035,26 @@ function Rig({ selectedPos, gardenRef, soloRef, controlsRef, camGarden, soloScal
     // 물·햇빛 동안 한 발 물러선다 — 떨어지는 물과 하늘까지 들어와야 «세계가 반응» 하는 게 보인다.
     // ⚠️ ct(계산된 카메라 위치)로 되돌리면 사용자가 손으로 돌려둔 각도를 뺏는다.
     //    방향은 그대로 두고 «타깃까지의 거리» 만 늘렸다 줄인다.
-    if (fxU.kind === 'water' || fxU.kind === 'sun') {
+    if (fxU.kind === 'water' || fxU.kind === 'sun' || fxU.kind === 'level') {
       const tgt = controlsRef.current.target
       const d = camera.position.clone().sub(tgt)
       if (fxSeen.current !== fxU.seed) { fxSeen.current = fxU.seed; fxDist.current = d.length() }
-      const pz = Math.min(1, fxU.t / fxU.dur)
-      const want = fxDist.current * (1 + Math.sin(Math.min(1, pz * 1.12) * Math.PI) * 0.30)
-      d.setLength(d.length() + (want - d.length()) * (1 - Math.exp(-5 * dt)))
+      // 물·햇빛은 «물러서서 보고», 레벨업은 «다가가서 본다». 방향이 반대여야 성격이 갈린다.
+      let want, rate
+      if (fxU.kind === 'level') {
+        // 웅크리는 동안 살짝 물러섰다가, 튀어오르는 그 순간 훅 당긴다.
+        // 느린 사인으로 왕복시키면 «줌» 이 아니라 «표류» 로 보인다 — 들어갈 땐 빠르게, 나올 땐 느리게.
+        const z = fxU.t < LV_ANTI
+          ? 0.05 * (fxU.t / LV_ANTI)
+          : -0.20 * Math.exp(-((fxU.t - LV_ANTI) / (fxU.dur - LV_ANTI)) * 3.0)
+        want = fxDist.current * (1 + z)
+        rate = 14
+      } else {
+        const pz = Math.min(1, fxU.t / fxU.dur)
+        want = fxDist.current * (1 + Math.sin(Math.min(1, pz * 1.12) * Math.PI) * 0.30)
+        rate = 5
+      }
+      d.setLength(d.length() + (want - d.length()) * (1 - Math.exp(-rate * dt)))
       camera.position.copy(tgt).add(d)
     }
     controlsRef.current.update()
@@ -987,22 +1062,30 @@ function Rig({ selectedPos, gardenRef, soloRef, controlsRef, camGarden, soloScal
   return null
 }
 
-function Scene({ n, selected, onSelect, mood, spKey, gain }) {
+function Scene({ n, selected, onSelect, mood, spKey, gain, hold }) {
   // spKey === 'mix' 면 참여자마다 제 종을 쓴다. 아니면 전부 그 종으로 덮어쓴다.
   const parts0 = useMock(n)
+  // 배치 계산의 «입력» 은 물을 줘도 안 변해야 한다(아래 slotR 참고).
+  const layout = useMemo(() => (spKey === 'mix' ? parts0 : parts0.map((q) => ({ ...q, sp: spKey }))), [parts0, spKey])
   const parts = useMemo(() => {
-    const base = spKey === 'mix' ? parts0 : parts0.map((q) => ({ ...q, sp: spKey }))
+    const base = layout
     // 물·햇빛으로 얻은 포인트만큼 단계 + 그 단계 «안» 의 진행률까지 계산(개발용 · 실데이터 붙이면 서버 값)
     return base.map((q, i) => {
       const pt = STAGE_PT[q.stage] + ((gain && gain[i]) || 0)
-      const st = stageOf(pt)
+      // ⚠️ 레벨업이 예약돼 있으면 «지금 단계» 에 붙들어 둔다.
+      //    안 그러면 누르는 즉시 다음 단계 모델로 바뀌고 축하는 1.8초 뒤에 나온다 — 순서가 거꾸로다.
+      //    붙들어 두면 그 단계 끝까지 자라 대기하다가, 터지는 순간 변신한다.
+      const st = Math.min(stageOf(pt), hold && hold.idx === i ? hold.stage : 4)
       const a = STAGE_PT[st], b = st >= 4 ? a : STAGE_PT[st + 1]
       return { ...q, stage: st, prog: b > a ? Math.min(1, (pt - a) / (b - a)) : 1 }
     })
-  }, [parts0, spKey, gain])
+  }, [layout, gain, hold])
   const spOf = (i) => SPECIES[parts[i].sp]
   // 슬롯별 반경 = 그 단계의 반폭 x 그 꽃의 크기. 내 꽃(meIndex)만 scale 0.95 로 그린다.
-  const slotR = useMemo(() => parts.map((q, i) => SPECIES[q.sp].ext[stageIdx(q.stage)][1] * (i === 0 ? 0.95 : 0.3 + q.stage * 0.12)), [parts])
+  // ⚠️ 배치는 «기준 데이터» 로만 계산한다. parts 로 계산하면 물을 한 번 누를 때마다 gain 이 바뀌어
+  //    slotR 이 새로 생기고 → useField 가 통째로 다시 돈다(레이캐스팅 + 250회 완화 + 연못 밀어내기).
+  //    성능 문제이기도 하지만, 애초에 «누가 물을 줬다고 정원 배치가 다시 섞이면» 안 된다.
+  const slotR = useMemo(() => layout.map((q, i) => SPECIES[q.sp].ext[stageIdx(q.stage)][1] * (i === 0 ? 0.95 : 0.3 + q.stage * 0.12)), [layout])
   const { field, positions, normals, spread, water } = useField(n, slotR)
   const camGarden = useMemo(() => CAM_GARDEN.map((v) => v * spread), [spread])
   const byUrl = useAllTemplates()
@@ -1011,7 +1094,7 @@ function Scene({ n, selected, onSelect, mood, spKey, gain }) {
     [k, SPECIES[k].urls.map((u, si) => buildMeshes(byUrl[u], SPECIES[k].soil[si]))])), [byUrl])
   const tmplOf = (k, si) => byUrl[SPECIES[k].urls[si]]
   const meIndex = 0
-  const gardenRef = useRef(); const soloRef = useRef(); const controlsRef = useRef()
+  const gardenRef = useRef(); const soloRef = useRef(); const controlsRef = useRef(); const soloInner = useRef()
   const selIdx = selected != null ? Math.min(selected, n - 1) : null
   const selPos = selIdx != null ? positions[selIdx] : null
   const sel = selIdx != null ? parts[selIdx] : null
@@ -1031,6 +1114,14 @@ function Scene({ n, selected, onSelect, mood, spKey, gain }) {
   const selSp = SPECIES[sel ? sel.sp : SPECIES_KEYS[0]]
   const soloBury = sel ? soilSink(selSp, soloSi) + (soloSi > 0 ? tiltResidual(selSp, soloNrm, soloSi) : 0) : 0
   const soloQuat = useMemo(() => terrainQuat(soloNrm), [soloNrm])
+
+  // 지금 단계 + (레벨업 대기 중이면) 다음 단계. 다음 단계는 미리 데워두기용이라 거의 0 배율로 그린다.
+  const soloSlots = useMemo(() => {
+    if (!sel) return []
+    const cur = stageIdx(sel.stage)
+    const next = hold && hold.idx === selIdx && hold.stage < 4 ? stageIdx(hold.stage + 1) : null
+    return next != null && next !== cur ? [{ si: cur, warm: false }, { si: next, warm: true }] : [{ si: cur, warm: false }]
+  }, [sel, hold, selIdx])
 
   // 단독 뷰의 얼굴 위치·방향(월드) — 표정이 있는 단계에서만. 카메라 정렬에 씀.
   const head = useMemo(() => {
@@ -1083,10 +1174,18 @@ function Scene({ n, selected, onSelect, mood, spKey, gain }) {
           {/* ⚠️ 단독 식물도 Float «안» 이어야 한다. 밖에 두면 땅만 위아래로 떠다녀서
               가만히 있어도 밑동과 젖은 자국이 지면에 잠겼다 나왔다 한다. */}
           <group ref={soloRef} position={selPos || [0, TOP_TARGET, 0]} quaternion={soloQuat} visible={false} onClick={(e) => { e.stopPropagation(); onSelect(null) }}>
-          <group rotation={[0, faceAngle, 0]} position={[0, -soloBury, 0]}>{/* 흙받침을 통째로 묻음 — 안쪽 그룹이라 등장 애니의 scale 을 같이 탄다 */}
-            {sel && (FACE_PARAMS[sel.sp][stageIdx(sel.stage)]
-              ? <SoloDaisyFace template={tmplOf(sel.sp, stageIdx(sel.stage))} face={FACE_PARAMS[sel.sp][stageIdx(sel.stage)]} soil={selSp.soil[stageIdx(sel.stage)]} mood={mood} />
-              : <Daisy template={tmplOf(sel.sp, stageIdx(sel.stage))} opaque soil={selSp.soil[stageIdx(sel.stage)]} />)}
+          <group ref={soloInner} rotation={[0, faceAngle, 0]} position={[0, -soloBury, 0]}>{/* 흙받침을 통째로 묻음 — 깊이는 Rig 가 이어준다 — 안쪽 그룹이라 등장 애니의 scale 을 같이 탄다 */}
+            {/* ⚠️ 변신 순간의 렉 — 다음 단계는 «처음 그려질 때» 셰이더를 컴파일하고 데칼 지오메트리를 만든다.
+                그 비용이 터지는 한 프레임에 몰린다. 단계를 붙들어 두는 1.8초 동안 다음 단계를
+                «아주 작게» 미리 그려서 그 비용을 먼저 치른다(visible=false 면 안 그려져서 컴파일도 안 된다).
+                key 를 단계로 두면 변신할 때 그 인스턴스가 그대로 살아남아 다시 만들지 않는다. */}
+            {sel && soloSlots.map(({ si, warm }) => (
+              <group key={sel.sp + ':' + si} scale={warm ? 0.001 : 1}>
+                {FACE_PARAMS[sel.sp][si]
+                  ? <SoloDaisyFace template={tmplOf(sel.sp, si)} face={FACE_PARAMS[sel.sp][si]} soil={selSp.soil[si]} mood={mood} />
+                  : <Daisy template={tmplOf(sel.sp, si)} opaque soil={selSp.soil[si]} />}
+              </group>
+            ))}
           </group>
           {/* ⚠️ «묻는» 안쪽 그룹 밖에 둔다. 안에 두면 흙받침이 큰 새싹(0.355)에서 물방울이
               땅속에서 출발해 지면 아래로 사라진다. 밖에 두면 y=0 이 늘 지면이다. */}
@@ -1096,7 +1195,8 @@ function Scene({ n, selected, onSelect, mood, spKey, gain }) {
 
         <OrbitControls ref={controlsRef} makeDefault enablePan={false} enableZoom
           minDistance={1.4} maxDistance={12 * spread} zoomSpeed={0.8} minPolarAngle={0.3} maxPolarAngle={1.6} target={[0, TOP_TARGET, 0]} />
-        <Rig selectedPos={selPos} gardenRef={gardenRef} soloRef={soloRef} controlsRef={controlsRef} camGarden={camGarden} soloScale={soloScale} soloFrame={soloFrame} head={head} soloExt={selSp.ext[soloSi]} fillH={Array.isArray(selSp.fillH) ? selSp.fillH[soloSi] : selSp.fillH} />
+        <Rig selectedPos={selPos} gardenRef={gardenRef} soloRef={soloRef} controlsRef={controlsRef} camGarden={camGarden} soloScale={soloScale} soloFrame={soloFrame} head={head} soloExt={selSp.ext[soloSi]} fillH={Array.isArray(selSp.fillH) ? selSp.fillH[soloSi] : selSp.fillH}
+          innerRef={soloInner} soloBury={soloBury} selKey={selIdx} />
       </Suspense>
     </Canvas>
   )
@@ -1109,14 +1209,15 @@ export default function DevGrowthLab() {
   const [moodOverride, setMoodOverride] = useState(null)   // dev: 상태별 표정 미리보기
   const [spKey, setSpKey] = useState('mix')
   const [gain, setGain] = useState({})               // {참여자 index: 얻은 포인트}
+  const [hold, setHold] = useState(null)          // 레벨업 연출 전까지 단계를 붙들어 둠 {idx, stage}
   const [streak, setStreak] = useState(0)           // 개발용 연속 — 실데이터에선 «프로그램 리듬 G» 로 판정한다
   const mult = multOf(streak)
   const parts0 = useMock(n)
   const selIdx = selected != null ? Math.min(selected, n - 1) : null
   const base = selIdx != null ? parts0[selIdx] : null
   const pt = base ? STAGE_PT[base.stage] + (gain[selIdx] || 0) : 0
-  const stage = base ? stageOf(pt) : 0
-  const pct = base ? pctOf(pt) : 0
+  const stage = base ? Math.min(stageOf(pt), hold && hold.idx === selIdx ? hold.stage : 4) : 0
+  const pct = base ? (stageOf(pt) > stage ? 100 : pctOf(pt)) : 0
   const sel = base ? { ...base, stage } : null
   const [sunSky, setSunSky] = useState(false)      // 햇빛일 때 하늘도 같이 따뜻해진다
   const [moodFx, setMoodFx] = useState(null)          // 물·햇빛 반응 표정(개발용 미리보기보다 우선)
@@ -1127,6 +1228,7 @@ export default function DevGrowthLab() {
   // 물 = 인증, 햇빛 = 그날 첫 방문. 단계가 오르면 레벨업 연출까지 이어 붙인다.
   const give = (kind) => {
     if (selIdx == null) return
+    primeAudio()                                            // 모바일은 제스처 안에서 미리 풀어야 소리가 난다
     const add = kind === 'water' ? Math.round(PT_WATER * mult) : PT_SUN
     const up = stageOf(pt + add) > stage
     if (kind === 'water') setStreak((k) => k + 1)
@@ -1138,8 +1240,11 @@ export default function DevGrowthLab() {
     setMoodFx('happy')
     if (kind === 'sun') { setSunSky(true); T(() => setSunSky(false), FX_DUR.sun * 1000) }
     if (up) {
-      T(() => { playFx('level'); setMoodFx('joy') }, FX_DUR[kind] * 600)
-      T(() => setMoodFx(null), FX_DUR[kind] * 600 + FX_DUR.level * 1000 + 400)
+      const at = FX_DUR[kind] * 600
+      setHold({ idx: selIdx, stage })                       // 그 단계 끝까지 자라서 대기
+      T(() => { playFx('level', 1, SPECIES[base.sp].tint); setMoodFx('joy'); playSuccessChime() }, at)
+      T(() => setHold(null), at + LV_ANTI * 1000 + 60)      // 웅크렸다 «튀어오르는 그 순간» 변신
+      T(() => setMoodFx(null), at + FX_DUR.level * 1000 + 400)
     } else {
       T(() => setMoodFx(null), FX_DUR[kind] * 1000 + 300)
     }
@@ -1166,7 +1271,7 @@ export default function DevGrowthLab() {
         <div className="absolute inset-0 pointer-events-none z-[5] transition-opacity duration-700"
           style={{ opacity: sunSky ? 1 : 0, background: 'radial-gradient(120% 70% at 50% -10%, rgba(255,214,120,0.55), rgba(255,236,175,0.18) 45%, transparent 70%)' }} />
         <Suspense fallback={<div className="absolute inset-0 grid place-items-center text-emerald-700/50 text-sm">불러오는 중…</div>}>
-          <Scene key={spKey} n={n} selected={selected} onSelect={setSelected} mood={mood} spKey={spKey} gain={gain} />
+          <Scene key={spKey} n={n} selected={selected} onSelect={setSelected} mood={mood} spKey={spKey} gain={gain} hold={hold} />
         </Suspense>
         {sel && (
           <>
