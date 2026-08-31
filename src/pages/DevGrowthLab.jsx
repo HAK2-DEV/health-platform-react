@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect, Suspense } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronLeft, X, Wind } from 'lucide-react'
+import { ChevronLeft, ChevronRight, X, Wind } from 'lucide-react'
 import { playSuccessChime, primeAudio } from '../lib/sound'
 import { fetchProgramGarden, fetchMyPrograms, fetchActivePrograms, sendGardenCheer, fetchMyGardenCheers, devClearMyGardenCheers, fetchMyCheerQuota } from '../lib/queries'
 import { useAuth } from '../hooks/useAuth'
@@ -26,12 +26,15 @@ const soilSink = (sp, si) => sp.soil[si] + SOIL_MARGIN
 // 흙받침은 평평한데 필드는 기복이 있어서, 경사에 심으면 내리막 쪽 흙이 지면 위로 튀어나온다.
 // 낙차만큼 더 묻으면 해결되지만 실측 결과 줄기가 최대 34% 까지 잠긴다 — 그래서 대신 **식물을 지면 기울기에 맞춰 눕힌다.**
 // 완전히 눕히면(1.0) 언덕에서 부자연스러우니 일부만 따라가고, 남은 각도만큼만 추가로 묻는다.
-const TILT_FIT = 0.85           // 지면 법선을 따라가는 비율
+// 지면 법선을 따라가는 비율. 0 = «모든 꽃이 수직으로 선다».
+// ⚠️ 눕히지 않으면 평평한 흙받침 가장자리가 경사면에서 지면 위로 뜬다 —
+//    그래서 눕히지 않은 만큼(1 - TILT_FIT) 더 깊이 묻는다(아래 tiltResidual).
+const TILT_FIT = 0
 const TILT_MAX = 0.45           // 최대 기울기(rad ≒ 26°) — 절벽에서 과하게 눕지 않게
 const UP = new THREE.Vector3(0, 1, 0)
 // 지면 법선 → 식물을 눕히는 쿼터니언
 function terrainQuat(nrm) {
-  if (!nrm) return new THREE.Quaternion()
+  if (!nrm || TILT_FIT <= 0) return new THREE.Quaternion()   // 수직 고정
   const n = new THREE.Vector3(nrm[0], nrm[1], nrm[2]).normalize()
   const full = new THREE.Quaternion().setFromUnitVectors(UP, n)
   const q = new THREE.Quaternion().slerpQuaternions(new THREE.Quaternion(), full, TILT_FIT)
@@ -40,13 +43,56 @@ function terrainQuat(nrm) {
 }
 // 눕히고도 남는 경사 때문에 필요한 추가 침하(정규화 단위)
 const tiltResidual = (sp, nrm, si) => {
-  if (!nrm) return 0
+  // ⚠️ 이 보정은 «평평한 흙 원반» 이 경사에서 뜨는 것을 막으려고 더 묻는 값이다.
+  //    흙받침이 없는 종(soil 0 — 줄기만 있는 대부분)에 걸면 그냥 줄기가 땅에 잠긴다.
+  if (!nrm || !(sp.soil[si] > 0)) return 0
   const theta = Math.acos(Math.min(1, Math.max(-1, nrm[1])))
-  return sp.ext[si][1] * Math.tan(Math.min(theta, TILT_MAX / TILT_FIT) * (1 - TILT_FIT)) * 1.6   // 1.6 = 지형 굴곡 여유
+  // 식물이 «눕지 않고 남긴» 각도만큼 흙받침 가장자리가 뜬다. 그 높이 = 반폭 x tan(남은 각).
+  // 아주 가파른 곳에서 한없이 깊어지지 않게 TILT_MAX 로 자른다.
+  const resid = Math.min(theta * (1 - TILT_FIT), TILT_MAX)
+  return sp.ext[si][1] * Math.tan(resid) * 1.6   // 1.6 = 지형 굴곡 여유
 }
 // 참여자 수 → 섬/배치 스케일(밀도 일정). 낮은 divisor = 넉넉한 간격.
 // 내 꽃은 남들과 «같은 규칙» 으로 커지되 조금만 크게 — 눈에 띄되 단계 차이를 덮지 않는 정도.
 const HERO_BOOST = 1.25
+const PAST_MAX = 5       // 한 자리에 함께 세우는 «지난 꽃» 상한(종은 7가지 — 첫 한 바퀴는 모두 다르다)
+const DIM_OTHER = 0.22   // 지난 꽃을 볼 때 «보지 않는» 꽃들의 투명도(시야를 가리지 않게)
+// ⚠️ 지난 꽃은 «섬 안쪽» 을 향한 부채꼴에 세운다.
+//    둘레를 한 바퀴 돌면 가장자리 참여자의 꽃이 섬 밖으로 나간다(연못 배치와 같은 함정).
+//    x·z 는 그 참여자의 자리 — 원점(섬 중심) 쪽이 «안쪽» 이다.
+// ⚠️ 경사면에서 «옆으로» 세운 꽃은 그 자리의 지면 높이가 다르다.
+//    참여자 자리 높이를 그대로 쓰면 오르막 쪽 꽃이 땅에 묻힌다.
+//    그 지점을 다시 레이캐스트하면 정확하지만 꽃마다 쏘면 비싸다 —
+//    그 자리의 지면 법선으로 «평면 1차 근사» 를 쓴다(기복이 완만해 충분하다).
+//    선형이라 배율이 곱해진 좌표계에서도 그대로 쓸 수 있다.
+const groundDy = (nrm, dx, dz) => (nrm && nrm[1] > 1e-3 ? -(nrm[0] * dx + nrm[2] * dz) / nrm[1] : 0)
+
+// ⚠️ 한 고리에 7송이를 욱여넣으면 서로 겹친다(부채꼴 2.2rad 를 7등분 = 0.31rad).
+//    4송이까지는 안쪽 고리, 그 뒤는 바깥 고리로 «두 겹» 으로 세운다.
+const PAST_ROW = 4                       // 안쪽 고리에 세우는 수
+const pastSlot = (k, n, x, z) => {
+  const inward = Math.atan2(-z, -x)
+  const row = k < PAST_ROW ? 0 : 1
+  const cnt = row === 0 ? Math.min(n, PAST_ROW) : n - PAST_ROW
+  const idx = row === 0 ? k : k - PAST_ROW
+  // 바깥 고리는 반 칸 어긋나게 — 앞줄 사이로 보인다
+  const off = row === 1 ? 0.5 / Math.max(1, cnt) : 0
+  return {
+    a: inward + ((idx + 0.5) / Math.max(1, cnt) - 0.5 + off) * 2.2,
+    rm: 1 + row * 0.62,                  // 바깥 고리는 더 멀리
+  }
+}
+// ⚠️ 지난 꽃은 «다 자란» 꽃이다 — 지금 키우는 새싹보다 작으면 안 된다.
+//    예전엔 «지금 단계의 몇 배» 로 잡아서, 새싹일 때 만개한 꽃이 새싹보다 작게 나왔다.
+//    크기는 그 꽃 «자신의 단계(만개)» 로 정한다.
+const PAST_SCALE = 0.72                       // 지금 꽃이 주인공이도록 조금만 줄인다
+const GARDEN_SC = (st) => 0.3 + st * 0.12     // 정원 배율(단계별)
+const PAST_GARDEN = GARDEN_SC(4) * PAST_SCALE // 정원의 지난 꽃 = 만개 크기 x 0.72 (지금 단계와 무관)
+// 단독 뷰의 지난 꽃 배율 = «정원에서의 크기비» 를 그대로 쓴다.
+//   단독 뷰는 지금 꽃이 화면을 채우도록 배율이 다르지만(SOLO_SCALE), 꽃«끼리»의 크기 관계는
+//   두 화면에서 같아야 한다 — 정원에서 큰 꽃이 단독 뷰에서 작으면 같은 정원으로 안 읽힌다.
+//   (완화하려고 제곱근을 씌웠더니 그 관계가 깨졌다)
+const pastSoloScale = (curStage) => PAST_GARDEN / GARDEN_SC(curStage)
 const spreadFor = (n) => Math.min(2.6, Math.max(1, Math.sqrt(n / 22)))
 const POND_DROP = 0.15   // 주변 지면보다 이만큼(x spread) 꺼지면 연못으로 본다
 const POND_FILL = 0.80   // 물 높이 — 웅덩이 바닥(0)과 주변 지면(1) 사이 비율. 올리면 물가도 같이 넓어진다.
@@ -55,168 +101,7 @@ const PACK = 1.06        // 두 꽃 반폭의 합에 곱하는 여유. 1.0 이�
 const POND_MARGIN = 0.25  // 물가와 꽃 사이 최소 여유(꽃 반경은 여기에 더해진다)
 // 단계는 모델 5개와 1:1. «씨앗» 은 뒀다가 없앴다 — 모델이 새싹과 같아서 첫 레벨업에 화면이 안 변했다.
 const STAGE_MSG = ['새싹이 돋았어요!', '잎이 무럭무럭 자라고 있어요', '꽃봉오리가 맺혔어요!', '꽃이 피기 시작했어요', '활짝 만개했어요! 🎉']
-const STAGE_LABEL = ['새싹', '어린잎', '봉오리', '개화', '만개']
-// ── 종 레지스트리 ────────────────────────────────────────────────────
-// 종마다 모델·흙높이·크기·얼굴배치가 다르다. 전부 glb 를 직접 재서 넣은 값 —
-// 새 종을 추가할 땐 측정 도구를 돌려 이 표만 채우면 된다.
-//   soil  단계별 흙받침 높이(정규화). 흙이 없는 종은 0(줄기만 SOIL_MARGIN 만큼 묻힌다).
-//   ext   [땅 위 반높이, 반폭] — 카메라 프레이밍과 꽃 사이 간격에 함께 쓴다.
-//   faces 단계별 얼굴 배치. 없는 단계는 표정 없이 그린다.
-//         n     얼굴이 향하는 방향(법선). ⚠️ 원반의 '실제' 법선이 크게 위를 보면(데이지 개화 58°)
-//               그대로 쓰지 말 것 — 얼굴이 원반 위쪽에 붙어 '하늘 보는' 느낌이 된다. 35° 정도로 낮춘다.
-//         c     얼굴 중심. **그 법선 방향에서 정사영으로 본** 중심. 3차원 무게중심으로 잡으면
-//               뒷면까지 섞여 중심이 뒤로 밀린다.
-//         w     표정 그림의 가로 폭. 그 면 폭의 80~95% 가 상한(넘으면 볼이 잘린다).
-//         lift  c 에서 법선 방향으로 데칼 상자를 띄우는 양. **앞면 표면 높이에 맞춰야** 눈·입이 안 잘린다.
-//         depth 투영 깊이. 키우면 뒷면에도 표정이 찍힌다.
-const SPECIES = {
-  daisy: {
-    tint: '#FFE07A',   // 레벨업 때 흩날리는 조각 색
-    label: '데이지',
-    fillH: 0.42,
-    urls: ['/models/daisy_s1.glb', '/models/daisy_s2.glb', '/models/daisy_s3.glb', '/models/daisy_s4.glb', '/models/daisy_s5.glb'],
-    soil: [0.355, 0.187, 0.134, 0.138, 0.141],
-    ext: [[0.308, 0.497], [0.392, 0.193], [0.418, 0.164], [0.416, 0.228], [0.415, 0.258]],
-    faces: {
-      0: { n: [0.061, 0.306, 0.950], c: [0.005, 0.592, -0.026], w: 0.135, lift: 0.004, depth: 0.09 },
-      1: { n: [-0.018, 0.000, 1.000], c: [0.015, 0.885, 0.050], w: 0.115, lift: 0.000, depth: 0.08 },
-      2: { n: [0.026, 0.197, 0.980], c: [0.002, 0.876, 0.098], w: 0.104, lift: 0.000, depth: 0.10 },
-      3: { n: [0.000, 0.574, 0.819], c: [-0.001, 0.877, 0.083], w: 0.155, lift: 0.020, depth: 0.06 },
-      4: { n: [0.000, 0.574, 0.819], c: [0.020, 0.830, -0.024], w: 0.189, lift: 0.058, depth: 0.06 },
-    },
-  },
-  lavender: {
-    tint: '#B79CE8',   // 레벨업 때 흩날리는 조각 색
-    label: '라벤더',
-    // 키가 크고 얼굴(꽃대 아래 목)이 작아서, 데이지와 같은 값이면 표정이 화면의 3% 밖에 안 된다.
-    // 더 당겨서 데이지(5~9%)와 비슷하게 맞춘다.
-    fillH: 0.60,
-    // 1단계 새싹은 종마다 사실상 같아서 데이지 것을 공유한다(모델 24개 절약).
-    urls: ['/models/daisy_s1.glb', '/models/lavender_s2.glb', '/models/lavender_s3.glb', '/models/lavender_s4.glb', '/models/lavender_s5.glb'],
-    soil: [0.355, 0, 0, 0, 0],
-    ext: [[0.308, 0.497], [0.500, 0.187], [0.500, 0.193], [0.500, 0.189], [0.500, 0.239]],
-    // 2~5단계는 꽃대 아래 '초록 목' 앞면. 잎 뭉치가 아니라 중앙 기둥에서 잰 값이다.
-    faces: {
-      0: { n: [0.061, 0.306, 0.950], c: [0.005, 0.592, -0.026], w: 0.135, lift: 0.004, depth: 0.09 },
-      1: { n: [0.000, 0.015, 1.000], c: [-0.010, 0.900, 0.056], w: 0.085, lift: 0.000, depth: 0.08 },
-      2: { n: [0.000, 0.035, 0.999], c: [0.004, 0.714, 0.064], w: 0.110, lift: 0.000, depth: 0.08 },
-      3: { n: [0.000, 0.087, 0.996], c: [-0.002, 0.598, 0.062], w: 0.080, lift: 0.000, depth: 0.08 },
-      4: { n: [0.000, 0.208, 0.978], c: [-0.004, 0.575, 0.081], w: 0.105, lift: 0.000, depth: 0.08 },
-    },
-  },
-  sunflower: {
-    tint: '#F5C542',   // 레벨업 때 흩날리는 조각 색
-    label: '해바라기',
-    // 숫자 하나 또는 단계별 배열. 만개는 꽃이 커서 0.50 이면 줄기 밑동이 하단 카드(화면의 약 25%)에 가린다.
-    fillH: 0.46,
-    urls: ['/models/daisy_s1.glb', '/models/sunflower_s2.glb', '/models/sunflower_s3.glb', '/models/sunflower_s4.glb', '/models/sunflower_s5.glb'],
-    soil: [0.355, 0, 0, 0, 0],
-    ext: [[0.308, 0.497], [0.500, 0.437], [0.500, 0.299], [0.500, 0.281], [0.500, 0.285]],
-    faces: {
-      0: { n: [0.061, 0.306, 0.950], c: [0.005, 0.592, -0.026], w: 0.135, lift: 0.004, depth: 0.09 },
-      // 어린잎은 y 0.75 쯤이 줄기 끝이지만 잎에 가린다 — 잎 사이로 줄기가 보이는 0.65 에 놓는다.
-      1: { n: [0.000, 0.000, 1.000], c: [0.000, 0.650, 0.047], w: 0.100, lift: 0.000, depth: 0.09 },
-      2: { n: [0.000, 0.016, 1.000], c: [0.002, 0.764, 0.142], w: 0.160, lift: 0.000, depth: 0.09 },
-      // 만개 원반은 실제 20° 인데 그대로 두면 얼굴이 위를 보는 느낌이라 12° 로 낮췄다.
-      // ⚠️ 개화는 낮추면 안 된다. 개화는 «평평한 원반» 이 아니라 위를 향해 오므린 «컵» 이라,
-      // 실제 40° 를 20° 로 낮추면 카메라가 17° 로 내려가 컵 안이 거의 안 보이는데
-      // 그 좁은 띠에 큰 표정을 투영하게 되어 눈·입이 눌려 뭉갰다. 실제 축(40°)에 맞추면
-      // 카메라가 34° 로 올라가 컵 안이 정면으로 열린다 — 그래도 내려다보는 느낌은 없다.
-      3: { n: [0.000, 0.643, 0.766], c: [0.028, 0.844, 0.013], w: 0.150, lift: 0.015, depth: 0.10 },
-      // 새 원반은 씨앗 요철이 깊다. 매끈한 구간은 반지름 0.09 까지(표면 높이 폭 0.05)이고
-      // 그 바깥은 테두리가 급히 떨어진다. w 0.285 는 반지름 0.14 까지 덮어 테두리를 물었고,
-      // 그래서 눈이 조각나고 옆(±30°)에서 검은 줄로 늘어났다. 매끈한 구간 안으로 줄인다.
-      // C 는 원반의 색 무게중심이었는데, 원반이 아래로 더 퍼져 있어 표정이 «우측 상단» 으로 보였다.
-      // 위아래 갈색 여백이 같아지는 지점(실측)으로 내렸다.
-      4: { n: [0.000, 0.208, 0.978], c: [0.016, 0.735, -0.014], w: 0.240, lift: 0.110, depth: 0.130 },
-    },
-  },
-  rose: {
-    sat: 1.18,         // 빨강이 원본부터 진하다 — 전체(1.45)를 그대로 먹이면 형광처럼 뜬다
-    tint: '#E4566E',   // 레벨업 때 흩날리는 조각 색
-    label: '장미',
-    fillH: 0.50,
-    urls: ['/models/daisy_s1.glb', '/models/rose_s2.glb', '/models/rose_s3.glb', '/models/rose_s4.glb', '/models/rose_s5.glb'],
-    soil: [0.355, 0, 0, 0, 0],
-    ext: [[0.308, 0.497], [0.500, 0.349], [0.500, 0.295], [0.500, 0.307], [0.500, 0.340]],
-    // 장미는 노란 원반 같은 단색 면이 없다 — 겹꽃잎 한가운데에 붙인다.
-    faces: {
-      0: { n: [0.061, 0.306, 0.950], c: [0.005, 0.592, -0.026], w: 0.135, lift: 0.004, depth: 0.09 },
-      // 잎이 아니라 밑동 쪽 굵은 줄기(y 0.16, 폭 0.085)에 붙인다. 위쪽 줄기는 너무 가늘다(0.03).
-      1: { n: [0.000, 0.075, 0.997], c: [0.016, 0.160, 0.052], w: 0.090, lift: 0.000, depth: 0.09 },
-      2: { n: [0.000, 0.000, 1.000], c: [0.005, 0.657, 0.051], w: 0.085, lift: 0.000, depth: 0.09 },
-      // 봉오리 컵의 투영 중심(0.045, 0.820). 상자를 얕게(0.13) 잡아야 뒤쪽 겹꽃잎을 물지 않는다.
-      3: { n: [0.000, 0.174, 0.985], c: [0.045, 0.820, -0.015], w: 0.195, lift: 0.164, depth: 0.13 },
-      4: { n: [0.000, 0.500, 0.866], c: [0.024, 0.794, 0.022], w: 0.190, lift: 0.104, depth: 0.08 },
-    },
-  },
-  plumeria: {
-    tint: '#FFF0C9',   // 레벨업 때 흩날리는 조각 색
-    label: '플루메리아',
-    fillH: 0.50,
-    urls: ['/models/daisy_s1.glb', '/models/plumeria_s2.glb', '/models/plumeria_s3.glb', '/models/plumeria_s4.glb', '/models/plumeria_s5.glb'],
-    soil: [0.355, 0, 0, 0, 0],
-    ext: [[0.308, 0.497], [0.500, 0.399], [0.500, 0.315], [0.500, 0.278], [0.500, 0.340]],   // 만개 실측 x폭 0.680
-    // 꽃이 여러 송이 뭉쳐 피어서 큰 단색 면이 없다. 만개는 꽃에 얹으면 정면에선 괜찮아도
-    // 옆(±50°)에서 꽃잎 능선을 타고 일그러지고 옆 송이에 가린다 — 데칼은 한 방향 투영이라
-    // 굴곡이 심한 면을 못 버틴다. 그래서 개화·만개도 원통형이라 각도에 강한 밑동 줄기에 붙인다.
-    faces: {
-      0: { n: [0.061, 0.306, 0.950], c: [0.005, 0.592, -0.026], w: 0.135, lift: 0.004, depth: 0.09 },
-      // ⚠️ 줄기가 가늘다(실루엣 폭 0.085~0.134). 폭보다 넓은 얼굴은 원통을 감고 돌아가
-      // 한쪽으로 밀린 채 찌그러진다 — w 는 그 높이의 실루엣 폭을 넘기지 않는다.
-      // 줄기 축도 x=0 이 아니다(단계마다 -0.012 ~ +0.010). c 의 x 는 실루엣 중심.
-      1: { n: [-0.031, 0.074, 0.997], c: [-0.011, 0.280, 0.040], w: 0.130, lift: 0.000, depth: 0.05 },
-      2: { n: [0.015, 0.121, 0.993], c: [-0.012, 0.170, 0.037], w: 0.106, lift: 0.000, depth: 0.05 },
-      3: { n: [-0.015, 0.102, 0.995], c: [0.010, 0.170, 0.006], w: 0.094, lift: 0.000, depth: 0.05 },
-      4: { n: [0.003, 0.125, 0.992], c: [-0.003, 0.130, 0.051], w: 0.090, lift: 0.000, depth: 0.05 },   // 모델 교체(2026-08-29) — 줄기 앞면 z 가 -0.038 → +0.051 로 이동
-    },
-  },
-  iris: {
-    tint: '#5B62D6',   // 레벨업 때 흩날리는 조각 색
-    label: '붓꽃',
-    fillH: 0.56,
-    urls: ['/models/daisy_s1.glb', '/models/iris_s2.glb', '/models/iris_s3.glb', '/models/iris_s4.glb', '/models/iris_s5.glb'],
-    soil: [0.355, 0, 0, 0, 0],
-    ext: [[0.308, 0.497], [0.500, 0.327], [0.500, 0.226], [0.500, 0.245], [0.500, 0.245]],
-    // 표정은 꽃이 아니라 초록 면에 둔다(레퍼런스). 어린잎·봉오리는 줄기 밑동,
-    // 개화·만개는 꽃 바로 아래 «꽃받침» 의 불룩한 앞면.
-    // 밑동은 잎이 여러 장 겹쳐 z 폭이 넓으므로 depth 를 얕게 잡아 맨 앞 잎만 물게 한다.
-    faces: {
-      0: { n: [0.061, 0.306, 0.950], c: [0.005, 0.592, -0.026], w: 0.135, lift: 0.004, depth: 0.09 },
-      1: { n: [-0.125, 0.043, 0.991], c: [0.000, 0.320, 0.199], w: 0.110, lift: 0.000, depth: 0.040 },
-      2: { n: [-0.072, 0.064, 0.995], c: [0.004, 0.280, 0.105], w: 0.100, lift: 0.000, depth: 0.040 },
-      3: { n: [0.110, 0.040, 0.993], c: [-0.012, 0.580, 0.120], w: 0.150, lift: 0.000, depth: 0.050 },
-      4: { n: [0.046, 0.069, 0.997], c: [-0.004, 0.520, 0.058], w: 0.130, lift: 0.000, depth: 0.050 },
-    },
-  },
-  cosmos: {
-    tint: '#F09BC0',   // 레벨업 때 흩날리는 조각 색
-    label: '코스모스',
-    fillH: 0.50,
-    // ⚠️ 유일하게 «자기 새싹» 이 있는 종이다(다른 종은 데이지 새싹을 공유). 흙받침이 없으므로 soil 은 전부 0.
-    urls: ['/models/cosmos_s1.glb', '/models/cosmos_s2.glb', '/models/cosmos_s3.glb', '/models/cosmos_s4.glb', '/models/cosmos_s5.glb'],
-    soil: [0, 0, 0, 0, 0],
-    ext: [[0.500, 0.405], [0.500, 0.303], [0.500, 0.205], [0.500, 0.259], [0.500, 0.299]],
-    // 줄기가 0.03~0.07 로 너무 가늘어 얼굴이 못 들어간다 — 새싹·어린잎은 굵은 밑동, 나머지는 꽃.
-    // 만개는 노란 원반이 있어 데이지와 같은 조건. 꽃 평면이 40° 라 카메라가 34° 로 올라간다.
-    faces: {
-      0: { n: [0.019, -0.082, 0.996], c: [0.020, 0.350, 0.104], w: 0.160, lift: 0.000, depth: 0.06 },
-      1: { n: [-0.190, 0.050, 0.981], c: [-0.005, 0.190, 0.059], w: 0.105, lift: 0.000, depth: 0.05 },
-      2: { n: [-0.188, -0.025, 0.982], c: [0.000, 0.820, 0.092], w: 0.120, lift: 0.000, depth: 0.06 },
-      // 개화도 위를 향한 «컵» 이다. 정면(0°)에 맞추면 카메라가 14° 로 낮아져 컵 안이 안 보이고,
-      // 앞 꽃잎에 얼굴을 얹게 되는데 그 꽃잎의 매끈한 구간은 폭 0.09 뿐이라 얼굴이 넘친다.
-      // 컵의 실제 축(50°)에 맞추면 카메라가 41° 로 올라가 노란 수술이 정면으로 열린다 — 만개와 같은 자리.
-      // ⚠️ 수술이 «둥근 알갱이 뭉치» 라 반지름 0.04 를 넘으면 경사가 47~61° 로 급해진다.
-      //    폭 0.150 이면 눈이 딱 그 경계에 걸쳐, 카메라를 돌릴 때 눈이 알갱이 능선을 타고 늘어난다.
-      //    눈이 «가운데 알갱이 하나» 안에 머물도록 0.105 로 줄였다(±55° 까지 형태 유지).
-      3: { n: [0.000, 0.766, 0.643], c: [0.011, 0.828, -0.017], w: 0.105, lift: 0.010, depth: 0.07 },
-      // 원반 지름 0.136. 데이지가 원반의 76% 를 쓰므로 같은 비율(0.135)로 맞췄다.
-      // 0.170 이던 예전 값은 원반보다 25% 넓어 볼터치가 분홍 꽃잎에 얹혀 얼굴이 눈·입만 뜬 것처럼 보였다.
-      4: { n: [0.000, 0.643, 0.766], c: [-0.001, 0.714, -0.036], w: 0.135, lift: -0.013, depth: 0.13 },
-    },
-  },
-}
-const SPECIES_KEYS = Object.keys(SPECIES)
+import { SPECIES, SPECIES_KEYS, STAGE_PT, STAGE_LABEL, cycleOf, stageOf, pctOf, needOf, speciesFor } from '../lib/growthSpecies'
 for (const sp of Object.values(SPECIES)) sp.urls.forEach((u) => useGLTF.preload(u))
 // ── 성장 규칙 ────────────────────────────────────────────────
 // 물 = 인증(핵심 행동), 햇빛 = 그날 첫 방문(가벼운 습관). 물에 무게를 크게 둬서
@@ -250,13 +135,6 @@ const STREAK_MULT = [[10, 2.0], [6, 1.6], [3, 1.3], [0, 1.0]]
 const multOf = (k) => STREAK_MULT.find(([m]) => k >= m)[1]
 
 // 누적 포인트 → 단계. index = stage (0 씨앗 ~ 5 만개)
-const STAGE_PT = [0, 12, 30, 55, 90]
-const stageOf = (pt) => { let s = 0; for (let i = 1; i <= 4; i++) if (pt >= STAGE_PT[i]) s = i; return s }
-const pctOf = (pt) => {
-  const s = stageOf(pt); if (s >= 4) return 100
-  const a = STAGE_PT[s], b = STAGE_PT[s + 1]
-  return Math.max(0, Math.min(99, Math.round(((pt - a) / (b - a)) * 100)))
-}
 
 // ── 물·햇빛 이펙트 ───────────────────────────────────────────
 // 재생 상태는 모듈 전역 하나(windU 와 같은 방식). R3F 안팎으로 prop 을 끌고 다니지 않는다.
@@ -391,14 +269,12 @@ function useGarden(programId) {
 
 // 참여자 → 꽃 한 송이. 종은 아직 참여자가 고르지 않으므로 user_id 로 «고정 배정» 한다
 // (같은 사람은 늘 같은 꽃). 나중에 선택 기능이 생기면 그 값으로 대체.
-const speciesFor = (uid) => {
-  let h = 0
-  for (let i = 0; i < uid.length; i++) h = (h * 31 + uid.charCodeAt(i)) >>> 0
-  return SPECIES_KEYS[h % SPECIES_KEYS.length]
-}
-const memberToPart = (m, i) => {
-  const st = stageOf(m.points)
-  return { id: m.userId, nickname: m.nickname, stage: st, sp: speciesFor(m.userId),
+const memberToPart = (m, i, seed) => {
+  const st = stageOf(m.points), cy = cycleOf(m.points)
+  // 이미 피운 꽃들 — 사라지면 성취가 안 남는다. 자리에 그대로 서 있는다.
+  // 너무 많아지면 자리를 잡아먹으므로 PAST_MAX 까지만 그린다(기록은 cycle 로 남는다).
+  const past = Array.from({ length: Math.min(cy, PAST_MAX) }, (_, c) => speciesFor(m.userId, seed, c))
+  return { id: m.userId, nickname: m.nickname, stage: st, cycle: cy, past, seedKey: seed, sp: speciesFor(m.userId, seed, cy),
            // 표정은 «마지막 인증 이후 경과» 로 정한다 — 오늘 했으면 기쁨, 사흘 넘으면 보통.
            mood: m.lastVerifiedOn == null ? 'normal'
                  : (Date.now() - new Date(m.lastVerifiedOn + 'T00:00:00+09:00').getTime()) / 86400000 < 1 ? 'joy'
@@ -530,7 +406,7 @@ const satOf = (k) => (k && SPECIES[k] && SPECIES[k].sat != null ? SPECIES[k].sat
 const FX_GAMMA = 0.86
 // ⚠️ onBeforeCompile 은 재질당 하나뿐이다. 바람과 채도를 각각 걸면 나중 것이 앞의 것을 지운다 —
 //    그래서 한 함수에서 같이 처리한다. wind 를 안 넘기면 채도만 적용.
-function applyFx(mat, wind, sat = SAT) {
+function applyFx(mat, wind, sat = SAT, noGust = false) {
   if (!mat || mat.userData.fx) return mat
   mat.userData.fx = true
   const base = wind ? wind.base : 0, amp = wind ? wind.amp : 0
@@ -546,8 +422,8 @@ function applyFx(mat, wind, sat = SAT) {
       }`)
     if (!wind) return
     sh.uniforms.uTime = windU.uTime
-    sh.uniforms.uGust = fxG.gust
-    sh.vertexShader = 'uniform float uTime; uniform float uGust;' + String.fromCharCode(10) + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+    if (!noGust) sh.uniforms.uGust = fxG.gust
+    sh.vertexShader = ('uniform float uTime;' + (noGust ? '' : ' uniform float uGust;')) + String.fromCharCode(10) + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
       #ifdef USE_INSTANCING
         vec3 wOrg = instanceMatrix[3].xyz;
       #else
@@ -556,19 +432,22 @@ function applyFx(mat, wind, sat = SAT) {
       float wPh = wOrg.x * 1.7 + wOrg.z * 2.3;
       float wH = max(transformed.y - ${base.toFixed(4)}, 0.0);
       float wA = wH * wH * ${amp.toFixed(5)};
-      wA *= 1.0 + uGust * 0.5;                     // 기존 바람은 살짝만 거들고
+      ${noGust ? '' : 'wA *= 1.0 + uGust * 0.5;'}   // 기존 바람은 살짝만 거들고
       transformed.x += sin(uTime * ${WIND_SPEED.toFixed(2)} + wPh) * wA;
       transformed.z += cos(uTime * ${(WIND_SPEED * 0.8).toFixed(2)} + wPh * 1.3) * wA * 0.6;
+      ${noGust ? '' : `
       // 물 맞은 «떨림» 은 따로 얹는다 — 빠르고(약 2Hz) 작게(높이의 3%). 잎마다 위상이 달라 각자 떤다.
       float wJ = uGust * wH * 0.030;
       transformed.x += sin(uTime * 13.0 + wPh * 3.1) * wJ;
-      transformed.z += cos(uTime * 11.0 + wPh * 2.3) * wJ * 0.8;`)
+      transformed.z += cos(uTime * 11.0 + wPh * 2.3) * wJ * 0.8;`}`)
   }
-  mat.customProgramCacheKey = () => 'fx' + sat + '_' + FX_GAMMA + '_' + base.toFixed(4) + '_' + amp.toFixed(5)
+  mat.customProgramCacheKey = () => 'fx' + sat + '_' + FX_GAMMA + '_' + base.toFixed(4) + '_' + amp.toFixed(5) + (noGust ? '_ng' : '')
   mat.needsUpdate = true
   return mat
 }
-const applyWind = (mat, base, amp = WIND_AMP, sat = SAT) => applyFx(mat, { base, amp }, sat)
+// noGust — «물 맞은 떨림» 을 안 받는 재질. uGust 는 모든 식물이 공유하는 유니폼이라
+// 그냥 두면 물을 준 꽃뿐 아니라 «지난 꽃» 까지 같이 떤다.
+const applyWind = (mat, base, amp = WIND_AMP, sat = SAT, noGust = false) => applyFx(mat, { base, amp }, sat, noGust)
 
 // 서브메시 월드변환 베이크 → Merged 인스턴싱용 mesh 맵
 function buildMeshes(template, soil, sat) {
@@ -700,7 +579,11 @@ function useField(n, slotR) {
       normals.push(fn ? [fn.x, fn.y < 0 ? -fn.y : fn.y, fn.z] : [0, 1, 0])
       return [x, hit ? hit.point.y : TOP_TARGET - 0.1, z]
     })
-    return { field, positions, normals, spread, water: water || null }
+    // sampleY — 임의 지점의 지면 높이. 지난 꽃처럼 «자리에서 멀리» 세우는 것은
+    // 평면 근사로는 안 된다(섬이 볼록해서 접평면이 실제보다 위에 있다 — 1.5 떨어지면 약 0.5).
+    // 몇 송이뿐이라 그때만 레이를 쏜다.
+    const sampleY = (x, z) => { const h = cast(x, z); return h ? h.point.y : null }
+    return { field, positions, normals, spread, water: water || null, sampleY }
   }, [scene, n, slotR])
 }
 
@@ -866,8 +749,8 @@ const FACE_BOX = typeof location !== 'undefined' && location.search.includes('fa
 //    종·단계 조합은 35개뿐이고 지오메트리·재질은 여러 메시가 공유해도 되므로 만들어두고 재사용한다.
 //    한 번 연 꽃을 다시 열면 비용이 0 이다.
 const soloCache = new Map()
-function soloMeshFor(template, soil, sat, face) {
-  const key = template.uuid + '|' + soil + '|' + sat + '|' + (face ? face.pos.join(',') + face.size.join(',') : '')
+function soloMeshFor(template, soil, sat, face, noGust) {
+  const key = template.uuid + '|' + soil + '|' + sat + '|' + (noGust ? 'ng' : '') + '|' + (face ? face.pos.join(',') + face.size.join(',') : '')
   const hit = soloCache.get(key)
   if (hit) return hit
   let g = null, m = null
@@ -880,33 +763,44 @@ function soloMeshFor(template, soil, sat, face) {
     const host = new THREE.Mesh(g)
     dg = new DecalGeometry(host, new THREE.Vector3(...face.pos), new THREE.Euler(...face.rot), new THREE.Vector3(...face.size))
   }
-  const v = { geo: g, mat: g ? applyWind(m, soil, WIND_AMP, sat) : null, decalGeo: dg }
+  const v = { geo: g, mat: g ? applyWind(m, soil, WIND_AMP, sat, noGust) : null, decalGeo: dg }
   soloCache.set(key, v)
   return v
 }
 
-function SoloDaisyFace({ template, face, soil, mood, sat }) {
+function SoloDaisyFace({ template, face, soil, mood, sat, noGust, dim = 1 }) {
   const tex = faceTexture(mood)
-  const { geo, mat, decalGeo } = useMemo(() => soloMeshFor(template, soil, sat, face), [template, soil, sat, face])
+  const { geo, mat, decalGeo } = useMemo(() => soloMeshFor(template, soil, sat, face, noGust), [template, soil, sat, face, noGust])
   // ⚠️ 데칼 재질에도 같은 바람을 먹여야 한다. 본체만 흔들면 표정이 제자리에 남아 떨어져 보인다.
   const decalMat = useMemo(() => applyWind(new THREE.MeshBasicMaterial({
     transparent: true, polygonOffset: true, polygonOffsetFactor: -3, depthWrite: false, toneMapped: false,
-  }), soil), [soil])
+  }), soil, WIND_AMP, SAT, noGust), [soil, noGust])
   useEffect(() => { decalMat.map = tex; decalMat.needsUpdate = true }, [decalMat, tex])
+  const mat2 = useMemo(() => dimmed(mat, dim), [mat, dim])
+  const dmat = useMemo(() => dimmed(decalMat, dim), [decalMat, dim])
   if (!geo) return null
   return (
-    <mesh geometry={geo} material={mat} castShadow receiveShadow>
+    <mesh geometry={geo} material={mat2} castShadow receiveShadow>
       {decalGeo
-        ? <mesh geometry={decalGeo} material={decalMat} />
+        ? <mesh geometry={decalGeo} material={dmat} />
         : <Decal debug={FACE_BOX} map={tex} position={face.pos} rotation={face.rot} scale={face.size}>
-            <primitive object={decalMat} attach="material" />
+            <primitive object={dmat} attach="material" />
           </Decal>}
     </mesh>
   )
 }
 
 // 단독/hero 데이지 — 복제마다 자기 재질. opaque=단독(불투명).
-function Daisy({ template, opaque, soil, sat }) {
+// dim<1 이면 반투명하게. ⚠️ 재질은 캐시·공유되므로 «복제해서» 손댄다 —
+// 원본을 건드리면 같은 종·단계를 쓰는 다른 꽃까지 같이 흐려진다.
+const dimmed = (mat, dim) => {
+  if (dim >= 1) return mat
+  const m = mat.clone()
+  m.transparent = true; m.opacity = dim; m.depthWrite = false
+  return m
+}
+
+function Daisy({ template, opaque, soil, sat, noGust, dim = 1 }) {
   const obj = useMemo(() => {
     const c = template.clone(true)
     c.traverse((o) => {
@@ -915,10 +809,11 @@ function Daisy({ template, opaque, soil, sat }) {
       // 이 메시는 원본 로컬 좌표라 높이가 1이 아니다 — 바람 상수를 로컬 단위로 환산한다.
       o.geometry.computeBoundingBox()
       const H = Math.max(1e-4, o.geometry.boundingBox.max.y - o.geometry.boundingBox.min.y)
-      applyWind(o.material, soil * H, WIND_AMP / H, sat)
+      applyWind(o.material, soil * H, WIND_AMP / H, sat, noGust)
+      if (dim < 1) { o.material.transparent = true; o.material.opacity = dim; o.material.depthWrite = false }
     })
     return c
-  }, [template, opaque, soil, sat])
+  }, [template, opaque, soil, sat, noGust, dim])
   return <primitive object={obj} />
 }
 
@@ -952,7 +847,15 @@ const CAM_ALIGN = 0.85          // 0=수평 시선 유지, 1=얼굴 법선과 �
 // → 땅 위로 나온 부분의 반높이·반폭(정규화)을 들고, 세로·가로 **둘 다** 만족하는 거리를 고른다.
 const FILL_H = 0.42      // 식물 높이가 화면 세로의 기본 채움 비율(종별 SPECIES.fillH 로 덮어씀. 숫자 또는 단계별 배열)
 const FILL_W = 0.75      // 가로 상한. 새싹은 이 값에 걸려 거리가 정해진다
-const CARD_COVER = 0.25  // 하단 카드가 가리는 화면 세로 비율. 카메라가 이만큼을 피해서 식물을 올려 잡는다.
+const CARD_COVER = 0.25  // 하단 카드가 가리는 화면 세로 비율(초기값). 아래 cardCover 가 실측으로 덮어쓴다.
+// ⚠️ 카드 높이는 «내용에 따라» 달라진다 — 남의 꽃(응원 버튼 + 설명 2줄)은 내 꽃보다 훨씬 높다.
+//    고정값으로 가정하면 어떤 화면에서는 밑동이 카드에 묻힌다. 실제 높이를 재서 쓴다.
+const cardCover = { v: CARD_COVER }
+const SOLO_ZOOM = 0.70   // 단독 뷰 전체 축소(<1 이면 물러선다). 꽉 차면 답답하다.
+// 밑동과 카드 사이 여백(화면 세로 비율).
+// ⚠️ 밑동을 카드에 바짝 붙이면, 얼굴이 줄기 아래쪽에 있는 종(플루메리아·붓꽃)은
+//    표정이 카드에 걸린다. 밑동이 아니라 «얼굴» 이 안 가리는 게 기준이다.
+const BASE_GAP = 0.12
 const CAM_ELEV = [0.25, 0.72]   // 카메라 고도 제한(rad ≒ 14°~41°).
                                 // 개화는 꽃이 66° 를 봐서 그대로 맞추면 식물을 위에서 내려다보게 된다.
 // ── 나비(응원) ──────────────────────────────────────────────────────
@@ -988,6 +891,10 @@ const BF_FADE = 0.9         // 그 뒤 스르륵 사라지는 시간
 //    정원 그룹은 매 프레임 모든 재질의 opacity 를 1-f 로 덮어쓰므로,
 //    나비 재질은 noFade 로 빼둔 다음 여기서 직접 곱해야 한다.
 const viewFocus = { f: 0 }
+// 사용자가 카메라를 손으로 잡고 있는가(OrbitControls 드래그·휠).
+// ⚠️ Rig 가 매 프레임 카메라를 목표로 당기므로, 전환이 끝나기 «전» 에 돌리면
+//    돌린 만큼 곧바로 되돌아가 회전이 안 먹는 것처럼 보인다. 잡는 순간 전환을 끝낸다.
+const camGrab = { v: false }
 // 각속도 자체를 흔든다 — 일정하면 아무리 반경/고도를 흔들어도 «기계가 도는» 리듬이 남는다.
 const orbitAngle = (t, o, seed) => o.ph + t * o.w + Math.sin(t * 0.37 + seed) * o.amp
 // 궤도 위 한 점. 반경·고도를 크게 흔든다 — 주기를 서로 나눠떨어지지 않게 겹쳐 패턴이 안 보이게.
@@ -1628,13 +1535,14 @@ function FxWorld({ spread }) {
 // ⚠️ soloScale(실제 배율)과 soloFrame(카메라 프레이밍용 배율)을 나눠 받는다.
 //    하나로 쓰면 카메라가 «자란 만큼» 뒤로 물러나서 화면에선 늘 같은 크기로 보인다 — 성장이 안 보인다.
 //    프레이밍은 «그 단계의 최대 크기» 로 고정하고, 그 안에서 식물이 실제로 커지게 한다.
-function Rig({ selectedPos, gardenRef, soloRef, controlsRef, camGarden, soloScale, soloFrame, head, soloExt, fillH, innerRef, soloBury, selKey }) {
+function Rig({ selectedPos, gardenRef, soloRef, controlsRef, camGarden, soloScale, soloFrame, head, soloExt, fillH, innerRef, soloBury, selKey, focusKey }) {
   const { camera, size } = useThree()
   const focus = useRef(0); const gt = useRef(new THREE.Vector3()); const ct = useRef(new THREE.Vector3())
   const grow = useRef(0)   // 화면에 실제로 그려지는 배율. 목표로 «천천히» 따라가야 자라는 게 보인다.
   const fxSeen = useRef(-1), fxDist = useRef(0)   // 연출 시작 시점의 카메라 거리(뒤로 물러났다 제자리로)
   const bury = useRef(null), lastSel = useRef(null)   // 묻는 깊이도 이어줘야 레벨업 때 식물이 튀지 않는다
   const settle = useRef(false)                       // 카메라가 «목표 위치에 도달할 때까지» 켜져 있는 플래그
+  const lastFocus = useRef(null)                     // 같은 꽃 안에서 «어느 송이를 보는지» 바뀌었나
   useFrame((_, dt) => {
     windU.uTime.value += dt
     const active = !!selectedPos; const target = active ? 1 : 0
@@ -1696,16 +1604,29 @@ function Rig({ selectedPos, gardenRef, soloRef, controlsRef, camGarden, soloScal
         const halfV = Math.tan((camera.fov * Math.PI) / 360)
         const aspect = size.height > 0 ? size.width / size.height : 1
         const [hh, hw] = soloExt
-        const dist = Math.max(hh * soloFrame / (halfV * (fillH || FILL_H)), hw * soloFrame / (halfV * aspect * FILL_W))
+        const dist = Math.max(hh * soloFrame / (halfV * (fillH || FILL_H) * SOLO_ZOOM), hw * soloFrame / (halfV * aspect * FILL_W * SOLO_ZOOM))
         // ⚠️ 하단 카드가 화면의 CARD 만큼을 가린다. 예전엔 얼굴을 화면 중앙 가까이 두다 보니
         //    식물이 아래로 밀려 줄기 밑동이 늘 카드에 묻혔다. 대신 **식물 전체를 '카드 위 영역'의
         //    한가운데**에 놓는다 — 화면 세로 시야(span)를 알아야 하므로 거리 계산 뒤에 한다.
         const span = 2 * dist * halfV
-        gt.current.set(selectedPos[0], selectedPos[1] + hh * soloFrame - (CARD_COVER / 2) * span, selectedPos[2])
+        // ⚠️ 예전엔 식물 «전체» 를 카드 위 영역의 한가운데에 놓았다. 그러면 식물이 그 영역보다
+        //    작을 때(FILL_H 0.42 vs 영역 0.75) 위아래로 빈 곳이 생겨 밑동과 카드 사이가 뜬다.
+        //    대신 «밑동» 을 카드 바로 위에 고정한다 — 식물 크기와 무관하게 늘 같은 자리에 선다.
+        //      화면 아래끝 = gt.y - span/2, 카드 윗변 = 거기서 CARD_COVER*span 위.
+        //      밑동을 그보다 BASE_GAP 만큼 더 위에 두려면 gt.y 를 그만큼 올린다.
+        gt.current.set(selectedPos[0], selectedPos[1] + span * (0.5 - cardCover.v - BASE_GAP), selectedPos[2])
         ct.current.copy(head.c).addScaledVector(view, dist)
       } else {
-        gt.current.set(selectedPos[0], selectedPos[1] + 0.55, selectedPos[2])
-        ct.current.set(selectedPos[0] + dir.x * 4.4, selectedPos[1] + 2.2, selectedPos[2] + dir.y * 4.4)
+        // 얼굴이 없는 대상(지난 꽃 등) — 얼굴 정렬만 빼고 «크기에 맞춘» 거리는 똑같이 쓴다.
+        // 고정 거리를 쓰면 종·크기마다 화면에서 제각각이 된다.
+        const halfV = Math.tan((camera.fov * Math.PI) / 360)
+        const aspect = size.height > 0 ? size.width / size.height : 1
+        const [hh, hw] = soloExt
+        const dist = Math.max(hh * soloFrame / (halfV * (fillH || FILL_H) * SOLO_ZOOM), hw * soloFrame / (halfV * aspect * FILL_W * SOLO_ZOOM))
+        const span = 2 * dist * halfV
+        const view = new THREE.Vector3(dir.x, 0.32, dir.y).normalize()
+        gt.current.set(selectedPos[0], selectedPos[1] + span * (0.5 - cardCover.v - BASE_GAP), selectedPos[2])
+        ct.current.set(selectedPos[0], selectedPos[1] + hh * soloFrame, selectedPos[2]).addScaledVector(view, dist)
       }
     } else { gt.current.set(0, TOP_TARGET, 0); ct.current.set(camGarden[0], camGarden[1], camGarden[2]) }
     // 프레임률에 안 흔들리는 감쇠. 예전엔 고정 계수(0.06)로 전환 구간에만 움직여서
@@ -1715,7 +1636,27 @@ function Rig({ selectedPos, gardenRef, soloRef, controlsRef, camGarden, soloScal
     // ⚠️ 예전엔 «f 가 수렴하는 동안만» 카메라를 움직였다. 그런데 f 와 카메라는 감쇠 계수가 달라서
     //    f 가 먼저 도착하면 카메라는 «가던 길에 멈춘다» — 출발 거리(연출이 남긴 위치, 전환 중 재선택 등)에
     //    따라 최종 확대가 매번 달라진다. 진행도가 아니라 «도달했는지» 로 판정한다.
-    if (swapped || Math.abs(target - f) > 0.001) settle.current = true
+    // ⚠️ 포커스(보는 송이)가 바뀌어도 카메라가 «움직여야» 한다. 예전엔 꽃을 바꿀 때만 켜져서
+    //    화살표를 눌러도 시선(target)만 돌아가고 카메라는 제자리였다.
+    //    selKey 와 따로 두는 이유 — swapped 는 크기·묻는 깊이를 «즉시» 맞추는데,
+    //    같은 꽃 안에서 송이만 옮길 땐 그게 튀어 보인다.
+    const focusMoved = lastFocus.current !== focusKey
+    lastFocus.current = focusKey
+    if (swapped || focusMoved || Math.abs(target - f) > 0.001) settle.current = true
+    // 손을 댄 순간부터 «방향» 은 사용자 것이다. 남은 전환은 버리지 않고 피벗(위 lerp)과
+    // «타깃까지의 거리» 로만 이어간다 — 물·햇빛 연출이 각도를 안 뺏는 것과 같은 방식이다.
+    // ⚠️ 도착 지점으로 통째로 옮기면(스냅) 손에 잡힌 채로 화면이 한 번 튄다.
+    //    반대로 계속 당기면 돌린 만큼 되돌아가 회전이 안 먹는다. 그 사이가 이 방식이다.
+    if (camGrab.v) {
+      settle.current = false
+      const tgt = controlsRef.current.target
+      const d = camera.position.clone().sub(tgt)
+      const len = d.length()
+      if (len > 1e-4) {
+        const want = ct.current.distanceTo(gt.current)
+        camera.position.copy(tgt).addScaledVector(d, (len + (want - len) * k) / len)
+      }
+    }
     if (settle.current) {
       camera.position.lerp(ct.current, k)
       if (camera.position.distanceTo(ct.current) < 0.012) settle.current = false
@@ -1770,13 +1711,43 @@ function Rig({ selectedPos, gardenRef, soloRef, controlsRef, camGarden, soloScal
 // Scene 은 <Canvas> 까지 품고 있어서 그대로 재사용된다.
 // ⚠️ 참여자 → 꽃 변환(memberToPart)은 «여기서» 한다. 밖으로 내보내면
 //    이 파일이 컴포넌트 말고도 내보내게 되어 fast-refresh 가 깨진다.
-export function GardenCanvas({ members, cheers, selected, onSelect }) {
-  const live = useMemo(() => (members ? members.map(memberToPart) : null), [members])
+export function GardenCanvas({ members, cheers, selected, onSelect, seed }) {
+  const live = useMemo(() => (members ? members.map((m, i) => memberToPart(m, i, seed)) : null), [members, seed])
   return <Scene n={live ? live.length : 0} selected={selected} onSelect={onSelect}
     mood="normal" spKey="mix" gain={{}} hold={null} live={live} cheers={cheers} />
 }
 
-function Scene({ n, selected, onSelect, mood, spKey, gain, hold, live, cheers }) {
+// «내 자리» 링. ⚠️ 평평한 원반을 고정 높이에 두면 경사·굴곡에서 한쪽이 반드시 묻힌다
+// (젖음 지도에서 겪은 것과 같다). 지면을 실제로 찍어 그 높이를 따라가는 띠로 만든다.
+function GroundRing({ center, ri, ro, sampleY, color = '#FFE58A' }) {
+  const geo = useMemo(() => {
+    const SEG = 72, pos = [], idx = []
+    for (let i = 0; i <= SEG; i++) {
+      const a = (i / SEG) * Math.PI * 2
+      for (const r of [ri, ro]) {
+        const x = Math.cos(a) * r, z = Math.sin(a) * r
+        const gy = sampleY ? sampleY(center[0] + x, center[2] + z) : null
+        pos.push(x, (gy == null ? center[1] : gy) - center[1] + 0.012, z)
+      }
+    }
+    for (let i = 0; i < SEG; i++) {
+      const a0 = i * 2, b0 = i * 2 + 1, a1 = (i + 1) * 2, b1 = (i + 1) * 2 + 1
+      idx.push(a0, b0, a1, b0, b1, a1)
+    }
+    const g = new THREE.BufferGeometry()
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+    g.setIndex(idx)
+    return g
+  }, [center, ri, ro, sampleY])
+  useEffect(() => () => geo.dispose(), [geo])
+  return (
+    <mesh geometry={geo} position={center} renderOrder={1}>
+      <meshBasicMaterial color={color} transparent opacity={0.7} depthWrite={false} side={THREE.DoubleSide} toneMapped={false} />
+    </mesh>
+  )
+}
+
+function Scene({ n, selected, onSelect, mood, spKey, gain, hold, live, cheers, focusK }) {
   // spKey === 'mix' 면 참여자마다 제 종을 쓴다. 아니면 전부 그 종으로 덮어쓴다.
   const mock = useMock(n)
   const parts0 = live || mock          // live 가 있으면 실데이터, 없으면 목데이터
@@ -1790,9 +1761,21 @@ function Scene({ n, selected, onSelect, mood, spKey, gain, hold, live, cheers })
       // ⚠️ 레벨업이 예약돼 있으면 «지금 단계» 에 붙들어 둔다.
       //    안 그러면 누르는 즉시 다음 단계 모델로 바뀌고 축하는 1.8초 뒤에 나온다 — 순서가 거꾸로다.
       //    붙들어 두면 그 단계 끝까지 자라 대기하다가, 터지는 순간 변신한다.
-      const st = Math.min(stageOf(pt), hold && hold.idx === i ? hold.stage : 4)
-      const a = STAGE_PT[st], b = st >= 4 ? a : STAGE_PT[st + 1]
-      return { ...q, stage: st, prog: b > a ? Math.min(1, (pt - a) / (b - a)) : 1 }
+      // ⚠️ 단계·진행률은 «이번 꽃» 안에서 센다(pctOf 가 순환을 처리한다).
+      //    hold 로 붙들려 있으면 그 단계 끝(진행률 1)에서 대기한다.
+      const raw = stageOf(pt)
+      const st = Math.min(raw, hold && hold.idx === i ? hold.stage : 4)
+      const cy = cycleOf(pt)
+      // ⚠️ 종과 «지난 꽃» 은 순환에 따라 달라진다 — 서버 값만 쓰면 화면에서 물을 줘
+      //    다음 꽃으로 넘어가도 새 꽃이 안 생기고 지난 꽃도 안 남는다.
+      const uid = q.id, sk = q.seedKey
+      return {
+        ...q, stage: st, cycle: cy, prog: raw > st ? 1 : pctOf(pt) / 100,
+        sp: uid && sk !== undefined ? speciesFor(uid, sk, cy) : q.sp,
+        past: uid && sk !== undefined
+          ? Array.from({ length: Math.min(cy, PAST_MAX) }, (_, c) => speciesFor(uid, sk, c))
+          : q.past,
+      }
     })
   }, [layout, gain, hold])
   const spOf = (i) => SPECIES[parts[i].sp]
@@ -1803,8 +1786,25 @@ function Scene({ n, selected, onSelect, mood, spKey, gain, hold, live, cheers })
   // ⚠️ 배치는 «기준 데이터» 로만 계산한다. parts 로 계산하면 물을 한 번 누를 때마다 gain 이 바뀌어
   //    slotR 이 새로 생기고 → useField 가 통째로 다시 돈다(레이캐스팅 + 250회 완화 + 연못 밀어내기).
   //    성능 문제이기도 하지만, 애초에 «누가 물을 줬다고 정원 배치가 다시 섞이면» 안 된다.
-  const slotR = useMemo(() => layout.map((q, i) => SPECIES[q.sp].ext[stageIdx(q.stage)][1] * (0.3 + q.stage * 0.12) * ((q.me || (!q.me && i === 0 && !('me' in q))) ? HERO_BOOST : 1)), [layout])
-  const { field, positions, normals, spread, water } = useField(n, slotR)
+  // ⚠️ 자리 반경은 «지난 꽃까지» 포함해야 한다. 꽃이 늘어나는데 자리가 그대로면 옆 사람과 겹친다.
+  //    그런데 배치는 점수가 오를 때마다 다시 계산하면 안 된다(레이캐스팅+완화가 통째로 돈다).
+  //    그래서 «몇 번째 꽃인지» 만 뽑아 문자열로 만든다 — 순환이 넘어갈 때만 값이 바뀌므로
+  //    물을 줘도 배치는 그대로이고, 꽃이 하나 늘어나는 순간에만 자리가 다시 잡힌다.
+  const cycleKey = useMemo(() => layout.map((q, i) => (
+    cycleOf((q.pt != null ? q.pt : STAGE_PT[q.stage]) + ((gain && gain[i]) || 0))
+  )).join(','), [layout, gain])
+  const slotR = useMemo(() => {
+    const cys = cycleKey.split(',').map(Number)
+    return layout.map((q, i) => {
+      const own = q.me || (!q.me && i === 0 && !('me' in q))
+      const base = SPECIES[q.sp].ext[stageIdx(q.stage)][1] * (0.3 + q.stage * 0.12)
+      // 지난 꽃이 실제로 차지하는 폭 = 세우는 반경 + 그 꽃 반폭
+      const n = Math.min(cys[i] || 0, PAST_MAX)
+      const ring = n > 0 ? PAST_GARDEN * 0.95 * (n > PAST_ROW ? 1.62 : 1) + SPECIES[q.sp].ext[4][1] * PAST_GARDEN : 0
+      return (base + ring) * (own ? HERO_BOOST : 1)
+    })
+  }, [layout, cycleKey])
+  const { field, positions, normals, spread, water, sampleY } = useField(n, slotR)
   const camGarden = useMemo(() => CAM_GARDEN.map((v) => v * spread), [spread])
   const byUrl = useAllTemplates()
   // 종 x 단계 별 인스턴싱 메시. 종이 섞여도 같은 종·단계끼리는 한 번에 그린다.
@@ -1838,8 +1838,44 @@ function Scene({ n, selected, onSelect, mood, spKey, gain, hold, live, cheers })
   const soloSi = sel ? stageIdx(sel.stage) : 0
   const soloNrm = selIdx != null ? normals[selIdx] : null
   const selSp = SPECIES[sel ? sel.sp : SPECIES_KEYS[0]]
-  const soloBury = sel ? soilSink(selSp, soloSi) + (soloSi > 0 ? tiltResidual(selSp, soloNrm, soloSi) : 0) : 0
+  // ⚠️ 수직으로 세우면 새싹(soloSi 0)도 경사 보정이 필요하다 — 예전엔 눕혀서 해결했다.
+  const soloBury = sel ? soilSink(selSp, soloSi) + tiltResidual(selSp, soloNrm, soloSi) : 0
   const soloQuat = useMemo(() => terrainQuat(soloNrm), [soloNrm])
+  // 단독 뷰의 지난 꽃은 «자리에서 멀리» 선다(최대 1.5) — 실제 지면을 찍어야 안 뜨고 안 묻힌다.
+  // 로컬 오프셋 → 월드로 옮겨 레이를 쏘고, 그 높이를 다시 로컬 단위로 돌려준다.
+  const pastY = (ox, oz) => {
+    if (!selPos || !sampleY) return 0
+    const gy = sampleY(selPos[0] + ox * soloScale, selPos[2] + oz * soloScale)
+    return gy == null ? groundDy(soloNrm, ox, oz) : (gy - selPos[1]) / (soloScale || 1)
+  }
+
+  // ── 꽃 사이 포커스 이동 ────────────────────────────────────────
+  // 상태는 페이지가 들고 있다(화살표 버튼이 HTML 이라 Canvas 밖에 있다). 여기선 받아 쓰기만 한다.
+  //   focusK = 0..past.length-1 → 지난 꽃, null/그 이상 → 지금 꽃
+  const pastList = sel ? (sel.past || []) : []
+  const fk = focusK == null ? pastList.length : Math.min(focusK, pastList.length)
+  const isPast = fk < pastList.length
+  const focusRatio = isPast ? pastSoloScale(soloSi) : 1
+  const focusSlot = isPast && selPos ? pastSlot(fk, pastList.length, selPos[0], selPos[2]) : null
+  const focusA = focusSlot ? focusSlot.a : 0
+  const focusR = focusSlot ? (0.45 + focusRatio * 0.55) * focusSlot.rm : 0
+  const focusSp = isPast ? pastList[fk] : (sel ? sel.sp : null)
+  const focusSi = isPast ? 4 : soloSi
+  // 지난 꽃은 «옆에» 서 있으므로 그 자리를 카메라 목표로 준다(솔로 그룹 배율만큼 벌어져 있다)
+  const focusPos = useMemo(() => {
+    if (!selPos) return null
+    if (!isPast) return selPos
+    const ox = Math.cos(focusA) * focusR, oz = Math.sin(focusA) * focusR
+    const off = new THREE.Vector3(ox, pastY(ox, oz), oz)
+      .multiplyScalar(soloScale).applyQuaternion(soloQuat)
+    return [selPos[0] + off.x, selPos[1] + off.y, selPos[2] + off.z]
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- pastY 는 아래 값들로만 정해진다
+  }, [selPos, isPast, focusA, focusR, soloScale, soloQuat, soloNrm])
+  const focusExt = useMemo(() => {
+    if (!focusSp) return [0.5, 0.4]
+    const e = SPECIES[focusSp].ext[focusSi]
+    return isPast ? [e[0] * focusRatio, e[1] * focusRatio] : e
+  }, [focusSp, focusSi, isPast, focusRatio])
 
   // 지금 단계 + (레벨업 대기 중이면) 다음 단계. 다음 단계는 미리 데워두기용이라 거의 0 배율로 그린다.
   const soloSlots = useMemo(() => {
@@ -1861,6 +1897,33 @@ function Scene({ n, selected, onSelect, mood, spKey, gain, hold, live, cheers })
     }
   }, [selPos, sel, faceAngle, soloScale, soloBury, soloQuat, selSp])
 
+  // ⚠️ head 선언 «뒤» 여야 한다(TDZ).
+  // 지난 꽃도 «얼굴» 을 기준으로 잡아야 지금 꽃과 구도·확대가 같아진다.
+  //   얼굴 위치는 모델 좌표 → (그 꽃 배율) → (옆으로 세운 오프셋) → (솔로 배율·회전) → 월드 순으로 옮긴다.
+  const focusHead = useMemo(() => {
+    if (!isPast) return head
+    // ⚠️ FACE_PARAMS 는 «데칼용»(pos/rot/size) 이다. 카메라가 쓰는 얼굴 중심·법선(c/n)은
+    //    종 레지스트리의 raw faces 에 있다 — 여길 헷갈리면 f.c 가 undefined 라 터진다.
+    const f = focusSp && SPECIES[focusSp].faces ? SPECIES[focusSp].faces[4] : null
+    if (!selPos || !f) return null
+    const yq = new THREE.Quaternion().setFromAxisAngle(UP, focusA * 1.7)
+    const local = new THREE.Vector3(f.c[0], f.c[1], f.c[2]).applyQuaternion(yq).multiplyScalar(focusRatio)
+      .add(new THREE.Vector3(Math.cos(focusA) * focusR, 0, Math.sin(focusA) * focusR))
+    return {
+      c: local.multiplyScalar(soloScale).applyQuaternion(soloQuat)
+        .add(new THREE.Vector3(selPos[0], selPos[1], selPos[2])),
+      n: new THREE.Vector3(...f.n).applyQuaternion(yq).applyQuaternion(soloQuat).normalize(),
+    }
+  }, [isPast, head, focusSp, focusA, focusR, focusRatio, selPos, soloScale, soloQuat])
+
+  // 내 지난 꽃의 지면 높이(히어로 그룹 «로컬» 단위). 실패하면 접평면으로 물러난다.
+  const heroPastDy = (ox, oz) => {
+    if (!mePos || !sampleY) return groundDy(normals[meIndex], ox, oz)
+    const sc = heroScale || 1
+    const gy = sampleY(mePos[0] + ox * sc, mePos[2] + oz * sc)
+    return gy == null ? groundDy(normals[meIndex], ox, oz) : (gy - mePos[1]) / sc
+  }
+
   // 필드 아이템을 단계별로 그룹화
   const groups = useMemo(() => {
     const gs = Object.fromEntries(SPECIES_KEYS.map((k) => [k, [[], [], [], [], []]]))
@@ -1868,10 +1931,26 @@ function Scene({ n, selected, onSelect, mood, spKey, gain, hold, live, cheers })
       if (i === meIndex || !positions[i]) return
       const [x, y, z] = positions[i]
       const r = (s) => { const v = Math.sin(i * 53.7 + s) * 43758.5; return v - Math.floor(v) }
-      const sc = 0.3 + p.stage * 0.12, si = stageIdx(p.stage), psp = SPECIES[p.sp]
+      const sc = 0.3 + p.stage * 0.12, si = stageIdx(p.stage)
       const nrm = normals[i]
-      gs[p.sp][si].push({ idx: i, x, y: y - (soilSink(psp, si) + tiltResidual(psp, nrm, si)) * sc, z, scale: sc, quat: terrainQuat(nrm),
-        ry: r(1) * Math.PI * 2, tx: (r(2) - 0.5) * 0.18, tz: (r(3) - 0.5) * 0.18 })
+      const plant = (spKey2, si2, sc2, ox, oz, seed2) => {
+        const ps = SPECIES[spKey2]
+        gs[spKey2][si2].push({
+          idx: i, x: x + ox, z: z + oz,
+          y: y + groundDy(nrm, ox, oz) - (soilSink(ps, si2) + tiltResidual(ps, nrm, si2)) * sc2,
+          scale: sc2, quat: terrainQuat(nrm),
+          ry: r(seed2) * Math.PI * 2, tx: (r(seed2 + 1) - 0.5) * 0.18, tz: (r(seed2 + 2) - 0.5) * 0.18,
+        })
+      }
+      // ⚠️ 지난 꽃을 «먼저» 심고 지금 꽃을 나중에 — 지금 키우는 꽃이 자리 한가운데다.
+      //    둘레에 골고루 세우되 반경은 그 자리 크기를 넘지 않게(옆 사람과 안 겹치게 slotR 이 이미 늘어나 있다).
+      const past = p.past || []
+      past.forEach((sp2, k) => {
+        const sl = pastSlot(k, past.length, x, z)
+        const rr = PAST_GARDEN * 0.95 * sl.rm
+        plant(sp2, 4, PAST_GARDEN, Math.cos(sl.a) * rr, Math.sin(sl.a) * rr, 10 + k * 3)
+      })
+      plant(p.sp, si, sc, 0, 0, 1)
     })
     return gs
   }, [meIndex, parts, positions, normals])
@@ -1892,10 +1971,42 @@ function Scene({ n, selected, onSelect, mood, spKey, gain, hold, live, cheers })
             {mePos && (
               <group position={[mePos[0], mePos[1] - heroSink, mePos[2]]} quaternion={terrainQuat(normals[meIndex])} scale={heroScale} onClick={(e) => { e.stopPropagation(); onSelect(selIdx != null ? null : meIndex) }}
                 onPointerOver={() => (document.body.style.cursor = 'pointer')} onPointerOut={() => (document.body.style.cursor = 'auto')}>
-                <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}><ringGeometry args={[0.3, 0.4, 32]} /><meshBasicMaterial color="#FFE58A" transparent opacity={0.7} side={THREE.DoubleSide} /></mesh>
+                {/* 링은 그룹 밖(월드)에서 지면을 따라 그린다 — 아래 GroundRing */}
                 <Daisy template={tmplOf(parts[meIndex].sp, stageIdx(parts[meIndex].stage))} opaque={false} soil={spOf(meIndex).soil[stageIdx(parts[meIndex].stage)]} sat={satOf(parts[meIndex].sp)} />
+                {/* ⚠️ 내 꽃은 인스턴싱(groups)에서 빠지고 여기서 따로 그린다 —
+                    지난 꽃도 여기 같이 세워야 한다. 안 그러면 «내 정원에만» 지난 꽃이 안 보인다.
+                    이 그룹은 heroSink 만큼 내려가 있으므로 지면은 +heroSink/heroScale 이다. */}
+                {/* ⚠️ 높이는 접평면(groundDy)이 아니라 «실제 지면» 을 찍어 잡는다.
+                    섬이 볼록해서, 자리에서 멀어질수록 접평면이 지면 위로 떠오른다 —
+                    지난 꽃은 밑동 반경만큼 떨어져 서므로 그 오차가 그대로 «공중에 뜬 꽃» 이 된다.
+                    송이 수가 PAST_MAX(5)뿐이라 레이 몇 발이면 된다(전체 참여자에겐 못 쓴다).
+                    tiltResidual 도 빼야 한다 — 경사면에 «수직으로» 세운 만큼 더 묻어야 옆 꽃과 높이가 맞는다. */}
+                {(parts[meIndex].past || []).map((sp2, k) => {
+                  const sl = pastSlot(k, (parts[meIndex].past || []).length, mePos[0], mePos[2])
+                  const a = sl.a
+                  const ratio = pastSoloScale(stageIdx(parts[meIndex].stage))
+                  const pr = (0.45 + ratio * 0.55) * sl.rm
+                  const ps = SPECIES[sp2]
+                  return (
+                    <group key={'hpast' + k}
+                      position={[Math.cos(a) * pr, heroSink / (heroScale || 1) + heroPastDy(Math.cos(a) * pr, Math.sin(a) * pr) - (soilSink(ps, 4) + tiltResidual(ps, normals[meIndex], 4)) * ratio, Math.sin(a) * pr]}
+                      rotation={[0, a * 1.7, 0]} scale={ratio}>
+                      <Daisy template={tmplOf(sp2, 4)} opaque={false} soil={ps.soil[4]} sat={satOf(sp2)} noGust />
+                    </group>
+                  )
+                })}
               </group>
             )}
+            {mePos && (() => {
+              const si0 = stageIdx(parts[meIndex].stage)
+              const ratio = pastSoloScale(si0)
+              const pastN = (parts[meIndex].past || []).length
+              const reach = pastN > 0
+                ? ((0.45 + ratio * 0.55) * (pastN > PAST_ROW ? 1.62 : 1) + SPECIES[parts[meIndex].past[0]].ext[4][1] * ratio)
+                : spOf(meIndex).ext[si0][1]
+              const ri = reach * heroScale * 1.12
+              return <GroundRing center={mePos} ri={ri} ro={ri + 0.12} sampleY={sampleY} />
+            })()}
             {/* 정원 나비 — gardenRef 안에 둬야 단독 뷰로 들어갈 때 정원과 함께 사라진다 */}
             {/* leaveAt 이 붙은 것도 넘긴다 — 걸러내면 «날아가는» 게 아니라 그냥 사라진다.
                 다 날아간 뒤 cheers 목록에서 빠지면서 자연히 없어진다. */}
@@ -1911,14 +2022,38 @@ function Scene({ n, selected, onSelect, mood, spKey, gain, hold, live, cheers })
                 key 를 단계로 두면 변신할 때 그 인스턴스가 그대로 살아남아 다시 만들지 않는다. */}
             {sel && soloSlots.map(({ si, warm }) => (
               <group key={sel.sp + ':' + si} scale={warm ? 0.001 : 1}>
+                {/* 지난 꽃을 보는 중이면 지금 꽃이 시야를 가린다 — 흐리게 물린다 */}
                 {FACE_PARAMS[sel.sp][si]
-                  ? <SoloDaisyFace template={tmplOf(sel.sp, si)} face={FACE_PARAMS[sel.sp][si]} soil={selSp.soil[si]} mood={mood} sat={satOf(sel.sp)} />
-                  : <Daisy template={tmplOf(sel.sp, si)} opaque soil={selSp.soil[si]} sat={satOf(sel.sp)} />}
+                  ? <SoloDaisyFace template={tmplOf(sel.sp, si)} face={FACE_PARAMS[sel.sp][si]} soil={selSp.soil[si]} mood={mood} sat={satOf(sel.sp)} dim={isPast ? DIM_OTHER : 1} />
+                  : <Daisy template={tmplOf(sel.sp, si)} opaque soil={selSp.soil[si]} sat={satOf(sel.sp)} dim={isPast ? DIM_OTHER : 1} />}
               </group>
             ))}
           </group>
           {/* ⚠️ «묻는» 안쪽 그룹 밖에 둔다. 안에 두면 흙받침이 큰 새싹(0.355)에서 물방울이
               땅속에서 출발해 지면 아래로 사라진다. 밖에 두면 y=0 이 늘 지면이다. */}
+            {/* 이미 피운 꽃 — 단독 뷰에서도 옆에 서 있는다. 사라지면 성취가 안 남는다.
+                ⚠️ 카메라 프레이밍(soloExt)은 «지금 꽃» 기준 그대로다 — 지난 꽃에 맞추면
+                   아직 자랄 수 있는 꽃이 화면에서 작아진다. 그래서 여기서만 작게 그린다.
+                ⚠️ «묻는» 안쪽 그룹 밖이라 y=0 이 지면이다. 각자 자기 흙만큼만 묻는다. */}
+            {sel && (sel.past || []).map((sp2, k) => {
+              const sl = pastSlot(k, (sel.past || []).length, selPos[0], selPos[2])
+              const a = sl.a
+              const ps = SPECIES[sp2]
+              const psc = pastSoloScale(soloSi)   // Scene 안에서는 soloSi 가 «지금 단계» 다
+              const pr = (0.45 + psc * 0.55) * sl.rm   // 크기에 맞춰 벌린다 — 지금 꽃과 안 겹치게
+              return (
+                <group key={'past' + k}
+                  position={[Math.cos(a) * pr, pastY(Math.cos(a) * pr, Math.sin(a) * pr) - soilSink(ps, 4) * psc, Math.sin(a) * pr]}
+                  rotation={[0, a * 1.7, 0]} scale={psc}>
+                  {/* 다 피운 꽃은 «늘 웃는» 표정이다 — 상태(마지막 인증)에 따라 변하는 건
+                      지금 키우는 꽃뿐이다. 지난 꽃은 이미 완성된 성취라 흔들리지 않는다. */}
+                  {/* noGust — 물을 맞은 건 «지금 꽃» 이다. 떨림 유니폼은 모두가 공유하므로 여기서 빼야 한다. */}
+                  {FACE_PARAMS[sp2][4]
+                    ? <SoloDaisyFace template={tmplOf(sp2, 4)} face={FACE_PARAMS[sp2][4]} soil={ps.soil[4]} mood="joy" sat={satOf(sp2)} noGust dim={isPast && fk !== k ? DIM_OTHER : 1} />
+                    : <Daisy template={tmplOf(sp2, 4)} opaque soil={ps.soil[4]} sat={satOf(sp2)} noGust dim={isPast && fk !== k ? DIM_OTHER : 1} />}
+                </group>
+              )
+            })}
             <FxParticles />
             {/* 응원 나비 — 꽃 «머리» 근처에 앉는다. 단독 뷰에서만 보인다. */}
             <BfClock />
@@ -1931,21 +2066,24 @@ function Scene({ n, selected, onSelect, mood, spKey, gain, hold, live, cheers })
         </Float>
 
         <OrbitControls ref={controlsRef} makeDefault enablePan={false} enableZoom
+          onStart={() => { camGrab.v = true }} onEnd={() => { camGrab.v = false }}
           minDistance={1.4} maxDistance={12 * spread} zoomSpeed={0.8} minPolarAngle={0.3} maxPolarAngle={1.45} target={[0, TOP_TARGET, 0]} />
-        <Rig selectedPos={selPos} gardenRef={gardenRef} soloRef={soloRef} controlsRef={controlsRef} camGarden={camGarden} soloScale={soloScale} soloFrame={soloFrame} head={head} soloExt={selSp.ext[soloSi]} fillH={Array.isArray(selSp.fillH) ? selSp.fillH[soloSi] : selSp.fillH}
-          innerRef={soloInner} soloBury={soloBury} selKey={selIdx} />
+        <Rig selectedPos={focusPos} gardenRef={gardenRef} soloRef={soloRef} controlsRef={controlsRef} camGarden={camGarden} soloScale={soloScale} soloFrame={soloFrame} head={focusHead} soloExt={focusExt} fillH={Array.isArray(selSp.fillH) ? selSp.fillH[soloSi] : selSp.fillH}
+          innerRef={soloInner} soloBury={soloBury} selKey={selIdx} focusKey={fk} />
       </Suspense>
     </Canvas>
   )
 }
 
-export default function DevGrowthLab() {
+export default function DevGrowthLab({ embedProgramId, embedHeader } = {}) {
   const navigate = useNavigate()
   const [sp, setSp] = useSearchParams()
-  const programId = sp.get('program') || null
+  // 프로그램 탭 안에 박히면 URL 이 다르므로 prop 으로 받는다(개발 화면에선 ?program=).
+  const programId = embedProgramId || sp.get('program') || null
+  const embedded = !!embedProgramId
   const progOpts = useMyProgramOptions()
   const { garden, gardenErr, reload, busy, readAt } = useGarden(programId)
-  const live = useMemo(() => (garden ? garden.members.map(memberToPart) : null), [garden])
+  const live = useMemo(() => (garden ? garden.members.map((m, i) => memberToPart(m, i, programId)) : null), [garden, programId])
   // 실데이터의 나비 —
   //   · 남의 꽃: «누가 누구에게» 는 당사자만 볼 수 있으므로(RLS) 마릿수만 받아 익명 나비로 그린다
   //   · 내 꽃  : get_my_garden_cheers 로 «누가 보냈는지» 까지 안다
@@ -1964,9 +2102,17 @@ export default function DevGrowthLab() {
   }, [live, garden])
   const [n, setN] = useState(50)
   const [selected, setSelected] = useState(null)
+  // ⚠️ 성장 탭을 «처음» 열면 내 꽃의 단독 뷰부터 보여준다 — 정원 전경보다 «내 상태» 가 먼저다.
+  //    한 번이라도 손대면(꽃 선택·✕·전환) 그 뒤로는 사용자가 정한 대로 둔다.
+  //    이펙트로 setState 하면 렌더가 연쇄되므로, «만졌는지» 만 ref 로 기억하고 값은 렌더에서 파생한다.
+  //    (ref 는 렌더 중에 읽으면 안 되므로 상태로 둔다)
+  const [touched, setTouched] = useState(false)
+  const pick = (v) => { setTouched(true); setSelected(v) }
   const [sentToday, setSentToday] = useState([])           // 오늘 응원을 보낸 상대(참여자 index)
   const [returned, setReturned] = useState(0)              // 방금 «내 응원이 닿아» 받은 점수(잠깐 표시)
   const [sendErr, setSendErr] = useState(null)             // 보내기 실패 사유(DB 가 준 문장)
+  // 하단 카드 실측용 ref — 이펙트는 selIdx 선언 «뒤» 에 있다(TDZ).
+  const stageRef = useRef(null), cardRef = useRef(null)
   const [spKey, setSpKey] = useState('mix')
   const [gain, setGain] = useState({})               // {참여자 index: 얻은 포인트}
   const [cheers, setCheers] = useState([])          // 개발용 — 실제로는 남이 보낸 응원이 내려온다
@@ -1974,14 +2120,56 @@ export default function DevGrowthLab() {
   // 바로 지우면 사라지는 게 보인다 — 나가는 길을 보여줘야 한다.
   const [hold, setHold] = useState(null)          // 레벨업 연출 전까지 단계를 붙들어 둠 {idx, stage}
   const [streak, setStreak] = useState(0)           // 개발용 연속 — 실데이터가 있으면 서버 값을 쓴다
-  const parts0 = useMock(n)
+  const mockParts = useMock(n)
+  // ⚠️ 탭 안에서는 목데이터를 절대 그리지 않는다. 예전엔 실데이터가 오기 전 한 틱 동안
+  //    목 정원(50송이)과 참여자 수 슬라이더가 스쳐 지나갔다 — 탭을 옮길 때마다 깜빡였다.
+  const parts0 = embedded ? (live || []) : mockParts
   const rows = live || parts0
-  const selIdx = selected != null ? Math.min(selected, rows.length - 1) : null
+  // 처음 열었을 때(아직 안 만졌고 실데이터가 왔으면) 내 꽃을 기본 선택으로 «파생» 한다.
+  const autoIdx = embedded && !touched && live ? live.findIndex((m) => m.me) : -1
+  const sel0 = selected != null ? selected : (autoIdx >= 0 ? autoIdx : null)
+  const selIdx = sel0 != null ? Math.min(sel0, rows.length - 1) : null
   const base = selIdx != null ? rows[selIdx] : null
   const pt = base ? (base.pt != null ? base.pt : STAGE_PT[base.stage]) + (gain[selIdx] || 0) : 0
   const stage = base ? Math.min(stageOf(pt), hold && hold.idx === selIdx ? hold.stage : 4) : 0
   const pct = base ? (stageOf(pt) > stage ? 100 : pctOf(pt)) : 0
+  // 만개해도 «끝» 이 아니다 — 남은 점수는 다음 꽃까지의 거리다.
+  const need = needOf(pt)
+  const cycle = cycleOf(pt)
   const mult = multOf(live && base ? base.streak : streak)   // ⚠️ base 선언 뒤여야 한다(TDZ)
+
+  // ⚠️ 포커스 계산은 아래 «카드 실측 이펙트» 가 isPast 를 쓰므로 그보다 앞에 있어야 한다(TDZ).
+  // 지난 꽃 목록 — «지금 점수» 로 계산한다(서버 값만 쓰면 화면에서 물을 줘도 안 늘어난다).
+  const pastList = useMemo(() => (
+    base && base.seedKey !== undefined && base.id
+      ? Array.from({ length: Math.min(cycle, PAST_MAX) }, (_, c) => speciesFor(base.id, base.seedKey, c))
+      : (base && base.past) || []
+  ), [base, cycle])
+  // ⚠️ «어느 꽃을 보던 중인지» 를 selIdx 와 함께 담는다. 이펙트로 초기화하면 렌더가 연쇄된다.
+  //    다른 꽃을 고르면 짝이 안 맞으므로 자동으로 «지금 꽃» 으로 돌아간다.
+  const [focus, setFocus] = useState({ idx: null, k: null })
+  const focusK = focus.idx === selIdx ? focus.k : null
+  const fk = focusK == null ? pastList.length : Math.min(focusK, pastList.length)
+  const isPast = fk < pastList.length
+  const setFocusK = (k) => setFocus({ idx: selIdx, k })
+
+  // 하단 카드가 «실제로» 가리는 비율을 재서 카메라에 넘긴다(고정값이면 밑동이 묻힌다).
+  //   ⚠️ selIdx 를 쓰므로 반드시 그 선언 뒤에 있어야 한다 — 위에 두면 TDZ 로 터진다.
+  useEffect(() => {
+    const stage = stageRef.current
+    if (!stage) return
+    const ro = new ResizeObserver(() => {
+      const h = stage.getBoundingClientRect().height
+      const c = cardRef.current ? cardRef.current.getBoundingClientRect().height : 0
+      // 카드는 bottom-4(=1rem) 만큼 떠 있다 — 그 여백까지 가려지는 것으로 친다.
+      cardCover.v = h > 0 ? Math.min(0.6, (c + 16) / h) : CARD_COVER
+    })
+    ro.observe(stage)
+    if (cardRef.current) ro.observe(cardRef.current)
+    return () => ro.disconnect()
+    // 카드가 붙었다 떨어질 때만 다시 건다(크기 변화는 ResizeObserver 가 잡는다).
+    // 지난 꽃을 볼 땐 카드가 사라지므로 그때도 다시 잰다.
+  }, [selIdx, isPast])
 
   // ⚠️ 아래는 전부 selIdx / base 에 기대므로 «그 선언 뒤» 에 있어야 한다.
   //    const 는 호이스팅돼도 선언 전 구간은 TDZ 라 읽는 순간 던진다("Cannot access ... before initialization").
@@ -2062,7 +2250,6 @@ export default function DevGrowthLab() {
   const moodTimers = useRef([])
   // 표정은 «마지막 인증 이후 경과» 로 자동 결정된다(연출 중엔 연출이 우선). 수동 전환은 걷어냈다.
   const mood = moodFx || (sel ? sel.mood : 'normal')
-  const need = stage >= 4 ? 0 : STAGE_PT[stage + 1] - pt
 
   // 물 = 인증, 햇빛 = 그날 첫 방문. 단계가 오르면 레벨업 연출까지 이어 붙인다.
   const give = (kind) => {
@@ -2093,12 +2280,16 @@ export default function DevGrowthLab() {
   useEffect(() => () => moodTimers.current.forEach(clearTimeout), [])
 
   return (
-    <div className="h-[100dvh] overflow-hidden flex flex-col" style={{ background: 'linear-gradient(180deg,#C7E9F4,#E9F6DD)' }}>
-      <div className="flex items-center gap-2 px-4 pt-3 pb-1" style={{ paddingTop: 'max(env(safe-area-inset-top),0.75rem)' }}>
-        <button type="button" onClick={() => navigate(-1)} className="w-9 h-9 rounded-full bg-white/70 flex items-center justify-center text-gray-700 shadow-sm"><ChevronLeft className="w-5 h-5" /></button>
-        <div className="ml-auto flex items-center gap-1">
+    <div className={embedded ? 'h-full overflow-hidden flex flex-col relative' : 'h-[100dvh] overflow-hidden flex flex-col'} style={{ background: 'linear-gradient(180deg,#C7E9F4,#E9F6DD)' }}>
+      <div className={embedded ? 'absolute top-0 left-0 right-0 z-20 flex items-center gap-2 px-4 pointer-events-none [&>*]:pointer-events-auto' : 'flex items-center gap-2 px-4 pt-3 pb-1'}
+        style={{ paddingTop: 'max(env(safe-area-inset-top),0.75rem)' }}>
+        {!embedded && <button type="button" onClick={() => navigate(-1)} className="w-9 h-9 rounded-full bg-white/70 flex items-center justify-center text-gray-700 shadow-sm"><ChevronLeft className="w-5 h-5" /></button>}
+        {/* 감싸는 쪽이 주는 헤더(정원 제목·전환 버튼). 단독 뷰엔 자체 제목과 ✕ 가 있으므로 전체 뷰에서만 */}
+        {embedded && selIdx == null && embedHeader}
+        {/* 종 선택기·실데이터 배지는 개발 화면 전용 — 실제 탭에서는 종이 자동 배정된다 */}
+        <div className={embedded ? 'hidden' : 'ml-auto flex items-center gap-1'}>
           {['mix', ...SPECIES_KEYS].map((k) => (
-            <button key={k} type="button" onClick={() => { setSpKey(k); setSelected(null) }}
+            <button key={k} type="button" onClick={() => { setSpKey(k); pick(null) }}
               className={`text-[11px] font-bold px-2.5 py-1 rounded-full transition ${spKey === k ? 'bg-emerald-500 text-white' : 'bg-white/70 text-gray-500'}`}>
               {k === 'mix' ? '섞기' : SPECIES[k].label}
             </button>
@@ -2109,21 +2300,53 @@ export default function DevGrowthLab() {
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 relative">
+      <div ref={stageRef} className="flex-1 min-h-0 relative">
         {/* 햇빛 — 위에서 따뜻한 빛이 하늘에 번진다. 캔버스 안 광원만 바꾸면 배경이 그대로라 어색하다. */}
         <div className="absolute inset-0 pointer-events-none z-[5] transition-opacity duration-700"
           style={{ opacity: sunSky ? 1 : 0, background: 'radial-gradient(120% 70% at 50% -10%, rgba(255,214,120,0.55), rgba(255,236,175,0.18) 45%, transparent 70%)' }} />
-        <Suspense fallback={<div className="absolute inset-0 grid place-items-center text-emerald-700/50 text-sm">불러오는 중…</div>}>
-          <Scene cheers={shownCheers} key={spKey + (programId || '')} n={live ? live.length : n} selected={selected} onSelect={setSelected} mood={mood} spKey={spKey} gain={gain} hold={hold} live={live} />
-        </Suspense>
+        {/* ⚠️ 탭 안에서는 실데이터가 올 때까지 «아무것도» 그리지 않는다.
+            예전엔 한 틱 동안 목 정원(50송이)이 스쳐 지나가 탭을 옮길 때마다 깜빡였다. */}
+        {embedded && !live ? (
+          <div className="absolute inset-0 grid place-items-center text-emerald-700/50 text-sm">정원을 불러오는 중…</div>
+        ) : (
+          <Suspense fallback={<div className="absolute inset-0 grid place-items-center text-emerald-700/50 text-sm">불러오는 중…</div>}>
+            <Scene cheers={shownCheers} focusK={focusK} key={spKey + (programId || '')} n={live ? live.length : n} selected={selIdx} onSelect={pick} mood={mood} spKey={spKey} gain={gain} hold={hold} live={live} />
+          </Suspense>
+        )}
         {sel && (
           <>
             <div className="absolute top-3 left-5 right-14 z-10">
-              <h2 className="text-[21px] font-extrabold text-gray-800 leading-tight break-keep">{STAGE_MSG[sel.stage]}</h2>
-              <p className="text-[12px] font-bold text-emerald-600/80 mt-0.5">{sel.nickname}{selected === 0 ? ' (나)' : ''}의 꽃</p>
+              <h2 className="text-[21px] font-extrabold text-gray-800 leading-tight break-keep">
+                {isPast ? `${fk + 1}번째 꽃 · 다 피웠어요` : STAGE_MSG[sel.stage]}
+              </h2>
+              <p className="text-[12px] font-bold text-emerald-600/80 mt-0.5">{sel.nickname}{sel.me || selIdx === 0 ? ' (나)' : ''}의 꽃</p>
             </div>
-            <button type="button" onClick={() => setSelected(null)} className="absolute top-3 right-3 w-9 h-9 rounded-full bg-white/85 shadow flex items-center justify-center text-gray-700 z-10"><X className="w-5 h-5" /></button>
+            {/* 꽃 사이 이동 — 지난 꽃을 세워만 두면 볼 방법이 없다.
+                화면 좌우 가장자리라 정원을 가리지 않고, 3D 조작(회전)과도 안 겹친다. */}
+            {pastList.length > 0 && (
+              <>
+                <button type="button" onClick={() => setFocusK(Math.max(0, fk - 1))} disabled={fk === 0}
+                  aria-label="이전 꽃"
+                  className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-10 h-14 rounded-2xl bg-white/70 backdrop-blur shadow flex items-center justify-center text-gray-600 disabled:opacity-0 transition active:scale-90">
+                  <ChevronLeft className="w-6 h-6" />
+                </button>
+                <button type="button" onClick={() => setFocusK(Math.min(pastList.length, fk + 1))} disabled={fk >= pastList.length}
+                  aria-label="다음 꽃"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-10 h-14 rounded-2xl bg-white/70 backdrop-blur shadow flex items-center justify-center text-gray-600 disabled:opacity-0 transition active:scale-90">
+                  <ChevronRight className="w-6 h-6" />
+                </button>
+                <div className="absolute left-1/2 -translate-x-1/2 bottom-2 z-10 flex items-center gap-1.5 pointer-events-none">
+                  {Array.from({ length: pastList.length + 1 }, (_, k) => (
+                    <span key={k} className={`w-1.5 h-1.5 rounded-full transition ${k === fk ? 'bg-emerald-500' : 'bg-white/70'}`} />
+                  ))}
+                </div>
+              </>
+            )}
+            <button type="button" onClick={() => pick(null)} className="absolute top-3 right-3 w-9 h-9 rounded-full bg-white/85 shadow flex items-center justify-center text-gray-700 z-10"><X className="w-5 h-5" /></button>
+            {/* ⚠️ 지난 꽃을 볼 땐 카드를 통째로 숨긴다 — 다 피운 꽃은 더 자라지 않으므로
+                물 주기·응원이 할 일이 없다. 카드가 없으면 카메라도 더 넉넉히 잡는다(cardCover 실측). */}
             {/* 카드와 «카드 위 버튼» 을 한 덩어리로 둔다 — 카드 높이를 재지 않아도 항상 바로 위에 붙는다 */}
+            {!isPast && (
             <div className="absolute bottom-4 left-4 right-4 z-10">
               {/* 개발용 나비 조작. 실제로는 남이 보낸 응원이 내려온다 — 버튼이 아니라 알림으로. */}
               <div className="flex items-center justify-end gap-2 mb-2.5">
@@ -2147,14 +2370,19 @@ export default function DevGrowthLab() {
                   <Wind className="w-[22px] h-[22px]" />
                 </button>}
               </div>
-            <div className="bg-white rounded-3xl p-4 shadow-xl">
+            <div ref={cardRef} className="bg-white rounded-3xl p-4 shadow-xl">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-[15px] font-extrabold text-gray-900">레벨 {stage + 1} · {STAGE_LABEL[stage]}</p>
+                <p className="text-[15px] font-extrabold text-gray-900">
+                  {cycle > 0 && <span className="text-emerald-600">{cycle + 1}번째 꽃 · </span>}
+                  레벨 {stage + 1} · {STAGE_LABEL[stage]}
+                </p>
                 <p className="text-[15px] font-extrabold text-emerald-600">{stage >= 4 ? '완성' : pct + '%'}</p>
               </div>
               <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden mb-3"><div className="h-full bg-gradient-to-r from-emerald-400 to-teal-500 rounded-full transition-all duration-500" style={{ width: pct + '%' }} /></div>
               <div className="flex items-center justify-between mb-2.5">
-                <p className="text-[11px] text-gray-400">{stage >= 4 ? '활짝 피었어요' : `다음 단계까지 ${need}점`}</p>
+                <p className="text-[11px] text-gray-400">
+                  {stage >= 4 ? `활짝 피었어요 · 다음 꽃까지 ${need}점` : `다음 단계까지 ${need}점`}
+                </p>
                 {/* 개발용 계기판 — 실제 화면엔 숫자 대신 «물방울 양» 으로만 전달한다 */}
                 <p className="text-[10px] font-bold text-gray-300">연속 {streak} · ×{mult.toFixed(1)}<button type="button" onClick={() => { setStreak(0); setGain({}); setSentToday([]) }} className="ml-1.5 underline">초기화</button></p>
               </div>
@@ -2254,18 +2482,22 @@ export default function DevGrowthLab() {
               )}
             </div>
             </div>
+            )}
           </>
         )}
       </div>
 
-      {!sel && (
+      {/* 하단 상자는 개발 화면 전용이다 — 탭 안에서는 조작기가 전부 숨어
+          안내 문구 한 줄만 남은 빈 막대가 된다. 「실데이터 N명·인증일수로 단계 결정」은
+          애초에 참여자에게 할 말도 아니다. */}
+      {!sel && !embedded && (
         <div className="px-4 pb-[max(env(safe-area-inset-bottom),1rem)] pt-2">
           <div className="bg-white/85 backdrop-blur rounded-2xl p-3 shadow-lg">
-            {/* 개발용 프로그램 선택 — 이 화면(/dev/growth)에만 있다. 고르면 ?program 이 붙어 실데이터로 돈다. */}
-            <div className="flex items-center gap-2 mb-2">
+            {/* 개발용 프로그램 선택 — 개발 화면에만 있다. 탭 안에서는 프로그램이 이미 정해져 있다. */}
+            <div className={embedded ? 'hidden' : 'flex items-center gap-2 mb-2'}>
               <select
                 value={programId || ''}
-                onChange={(e) => { const v = e.target.value; setSelected(null); setSp(v ? { program: v } : {}) }}
+                onChange={(e) => { const v = e.target.value; pick(null); setSp(v ? { program: v } : {}) }}
                 className="flex-1 min-w-0 text-[12px] font-bold text-gray-800 bg-gray-100 rounded-lg px-2 py-1.5 border-0"
               >
                 <option value="">목데이터 ({n}명)</option>
@@ -2288,15 +2520,15 @@ export default function DevGrowthLab() {
               )}
               {gardenErr && <span className="text-[11px] font-extrabold text-rose-500 shrink-0">오류</span>}
             </div>
-            {!live && (
+            {!live && !embedded && (
               <div className="flex items-center justify-between mb-1">
                 <p className="text-[12px] font-extrabold text-gray-800">참여자 {n}명</p>
-                <input type="range" min={3} max={200} value={n} onChange={(e) => { setN(+e.target.value); setSelected(null) }} className="flex-1 ml-3 accent-emerald-500" />
+                <input type="range" min={3} max={200} value={n} onChange={(e) => { setN(+e.target.value); pick(null) }} className="flex-1 ml-3 accent-emerald-500" />
               </div>
             )}
             <p className="text-[10px] text-gray-400 mt-1 text-center">
               {!live ? '🌱 활동별 단계(새싹~만개) · 큰 꽃=나 · 꽃 탭 → 단독 뷰(표정) · 빈 곳/✕ → 정원'
-                : isOperator ? `참여자 ${live.length}명의 정원 · 꽃을 탭해 응원 나비를 보내세요`
+                : isOperator ? `참여자 ${live.length}명의 공유 정원 · 꽃을 탭해 응원 나비를 보내세요`
                 : `실데이터 ${live.length}명 · 인증일수로 단계 결정`}
             </p>
           </div>

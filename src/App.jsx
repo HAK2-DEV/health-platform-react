@@ -64,6 +64,7 @@ const GrowthPage = lazy(() => import('./pages/GrowthPage'))
 const DevGrowthBiome = lazy(() => import('./pages/DevGrowthBiome'))
 const DevGrowthLab = lazy(() => import('./pages/DevGrowthLab'))
 const DevGrowthOperator = lazy(() => import('./pages/DevGrowthOperator'))
+const DevGrowthFlower = lazy(() => import('./pages/DevGrowthFlower'))
 const DevGrowthDemo = lazy(() => import('./pages/DevGrowthDemo'))
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage'))
 const ProfilePage = lazy(() => import('./pages/ProfilePage'))
@@ -287,6 +288,9 @@ function AppShell() {
             } />
             <Route path="/dev/growth-operator" element={
               <ProtectedRoute><DevGrowthOperator /></ProtectedRoute>
+            } />
+            <Route path="/dev/growth-flower" element={
+              <ProtectedRoute><DevGrowthFlower /></ProtectedRoute>
             } />
             <Route path="/dev/growth-biome" element={
               <ProtectedRoute><DevGrowthBiome /></ProtectedRoute>

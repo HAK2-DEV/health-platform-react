@@ -13,6 +13,7 @@
 // 「꽃은 시들지 않는다」 원칙(참여자 화면)은 그대로다 —
 //    휴면 표시는 «운영자에게만» 보이는 힌트이고, 참여자 꽃은 여전히 건강하다.
 import { useEffect, useMemo, useRef, useState, Suspense } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ChevronLeft, Wind, X } from 'lucide-react'
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock'
@@ -22,12 +23,11 @@ import {
   fetchMyCheerQuota, sendGardenCheer, fetchMyGardenCheers,
 } from '../lib/queries'
 import { GardenCanvas } from './DevGrowthLab'
+import { STAGE_LABEL, stageOf, pctOf, cycleOf } from '../lib/growthSpecies'
 
-// 성장 단계 — /dev/growth 와 같은 임계값. 여기서만 쓰는 표시용이라 복사해 둔다.
-const STAGE_PT = [0, 12, 30, 55, 90]
-const STAGE_LABEL = ['새싹', '어린잎', '봉오리', '개화', '만개']
+// ⚠️ 성장 규칙은 «복사하지 않는다». 예전엔 여기에 임계값을 베껴뒀는데,
+//    만개 순환(다음 꽃)이 들어오자 이 화면만 옛 규칙으로 남을 뻔했다.
 const STAGE_EMOJI = ['🌱', '🌿', '🌷', '🌸', '🌻']
-const stageOf = (pt) => { let s = 0; for (let i = 4; i >= 0; i--) if (pt >= STAGE_PT[i]) { s = i; break } return s }
 
 const ButterflyIcon = ({ className }) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
@@ -47,12 +47,14 @@ const daysSince = (isoDate, todayStr) => {
   return Math.round((b - a) / 86400000)
 }
 
-export default function DevGrowthOperator() {
+export default function DevGrowthOperator({ embedProgramId, embedHeader } = {}) {
   const navigate = useNavigate()
   const { session } = useAuth()
   const uid = session?.user?.id
   const [sp, setSp] = useSearchParams()
-  const programId = sp.get('program') || null
+  // 프로그램 탭 안에 박히면 URL 이 다르므로 prop 으로 받는다(개발 화면에선 ?program=).
+  const programId = embedProgramId || sp.get('program') || null
+  const embedded = !!embedProgramId
 
   const [opts, setOpts] = useState([])
   const [data, setData] = useState(null)
@@ -113,7 +115,7 @@ export default function DevGrowthOperator() {
       .map((m) => {
         const stage = stageOf(m.points)
         const gap = daysSince(m.lastVerifiedOn, garden.today)
-        return { ...m, stage, gap, quiet: gap == null || gap > allow }
+        return { ...m, stage, cycle: cycleOf(m.points), gap, quiet: gap == null || gap > allow }
       })
       // 조용한 사람 먼저, 그중에서도 오래된 순
       .sort((a, b) => (b.quiet - a.quiet) || ((b.gap ?? 999) - (a.gap ?? 999)) || a.nickname.localeCompare(b.nickname))
@@ -151,8 +153,7 @@ export default function DevGrowthOperator() {
   }, [pickedId, listOpen])
   // 지금 고른 참여자(rows 기준 — 단계·휴면 여부가 계산돼 있다)
   const sel = useMemo(() => (pickedId ? rows.find((r) => r.userId === pickedId) || null : null), [rows, pickedId])
-  const pct = sel ? (sel.stage >= 4 ? 100
-    : Math.round(((sel.points - STAGE_PT[sel.stage]) / (STAGE_PT[sel.stage + 1] - STAGE_PT[sel.stage])) * 100)) : 0
+  const pct = sel ? pctOf(sel.points) : 0
   const selDone = sel ? garden.sentToday.has(sel.userId) : false
   const selCan = sel && !selDone && remain > 0
 
@@ -175,6 +176,7 @@ export default function DevGrowthOperator() {
         <div className="min-w-0 flex-1">
           <p className="text-[14px] font-extrabold text-gray-900 truncate">{m.nickname}</p>
           <p className="text-[11px] text-gray-400">
+            {m.cycle > 0 && <span className="text-emerald-600 font-bold">{m.cycle + 1}번째 꽃 · </span>}
             {STAGE_LABEL[m.stage]} · 인증 {m.verifyDays}일 · 연속 {m.streak}
             {m.pendingCheers > 0 && <span className="text-pink-500 font-bold"> · 응원 {m.pendingCheers}</span>}
           </p>
@@ -195,20 +197,24 @@ export default function DevGrowthOperator() {
   }
 
   return (
-    <div className="h-dvh flex flex-col bg-gray-50">
+    <div className={embedded ? 'h-full flex flex-col bg-gray-50' : 'h-dvh flex flex-col bg-gray-50'}>
       <div className="sticky top-0 z-10 bg-gray-50/95 backdrop-blur px-4 pt-3 pb-2">
-        <div className="flex items-center gap-2 mb-2">
-          <button type="button" onClick={() => navigate(-1)}
-            className="w-9 h-9 rounded-full bg-white shadow-sm flex items-center justify-center text-gray-700">
-            <ChevronLeft className="w-5 h-5" />
-          </button>
-          <h1 className="text-[17px] font-extrabold text-gray-900">운영자 정원</h1>
-          <span className="text-[10px] font-bold text-gray-400 bg-white px-2 py-1 rounded-full">/dev/growth-operator</span>
-        </div>
+        {!embedded && (
+          <div className="flex items-center gap-2 mb-2">
+            <button type="button" onClick={() => navigate(-1)}
+              className="w-9 h-9 rounded-full bg-white shadow-sm flex items-center justify-center text-gray-700">
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <h1 className="text-[17px] font-extrabold text-gray-900">운영자 정원</h1>
+            <span className="text-[10px] font-bold text-gray-400 bg-white px-2 py-1 rounded-full">/dev/growth-operator</span>
+          </div>
+        )}
         <div className="flex items-center gap-2">
+          {/* 꽃을 고른 동안엔 그 카드가 화면을 설명하므로 헤더를 비운다 */}
+          {embedded && !sel && embedHeader}
           <select value={programId || ''}
             onChange={(e) => setSp(e.target.value ? { program: e.target.value } : {})}
-            className="flex-1 min-w-0 text-[13px] font-bold text-gray-800 bg-white rounded-xl px-3 py-2 border-0 shadow-sm">
+            className={embedded ? 'hidden' : 'flex-1 min-w-0 text-[13px] font-bold text-gray-800 bg-white rounded-xl px-3 py-2 border-0 shadow-sm'}>
             <option value="">프로그램을 고르세요</option>
             {opts.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
           </select>
@@ -239,7 +245,7 @@ export default function DevGrowthOperator() {
         )}
         {garden && (
           <Suspense fallback={null}>
-            <GardenCanvas key={programId} members={garden.members} cheers={cheers3d}
+            <GardenCanvas key={programId} seed={programId} members={garden.members} cheers={cheers3d}
               selected={picked} onSelect={pickFlower} />
           </Suspense>
         )}
@@ -283,7 +289,7 @@ export default function DevGrowthOperator() {
               </div>
               <div className="flex items-center justify-between mb-3">
                 <p className="text-[11px] text-gray-400">
-                  레벨 {sel.stage + 1} · {STAGE_LABEL[sel.stage]} · 인증 {sel.verifyDays}일 · 연속 {sel.streak}
+                  {sel.cycle > 0 ? `${sel.cycle + 1}번째 꽃 · ` : ''}{STAGE_LABEL[sel.stage]} · 인증 {sel.verifyDays}일 · 연속 {sel.streak}
                 </p>
                 <p className={`text-[11px] font-bold ${sel.quiet ? 'text-amber-600' : 'text-emerald-600'}`}>
                   {sel.gap == null ? '아직 인증 없음' : sel.gap === 0 ? '오늘 인증했어요' : `${sel.gap}일째 소식 없음`}
@@ -316,13 +322,14 @@ export default function DevGrowthOperator() {
       </div>
 
       {/* 명단 — 화면 가운데 오버레이 */}
-      {listOpen && garden && (
-        <div className="fixed inset-0 z-30 flex items-center justify-center p-4"
+      {/* ⚠️ 명단도 body 로 빼낸다 — 탭 안에 박히면 조상 컨테이너에 잘린다. */}
+      {listOpen && garden && createPortal((
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4"
           onClick={() => setListOpen(false)}>
           <div className="absolute inset-0 bg-black/40" />
           <div className="relative w-full max-w-md max-h-[78dvh] bg-gray-50 rounded-3xl shadow-2xl flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center gap-2 px-4 pt-4 pb-2 shrink-0">
+            <div className="shrink-0 flex items-center gap-2 px-4 pt-4 pb-2">
               <ButterflyIcon className="w-5 h-5 text-amber-500" />
               <h2 className="text-[15px] font-extrabold text-gray-900 flex-1">응원 보내기</h2>
               <span className="text-[12px] font-extrabold text-amber-600">나비 {remain}/{quota?.limit ?? 3}</span>
@@ -368,7 +375,7 @@ export default function DevGrowthOperator() {
             </div>
           </div>
         </div>
-      )}
+      ), document.body)}
     </div>
   )
 }

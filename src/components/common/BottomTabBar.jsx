@@ -233,6 +233,7 @@ function BottomTabBar() {
       </AnimatePresence>
 
       <nav
+        data-tabbar=""   /* 높이를 재야 하는 화면이 있다(성장 탭 정원) — 클래스가 아니라 이 표시로 찾는다 */
         className="fixed bottom-0 left-0 right-0 z-50"
       >
         <div

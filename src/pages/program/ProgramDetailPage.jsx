@@ -11,6 +11,12 @@ import { CATEGORY, PROGRAM_THEME } from '../../lib/constants'
 import { formatKoreanDate, formatKoreanDateTime, isUpcomingByStartDate, formatRelativeKstDay, checkMissionToday } from '../../lib/formatters'
 import MissionCard from '../../components/program/MissionCard'
 import GardenPanel from '../../components/program/GardenPanel'
+// ⚠️ 3D 성장 탭 — «로컬에서만» 켠다. 아직 참여자에게 선보일 단계가 아니다.
+//    import.meta.env.DEV 는 `npm run dev` 에서만 true 이고 프로덕션 빌드에선 false 다 —
+//    즉 배포본에는 절대 안 뜬다. 나중에 특정 배포에서 켜보려면 코드 수정 없이
+//    VITE_GROWTH_3D=1 환경변수만 주면 된다.
+const GROWTH_3D = import.meta.env.DEV || import.meta.env.VITE_GROWTH_3D === '1'
+const Growth3D = lazy(() => import('../../components/program/Growth3DPanel'))
 import ConstellationPanel from '../../components/program/ConstellationPanel'
 import ProgramCompletionCelebration from '../../components/program/ProgramCompletionCelebration'
 import QuitSmokingHero from '../../components/program/QuitSmokingHero'
@@ -3214,7 +3220,13 @@ function ProgramDetailPage() {
       })()}
 
       {/* ─── 성장 탭 (랭킹 / 정원 / 별자리 분기) ───────────────────── */}
-      {activeTab === 'ranking' && !isViewer && (program.gamification_type === 'GARDEN') && (
+      {/* 3D 정원 — 로컬 전용. 운영자면 운영자 뷰, 참여자면 참여자 뷰가 뜬다. */}
+      {activeTab === 'ranking' && !isViewer && (program.gamification_type === 'GARDEN') && GROWTH_3D && (
+        <Suspense fallback={<div className="h-[60dvh]" />}>
+          <Growth3D programId={id} isOwner={isOwner} />
+        </Suspense>
+      )}
+      {activeTab === 'ranking' && !isViewer && (program.gamification_type === 'GARDEN') && !GROWTH_3D && (
         <GardenPanel
           participation={myParticipation}
           activeDays={overviewData?.activeDays || 0}
