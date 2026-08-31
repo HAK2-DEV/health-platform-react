@@ -11,6 +11,7 @@ import {
   isIOSSafari,
   isInAppBrowser,
 } from '../../lib/installPrompt'
+import { getInviteHint } from '../../lib/pendingInvite'
 
 // 설치 유도 배너 — "홈 화면에 추가" 를 적절한 순간에 슬쩍 권함.
 //   Android/Desktop Chrome: [설치] → 네이티브 설치 다이얼로그 원탭.
@@ -128,13 +129,16 @@ function InstallPromptBanner() {
 
   const ios = isIOSSafari() || preview.ios
   // 노출 부적격 — 이미 앱/닫음/인앱/오프라인
+  //   ⚠️ 초대 미완료(inviteHint 존재) 중엔 숨김: 브라우저에서 설치 먼저 하면 localStorage 초대가
+  //   설치된 앱(별도 저장소)으로 안 넘어가 프로그램 참여가 유실된다. 참여 완료(힌트 제거) 후 다시 노출.
   const blocked =
     installed ||
     dismissed ||
     isStandalone() ||
     isNativeApp() ||
     isInAppBrowser() ||
-    !online
+    !online ||
+    (!previewForced && !!getInviteHint())
   const eligible = !blocked && (!!deferredPrompt || ios)
   const show = (previewForced ? !dismissed : delayPassed && eligible) && !justInstalled
 
