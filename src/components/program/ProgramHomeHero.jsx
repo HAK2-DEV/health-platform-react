@@ -42,9 +42,15 @@ function ProgramHomeHero({
 }) {
   const bgUrl = hero?.imageUrl || null
   const { open: openViewer } = useAvatarViewer()
-  // 참여자(비운영자)가 커버를 탭 → 히어로 사진 크게 보기(원본 우선). 운영자는 「커버 변경」 을 쓰므로 제외.
-  const viewUrl = hero?.originalUrl || bgUrl
-  const canView = !!bgUrl && !editable
+  // 참여자(비운영자)가 커버를 탭 → 히어로 사진 크게 보기. 운영자는 「커버 변경」 을 쓰므로 제외.
+  //   실제로 화면에 뜨는 사진은 두 갈래다: ① 편집형 히어로(home_hero.imageUrl) ② 프로그램 커버
+  //   (cover_image_path → ProgramCover 폴백). 둘 다 program-covers 버킷. 어느 쪽이든 탭하면 보이게.
+  //   히어로면 원본(originalUrl) 우선, 커버면 그 공개 URL. 사진이 아예 없으면(일러스트 폴백) 비활성.
+  const coverUrl = coverImagePath
+    ? supabase.storage.from('program-covers').getPublicUrl(coverImagePath).data?.publicUrl
+    : null
+  const viewUrl = hero?.originalUrl || bgUrl || coverUrl
+  const canView = !!viewUrl && !editable
   const fileRef = useRef(null)
   const [cropSrc, setCropSrc] = useState(null)
   const [isCropOpen, setIsCropOpen] = useState(false)
@@ -127,7 +133,9 @@ function ProgramHomeHero({
             className="absolute inset-0 overflow-hidden cursor-zoom-in"
             style={{ filter: 'saturate(.85) contrast(.94) brightness(.98)' }}
           >
-            <img src={bgUrl} alt="" className="w-full h-full object-cover" />
+            {bgUrl
+              ? <img src={bgUrl} alt="" className="w-full h-full object-cover" />
+              : <ProgramCover imagePath={coverImagePath} categories={categories} name={programName} variant="hero" className="!absolute inset-0 !aspect-auto w-full h-full !rounded-none" />}
           </button>
         ) : (
           <div
