@@ -6,6 +6,7 @@ import { useBackButtonClose } from '../hooks/useBackButtonClose'
 // 전역 프로필 사진 뷰어 — 어디서든 useAvatarViewer().open({ avatarPath, nickname }) 로 크게 보기.
 //   UserAvatar 의 viewable 옵션이 이 컨텍스트를 호출한다. 모달은 앱 루트에 1개만(포털처럼 최상위).
 //   avatarPath(=profile-avatars 버킷) 대신 url 을 직접 넘길 수도 있다(예: 강사 사진은 program-covers 버킷).
+//   rect:true 면 원형이 아니라 «사각(가로형)» 으로 크게 본다(예: 프로그램 커버/히어로 사진).
 const AvatarViewerContext = createContext(null)
 
 export function useAvatarViewer() {
@@ -49,11 +50,18 @@ export function AvatarViewerProvider({ children }) {
               transition={{ type: 'spring', damping: 24, stiffness: 300 }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="w-64 h-64 max-w-[80vw] max-h-[80vw] rounded-full overflow-hidden bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center shadow-2xl ring-4 ring-white/20">
-                {url
-                  ? <img src={url} alt={view.nickname || ''} className="w-full h-full object-cover" />
-                  : <span className="text-white font-bold text-7xl select-none">{initial}</span>}
-              </div>
+              {view.rect ? (
+                // 사각(가로형) — 커버/히어로 사진. 전체가 보이도록 object-contain.
+                url
+                  ? <img src={url} alt={view.nickname || view.alt || ''} className="max-w-[94vw] max-h-[82vh] rounded-2xl object-contain shadow-2xl ring-1 ring-white/15" />
+                  : null
+              ) : (
+                <div className="w-64 h-64 max-w-[80vw] max-h-[80vw] rounded-full overflow-hidden bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center shadow-2xl ring-4 ring-white/20">
+                  {url
+                    ? <img src={url} alt={view.nickname || ''} className="w-full h-full object-cover" />
+                    : <span className="text-white font-bold text-7xl select-none">{initial}</span>}
+                </div>
+              )}
               {view.nickname && <p className="text-white font-bold text-lg drop-shadow">{view.nickname}</p>}
             </motion.div>
           </motion.div>

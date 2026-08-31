@@ -4,6 +4,7 @@ import ProgramCover from '../common/ProgramCover'
 import ImageCropModal from '../common/ImageCropModal'
 import { compressImage } from '../../lib/cropImage'
 import { supabase } from '../../supabaseClient'
+import { useAvatarViewer } from '../../contexts/AvatarViewerContext'
 
 // 프로그램 개요 히어로 (커버 사진형) — 데모 2026-07 기준.
 //   구조: 전체폭 커버(252px, 살짝 워시) + 상단 스크림 + 하단 밝은 페이드(배경색으로 녹임)
@@ -40,6 +41,10 @@ function ProgramHomeHero({
   pendingCount = 0,
 }) {
   const bgUrl = hero?.imageUrl || null
+  const { open: openViewer } = useAvatarViewer()
+  // 참여자(비운영자)가 커버를 탭 → 히어로 사진 크게 보기(원본 우선). 운영자는 「커버 변경」 을 쓰므로 제외.
+  const viewUrl = hero?.originalUrl || bgUrl
+  const canView = !!bgUrl && !editable
   const fileRef = useRef(null)
   const [cropSrc, setCropSrc] = useState(null)
   const [isCropOpen, setIsCropOpen] = useState(false)
@@ -112,15 +117,28 @@ function ProgramHomeHero({
     <>
       {/* 상태바 밑까지 커버가 채워지도록 높이에 safe-area 더함(위쪽으로 확장) */}
       <div className="relative" style={{ height: `calc(${HERO_H}px + ${safeTop})` }}>
-        {/* ① 커버 — 살짝 워시. 커버 변경은 상단 「커버 변경」 버튼으로만(전체 탭 제거 → 뒤로·설정 오탭 방지) */}
-        <div
-          className="absolute inset-0 overflow-hidden"
-          style={{ filter: 'saturate(.85) contrast(.94) brightness(.98)' }}
-        >
-          {bgUrl
-            ? <img src={bgUrl} alt="" className="w-full h-full object-cover" />
-            : <ProgramCover imagePath={coverImagePath} categories={categories} name={programName} variant="hero" className="!absolute inset-0 !aspect-auto w-full h-full !rounded-none" />}
-        </div>
+        {/* ① 커버 — 살짝 워시. 커버 변경은 상단 「커버 변경」 버튼으로만(전체 탭 제거 → 뒤로·설정 오탭 방지).
+            참여자는 커버를 탭하면 사진 크게 보기(canView). 뒤로·설정·참여자 버튼은 위(z-20/pointer-events)에서 자기 탭을 가져간다. */}
+        {canView ? (
+          <button
+            type="button"
+            onClick={() => openViewer({ url: viewUrl, rect: true, alt: programName })}
+            aria-label="커버 사진 크게 보기"
+            className="absolute inset-0 overflow-hidden cursor-zoom-in"
+            style={{ filter: 'saturate(.85) contrast(.94) brightness(.98)' }}
+          >
+            <img src={bgUrl} alt="" className="w-full h-full object-cover" />
+          </button>
+        ) : (
+          <div
+            className="absolute inset-0 overflow-hidden"
+            style={{ filter: 'saturate(.85) contrast(.94) brightness(.98)' }}
+          >
+            {bgUrl
+              ? <img src={bgUrl} alt="" className="w-full h-full object-cover" />
+              : <ProgramCover imagePath={coverImagePath} categories={categories} name={programName} variant="hero" className="!absolute inset-0 !aspect-auto w-full h-full !rounded-none" />}
+          </div>
+        )}
 
         {/* ② 상단 스크림 (상태바 가독성) — 안전영역만큼 더 내려옴 */}
         <div className="absolute inset-x-0 top-0 pointer-events-none" style={{ height: `calc(70px + ${safeTop})`, background: 'linear-gradient(180deg,rgba(24,21,16,.42),rgba(24,21,16,0))' }} />
