@@ -7,7 +7,7 @@ import { Image as ImageIcon, BarChart3, MessageSquare, ChevronDown, ChevronUp, C
 import MissionIconPicker from './MissionIconPicker'
 import { Icon3D } from './ProgramHome'
 import { MEAL_ICON } from '../../lib/mealIcons'
-import { SCHEDULE_MODES, WEEKDAY_OPTIONS } from '../../lib/constants'
+import { SCHEDULE_MODES, WEEKDAY_OPTIONS, MEAL_LOGGER_ENABLED } from '../../lib/constants'
 import { toKSTDateString } from '../../lib/formatters'
 
 // ⓘ 클릭 시 라벨/제목 줄 위로 뜨는 툴팁. 부모가 relative(폼 폭)여야 가운데 정렬됨.
@@ -384,6 +384,24 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
   if (!isOpen || !program) return null
   const isMindcare = Array.isArray(program.categories) && program.categories.includes('MINDCARE')  // 명상형 노출 조건
   const isStepCat = Array.isArray(program.categories) && (program.categories.includes('WALKING') || program.categories.includes('RUNNING'))  // 걸음 자동 인증 노출(운동·달리기)
+
+  // 인증 스타일 선택지 — 카테고리별. 「칼로리 기록」은 MEAL_LOGGER_ENABLED 로 잠근다(258 참고).
+  const styleOptions = (isDietCat
+    ? [
+        { v: 'standard', emoji: '📷', label: '인증샷 제출', desc: '식사 사진 제출', tip: '오늘 먹은 식사 사진을 제출해요.' },
+        { v: 'meal', emoji: '🍱', label: '칼로리 기록', desc: 'AI 자동 계산·입력', tip: '음식 사진을 올리면 AI가 칼로리를 자동으로 계산해줘요. 음식을 직접 검색해 담거나, 칼로리를 수기로 입력할 수도 있어요.' },
+      ]
+    : isMindcare
+    ? [
+        { v: 'standard', emoji: '📷', label: '일반 인증', desc: '사진·기록·소감' },
+        { v: 'meditation', img: '/icons/meditation/meditate.png', label: '명상 타이머', desc: '앉아서 명상 후 완료' },
+      ]
+    : [
+        { v: 'standard', emoji: '📷', label: '일반 인증', desc: '사진·기록·소감' },
+        { v: 'steps', emoji: '👣', label: '걸음 자동 인증', desc: '삼성헬스 연동·자동', tip: '안드로이드 앱에서 Health Connect(삼성헬스)의 오늘 걸음이 목표를 넘으면 사진 없이 자동 인증돼요. 웹에서는 안내만 표시돼요.' },
+      ]
+  ).filter(o => o.v !== 'meal' || MEAL_LOGGER_ENABLED)
+
   return (
     <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-5" style={{ paddingBottom: kbInset ? kbInset + 20 : undefined, transition: 'padding-bottom .2s ease' }} onClick={onClose}>
       <div className="w-full max-w-md max-h-[88vh] overflow-y-auto bg-white rounded-2xl p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
@@ -654,23 +672,10 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
           {/* ── 인증 방식 — 1단계(제목·설명) 아래에 병합 렌더 ── */}
           {step === 1 && (<>
           {/* 인증 스타일 선택 — 마음관리=명상, 식단=식단 기록 */}
-          {(isMindcare || isDietCat || isStepCat) && (
+          {/* 선택지가 1개뿐이면(식단 로거 OFF) 고를 게 없으므로 통째로 감춘다 */}
+          {(isMindcare || isDietCat || isStepCat) && styleOptions.length > 1 && (
             <div className="grid grid-cols-2 gap-2 mb-5 mt-1">
-              {(isDietCat
-                ? [
-                    { v: 'standard', emoji: '📷', label: '인증샷 제출', desc: '식사 사진 제출', tip: '오늘 먹은 식사 사진을 제출해요.' },
-                    { v: 'meal', emoji: '🍱', label: '칼로리 기록', desc: 'AI 자동 계산·입력', tip: '음식 사진을 올리면 AI가 칼로리를 자동으로 계산해줘요. 음식을 직접 검색해 담거나, 칼로리를 수기로 입력할 수도 있어요.' },
-                  ]
-                : isMindcare
-                ? [
-                    { v: 'standard', emoji: '📷', label: '일반 인증', desc: '사진·기록·소감' },
-                    { v: 'meditation', img: '/icons/meditation/meditate.png', label: '명상 타이머', desc: '앉아서 명상 후 완료' },
-                  ]
-                : [
-                    { v: 'standard', emoji: '📷', label: '일반 인증', desc: '사진·기록·소감' },
-                    { v: 'steps', emoji: '👣', label: '걸음 자동 인증', desc: '삼성헬스 연동·자동', tip: '안드로이드 앱에서 Health Connect(삼성헬스)의 오늘 걸음이 목표를 넘으면 사진 없이 자동 인증돼요. 웹에서는 안내만 표시돼요.' },
-                  ]
-              ).map((o, i) => {
+              {styleOptions.map((o, i) => {
                 const on = verifyStyle === o.v
                 return (
                   <div key={o.v} className="relative">

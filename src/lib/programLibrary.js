@@ -6,7 +6,7 @@
 //   key, emoji, name, description, categories[](CATEGORY key), durationDays, bundleTitle,
 //   missions[] — 각 미션은 missionLibrary 와 동일한 필드(미지정 시 expandPresetMission 기본값).
 //     선택을 위해 미션마다 고유 key 부여.
-import { CATEGORY, PROGRAM_THEME } from './constants'
+import { CATEGORY, PROGRAM_THEME, MEAL_LOGGER_ENABLED } from './constants'
 
 export const PROGRAM_PRESETS = [
   {
@@ -168,6 +168,13 @@ export const PROGRAM_PRESETS = [
     ],
   },
 ]
+
+// 운영자에게 «보여줄» 프리셋 — 「칼로리 기록(verify_style:meal)」 미션이 든 프리셋은
+//   식단 로거가 꺼져 있으면 감춘다(constants.MEAL_LOGGER_ENABLED · 마이그 258 참고).
+//   PROGRAM_PRESETS 원본은 건드리지 않는다 — getPreset(key) 로 기존 프로그램을 되짚는 경로가 있어서다.
+export const VISIBLE_PROGRAM_PRESETS = PROGRAM_PRESETS.filter(
+  p => MEAL_LOGGER_ENABLED || !(p.missions || []).some(m => m.verify_style === 'meal')
+)
 
 export function getPreset(key) {
   return PROGRAM_PRESETS.find(p => p.key === key) || null

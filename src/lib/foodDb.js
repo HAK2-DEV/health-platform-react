@@ -1,6 +1,9 @@
 import { supabase } from '../supabaseClient'
 import { aliasOf } from './foodAliases'
 
+// 🔴 이 모듈의 검색 기능은 현재 잠겨 있다 — 플래그는 lib/constants.js 의 MEAL_LOGGER_ENABLED.
+//   켜기 전 절차(인덱스 재생성 등)는 그쪽 주석 참고. 데이터는 그대로 있고 인덱스만 파킹된 상태다.
+
 // 식품 영양 데이터 소스 — 검색 인터페이스. 목데이터 폴백 + 엣지함수(food-search) 프록시.
 //   반환 음식 1개 = 1회 표준제공량 기준 { id, name, serving, kcal, carb, protein, fat }.
 //   호출측(MealLogger)은 이 인터페이스만 사용 → 데이터 소스 교체에 영향 없음.

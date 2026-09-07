@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Sparkles, BookOpen, ChevronRight, ChevronLeft, ChevronDown, Loader2, Check, Users } from 'lucide-react'
-import { PROGRAM_PRESETS, durationLabel } from '../../lib/programLibrary'
+import { VISIBLE_PROGRAM_PRESETS, durationLabel } from '../../lib/programLibrary'
 import { QUIZ_AUDIENCES } from '../../lib/quizLibrary'
 import { fetchPresetUsageCounts } from '../../lib/queries'
 
@@ -106,7 +106,7 @@ function ProgramCreateChooser({ onDirect, onPickPreset, onBack, busyKey }) {
             </div>
             <p className="text-[12px] text-gray-500 mb-4">고르면 미션까지 채워진 임시저장 프로그램이 만들어져요. 이름·기간은 다음 단계에서 조정해요.</p>
             <div className="space-y-3">
-              {PROGRAM_PRESETS.map(p => (
+              {VISIBLE_PROGRAM_PRESETS.map(p => (
                 <button key={p.key} type="button" onClick={() => openDetail(p)} className="w-full flex items-center gap-3 p-4 rounded-2xl border border-gray-200 hover:border-emerald-300 hover:bg-gray-50 transition text-left">
                   <span className="w-11 h-11 rounded-xl bg-emerald-50 flex items-center justify-center text-2xl flex-shrink-0">
                     {p.iconSrc ? <img src={p.iconSrc} alt="" className="w-8 h-8 object-contain" /> : p.emoji}
