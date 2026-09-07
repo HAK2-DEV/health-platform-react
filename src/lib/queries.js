@@ -3884,6 +3884,19 @@ export const fetchNationalIndicator = async (indicator) => {
 }
 
 // 운영자 — 응답자 성별·연령대 맵(형평성 분해용). users select 는 전체 허용(정책1).
+// 내보내기 전용 — 인증별 기록 지표 시계열(거리·시간·칼로리…).
+//   fetchProgramStats 의 _raw 에는 metric_values 가 없다(통계 화면이 매번 무거워지므로).
+//   「초반 vs 후반」 변화를 계산하려면 날짜 × 지표가 필요해서 내보내기 때만 따로 가져온다.
+export const fetchProgramMetricSeries = async (programId) => {
+  const { data, error } = await supabase
+    .from('verifications')
+    .select('user_id, submitted_at, metric_values, missions!inner(program_id)')
+    .eq('missions.program_id', programId)
+    .not('metric_values', 'is', null)
+  if (error) throw error
+  return (data || []).map((r) => ({ user_id: r.user_id, submitted_at: r.submitted_at, metric_values: r.metric_values }))
+}
+
 export const fetchUserDemographics = async (userIds = []) => {
   const ids = [...new Set(userIds)].filter(Boolean)
   if (!ids.length) return {}

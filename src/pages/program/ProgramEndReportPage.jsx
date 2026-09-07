@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronLeft, ChevronDown, ChevronRight, Trophy, MessageSquare, Copy, Download } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
-import { queryKeys, fetchProgram, fetchProgramStats, fetchProgramOperatorLoad, fetchProgramQuizStats, fetchProgramCommunityStats, fetchProgramReports, fetchEndReportPerUser, fetchProgramScoreBreakdown, fetchProgramTeamRanking, fetchProgramDistanceByUser, fetchProgramMetricsByUser, fetchProgramCommentsDetail, fetchProgramQuizAnswersDetail, fetchProgramClassStats, fetchProgramClassRoster, fetchProgramScoreLedger, fetchProgramSurveyResults, fetchUserDemographics, REPORT_REASON_PRESETS, formatKstDate } from '../../lib/queries'
+import { queryKeys, fetchProgram, fetchProgramStats, fetchProgramOperatorLoad, fetchProgramQuizStats, fetchProgramCommunityStats, fetchProgramReports, fetchEndReportPerUser, fetchProgramScoreBreakdown, fetchProgramTeamRanking, fetchProgramDistanceByUser, fetchProgramMetricsByUser, fetchProgramCommentsDetail, fetchProgramQuizAnswersDetail, fetchProgramClassStats, fetchProgramClassRoster, fetchProgramScoreLedger, fetchProgramSurveyResults, fetchUserDemographics, fetchProgramMetricSeries, REPORT_REASON_PRESETS, formatKstDate } from '../../lib/queries'
 import { getProgramSurvey } from '../../lib/surveyDefaults'
 import HP2030Report from '../../components/program/HP2030Report'
 import { catOf } from '../../lib/classCategories'
@@ -403,7 +403,16 @@ function ProgramEndReportPage() {
                   fetchProgramQuizAnswersDetail(id).catch(() => null),
                 ])
               }
-              await exportEndReportXlsx({ program, report, quizStats, community, perUser: pu, raw: stats?._raw || [], scoreBreakdown, teamRanking, distanceByUser: distance, metricsByUser, reportGroups, scoreLedger, classRoster, commentsDetail, quizAnswersDetail })
+              // 요약 시트의 「변화」·「형평성」용 — 지표 시계열 + 전체 참여자 인구통계.
+              //   surveyDemo 는 설문 응답자만 담고 있어 형평성 분모로 못 쓴다(참여자 전원이 필요).
+              const allUserIds = [...report.completedUsers, ...report.participatedUsers, ...report.dormantUsers].map((u) => u.user_id)
+              const [metricSeries, demographics] = await Promise.all([
+                fetchProgramMetricSeries(id).catch(() => []),
+                fetchUserDemographics(allUserIds).catch(() => ({})),
+              ])
+              await exportEndReportXlsx({ program, report, quizStats, community, perUser: pu, raw: stats?._raw || [], scoreBreakdown, teamRanking, distanceByUser: distance, metricsByUser, reportGroups, scoreLedger, classRoster, commentsDetail, quizAnswersDetail, metricSeries, demographics,
+                surveyStart, surveyEnd,
+                surveyQuestions: { start: getProgramSurvey(program, 'start'), end: getProgramSurvey(program, 'end') } })
             }} /></Reveal>
         </div>
       )}
