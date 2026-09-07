@@ -1856,6 +1856,45 @@ export const fetchScreenUserStats = async (screen, days = 30) => {
   if (error) throw error
   return data || []
 }
+
+// ─── 관리자 콘솔 (256) ───────────────────────────────────
+//   전부 서버에서 is_admin() 가드 — 관리자가 아니면 null/빈 배열이 온다(에러 아님).
+//   용량 현황: 스토리지 버킷별 + DB 크기 + 255 가 기록한 임계 밴드.
+export const fetchAdminCapacity = async () => {
+  const { data, error } = await supabase.rpc('admin_capacity')
+  if (error) throw error
+  return data || null
+}
+// 서비스 전체 집계 (사용자·프로그램·참여·인증·글·푸시구독·수업)
+export const fetchAdminTotals = async () => {
+  const { data, error } = await supabase.rpc('admin_totals')
+  if (error) throw error
+  return data || null
+}
+// 일자별 활동 추이 (KST) — 인증·글·가입
+export const fetchAdminActivity = async (days = 14) => {
+  const { data, error } = await supabase.rpc('admin_activity', { p_days: days })
+  if (error) throw error
+  return data || []
+}
+// 운영자별 프로그램/참여자/인증 현황
+export const fetchAdminOperators = async () => {
+  const { data, error } = await supabase.rpc('admin_operators')
+  if (error) throw error
+  return data || []
+}
+// 「살펴볼 것」 — 인증 0건·활동 정지·참여자 없음·용량 임계
+export const fetchAdminAlerts = async () => {
+  const { data, error } = await supabase.rpc('admin_alerts')
+  if (error) throw error
+  return data || []
+}
+// DB 테이블별 크기 TOP N (257) — 확장 테이블(net/cron 등) 포함. DB 사용량 원인 추적용.
+export const fetchAdminDbTables = async (limit = 20) => {
+  const { data, error } = await supabase.rpc('admin_db_tables', { p_limit: limit })
+  if (error) throw error
+  return data || []
+}
 export const logScreenEvent = async (screen, durationMs) => {
   if (!import.meta.env.PROD) return
   if (!screen || !(durationMs > 0)) return

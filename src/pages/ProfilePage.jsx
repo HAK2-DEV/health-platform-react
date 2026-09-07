@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { LogOut, Camera, Pencil, X, Loader2, BarChart3, ChevronRight, Bell, Shield, BookOpen, MessageCircle, Activity } from 'lucide-react'
+import { LogOut, Camera, Pencil, X, Loader2, ChevronRight, Bell, Shield, BookOpen, MessageCircle, Activity, LayoutDashboard } from 'lucide-react'
 import { supabase } from '../supabaseClient'
 import { unsubscribeFromPush } from '../lib/push'
 import { useAuth } from '../hooks/useAuth'
@@ -478,14 +478,14 @@ function ProfilePage() {
         title="문의하기"
         onClick={() => navigate('/support')}
       /></Reveal>
-      {/* 관리자 전용 — 화면 체류 분석 (UI/UX 개선용) */}
+      {/* 관리자 전용 — 콘솔 허브 (용량·문제 감지·현황). 화면 체류 분석은 콘솔 안에서 진입. */}
       {isAdmin && (
         <Reveal index={5}><ProfileMenuItem
           tone="violet"
-          icon={<BarChart3 className="w-5 h-5" />}
-          title="화면 체류 분석"
-          description="관리자 전용 · 화면별 평균 체류·방문수"
-          onClick={() => navigate('/admin/screen-stats')}
+          icon={<LayoutDashboard className="w-5 h-5" />}
+          title="관리자 콘솔"
+          description="관리자 전용 · 용량·서비스 현황·살펴볼 것"
+          onClick={() => navigate('/admin')}
         /></Reveal>
       )}
 

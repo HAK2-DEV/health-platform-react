@@ -27,6 +27,7 @@ const SCREEN_LABELS = {
   '/growth': '성장',
   '/onboarding': '온보딩 튜토리얼',
   '/todos': '할 일',
+  '/admin': '관리자 · 콘솔',
   '/admin/screen-stats': '관리자 · 화면 체류 분석',
   '/programs': '프로그램 목록',
   '/programs?tab=browse': '프로그램 · 둘러보기',
