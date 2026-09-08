@@ -287,6 +287,8 @@ function AppShell() {
             <Route path="/growth" element={
               <ProtectedRoute><GrowthPage /></ProtectedRoute>
             } />
+            {/* dev 전용 성장 랩 — 프로덕션 빌드에서 제외(import.meta.env.DEV=false). */}
+            {import.meta.env.DEV && (<>
             <Route path="/dev/growth" element={
               <ProtectedRoute><DevGrowthLab /></ProtectedRoute>
             } />
@@ -302,6 +304,7 @@ function AppShell() {
             <Route path="/dev/growth-demo" element={
               <ProtectedRoute><DevGrowthDemo /></ProtectedRoute>
             } />
+            </>)}
             <Route path="/notifications" element={
               <ProtectedRoute><NotificationsPage /></ProtectedRoute>
             } />
@@ -320,6 +323,8 @@ function AppShell() {
             <Route path="/programs/:id/operator-today" element={
               <ProtectedRoute><OperatorTodayPage /></ProtectedRoute>
             } />
+            {/* dev/데모 라우트 — 프로덕션 빌드에서 제외(import.meta.env.DEV=false). */}
+            {import.meta.env.DEV && (<>
             <Route path="/runner-anim-demo" element={<RunnerAnimDemo />} />
             <Route path="/notice-anim-demo" element={<NoticeAnimDemo />} />
             <Route path="/trophy-anim-demo" element={<TrophyAnimDemo />} />
@@ -333,6 +338,7 @@ function AppShell() {
             <Route path="/dev/survey-ui" element={<SurveyUiDemo />} />
             <Route path="/dev/banner-stack" element={<BannerStackDemo />} />
             <Route path="/dev/welcome-tour" element={<WelcomeTourDemo />} />
+            </>)}
             <Route path="/support" element={
               <ProtectedRoute><SupportPage /></ProtectedRoute>
             } />
@@ -369,9 +375,6 @@ function AppShell() {
             <Route path="/terms" element={<TermsOfServicePage />} />
             <Route path="/install" element={<InstallGuidePage />} />
             <Route path="/auth/callback" element={<AuthCallbackPage />} />
-            <Route path="/todos" element={
-              <ProtectedRoute><TodosPage /></ProtectedRoute>
-            } />
           </Routes>
         </Suspense>
       </main>

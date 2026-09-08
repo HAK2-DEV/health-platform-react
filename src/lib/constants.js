@@ -38,6 +38,12 @@ export const USER_ROLE = {
 //     3) 이 플래그를 true 로
 export const MEAL_LOGGER_ENABLED = false
 
+// 걸음 자동 인증(Health Connect) — v1.0 출시에서 제외(건강 권한 심사 회피).
+//   OFF 면 미션 만들기에서 「👣 걸음 자동 인증」 스타일이 숨겨진다.
+//   ⚠️ 다시 켜기 전: AndroidManifest 의 health 권한 tools:node="remove" 를 되돌리고,
+//      Google Play 건강 데이터/Health Connect 선언을 완료할 것.
+export const STEPS_ENABLED = false
+
 // 프로그램 카테고리
 // 주의: key 는 DB의 programs.categories TEXT[] 와 일치해야 함.
 // label / emoji 만 진화시켜도 기존 데이터 영향 없음.
@@ -53,15 +59,16 @@ export const CATEGORY = {
 }
 
 // 본인의 화면 표시용 배열 (순서 보장)
+// ⚠️ v1.0: 식단(DIET) 은 선택 목록에서 제외(첫 출시 범위 집중). CATEGORY.DIET 정의는
+//   남겨둔다 — 혹시 있을 기존 데이터의 key 조회가 깨지지 않도록. 재도입 시 아래에 다시 추가.
 export const CATEGORY_LIST = [
   CATEGORY.WALKING,
   CATEGORY.RUNNING,
-  CATEGORY.DIET,
   CATEGORY.EMPATHY,
   CATEGORY.MINDCARE,
   CATEGORY.SLEEP,
   CATEGORY.NO_SMOKING,
-   CATEGORY.ETC,    
+  CATEGORY.ETC,
 ]
 
 // 프로그램 상태

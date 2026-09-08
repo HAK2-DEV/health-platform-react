@@ -147,9 +147,10 @@ function BottomTabBar() {
   const tabs = [
     { path: '/dashboard', label: '대시보드', Icon: HomeSolid },
     { path: '/programs', label: '프로그램', Icon: FlagSolid },
-    // 아이콘은 4탭 모두 동일 크기(w-6). 성장만 줄이면 세로 높이가 3px 작아져
-    // justify-center 때문에 라벨까지 위로 밀림 → 크기·라벨 위치 모두 어긋남.
-    { path: '/growth', label: '성장', Icon: PlantSolid },
+    // 아이콘은 4탭 모두 동일 크기(w-6).
+    // ⚠️ v1.0: 성장 탭은 아직 «준비중» 플레이스홀더라 숨기고, 완성된 「랭킹」으로 대체.
+    //   (성장 완성 시 { path: '/growth', label: '성장', Icon: PlantSolid } 로 복귀)
+    { path: '/rankings', label: '랭킹', Icon: ChartSolid },
     { path: '/profile', label: '마이페이지', Icon: UserSolid },
   ]
 

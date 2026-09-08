@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <application
         android:allowBackup="true"
@@ -35,34 +36,22 @@
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
 
-        <!-- Health Connect (capacitor-health) — 권한 사유 화면.
-             Android 13 이하: activity / Android 14+: activity-alias -->
-        <activity
-            android:name="com.fit_up.health.capacitor.PermissionsRationaleActivity"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
-            </intent-filter>
-        </activity>
-        <activity-alias
-            android:name="ViewPermissionUsageActivity"
-            android:exported="true"
-            android:targetActivity="com.fit_up.health.capacitor.PermissionsRationaleActivity"
-            android:permission="android.permission.START_VIEW_PERMISSION_USAGE">
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
-                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
-            </intent-filter>
-        </activity-alias>
+        <!-- ⚠️ v1.0: 걸음 인증(Health Connect) 제외 — 권한 사유 액티비티/alias 제거.
+             재도입 시 capacitor-health 문서대로 복원 + Google Play 건강 데이터 선언. -->
     </application>
 
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- Health Connect (capacitor-health) — 걸음 자동 연동 PoC. 우선 READ_STEPS 만. -->
-    <queries>
-        <package android:name="com.google.android.apps.healthdata" />
-    </queries>
-    <uses-permission android:name="android.permission.health.READ_STEPS" />
+    <!-- ⚠️ v1.0: 걸음 인증 제외 — capacitor-health 플러그인이 병합하는 health 권한 7종을
+         최종 빌드에서 제거(tools:node="remove"). 안 그러면 안 쓰는 건강 권한 7개가 AAB 에
+         남아 Play 심사 반려 위험. 재도입 시 이 블록 삭제 + Health Connect 선언 완료. -->
+    <uses-permission android:name="android.permission.health.READ_STEPS" tools:node="remove" />
+    <uses-permission android:name="android.permission.health.READ_EXERCISE" tools:node="remove" />
+    <uses-permission android:name="android.permission.health.READ_DISTANCE" tools:node="remove" />
+    <uses-permission android:name="android.permission.health.READ_ACTIVE_CALORIES_BURNED" tools:node="remove" />
+    <uses-permission android:name="android.permission.health.READ_TOTAL_CALORIES_BURNED" tools:node="remove" />
+    <uses-permission android:name="android.permission.health.READ_HEART_RATE" tools:node="remove" />
+    <uses-permission android:name="android.permission.health.READ_EXERCISE_ROUTE" tools:node="remove" />
 </manifest>

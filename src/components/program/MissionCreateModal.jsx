@@ -7,7 +7,7 @@ import { Image as ImageIcon, BarChart3, MessageSquare, ChevronDown, ChevronUp, C
 import MissionIconPicker from './MissionIconPicker'
 import { Icon3D } from './ProgramHome'
 import { MEAL_ICON } from '../../lib/mealIcons'
-import { SCHEDULE_MODES, WEEKDAY_OPTIONS, MEAL_LOGGER_ENABLED } from '../../lib/constants'
+import { SCHEDULE_MODES, WEEKDAY_OPTIONS, MEAL_LOGGER_ENABLED, STEPS_ENABLED } from '../../lib/constants'
 import { toKSTDateString } from '../../lib/formatters'
 
 // ⓘ 클릭 시 라벨/제목 줄 위로 뜨는 툴팁. 부모가 relative(폼 폭)여야 가운데 정렬됨.
@@ -400,7 +400,7 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
         { v: 'standard', emoji: '📷', label: '일반 인증', desc: '사진·기록·소감' },
         { v: 'steps', emoji: '👣', label: '걸음 자동 인증', desc: '삼성헬스 연동·자동', tip: '안드로이드 앱에서 Health Connect(삼성헬스)의 오늘 걸음이 목표를 넘으면 사진 없이 자동 인증돼요. 웹에서는 안내만 표시돼요.' },
       ]
-  ).filter(o => o.v !== 'meal' || MEAL_LOGGER_ENABLED)
+  ).filter(o => (o.v !== 'meal' || MEAL_LOGGER_ENABLED) && (o.v !== 'steps' || STEPS_ENABLED))
 
   return (
     <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-5" style={{ paddingBottom: kbInset ? kbInset + 20 : undefined, transition: 'padding-bottom .2s ease' }} onClick={onClose}>
