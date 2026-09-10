@@ -39,15 +39,24 @@ export async function subscribeNativePush() {
     throw new Error('알림 권한이 꺼져 있어요. 설정 > 앱 > 도담 > 알림에서 허용해주세요.')
   }
 
-  // 토큰 수신 리스너를 register() «전에» 등록.
-  const token = await new Promise((resolve, reject) => {
-    let done = false
-    const finish = (fn, arg) => { if (!done) { done = true; fn(arg) } }
-    PN.addListener('registration', (t) => finish(resolve, t?.value))
-    PN.addListener('registrationError', (e) => finish(reject, new Error(e?.error || '푸시 등록에 실패했어요.')))
-    PN.register()
-    setTimeout(() => finish(reject, new Error('푸시 토큰 수신이 지연됐어요. 잠시 후 다시 시도해주세요.')), 15000)
-  })
+  // 토큰 수신 — ⚠️ 리스너가 «완전히 붙은 뒤» register() 해야 함(addListener 는 async라
+  //   동기로 register 하면 registration 이벤트를 놓쳐 타임아웃남). addListener 를 await 한다.
+  let done = false
+  let resolveTok, rejectTok
+  const finish = (fn, arg) => { if (!done) { done = true; fn(arg) } }
+  const tokPromise = new Promise((res, rej) => { resolveTok = res; rejectTok = rej })
+  const regH = await PN.addListener('registration', (t) => finish(resolveTok, t?.value))
+  const errH = await PN.addListener('registrationError', (e) => finish(rejectTok, new Error(e?.error || '푸시 등록에 실패했어요.')))
+  const timer = setTimeout(() => finish(rejectTok, new Error('푸시 토큰 수신이 지연됐어요. 잠시 후 다시 시도해주세요.')), 15000)
+  let token
+  try {
+    await PN.register()
+    token = await tokPromise
+  } finally {
+    clearTimeout(timer)
+    try { await regH.remove() } catch { /* 무시 */ }
+    try { await errH.remove() } catch { /* 무시 */ }
+  }
   if (!token) throw new Error('푸시 토큰을 받지 못했어요.')
 
   const { data: u } = await supabase.auth.getUser()
