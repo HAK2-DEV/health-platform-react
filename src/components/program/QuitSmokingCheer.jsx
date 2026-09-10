@@ -2,7 +2,7 @@
 //   일러스트: /illustrations/themes/quit-smoking-cheer.png (흰 배경, 없으면 텍스트만).
 function QuitSmokingCheer() {
   return (
-    <div className="relative rounded-2xl overflow-hidden shadow-elevated mb-[9px] mx-auto w-[398px] max-w-full h-[56px] bg-white border border-gray-100">
+    <div className="relative rounded-2xl overflow-hidden shadow-elevated mb-[9px] mx-auto w-[398px] max-w-full min-h-[60px] bg-white border border-gray-100">
       {/* 일러스트 — 좌측 배치, 흰 배경이라 카드와 자연스럽게 이어짐 (페이드 없음) */}
       <img
         src="/illustrations/themes/quit-smoking-cheer.webp"
@@ -12,9 +12,9 @@ function QuitSmokingCheer() {
       />
 
       {/* 텍스트 — 우측 */}
-      <div className="relative z-10 h-full flex flex-col justify-center px-4 pl-[46%]">
-        <p className="text-[13px] font-extrabold text-gray-900 leading-tight break-keep">금연은 혼자가 아니에요</p>
-        <p className="text-[11.5px] font-bold text-emerald-600 mt-0.5 break-keep">함께라서 더 강해요! <span>💚</span></p>
+      <div className="relative z-10 min-h-[60px] flex flex-col justify-center px-4 pl-[44%] py-2">
+        <p className="text-[12.5px] font-extrabold text-gray-900 leading-tight break-keep">금연은 혼자가 아니에요</p>
+        <p className="text-[11px] font-bold text-emerald-600 mt-0.5 break-keep">함께라서 더 강해요! <span>💚</span></p>
       </div>
     </div>
   )

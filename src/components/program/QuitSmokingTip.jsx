@@ -12,7 +12,7 @@ function QuitSmokingTip() {
   const tip = useMemo(() => TIPS[new Date().getDate() % TIPS.length], [])
 
   return (
-    <div className="relative rounded-2xl overflow-hidden shadow-elevated mb-[9px] mx-auto w-[398px] max-w-full h-[103px] bg-white border border-gray-100">
+    <div className="relative rounded-2xl overflow-hidden shadow-elevated mb-[9px] mx-auto w-[398px] max-w-full min-h-[103px] bg-white border border-gray-100">
       {/* 일러스트 — 우측, 흰 배경이라 카드와 자연스럽게 이어짐 */}
       <img
         src="/illustrations/themes/quit-smoking-tip.webp"
@@ -23,11 +23,11 @@ function QuitSmokingTip() {
       {/* 좌측 가독 그라데이션 (흰색) — 우측 일러스트 직전까지만 */}
       <div className="absolute inset-0 bg-gradient-to-r from-white from-[30%] to-transparent to-[58%]" />
 
-      <div className="relative z-10 p-3 max-w-[60%]">
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[11px] font-bold mb-1">🌿 금연 팁</span>
-        <p className="text-[13px] font-bold text-gray-800 leading-tight break-keep">{tip.title}</p>
-        <p className="text-[12.5px] font-extrabold text-emerald-600 leading-tight mt-0.5 break-keep">{tip.highlight}</p>
-        <p className="text-[11px] text-gray-500 mt-0.5 break-keep">{tip.sub}</p>
+      <div className="relative z-10 p-3 max-w-[62%]">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10.5px] font-bold mb-1">🌿 금연 팁</span>
+        <p className="text-[12px] font-bold text-gray-800 leading-tight break-keep">{tip.title}</p>
+        <p className="text-[11.5px] font-extrabold text-emerald-600 leading-snug mt-0.5 break-keep">{tip.highlight}</p>
+        <p className="text-[10.5px] text-gray-500 mt-0.5 break-keep leading-snug">{tip.sub}</p>
       </div>
     </div>
   )
