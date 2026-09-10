@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Heart, MessageCircle, Sprout, Hand, Loader2, Check, Bell, Megaphone, ChevronDown } from 'lucide-react'
 import { pushSupported, getPushState, subscribeToPush, unsubscribeFromPush } from '../lib/push'
 import { isNativeApp } from '../lib/installPrompt'
+import { subscribeNativePush, unsubscribeNativePush, getNativePushPermission } from '../lib/nativePush'
 import { useToast } from '../contexts/ToastContext'
 import { supabase } from '../supabaseClient'
 import { useAuth } from '../hooks/useAuth'
@@ -207,6 +208,12 @@ function PushToggleCard() {
   const [busy, setBusy] = useState(false)
   const [testing, setTesting] = useState(false)
   useEffect(() => {
+    if (isNativeApp()) {   // 네이티브=FCM 권한 상태로 판정
+      getNativePushPermission()
+        .then((p) => setState(p === 'granted' ? 'subscribed' : p === 'denied' ? 'denied' : 'unsubscribed'))
+        .catch(() => setState('unsupported'))
+      return
+    }
     if (!pushSupported()) { setState('unsupported'); return }
     getPushState().then(setState).catch(() => setState('unsupported'))
   }, [])
@@ -216,11 +223,16 @@ function PushToggleCard() {
     if (disabled) return
     setBusy(true)
     try {
-      if (on) { await unsubscribeFromPush(); setState('unsubscribed'); toast.show('폰 푸시를 껐어요') }
-      else { await subscribeToPush(); setState('subscribed'); toast.show('폰 푸시를 켰어요 · 앱을 닫아도 알림이 와요') }
+      if (on) {
+        if (isNativeApp()) await unsubscribeNativePush(); else await unsubscribeFromPush()
+        setState('unsubscribed'); toast.show('폰 푸시를 껐어요')
+      } else {
+        if (isNativeApp()) await subscribeNativePush(); else await subscribeToPush()
+        setState('subscribed'); toast.show('폰 푸시를 켰어요 · 앱을 닫아도 알림이 와요')
+      }
     } catch (e) {
       toast.show(e.message || '설정에 실패했어요')
-      getPushState().then(setState).catch(() => {})
+      if (!isNativeApp()) getPushState().then(setState).catch(() => {})
     } finally { setBusy(false) }
   }
   const sendTest = async () => {

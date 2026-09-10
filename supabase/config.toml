@@ -5,3 +5,8 @@
 # JWT 검증 OFF — OAuth 콜백은 사용자가 아직 로그인 안 된 상태에서 호출되므로
 # 인증된 JWT 가 없음. 함수가 공개 접근 허용 (CORS + 비밀 토큰으로 보호).
 verify_jwt = false
+
+[functions.send-push]
+# JWT 검증 OFF — DB 트리거/RPC 가 x-push-secret 헤더로 호출(인증된 JWT 없음).
+# 시크릿(PUSH_HOOK_SECRET)으로 보호. 재배포 시 이 설정으로 JWT OFF 유지.
+verify_jwt = false

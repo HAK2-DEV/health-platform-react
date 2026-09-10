@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { subscribeToPush } from '../lib/push'
+import { subscribeNativePush } from '../lib/nativePush'
 import { isStandalone, isNativeApp } from '../lib/installPrompt'
 
 // 회원가입 직후 온보딩 튜토리얼 (마이페이지 「사용법 다시보기」로도 진입).
@@ -78,7 +79,8 @@ export default function OnboardingTutorial() {
   const allowNotif = async () => {
     setNotifErr(''); setRinging(true); setNotifBusy(true)
     try {
-      await subscribeToPush()
+      if (isNativeApp()) await subscribeNativePush()   // 네이티브=FCM, 웹=Web Push
+      else await subscribeToPush()
       setNotifOn(true)
       setTimeout(() => go(4), 1200)
     } catch (e) {

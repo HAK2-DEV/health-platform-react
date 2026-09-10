@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "297792057219",
+    "project_id": "dodam-6f7e4",
+    "storage_bucket": "dodam-6f7e4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:297792057219:android:4875b4e0caa71b2788d0b6",
+        "android_client_info": {
+          "package_name": "com.healthplatform.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD8kK2jRrnZIOEJSKns467A7KTQTvYrsY8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
