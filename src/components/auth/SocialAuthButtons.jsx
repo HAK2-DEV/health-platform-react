@@ -3,6 +3,8 @@ import { supabase } from '../../supabaseClient'
 import { detectInAppBrowser, IN_APP_BROWSER_NAME, openExternalBrowser } from '../../lib/inAppBrowser'
 import GoogleSignInButton from './GoogleSignInButton'
 import { startOAuthState } from '../../lib/oauthState'
+import { isNativeApp } from '../../lib/installPrompt'
+import { nativeGoogleSignIn } from '../../lib/nativeOAuth'
 
 // GIS 인페이지 로그인용 — 있으면 리다이렉트 없는 GIS 버튼, 없으면 기존 리다이렉트 폴백
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
@@ -27,6 +29,7 @@ function SocialAuthButtons() {
   // GIS(인페이지) 초기화 실패 시 → 리다이렉트 방식 Google 버튼으로 폴백 (에러 노출 X)
   const [gisFailed, setGisFailed] = useState(false)
   const handleGisInitError = useCallback(() => setGisFailed(true), [])
+  const native = isNativeApp()   // 네이티브면 소셜을 시스템 브라우저+딥링크로 처리
 
   // OAuth 리다이렉트 중단(인앱 브라우저 차단) 또는 뒤로가기(bfcache) 로 페이지에
   //   되돌아오면 loading 이 stuck 되어 버튼이 잠긴 채 남는다 → 페이지가 다시 보이면 초기화.
@@ -38,6 +41,20 @@ function SocialAuthButtons() {
   }, [])
 
   const handleGoogle = async () => {
+    // 네이티브 앱: 시스템 브라우저(Custom Tab) + 딥링크 복귀로 로그인 (웹뷰 OAuth 차단 우회)
+    if (native) {
+      setLoading('google')
+      try {
+        await nativeGoogleSignIn()
+      } catch (e) {
+        console.error('네이티브 Google 로그인 실패:', e)
+        alert(`Google 로그인 실패: ${e.message || e}`)
+      } finally {
+        setLoading(null)
+      }
+      return
+    }
+
     // 인앱 브라우저(카톡/네이버/인스타 등 웹뷰)에서는 구글 OAuth 가 차단됨
     //   ("403: disallowed_useragent / 보안 브라우저 사용 정책").
     //   → OAuth 시작하지 말고 외부 브라우저로 빠져나가게 유도.
@@ -128,7 +145,7 @@ function SocialAuthButtons() {
       {/* 소셜 버튼 3개 — 세로 배치 (모바일 친화) */}
       <div className="flex flex-col gap-2">
         {/* Google — GIS 인페이지 로그인(리다이렉트 X). client ID 미설정 또는 GIS 초기화 실패 시 리다이렉트 폴백 */}
-        {GOOGLE_CLIENT_ID && !gisFailed ? (
+        {GOOGLE_CLIENT_ID && !gisFailed && !native ? (
           <GoogleSignInButton clientId={GOOGLE_CLIENT_ID} onInitError={handleGisInitError} />
         ) : (
           <button
@@ -142,6 +159,9 @@ function SocialAuthButtons() {
           </button>
         )}
 
+        {/* Kakao·Naver — 네이티브에선 아직 웹뷰 OAuth 미지원(bounce 방식 준비 중)이라 숨김.
+            웹/PWA 는 그대로 노출. 네이티브는 이메일+구글로 로그인. 수정 완료 시 !native 제거. */}
+        {!native && (<>
         {/* Kakao */}
         <button
           type="button"
@@ -163,6 +183,7 @@ function SocialAuthButtons() {
           <NaverIcon className="w-5 h-5" />
           {loading === 'naver' ? '연결 중...' : 'Naver 로 계속하기'}
         </button>
+        </>)}
       </div>
     </div>
   )

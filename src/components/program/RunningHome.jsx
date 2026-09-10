@@ -362,12 +362,12 @@ function RunningHome({
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-2xl p-3.5 bg-white border border-gray-100 shadow-soft">
           <div className="flex items-start gap-2.5">
-            <span className="w-9 h-9 rounded-full bg-emerald-50 flex items-center justify-center flex-shrink-0">
-              <AssetImg src={`${RICON}/stopwatch.png`} className="w-10 h-10 object-contain" fallback={<Timer className="w-8 h-8 text-emerald-500" />} />
+            <span className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center flex-shrink-0">
+              <AssetImg src={`${RICON}/stopwatch.png`} className="w-8 h-8 object-contain" fallback={<Timer className="w-5 h-5 text-emerald-500" />} />
             </span>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1">
-                <span className="text-[13px] font-bold text-gray-800">추천 페이스</span>
+                <span className="text-[12px] font-bold text-gray-800 whitespace-nowrap">추천 페이스</span>
                 {paceEditable && !editingPace && (
                   <button type="button" onClick={() => { setPaceInput(pace); setEditingPace(true) }}
                     className="text-gray-300 hover:text-emerald-500 transition" aria-label="추천 페이스 수정">
@@ -376,7 +376,7 @@ function RunningHome({
                 )}
               </div>
               <p className="font-extrabold text-emerald-600 leading-none whitespace-nowrap" style={{ marginTop: '15px', fontSize: 'clamp(16px, 5.8vw, 24px)' }}>{pace}<span className="text-[12px] font-bold text-gray-400 ml-1">/km</span></p>
-              <p className="text-[11px] text-gray-400" style={{ marginTop: '6px' }}>편안하게 유지해요!</p>
+              <p className="text-[11px] text-gray-400 whitespace-nowrap" style={{ marginTop: '6px' }}>편하게 유지</p>
             </div>
           </div>
         </div>

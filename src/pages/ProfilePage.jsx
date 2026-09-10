@@ -303,7 +303,7 @@ function ProfilePage() {
 
       {/* 프로필 카드 — 366×200, r10 (우측 잎 일러스트) */}
       <Reveal index={0}>
-      <div className="relative w-[366px] max-w-full mx-auto h-[200px] overflow-hidden rounded-[10px] bg-[#eef7f1] border border-emerald-100/60">
+      <div className="relative w-[366px] max-w-full mx-auto min-h-[200px] overflow-hidden rounded-[10px] bg-[#eef7f1] border border-emerald-100/60">
         <img
           src="/illustrations/mypage-banner.jpg"
           alt="" aria-hidden="true"

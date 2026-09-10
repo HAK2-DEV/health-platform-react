@@ -117,6 +117,7 @@ function AuthForm() {
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          onFocus={(e) => { const t = e.currentTarget; setTimeout(() => t.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300) }}
           placeholder="이메일"
           required
           inputMode="email"
@@ -130,6 +131,7 @@ function AuthForm() {
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          onFocus={(e) => { const t = e.currentTarget; setTimeout(() => t.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300) }}
           placeholder="비밀번호 (6자 이상)"
           required
           minLength={6}

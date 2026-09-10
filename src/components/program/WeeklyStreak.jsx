@@ -267,7 +267,7 @@ const WeeklyStreak = forwardRef(function WeeklyStreak({ count = 0, days = [], ic
               </span>
               <div className="min-w-0 flex-1">
                 <span className="text-[13px] font-bold text-gray-800 whitespace-nowrap">{title}</span>
-                <p className="text-[10px] text-gray-500 mt-1.5 truncate">{streak}일 연속 성공 중</p>
+                <p className="text-[10px] text-gray-500 mt-1.5 whitespace-nowrap">{streak}일 연속</p>
               </div>
             </div>
             <div className="flex items-center justify-between mt-3">{dayCells}</div>

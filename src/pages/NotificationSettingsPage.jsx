@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Heart, MessageCircle, Sprout, Hand, Loader2, Check, Bell, Megaphone, ChevronDown } from 'lucide-react'
 import { pushSupported, getPushState, subscribeToPush, unsubscribeFromPush } from '../lib/push'
+import { isNativeApp } from '../lib/installPrompt'
 import { useToast } from '../contexts/ToastContext'
 import { supabase } from '../supabaseClient'
 import { useAuth } from '../hooks/useAuth'
@@ -233,7 +234,7 @@ function PushToggleCard() {
       toast.show(e.message || '테스트 발송에 실패했어요')
     } finally { setTesting(false) }
   }
-  const hint = state === 'unsupported' ? '이 브라우저·기기는 푸시를 지원하지 않아요. (iPhone은 홈 화면에 앱을 추가하면 가능해요)'
+  const hint = state === 'unsupported' ? (isNativeApp() ? '이 앱 버전에서는 알림이 곧 지원될 예정이에요. 지금은 웹(브라우저)에서 켤 수 있어요.' : '이 브라우저·기기는 푸시를 지원하지 않아요. (iPhone은 홈 화면에 앱을 추가하면 가능해요)')
     : state === 'denied' ? '차단됨 — 브라우저 설정에서 이 사이트의 알림을 허용해 주세요.'
     : state === 'nokey' ? '푸시 기능을 준비 중이에요. 곧 켤 수 있어요.'
     : on ? '앱을 닫아도 폰으로 알림이 와요.' : '켜면 앱을 닫아도 폰으로 알림을 받아요.'

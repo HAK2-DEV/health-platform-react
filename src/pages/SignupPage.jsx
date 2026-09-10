@@ -116,6 +116,7 @@ function SignupPage() {
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            onFocus={(e) => { const t = e.currentTarget; setTimeout(() => t.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300) }}
             placeholder="이메일"
             required
             className="px-3 py-2 text-base border-2 border-gray-200 rounded-md focus:outline-none focus:border-emerald-500"
@@ -124,6 +125,7 @@ function SignupPage() {
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            onFocus={(e) => { const t = e.currentTarget; setTimeout(() => t.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300) }}
             placeholder="비밀번호 (6자 이상)"
             required
             minLength={6}

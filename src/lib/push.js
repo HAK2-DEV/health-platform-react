@@ -1,4 +1,5 @@
 import { supabase } from '../supabaseClient'
+import { isNativeApp } from './installPrompt'
 
 // Web Push 구독 — 권한 요청 → PushManager.subscribe(VAPID) → push_subscriptions 저장.
 //   dev 에선 SW 비활성(devOptions.enabled:false)이라 동작 안 함 → 배포본에서만.
@@ -29,7 +30,9 @@ export async function getPushState() {
 }
 
 export async function subscribeToPush() {
-  if (!pushSupported()) throw new Error('이 브라우저는 푸시 알림을 지원하지 않아요')
+  if (!pushSupported()) throw new Error(isNativeApp()
+    ? '앱 알림은 곧 지원될 예정이에요. 지금은 웹(브라우저)에서 켤 수 있어요.'
+    : '이 브라우저는 푸시 알림을 지원하지 않아요')
   if (!VAPID_PUBLIC) throw new Error('푸시 설정(VAPID 키)이 아직 준비되지 않았어요')
 
   // 웹 알림 권한(Notification.permission)은 크롬이 "사이트(origin)별"로 저장한다.

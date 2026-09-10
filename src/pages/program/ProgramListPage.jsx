@@ -493,8 +493,8 @@ function ProgramListPage() {
               <div className="absolute inset-0 bg-gradient-to-r from-[#eef8f1]/85 via-[#eef8f1]/30 to-transparent" />
               {/* 텍스트 (좌측 정렬·세로 중앙) */}
               <div className="absolute inset-0 px-5 flex flex-col justify-center">
-                <div className="max-w-[60%]">
-                  <h2 className="text-[19px] font-bold text-gray-800 leading-snug whitespace-pre-line drop-shadow-sm">
+                <div className="max-w-[64%]">
+                  <h2 className="text-[16px] font-bold text-gray-800 leading-tight whitespace-pre-line drop-shadow-sm break-keep">
                     {BROWSE_SLIDES[slide].title}
                   </h2>
                   <p className="mt-1.5 text-[13px] text-gray-600">{BROWSE_SLIDES[slide].sub}</p>

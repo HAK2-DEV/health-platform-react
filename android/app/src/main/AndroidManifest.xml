@@ -24,6 +24,15 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- OAuth 딥링크 복귀 — 시스템 브라우저(Custom Tab)에서 로그인 후 앱으로 돌아옴
+                 (com.healthplatform.app://auth/callback). 웹/PWA 는 영향 없음. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="com.healthplatform.app" />
+            </intent-filter>
+
         </activity>
 
         <provider
