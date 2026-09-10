@@ -23,11 +23,11 @@ function QuitSmokingTip() {
       {/* 좌측 가독 그라데이션 (흰색) — 우측 일러스트 직전까지만 */}
       <div className="absolute inset-0 bg-gradient-to-r from-white from-[30%] to-transparent to-[58%]" />
 
-      <div className="relative z-10 p-3 max-w-[56%]">
+      <div className="relative z-10 p-3 max-w-[60%]">
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[11px] font-bold mb-1">🌿 금연 팁</span>
-        <p className="text-[14px] font-bold text-gray-800 leading-tight">{tip.title}</p>
-        <p className="text-[14px] font-extrabold text-emerald-600 leading-tight mt-0.5">{tip.highlight}</p>
-        <p className="text-[11px] text-gray-500 mt-1">{tip.sub}</p>
+        <p className="text-[13px] font-bold text-gray-800 leading-tight break-keep">{tip.title}</p>
+        <p className="text-[12.5px] font-extrabold text-emerald-600 leading-tight mt-0.5 break-keep">{tip.highlight}</p>
+        <p className="text-[11px] text-gray-500 mt-0.5 break-keep">{tip.sub}</p>
       </div>
     </div>
   )

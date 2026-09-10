@@ -405,13 +405,13 @@ function RankingBanner({ badge }) {
         style={{ objectPosition: 'center top' }}
       />
       <div className="absolute inset-0 bg-gradient-to-r from-[#eef7f1]/90 via-[#eef7f1]/35 to-transparent" />
-      <div className="absolute inset-0 px-5 flex flex-col justify-center max-w-[62%]">
+      <div className="absolute inset-0 px-5 flex flex-col justify-center max-w-[64%]">
         {badge && (
           <span className="inline-flex self-start items-center px-2 py-0.5 mb-1.5 rounded-md bg-emerald-100 text-emerald-700 text-[11px] font-bold">
             {badge}
           </span>
         )}
-        <h2 className="text-[15px] font-bold text-gray-800 leading-snug drop-shadow-sm break-keep">꾸준함이 건강을 만듭니다! 💚</h2>
+        <h2 className="text-[14px] font-bold text-gray-800 leading-tight drop-shadow-sm break-keep">꾸준함이 건강을 만듭니다! 💚</h2>
         <p className="mt-1 text-[11px] text-gray-600 break-keep">매일의 작은 실천이 큰 변화를 만들어요.</p>
       </div>
     </div>

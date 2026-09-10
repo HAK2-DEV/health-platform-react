@@ -12,9 +12,9 @@ function QuitSmokingCheer() {
       />
 
       {/* 텍스트 — 우측 */}
-      <div className="relative z-10 h-full flex flex-col justify-center px-4 pl-[48%]">
-        <p className="text-[14px] font-extrabold text-gray-900 leading-tight">금연은 혼자가 아니에요</p>
-        <p className="text-[12px] font-bold text-emerald-600 mt-0.5">함께라서 더 강해요! <span>💚</span></p>
+      <div className="relative z-10 h-full flex flex-col justify-center px-4 pl-[46%]">
+        <p className="text-[13px] font-extrabold text-gray-900 leading-tight break-keep">금연은 혼자가 아니에요</p>
+        <p className="text-[11.5px] font-bold text-emerald-600 mt-0.5 break-keep">함께라서 더 강해요! <span>💚</span></p>
       </div>
     </div>
   )
