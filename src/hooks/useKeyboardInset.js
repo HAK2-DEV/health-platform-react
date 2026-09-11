@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 
-// 키보드가 뜬 높이(px)를 반환. 하단 고정 바/오버레이를 그만큼 위로 띄우는 데 사용.
-//   visualViewport 로 감지 (키보드가 뜨면 뷰포트가 줄어드는 만큼).
-//   네이티브 앱은 index.html 의 viewport meta `interactive-widget=resizes-content` 로
-//   키보드 시 콘텐츠 뷰포트가 줄어들게 하여 이 값이 잡히도록 함. (2026-08-12)
+// 키보드가 뜬 높이(px)를 반환. 하단 고정 바/오버레이(모달 등)를 그만큼 위로 띄우는 데 사용.
+//   visualViewport 로 감지 (키보드가 뜨면 뷰포트가 줄어드는 만큼) — iOS·최신 안드에서 동작.
+//   ⚠️ 구형 안드(노트9=안드10, adjustNothing)는 visualViewport 가 키보드에 무반응이라 0 을 반환함.
+//      일반 페이지 입력칸은 lib/nativeKeyboard 의 포커스 스크롤이 대신 처리하고,
+//      고정 모달 안 입력칸은 구형에서 미해결(후속 과제). (2026-09-11)
 export function useKeyboardInset() {
   const [inset, setInset] = useState(0)
   useEffect(() => {

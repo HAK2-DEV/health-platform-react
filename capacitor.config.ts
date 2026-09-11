@@ -29,6 +29,13 @@ const config: CapacitorConfig = {
     backgroundColor: '#f8fbf9',  // bg-surface-app 토큰과 동일
   },
   plugins: {
+    Keyboard: {
+      // ⚠️ 현재 미사용(inert). 구형 안드(노트9)에서 이 플러그인이 키보드 이벤트를 안 쏘는 것을 실측해
+      //   JS 는 이벤트에 의존하지 않고 lib/nativeKeyboard 의 «포커스 기반 스크롤»로 처리함.
+      //   resize:none 으로 웹뷰를 건드리지 않게만 두고, softInputMode 는 MainActivity 가 OS별로 지정.
+      //   후속 정리 시 @capacitor/keyboard 의존성째 제거 가능(동작 무관).
+      resize: 'none',
+    },
     SplashScreen: {
       launchShowDuration: 1500,
       backgroundColor: '#0a9d70',  // 도담 초록 — 스플래시 이미지 배경과 동일 톤(민트 플래시 방지)

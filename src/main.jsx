@@ -11,6 +11,7 @@ import { initSentry } from './lib/sentry'
 import { installSwipeBackBlocker } from './lib/disableSwipeBack'
 import { installAudioPrimer } from './lib/sound'
 import { initInstallPrompt } from './lib/installPrompt'
+import { initNativeKeyboard } from './lib/nativeKeyboard'
 import { setUpdateSW, notifyNeedRefresh } from './lib/pwaUpdate'
 import ErrorBoundary from './components/common/ErrorBoundary'
 import ScreenTracker from './components/common/ScreenTracker'
@@ -23,6 +24,9 @@ installSwipeBackBlocker()
 
 // 첫 사용자 제스처에서 오디오 잠금 해제 — 자동 재생 효과음(마일스톤 축하 등) 대비
 installAudioPrimer()
+
+// 네이티브 키보드 처리(구형 안드 등) — @capacitor/keyboard 이벤트로 키보드 높이 감지 → 여백·스크롤
+initNativeKeyboard()
 
 // PWA 설치 유도 — beforeinstallprompt 를 렌더 전 전역에서 캐치(놓침 방지). 배너는 InstallPromptBanner 가 노출.
 initInstallPrompt()

@@ -152,8 +152,13 @@ function AppShell() {
       {/* 전역 강퇴 감지 — 어느 화면(대시보드 포함)에서도 운영자 내보내기 시 안내 팝업 */}
       <KickWatcher />
       <main
-        className={`app-main ${showTabBar ? 'pb-24' : 'pb-4'}`}
-        style={{ paddingTop: 'max(env(safe-area-inset-top), 0.75rem)' }}
+        className="app-main"
+        style={{
+          paddingTop: 'max(env(safe-area-inset-top), 0.75rem)',
+          // 기본 하단 여백(탭바 유무) + 네이티브 키보드 높이(--kb-inset). 키보드 뜨면 그만큼 스크롤 공간이
+          //   생겨 포커스된 입력칸을 키보드 위로 스크롤할 수 있음(구형 안드 대응). 키보드 없으면 0.
+          paddingBottom: `calc(${showTabBar ? '6rem' : '1rem'} + var(--kb-inset, 0px))`,
+        }}
       >
         {/* Suspense — lazy chunk 로딩 중 fallback. variant="page" 로 전체 페이지 스피너 */}
         <Suspense fallback={<LoadingState variant="page" />}>
