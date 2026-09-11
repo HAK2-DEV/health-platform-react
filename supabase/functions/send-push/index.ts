@@ -22,7 +22,19 @@ if (VAPID_PUBLIC && VAPID_PRIVATE) {
 
 // ─── FCM (HTTP v1) — 서비스계정 JWT → 액세스 토큰 → messages:send ───
 let FCM_SA: { client_email: string; private_key: string; project_id: string } | null = null
-try { if (FCM_SA_RAW) FCM_SA = JSON.parse(FCM_SA_RAW) } catch { FCM_SA = null }
+let FCM_SA_PARSE_ERR = ''
+try { if (FCM_SA_RAW) FCM_SA = JSON.parse(FCM_SA_RAW) } catch (e) { FCM_SA = null; FCM_SA_PARSE_ERR = (e as Error).message }
+// 진단(응답에 실림, 비밀값 없음): 시크릿 존재·파싱·필수 필드·키 형식만.
+const FCM_SA_DIAG = {
+  rawLen: FCM_SA_RAW.length,
+  parsed: !!FCM_SA,
+  parseErr: FCM_SA_PARSE_ERR || undefined,
+  hasEmail: !!FCM_SA?.client_email,
+  hasProject: !!FCM_SA?.project_id,
+  keyPrefix: (FCM_SA?.private_key ?? '').slice(0, 27),          // "-----BEGIN PRIVATE KEY-----" 이어야
+  keyHasNewline: (FCM_SA?.private_key ?? '').includes('\n'),   // 진짜 줄바꿈이어야 PEM 파싱됨
+}
+let lastFcmErr = ''
 
 function b64urlFromBytes(bytes: Uint8Array): string {
   let bin = ''
@@ -89,9 +101,11 @@ async function sendFcm(accessToken: string, token: string, title: string, body: 
     }),
   })
   if (res.ok) return 'ok'
-  if (res.status === 404) return 'dead'
+  if (res.status === 404) { lastFcmErr = `404`; return 'dead' }
   try {
-    const err = await res.json()
+    const txt = await res.text()
+    lastFcmErr = `${res.status} ${txt.slice(0, 300)}`
+    const err = JSON.parse(txt)
     const code = err?.error?.details?.[0]?.errorCode || err?.error?.status
     if (code === 'UNREGISTERED' || code === 'NOT_FOUND') return 'dead'
   } catch { /* 무시 */ }
@@ -118,6 +132,7 @@ Deno.serve(async (req) => {
   // ── 1) Web Push (브라우저/PWA) ──
   let webTargets = 0
   let webRemoved = 0
+  const webResults: string[] = []
   {
     const { data: subs } = await admin
       .from('push_subscriptions')
@@ -127,9 +142,12 @@ Deno.serve(async (req) => {
     const dead: string[] = []
     await Promise.all((subs ?? []).map(async (s) => {
       try {
-        await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, body)
+        const r = await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, body)
+        webResults.push(`ok:${r?.statusCode ?? 201}`)
       } catch (e) {
         const code = (e as { statusCode?: number })?.statusCode
+        // 404/410 = 구독 소멸 → 정리. 그 외(401/403 VAPID·5xx 등)는 결과에만 남김(진단용, 비밀값 없음).
+        webResults.push(`err:${code ?? (e as Error)?.message?.slice(0, 80) ?? '?'}`)
         if (code === 404 || code === 410) dead.push(s.id)
       }
     }))
@@ -141,30 +159,40 @@ Deno.serve(async (req) => {
   // ── 2) FCM (네이티브 앱) — 서비스계정 있을 때만 ──
   let fcmTargets = 0
   let fcmRemoved = 0
+  let fcmError = ''
+  let fcmResults: string[] = []
   if (FCM_SA) {
     try {
-      const { data: toks } = await admin
+      const { data: toks, error: qErr } = await admin
         .from('native_push_tokens')
         .select('id, token')
         .eq('user_id', userId)
+      if (qErr) throw new Error('토큰 조회 실패: ' + qErr.message)
+      fcmTargets = toks?.length ?? 0   // ⭐ 발송 «전» 기록 — 인증 실패여도 대상 수는 정직하게
       if (toks && toks.length) {
         const accessToken = await getFcmAccessToken()
         const dead: string[] = []
         await Promise.all(toks.map(async (t) => {
           const r = await sendFcm(accessToken, t.token, title, bodyText, link)
+          fcmResults.push(r === 'err' ? `err:${lastFcmErr}` : r)
           if (r === 'dead') dead.push(t.id)
         }))
         if (dead.length) await admin.from('native_push_tokens').delete().in('id', dead)
-        fcmTargets = toks.length
         fcmRemoved = dead.length
       }
     } catch (e) {
-      console.error('FCM 발송 오류:', (e as Error).message)
+      fcmError = (e as Error).message
+      console.error('FCM 발송 오류:', fcmError)
     }
+  } else {
+    fcmError = 'FCM_SA 없음(시크릿 미설정 또는 JSON 파싱 실패)'
   }
 
   return new Response(
-    JSON.stringify({ web: { targets: webTargets, removed: webRemoved }, fcm: { targets: fcmTargets, removed: fcmRemoved } }),
+    JSON.stringify({
+      web: { targets: webTargets, removed: webRemoved, results: webResults.length ? webResults : undefined },
+      fcm: { targets: fcmTargets, removed: fcmRemoved, error: fcmError || undefined, results: fcmResults.length ? fcmResults : undefined, sa: FCM_SA_DIAG },
+    }),
     { headers: { 'Content-Type': 'application/json' } },
   )
 })

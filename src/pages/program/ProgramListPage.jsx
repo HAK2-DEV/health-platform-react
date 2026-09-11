@@ -204,7 +204,7 @@ function CreateProgramCTA({ icon, title, subtitle, onClick }) {
       {iconEl}
       <div className="flex-1 min-w-0">
         <p className="font-bold text-gray-800 text-[14px]">{title}</p>
-        <p className="text-xs text-gray-500 mt-0.5 leading-snug whitespace-pre-line">{subtitle}</p>
+        <p className="text-xs text-gray-500 mt-0.5 leading-snug whitespace-pre-line break-keep">{subtitle}</p>
       </div>
       <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
     </>
@@ -259,9 +259,11 @@ function BottomCtaCarousel({ onCreate }) {
 }
 
 // 둘러보기 상단 배너 슬라이드 (점=캐러셀)
+//   ⚠️ 제목에 강제 줄바꿈(\n) 넣지 말 것 — 좁은 폰(노트9 등)에선 강제 줄바꿈 «앞에서» 한 번 더 접혀
+//   고아 줄("습관을")이 생김. break-keep 자연 줄바꿈에 맡긴다. (2026-09-11 실기기 확인)
 const BROWSE_SLIDES = [
-  { title: '나에게 맞는 건강 습관을\n찾아보세요! 🌿', sub: '작은 실천이 큰 변화를 만듭니다.' },
-  { title: '함께라서 더 즐거운\n건강 여정 💚', sub: '마음 맞는 사람들과 시작해보세요.' },
+  { title: '나에게 맞는 건강 습관을 찾아보세요! 🌿', sub: '작은 실천이 큰 변화를 만듭니다.' },
+  { title: '함께라서 더 즐거운 건강 여정 💚', sub: '마음 맞는 사람들과 시작해보세요.' },
 ]
 
 const TABS = [
@@ -479,7 +481,7 @@ function ProgramListPage() {
         {tab === 'browse' && (
           <>
             {/* 배너 — 일러스트 전체 배경(이미지와 동일 비율이라 잘림 없음) + 좌측 텍스트 오버레이 */}
-            <div className="relative overflow-hidden rounded-2xl bg-[#eaf6ee] w-[359px] max-w-full h-[124px] mx-auto">
+            <div className="relative overflow-hidden rounded-2xl bg-[#eaf6ee] w-[359px] max-w-full min-h-[124px] mx-auto">
               {/* 배경 일러스트 */}
               <img
                 src="/illustrations/browse-banner.jpg"
@@ -493,11 +495,12 @@ function ProgramListPage() {
               <div className="absolute inset-0 bg-gradient-to-r from-[#eef8f1]/85 via-[#eef8f1]/30 to-transparent" />
               {/* 텍스트 (좌측 정렬·세로 중앙) */}
               <div className="absolute inset-0 px-5 flex flex-col justify-center">
-                <div className="max-w-[64%]">
-                  <h2 className="text-[16px] font-bold text-gray-800 leading-tight whitespace-pre-line drop-shadow-sm break-keep">
+                {/* 폭 62%·폰트 축소·break-keep — 좁은 폰에서 고아 줄/단어 중간 잘림 방지 (금연 배너와 동일 레시피) */}
+                <div className="max-w-[62%]">
+                  <h2 className="text-[14.5px] font-bold text-gray-800 leading-snug drop-shadow-sm break-keep">
                     {BROWSE_SLIDES[slide].title}
                   </h2>
-                  <p className="mt-1.5 text-[13px] text-gray-600">{BROWSE_SLIDES[slide].sub}</p>
+                  <p className="mt-1 text-[11.5px] text-gray-600 leading-snug break-keep">{BROWSE_SLIDES[slide].sub}</p>
                 </div>
               </div>
               {/* 캐러셀 점 (좌하단) */}

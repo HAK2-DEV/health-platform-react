@@ -12,6 +12,19 @@ const config: CapacitorConfig = {
   appId: 'com.healthplatform.app',
   appName: '건강증진 플랫폼',
   webDir: 'dist',
+  // 네이티브에 포함할 플러그인 허용 목록 (2026-09-11).
+  //   capacitor-health 를 «네이티브에서만» 제외 — v1.0 은 걸음(STEPS_ENABLED=false)·Health Connect 를 끄고 출시하는데
+  //   플러그인 자체는 계속 등록돼 있었음. 노트9(안드10, Health Connect 없음)에서 푸시 플러그인 호출이 영원히
+  //   응답하지 않는 현상의 유력 용의자(플러그인 호출 스레드 점유). JS 의 lib/health.js import 는 그대로 두되
+  //   (웹 스텁), 걸음 기능을 다시 켤 땐 여기에 'capacitor-health' 를 추가하고 매니페스트의 tools:node="remove" 도 해제할 것.
+  includePlugins: [
+    '@capacitor/app',
+    '@capacitor/browser',
+    '@capacitor/keyboard',
+    '@capacitor/push-notifications',
+    '@capacitor/splash-screen',
+    '@capacitor/status-bar',
+  ],
   // 프로덕션은 번들된 자산 사용 (오프라인 일부 동작 + App Store 가이드라인 통과 유리).
   // 본인이 native 라이브 디버깅 원하면 아래 server.url 일시 활성화:
   // server: { url: 'http://192.168.x.x:5173', cleartext: true },

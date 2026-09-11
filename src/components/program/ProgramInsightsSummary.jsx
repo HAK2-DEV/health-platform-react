@@ -438,7 +438,7 @@ function BarStat({ label, pct, sub, tip, tipAlign = 'left' }) {
       {tip && tipOpen && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setTipOpen(false)} />
-          <div className={`absolute bottom-full mb-1.5 z-20 w-44 rounded-lg bg-gray-900 text-white text-[11px] font-normal leading-snug px-2.5 py-2 shadow-lg whitespace-pre-line ${tipAlign === 'right' ? 'right-0' : 'left-0'}`}>
+          <div className={`absolute bottom-full mb-1.5 z-20 w-44 rounded-lg bg-gray-900 text-white text-[11px] font-normal leading-snug px-2.5 py-2 shadow-lg whitespace-pre-line break-keep ${tipAlign === 'right' ? 'right-0' : 'left-0'}`}>
             {tip}
           </div>
         </>

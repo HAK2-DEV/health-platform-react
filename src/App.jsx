@@ -14,6 +14,7 @@ import BottomTabBar from './components/common/BottomTabBar'
 import InAppBrowserBanner from './components/common/InAppBrowserBanner'
 import InAppBrowserGate from './components/common/InAppBrowserGate'
 import KickWatcher from './components/common/KickWatcher'
+import PushForegroundBanner from './components/common/PushForegroundBanner'
 import { useRealtimeSync } from './hooks/useRealtimeSync'
 
 // 코드 스플리팅 — 페이지별 lazy chunk 분리 (Day 65 본인 결정)
@@ -145,6 +146,8 @@ function AppShell() {
 
   return (
    <div className="app">
+      {/* 네이티브: 앱 사용 중 도착한 푸시 배너 + 알림 탭 시 링크 이동 */}
+      <PushForegroundBanner />
       {/* 인앱 브라우저(카톡 등) 안내 — 화면 축소 이슈. 감지 안 되면 렌더 X */}
       <InAppBrowserBanner />
       {/* 온보딩(초대/로그인/가입) 경로에서만 — 인앱 브라우저 강한 전체화면 게이트(외부 브라우저 유도) */}

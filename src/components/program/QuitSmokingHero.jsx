@@ -54,9 +54,10 @@ function QuitSmokingHero({ programId, streak = 0, savedAmount = null, healthScor
       <div className="relative z-10 h-full flex flex-col px-4 pt-4 pb-3">
         {/* 텍스트 — 좌측 절반 (우측 인물과 안 겹침, 💚도 좌측에 머묾) */}
         <div className="max-w-[52%]">
-          <h1 className="text-xl font-semibold text-gray-900 leading-tight">{smokedToday ? '오늘도 금연 도전!' : '오늘도 금연 성공!'}</h1>
-          <p className="text-[12px] font-semibold text-gray-800 mt-1 leading-snug">작은 실천이 큰 변화를 만들어요 <span className="text-emerald-500">💚</span></p>
-          <p className="text-[12px] text-gray-600 mt-1.5 leading-snug">서로 응원하며, 건강한 습관을 <br />함께 만들어요!</p>
+          {/* break-keep — 좁은 폰에서 단어 중간 잘림 방지. (높이 h-[220px]는 h-full+mt-auto 지표카드 바닥 정렬 구조라 min-h 로 바꾸지 말 것) */}
+          <h1 className="text-xl font-semibold text-gray-900 leading-tight break-keep">{smokedToday ? '오늘도 금연 도전!' : '오늘도 금연 성공!'}</h1>
+          <p className="text-[12px] font-semibold text-gray-800 mt-1 leading-snug break-keep">작은 실천이 큰 변화를 만들어요 <span className="text-emerald-500">💚</span></p>
+          <p className="text-[12px] text-gray-600 mt-1.5 leading-snug break-keep">서로 응원하며, 건강한 습관을 <br />함께 만들어요!</p>
         </div>
 
         {/* 지표 카드 — 하단 정렬 (연속 금연 / 오늘 절약 / 건강 점수) */}
