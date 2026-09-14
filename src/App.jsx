@@ -15,6 +15,8 @@ import InAppBrowserBanner from './components/common/InAppBrowserBanner'
 import InAppBrowserGate from './components/common/InAppBrowserGate'
 import KickWatcher from './components/common/KickWatcher'
 import PushForegroundBanner from './components/common/PushForegroundBanner'
+import PolicyUpdateNotice from './components/common/PolicyUpdateNotice'
+import { HealthConsentProvider } from './contexts/HealthConsentContext'
 import { useRealtimeSync } from './hooks/useRealtimeSync'
 
 // 코드 스플리팅 — 페이지별 lazy chunk 분리 (Day 65 본인 결정)
@@ -148,6 +150,8 @@ function AppShell() {
    <div className="app">
       {/* 네이티브: 앱 사용 중 도착한 푸시 배너 + 알림 탭 시 링크 이동 */}
       <PushForegroundBanner />
+      {/* 약관·처리방침 개정 고지 — 대시보드에서 1회(13조 7일 전 안내) */}
+      <PolicyUpdateNotice />
       {/* 인앱 브라우저(카톡 등) 안내 — 화면 축소 이슈. 감지 안 되면 렌더 X */}
       <InAppBrowserBanner />
       {/* 온보딩(초대/로그인/가입) 경로에서만 — 인앱 브라우저 강한 전체화면 게이트(외부 브라우저 유도) */}
@@ -408,7 +412,10 @@ function App() {
   return (
     <ToastProvider>
       <AvatarViewerProvider>
-        <AppShell />
+        {/* 건강 정보(민감정보) 별도 동의 게이트 — 기분·설문·미션 수치·금연 참여에서 ensureHealthConsent() */}
+        <HealthConsentProvider>
+          <AppShell />
+        </HealthConsentProvider>
       </AvatarViewerProvider>
       {/* 콜드 스타트 스플래시 — 약 1.5초 노출 후 페이드아웃 (라우터 무관 최상위 오버레이) */}
       <SplashScreen />

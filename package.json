@@ -11,7 +11,9 @@
     "cap:sync": "npm run build && npx cap sync",
     "cap:open:android": "npm run build && npx cap sync android && npx cap open android",
     "cap:open:ios": "npm run build && npx cap sync ios && npx cap open ios",
-    "cap:run:android": "npm run build && npx cap sync android && npx cap run android"
+    "cap:run:android": "npm run build && npx cap sync android && npx cap run android",
+    "verify:manifest": "node scripts/verify-manifest.mjs",
+    "android:release": "npm run build && npx cap sync android && cd android && gradlew bundleRelease assembleRelease && cd .. && npm run verify:manifest"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.0",

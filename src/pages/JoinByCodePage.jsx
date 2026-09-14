@@ -11,6 +11,7 @@ import StickyBackBar from '../components/common/StickyBackBar'
 import { formatKoreanDate } from '../lib/formatters'
 import { CATEGORY } from '../lib/constants'
 import { setPendingInvite, setInviteHint, clearInviteHint } from '../lib/pendingInvite'
+import { useHealthConsent } from '../contexts/HealthConsentContext'
 
 // 초대 코드 가입 페이지 — 코드 단독으로 lookup + 가입
 // 라우트: /join?code=<TEXT>  (program 파라미터는 더 이상 사용 X)
@@ -50,6 +51,9 @@ function JoinByCodePage() {
   const [program, setProgram] = useState(null)
   const [joinResult, setJoinResult] = useState(null)
   const [errorReason, setErrorReason] = useState(null)
+  // 금연 프로그램 참여 = 흡연자임을 전제한 건강 관련 정보(금연 시작일·연속 금연 일수 축적) → 참여 전 별도 동의 1회.
+  //   초대 RPC 는 theme 을 주지 않아 categories(NO_SMOKING) 로 판정한다.
+  const { ensureHealthConsent } = useHealthConsent()
   const [autoTried, setAutoTried] = useState(false)
 
   const callLookup = async (c) => {
@@ -73,6 +77,7 @@ function JoinByCodePage() {
   }
 
   const callJoin = async (entryAnswer = null) => {
+    if (program?.categories?.includes(CATEGORY.NO_SMOKING.key) && !(await ensureHealthConsent())) return   // 거부 시 참여 안 함, 화면 유지
     setStatus('joining')
     setErrorReason(null)
     try {

@@ -150,6 +150,7 @@ import {
   startEndSurvey,
 } from '../../lib/queries'
 import DietChangeTab from '../../components/program/DietChangeTab'
+import { useHealthConsent } from '../../contexts/HealthConsentContext'
 
 // 기간 필터 옵션 (period_filter_enabled 옵션 시) — period → ISO 시작점
 const PERIOD_OPTIONS = [
@@ -339,6 +340,9 @@ function ProgramDetailPage() {
     queryFn: () => fetchTodaySmokingStats({ programId: id, userId }),
     enabled: !!session && !!id && !!userId && program?.theme === PROGRAM_THEME.QUIT_SMOKING,
   })
+
+  // 설문 응답 = 건강 관련 정보(민감정보) → 제출 전 별도 동의 1회
+  const { ensureHealthConsent } = useHealthConsent()
 
   const { data: overviewData } = useQuery({
     queryKey: queryKeys.programOverview(id, userId),
@@ -3187,7 +3191,7 @@ function ProgramDetailPage() {
         questions={getProgramSurvey(program)}
         initial={surveyStartAnswers}
         onClose={() => setSurveyOpen(false)}
-        onSubmit={(answers) => { submitSurveyMutation.mutate(answers); setSurveyOpen(false) }}
+        onSubmit={async (answers) => { if (!(await ensureHealthConsent())) return; submitSurveyMutation.mutate(answers); setSurveyOpen(false) }}
       />
 
       {/* ─── 종료 설문 시작 확인 ───────────────────── */}
@@ -3208,7 +3212,7 @@ function ProgramDetailPage() {
         questions={getProgramSurvey(program, 'end')}
         initial={surveyEndAnswers}
         onClose={() => setEndSurveyOpen(false)}
-        onSubmit={(answers) => { submitEndSurveyMutation.mutate(answers); setEndSurveyOpen(false) }}
+        onSubmit={async (answers) => { if (!(await ensureHealthConsent())) return; submitEndSurveyMutation.mutate(answers); setEndSurveyOpen(false) }}
       />
 
       {/* ─── 클래스 일정 — 전체 목록 ↔ 상세(?class=) ───────────────────── */}

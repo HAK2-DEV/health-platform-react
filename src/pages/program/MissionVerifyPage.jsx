@@ -25,6 +25,7 @@ import ImageCropModal from '../../components/common/ImageCropModal'
 import NotificationBell from '../../components/common/NotificationBell'
 import Confetti from '../../components/common/Confetti'
 import SubmitCelebration from '../../components/common/SubmitCelebration'
+import { useHealthConsent } from '../../contexts/HealthConsentContext'
 
 // 카테고리 → 히어로 그라데이션
 const CATEGORY_HERO = {
@@ -325,6 +326,8 @@ function MissionVerifyPage() {
   // 입력 메타
   const needsImage = !!mission?.requires_image
   const needsNumeric = !!mission?.requires_numeric
+  // 수치 입력(체중 등) = 건강 관련 정보(민감정보) → 첫 제출 전 별도 동의 1회. 사진·소감만 있는 미션은 해당 없음.
+  const { ensureHealthConsent } = useHealthConsent()
   const needsNote = !!mission?.requires_note
   const isMeditation = mission?.verify_style === 'meditation'   // 명상(타이머) 인증
   const isMeal = mission?.verify_style === 'meal'               // 식단(검색·AI사진) 인증
@@ -683,7 +686,7 @@ function MissionVerifyPage() {
     },
   })
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!session || !mission) return
     primeAudio()   // 사용자 제스처에서 오디오 잠금 해제 (모바일) → onSuccess 효과음 재생 보장
     if (dailyLimitReached) {
@@ -739,6 +742,7 @@ function MissionVerifyPage() {
       return
     }
     setError(null)
+    if (needsNumeric && !(await ensureHealthConsent())) return   // 거부 시 제출만 막고 화면은 유지
     submitMutation.mutate()
   }
 

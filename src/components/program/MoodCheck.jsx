@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Check, Loader2 } from 'lucide-react'
 import { fetchTodayMood, upsertMood } from '../../lib/queries'
+import { useHealthConsent } from '../../contexts/HealthConsentContext'
 
 // 오늘의 기분 체크 — 금연 테마 전용 위젯 (본인 결정 B, 2026-06-28).
 //   미션과 별개. 하루 1건(mood_logs upsert). 5단계 이모지 선택 + 기록.
@@ -35,6 +36,14 @@ function MoodCheck({ programId, userId }) {
 
   const recorded = savedMood != null
   const dirty = selected != null && selected !== savedMood
+
+  // 기분 기록 = 건강 관련 정보(민감정보) → 첫 저장 전 별도 동의 1회 (개인정보 보호법 23조)
+  const { ensureHealthConsent } = useHealthConsent()
+  const handleSave = async () => {
+    if (selected == null) return
+    if (!(await ensureHealthConsent())) return
+    mutation.mutate(selected)
+  }
 
   return (
     <div className="relative overflow-hidden bg-white rounded-2xl shadow-elevated p-3 mb-[9px] mx-auto w-[398px] max-w-full">
@@ -85,7 +94,7 @@ function MoodCheck({ programId, userId }) {
 
       <button
         type="button"
-        onClick={() => selected != null && mutation.mutate(selected)}
+        onClick={handleSave}
         disabled={selected == null || mutation.isPending || (recorded && !dirty)}
         className="relative z-10 w-full h-8 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold flex items-center justify-center gap-2 transition disabled:opacity-50"
       >
@@ -95,6 +104,10 @@ function MoodCheck({ programId, userId }) {
             ? '오늘 기분 기록 완료 ✓'
             : recorded ? '기분 변경하기' : '기분 기록하기'}
       </button>
+      {/* 정책 요구 고지(앱 내 면책) — 스트레스 관리 기능 선언과 정합. 위기 시 상담 번호는 보건복지부 자살예방상담전화 109. */}
+      <p className="relative z-10 text-[10px] text-gray-400 text-center mt-2 leading-relaxed break-keep">
+        기분 기록은 건강 관리 보조 정보이며 의학적 진단이 아니에요. 마음이 많이 힘들면 의사 등 전문가와 상담하거나 자살예방상담전화 <b className="font-semibold text-gray-500">109</b>로 연락하세요.
+      </p>
     </div>
   )
 }

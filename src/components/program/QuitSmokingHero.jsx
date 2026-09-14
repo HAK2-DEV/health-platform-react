@@ -3,7 +3,7 @@ import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 import { useNavigate } from 'react-router-dom'
 import { CalendarDays, Heart, Pencil } from 'lucide-react'
-import { quitRecovery, RECOVERY_MILESTONES } from '../../lib/quitRecovery'
+import { quitRecovery, RECOVERY_MILESTONES, RECOVERY_DISCLAIMER, RECOVERY_SOURCE } from '../../lib/quitRecovery'
 import FitText from '../common/FitText'
 
 // 금연 테마 프로그램 — 상세 프로필 히어로 (목업 기반, 2026-06-28).
@@ -99,7 +99,9 @@ function QuitSmokingHero({ programId, streak = 0, savedAmount = null, healthScor
               )
             })}
           </ul>
-          <p className="text-[10px] text-gray-400 text-center mt-3">일반적인 건강 정보예요 · 개인차가 있어요</p>
+          {/* 정책 요구 고지 — 스토어 설명뿐 아니라 «앱 내» 건강 정보 화면에도 면책+전문가 상담+출처 표시(2026-09-15) */}
+          <p className="text-[10px] text-gray-400 text-center mt-3 leading-relaxed break-keep">{RECOVERY_DISCLAIMER}</p>
+          <p className="text-[10px] text-gray-400 text-center mt-1 break-keep">{RECOVERY_SOURCE}</p>
           <button type="button" onClick={() => setRecOpen(false)} className="w-full h-10 mt-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-bold transition">닫기</button>
         </div>
       </div>

@@ -3,6 +3,7 @@ import { Link2, Check, Share2 } from 'lucide-react'
 import Modal from '../common/Modal'
 import { supabase } from '../../supabaseClient'
 import { shareInviteToKakao } from '../../lib/kakaoShare'
+import { isNativeApp } from '../../lib/installPrompt'
 
 // 카테고리 기본 표지(카카오 카드 이미지 폴백) — ProgramCover 와 동일 매핑
 const COVER_BY_CATEGORY = {
@@ -76,14 +77,19 @@ function InviteModal({ code, isOpen, onClose, program = null }) {
           <code className="flex-1 text-xs text-gray-600 truncate text-left select-all">{inviteUrl}</code>
         </div>
 
-        {/* 카카오톡으로 보내기 — 리치 카드(표지·이름·「참여하기」 버튼) */}
-        <button
-          type="button"
-          onClick={handleKakao}
-          className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 font-bold rounded-2xl transition shadow-md bg-[#FEE500] hover:brightness-95 text-[#191919] mb-2"
-        >
-          <span className="text-base leading-none">💬</span>카카오톡으로 보내기
-        </button>
+        {/* 카카오톡으로 보내기 — 리치 카드(표지·이름·「참여하기」 버튼)
+            ⚠️ 네이티브 앱에서는 숨김(2026-09-15): Kakao JS SDK 가 WebView 에 로드되면 Play 데이터 안전
+            «서드파티 SDK» 신고 범위에 들어가고, 네이티브에 카카오 로그인이 없는 상태와도 어긋난다.
+            네이티브는 「공유하기」(시스템 공유시트)·「링크 복사」로 충분. 카카오 로그인 재개(v1.1) 때 가드 해제. */}
+        {!isNativeApp() && (
+          <button
+            type="button"
+            onClick={handleKakao}
+            className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 font-bold rounded-2xl transition shadow-md bg-[#FEE500] hover:brightness-95 text-[#191919] mb-2"
+          >
+            <span className="text-base leading-none">💬</span>카카오톡으로 보내기
+          </button>
+        )}
         {canShare && (
           <button
             type="button"
