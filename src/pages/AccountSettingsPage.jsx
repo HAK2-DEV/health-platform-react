@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useMutation } from '@tanstack/react-query'
-import { Lock, Trash2, AlertTriangle, Loader2, Mail } from 'lucide-react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Lock, Trash2, AlertTriangle, Loader2, Mail, Ban } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../supabaseClient'
 import { deleteMyAccount } from '../lib/queries'
+import { blockedUsersKey, fetchBlockedUsers, unblockUser, BLOCK_AFFECTED_QUERY_PREFIXES } from '../lib/blocks'
+import UserAvatar from '../components/common/UserAvatar'
 import { unsubscribeFromPush } from '../lib/push'
 import StickyBackBar from '../components/common/StickyBackBar'
 import Modal from '../components/common/Modal'
@@ -37,7 +39,7 @@ function AccountSettingsPage() {
 
         <div className="mt-2 mb-5">
           <h1 className="text-2xl font-bold text-gray-800">🛡️ 계정 설정</h1>
-          <p className="text-sm text-gray-500 mt-1.5">이메일 · 비밀번호 · 계정 삭제</p>
+          <p className="text-sm text-gray-500 mt-1.5">이메일 · 비밀번호 · 차단 관리 · 계정 삭제</p>
         </div>
 
         {/* 1) 이메일 표시 (read-only) */}
@@ -62,6 +64,9 @@ function AccountSettingsPage() {
 
         {/* 2) 비밀번호 변경 */}
         <PasswordChangeCard isSocialOnly={isSocialOnly} />
+
+        {/* 2-1) 차단 관리 (262) — 약관 7조 「차단은 계정 설정에서 해제」 */}
+        <BlockedUsersCard userId={session?.user?.id} />
 
         {/* 3) 회원 탈퇴 */}
         <DeleteAccountCard nickname={nickname} onComplete={() => navigate('/login', { replace: true })} />
@@ -175,6 +180,60 @@ function PasswordChangeCard({ isSocialOnly }) {
         {updateMutation.isPending ? '변경 중...' : '비밀번호 변경'}
       </button>
     </form>
+  )
+}
+
+// ─── 차단 관리 카드 (262) ────────────────────────────────────
+//   내가 차단한 사용자 목록 + 해제. 차단은 게시물·댓글 신고 모달에서 한다.
+function BlockedUsersCard({ userId }) {
+  const queryClient = useQueryClient()
+  const [open, setOpen] = useState(false)
+  const { data: list = [], isLoading } = useQuery({
+    queryKey: blockedUsersKey(userId),
+    queryFn: () => fetchBlockedUsers(userId),
+    enabled: !!userId,
+  })
+  const unblock = useMutation({
+    mutationFn: (targetId) => unblockUser(userId, targetId),
+    onSuccess: () => { for (const k of BLOCK_AFFECTED_QUERY_PREFIXES) queryClient.invalidateQueries({ queryKey: k }) },
+    onError: (e) => alert(`해제 실패: ${e.message}`),
+  })
+
+  return (
+    <div className="bg-white border border-gray-100 rounded-card-lg shadow-soft p-4 mb-4">
+      <button type="button" onClick={() => setOpen(v => !v)} className="w-full flex items-center gap-3 text-left">
+        <div className="w-10 h-10 flex-shrink-0 bg-gray-100 rounded-xl flex items-center justify-center">
+          <Ban className="w-5 h-5 text-gray-600" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-gray-800">차단 관리</p>
+          <p className="text-xs text-gray-500 mt-0.5">
+            {isLoading ? '불러오는 중…' : list.length === 0 ? '차단한 사용자가 없어요' : `차단한 사용자 ${list.length}명`}
+          </p>
+        </div>
+        <span className="text-xs text-gray-400">{open ? '접기' : '보기'}</span>
+      </button>
+      {open && (
+        <div className="mt-3 pt-3 border-t border-gray-100">
+          {list.length === 0 ? (
+            <p className="text-[12px] text-gray-400 leading-relaxed break-keep">게시물·댓글의 「신고」에서 사용자를 차단할 수 있어요. 차단하면 그 사용자의 게시물·댓글·인증·응원이 내 화면에서 보이지 않아요.</p>
+          ) : (
+            <ul className="space-y-2">
+              {list.map((b) => (
+                <li key={b.blocked_id} className="flex items-center gap-2.5">
+                  <UserAvatar avatarPath={b.user?.avatar_path} nickname={b.user?.nickname} size="sm" />
+                  <span className="flex-1 min-w-0 text-[13px] font-semibold text-gray-800 truncate">{b.user?.nickname || '(알 수 없음)'}</span>
+                  <button type="button" onClick={() => unblock.mutate(b.blocked_id)} disabled={unblock.isPending}
+                    className="px-3 py-1 rounded-full border border-gray-200 text-gray-600 text-[12px] font-bold hover:bg-gray-50 transition disabled:opacity-50">
+                    차단 해제
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
   )
 }
 

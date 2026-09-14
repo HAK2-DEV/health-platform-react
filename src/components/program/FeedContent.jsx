@@ -88,6 +88,8 @@ function FeedContent({ program, layout: layoutProp = null, targetVerificationId 
 
   // 인증 신고 (100) — 누적 시 트리거가 feed_visible=false 로 자동 숨김. UI 모달(ReportModal)로 처리.
   const [reportVid, setReportVid] = useState(null)
+  const [reportAuthor, setReportAuthor] = useState(null)     // 262: 신고 모달의 「이 사용자 차단」용 작성자
+  const [reportComment, setReportComment] = useState(null)   // 262: 댓글 신고 대상 {id, user_id, user}
 
   // 페이지네이션 — 한 번에 10개씩. 더보기 클릭으로 다음 10개 fetch.
   const {
@@ -422,7 +424,7 @@ function FeedContent({ program, layout: layoutProp = null, targetVerificationId 
                 {!isMyPost && !readOnly && (
                   <button
                     type="button"
-                    onClick={() => setReportVid(post.id)}
+                    onClick={() => { setReportVid(post.id); setReportAuthor(post.user || null) }}
                     className="flex items-center gap-1 px-2 py-0.5 text-[11px] text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition"
                     title="신고"
                   >
@@ -575,6 +577,7 @@ function FeedContent({ program, layout: layoutProp = null, targetVerificationId 
                 targetCommentId={targetCommentId}
                 readOnly={readOnly}
                 ended={endedProgram}
+                onReportComment={setReportComment}
               />
             )}
 
@@ -608,10 +611,23 @@ function FeedContent({ program, layout: layoutProp = null, targetVerificationId 
         programId={id}
         targetType="verification"
         targetId={reportVid}
+        targetUserId={reportAuthor?.id || null}
+        targetNickname={reportAuthor?.nickname || null}
         onReported={() => {
           queryClient.invalidateQueries({ queryKey: queryKeys.feedPosts(id) })
           setFocusedId(null)   // 포커스 풀뷰 위에서 신고 시, 접수 후 그 아래 딤이 남지 않게 함께 닫음
         }}
+        onBlocked={() => setFocusedId(null)}
+      />
+      {/* 262: 댓글 신고 + 작성자 차단 */}
+      <ReportModal
+        isOpen={reportComment != null}
+        onClose={() => setReportComment(null)}
+        programId={id}
+        targetType="comment"
+        targetId={reportComment?.id}
+        targetUserId={reportComment?.user_id || null}
+        targetNickname={reportComment?.user?.nickname || null}
       />
     </motion.div>
   )
@@ -622,7 +638,7 @@ const isLongComment = (content) => !!content && (content.length > 60 || content.
 
 // 한 게시물의 댓글 — 펼칠 때만 마운트되어 그 게시물 댓글을 lazy fetch + 입력.
 //   댓글 추가/삭제 시 자기 쿼리 + 피드(댓글 수) 무효화. 알림 ?c= 딥링크는 자체 스크롤·하이라이트.
-function CommentsSection({ verificationId, programId, myUserId, isProgramOwner, targetCommentId, readOnly = false, ended = false }) {
+function CommentsSection({ verificationId, programId, myUserId, isProgramOwner, targetCommentId, readOnly = false, ended = false, onReportComment }) {
   const queryClient = useQueryClient()
   const [input, setInput] = useState('')
   const [expanded, setExpanded] = useState(() => new Set())
@@ -785,6 +801,15 @@ function CommentsSection({ verificationId, programId, myUserId, isProgramOwner, 
   // 댓글/답글 한 줄 렌더 (컴포넌트 아닌 함수 — 입력 리렌더 시 행 리마운트 방지)
   //   topId: 답글이 귀속될 최상위 댓글 id. isReply: 답글 행 여부.
   const renderComment = (c, isReply, topId) => {
+    // 262: 차단한 사용자의 최상위 댓글 — 답글이 남아 있어 자리만 표시(내용·작성자·버튼 없음)
+    if (c.blocked) {
+      return (
+        <div key={c.id} ref={(el) => { rowRefs.current[c.id] = el }} className="flex items-center gap-2 py-1.5 text-[12px] text-gray-400">
+          <span className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">🚫</span>
+          차단한 사용자의 댓글이에요
+        </div>
+      )
+    }
     const isMine = c.user_id === myUserId
     const canDelete = isMine || isProgramOwner
     const isLong = isLongComment(c.content)
@@ -855,6 +880,10 @@ function CommentsSection({ verificationId, programId, myUserId, isProgramOwner, 
                 {!readOnly && (
                   <button type="button" onClick={() => startReply(topId, c.user?.nickname, isReply ? c.user?.nickname : null)}
                     className="text-[11px] font-semibold text-gray-400 hover:text-emerald-600 transition">답글</button>
+                )}
+                {!readOnly && !isMine && (
+                  <button type="button" onClick={() => onReportComment?.(c)}
+                    className="text-[11px] font-semibold text-gray-400 hover:text-amber-600 transition" title="댓글 신고·작성자 차단">신고</button>
                 )}
               </div>
             </>

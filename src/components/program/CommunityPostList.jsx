@@ -35,6 +35,7 @@ function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId,
   const [imageUrls, setImageUrls] = useState({})
   const [thumbUrls, setThumbUrls] = useState({})   // 목록용 썸네일 (없으면 원본 폴백)
   const [reportId, setReportId] = useState(null)
+  const [reportAuthor, setReportAuthor] = useState(null)   // 262: 신고 모달의 「이 사용자 차단」용 작성자
   const [detailPost, setDetailPost] = useState(null)   // 상세(글 펼치기) 모달
   const [postToDelete, setPostToDelete] = useState(null)  // 삭제 확인 모달
   // 댓글 알림 딥링크 — focusPostId 게시글이 목록에 있으면 상세(댓글 포함) 모달 자동 오픈 (1회)
@@ -246,7 +247,7 @@ function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId,
           </button>
         )}
         {p.author_id !== myUserId && boardId !== 'notice' && (
-          <button type="button" onClick={() => setReportId(p.id)}
+          <button type="button" onClick={() => { setReportId(p.id); setReportAuthor(p.author || null) }}
             className={`p-1 transition ${light ? lc : 'text-gray-400 hover:text-amber-600'}`} title="신고"><Flag className="w-4 h-4" /></button>
         )}
         {p.author_id === myUserId && onEdit && (
@@ -475,8 +476,11 @@ function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId,
         programId={programId}
         targetType="post"
         targetId={reportId}
+        targetUserId={reportAuthor?.id || null}
+        targetNickname={reportAuthor?.nickname || null}
         // 상세 오버레이 위에서 신고했을 때, 접수 후 그 아래 딤이 남지 않게 상세도 닫음
         onReported={() => setDetailPost(null)}
+        onBlocked={() => setDetailPost(null)}
       />
 
       {/* 게시글 삭제 확인 */}

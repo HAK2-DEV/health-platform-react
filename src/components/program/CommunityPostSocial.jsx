@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Heart, MessageCircle, Trash2, Send, CornerDownRight } from 'lucide-react'
+import { Heart, MessageCircle, Trash2, Send, CornerDownRight, Flag } from 'lucide-react'
+import ReportModal from '../common/ReportModal'
 import {
   fetchCommunityPostSocial, toggleCommunityPostLike,
   addCommunityPostComment, deleteCommunityPostComment,
@@ -22,6 +23,7 @@ function CommunityPostSocial({ postId, programId, myUserId, isOwner, canReact, c
   const [expanded, setExpanded] = useState(() => new Set())  // 답글 펼친 댓글 id
   const [highlight, setHighlight] = useState(null)    // 알림 ?c= 하이라이트 댓글 id
   const [commentToDelete, setCommentToDelete] = useState(null)  // 댓글 삭제 확인 모달
+  const [reportComment, setReportComment] = useState(null)      // 262: 댓글 신고·작성자 차단 모달 대상
   const inputRef = useRef(null)
   const rowRefs = useRef({})
 
@@ -146,6 +148,15 @@ function CommunityPostSocial({ postId, programId, myUserId, isOwner, canReact, c
   // 댓글/답글 한 줄 — topId 는 답글이 귀속될 최상위 댓글 id
   //   (컴포넌트가 아닌 렌더 함수 — 입력 타이핑 리렌더 때 댓글 행 리마운트 방지)
   const renderComment = (c, isReply, topId) => {
+    // 262: 차단한 사용자의 최상위 댓글 — 답글이 남아 있어 자리만 표시
+    if (c.blocked) {
+      return (
+        <div key={c.id} ref={(el) => { rowRefs.current[c.id] = el }} className="flex items-center gap-2 py-1 text-[12px] text-gray-400">
+          <span className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 text-[11px]">🚫</span>
+          차단한 사용자의 댓글이에요
+        </div>
+      )
+    }
     const canDel = c.user_id === myUserId || isOwner
     const isHi = highlight === c.id
     const cLikeCount = cLikes.counts[c.id] || 0
@@ -161,10 +172,16 @@ function CommunityPostSocial({ postId, programId, myUserId, isOwner, canReact, c
             {awardMap[c.id] && (
               <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-bold flex-shrink-0" title="댓글 활동 점수">+{awardMap[c.id]}P</span>
             )}
-            {canDel && (
-              <button type="button" onClick={() => setCommentToDelete(c.id)} disabled={delMut.isPending}
-                className="ml-auto p-0.5 text-gray-300 hover:text-red-500 transition disabled:opacity-50" title="삭제"><Trash2 className="w-3.5 h-3.5" /></button>
-            )}
+            <span className="ml-auto inline-flex items-center gap-1 flex-shrink-0">
+              {c.user_id !== myUserId && (
+                <button type="button" onClick={() => setReportComment(c)}
+                  className="p-0.5 text-gray-300 hover:text-amber-600 transition" title="댓글 신고·작성자 차단"><Flag className="w-3.5 h-3.5" /></button>
+              )}
+              {canDel && (
+                <button type="button" onClick={() => setCommentToDelete(c.id)} disabled={delMut.isPending}
+                  className="p-0.5 text-gray-300 hover:text-red-500 transition disabled:opacity-50" title="삭제"><Trash2 className="w-3.5 h-3.5" /></button>
+              )}
+            </span>
           </div>
           <p className="text-[13px] text-gray-700 whitespace-pre-wrap break-words leading-snug">{c.content}</p>
           <div className="flex items-center gap-3 mt-0.5">
@@ -236,6 +253,16 @@ function CommunityPostSocial({ postId, programId, myUserId, isOwner, canReact, c
         </div>
       )}
 
+      {/* 262: 댓글 신고 + 작성자 차단 */}
+      <ReportModal
+        isOpen={reportComment != null}
+        onClose={() => setReportComment(null)}
+        programId={programId}
+        targetType="community_comment"
+        targetId={reportComment?.id}
+        targetUserId={reportComment?.user_id || null}
+        targetNickname={reportComment?.user?.nickname || null}
+      />
       <ConfirmModal
         isOpen={commentToDelete != null}
         onClose={() => setCommentToDelete(null)}

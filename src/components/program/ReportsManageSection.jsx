@@ -35,7 +35,7 @@ function ReportsManageSection({ programId, onNavigate, returnTo = null }) {
     queryClient.invalidateQueries({ queryKey: ['reports', programId] })
     queryClient.invalidateQueries({ queryKey: ['reportsUnresolvedCount', programId] })
     queryClient.invalidateQueries({ queryKey: ['feed'] })
-    queryClient.invalidateQueries({ queryKey: ['communityPosts'] })
+    queryClient.invalidateQueries({ queryKey: ['community-posts'] })   // 실제 키(queryKeys.communityPosts) — 예전 'communityPosts' 는 오타라 갱신이 안 됐음
     queryClient.invalidateQueries({ queryKey: ['home-stats'] })   // 대시보드 「오늘의 운영 현황」 미처리 신고 수 반영
   }
 
@@ -75,34 +75,49 @@ function ReportsManageSection({ programId, onNavigate, returnTo = null }) {
     return () => { cancelled = true }
   }, [viewVer])
 
+  // 262: 가리기/복구는 게시글·인증만 가능(댓글·사용자는 «처리 완료» + 보러가기/직접 조치)
+  const canHide = (g) => g.targetType === 'post' || g.targetType === 'verification'
+  const KIND = { post: '게시글', verification: '인증', comment: '댓글', community_comment: '댓글', user: '사용자' }
+
   const goTo = (g) => {
     if (g.deleted) return
     if (g.targetType === 'verification') {
       setViewVer(g)   // 인증 → 패널 내 모달(숨김이어도 확실히 보임)
       return
     }
+    if (g.targetType === 'user') return   // 사용자 신고는 이동할 화면이 없음(참여자 관리에서 직접 조치)
     onNavigate?.()
     // 게시글 상세를 닫으면(모달 backdrop) returnTo 로 복귀 — 오늘의 운영에서 진입 시 신고 처리 탭으로.
     const closeParam = returnTo ? `&closeTo=${encodeURIComponent(returnTo)}` : ''
-    const board = g.target?.board_id || 'all'
-    navigate(`/programs/${programId}?tab=community&board=${board}&post=${g.targetId}${closeParam}`)
+    if (g.targetType === 'comment') {   // 인증 피드 댓글 → 해당 인증
+      navigate(`/programs/${programId}/feed?v=${g.target?.verification_id || ''}&c=${g.targetId}`)
+      return
+    }
+    const board = g.target?.board_id || g.target?.post?.board_id || 'all'
+    const postId = g.targetType === 'community_comment' ? (g.target?.post_id || '') : g.targetId
+    const cParam = g.targetType === 'community_comment' ? `&c=${g.targetId}` : ''   // 댓글 포커스(ProgramDetailPage focusCommentId)
+    navigate(`/programs/${programId}?tab=community&board=${board}&post=${postId}${cParam}${closeParam}`)
   }
 
   const previewOf = (g) => {
     if (g.deleted) return '(삭제된 콘텐츠)'
-    if (g.targetType === 'post') {
-      const t = g.target
-      return (t?.title?.trim() || t?.body?.trim() || '(내용 없음)')
-    }
-    const v = g.target
-    return v?.missions?.title || '인증'
+    const t = g.target
+    if (g.targetType === 'post') return (t?.title?.trim() || t?.body?.trim() || '(내용 없음)')
+    if (g.targetType === 'comment' || g.targetType === 'community_comment') return (t?.content?.trim() || '(내용 없음)')
+    if (g.targetType === 'user') return t?.nickname ? `${t.nickname} 님` : '(사용자)'
+    return t?.missions?.title || '인증'
   }
-  const authorOf = (g) => g.deleted ? null : (g.targetType === 'post' ? g.target?.author?.nickname : g.target?.user?.nickname)
+  const authorOf = (g) => {
+    if (g.deleted) return null
+    if (g.targetType === 'post') return g.target?.author?.nickname
+    if (g.targetType === 'user') return null
+    return g.target?.user?.nickname
+  }
 
   return (
     <div>
       <p className="text-[11px] text-gray-400 mb-2.5 leading-relaxed">
-        신고된 글·인증을 모아봐요. <b className="text-gray-500">신고자 정보는 운영자만</b> 볼 수 있고, 작성자·다른 참여자에겐 공개되지 않아요.
+        신고된 글·인증·댓글·사용자를 모아봐요. <b className="text-gray-500">신고자 정보는 운영자만</b> 볼 수 있고, 작성자·다른 참여자에겐 공개되지 않아요. 접수 후 72시간 안에 확인해 주세요.
       </p>
 
       {isLoading ? (
@@ -114,7 +129,7 @@ function ReportsManageSection({ programId, onNavigate, returnTo = null }) {
       ) : (
         <div className="space-y-2.5">
           {groups.map(g => {
-            const kindLabel = g.targetType === 'post' ? '게시글' : '인증'
+            const kindLabel = KIND[g.targetType] || g.targetType
             const busy = toggleMutation.isPending
             return (
               <div key={`${g.targetType}:${g.targetId}`} className="bg-white border border-gray-200 rounded-2xl p-3.5">
@@ -123,7 +138,7 @@ function ReportsManageSection({ programId, onNavigate, returnTo = null }) {
                   <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 text-[10px] font-bold flex-shrink-0">{kindLabel}</span>
                   {g.deleted ? (
                     <span className="px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-400 text-[10px] font-bold">삭제됨</span>
-                  ) : g.hidden ? (
+                  ) : !canHide(g) ? null : g.hidden ? (
                     <span className="px-1.5 py-0.5 rounded-full bg-red-50 text-red-500 text-[10px] font-bold">🚫 가려짐</span>
                   ) : (
                     <span className="px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-bold">노출 중</span>
@@ -182,7 +197,7 @@ function ReportsManageSection({ programId, onNavigate, returnTo = null }) {
                 {/* 액션 — 가리기/복구(처리 포함) · 처리 완료(노출 유지) · 보러가기 */}
                 {(!g.deleted || g.unresolved > 0) && (
                   <div className="flex flex-wrap items-center gap-2 mt-3">
-                    {!g.deleted && (g.hidden ? (
+                    {!g.deleted && canHide(g) && (g.hidden ? (
                       <button type="button" disabled={busy}
                         onClick={() => toggleMutation.mutate({ targetType: g.targetType, targetId: g.targetId, hide: false })}
                         className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white text-[12px] font-bold transition disabled:opacity-50">
@@ -202,11 +217,14 @@ function ReportsManageSection({ programId, onNavigate, returnTo = null }) {
                         <Check className="w-3.5 h-3.5" /> 처리 완료
                       </button>
                     )}
-                    {!g.deleted && (
+                    {!g.deleted && g.targetType !== 'user' && (
                       <button type="button" onClick={() => goTo(g)}
                         className="px-3 py-1.5 rounded-full border border-gray-200 text-gray-500 text-[12px] font-bold hover:bg-gray-50 transition">
                         보러가기
                       </button>
+                    )}
+                    {g.targetType === 'user' && (
+                      <span className="text-[11px] text-gray-400">참여자 관리에서 내보내기 등 조치할 수 있어요</span>
                     )}
                   </div>
                 )}

@@ -1,3 +1,4 @@
+import { excludeBlocked, maskBlockedComments, blockedInList } from './blocks'
 // React Query 키 + 쿼리 함수 모음
 // 본인이 인증 등으로 데이터를 바꾸면 invalidateQueries(queryKeys.xxx) 한 줄로 모든 화면 갱신.
 //
@@ -1681,7 +1682,7 @@ export const fetchCommunityPosts = async (programId, boardId) => {
   if (boardId && boardId !== 'all') q = q.eq('board_id', boardId)
   const { data, error } = await q
   if (error) throw error
-  return data || []
+  return excludeBlocked(data || [], (p) => p.author_id)   // 262: 차단한 사용자의 글 제외
 }
 
 export const createCommunityPost = async ({ programId, boardId, title, body, imagePath }) => {
@@ -1748,7 +1749,7 @@ export const fetchCommunityPostSocial = async (postId, myUserId) => {
   if (likesRes.error) throw likesRes.error
   if (commentsRes.error) throw commentsRes.error
   const likes = likesRes.data || []
-  const comments = commentsRes.data || []
+  const comments = await maskBlockedComments(commentsRes.data || [])   // 262: 차단 사용자 댓글 가림(답글 보존)
   const userIds = Array.from(new Set(comments.map(c => c.user_id)))
   let userMap = new Map()
   if (userIds.length) {
@@ -1758,7 +1759,7 @@ export const fetchCommunityPostSocial = async (postId, myUserId) => {
   return {
     likeCount: likes.length,
     likedByMe: likes.some(l => l.user_id === myUserId),
-    comments: comments.map(c => ({ ...c, user: userMap.get(c.user_id) || null })),
+    comments: comments.map(c => (c.blocked ? c : { ...c, user: userMap.get(c.user_id) || null })),
   }
 }
 
@@ -1992,7 +1993,8 @@ export const fetchCommunityPendingPosts = async (programId) => {
 // 신고 사유 기본 프리셋 — 신고 모달 빠른 선택 + 종료 리포트 사유별 분류에 공유.
 export const REPORT_REASON_PRESETS = ['부적절한 인증 사진', '커뮤니티 비방', '광고 및 도배']
 
-// 신고 (100) — targetType: 'post' | 'verification'. 누적 시 트리거가 자동 숨김.
+// 신고 (100·262) — targetType: 'post' | 'verification' | 'comment'(post_comments) | 'community_comment' | 'user'.
+//   post/verification 은 누적 시 트리거가 자동 숨김. 댓글·사용자는 운영자 수동 처리(신고함).
 export const createReport = async ({ programId, targetType, targetId, reason }) => {
   const { data: { session } } = await supabase.auth.getSession()
   const uid = session?.user?.id
@@ -2025,10 +2027,11 @@ export const fetchProgramReports = async (programId) => {
   if (error) throw error
   if (!reports?.length) return []
 
-  const postIds = [...new Set(reports.filter(r => r.target_type === 'post').map(r => r.target_id))]
-  const verIds = [...new Set(reports.filter(r => r.target_type === 'verification').map(r => r.target_id))]
+  const idsOf = (type) => [...new Set(reports.filter(r => r.target_type === type).map(r => r.target_id))]
+  const postIds = idsOf('post'), verIds = idsOf('verification')
+  const cmtIds = idsOf('comment'), ccmtIds = idsOf('community_comment'), userIds = idsOf('user')   // 262
 
-  const postMap = {}, verMap = {}
+  const postMap = {}, verMap = {}, cmtMap = {}, ccmtMap = {}, userMap = {}
   if (postIds.length) {
     const { data } = await supabase
       .from('community_posts')
@@ -2043,14 +2046,34 @@ export const fetchProgramReports = async (programId) => {
       .in('id', verIds)
     for (const v of (data || [])) verMap[v.id] = v
   }
+  if (cmtIds.length) {
+    const { data } = await supabase
+      .from('post_comments')
+      .select('id, content, verification_id, user:users!user_id(id, nickname)')
+      .in('id', cmtIds)
+    for (const c of (data || [])) cmtMap[c.id] = c
+  }
+  if (ccmtIds.length) {
+    const { data } = await supabase
+      .from('community_post_comments')
+      .select('id, content, post_id, user:users!user_id(id, nickname), post:community_posts(board_id)')
+      .in('id', ccmtIds)
+    for (const c of (data || [])) ccmtMap[c.id] = c
+  }
+  if (userIds.length) {
+    const { data } = await supabase.from('users').select('id, nickname').in('id', userIds)
+    for (const u of (data || [])) userMap[u.id] = u
+  }
+  const mapOf = { post: postMap, verification: verMap, comment: cmtMap, community_comment: ccmtMap, user: userMap }
 
   const groups = new Map()
   for (const r of reports) {
     const key = `${r.target_type}:${r.target_id}`
     if (!groups.has(key)) {
       const isPost = r.target_type === 'post'
-      const t = isPost ? postMap[r.target_id] : verMap[r.target_id]
-      const hidden = isPost ? (t?.status === 'hidden') : (t ? t.feed_visible === false : false)
+      const t = (mapOf[r.target_type] || {})[r.target_id]
+      // 가려짐 상태는 게시글·인증만 개념이 있다(댓글·사용자는 항상 false)
+      const hidden = isPost ? (t?.status === 'hidden') : (r.target_type === 'verification' ? (t ? t.feed_visible === false : false) : false)
       groups.set(key, {
         targetType: r.target_type,
         targetId: r.target_id,
@@ -2588,6 +2611,10 @@ export const fetchNotifications = async () => {
   if (disabled.length) {
     query = query.not('type', 'in', `(${disabled.map(t => `"${t}"`).join(',')})`)
   }
+  // 262/263: 차단한 사용자가 보낸 «옛» 알림 제외(새 알림은 263 트리거가 서버에서 아예 안 만든다).
+  //   actor_id 는 시스템 알림에서 NULL → SQL NOT IN 의 NULL 함정 때문에 or(is.null, not.in) 으로. 배지 count 와 동일 필터.
+  const blockedList = await blockedInList()
+  if (blockedList) query = query.or(`actor_id.is.null,actor_id.not.in.${blockedList}`)
   const { data, error } = await query
   if (error) throw error
   return data || []
@@ -2608,6 +2635,8 @@ export const fetchUnreadNotificationsCount = async () => {
   if (disabled.length) {
     query = query.not('type', 'in', `(${disabled.map(t => `"${t}"`).join(',')})`)
   }
+  const blockedList = await blockedInList()   // 262: 목록(fetchNotifications)과 같은 필터 — 배지 숫자와 목록이 어긋나지 않게
+  if (blockedList) query = query.or(`actor_id.is.null,actor_id.not.in.${blockedList}`)
   const { count, error } = await query
   if (error) throw error
   return count || 0
@@ -2626,13 +2655,18 @@ export const fetchFeedPosts = async (programId, page = 0, pageSize = FEED_PAGE_S
   const to = from + pageSize - 1
 
   // 1) APPROVED + feed_visible 인증만 — range 로 페이지네이션
-  const { data: vData, error: vErr } = await supabase
+  //   262: 차단한 사용자는 «쿼리에서» 제외한다 — 사후 필터면 페이지가 줄어 getNextPageParam 이 «끝»으로 오판해
+  //   무한스크롤이 조기 종료된다(리뷰 지적). verifications.user_id 는 NOT NULL 이라 not-in 이 안전.
+  let vq = supabase
     .from('verifications')
     .select('id, mission_id, user_id, submitted_at, image_path, numeric_value, metric_values, note, meal_kcal, meal_carb, meal_protein, meal_fat, meal_items, meal_source, missions!inner(program_id, title, bundle_title, requires_note, metrics)')
     .eq('missions.program_id', programId)
     .eq('missions.feed_excluded', false)   // 운영자 전용 미션(욕구 순간 등) 제외
     .eq('status', 'APPROVED')
     .eq('feed_visible', true)
+  const blockedList = await blockedInList()
+  if (blockedList) vq = vq.not('user_id', 'in', blockedList)
+  const { data: vData, error: vErr } = await vq
     .order('submitted_at', { ascending: false })
     .range(from, to)
   if (vErr) throw vErr
@@ -2703,15 +2737,15 @@ export const fetchPostComments = async (verificationId) => {
     .eq('verification_id', verificationId)
     .order('created_at', { ascending: true })
   if (error) throw error
-  const list = data || []
+  const list = await maskBlockedComments(data || [])   // 262: 차단 사용자 댓글 가림(답글 보존)
   if (list.length === 0) return []
-  const userIds = Array.from(new Set(list.map(c => c.user_id)))
-  const { data: uData } = await supabase
+  const userIds = Array.from(new Set(list.filter(c => !c.blocked).map(c => c.user_id)))
+  const { data: uData } = userIds.length ? await supabase
     .from('users')
     .select('id, nickname, avatar_path')
-    .in('id', userIds)
+    .in('id', userIds) : { data: [] }
   const userMap = new Map((uData || []).map(u => [u.id, u]))
-  return list.map(c => ({ ...c, user: userMap.get(c.user_id) || null }))
+  return list.map(c => (c.blocked ? c : { ...c, user: userMap.get(c.user_id) || null }))
 }
 
 // 운영자 참여자 통계 — 4가지 핵심 지표 + 묶음 그루핑된 미션 통계
