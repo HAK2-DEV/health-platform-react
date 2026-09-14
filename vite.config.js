@@ -79,7 +79,8 @@ export default defineConfig({
         // skipWaiting/clientsClaim 은 의도적으로 끔 — prompt 모드에서 새 SW 가 '대기'해야
         //   onNeedRefresh(배너)가 발생. 새로고침 클릭 시 updateSW(true)가 skipWaiting 수행.
         // Supabase API / 이미지 등은 SW 캐시에서 제외 — 항상 최신
-        navigateFallbackDenylist: [/^\/api\//, /supabase\.co/],
+        // account-deletion.html 은 Play 심사용 «정적» 계정삭제 안내 페이지 — SW 가 index.html 로 가로채면 안 된다.
+        navigateFallbackDenylist: [/^\/api\//, /supabase\.co/, /\/account-deletion\.html$/],
         runtimeCaching: [
           {
             // 폰트 — CacheFirst 1년

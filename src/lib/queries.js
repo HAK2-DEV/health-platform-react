@@ -1496,11 +1496,18 @@ export const updateMyNotificationPreferences = async (patch) => {
   return data
 }
 
-// 회원 탈퇴 — 073 delete_my_account RPC
-// auth.users DELETE → public.users 등 모든 관련 데이터 CASCADE 삭제.
+// 회원 탈퇴 — 엣지 함수 delete-account (2026-09-14)
+//   예전 RPC delete_my_account(073)는 DB 만 CASCADE 삭제하고 Storage 사진 파일은 남겼다(처리방침 「즉시 영구 삭제」와 불일치).
+//   엣지 함수가 service role 로 4개 버킷의 본인 파일을 지운 뒤 auth.users 를 삭제한다(→ 이하 CASCADE).
+//   ⚠️ 실패 시 RPC 로 조용히 폴백하지 않는다 — 폴백하면 다시 고아 파일이 생긴다. 오류를 그대로 올려 재시도하게 한다.
 export const deleteMyAccount = async () => {
-  const { error } = await supabase.rpc('delete_my_account')
-  if (error) throw error
+  const { data, error } = await supabase.functions.invoke('delete-account', { method: 'POST' })
+  if (error) {
+    let msg = error.message || '탈퇴 처리에 실패했어요'
+    try { const body = await error.context?.json?.(); if (body?.error) msg = body.error } catch { /* 본문 없음 */ }
+    throw new Error(msg)
+  }
+  return data
 }
 
 // 어제 vs 현재 등수 비교 — rank_snapshots (071)
@@ -3948,10 +3955,17 @@ export const fetchDietChangeData = async ({ programId, userId, startDate }) => {
 //   program_participants 는 RLS 로 본인 row 만 보이므로 집계 RPC 로만 읽는다.
 //   ⚠️ 아직 참여자에게 노출하지 않는 개발 단계 기능(/dev/growth 전용).
 export const fetchProgramGarden = async (programId) => {
-  const { data, error } = await supabase.rpc('get_program_garden', { p_program_id: programId })
+  // ⚠️ 프로그램 기간도 같이 읽는다. 종료된 프로그램에서는 물·햇빛이 없고 «마무리 인사» 만 남는다 —
+  //    그 판정을 화면마다 따로 하면 진입 경로(성장 탭 / 프로그램 상세 / /dev/growth)별로 어긋난다.
+  const [{ data, error }, prog] = await Promise.all([
+    supabase.rpc('get_program_garden', { p_program_id: programId }),
+    supabase.from('programs').select('start_date, end_date').eq('id', programId).maybeSingle(),
+  ])
   if (error) throw error
   const rows = data || []
   return {
+    startDate: prog.data?.start_date ?? null,
+    endDate: prog.data?.end_date ?? null,
     paceGap: rows[0]?.pace_gap ?? 2,      // 모든 행에 같은 값이 실려 온다
     members: rows.map((r) => ({
       userId: r.user_id,
@@ -3962,9 +3976,31 @@ export const fetchProgramGarden = async (programId) => {
       streak: r.pace_streak,
       lastVerifiedOn: r.last_verified_on,
       pendingCheers: r.pending_cheers ?? 0,   // 아직 «닿지 않은» 응원 마릿수(250)
+      // 253 — 꽃은 «인증한 만큼» 이 아니라 «부은 만큼» 자란다.
+      waterUsed: r.water_used ?? 0,
+      waterReady: r.water_ready ?? 0,         // 아직 안 부은 물(인증했는데 안 들른 만큼)
+      sunDays: r.sun_days ?? 0,
+      sunToday: r.sun_today ?? false,
       isMe: r.is_me,
     })),
   }
+}
+
+// 물 붓기(253 → 254 로 여러 번 가능). 반환 = { poured, waterLeft }.
+//   ⚠️ times 는 «요청» 이다 — 실제 횟수는 서버가 남은 물로 클램프해 돌려준다.
+//      한도(인증한 날 수)를 클라에 복사해두면 언젠가 어긋난다.
+export const pourGardenWater = async (programId, times = 1) => {
+  const { data, error } = await supabase.rpc('pour_garden_water', { p_program_id: programId, p_times: times })
+  if (error) throw error
+  const r = Array.isArray(data) ? data[0] : data
+  return { poured: r?.poured ?? 0, waterLeft: r?.water_left ?? 0 }
+}
+
+// 햇빛 쬐기(253, 하루 1회). 반환 = 오늘 처음이면 true.
+export const pourGardenSun = async (programId) => {
+  const { data, error } = await supabase.rpc('pour_garden_sun', { p_program_id: programId })
+  if (error) throw error
+  return data
 }
 
 // 응원 나비 보내기 — 하루 3마리, 같은 사람에겐 하루 1마리. 한도·자격 검증은 전부 DB 에서 한다.
