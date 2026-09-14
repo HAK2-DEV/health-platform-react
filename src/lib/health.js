@@ -2,6 +2,11 @@
 //   앱 코드는 이 인터페이스만 사용 → 플러그인 교체/확장에 영향 없음.
 //   현재: Android(Health Connect) 걸음 PoC. iOS(HealthKit)는 같은 플러그인이 지원 → 나중에 활성화.
 //   웹(PWA)에서는 항상 unavailable (건강 API 없음) — 호출 측은 isAvailable()로 가드.
+//   ⚠️ v1.0(2026-09) 부터 capacitor-health 는 «네이티브 빌드에서도 제외»돼 있다
+//     (capacitor.config.ts includePlugins + AndroidManifest 의 health 권한 tools:node="remove").
+//     걸음 기능이 꺼져 있어서(lib/constants.STEPS_ENABLED=false) 호출 경로가 없기 때문.
+//     다시 켤 때는 ① includePlugins 에 'capacitor-health' 추가 ② 매니페스트 권한 제거 해제
+//     ③ STEPS_ENABLED=true 세 가지를 «함께» 되돌려야 한다. 하나만 켜면 네이티브에서 조용히 실패한다.
 import { Capacitor } from '@capacitor/core'
 import { Health } from 'capacitor-health'
 

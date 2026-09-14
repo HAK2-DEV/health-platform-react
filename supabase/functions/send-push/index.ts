@@ -34,7 +34,6 @@ const FCM_SA_DIAG = {
   keyPrefix: (FCM_SA?.private_key ?? '').slice(0, 27),          // "-----BEGIN PRIVATE KEY-----" 이어야
   keyHasNewline: (FCM_SA?.private_key ?? '').includes('\n'),   // 진짜 줄바꿈이어야 PEM 파싱됨
 }
-let lastFcmErr = ''
 
 function b64urlFromBytes(bytes: Uint8Array): string {
   let bin = ''
@@ -87,7 +86,8 @@ async function getFcmAccessToken(): Promise<string> {
 }
 
 // 반환: 'ok' | 'dead'(토큰 만료·미등록) | 'err'
-async function sendFcm(accessToken: string, token: string, title: string, body: string, link: string): Promise<'ok' | 'dead' | 'err'> {
+// 반환: result 'ok' | 'dead'(토큰 미등록 — 삭제 대상) | 'err', detail=진단 문자열(모듈 전역 대신 «호출별» 값)
+async function sendFcm(accessToken: string, token: string, title: string, body: string, link: string): Promise<{ result: 'ok' | 'dead' | 'err'; detail: string }> {
   const res = await fetch(`https://fcm.googleapis.com/v1/projects/${FCM_SA!.project_id}/messages:send`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
@@ -100,16 +100,19 @@ async function sendFcm(accessToken: string, token: string, title: string, body: 
       },
     }),
   })
-  if (res.ok) return 'ok'
-  if (res.status === 404) { lastFcmErr = `404`; return 'dead' }
+  if (res.ok) return { result: 'ok', detail: '' }
+  // ⚠️ HTTP 404 «만»으로 죽은 토큰이라 판정하지 않는다 — project_id·서비스계정 오설정도 404 를 주는데,
+  //   그렇게 되면 한 번의 발송으로 «전체 사용자의 토큰»이 지워진다(2026-09-14 리뷰). 본문 코드로만 확정.
+  let txt = ''
+  try { txt = await res.text() } catch { /* 본문 없음 */ }
+  const detail = `${res.status} ${txt.slice(0, 300)}`
+  let code = ''
   try {
-    const txt = await res.text()
-    lastFcmErr = `${res.status} ${txt.slice(0, 300)}`
     const err = JSON.parse(txt)
-    const code = err?.error?.details?.[0]?.errorCode || err?.error?.status
-    if (code === 'UNREGISTERED' || code === 'NOT_FOUND') return 'dead'
-  } catch { /* 무시 */ }
-  return 'err'
+    code = err?.error?.details?.[0]?.errorCode || err?.error?.status || ''
+  } catch { /* JSON 아님 */ }
+  if (code === 'UNREGISTERED' || code === 'NOT_FOUND') return { result: 'dead', detail }
+  return { result: 'err', detail }
 }
 
 Deno.serve(async (req) => {
@@ -174,8 +177,8 @@ Deno.serve(async (req) => {
         const dead: string[] = []
         await Promise.all(toks.map(async (t) => {
           const r = await sendFcm(accessToken, t.token, title, bodyText, link)
-          fcmResults.push(r === 'err' ? `err:${lastFcmErr}` : r)
-          if (r === 'dead') dead.push(t.id)
+          fcmResults.push(r.result === 'ok' ? 'ok' : `${r.result}:${r.detail}`)
+          if (r.result === 'dead') dead.push(t.id)
         }))
         if (dead.length) await admin.from('native_push_tokens').delete().in('id', dead)
         fcmRemoved = dead.length

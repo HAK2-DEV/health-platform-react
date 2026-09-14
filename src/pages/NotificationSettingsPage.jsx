@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Heart, MessageCircle, Sprout, Hand, Loader2, Check, Bell, Megaphone, ChevronDown } from 'lucide-react'
 import { pushSupported, getPushState, subscribeToPush, unsubscribeFromPush } from '../lib/push'
 import { isNativeApp } from '../lib/installPrompt'
-import { subscribeNativePush, unsubscribeNativePush, getNativePushPermission, getLastNativePushError } from '../lib/nativePush'
+import { subscribeNativePush, unsubscribeNativePush, getNativePushState } from '../lib/nativePush'
 import { useToast } from '../contexts/ToastContext'
 import { supabase } from '../supabaseClient'
 import { useAuth } from '../hooks/useAuth'
@@ -209,10 +209,11 @@ function PushToggleCard() {
   const [testing, setTesting] = useState(false)
   useEffect(() => {
     if (isNativeApp()) {   // 네이티브=FCM 권한 상태로 판정
-      // 'unsupported'(플러그인 응답 없음/실패)는 반드시 unsupported 로 — 예전엔 unsubscribed 로 흘러
-      //   토글이 눌리고 원인 힌트가 한 번도 안 보이던 버그(2026-09-11).
-      getNativePushPermission()
-        .then((p) => setState(p === 'granted' ? 'subscribed' : p === 'denied' ? 'denied' : p === 'unsupported' ? 'unsupported' : 'unsubscribed'))
+      // ⚠️ OS 권한이 아니라 «이 기기 토큰이 DB(내 소유)에 있는가» 로 판정한다(getNativePushState).
+      //   안드 12 이하는 플러그인이 권한을 항상 'granted' 로 답해, 예전 권한 기반 판정은 토큰이 없어도
+      //   «켜짐» 으로 보이고 푸시는 영영 안 오는 상태를 만들었다(2026-09-14 리뷰 확정).
+      getNativePushState()
+        .then(setState)
         .catch(() => setState('unsupported'))
       return
     }
@@ -248,7 +249,7 @@ function PushToggleCard() {
       toast.show(e.message || '테스트 발송에 실패했어요')
     } finally { setTesting(false) }
   }
-  const hint = state === 'unsupported' ? (isNativeApp() ? `알림 기능을 불러오지 못했어요 · ${getLastNativePushError() || '원인 미상'}` : '이 브라우저·기기는 푸시를 지원하지 않아요. (iPhone은 홈 화면에 앱을 추가하면 가능해요)')
+  const hint = state === 'unsupported' ? (isNativeApp() ? '알림 기능을 불러오지 못했어요. 앱을 완전히 종료한 뒤 다시 열어보세요.' : '이 브라우저·기기는 푸시를 지원하지 않아요. (iPhone은 홈 화면에 앱을 추가하면 가능해요)')
     : state === 'denied' ? '차단됨 — 브라우저 설정에서 이 사이트의 알림을 허용해 주세요.'
     : state === 'nokey' ? '푸시 기능을 준비 중이에요. 곧 켤 수 있어요.'
     : on ? '앱을 닫아도 폰으로 알림이 와요.' : '켜면 앱을 닫아도 폰으로 알림을 받아요.'

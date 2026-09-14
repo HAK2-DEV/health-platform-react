@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { LogOut, Camera, Pencil, X, Loader2, ChevronRight, Bell, Shield, BookOpen, MessageCircle, Activity, LayoutDashboard } from 'lucide-react'
 import { supabase } from '../supabaseClient'
 import { unsubscribeFromPush } from '../lib/push'
+import { unsubscribeNativePush } from '../lib/nativePush'
 import { useAuth } from '../hooks/useAuth'
 import { useNicknameCheck } from '../hooks/useNicknameCheck'
 import { NICKNAME } from '../lib/constants'
@@ -280,7 +281,10 @@ function ProfilePage() {
 
   const handleLogout = async () => {
     // 로그아웃 전에 이 기기 푸시 구독 해제 — 로그아웃한 계정의 알림이 이 기기로 계속 가지 않도록.
+    //   ⚠️ 웹(push_subscriptions)과 네이티브(native_push_tokens)는 저장소가 달라 «둘 다» 정리해야 한다.
+    //   네이티브를 빠뜨리면 같은 폰에 다음 계정이 로그인해도 이전 계정 알림이 계속 왔다(2026-09-14 리뷰 확정).
     try { await unsubscribeFromPush() } catch { /* 무시 */ }
+    try { await unsubscribeNativePush() } catch { /* 무시 */ }
     supabase.auth.signOut()
   }
 

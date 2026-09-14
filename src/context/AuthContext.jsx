@@ -2,6 +2,7 @@ import { createContext, useState, useEffect, useCallback, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../supabaseClient";
 import { pushSupported, subscribeToPush } from "../lib/push";
+import { ensureNativePushRegistered } from "../lib/nativePush";
 
 export const AuthContext = createContext(null)
 
@@ -34,6 +35,10 @@ export function AuthProvider({children}) {
                     if (newUserId && pushSupported() && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
                         subscribeToPush().catch(() => {})
                     }
+                    // 네이티브: 로그인/계정전환 시 이 기기 FCM 토큰을 «현재 계정» 소유로 재확정(RPC 260).
+                    //   직접 켠 기기(OPTIN)에서만 동작. 이 보정이 없으면 옛 계정 토큰이 남아
+                    //   같은 폰의 다음 사용자가 이전 계정 알림을 받는다(2026-09-14 리뷰 확정).
+                    if (newUserId) ensureNativePushRegistered().catch(() => {})
                 }
                 setSession(session)
             }

@@ -19,10 +19,16 @@ function needsJsKeyboard() {
   return isNativeApp() && maj > 0 && maj < 15
 }
 
+// ⚠️ «키보드가 실제로 뜨는» 입력만 대상. checkbox·radio·date·file·range 등은 제외해야
+//   탭할 때마다 60vh 여백이 생기고 화면이 튀는 일이 없다(2026-09-14 리뷰).
+const TEXT_INPUT_TYPES = new Set(['', 'text', 'search', 'url', 'tel', 'email', 'password', 'number'])
 function isTextInput(el) {
   if (!el) return false
+  if (el.isContentEditable) return true
   const tag = el.tagName
-  return tag === 'INPUT' || tag === 'TEXTAREA' || el.isContentEditable
+  if (tag === 'TEXTAREA') return true
+  if (tag !== 'INPUT') return false
+  return TEXT_INPUT_TYPES.has((el.getAttribute('type') || 'text').toLowerCase())
 }
 
 // 고정 요소(모달 등, position:fixed/sticky) 안의 입력칸이면 window 스크롤로 못 올림 → 건너뜀.
