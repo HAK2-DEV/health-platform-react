@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, ClipboardCheck, Sparkles, Compass } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { queryKeys, fetchActivePrograms } from '../../lib/queries'
+import { isNativeApp } from '../../lib/installPrompt'
 
 // 채워진(solid) 탭 아이콘 — fill=currentColor 라 text-* 로 색 제어 (heroicons solid, MIT)
 const HomeSolid = ({ className }) => (
@@ -148,9 +149,12 @@ function BottomTabBar() {
     { path: '/dashboard', label: '대시보드', Icon: HomeSolid },
     { path: '/programs', label: '프로그램', Icon: FlagSolid },
     // 아이콘은 4탭 모두 동일 크기(w-6).
-    // ⚠️ v1.0: 성장 탭은 아직 «준비중» 플레이스홀더라 숨기고, 완성된 「랭킹」으로 대체.
-    //   (성장 완성 시 { path: '/growth', label: '성장', Icon: PlantSolid } 로 복귀)
-    { path: '/rankings', label: '랭킹', Icon: ChartSolid },
+    // 3번째 탭은 플랫폼별로 다르다 — 본인 결정(2026-09-14):
+    //   · 네이티브(Play 심사본): 성장 탭이 아직 «준비중» 플레이스홀더라 심사 반려면을 줄이기 위해 「랭킹」.
+    //   · 웹/PWA: 기존 사용자가 보던 「성장」 탭 유지(준비중 화면 그대로). 성장 완성 시 네이티브도 성장으로 복귀.
+    isNativeApp()
+      ? { path: '/rankings', label: '랭킹', Icon: ChartSolid }
+      : { path: '/growth', label: '성장', Icon: PlantSolid },
     { path: '/profile', label: '마이페이지', Icon: UserSolid },
   ]
 
