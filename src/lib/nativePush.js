@@ -67,7 +67,24 @@ export async function getNativePushState() {
     const uid = await currentUid()
     if (!uid) return 'unsubscribed'
     const token = ls.get(TOKEN_KEY)
-    if (!token) return 'unsubscribed'          // 이 기기에서 켠 적 없음(재설치 포함)
+    if (!token) {
+      // 로컬 토큰 기록이 없다 = «신규 설치» 이거나 «이 키가 없던 구버전에서 업데이트» 한 경우.
+      //   후자는 DB 에 내 소유 토큰이 그대로 남아 서버는 계속 발송하는데 화면만 '꺼짐' 으로 보인다.
+      //   → DB 를 보고 «이미 켠 기기» 로 복구하고 OPTIN 을 세운다(다음 ensureNativePushRegistered 가
+      //   현재 토큰을 로컬에 다시 채워 이후부터는 기기 단위로 정확히 판정된다).
+      const { data: mine, error: e2 } = await supabase
+        .from('native_push_tokens')
+        .select('id')
+        .eq('user_id', uid)
+        .limit(1)
+      if (e2) throw e2
+      if (mine && mine.length > 0) {
+        ls.set(OPTIN_KEY, '1')
+        _lastErr = ''
+        return 'subscribed'
+      }
+      return 'unsubscribed'
+    }
     const { data, error } = await supabase
       .from('native_push_tokens')
       .select('id')
