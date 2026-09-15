@@ -70,6 +70,11 @@ function AccountSettingsPage() {
 
         {/* 3) 회원 탈퇴 */}
         <DeleteAccountCard nickname={nickname} onComplete={() => navigate('/login', { replace: true })} />
+
+        {/* 웹 번들 식별값 — 폰에서 «어떤 버전의 화면 코드가 도는지» 확인용(vite.config BUILD_ID). 문의·버그 제보 때 이 줄을 캡처해 달라고 안내. */}
+        <p className="mt-6 text-center text-[11px] text-gray-400 select-all">
+          {window.Capacitor?.isNativePlatform?.() ? '앱' : '웹'} · 화면 버전 {import.meta.env.VITE_APP_BUILD || 'dev'}
+        </p>
       </div>
     </div>
   )

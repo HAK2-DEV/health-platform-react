@@ -60,7 +60,35 @@ const applyPendingUpdate = () => {
   if (updateSW) updateSW(true)
 }
 
-const updateSW = registerSW({
+// 네이티브(Capacitor)는 서비스워커를 쓰지 않는다.
+//   JS 가 앱 안에 번들돼 있어 이득이 없고, 오히려 Play 업데이트 후에도 캐시의 «옛 JS» 를 내줘
+//   수정이 안 먹었다(2026-09-15 에뮬레이터 재현 — 35 표지 HEIC 제보). → 등록하지 않고,
+//   이전 버전이 남긴 등록·캐시를 지운다. 옛 서비스워커가 아직 이 화면을 제어 중이면 한 번만 새로고침해
+//   번들 JS 로 갈아탄다. (자산의 sw.js 는 scripts/native-sw.mjs 가 자기 삭제본으로 교체 — 이중 안전망)
+const IS_NATIVE = !!window.Capacitor?.isNativePlatform?.()
+async function cleanupNativeServiceWorker() {
+  if (!('serviceWorker' in navigator)) return
+  try {
+    const wasControlled = !!navigator.serviceWorker.controller
+    const regs = await navigator.serviceWorker.getRegistrations()
+    await Promise.all(regs.map((r) => r.unregister()))
+    if (window.caches) {
+      const keys = await caches.keys()
+      await Promise.all(keys.map((k) => caches.delete(k)))   // 앱 코드는 Cache API 를 직접 쓰지 않음(workbox·폰트 캐시뿐)
+    }
+    let reloaded = false
+    try { reloaded = sessionStorage.getItem('native-sw-cleaned') === '1' } catch { /* 미지원 */ }
+    if (wasControlled && !reloaded) {
+      try { sessionStorage.setItem('native-sw-cleaned', '1') } catch { /* 미지원 */ }
+      window.location.reload()
+    }
+  } catch (err) {
+    console.warn('[native-sw] 서비스워커 정리 실패', err)
+  }
+}
+if (IS_NATIVE) cleanupNativeServiceWorker()
+
+const updateSW = IS_NATIVE ? null : registerSW({
   immediate: true,
   // 새 SW 가 대기 상태가 됨(prompt 모드) — 사용 중이면 배너로 '지금 새로고침' 옵션 제공,
   //   숨겨진 상태면 방해 없이 바로 적용(다음에 열면 최신).

@@ -15,6 +15,8 @@ const run = (label, cmd, args, cwd = root) => {
 
 run('웹 빌드', 'npm', ['run', 'build'])
 run('cap sync android', 'npx', ['cap', 'sync', 'android'])
+// 네이티브는 서비스워커를 쓰지 않는다 — 옛 버전이 남긴 서비스워커를 걷어낼 자기 삭제 sw.js 로 교체 (scripts/native-sw.mjs)
+run('네이티브 sw.js 교체', 'node', ['scripts/native-sw.mjs'])
 // ⚠️ 절대 경로로 — cmd.exe 는 spawn cwd 의 'gradlew.bat' 를 이름만으로는 못 찾는다(실측 2026-09-15).
 const androidDir = path.join(root, 'android')
 const gradlew = path.join(androidDir, isWin ? 'gradlew.bat' : 'gradlew')

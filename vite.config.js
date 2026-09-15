@@ -2,9 +2,23 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
+import { execSync } from 'node:child_process'
+import process from 'node:process'
+
+// 웹 번들 식별값 — 계정 설정 하단에 표시. 폰에서 «어떤 JS 가 도는지» 확인용(2026-09-15 네이티브 옛 JS 진단).
+//   Vercel 은 VERCEL_GIT_COMMIT_SHA, 로컬은 git. 둘 다 없으면 'dev'.
+const BUILD_ID = (() => {
+  let sha = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7)
+  if (!sha) { try { sha = execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim() } catch { sha = 'dev' } }
+  const kst = new Date(Date.now() + 9 * 3600e3).toISOString().slice(2, 16).replace('T', ' ')
+  return `${sha} · ${kst}`
+})()
 
 // https://vite.dev/config/
 export default defineConfig({
+  define: {
+    'import.meta.env.VITE_APP_BUILD': JSON.stringify(BUILD_ID),
+  },
   plugins: [
     react(),
     tailwindcss(),
