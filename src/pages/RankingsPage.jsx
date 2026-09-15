@@ -396,9 +396,11 @@ function RankingHeader() {
 // ─── 배너 ────────────────────────────────────────────────
 function RankingBanner({ badge }) {
   return (
-    // 고정 높이(h-[124px]) + 세로 가운데 정렬이면 배지·2줄 제목·2줄 부제가 넘칠 때 배지가 위 테두리에 붙었다
-    //   (2026-09-15 S20+). 배너 텍스트 레시피: 최소 높이 + 글자 영역은 흐름 배치 + 위아래 여백 → 내용만큼 늘어난다.
-    <div className="relative overflow-hidden rounded-2xl bg-[#eef7f1] min-h-[124px]">
+    // 배너 높이는 124px 고정(화면 위계 유지 — 본인 결정 2026-09-15). 넘치면 배너가 아니라 «글자» 를 줄인다.
+    //   예전엔 14px 제목 2줄 + 11px 부제 2줄 + 배지가 좁은 폰(S20+)에서 124px 를 넘어 배지가 위 테두리에 붙었다.
+    //   · 글자 크기는 배너 폭 기준(@container + cqi)으로 제목 11.5~13px, 부제 10~11px
+    //   · 제목·부제 각각 최대 2줄(line-clamp) → 최악의 경우도 배지 21 + 제목 32.5 + 부제 30 ≈ 91px ≤ 124 − 위아래 여백 24
+    <div className="@container relative overflow-hidden rounded-2xl bg-[#eef7f1] h-[124px]">
       <img
         src="/illustrations/ranking-banner.jpg"
         alt="" aria-hidden="true"
@@ -407,14 +409,14 @@ function RankingBanner({ badge }) {
         style={{ objectPosition: 'center top' }}
       />
       <div className="absolute inset-0 bg-gradient-to-r from-[#eef7f1]/90 via-[#eef7f1]/35 to-transparent" />
-      <div className="relative px-5 py-4 min-h-[124px] flex flex-col justify-center max-w-[64%]">
+      <div className="absolute inset-0 px-5 py-3 flex flex-col justify-center max-w-[64%]">
         {badge && (
-          <span className="inline-flex self-start items-center px-2 py-0.5 mb-1.5 rounded-md bg-emerald-100 text-emerald-700 text-[11px] font-bold">
+          <span className="inline-flex self-start items-center px-2 py-0.5 mb-1 rounded-md bg-emerald-100 text-emerald-700 text-[11px] font-bold">
             {badge}
           </span>
         )}
-        <h2 className="text-[14px] font-bold text-gray-800 leading-tight drop-shadow-sm break-keep">꾸준함이 건강을 만듭니다! 💚</h2>
-        <p className="mt-1 text-[11px] text-gray-600 break-keep">매일의 작은 실천이 큰 변화를 만들어요.</p>
+        <h2 className="text-[clamp(11.5px,3.5cqi,13px)] font-bold text-gray-800 leading-[1.25] drop-shadow-sm break-keep line-clamp-2">꾸준함이 건강을 만듭니다! 💚</h2>
+        <p className="mt-1 text-[clamp(10px,2.9cqi,11px)] leading-[1.35] text-gray-600 break-keep line-clamp-2">매일의 작은 실천이 큰 변화를 만들어요.</p>
       </div>
     </div>
   )
