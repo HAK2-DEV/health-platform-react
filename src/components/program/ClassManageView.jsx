@@ -5,6 +5,7 @@ import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 import { Plus, Calendar, MapPin, Users, Pencil, Trash2, Copy, X, ChevronDown, ChevronUp, Camera, Loader2, Clock } from 'lucide-react'
 import { resolveSignupOpen } from '../../lib/classSignup'
+import { prepareImageFile } from '../../lib/imageInput'
 import { CLASS_CAT_LIST, catOf } from '../../lib/classCategories'
 import ConfirmModal from '../common/ConfirmModal'
 import ImageCropModal from '../common/ImageCropModal'
@@ -73,12 +74,14 @@ function InstructorForm({ initial, onSave, onClose, busy }) {
   const [photoErr, setPhotoErr] = useState(null)
   const uploadedRef = useRef(null)   // 이번 세션 임시 업로드 파일(저장 전 교체·취소 시 정리)
 
-  const onPick = (e) => {
-    const f = e.target.files?.[0]; e.target.value = ''
-    if (!f) return
-    if (!f.type.startsWith('image/')) { setPhotoErr('이미지 파일만 올릴 수 있어요'); return }
-    if (f.size > 10 * 1024 * 1024) { setPhotoErr('파일 크기는 10MB 이하여야 해요'); return }
+  const onPick = async (e) => {
+    const raw = e.target.files?.[0]; e.target.value = ''
+    if (!raw) return
+    if (raw.size > 10 * 1024 * 1024) { setPhotoErr('파일 크기는 10MB 이하여야 해요'); return }
     setPhotoErr(null)
+    let f
+    try { f = await prepareImageFile(raw) }   // HEIC → JPEG 변환·디코딩 검사 (lib/imageInput)
+    catch (err) { setPhotoErr(err.message); return }
     setCropSrc(prev => { if (prev) URL.revokeObjectURL(prev); return URL.createObjectURL(f) })
   }
   const closeCrop = () => setCropSrc(prev => { if (prev) URL.revokeObjectURL(prev); return null })

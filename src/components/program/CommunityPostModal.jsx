@@ -6,6 +6,7 @@ import Modal from '../common/Modal'
 import ImageCropModal from '../common/ImageCropModal'
 import { supabase } from '../../supabaseClient'
 import { createCommunityPost, updateCommunityPost, queryKeys } from '../../lib/queries'
+import { prepareImageFile } from '../../lib/imageInput'
 import { compressImage, compressThumbnail } from '../../lib/imageCompression'
 import { thumbPathOf } from '../../lib/signedUrls'
 
@@ -87,12 +88,14 @@ function CommunityPostModal({ isOpen, onClose, program, boards = [], defaultBoar
     onError: (e) => setError(e.message || '저장에 실패했어요'),
   })
 
-  const onPick = (e) => {
-    const f = e.target.files?.[0]; e.target.value = ''
-    if (!f) return
-    if (f.size > 10 * 1024 * 1024) { setError('이미지는 최대 10MB예요'); return }
-    if (!f.type.startsWith('image/')) { setError('이미지 파일만 가능해요'); return }
+  const onPick = async (e) => {
+    const raw = e.target.files?.[0]; e.target.value = ''
+    if (!raw) return
+    if (raw.size > 10 * 1024 * 1024) { setError('이미지는 최대 10MB예요'); return }
     setError(null)
+    let f
+    try { f = await prepareImageFile(raw) }   // HEIC → JPEG 변환·디코딩 검사 (lib/imageInput)
+    catch (err) { setError(err.message); return }
     setCropSrc(prev => { if (prev) URL.revokeObjectURL(prev); return URL.createObjectURL(f) })
     setIsCropOpen(true)
   }

@@ -3,6 +3,7 @@ import { ImagePlus, ChevronLeft, Settings } from 'lucide-react'
 import ProgramCover from '../common/ProgramCover'
 import ImageCropModal from '../common/ImageCropModal'
 import { compressImage } from '../../lib/cropImage'
+import { prepareImageFile } from '../../lib/imageInput'
 import { supabase } from '../../supabaseClient'
 import { useAvatarViewer } from '../../contexts/AvatarViewerContext'
 
@@ -60,11 +61,12 @@ function ProgramHomeHero({
 
   // 새 사진 고르기 — 원본을 압축(용량↓)해서 크롭 소스 + 원본 보관용으로
   const pickFile = async (e) => {
-    const file = e.target.files?.[0]
+    const raw = e.target.files?.[0]
     e.target.value = ''
-    if (!file) return
-    if (file.size > MAX_SIZE_BYTES || !file.type.startsWith('image/')) return
+    if (!raw) return
+    if (raw.size > MAX_SIZE_BYTES) return
     try {
+      const file = await prepareImageFile(raw)   // HEIC → JPEG 변환·디코딩 검사 (lib/imageInput)
       const compressed = await compressImage(file)
       setPendingOriginal(compressed)
       setCropSrc((prev) => { if (prev) URL.revokeObjectURL(prev); return URL.createObjectURL(compressed) })

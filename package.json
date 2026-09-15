@@ -13,7 +13,7 @@
     "cap:open:ios": "npm run build && npx cap sync ios && npx cap open ios",
     "cap:run:android": "npm run build && npx cap sync android && npx cap run android",
     "verify:manifest": "node scripts/verify-manifest.mjs",
-    "android:release": "npm run build && npx cap sync android && cd android && gradlew bundleRelease assembleRelease && cd .. && npm run verify:manifest"
+    "android:release": "node scripts/android-release.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.0",
@@ -36,6 +36,7 @@
     "capacitor-health": "^8.1.2",
     "exceljs": "^4.4.0",
     "framer-motion": "^12.39.0",
+    "heic2any": "^0.0.4",
     "jszip": "^3.10.1",
     "lucide-react": "^1.16.0",
     "react": "^19.2.6",

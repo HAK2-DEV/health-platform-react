@@ -11,6 +11,7 @@ import { supabase } from '../../supabaseClient'
 import { CATEGORY } from '../../lib/constants'
 import { checkMissionToday, isUpcomingByStartDate, formatKoreanDate } from '../../lib/formatters'
 import { resolveMissionIcon } from '../../lib/missionIcons'
+import { prepareImageFile } from '../../lib/imageInput'
 import { queryKeys, fetchMission, fetchProgramOverview, fetchProgram, fetchActivePrograms, fetchTodayMissions, fetchTodayCounts } from '../../lib/queries'
 import { detectMilestonesReached, resolveStreakMilestones, computeStage } from '../../lib/gamification'
 import { useToast } from '../../contexts/ToastContext'
@@ -182,11 +183,13 @@ function MissionVerifyPage() {
     onError: (e) => alert(`미션 썸네일 저장 실패: ${e.message}`),
   })
   const heroBusy = heroUploading || updateHeroMutation.isPending
-  const onHeroFile = (e) => {
-    const file = e.target.files?.[0]
+  const onHeroFile = async (e) => {
+    const raw = e.target.files?.[0]
     e.target.value = ''
-    if (!file) return
-    if (!file.type.startsWith('image/')) { alert('이미지 파일만 올릴 수 있어요'); return }
+    if (!raw) return
+    let file
+    try { file = await prepareImageFile(raw) }   // HEIC → JPEG 변환·디코딩 검사 (lib/imageInput)
+    catch (err) { alert(err.message); return }
     setHeroCropSrc(URL.createObjectURL(file))
     setHeroCropOpen(true)
   }
@@ -270,6 +273,7 @@ function MissionVerifyPage() {
   }, [program?.id])
   const [error, setErrorRaw] = useState(null)
   const [errorTick, setErrorTick] = useState(0)
+  const [photoPreparing, setPhotoPreparing] = useState(false)   // HEIC 변환·디코딩 검사 중(lib/imageInput)
   // 제출 완료 화면 데이터 (있으면 완료 화면 렌더)
   //   제출 후 「프로그램으로 이동」(push) → 뒤로가기 시 이 페이지가 remount 되며 state 가
   //   사라져 폼이 다시 떴음. 제출 성공 시 현재 history 엔트리 state 에 완료정보를 박제 →
@@ -432,21 +436,25 @@ function MissionVerifyPage() {
   const hero = CATEGORY_HERO[catKey] || CATEGORY_HERO.ETC
   const catMeta = CATEGORY[catKey] || CATEGORY.ETC
 
-  const handleFileSelect = (e) => {
-    const file = e.target.files?.[0]
+  const handleFileSelect = async (e) => {
+    const raw = e.target.files?.[0]
     e.target.value = ''  // 같은 파일 재선택 허용
-    if (!file) return
-    if (!file.type.startsWith('image/')) {
-      setError('이미지 파일만 업로드할 수 있어요')
-      return
-    }
+    if (!raw) return
     // 업로드 직전 자동 압축(1280px·0.6MB)하므로 큰 사진도 OK.
     // 단, 과도하게 큰 원본(메모리 보호)만 차단 — 30MB 상한.
-    if (file.size > 30 * 1024 * 1024) {
+    if (raw.size > 30 * 1024 * 1024) {
       setError('사진이 너무 커요 (30MB 이하). 다른 사진을 선택해주세요')
       return
     }
     setError(null)
+    // HEIC(삼성 고효율·아이폰) → JPEG 변환, MIME 없는 JPG 보정, 못 여는 형식은 문구로 거부 (lib/imageInput)
+    let file
+    try {
+      file = await prepareImageFile(raw, { onConverting: setPhotoPreparing })
+    } catch (err) {
+      setError(err.message)
+      return
+    }
     // 크롭/편집 모달 — 위치·확대 조정 후 저장 (프로필 사진과 동일 UX)
     setCropImageSrc(URL.createObjectURL(file))
     setIsCropOpen(true)
@@ -1293,12 +1301,14 @@ function MissionVerifyPage() {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                disabled={isSubmitting}
+                disabled={isSubmitting || photoPreparing}
                 className="w-full p-10 border-2 border-dashed border-gray-300 rounded-xl hover:border-emerald-400 hover:bg-emerald-50/30 transition flex flex-col items-center gap-2 text-gray-500 hover:text-emerald-600 disabled:opacity-50"
               >
-                <Upload className="w-9 h-9" />
-                <span className="text-sm font-medium">사진 선택하기</span>
-                <span className="text-xs text-gray-400">JPG / PNG · 업로드 시 자동 최적화</span>
+                {photoPreparing
+                  ? <Loader2 className="w-9 h-9 animate-spin text-emerald-500" />
+                  : <Upload className="w-9 h-9" />}
+                <span className="text-sm font-medium">{photoPreparing ? '사진 변환 중…' : '사진 선택하기'}</span>
+                <span className="text-xs text-gray-400">{photoPreparing ? 'HEIC 사진을 JPG로 바꾸고 있어요' : 'JPG / PNG / HEIC · 업로드 시 자동 최적화'}</span>
               </button>
             )}
             <input

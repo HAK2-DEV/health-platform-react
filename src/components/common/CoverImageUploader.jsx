@@ -2,6 +2,7 @@ import { useRef, useState, useEffect } from 'react'
 import { Camera, X, Crop } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
 import { compressThumbnail } from '../../lib/imageCompression'
+import { prepareImageFile } from '../../lib/imageInput'
 import { thumbPathOf } from '../../lib/signedUrls'
 import ProgramCover from './ProgramCover'
 import ImageCropModal from './ImageCropModal'
@@ -43,20 +44,19 @@ function CoverImageUploader({ ownerId, imagePath, onChange, categories, name, di
   }
 
   // 파일 선택 → 크롭 모달 열기 (업로드는 크롭 후)
-  const handleFile = (e) => {
-    const file = e.target.files?.[0]
+  const handleFile = async (e) => {
+    const raw = e.target.files?.[0]
     e.target.value = '' // 같은 파일 다시 선택 가능하게
-    if (!file || !ownerId) return
+    if (!raw || !ownerId) return
 
-    if (file.size > MAX_SIZE_BYTES) {
+    if (raw.size > MAX_SIZE_BYTES) {
       setError('이미지가 너무 커요 (최대 10MB)')
       return
     }
-    if (!file.type.startsWith('image/')) {
-      setError('이미지 파일만 업로드 가능해요')
-      return
-    }
     setError(null)
+    let file
+    try { file = await prepareImageFile(raw) }   // HEIC → JPEG 변환·디코딩 검사 (lib/imageInput)
+    catch (err) { setError(err.message); return }
     const url = URL.createObjectURL(file)
     setOriginalSrc(url)   // 원본 보관 → 이후 '비율 조정' 시 재사용
     setCropSrc(url)

@@ -66,6 +66,10 @@ function ImageCropModal({
     setProcessing(true)
     setError(null)
     try {
+      // 이미지 디코딩 실패(HEIC 등) 시 react-easy-crop 은 폭·높이 0 인 영역을 내보낸다 → 원인 문구로 안내
+      if (!(croppedAreaPixels.width > 0 && croppedAreaPixels.height > 0)) {
+        throw new Error('사진을 불러오지 못했어요. 이 형식은 열 수 없어요 — 다른 사진(JPG/PNG)을 골라주세요')
+      }
       let outW = outputWidth, outH = outputHeight
       if (aspectOptions) {
         // 비율 토글 모드 — 최장변 1280 기준 출력 크기 자동

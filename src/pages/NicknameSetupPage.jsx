@@ -7,6 +7,7 @@ import { UserPlus, Camera, Loader2 } from 'lucide-react'
 import NicknameInput from '../components/auth/NicknameInput'
 import ImageCropModal from '../components/common/ImageCropModal'
 import { takePendingInvite } from '../lib/pendingInvite'
+import { prepareImageFile } from '../lib/imageInput'
 import ConsentBox from '../components/legal/ConsentBox'
 import { EMPTY_CONSENT, isAllRequiredAgreed, consentMetadata } from '../lib/consent'
 
@@ -48,13 +49,15 @@ function NicknameSetupPage() {
     navigate('/login', { replace: true })
   }
 
-  const handleFileSelect = (e) => {
-    const file = e.target.files?.[0]
+  const handleFileSelect = async (e) => {
+    const raw = e.target.files?.[0]
     e.target.value = ''
-    if (!file) return
-    if (!file.type.startsWith('image/')) { setError('이미지 파일만 업로드할 수 있어요'); return }
-    if (file.size > 10 * 1024 * 1024) { setError('파일 크기는 10MB 이하여야 해요'); return }
+    if (!raw) return
+    if (raw.size > 10 * 1024 * 1024) { setError('파일 크기는 10MB 이하여야 해요'); return }
     setError(null)
+    let file
+    try { file = await prepareImageFile(raw) }   // HEIC → JPEG 변환·디코딩 검사 (lib/imageInput)
+    catch (err) { setError(err.message); return }
     const url = URL.createObjectURL(file)
     setCropImageSrc(prev => { if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev); return url })
     setIsCropOpen(true)

@@ -3,6 +3,7 @@ import { Upload, X, Check } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
 import ImageCropModal from '../common/ImageCropModal'
 import { MISSION_ICONS, resolveMissionIcon, normalizeMissionIcon } from '../../lib/missionIcons'
+import { prepareImageFile } from '../../lib/imageInput'
 
 // 미션 아이콘 선택기 — 기본 아이콘 갤러리 + 직접 업로드 + 없음.
 // props:
@@ -25,13 +26,15 @@ function MissionIconPicker({ ownerId, value, onChange, disabled }) {
   // 옛 경로를 가진 기존 미션도 새 아이콘이 선택 상태로 보이도록 정규화 비교
   const normValue = isCustom ? value : normalizeMissionIcon(value)
 
-  const handleFile = (e) => {
-    const file = e.target.files?.[0]
+  const handleFile = async (e) => {
+    const raw = e.target.files?.[0]
     e.target.value = ''
-    if (!file || !ownerId) return
-    if (file.size > MAX_SIZE_BYTES) { setError('이미지가 너무 커요 (최대 10MB)'); return }
-    if (!file.type.startsWith('image/')) { setError('이미지 파일만 업로드 가능해요'); return }
+    if (!raw || !ownerId) return
+    if (raw.size > MAX_SIZE_BYTES) { setError('이미지가 너무 커요 (최대 10MB)'); return }
     setError(null)
+    let file
+    try { file = await prepareImageFile(raw) }   // HEIC → JPEG 변환·디코딩 검사 (lib/imageInput)
+    catch (err) { setError(err.message); return }
     setCropSrc(URL.createObjectURL(file))
     setIsCropOpen(true)
   }

@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { LogOut, Camera, Pencil, X, Loader2, ChevronRight, Bell, Shield, BookOpen, MessageCircle, Activity, LayoutDashboard } from 'lucide-react'
 import { supabase } from '../supabaseClient'
 import { unsubscribeFromPush } from '../lib/push'
+import { prepareImageFile } from '../lib/imageInput'
 import { unsubscribeNativePush } from '../lib/nativePush'
 import { useAuth } from '../hooks/useAuth'
 import { useNicknameCheck } from '../hooks/useNicknameCheck'
@@ -217,19 +218,18 @@ function ProfilePage() {
 
   // 파일 선택 → 바로 업로드하지 않고 크롭 모달을 띄움
   //   원본은 crop 후 512x512 로 축소되므로 제한을 10MB 로 완화 (모바일 사진 수용)
-  const handleFileSelect = (e) => {
-    const file = e.target.files?.[0]
+  const handleFileSelect = async (e) => {
+    const raw = e.target.files?.[0]
     e.target.value = '' // 같은 파일 재선택 가능하게 reset
-    if (!file) return
-    if (!file.type.startsWith('image/')) {
-      setAvatarError('이미지 파일만 업로드할 수 있어요')
-      return
-    }
-    if (file.size > 10 * 1024 * 1024) {
+    if (!raw) return
+    if (raw.size > 10 * 1024 * 1024) {
       setAvatarError('파일 크기는 10MB 이하여야 해요')
       return
     }
     setAvatarError(null)
+    let file
+    try { file = await prepareImageFile(raw) }   // HEIC → JPEG 변환·디코딩 검사 (lib/imageInput)
+    catch (err) { setAvatarError(err.message); return }
     const url = URL.createObjectURL(file)
     // 편집 중 「변경」으로 다른 사진 고를 때 — 이전 objectURL 정리(누수 방지)
     setCropImageSrc(prev => { if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev); return url })
