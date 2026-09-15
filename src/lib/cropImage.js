@@ -2,14 +2,37 @@
 // 원본 이미지에서 crop 영역만 잘라 출력 캔버스에 그려 다운스케일.
 //   아바타: 512x512 (정사각형) / 표지: 1200x675 (16:9) 등
 
-const createImage = (url) =>
+// 이미지 한 장 로드. crossOrigin 은 «원격 주소» 에만 — blob:/data: 는 같은 출처라 필요 없고 실패 여지만 는다.
+const loadImage = (url, useCors) =>
   new Promise((resolve, reject) => {
     const image = new Image()
     image.addEventListener('load', () => resolve(image))
-    image.addEventListener('error', (err) => reject(err))
-    image.setAttribute('crossOrigin', 'anonymous') // canvas 오염 방지
+    image.addEventListener('error', () => reject(new Error('image-load')))
+    if (useCors) image.setAttribute('crossOrigin', 'anonymous') // 원격 표지 재조정 시 canvas 오염 방지
     image.src = url
   })
+
+// 캔버스에 그릴 원본 확보 — 실패해도 한 번 더 다른 길로.
+//   배경(2026-09-15 S20+ 제보): 편집 창엔 사진이 보이는데 저장 시 «다시 불러오기» 가 메시지 없는 error 이벤트로
+//   실패 → 화면엔 기본 문구 "이미지 처리에 실패했어요" 만 떠 원인을 알 수 없었다.
+//   ① Image 로드 → ② 실패 시 데이터를 직접 받아 ImageBitmap 으로 → ③ 그래도 실패면 원인 코드를 문구에 담는다.
+const createImage = async (url) => {
+  const remote = /^https?:/i.test(url)
+  try {
+    return await loadImage(url, remote)
+  } catch (first) {
+    try {
+      const res = await fetch(url)
+      const blob = await res.blob()
+      if (typeof createImageBitmap === 'function') return await createImageBitmap(blob)
+      const objectUrl = URL.createObjectURL(blob)
+      try { return await loadImage(objectUrl, false) } finally { setTimeout(() => URL.revokeObjectURL(objectUrl), 0) }
+    } catch (second) {
+      const code = [first?.message, second?.name || second?.message].filter(Boolean).join('/')
+      throw new Error(`사진을 다시 불러오지 못했어요. 다른 사진으로 시도해주세요 [${code}]`, { cause: second })
+    }
+  }
+}
 
 // imageSrc: 원본 dataURL/objectURL
 // croppedAreaPixels: { x, y, width, height } (react-easy-crop onCropComplete 두 번째 인자)

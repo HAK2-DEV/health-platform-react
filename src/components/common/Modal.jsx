@@ -101,7 +101,13 @@ function Modal({ isOpen, onClose, children, onPrev, onNext, fill = false }) {
             // 키보드 뜨면 모달 최대높이를 키보드 위 실제 보이는 높이(visualViewport)로 제한 → 키보드 위에
             //   온전히 들어오고, overflow-y-auto 라 브라우저가 포커스된 입력창을 자동으로 보이게 스크롤.
             //   (100vh 는 안드 크롬에서 실제보다 커 부정확 → visualViewport 사용) fill·일반 모달 모두 적용.
-            style={kbInset ? { maxHeight: `${Math.max(240, kbViewportH - 12)}px` } : undefined}
+            //   하단 안전 영역(3버튼 내비게이션 바 등) — 화면이 바 밑까지 그려지는 기기에서 하단 버튼이 바에 가려졌다
+            //   (2026-09-15 S20+ 사진 편집 「취소·저장」). 시트 안쪽 여백으로 흰 배경은 바 밑까지 이어지고 버튼만 위로 올라온다.
+            //   키보드가 떠 있으면 바깥 kbInset 이 이미 들어 올리므로 0.
+            style={{
+              ...(kbInset ? { maxHeight: `${Math.max(240, kbViewportH - 12)}px` } : null),
+              paddingBottom: kbInset ? undefined : 'max(env(safe-area-inset-bottom, 0px), var(--safe-area-inset-bottom, 0px))',
+            }}
             onClick={(e) => e.stopPropagation()}
             onTouchStart={onTouchStart}
             onTouchEnd={onTouchEnd}

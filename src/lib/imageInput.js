@@ -111,8 +111,40 @@ export async function prepareImageFile(file, { onConverting } = {}) {
   if (!(await canDecodeImage(file))) throw new Error(UNDECODABLE_MESSAGE)
 
   // MIME 없는 멀쩡한 이미지(일부 안드로이드 선택기) → 타입 붙여서 반환
-  if (!type.startsWith('image/') && sniffed) {
-    return new File([file], file.name || 'photo', { type: sniffed, lastModified: file.lastModified || Date.now() })
+  const typed = (!type.startsWith('image/') && sniffed)
+    ? new File([file], file.name || 'photo', { type: sniffed, lastModified: file.lastModified || Date.now() })
+    : file
+  return downscaleIfHuge(typed)
+}
+
+// 아주 큰 원본(삼성 갤러리는 64MP·108MP 원본을 그대로 넘긴다)은 긴 변 MAX_EDGE 로 줄여서 편집 창에 넣는다.
+//   편집 창 표시 + 저장 시 재디코딩이 원본 크기로 두 번 일어나 저사양·구형 기기에서 메모리로 실패할 수 있다.
+//   결과물은 어차피 최장변 1280 이하라 화질 손실 없음. 실패하면 원본 그대로(기존 동작).
+const MAX_EDGE = 4096
+async function downscaleIfHuge(file) {
+  if (typeof createImageBitmap !== 'function') return file
+  let bmp
+  try {
+    bmp = await createImageBitmap(file)
+    const long = Math.max(bmp.width, bmp.height)
+    if (long <= MAX_EDGE) return file
+    const scale = MAX_EDGE / long
+    const w = Math.round(bmp.width * scale), h = Math.round(bmp.height * scale)
+    const canvas = document.createElement('canvas')
+    canvas.width = w; canvas.height = h
+    const ctx = canvas.getContext('2d')
+    const isPng = file.type === 'image/png'
+    if (!isPng) { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h) }
+    ctx.drawImage(bmp, 0, 0, w, h)
+    const outType = isPng ? 'image/png' : 'image/jpeg'
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, outType, 0.92))
+    if (!blob) return file
+    const name = (file.name || 'photo').replace(/\.[^.]+$/, '') + (isPng ? '.png' : '.jpg')
+    return new File([blob], name, { type: outType, lastModified: file.lastModified || Date.now() })
+  } catch (err) {
+    console.warn('[imageInput] 큰 사진 축소 실패 — 원본 사용', err)
+    return file
+  } finally {
+    bmp?.close?.()
   }
-  return file
 }
