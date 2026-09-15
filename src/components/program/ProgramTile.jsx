@@ -1,4 +1,5 @@
 import ProgramCover from '../common/ProgramCover'
+import { programCoverPath } from '../../lib/programVisuals'
 
 // 프로그램 타일 — 표지 이미지 + 제목만. 그리드 셀(w-full)에 맞춰 정사각.
 function ProgramTile({ program, onClick }) {
@@ -9,7 +10,7 @@ function ProgramTile({ program, onClick }) {
       className="group flex flex-col items-center gap-1.5 w-full"
     >
       <ProgramCover
-        imagePath={program.cover_image_path}
+        imagePath={programCoverPath(program)}
         categories={program.categories}
         name={program.name}
         variant="thumb"

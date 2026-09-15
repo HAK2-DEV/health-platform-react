@@ -12,6 +12,7 @@ import { formatKoreanDate } from '../lib/formatters'
 import { CATEGORY } from '../lib/constants'
 import { setPendingInvite, setInviteHint, clearInviteHint } from '../lib/pendingInvite'
 import { useHealthConsent } from '../contexts/HealthConsentContext'
+import { programCoverPath } from '../lib/programVisuals'
 
 // 초대 코드 가입 페이지 — 코드 단독으로 lookup + 가입
 // 라우트: /join?code=<TEXT>  (program 파라미터는 더 이상 사용 X)
@@ -315,7 +316,7 @@ function PreviewCard({ program, isJoining, onCancel, onJoin, onPreview }) {
       {/* 표지 banner + 우상단 초대 코드 배지 + 하단 페이드 */}
       <div className="relative overflow-hidden">
         <ProgramCover
-          imagePath={program.cover_image_path}
+          imagePath={programCoverPath(program)}
           categories={program.categories}
           name={program.name}
           variant="banner"

@@ -7,6 +7,7 @@ import { CATEGORY } from '../../lib/constants'
 import { queryKeys, fetchActiveParticipantCounts } from '../../lib/queries'
 import { formatKoreanDate } from '../../lib/formatters'
 import EmptyState from '../common/EmptyState'
+import { programCoverPath } from '../../lib/programVisuals'
 
 // 프로그램 둘러보기 모달 — 카테고리 필터 칩 + 정렬 토글 + 리스트.
 //   복수 카테고리는 OR 매칭(그 카테고리를 "포함"하면 노출). 칩은 프로그램이 있는 카테고리만.
@@ -146,7 +147,7 @@ function ProgramBrowseModal({ isOpen, onClose, programs = [], onSelect, isLoadin
                   className="w-full flex items-center gap-2.5 p-3 bg-white border border-gray-100 rounded-card shadow-soft hover:shadow-elevated hover:border-emerald-200 transition text-left"
                 >
                   <ProgramCover
-                    imagePath={program.cover_image_path}
+                    imagePath={programCoverPath(program)}
                     categories={program.categories}
                     name={program.name}
                     variant="thumb"

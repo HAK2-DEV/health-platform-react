@@ -12,6 +12,7 @@ import { queryKeys, fetchProgramJoinInfo, invalidateParticipation } from '../../
 import ProgramCover from '../common/ProgramCover'
 import UserAvatar from '../common/UserAvatar'
 import ConfirmModal from '../common/ConfirmModal'
+import { programCoverPath } from '../../lib/programVisuals'
 
 // 참여 상태: 'loading' | 'owner' | 'active' | 'pending' | 'rejected' | 'none'
 // Day 65 본인 결정 — 모달 UX 강화 (베타 첫 인상):
@@ -228,7 +229,7 @@ function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
           {/* ─── 표지 banner (16:7 짧은 비율, Day 65 본인 결정 — 모달 비율 균형) ─── */}
           <div className="relative -m-px overflow-hidden rounded-t-2xl">
             <ProgramCover
-              imagePath={program.cover_image_path}
+              imagePath={programCoverPath(program)}
               categories={program.categories}
               name={program.name}
               variant="banner"

@@ -69,3 +69,16 @@ export const progressUrgency = (progress) => {
   if (progress >= 70)  return { urgency: 'soon',     barCls: 'bg-amber-400',   textCls: 'text-amber-600', label: '마무리 단계' }
   return { urgency: 'normal', barCls: null, textCls: null, label: null }
 }
+
+// 카드·목록·대시보드 썸네일에 쓸 사진 경로(program-covers 버킷 안 경로).
+//   카드홈에서 운영자가 보는 사진과 같게: ① 편집형 히어로 사진(home_hero.imageUrl) → ② 표지(cover_image_path) → ③ 없음(카테고리 그림).
+//   배경(2026-09-15): 카드홈 히어로 사진만 바꾸면 대시보드는 표지 경로만 봐서 «예전 썸네일» 이 계속 보였다.
+const COVER_BUCKET_MARKER = '/object/public/program-covers/'
+export function programCoverPath(program) {
+  const url = program?.home_hero?.imageUrl
+  if (typeof url === 'string') {
+    const i = url.indexOf(COVER_BUCKET_MARKER)
+    if (i !== -1) return decodeURIComponent(url.slice(i + COVER_BUCKET_MARKER.length).split('?')[0])
+  }
+  return program?.cover_image_path || null
+}

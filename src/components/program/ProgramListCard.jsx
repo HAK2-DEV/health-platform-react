@@ -1,7 +1,7 @@
 import ProgramCover from '../common/ProgramCover'
 import Badge from '../common/Badge'
 import { Users, Calendar, Pencil, Trash2 } from 'lucide-react'
-import { CATEGORY_COLORS, calcProgress, progressUrgency } from '../../lib/programVisuals'
+import { CATEGORY_COLORS, calcProgress, progressUrgency, programCoverPath } from '../../lib/programVisuals'
 import { formatKoreanDate, isUpcomingByStartDate } from '../../lib/formatters'
 
 // 상세 프로그램 카드 (표지 + 이름 + 진행률/상태). 홈·프로그램탭 공용.
@@ -23,7 +23,7 @@ function ProgramListCard({ program, variant = 'active', count, onClick, onDelete
       >
         <div className="flex gap-3 items-start">
           <ProgramCover
-            imagePath={program.cover_image_path}
+            imagePath={programCoverPath(program)}
             categories={program.categories}
             name={program.name}
             variant="thumb"
@@ -95,7 +95,7 @@ function ProgramListCard({ program, variant = 'active', count, onClick, onDelete
     >
       <div className="relative flex-shrink-0">
         <ProgramCover
-          imagePath={program.cover_image_path}
+          imagePath={programCoverPath(program)}
           categories={program.categories}
           name={program.name}
           variant="thumb"

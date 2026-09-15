@@ -6,7 +6,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
 import { ChevronRight, ClipboardList, Calendar, Trash2 } from 'lucide-react'
 import { CATEGORY, CATEGORY_LIST } from '../../lib/constants'
-import { calcProgress, CATEGORY_HEX, progressUrgency } from '../../lib/programVisuals'
+import { calcProgress, CATEGORY_HEX, progressUrgency, programCoverPath } from '../../lib/programVisuals'
 import ProgramCover from '../../components/common/ProgramCover'
 import LoadingState from '../../components/common/LoadingState'
 import EmptyState from '../../components/common/EmptyState'
@@ -88,7 +88,7 @@ function ProgramCard({ program, ctaLabel, onClick, onDelete }) {
           )}
         </div>
         <ProgramCover
-          imagePath={program.cover_image_path}
+          imagePath={programCoverPath(program)}
           categories={program.categories}
           name={program.name}
           variant="thumb"
@@ -151,7 +151,7 @@ function BrowseCard({ program, count, onClick }) {
     >
       <div className="relative">
         <ProgramCover
-          imagePath={program.cover_image_path}
+          imagePath={programCoverPath(program)}
           categories={program.categories}
           name={program.name}
           variant="tile"

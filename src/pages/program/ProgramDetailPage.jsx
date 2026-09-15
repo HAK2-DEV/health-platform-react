@@ -89,7 +89,7 @@ import VerificationGridReview from '../../components/program/VerificationGridRev
 import MarkdownView from '../../components/common/MarkdownView'
 import ConfirmModal from '../../components/common/ConfirmModal'
 import RankingSettingsModal from '../../components/program/RankingSettingsModal'
-import { calcProgress, progressUrgency, calcProgramTiming } from '../../lib/programVisuals'
+import { calcProgress, progressUrgency, calcProgramTiming, programCoverPath } from '../../lib/programVisuals'
 import { markSelfLeft } from '../../lib/kickState'
 
 // 홈 화면과 동일한 채워진(solid) 아이콘 — 참여자/내순위용 (heroicons solid, MIT)
@@ -1178,7 +1178,8 @@ function ProgramDetailPage() {
   // 카드홈 히어로 저장 (운영자) — home_hero 갱신 후 상세 캐시 무효화
   const homeHeroMutation = useMutation({
     mutationFn: (cfg) => updateProgramHomeHero(id, cfg),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.program(id) }),
+    // 히어로 사진 = 대시보드·목록 썸네일(programCoverPath) → 상세만이 아니라 ['programs'] 전체(내 목록·참여 목록·둘러보기) 갱신
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['programs'] }),
     onError: (e) => { console.error('히어로 저장 실패:', e); alert(`저장에 실패했어요: ${e.message}`) },
   })
   const homeGoalMutation = useMutation({
@@ -1917,7 +1918,7 @@ function ProgramDetailPage() {
                 (업로드사진 → 카테고리 일러스트 → 이모지). */}
             <div className="absolute inset-y-0 left-0 w-[38%]">
               <ProgramCover
-                imagePath={program.cover_image_path}
+                imagePath={programCoverPath(program)}
                 categories={program.categories}
                 name={program.name}
                 variant="hero"

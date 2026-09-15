@@ -7,7 +7,7 @@ import { ChevronRight, ArrowLeft, Check, ClipboardList, X } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { checkMissionToday, formatKoreanDate } from '../lib/formatters'
 import { CATEGORY } from '../lib/constants'
-import { CATEGORY_HEX, calcProgress } from '../lib/programVisuals'
+import { CATEGORY_HEX, calcProgress, programCoverPath } from '../lib/programVisuals'
 import { queryKeys, fetchActivePrograms, fetchTodayMissions, fetchTodayCounts, fetchMyTodayActivity, fetchMyParticipantStats, fetchProgramLastActivity } from '../lib/queries'
 import MissionCard from '../components/program/MissionCard'
 import ProgramCover from '../components/common/ProgramCover'
@@ -329,7 +329,7 @@ function FeaturedProgram({ program, onClick }) {
       className="w-full flex items-center gap-3 text-left"
     >
       <ProgramCover
-        imagePath={program.cover_image_path}
+        imagePath={programCoverPath(program)}
         categories={program.categories}
         name={program.name}
         variant="thumb"
@@ -390,7 +390,7 @@ function ProgramPickerCard({ program, recordableCount, onSelect }) {
   if (done) {
     return (
       <div className="w-full flex items-center gap-3 rounded-2xl p-3 bg-gray-50 border border-gray-100">
-        <ProgramCover imagePath={program.cover_image_path} categories={program.categories} name={program.name} variant="thumb" className="w-[80px] h-[60px] aspect-auto rounded-xl flex-shrink-0 opacity-90" />
+        <ProgramCover imagePath={programCoverPath(program)} categories={program.categories} name={program.name} variant="thumb" className="w-[80px] h-[60px] aspect-auto rounded-xl flex-shrink-0 opacity-90" />
         <div className="flex-1 min-w-0">
           <span className="inline-flex items-center justify-center px-2 h-[18px] rounded-[5px] text-[10px] font-bold opacity-70" style={{ backgroundColor: `${color}22`, color }}>{catLabel}</span>
           <h4 className="text-[15px] font-bold text-gray-500 truncate mt-1">{program.name}</h4>
@@ -403,7 +403,7 @@ function ProgramPickerCard({ program, recordableCount, onSelect }) {
 
   return (
     <button type="button" onClick={() => onSelect(program.id)} className="w-full flex items-center gap-3 rounded-2xl p-3 text-left bg-white border border-gray-100 shadow-soft hover:shadow-elevated transition">
-      <ProgramCover imagePath={program.cover_image_path} categories={program.categories} name={program.name} variant="thumb" className="w-[80px] h-[60px] aspect-auto rounded-xl flex-shrink-0" />
+      <ProgramCover imagePath={programCoverPath(program)} categories={program.categories} name={program.name} variant="thumb" className="w-[80px] h-[60px] aspect-auto rounded-xl flex-shrink-0" />
       <div className="flex-1 min-w-0">
         <span className="inline-flex items-center justify-center px-2 h-[18px] rounded-[5px] text-[10px] font-bold" style={{ backgroundColor: `${color}22`, color }}>{catLabel}</span>
         <h4 className="text-[15px] font-bold text-gray-800 truncate mt-1">{program.name}</h4>

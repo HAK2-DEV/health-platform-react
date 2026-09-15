@@ -396,7 +396,9 @@ function RankingHeader() {
 // ─── 배너 ────────────────────────────────────────────────
 function RankingBanner({ badge }) {
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-[#eef7f1] h-[124px]">
+    // 고정 높이(h-[124px]) + 세로 가운데 정렬이면 배지·2줄 제목·2줄 부제가 넘칠 때 배지가 위 테두리에 붙었다
+    //   (2026-09-15 S20+). 배너 텍스트 레시피: 최소 높이 + 글자 영역은 흐름 배치 + 위아래 여백 → 내용만큼 늘어난다.
+    <div className="relative overflow-hidden rounded-2xl bg-[#eef7f1] min-h-[124px]">
       <img
         src="/illustrations/ranking-banner.jpg"
         alt="" aria-hidden="true"
@@ -405,7 +407,7 @@ function RankingBanner({ badge }) {
         style={{ objectPosition: 'center top' }}
       />
       <div className="absolute inset-0 bg-gradient-to-r from-[#eef7f1]/90 via-[#eef7f1]/35 to-transparent" />
-      <div className="absolute inset-0 px-5 flex flex-col justify-center max-w-[64%]">
+      <div className="relative px-5 py-4 min-h-[124px] flex flex-col justify-center max-w-[64%]">
         {badge && (
           <span className="inline-flex self-start items-center px-2 py-0.5 mb-1.5 rounded-md bg-emerald-100 text-emerald-700 text-[11px] font-bold">
             {badge}

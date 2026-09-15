@@ -17,7 +17,7 @@ import LoadingState from '../components/common/LoadingState'
 import EmptyState from '../components/common/EmptyState'
 import InviteHintCard from '../components/common/InviteHintCard'
 import RankTrophyAnim from '../components/common/RankTrophyAnim'
-import { calcProgress, progressUrgency } from '../lib/programVisuals'
+import { calcProgress, progressUrgency, programCoverPath } from '../lib/programVisuals'
 import {
   queryKeys,
   fetchMyPrograms,
@@ -102,7 +102,7 @@ export function ProgramSlideCard({ program, participants, onClick, active = fals
         }}
       >
         <ProgramCover
-          imagePath={program.cover_image_path}
+          imagePath={programCoverPath(program)}
           categories={program.categories}
           name={program.name}
           variant="tile"
