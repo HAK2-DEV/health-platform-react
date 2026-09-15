@@ -168,14 +168,16 @@ function NotificationsPage() {
           onError={(e) => { e.currentTarget.style.display = 'none' }}
           className="absolute inset-0 w-full h-full object-cover object-[center_30%]"
         />
-        <div className="max-w-4xl mx-auto px-4 relative pt-6 flex items-start justify-between gap-3">
+        {/* 우측 버튼(모두 읽음/설정)은 제목 줄 오른쪽 위에 겹쳐 띄운다 — 같은 flex 행에 두면 부제 폭이 149px 로 줄어
+            1.15배 글자에서 두 줄이 되고, 둘째 줄이 -mt-[76px] 로 올라온 흰 시트에 가려졌다(2026-09-16 노트9 실측). 헤더 높이는 그대로. */}
+        <div className="max-w-4xl mx-auto px-4 relative pt-6">
           <div className="flex items-start gap-1.5">
             <BackButton />
-            <div>
+            <div className="min-w-0">
               <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-800 drop-shadow-sm">
                 알림 <span className="text-xl">🔔</span>
               </h1>
-              <p className="text-sm font-medium text-gray-700 mt-1.5 drop-shadow-sm">최근 업데이트를 확인해보세요</p>
+              <p className="text-sm font-medium text-gray-700 mt-1.5 drop-shadow-sm break-keep">최근 업데이트를 확인해보세요</p>
             </div>
           </div>
           {unreadCount > 0 ? (
@@ -183,7 +185,7 @@ function NotificationsPage() {
               type="button"
               onClick={() => markAllReadMutation.mutate()}
               disabled={markAllReadMutation.isPending}
-              className="flex items-center gap-1 px-3 py-2 text-xs text-gray-700 bg-white rounded-pill shadow-soft hover:shadow-elevated transition disabled:opacity-50 flex-shrink-0"
+              className="absolute right-4 top-6 flex items-center gap-1 px-3 py-2 text-xs text-gray-700 bg-white rounded-pill shadow-soft hover:shadow-elevated transition disabled:opacity-50 whitespace-nowrap"
             >
               <Check className="w-3.5 h-3.5" />
               모두 읽음 ({unreadCount})
@@ -191,7 +193,7 @@ function NotificationsPage() {
           ) : (
             <button
               type="button"
-              className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-soft hover:shadow-elevated transition flex-shrink-0"
+              className="absolute right-4 top-6 w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-soft hover:shadow-elevated transition"
               title="알림 설정"
               onClick={() => navigate('/profile')}
             >

@@ -752,9 +752,11 @@ function DashboardPage() {
                   />
                   {/* 라벨 — 기기 폭 안에서 한 줄 유지하며 최대 14px 까지 키움(FitText 자동 축소) */}
                   <FitText max={14} min={8} className="text-gray-500 font-semibold mt-2 leading-tight text-center" title={m.label}>{m.label}</FitText>
-                  <p className="text-[18px] font-extrabold leading-tight mt-0.5 max-w-full truncate tabular-nums">
+                  {/* 18px → 15px: 앱 글자 배율 1.15배(노트9)에서 칸 49px 에 「100%」 가 55px 로 넘쳐 「10…」 으로 잘렸다(2026-09-16 실측).
+                      16px 은 글자 49px = 칸 49px 로 반올림 차이에 여전히 말줄임 → 15px(약 46px)로 여유 확보. 칸 크기는 그대로. */}
+                  <p className="text-[15px] font-extrabold leading-tight mt-0.5 max-w-full truncate tabular-nums">
                     <span className={highlight ? m.accent : 'text-gray-900'}><CountUp value={m.value} duration={1100} /></span>
-                    <span className="text-[11px] text-gray-500 font-bold ml-0.5">{m.unit}</span>
+                    <span className="text-[10px] text-gray-500 font-bold ml-0.5">{m.unit}</span>
                   </p>
                 </button>
               )

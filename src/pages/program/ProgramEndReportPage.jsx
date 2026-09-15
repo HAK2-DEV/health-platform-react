@@ -556,7 +556,7 @@ function CompletionBody({ report, isQuit = false }) {
   return (
     <>
       {/* 도넛(좌) + 범례(우, 탭하면 명단 펼침) — 통계 참여자 상태와 같은 도넛 재사용 */}
-      <div className="flex items-center" style={{ gap: 20 }}>
+      <div className="flex items-center" style={{ gap: 16 }}>
         <StatusDonut segments={donutSegs} total={total || 1} selectedKey={open} onSelect={toggle} size={112} />
         <div className="flex-1 min-w-0 flex flex-col">
           {segs.map(s => {
@@ -566,11 +566,13 @@ function CompletionBody({ report, isQuit = false }) {
             return (
               <button key={s.key} type="button" disabled={disabled} onClick={() => toggle(s.key)}
                 className="flex items-center text-left"
-                style={{ gap: 8, padding: '8px 8px', borderRadius: 10, background: isOpen ? '#f1f3f2' : 'transparent', opacity: disabled ? 0.5 : 1, transition: 'background .2s' }}>
+                style={{ gap: 4, padding: '8px 6px', borderRadius: 10, background: isOpen ? '#f1f3f2' : 'transparent', opacity: disabled ? 0.5 : 1, transition: 'background .2s' }}>
+                {/* 앱 글자 배율 1.15배(노트9)에서 좁은 범례가 눌려 「참여」「1명」 이 한 글자씩 세로로 쪼개졌다(2026-09-16).
+                    인원·% 는 줄어들지 않게, 라벨만 공간이 모자라면 말줄임(「금연 성공」 대비). 도넛 크기는 그대로. */}
                 <span style={{ width: 10, height: 10, borderRadius: '50%', background: s.hex, flexShrink: 0 }} />
-                <span style={{ fontSize: 13, fontWeight: 600, color: '#4b544f' }}>{s.label}</span>
-                <b className="tabular-nums" style={{ marginLeft: 'auto', fontSize: 14, fontWeight: 800, color: '#23282b' }}>{count}명</b>
-                <span className="tabular-nums" style={{ fontSize: 11, color: '#9aa39d', width: 30, textAlign: 'right' }}>{pct(count)}%</span>
+                <span style={{ fontSize: 12, fontWeight: 600, color: '#4b544f', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.label}</span>
+                <b className="tabular-nums" style={{ marginLeft: 'auto', fontSize: 13, fontWeight: 800, color: '#23282b', flexShrink: 0, whiteSpace: 'nowrap' }}>{count}명</b>
+                <span className="tabular-nums" style={{ fontSize: 10.5, color: '#9aa39d', width: 34, flexShrink: 0, textAlign: 'right', whiteSpace: 'nowrap' }}>{pct(count)}%</span>
                 {!disabled && <ChevronDown className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#c3cac5', transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }} />}
               </button>
             )
@@ -663,7 +665,7 @@ function MissionsCard({ report, diagnosis, isQuit = false }) {
           <div className="flex-1" style={{ height: 8, borderRadius: 999, background: '#eef0ef', overflow: 'hidden' }}>
             <div style={{ height: '100%', borderRadius: 999, width: `${m.rate}%`, background: '#10b981', transition: 'width .5s cubic-bezier(.2,.75,.25,1)' }} />
           </div>
-          <span className="tabular-nums flex-shrink-0" style={{ fontSize: 13, fontWeight: 800, color: m.count > 0 ? '#23282b' : '#c3cac5', width: 34, textAlign: 'right' }}>{m.rate}%</span>
+          <span className="tabular-nums flex-shrink-0" style={{ fontSize: 13, fontWeight: 800, color: m.count > 0 ? '#23282b' : '#c3cac5', width: 46, textAlign: 'right', whiteSpace: 'nowrap' }}>{m.rate}%</span>
         </div>
       </div>
     )
@@ -917,7 +919,7 @@ function QuizPerformanceCard({ quizzes, total, diagnosis }) {
           <div className="flex-1" style={{ height: 8, borderRadius: 999, background: '#eef0ef', overflow: 'hidden' }}>
             <div style={{ height: '100%', borderRadius: 999, width: `${q.participationRate}%`, background: '#10b981', transition: 'width .5s cubic-bezier(.2,.75,.25,1)' }} />
           </div>
-          <span className="tabular-nums flex-shrink-0" style={{ fontSize: 13, fontWeight: 800, color: q.submissionCount > 0 ? '#23282b' : '#c3cac5', width: 34, textAlign: 'right' }}>{q.participationRate}%</span>
+          <span className="tabular-nums flex-shrink-0" style={{ fontSize: 13, fontWeight: 800, color: q.submissionCount > 0 ? '#23282b' : '#c3cac5', width: 46, textAlign: 'right', whiteSpace: 'nowrap' }}>{q.participationRate}%</span>
         </div>
       </div>
     )
