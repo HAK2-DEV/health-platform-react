@@ -73,6 +73,9 @@ export default defineConfig({
       },
       workbox: {
         cleanupOutdatedCaches: true,
+        // heic2any(1.35MB) 는 HEIC 사진을 고른 사람만 지연 로드 — 프리캐시에 넣으면 모든 설치·업데이트가 1.35MB 를 미리 받는다.
+        //   런타임엔 다른 JS 청크와 같은 규칙으로 캐시되니 첫 사용 뒤엔 오프라인도 동작.
+        globIgnores: ['**/heic2any-*.js'],
         // Web Push 핸들러(push/notificationclick) 를 생성 SW 에 병합 — public/push-sw-v2.js
         //   (파일명에 버전: 옛 캐시 무효화용. 알림 아이콘 등 바꿀 때 버전 올리면 강제 갱신)
         importScripts: ['/push-sw-v2.js'],
