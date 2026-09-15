@@ -17,7 +17,7 @@ export const HEALTH_CONSENT = {
     { k: '보유 기간', v: '회원 탈퇴 시까지 (탈퇴 즉시 삭제)' },
     { k: '거부 시', v: '해당 기능만 이용할 수 없고, 나머지 서비스는 그대로 이용할 수 있어요' },
   ],
-  note: '동의는 「계정 설정」 또는 ds5acqsjh@naver.com 으로 언제든 철회할 수 있어요.',
+  note: '동의는 「계정 설정」 또는 00jonghak@gmail.com 으로 언제든 철회할 수 있어요.',
 }
 
 export const healthConsentKey = (userId) => ['health-consent', userId]

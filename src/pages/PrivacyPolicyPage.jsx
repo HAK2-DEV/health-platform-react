@@ -3,7 +3,7 @@ import { PrivacyContent } from '../components/legal/LegalContent'
 
 // 개인정보처리방침 라우트 페이지 — 본문은 LegalContent 의 PrivacyContent 로 분리 (회원가입 모달과 공유).
 // ⚠️ 본인 후속 액션:
-//   1) [본인 정보] / ds5acqsjh@naver.com 등 marker 본인 정보로 교체
+//   1) [본인 정보] / 00jonghak@gmail.com 등 marker 본인 정보로 교체
 //   2) 변호사·전문가 검토 권장 (사업자등록 시점에 정식 검토)
 //   3) 약관 변경 시 시행일자 변경 + 공지
 

@@ -134,7 +134,7 @@ export function TermsContent() {
 
       <p className="text-xs text-gray-500 mt-8 pt-4 border-t border-gray-200">
         본 약관은 2026년 9월 22일부터 시행됩니다. (2026년 6월 3일 제정 · 2026년 9월 22일 개정 — 금지 콘텐츠 구체화, 신고·차단 절차, 운영자 책임, 비의료 고지)<br/>
-        문의: ds5acqsjh@naver.com
+        문의: 00jonghak@gmail.com
       </p>
     </LegalPageShell>
   )
@@ -248,7 +248,7 @@ export function PrivacyContent() {
           <li><b>Google LLC(Firebase)</b> — 미국 · 앱 푸시 토큰, 알림 제목·본문 · 앱 알림 발송 · 토큰 삭제 시까지</li>
         </Sub>
         <p className="text-xs text-gray-500 mt-2">
-          국외 이전을 원하지 않는 경우 서비스를 이용할 수 없으며, 이전 거부·정지는 ds5acqsjh@naver.com 으로 요청할 수 있습니다.
+          국외 이전을 원하지 않는 경우 서비스를 이용할 수 없으며, 이전 거부·정지는 00jonghak@gmail.com 으로 요청할 수 있습니다.
         </p>
       </Section>
 
@@ -258,7 +258,7 @@ export function PrivacyContent() {
           <li>개인정보 열람·정정 요청 — 프로필 페이지에서 직접 수정</li>
           <li>회원 탈퇴 — 「프로필 &gt; 계정 설정 &gt; 회원 탈퇴」 메뉴에서 즉시 처리</li>
           <li>앱 없이 탈퇴 요청 — <a href="/account-deletion.html" className="text-emerald-700 underline">계정 삭제 안내 페이지</a>의 방법으로 이메일 요청(7일 이내 처리)</li>
-          <li>처리 정지·동의 철회(건강 관련 정보 포함) — ds5acqsjh@naver.com 로 요청</li>
+          <li>처리 정지·동의 철회(건강 관련 정보 포함) — 00jonghak@gmail.com 로 요청</li>
         </Sub>
       </Section>
 
@@ -298,7 +298,7 @@ export function PrivacyContent() {
       <Section title="11. 개인정보 보호책임자">
         <Sub>
           <li>성명: 서종학</li>
-          <li>연락처: ds5acqsjh@naver.com</li>
+          <li>연락처: 00jonghak@gmail.com</li>
         </Sub>
       </Section>
 
