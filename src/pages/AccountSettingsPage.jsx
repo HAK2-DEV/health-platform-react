@@ -73,11 +73,27 @@ function AccountSettingsPage() {
 
         {/* 웹 번들 식별값 — 폰에서 «어떤 버전의 화면 코드가 도는지» 확인용(vite.config BUILD_ID). 문의·버그 제보 때 이 줄을 캡처해 달라고 안내. */}
         <p className="mt-6 text-center text-[11px] text-gray-400 select-all">
-          {window.Capacitor?.isNativePlatform?.() ? '앱' : '웹'} · 화면 버전 {import.meta.env.VITE_APP_BUILD || 'dev'}
+          {window.Capacitor?.isNativePlatform?.() ? '앱' : '웹'} · 화면 버전 {import.meta.env.VITE_APP_BUILD || 'dev'} · 글자 ×{measureTextScale()}
         </p>
       </div>
     </div>
   )
+}
+
+// 실제 적용된 글자 배율 — 10px 로 선언한 글자를 그려 실제 높이를 잰다(폰 «글자 크기» 가 곱해진 값).
+//   네이티브는 MainActivity 가 최대 1.15배로 제한. 제보 받을 때 이 값으로 폰 설정 영향을 바로 확인.
+function measureTextScale() {
+  try {
+    const probe = document.createElement('span')
+    probe.textContent = '가'
+    probe.style.cssText = 'position:fixed;left:-9999px;top:0;font-size:10px;line-height:1;visibility:hidden'
+    document.body.appendChild(probe)
+    const h = probe.getBoundingClientRect().height
+    probe.remove()
+    return h > 0 ? (h / 10).toFixed(2) : '-'
+  } catch {
+    return '-'
+  }
 }
 
 // ─── 비밀번호 변경 카드 ──────────────────────────────────────

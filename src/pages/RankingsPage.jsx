@@ -409,14 +409,15 @@ function RankingBanner({ badge }) {
         style={{ objectPosition: 'center top' }}
       />
       <div className="absolute inset-0 bg-gradient-to-r from-[#eef7f1]/90 via-[#eef7f1]/35 to-transparent" />
-      <div className="absolute inset-0 px-5 py-3 flex flex-col justify-center max-w-[64%]">
+      {/* 폰 글자 크기는 앱에서 최대 1.15배까지 반영(MainActivity) → 1.15배 최악 합 약 102px 이 124 − 위아래 20 = 104 안에 들어가게 py-2.5 */}
+      <div className="absolute inset-0 px-5 py-2.5 flex flex-col justify-center max-w-[64%]">
         {badge && (
           <span className="inline-flex self-start items-center px-2 py-0.5 mb-1 rounded-md bg-emerald-100 text-emerald-700 text-[11px] font-bold">
             {badge}
           </span>
         )}
         <h2 className="text-[clamp(11.5px,3.5cqi,13px)] font-bold text-gray-800 leading-[1.25] drop-shadow-sm break-keep line-clamp-2">꾸준함이 건강을 만듭니다! 💚</h2>
-        <p className="mt-1 text-[clamp(10px,2.9cqi,11px)] leading-[1.35] text-gray-600 break-keep line-clamp-2">매일의 작은 실천이 큰 변화를 만들어요.</p>
+        <p className="mt-1 text-[clamp(10px,2.9cqi,11px)] leading-[1.3] text-gray-600 break-keep line-clamp-2">매일의 작은 실천이 큰 변화를 만들어요.</p>
       </div>
     </div>
   )

@@ -3,10 +3,30 @@ package com.healthplatform.app;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.WindowManager;
+import android.webkit.WebView;
 import androidx.core.view.WindowCompat;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
+    // 폰 «글자 크기» 설정 반영 상한 (2026-09-15 본인 결정: 1.15배까지만 따른다).
+    //   웹뷰는 기본으로 시스템 글꼴 배율을 그대로 곱해(1.3 → 10px 가 13px) 큰 글꼴 폰에서 배너·링·모달이 넘쳤다.
+    //   작게 설정한 사용자(0.85 등)는 그대로 따르고, 크게 설정한 사용자만 1.15배에서 멈춘다.
+    private static final float MAX_TEXT_SCALE = 1.15f;
+
+    private void applyTextZoomCap() {
+        if (getBridge() == null) return;
+        WebView webView = getBridge().getWebView();
+        if (webView == null) return;
+        float fontScale = getResources().getConfiguration().fontScale;
+        int zoom = Math.round(Math.min(fontScale, MAX_TEXT_SCALE) * 100f);
+        webView.getSettings().setTextZoom(zoom);
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        applyTextZoomCap();   // 앱 사용 중 설정에서 글자 크기를 바꾸고 돌아온 경우까지 반영
+    }
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState); // ← Capacitor 브리지·플러그인 로드(@capacitor/keyboard 포함)

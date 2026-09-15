@@ -227,7 +227,8 @@ function RankRing({ rank, total }) {
       {/* 링 크기(84px)는 고정 — 안쪽 빈 원(지름 약 56px)에 글자를 맞춘다(본인 원칙: 틀은 두고 글자를 줄임, 2026-09-15).
           예전 10px·18px·10px 세 줄(높이 약 43px)은 윗줄 「내 랭킹」 이 원이 좁아지는 위쪽에 걸려 S20+ 에서 테두리를 덮었다.
           9px·15px·9px + 좁은 간격(높이 약 37px) → 윗줄 위치의 원 안쪽 폭 약 41px, 「내 랭킹」 폭 약 28px. */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-[3px]">
+      {/* 폰 글자 크기 1.15배(앱 상한)에서도 윗줄이 테두리에 안 닿게 간격 2px */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-[2px]">
         <span className="text-[9px] text-emerald-600 font-semibold leading-none whitespace-nowrap">내 랭킹</span>
         <span className="text-[15px] font-extrabold text-gray-900 leading-none whitespace-nowrap">{rank ? `${rank}등` : '-'}</span>
         <span className="text-[9px] text-gray-400 leading-none whitespace-nowrap">/ {total || '-'}명</span>
