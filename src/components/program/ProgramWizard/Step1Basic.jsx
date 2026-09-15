@@ -17,6 +17,7 @@ function CatIcon({ cat }) {
   return <img src={src} alt="" aria-hidden="true" onError={() => setErr(true)} className={`${isMed ? 'w-8 h-8 -my-1' : 'w-6 h-6'} object-contain`} />
 }
 import CoverImageUploader from '../../common/CoverImageUploader'
+import { readStep1Draft, writeStep1Draft } from '../../../lib/wizardDraft'   // 1단계 입력·위치 보관(2026-09-16)
 import InfoTip from '../../common/InfoTip'
 
 // 1단계: 기본 정보 — 무스크롤 서브스텝(타입폼) 방식.
@@ -47,14 +48,17 @@ const slideVariants = {
 function Step1Basic({ initialData, onNext, onSave, enterAtEnd = false }) {
   const { session } = useAuth()
   const ownerId = session?.user?.id
+  // 임시저장 재진입(?id=)은 DB 값이 기준 → 보관본은 새 생성에서만 사용
+  const isNewDraft = !initialData?.id
+  const [draft] = useState(() => (isNewDraft ? readStep1Draft() : null))
 
-  const [name, setName] = useState(initialData?.name || '')
-  const [description, setDescription] = useState(initialData?.description || '')
-  const [startDate, setStartDate] = useState(initialData?.start_date || '')
-  const [endDate, setEndDate] = useState(initialData?.end_date || '')
+  const [name, setName] = useState(draft?.name ?? (initialData?.name || ''))
+  const [description, setDescription] = useState(draft?.description ?? (initialData?.description || ''))
+  const [startDate, setStartDate] = useState(draft?.startDate ?? (initialData?.start_date || ''))
+  const [endDate, setEndDate] = useState(draft?.endDate ?? (initialData?.end_date || ''))
   const endDateRef = useRef(null)
-  const [categories, setCategories] = useState(initialData?.categories || [])
-  const [coverImagePath, setCoverImagePath] = useState(initialData?.cover_image_path || null)
+  const [categories, setCategories] = useState(draft?.categories ?? (initialData?.categories || []))
+  const [coverImagePath, setCoverImagePath] = useState(draft?.coverImagePath ?? (initialData?.cover_image_path || null))
   const [error, setError] = useState(null)
 
   // 이름 중복 검사(전역, 마이그 163 RPC) — 종료된 건 무관. 입력 디바운스 후 검사.
@@ -74,7 +78,13 @@ function Step1Basic({ initialData, onNext, onSave, enterAtEnd = false }) {
   const nameChecking = name.trim().length > 0 && (!nameSettled || nameFetching)  // 확인 중(진행 차단)
 
   // 2단계에서 「이전」으로 돌아오면 마지막 서브스텝(소개·사진)부터 보이게
-  const [subStep, setSubStep] = useState(enterAtEnd ? TOTAL - 1 : 0)
+  const [subStep, setSubStep] = useState(enterAtEnd ? TOTAL - 1 : (draft?.subStep ?? 0))
+
+  // 입력·위치가 바뀔 때마다 보관 (새 생성만)
+  useEffect(() => {
+    if (!isNewDraft) return
+    writeStep1Draft({ name, description, startDate, endDate, categories, coverImagePath, subStep })
+  }, [isNewDraft, name, description, startDate, endDate, categories, coverImagePath, subStep])
   const [dir, setDir] = useState(enterAtEnd ? -1 : 1)
   // 라이브러리 프리셋으로 시작하면 카테고리가 이미 정해짐 → 카테고리 서브스텝(2)을 건너뜀
   const skipCategory = !!(initialData?.source_preset_key && initialData?.categories?.length)

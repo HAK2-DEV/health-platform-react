@@ -12,6 +12,7 @@ import Step1Basic from '../../components/program/ProgramWizard/Step1Basic'
 import Step2Type from '../../components/program/ProgramWizard/Step2Type'
 import Step3JoinConditions from '../../components/program/ProgramWizard/Step3JoinConditions'
 import Step4Summary from '../../components/program/ProgramWizard/Step4Summary'
+import { clearStep1Draft } from '../../lib/wizardDraft'
 import LoadingState from '../../components/common/LoadingState'
 
 
@@ -54,6 +55,9 @@ function ProgramNewPage() {
     refetchOnMount: 'always',
   })
   const atLimit = isNewCreation && !!gate && !gate.isAdmin && gate.count >= MAX_PROGRAMS_BETA
+  // 한도 확인을 한 번 통과했는지 — 렌더 중 조건부 1회 갱신(React 권장 «이전 렌더 정보 저장» 패턴)
+  const [gatePassed, setGatePassed] = useState(false)
+  if (gate && !gatePassed) setGatePassed(true)
 
   // 단계 전환 시 페이지 상단으로 자동 스크롤 — App.jsx 의 라우트 변경 스크롤은
   //   같은 /programs/new 안에서 step state 만 바꾸니까 작동 X
@@ -148,12 +152,13 @@ function ProgramNewPage() {
 
   const handleNext = async (stepData) => {
     const result = await saveProgram(stepData)
-    if (result) setCurrentStep(currentStep + 1)
+    if (result) { clearStep1Draft(); setCurrentStep(currentStep + 1) }
   }
 
   const handleSave = async (stepData) => {
     const result = await saveProgram(stepData)
     if (result) {
+      clearStep1Draft()
       // myPrograms 캐시 무효화 — 대시보드/프로그램 탭에서 새 DRAFT 즉시 노출
       // (staleTime 5분 정책으로 자동 refetch 안 됨 → 명시적 invalidate 필요)
       queryClient.invalidateQueries({ queryKey: queryKeys.myPrograms(session.user.id) })
@@ -203,7 +208,8 @@ function ProgramNewPage() {
   }
 
   // 새 생성인데 한도 확인 중 — 마법사가 draft 를 만들기 전에 먼저 검사
-  if (isNewCreation && isCountLoading) {
+  // 한 번 통과한 뒤엔 다시 가리지 않는다 — 가리면 1단계가 새로 그려져 입력·위치가 초기화된다(2026-09-16)
+  if (isNewCreation && isCountLoading && !gatePassed) {
     return <LoadingState variant="page" text="확인 중..." />
   }
 
@@ -234,7 +240,7 @@ function ProgramNewPage() {
   if (isNewCreation && showChooser) {
     return (
       <ProgramCreateChooser
-        onDirect={() => setShowChooser(false)}
+        onDirect={() => { clearStep1Draft(); setShowChooser(false) }}
         onPickPreset={handlePickPreset}
         onBack={() => navigate(-1)}
         busyKey={creatingKey}
