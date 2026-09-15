@@ -184,12 +184,14 @@ function CoverImageUploader({ ownerId, imagePath, onChange, categories, name, di
       </button>
 
       {/* 삭제 버튼 + 안내 */}
-      <div className="flex items-center justify-between mt-2">
-        <p className="text-xs text-gray-500">
+      {/* 폰 글자 크기 1.15배(앱 상한)에서 「비율 조정」「표지 삭제」 가 두 줄로 쪼개졌다(2026-09-16 노트9).
+          버튼은 줄바꿈 금지·줄어들지 않게, 왼쪽 안내 문구가 단어 단위로 줄바꿈하며 자리를 양보한다. */}
+      <div className="flex items-center justify-between gap-2 mt-2">
+        <p className="min-w-0 text-xs text-gray-500 break-keep">
           가로형(16:9) 권장 · 최대 10MB
         </p>
         {imagePath && !uploading && (
-          <div className="flex items-center gap-3">
+          <div className="flex flex-shrink-0 items-center gap-2.5 whitespace-nowrap">
             <button
               type="button"
               onClick={reAdjust}
