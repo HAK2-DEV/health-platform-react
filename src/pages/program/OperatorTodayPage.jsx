@@ -219,8 +219,12 @@ function ReviewTab({ programId, session, onChanged }) {
           return (
             <button key={s.key} type="button" onClick={() => setExpanded(cur => cur === s.key ? null : s.key)}
               className={`flex-1 py-3 px-1 text-center transition ${on ? 'bg-gray-100/80' : 'hover:bg-gray-50 active:bg-gray-100'}`}>
-              <p className="text-[13px] font-semibold text-gray-600 mb-1.5 flex items-center justify-center gap-0.5 whitespace-nowrap">
-                {s.label}<ChevronRight className={`w-3.5 h-3.5 text-gray-400 transition-transform ${on ? 'rotate-90' : ''}`} />
+              {/* 3칸이라 한 칸이 약 112px 인데 「누적 승인 123건」 은 13px 에서도 그 폭을 넘는다. nowrap 만 걸고
+                  말줄임이 없으면 글자가 칸 밖으로 흘러 옆 칸을 침범한다(2026-09-16 점검, 글자 배율 1.15배면 확실).
+                  12px 로 줄이고 넘치면 말줄임 — 화살표는 줄어들지 않게 flex-shrink-0. */}
+              <p className="text-[12px] font-semibold text-gray-600 mb-1.5 flex items-center justify-center gap-0.5 min-w-0">
+                <span className="truncate">{s.label}</span>
+                <ChevronRight className={`w-3.5 h-3.5 flex-shrink-0 text-gray-400 transition-transform ${on ? 'rotate-90' : ''}`} />
               </p>
               <p className={`text-[22px] font-extrabold leading-none ${s.cls}`}>{s.value}<span className="text-[12px] text-gray-400 font-bold ml-0.5">건</span></p>
             </button>

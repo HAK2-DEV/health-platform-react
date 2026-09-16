@@ -558,7 +558,10 @@ function ProgramListPage() {
             {isPublicLoading ? (
               <LoadingState size="sm" />
             ) : filteredPublic.length === 0 ? (
-              <EmptyState icon="🔍" title={catFilter === 'ALL' ? '아직 둘러볼 공개 프로그램이 없어요' : <span className="text-[18px] whitespace-nowrap">이 카테고리엔 아직 프로그램이 없어요</span>} variant="mint" size="lg" />
+              // 제목은 EmptyState 가 text-lg + break-keep 로 그린다. 예전엔 «한 줄로 보이게» 하려고
+              // text-[18px] whitespace-nowrap 을 덧씌웠는데, 앱 글자 배율 1.15배(노트9)에서 약 350px 가 돼
+              // 카드 밖으로 흘러나왔다(2026-09-16 제보). 줄바꿈을 막지 말 것 — 두 줄로 접히는 게 정상.
+              <EmptyState icon="🔍" title={catFilter === 'ALL' ? '아직 둘러볼 공개 프로그램이 없어요' : '이 카테고리엔 아직 프로그램이 없어요'} variant="mint" size="lg" />
             ) : (
               <div className="grid grid-cols-2 gap-3">
                 {filteredPublic.map((p, i) => (
