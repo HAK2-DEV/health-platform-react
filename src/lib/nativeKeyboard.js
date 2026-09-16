@@ -104,4 +104,14 @@ export function initNativeKeyboard() {
     if (!needsJsKeyboard() || !isTextInput(e.target)) return
     deactivate()
   })
+  // 「뒤로가기」로 키보드만 내리면 안드로이드는 입력칸의 포커스를 «유지» 한다 → focusout 이 오지 않아
+  //   올려둔 모달이 접힌 채로 굳고, 아래가 빈 화면처럼 보인다(2026-09-16 제보).
+  //   이 기기는 키보드 표시 여부를 알 수 없으므로 «입력칸 밖을 건드리는 첫 터치» 를 복귀 신호로 쓴다.
+  //   ⚠️ 즉시 원복하면 위와 같은 이유(click 재타깃)로 엉뚱한 요소가 눌리므로 300ms 뒤에 되돌린다.
+  window.addEventListener('touchstart', (e) => {
+    if (!legacyKbOpen || !needsJsKeyboard()) return
+    if (isTextInput(e.target)) return          // 다른 입력칸으로 이동 — 올린 상태 유지
+    clearTimeout(legacyOpenTimer)
+    legacyOpenTimer = setTimeout(() => setLegacyKbOpen(false), 300)
+  }, true)
 }
