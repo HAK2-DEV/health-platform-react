@@ -30,7 +30,10 @@ function ImageCropModal({
   outputHeight = 512,
   title = '사진 편집',
   description = '드래그하고 확대·축소해 위치를 맞춰주세요',
-  minZoom = 0.3,  // 1 미만 허용 → 작은 이미지도 여백 두고 축소 배치 가능
+  // 기본 1 = «틀을 꽉 채움». 1 미만을 허용하면 사진을 축소해 틀 안에 검은 여백이 들어가고,
+  //   그 여백이 그대로 저장된다(2026-09-16 테스터 제보: 「사진 아닌 검은 배경을 박스가 튕겨내면 좋겠다」).
+  //   여백 배치가 «필요한» 화면(카드홈 커버 편집)만 minZoom={0.3} 을 직접 넘긴다.
+  minZoom = 1,
   onPickNew,   // 주면 「변경」(다른 사진 선택) 버튼 노출
   onDelete,    // 주면 「삭제」 버튼 노출
   cropOverlay, // 주면 크롭 영역(저장될 사각형)에 정확히 겹쳐 렌더 — 실제 표시 미리보기(페이드 등). pointer-events-none.
@@ -130,7 +133,12 @@ function ImageCropModal({
               onCropComplete={onCropComplete}
               minZoom={minZoom}
               maxZoom={3}
-              restrictPosition={false}
+              // 기본 objectFit='contain' 은 «사진 전체» 를 컨테이너에 맞추므로, 비율이 다른 사진은
+              //   zoom=1 에서도 크롭 틀에 검은 여백이 남는다 → 'cover' 로 틀을 항상 채운다.
+              //   restrictPosition(기본 true)이 위치까지 이미지 안으로 묶어 여백이 저장될 여지를 없앤다.
+              //   커버 편집(minZoom<1)은 여백 배치가 «목적» 이라 기존 동작(contain + 자유 이동) 유지.
+              objectFit={minZoom < 1 ? 'contain' : 'cover'}
+              restrictPosition={minZoom < 1 ? false : true}
               zoomWithScroll
             />
           )}

@@ -104,6 +104,7 @@ function MissionVerifyPage() {
   const queryClient = useQueryClient()
   const toast = useToast()
   const fileInputRef = useRef(null)
+  const cameraInputRef = useRef(null)   // capture="environment" 전용 — 「카메라로 바로 찍기」(안드13+ 선택기엔 카메라 항목이 없다)
   const photoPreviewRef = useRef(null)  // 사진 첨부 후 화면 중앙으로 스크롤
   const errorRef = useRef(null) // 에러 메시지 — 화면 중앙 스크롤 + 진동
   const beforeOverviewRef = useRef(null) // 인증 직전 overview snapshot — 마일스톤 비교용
@@ -1298,23 +1299,44 @@ function MissionVerifyPage() {
                 </button>
               </div>
             ) : (
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isSubmitting || photoPreparing}
-                className="w-full p-10 border-2 border-dashed border-gray-300 rounded-xl hover:border-emerald-400 hover:bg-emerald-50/30 transition flex flex-col items-center gap-2 text-gray-500 hover:text-emerald-600 disabled:opacity-50"
-              >
-                {photoPreparing
-                  ? <Loader2 className="w-9 h-9 animate-spin text-emerald-500" />
-                  : <Upload className="w-9 h-9" />}
-                <span className="text-sm font-medium">{photoPreparing ? '사진 변환 중…' : '사진 선택하기'}</span>
-                <span className="text-xs text-gray-400">{photoPreparing ? 'HEIC 사진을 JPG로 바꾸고 있어요' : 'JPG / PNG / HEIC · 업로드 시 자동 최적화'}</span>
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isSubmitting || photoPreparing}
+                  className="w-full p-8 border-2 border-dashed border-gray-300 rounded-xl hover:border-emerald-400 hover:bg-emerald-50/30 transition flex flex-col items-center gap-2 text-gray-500 hover:text-emerald-600 disabled:opacity-50"
+                >
+                  {photoPreparing
+                    ? <Loader2 className="w-9 h-9 animate-spin text-emerald-500" />
+                    : <Upload className="w-9 h-9" />}
+                  <span className="text-sm font-medium">{photoPreparing ? '사진 변환 중…' : '사진 선택하기'}</span>
+                  <span className="text-xs text-gray-400">{photoPreparing ? 'HEIC 사진을 JPG로 바꾸고 있어요' : 'JPG / PNG / HEIC · 업로드 시 자동 최적화'}</span>
+                </button>
+                {/* 카메라 바로 찍기 — 안드13+ 사진 선택기에는 카메라 항목이 아예 없어서 「바로 촬영」 이 불가능했다
+                    (2026-09-16 테스터 제보). capture 속성은 시스템 카메라 앱을 띄우므로 앱에 카메라 권한 선언이 필요 없다. */}
+                <button
+                  type="button"
+                  onClick={() => cameraInputRef.current?.click()}
+                  disabled={isSubmitting || photoPreparing}
+                  className="w-full mt-2 h-11 rounded-xl border border-gray-200 text-gray-600 text-sm font-semibold flex items-center justify-center gap-1.5 hover:border-emerald-400 hover:text-emerald-600 transition disabled:opacity-50"
+                >
+                  <Camera className="w-4 h-4" /> 카메라로 바로 찍기
+                </button>
+              </>
             )}
             <input
               ref={fileInputRef}
               type="file"
               accept="image/*"
+              onChange={handleFileSelect}
+              disabled={isSubmitting}
+              className="hidden"
+            />
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
               onChange={handleFileSelect}
               disabled={isSubmitting}
               className="hidden"
