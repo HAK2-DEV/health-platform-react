@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useKeyboardInset } from '../../hooks/useKeyboardInset'
+import { useKeyboardOverlay } from '../../hooks/useKeyboardOverlay'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 import { motion } from 'framer-motion'
@@ -130,7 +130,7 @@ export function GoalCard({ emoji, title, value, unit, hint, editable = false, on
   const [editing, setEditing] = useState(false)
   useBodyScrollLock(editing)  // 목표 카드 편집 오버레이 — iOS 배경 스크롤 방지
   useBackButtonClose(editing, () => setEditing(false))  // 하드웨어 뒤로가기 = 닫기
-  const kbInset = useKeyboardInset()   // iOS 키보드 높이 — 목표 편집 입력 시 카드 위로
+  const { overlayStyle } = useKeyboardOverlay()   // 키보드 — iOS·안드15+ 는 여백, 구형 안드는 위쪽 정렬
   const [draft, setDraft] = useState({ emoji, title, value, unit, hint })
   const set = (k, v) => setDraft((d) => ({ ...d, [k]: v }))
   const open = () => { setDraft({ emoji, title, value, unit, hint }); setEditing(true) }
@@ -157,7 +157,7 @@ export function GoalCard({ emoji, title, value, unit, hint, editable = false, on
         </div>
       </div>
       {editing && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-5" style={{ background: 'rgba(15,23,42,0.45)', paddingBottom: kbInset ? kbInset + 20 : undefined, transition: 'padding-bottom .2s ease' }} onClick={() => setEditing(false)}>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-5" style={{ background: 'rgba(15,23,42,0.45)', ...overlayStyle }} onClick={() => setEditing(false)}>
           <div className="w-full max-w-[320px] rounded-2xl bg-white p-5 shadow-2xl space-y-3" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-[15px] font-bold text-gray-800">목표 카드 편집</h3>
             <div>

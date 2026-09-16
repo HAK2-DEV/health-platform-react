@@ -1,7 +1,7 @@
 import { useState, useEffect, forwardRef, useImperativeHandle } from 'react'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { useBackButtonClose } from '../../hooks/useBackButtonClose'
-import { useKeyboardInset } from '../../hooks/useKeyboardInset'
+import { useKeyboardOverlay } from '../../hooks/useKeyboardOverlay'
 import { supabase } from '../../supabaseClient'
 import { Check, Heart, MessageCircle, Plus, X, ChevronUp, ChevronDown, MoreVertical, Trash2, LayoutGrid } from 'lucide-react'
 import ConfirmModal from '../common/ConfirmModal'
@@ -308,7 +308,7 @@ const CommunityManagePanel = forwardRef(function CommunityManagePanel({ program,
   useBodyScrollLock(!!layoutModal || !!nameModal)  // 레이아웃/이름 오버레이 — iOS 배경 스크롤 방지
   useBackButtonClose(!!layoutModal, () => setLayoutModal(null))  // 하드웨어 뒤로가기 = 닫기(스택 최상단)
   useBackButtonClose(!!nameModal, () => setNameModal(null))
-  const kbInset = useKeyboardInset()   // iOS 키보드 높이 — 게시판 이름 입력 시 카드 위로
+  const { overlayStyle } = useKeyboardOverlay()   // 키보드 — iOS·안드15+ 는 여백, 구형 안드는 위쪽 정렬
   const confirmName = () => {
     const v = (nameModal?.value || '').trim().slice(0, 8)
     if (!v) { setNameModal(null); return }
@@ -647,7 +647,7 @@ const CommunityManagePanel = forwardRef(function CommunityManagePanel({ program,
 
       {/* 게시판 이름 입력 모달 (한줄 설명 모달과 동일 스타일) */}
       {nameModal && (
-        <div className="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center p-5" style={{ paddingBottom: kbInset ? kbInset + 20 : undefined, transition: 'padding-bottom .2s ease' }} onClick={() => setNameModal(null)}>
+        <div className="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center p-5" style={overlayStyle} onClick={() => setNameModal(null)}>
           <div className="w-full max-w-xs bg-white rounded-2xl p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <h4 className="text-[15px] font-bold text-gray-800 mb-2">{nameModal.mode === 'add' ? '새 게시판 이름' : '게시판 이름 수정'}</h4>
             <input

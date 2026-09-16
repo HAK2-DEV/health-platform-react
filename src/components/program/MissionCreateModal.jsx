@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, Fragment } from 'react'
-import { useKeyboardInset } from '../../hooks/useKeyboardInset'
+import { useKeyboardOverlay } from '../../hooks/useKeyboardOverlay'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 import { supabase } from '../../supabaseClient'
@@ -50,7 +50,7 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
   useBodyScrollLock(isOpen)  // iOS 배경 스크롤 방지
   // 하드웨어 뒤로가기 — 만들기 흐름이면 「이전」(onBack: 라이브러리 복귀), 편집이면 닫기.
   useBackButtonClose(isOpen, onBack || onClose)
-  const kbInset = useKeyboardInset()   // iOS 키보드 높이 — 제목·설명·지표 입력 시 카드 위로
+  const { overlayStyle, cardStyle, kbInset } = useKeyboardOverlay()   // 키보드 — 카드는 위쪽 정렬+높이 제한, 전체화면 지표 편집기는 kbInset 여백만
   const isEditMode = !!editMission
 
   const [title, setTitle] = useState('')
@@ -403,8 +403,8 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
   ).filter(o => (o.v !== 'meal' || MEAL_LOGGER_ENABLED) && (o.v !== 'steps' || STEPS_ENABLED))
 
   return (
-    <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-5" style={{ paddingBottom: kbInset ? kbInset + 20 : undefined, transition: 'padding-bottom .2s ease' }} onClick={onClose}>
-      <div className="w-full max-w-md max-h-[88vh] overflow-y-auto bg-white rounded-2xl p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-5" style={overlayStyle} onClick={onClose}>
+      <div className="w-full max-w-md max-h-[88vh] overflow-y-auto bg-white rounded-2xl p-6 shadow-xl" style={cardStyle} onClick={(e) => e.stopPropagation()}>
           {onBack && !isEditMode && step === 1 && (
             <button
               type="button"

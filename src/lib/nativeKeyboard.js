@@ -44,6 +44,8 @@ function isInFixedContainer(el) {
 
 const TOP_TARGET = 140 // 입력칸을 화면 상단에서 이 지점(px)으로 — 상태바/헤더 아래, 어떤 키보드보다 위
 let removeTimer = null
+// 모달 «올리기» 를 늦추는 타이머. 왜 늦추는지는 focusin 핸들러 주석 참고.
+let legacyOpenTimer = null
 
 // ── 고정 모달 안 입력칸 (2026-09-16 노트9 「글쓰기 내용 칸이 키보드에 가림」 제보) ──────────
 //   모달은 position:fixed 라 window 스크롤로 못 올린다. 키보드 높이도 알 수 없으므로(이 기기는
@@ -73,6 +75,7 @@ function activate(el) {
 }
 
 function deactivate() {
+  clearTimeout(legacyOpenTimer)   // 올리기 예약 중이었다면 취소
   // 입력칸 간 전환(포커스아웃→즉시 포커스인) 시 깜빡임 방지 위해 지연 제거.
   removeTimer = setTimeout(() => {
     document.documentElement.style.setProperty('--kb-inset', '0px')
@@ -86,7 +89,15 @@ export function initNativeKeyboard() {
   inited = true
   window.addEventListener('focusin', (e) => {
     if (!needsJsKeyboard() || !isTextInput(e.target)) return
-    if (isInFixedContainer(e.target)) { clearTimeout(removeTimer); setLegacyKbOpen(true); return }
+    if (isInFixedContainer(e.target)) {
+      clearTimeout(removeTimer); clearTimeout(legacyOpenTimer)
+      // ⚠️ 즉시 올리면 안 된다. focusin 은 mousedown 직후에 오는데, 여기서 레이아웃을 바꾸면
+      //    뒤이어 합성되는 «click» 의 대상이 입력칸이 아니라 뒤쪽 배경(backdrop)으로 바뀌어
+      //    오버레이가 그대로 닫혀버린다(2026-09-16 노트9 CDP 이벤트 로그로 확인:
+      //    touchend→INPUT 인데 click→.fixed.inset-0). click 이 끝난 뒤에 올린다.
+      legacyOpenTimer = setTimeout(() => setLegacyKbOpen(true), 300)
+      return
+    }
     activate(e.target)
   })
   window.addEventListener('focusout', (e) => {

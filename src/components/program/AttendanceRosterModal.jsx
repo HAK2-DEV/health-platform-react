@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useKeyboardInset } from '../../hooks/useKeyboardInset'
+import { useKeyboardOverlay } from '../../hooks/useKeyboardOverlay'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -37,7 +37,7 @@ function CodeEditor({ sessionId }) {
 export default function AttendanceRosterModal({ session, confirmedBy = null, attendanceMode = 'operator_roll', onClose }) {
   useBodyScrollLock(true)  // 마운트=열림 → iOS 배경 스크롤 방지
   useBackButtonClose(true, onClose)  // 하드웨어 뒤로가기 = 닫기
-  const kbInset = useKeyboardInset()   // iOS 키보드 높이 — 현장코드 입력 시 카드 위로
+  const { overlayStyle, cardStyle } = useKeyboardOverlay(16)   // 키보드 — iOS·안드15+ 는 여백, 구형 안드는 위쪽 정렬+높이 제한
   const qc = useQueryClient()
   const { data: roster = [], isLoading } = useQuery({
     queryKey: ['roster', session.id], queryFn: () => fetchSessionRoster(session.id), enabled: !!session.id,
@@ -52,8 +52,8 @@ export default function AttendanceRosterModal({ session, confirmedBy = null, att
   const present = roster.filter(r => r.attStatus === 'confirmed').length
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/45" style={{ paddingBottom: kbInset ? kbInset + 16 : undefined, transition: 'padding-bottom .2s ease' }} onClick={onClose}>
-      <div className="w-full max-w-sm max-h-[85vh] overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/45" style={overlayStyle} onClick={onClose}>
+      <div className="w-full max-w-sm max-h-[85vh] overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl" style={cardStyle} onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-1">
           <h3 className="text-[16px] font-bold text-gray-900 truncate pr-2">출석부</h3>
           <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 flex-shrink-0"><X className="w-5 h-5" /></button>

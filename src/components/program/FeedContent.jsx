@@ -7,7 +7,7 @@ import { Heart, MessageCircle, BarChart3, Send, Trash2, Pencil, Flag, CornerDown
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
 import { formatRelativeKstDay } from '../../lib/formatters'
-import { useKeyboardInset } from '../../hooks/useKeyboardInset'
+import { useKeyboardOverlay } from '../../hooks/useKeyboardOverlay'
 import { queryKeys, fetchFeedPosts, fetchPostComments, fetchCommentLikes, toggleCommentLike, FEED_PAGE_SIZE, formatKstDate, updateVerificationNote, fetchLatestCommentAward, fetchCommentAwards } from '../../lib/queries'
 import { useToast } from '../../contexts/ToastContext'
 import { getCachedSignedUrls, getSignedUrls, thumbPathOf } from '../../lib/signedUrls'
@@ -67,7 +67,7 @@ function MealFeedSummary({ post }) {
 //   targetCommentId: 알림 ?c= 자동 스크롤 (위와 동일)
 function FeedContent({ program, layout: layoutProp = null, targetVerificationId = null, targetCommentId = null, readOnly = false }) {
   const id = program.id
-  const kbInset = useKeyboardInset()   // iOS 키보드 높이 — 포커스 상세 오버레이(댓글) 위로
+  const { overlayStyle, cardStyle } = useKeyboardOverlay()   // 키보드 — 포커스 상세(댓글) 오버레이. 구형 안드는 위쪽 정렬+높이 제한
   const endedProgram = !!program && progressUrgency(calcProgress(program.start_date, program.end_date)).urgency === 'ended'
   // 반응(좋아요·댓글) 허용 — 커뮤니티 ③ 토글(community_settings.reactionAuto). 기본 허용.
   const reactionsEnabled = program.community_settings?.reactionAuto !== false
@@ -350,10 +350,10 @@ function FeedContent({ program, layout: layoutProp = null, targetVerificationId 
       })()}
       {showFull && (
         <div className={focusedId && layout !== 'feed' ? 'fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-5' : ''}
-          style={focusedId && layout !== 'feed' ? { touchAction: 'pan-y', paddingBottom: kbInset ? kbInset + 20 : undefined, transition: 'padding-bottom .2s ease' } : undefined}
+          style={focusedId && layout !== 'feed' ? { touchAction: 'pan-y', ...overlayStyle } : undefined}
           onClick={focusedId && layout !== 'feed' ? () => setFocusedId(null) : undefined}>
         <div className={focusedId && layout !== 'feed' ? 'w-full max-w-md max-h-[85vh] overflow-y-auto overflow-x-hidden overscroll-contain space-y-5' : 'space-y-5'}
-          style={focusedId && layout !== 'feed' ? { touchAction: 'pan-y' } : undefined}
+          style={focusedId && layout !== 'feed' ? { touchAction: 'pan-y', ...cardStyle } : undefined}
           onClick={focusedId && layout !== 'feed' ? (e) => e.stopPropagation() : undefined}>
       {visiblePosts.map(post => {
         const likedByMe = post.likedUserIds.has(myUserId)

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useKeyboardInset } from '../../hooks/useKeyboardInset'
+import { useKeyboardOverlay } from '../../hooks/useKeyboardOverlay'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -21,7 +21,7 @@ import ConfirmModal from '../common/ConfirmModal'
 //   layout:       'bar'(피드 액션바, 우측 정렬) | 'block'(통계 카드 하단, 구분선)
 function OperatorVerificationActions({ verification, programId, feedEnabled = true, layout = 'bar' }) {
   const queryClient = useQueryClient()
-  const kbInset = useKeyboardInset()   // iOS 키보드 높이 — 제외 사유 입력 시 카드 위로
+  const { overlayStyle } = useKeyboardOverlay()   // 키보드 — iOS·안드15+ 는 여백, 구형 안드는 위쪽 정렬
   const isExcluded = verification.status === 'REJECTED'
   const isHidden = verification.feed_visible === false
 
@@ -109,7 +109,7 @@ function OperatorVerificationActions({ verification, programId, feedEnabled = tr
 
       {/* 점수 제외 — 사유 입력 중앙 카드 */}
       {excludeOpen && (
-        <div className="fixed inset-0 z-[80] bg-black/40 flex items-center justify-center p-5" style={{ touchAction: 'pan-y', paddingBottom: kbInset ? kbInset + 20 : undefined, transition: 'padding-bottom .2s ease' }} onClick={() => !busy && setExcludeOpen(false)}>
+        <div className="fixed inset-0 z-[80] bg-black/40 flex items-center justify-center p-5" style={{ touchAction: 'pan-y', ...overlayStyle }} onClick={() => !busy && setExcludeOpen(false)}>
           <div className="w-full max-w-xs bg-white rounded-2xl p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-2 mb-1.5">
               <span className="w-7 h-7 rounded-full bg-red-50 text-red-500 flex items-center justify-center flex-shrink-0"><Ban className="w-4 h-4" /></span>
