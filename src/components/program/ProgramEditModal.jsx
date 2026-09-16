@@ -111,6 +111,13 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
     return null
   }
 
+  // 금연·달리기·식단 카드홈은 «전용 히어로» 를 써서 프로그램 홈에 표지가 표시되지 않는다(목록 썸네일에만 반영).
+  //   운영자가 표지를 바꿔도 홈이 그대로라 「썸네일 변경이 안 된다」 는 제보가 나왔다
+  //   (2026-09-16 금연 「노담」 — 같은 표지를 네 번 다시 올림). 그래서 어디에 쓰이는 사진인지 명시한다.
+  const coverHiddenOnHome = program?.theme === 'QUIT_SMOKING'
+    || program?.theme === 'RUNNING'
+    || program?.categories?.[0] === 'DIET'
+
   const handleSave = async () => {
     const validationError = validate()
     if (validationError) {
@@ -192,6 +199,13 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               대표 사진 (선택)
             </label>
+            {/* 이 사진이 «어디에» 쓰이는지 — 홈에 안 보이는 테마는 그 사실까지 알려 오해를 없앤다. */}
+            <p className="text-xs text-gray-500 mb-2 break-keep leading-relaxed">
+              대시보드·둘러보기 목록의 썸네일로 쓰여요
+              {coverHiddenOnHome && (
+                <span className="text-amber-600"> · 이 프로그램 홈 화면에는 표시되지 않아요</span>
+              )}
+            </p>
             <CoverImageUploader
               ownerId={program.owner_id}
               imagePath={coverImagePath}
