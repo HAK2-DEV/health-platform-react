@@ -45,8 +45,23 @@ function isInFixedContainer(el) {
 const TOP_TARGET = 140 // 입력칸을 화면 상단에서 이 지점(px)으로 — 상태바/헤더 아래, 어떤 키보드보다 위
 let removeTimer = null
 
+// ── 고정 모달 안 입력칸 (2026-09-16 노트9 「글쓰기 내용 칸이 키보드에 가림」 제보) ──────────
+//   모달은 position:fixed 라 window 스크롤로 못 올린다. 키보드 높이도 알 수 없으므로(이 기기는
+//   visualViewport·@capacitor/keyboard 둘 다 무반응), «키보드가 떴다» 는 사실만 알려주고
+//   Modal 컴포넌트가 스스로 화면 위쪽으로 붙어 어떤 키보드보다 위에 있게 한다.
+let legacyKbOpen = false
+const legacyKbSubs = new Set()
+function setLegacyKbOpen(v) {
+  if (legacyKbOpen === v) return
+  legacyKbOpen = v
+  legacyKbSubs.forEach((cb) => { try { cb(v) } catch { /* 구독자 오류는 무시 */ } })
+}
+export function getLegacyKeyboardOpen() { return legacyKbOpen }
+export function subscribeLegacyKeyboard(cb) { legacyKbSubs.add(cb); return () => legacyKbSubs.delete(cb) }
+
 function activate(el) {
   clearTimeout(removeTimer)
+  setLegacyKbOpen(false)   // 모달 밖 입력칸 — 모달 들어올림은 필요 없다
   // 스크롤 공간 확보(넉넉히) — 페이지 하단 입력칸도 상단까지 끌어올릴 수 있게.
   document.documentElement.style.setProperty('--kb-inset', '60vh')
   // 키보드 애니메이션이 끝난 뒤 스크롤(포커스가 유지된 경우에만).
@@ -61,6 +76,7 @@ function deactivate() {
   // 입력칸 간 전환(포커스아웃→즉시 포커스인) 시 깜빡임 방지 위해 지연 제거.
   removeTimer = setTimeout(() => {
     document.documentElement.style.setProperty('--kb-inset', '0px')
+    setLegacyKbOpen(false)
   }, 250)
 }
 
@@ -69,7 +85,8 @@ export function initNativeKeyboard() {
   if (inited) return
   inited = true
   window.addEventListener('focusin', (e) => {
-    if (!needsJsKeyboard() || !isTextInput(e.target) || isInFixedContainer(e.target)) return
+    if (!needsJsKeyboard() || !isTextInput(e.target)) return
+    if (isInFixedContainer(e.target)) { clearTimeout(removeTimer); setLegacyKbOpen(true); return }
     activate(e.target)
   })
   window.addEventListener('focusout', (e) => {

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence, useDragControls } from 'framer-motion'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { useBackButtonClose } from '../../hooks/useBackButtonClose'
+import { useLegacyKeyboardOpen } from '../../hooks/useLegacyKeyboardOpen'
 
 // 스와이프 다운 임계값 — 모달 닫기용. 좌우 스와이프는 브라우저 swipe-to-navigate
 // 와 충돌이 잦아 본인 결정으로 제거. 대신 좌·우 fade 버튼으로 대체 (Day 65).
@@ -66,6 +67,23 @@ function Modal({ isOpen, onClose, children, onPrev, onNext, fill = false }) {
     return () => { vv.removeEventListener('resize', onResize); vv.removeEventListener('scroll', onResize) }
   }, [isOpen])
 
+  // 구형 안드로이드(노트9=안드10 등) 키보드 대응 — 2026-09-16 「글쓰기 내용 칸이 키보드에 가림」 제보.
+  //   이 기기들은 창을 리사이즈하지 않고(adjustNothing) visualViewport 도 키보드에 무반응이라 위의 kbInset 이
+  //   0 이다. 키보드 «높이» 를 알 방법이 아예 없으므로(플러그인도 제거됨), 높이 대신 «떴다» 는 사실만 받아
+  //   시트를 화면 위쪽에 붙이고 높이를 제한한다 → 어떤 키보드보다 위라 항상 보인다. [[lib/nativeKeyboard]]
+  const legacyKbOpen = useLegacyKeyboardOpen()
+  const legacyLift = isOpen && legacyKbOpen && !kbInset
+
+  // 시트가 위로 접힌 뒤 포커스된 입력칸이 시트 스크롤 밖일 수 있다 → 시트 내부 스크롤로 끌어온다.
+  useEffect(() => {
+    if (!legacyLift) return
+    const t = setTimeout(() => {
+      const el = document.activeElement
+      if (el && typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    }, 320)
+    return () => clearTimeout(t)
+  }, [legacyLift])
+
   // 하드웨어/브라우저 뒤로가기 = 모달 닫기 (공용 훅 — 모든 오버레이가 상태 공유). [[useBackButtonClose]]
   useBackButtonClose(isOpen, onClose)
 
@@ -74,7 +92,12 @@ function Modal({ isOpen, onClose, children, onPrev, onNext, fill = false }) {
       {isOpen && (
         <div
           className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4"
-          style={{ paddingBottom: kbInset || undefined, transition: 'padding-bottom .2s ease' }}
+          style={{
+            paddingBottom: kbInset || undefined,
+            transition: 'padding-bottom .2s ease',
+            // 구형 안드 키보드 — 바텀시트를 화면 위쪽으로 붙인다(아래는 키보드가 덮는 영역).
+            ...(legacyLift ? { alignItems: 'flex-start', paddingTop: 8 } : null),
+          }}
           onClick={onClose}
         >
           {/* 배경 흐림 — fade */}
@@ -106,7 +129,10 @@ function Modal({ isOpen, onClose, children, onPrev, onNext, fill = false }) {
             //   키보드가 떠 있으면 바깥 kbInset 이 이미 들어 올리므로 0.
             style={{
               ...(kbInset ? { maxHeight: `${Math.max(240, kbViewportH - 12)}px` } : null),
-              paddingBottom: kbInset ? undefined : 'max(env(safe-area-inset-bottom, 0px), var(--safe-area-inset-bottom, 0px))',
+              //   구형 안드: 키보드 높이를 모르므로 «화면 위쪽 절반» 안에 시트를 가둔다. fill 모달의 고정 높이(h-[88vh])도
+              //   여기서 풀어야 해서 height:auto 를 함께 준다. 값은 노트9 실측으로 정함(키보드+툴바 약 45%).
+              ...(legacyLift ? { height: 'auto', maxHeight: '52vh' } : null),
+              paddingBottom: kbInset || legacyLift ? undefined : 'max(env(safe-area-inset-bottom, 0px), var(--safe-area-inset-bottom, 0px))',
             }}
             onClick={(e) => e.stopPropagation()}
             onTouchStart={onTouchStart}
