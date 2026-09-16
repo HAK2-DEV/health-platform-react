@@ -53,11 +53,16 @@ function QuitSmokingHero({ programId, streak = 0, savedAmount = null, healthScor
 
       <div className="relative z-10 h-full flex flex-col px-4 pt-4 pb-3">
         {/* 텍스트 — 좌측 절반 (우측 인물과 안 겹침, 💚도 좌측에 머묾) */}
-        <div className="max-w-[52%]">
+        {/* ⚠️ 앱 글자 배율 1.15배(노트9)에서 이 블록이 커져 220px 를 넘기면, 바닥 정렬된 지표 카드가
+            overflow-hidden 에 잘려 «값(N일·N원·N단계)» 이 통째로 사라졌다(2026-09-16 제보).
+            배너 높이는 위계상 그대로 두고 글자를 줄인다 — [[project_banner_text_recipe]].
+            min-h-0 + line-clamp 로 이 블록이 지표 카드를 밀어내지 못하게 막는다. */}
+        <div className="max-w-[52%] min-h-0">
           {/* break-keep — 좁은 폰에서 단어 중간 잘림 방지. (높이 h-[220px]는 h-full+mt-auto 지표카드 바닥 정렬 구조라 min-h 로 바꾸지 말 것) */}
-          <h1 className="text-xl font-semibold text-gray-900 leading-tight break-keep">{smokedToday ? '오늘도 금연 도전!' : '오늘도 금연 성공!'}</h1>
-          <p className="text-[12px] font-semibold text-gray-800 mt-1 leading-snug break-keep">작은 실천이 큰 변화를 만들어요 <span className="text-emerald-500">💚</span></p>
-          <p className="text-[12px] text-gray-600 mt-1.5 leading-snug break-keep">서로 응원하며, 건강한 습관을 <br />함께 만들어요!</p>
+          <h1 className="text-[clamp(16px,4.8vw,20px)] font-semibold text-gray-900 leading-tight break-keep line-clamp-1">{smokedToday ? '오늘도 금연 도전!' : '오늘도 금연 성공!'}</h1>
+          <p className="text-[clamp(10.5px,3.1vw,12px)] font-semibold text-gray-800 mt-1 leading-snug break-keep line-clamp-2">작은 실천이 큰 변화를 만들어요 <span className="text-emerald-500">💚</span></p>
+          {/* 고정 <br/> 은 1.15배에서 3줄이 되어 넘쳤다 → 자동 줄바꿈 + 2줄 제한 */}
+          <p className="text-[clamp(10.5px,3.1vw,12px)] text-gray-600 mt-1.5 leading-snug break-keep line-clamp-2">서로 응원하며, 건강한 습관을 함께 만들어요!</p>
         </div>
 
         {/* 지표 카드 — 하단 정렬 (연속 금연 / 오늘 절약 / 건강 점수) */}
@@ -119,14 +124,15 @@ function Stat({ icon, label, value, valueColor = 'text-emerald-600', onClick }) 
       <FitText max={20} min={12} className={`font-extrabold ${valueColor} leading-none text-center`} title={typeof value === 'string' ? value : undefined}>{value}</FitText>
     </>
   )
+  // py-4(32px) → py-3(24px): 1.15배에서 라벨·값이 220px 배너 안에 들어오도록 세로 여유 확보(2026-09-16).
   if (onClick) {
     return (
-      <button type="button" onClick={onClick} className="flex-1 px-2 py-4 text-center rounded-lg hover:bg-gray-50 transition">
+      <button type="button" onClick={onClick} className="flex-1 min-w-0 px-2 py-3 text-center rounded-lg hover:bg-gray-50 transition">
         {inner}
       </button>
     )
   }
-  return <div className="flex-1 px-2 py-4 text-center">{inner}</div>
+  return <div className="flex-1 min-w-0 px-2 py-3 text-center">{inner}</div>
 }
 function Divider() {
   return <div className="w-px my-3 bg-gray-200" />
