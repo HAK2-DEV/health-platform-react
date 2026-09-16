@@ -379,7 +379,10 @@ const STYLE = `
 #ob-root .ob-lead{margin-top:11px;font-size:14.5px;line-height:1.6;color:var(--ob-muted)}
 #ob-root .ob-cta{width:100%;height:54px;border:none;border-radius:16px;background:var(--ob-green);color:#fff;font-family:var(--ob-ff);font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 8px 20px -8px color-mix(in srgb,var(--ob-green) 70%,transparent);display:flex;align-items:center;justify-content:center;gap:8px}
 #ob-root .ob-cta.ghost{background:var(--ob-surface2);color:var(--ob-ink);box-shadow:none;height:48px;font-size:14.5px}
-#ob-root .ob-foot{position:sticky;bottom:0;background:var(--ob-bg);padding:14px 0 22px;flex-shrink:0;margin-top:auto}
+/* 하단 여백은 내비게이션 바 높이를 포함해야 한다. 안드로이드 16(API 36)부터는 엣지-투-엣지 해제가
+   무시돼 화면이 내비 바 밑까지 그려지는데, 고정 22px 만 두면 「나중에 할게요」가 바에 가린다
+   (2026-09-16 제보, 갤럭시 26 울트라·안드 16). 인셋이 0인 기기는 기존과 동일하게 22px. */
+#ob-root .ob-foot{position:sticky;bottom:0;background:var(--ob-bg);padding:14px 0 max(env(safe-area-inset-bottom),22px);flex-shrink:0;margin-top:auto}
 #ob-root .ob-foot .ob-cta+.ob-cta{margin-top:9px}
 #ob-root .ob-center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
 #ob-root .ob-hero{width:104px;height:104px;border-radius:26px;overflow:hidden;box-shadow:0 18px 40px -14px color-mix(in srgb,var(--ob-green) 55%,transparent);animation:obpop .6s cubic-bezier(.2,1.3,.5,1) both}
