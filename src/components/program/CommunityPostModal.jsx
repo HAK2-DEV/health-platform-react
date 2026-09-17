@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Image as ImageIcon, X, Crop, Clock } from 'lucide-react'
+import { Image as ImageIcon, X, Crop, Clock, Loader2 } from 'lucide-react'
 import Modal from '../common/Modal'
 import ImageCropModal from '../common/ImageCropModal'
 import { supabase } from '../../supabaseClient'
@@ -28,6 +28,7 @@ function CommunityPostModal({ isOpen, onClose, program, boards = [], defaultBoar
   const [cropSrc, setCropSrc] = useState(null)   // 편집 중인 원본 objectURL
   const [isCropOpen, setIsCropOpen] = useState(false)
   const [pendingDone, setPendingDone] = useState(false)  // 승인 필요 게시판 제출 완료 안내 카드
+  const [preparing, setPreparing] = useState(false)      // HEIC 변환·디코딩 검사 중 (lib/imageInput)
   useBackButtonClose(pendingDone, () => setPendingDone(false))  // 하드웨어 뒤로가기 = 닫기(스택 최상단)
 
   // 작성 중 보관 키 — 새 글만. 수정은 원본이 DB 에 있으므로 보관하지 않는다. [[lib/formDraft]]
@@ -107,10 +108,17 @@ function CommunityPostModal({ isOpen, onClose, program, boards = [], defaultBoar
   const onPick = async (e) => {
     const raw = e.target.files?.[0]; e.target.value = ''
     if (!raw) return
-    if (raw.size > 10 * 1024 * 1024) { setError('이미지는 최대 10MB예요'); return }
+    // 상한은 «압축 전 원본» 기준. 인증 화면(MissionVerifyPage)과 같은 30MB 로 맞춘다.
+    //   예전엔 여기만 10MB 라, 갤럭시 고화질(50MP·HDR) 원본을 쓰는 사람은 같은 사진인데도
+    //   「인증은 되는데 게시판만 안 되는」 비대칭을 겪었다(2026-09-17 진단).
+    //   어차피 아래에서 1280px·0.6MB 로 압축해 올리므로 저장·전송량에는 영향이 없다.
+    if (raw.size > 30 * 1024 * 1024) { setError('사진이 너무 커요 (30MB 이하로 올려주세요)'); return }
     setError(null)
     let f
-    try { f = await prepareImageFile(raw) }   // HEIC → JPEG 변환·디코딩 검사 (lib/imageInput)
+    // ⚠️ onConverting 을 «반드시» 넘긴다 — HEIC 변환은 1.35MB 청크를 내려받아 디코딩까지 하느라
+    //   수 초 걸린다. 표시가 없으면 사용자 눈엔 「눌렀는데 아무 일도 안 일어남」이 된다
+    //   (2026-09-17 「사진 업로드가 안 된다」 제보 진단. 인증 화면엔 원래 있던 것이 여기만 빠져 있었다).
+    try { f = await prepareImageFile(raw, { onConverting: setPreparing }) }
     catch (err) { setError(err.message); return }
     setCropSrc(prev => { if (prev) URL.revokeObjectURL(prev); return URL.createObjectURL(f) })
     setIsCropOpen(true)
@@ -179,9 +187,15 @@ function CommunityPostModal({ isOpen, onClose, program, boards = [], defaultBoar
               </div>
             </div>
           ) : (
-            <label className="flex items-center justify-center gap-1.5 h-11 rounded-lg border-2 border-dashed border-gray-300 text-gray-500 text-sm font-medium cursor-pointer hover:border-emerald-400 hover:text-emerald-600 transition">
-              <ImageIcon className="w-4 h-4" /> 사진 추가 (선택)
-              <input type="file" accept="image/*" onChange={onPick} className="hidden" />
+            <label className={`flex items-center justify-center gap-1.5 h-11 rounded-lg border-2 border-dashed text-sm font-medium transition ${
+              preparing
+                ? 'border-emerald-300 bg-emerald-50/60 text-emerald-600 pointer-events-none'
+                : 'border-gray-300 text-gray-500 cursor-pointer hover:border-emerald-400 hover:text-emerald-600'
+            }`}>
+              {preparing
+                ? <><Loader2 className="w-4 h-4 animate-spin" /> 사진 준비 중… (HEIC 사진을 JPG로 바꾸는 중)</>
+                : <><ImageIcon className="w-4 h-4" /> 사진 추가 (선택)</>}
+              <input type="file" accept="image/*" onChange={onPick} disabled={preparing} className="hidden" />
             </label>
           )}
 

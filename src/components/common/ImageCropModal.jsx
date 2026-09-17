@@ -197,8 +197,15 @@ function ImageCropModal({
           </div>
         )}
 
-        {/* 버튼 */}
-        <div className="flex gap-2">
+        {/* 버튼 — 시트 하단에 «붙여» 둔다 (sticky).
+            크롭 영역(122줄)이 w-full aspect-square 라 시트 높이의 절반 이상을 차지해, 세로가 짧은 화면·
+            큰 글꼴(웹뷰가 폰 글자 크기를 곱함)·하단 안전영역이 겹치면 「취소·저장」이 Modal 의
+            max-h-[85vh] 밖으로 밀린다. 더 나쁜 것은 크롭 박스가 react-easy-crop 의 touch-action:none
+            이라 그 위를 쓸어도 시트가 스크롤되지 않는다는 점 — 사용자는 «저장 버튼이 아래에 있다»는
+            사실조차 알 수 없어, 뒤로가기로 빠져나오고 사진은 조용히 버려진다
+            (2026-09-17 「사진 업로드가 안 된다」 제보 조사에서 1순위로 지목된 경로).
+            글쓰기 모달(6819dd0)에 적용한 것과 같은 패턴. [[components/common/Modal]] */}
+        <div className="sticky bottom-0 -mx-6 px-6 pt-2.5 pb-0.5 bg-white border-t border-gray-100 flex gap-2">
           <button
             type="button"
             onClick={onClose}
