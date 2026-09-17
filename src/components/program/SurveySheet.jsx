@@ -2,19 +2,24 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X } from 'lucide-react'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
+import { useKeyboardOverlay } from '../../hooks/useKeyboardOverlay'
 
 // 참여 설문 시트 — 문항 유형(text·scale) 렌더 + 제출.
 //   questions: [{ id, type:'text'|'scale', q, min?, max?, minLabel?, maxLabel? }]
 export default function SurveySheet({ open, title = '시작 설문', questions = [], initial = null, onClose, onSubmit }) {
   const [ans, setAns] = useState(() => initial || {})
   useBodyScrollLock(open)
+  // 키보드 — 공용 Modal 이 아닌 자체 바텀시트라 직접 대응한다. iOS·안드15+ 는 아래 여백,
+  //   구형 안드(노트9=안드10)는 창이 안 줄어 높이를 알 수 없으므로 시트를 화면 위쪽에 붙이고
+  //   52vh(=347px, 2026-09-17 실측)로 가둔다. [[hooks/useKeyboardOverlay]]
+  const { overlayStyle, cardStyle } = useKeyboardOverlay(16)
   const set = (id, v) => setAns((a) => ({ ...a, [id]: v }))
   return (
     <AnimatePresence>
       {open && (
-        <motion.div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: 'rgba(15,23,42,0.45)' }}
+        <motion.div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: 'rgba(15,23,42,0.45)', ...overlayStyle }}
           onClick={onClose} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-          <motion.div className="w-full max-w-md bg-white rounded-t-3xl p-5 pb-8 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}
+          <motion.div className="w-full max-w-md bg-white rounded-t-3xl p-5 pb-8 max-h-[85vh] overflow-y-auto" style={cardStyle} onClick={(e) => e.stopPropagation()}
             initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', damping: 30, stiffness: 300 }}>
             <div className="flex items-center mb-1">
               <h3 className="text-[16px] font-extrabold text-gray-900">{title}</h3>
@@ -45,8 +50,13 @@ export default function SurveySheet({ open, title = '시작 설문', questions =
                 </div>
               ))}
             </div>
-            <button type="button" onClick={() => onSubmit?.(ans)}
-              className="mt-6 w-full h-12 rounded-xl bg-emerald-500 text-white text-[15px] font-bold active:scale-[0.98] transition">제출</button>
+            {/* 제출 — 시트 «하단에 붙여» 둔다 (sticky). 구형 안드에서 키보드가 뜨면 시트가 52vh(=347px)로
+                갇히는데 설문 내용은 그보다 길어(실측 574px) 제출 버튼이 스크롤 밖으로 밀린다.
+                바깥 시트 padding 이 p-5 이므로 -mx-5 px-5 로 폭을 맞춘다. [[components/program/CommunityPostModal]] */}
+            <div className="sticky bottom-0 -mx-5 px-5 mt-6 pt-2.5 pb-0.5 bg-white border-t border-gray-100">
+              <button type="button" onClick={() => onSubmit?.(ans)}
+                className="w-full h-12 rounded-xl bg-emerald-500 text-white text-[15px] font-bold active:scale-[0.98] transition">제출</button>
+            </div>
           </motion.div>
         </motion.div>
       )}

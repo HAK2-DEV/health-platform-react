@@ -163,7 +163,10 @@ function QuizEditModal({ quiz, isOpen, onClose, onSuccess }) {
             </p>
           )}
 
-          <div className="flex gap-2 mt-5">
+          {/* 취소·저장 — 시트 «하단에 붙여» 둔다(sticky). 구형 안드(노트9)는 키보드 높이를 알 수 없어
+              Modal 이 시트를 52vh(노트9 실측 347px)로 가두는데, 제목·설명 입력에 키보드가 뜨면 이 버튼들이
+              스크롤 밖으로 밀린다. (바깥이 p-6 이라 -mx-6 px-6) [[components/program/CommunityPostModal]] */}
+          <div className="sticky bottom-0 -mx-6 px-6 mt-5 pt-2.5 pb-0.5 bg-white border-t border-gray-100 flex gap-2">
             <button
               type="button"
               onClick={onClose}

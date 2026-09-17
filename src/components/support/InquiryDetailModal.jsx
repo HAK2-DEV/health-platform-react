@@ -145,23 +145,31 @@ function InquiryDetailModal({ inquiryId, userId, isAdmin, isOpen, onClose, onCha
                   className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-400 disabled:bg-gray-50 resize-none text-sm"
                 />
                 {error && <p className="mt-2 text-xs text-red-500 text-center">{error}</p>}
-                <button
-                  type="button" onClick={handleAddComment} disabled={busy || !comment.trim()}
-                  className="w-full mt-2 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold rounded-xl transition disabled:opacity-50"
-                >
-                  {busy ? '등록 중...' : '답글 등록'}
-                </button>
               </div>
             ) : (
               <p className="mt-4 text-[12px] text-gray-400 text-center">답변은 관리자와 작성자만 남길 수 있어요.</p>
             )}
 
-            <button
-              type="button" onClick={onClose}
-              className="w-full mt-3 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition"
-            >
-              닫기
-            </button>
+            {/* 답글 등록·닫기 — 시트 «하단에 붙여» 둔다(sticky). 구형 안드(노트9)는 키보드 높이를 알 수 없어
+                Modal 이 시트를 52vh(노트9 실측 347px)로 가두는데, 이 모달은 본문+답변 스레드라 그보다 길어
+                답글 입력에 키보드가 뜨면 두 버튼이 스크롤 밖으로 밀린다. 그래서 입력칸 밑에 있던 「답글 등록」도
+                닫기와 함께 하단에 고정한다. (바깥이 p-6 이라 -mx-6 px-6) [[components/program/CommunityPostModal]] */}
+            <div className="sticky bottom-0 -mx-6 px-6 mt-3 pt-2.5 pb-0.5 bg-white border-t border-gray-100 space-y-2">
+              {canComment && (
+                <button
+                  type="button" onClick={handleAddComment} disabled={busy || !comment.trim()}
+                  className="w-full px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold rounded-xl transition disabled:opacity-50"
+                >
+                  {busy ? '등록 중...' : '답글 등록'}
+                </button>
+              )}
+              <button
+                type="button" onClick={onClose}
+                className="w-full px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition"
+              >
+                닫기
+              </button>
+            </div>
           </>
         )}
       </div>

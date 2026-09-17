@@ -5,12 +5,15 @@ import { useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '../../lib/queries'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { useBackButtonClose } from '../../hooks/useBackButtonClose'
+import { useKeyboardOverlay } from '../../hooks/useKeyboardOverlay'
 
 // 환영 메시지 작성 — 첫 프로그램 만들기 흐름(미션 → 환영 → 초대)의 2단계.
 //   운영자가 참여자 첫 진입 인사말을 짧게 남긴다. 저장 시 programs.welcome_message 갱신.
 export default function WelcomeMessageModal({ programId, initial = '', onClose, onSaved }) {
   useBodyScrollLock(true)
   useBackButtonClose(true, onClose)
+  // 키보드 — iOS·안드15+ 는 여백, 구형 안드(노트9)는 위쪽 정렬 + 높이 52vh 제한
+  const { overlayStyle, cardStyle } = useKeyboardOverlay(16)
   const qc = useQueryClient()
   const [text, setText] = useState(initial || '')
   const [saving, setSaving] = useState(false)
@@ -28,11 +31,12 @@ export default function WelcomeMessageModal({ programId, initial = '', onClose, 
   }
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center p-6">
+    <div className="fixed inset-0 z-[80] flex items-center justify-center p-6" style={overlayStyle}>
       <motion.div className="absolute inset-0 bg-black/50"
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} onClick={saving ? undefined : onClose} />
       <motion.div
-        className="relative w-full max-w-sm bg-white rounded-3xl p-6 shadow-2xl"
+        className="relative w-full max-w-sm max-h-[85vh] overflow-y-auto bg-white rounded-3xl p-6 shadow-2xl"
+        style={cardStyle}
         initial={{ opacity: 0, scale: 0.92, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ type: 'spring', stiffness: 300, damping: 26 }}
       >
@@ -58,7 +62,10 @@ export default function WelcomeMessageModal({ programId, initial = '', onClose, 
         />
         <p className="mt-1 text-right text-[11px] text-gray-400">{text.length}/200</p>
         {error && <p className="text-[12px] text-red-500 mt-1">{error}</p>}
-        <div className="mt-3 flex flex-col gap-2">
+        {/* 액션 버튼 — 시트 하단에 «붙여» 둔다(sticky). 구형 안드는 키보드가 뜨면 카드가 52vh(=347px, 노트9 실측)
+            로 갇히는데 아이콘·제목·안내문·팁배지·textarea(4줄)만으로 그 높이를 넘어 세로로 쌓인 버튼 2개가
+            통째로 스크롤 밖으로 밀린다. 바깥 카드가 p-6 라 -mx-6 px-6. */}
+        <div className="mt-3 sticky bottom-0 -mx-6 px-6 pt-2.5 pb-0.5 bg-white border-t border-gray-100 flex flex-col gap-2">
           <button type="button" onClick={save} disabled={saving}
             className="w-full h-11 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:opacity-60 text-white text-[14px] font-bold transition">
             {saving ? '저장 중…' : '저장하고 계속'}

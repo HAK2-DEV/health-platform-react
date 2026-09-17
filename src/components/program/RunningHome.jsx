@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { useBackButtonClose } from '../../hooks/useBackButtonClose'
+import { useKeyboardOverlay } from '../../hooks/useKeyboardOverlay'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Timer, Flame, Megaphone, Footprints, Star, ClipboardList, HelpCircle, MessageSquare, Trophy, ChevronRight, Check, Pencil, X } from 'lucide-react'
 import WeeklyStreak from './WeeklyStreak'
@@ -212,6 +213,8 @@ function RunningHeroBlock({ hero, editable, onHeroChange }) {
   const [editing, setEditing] = useState(false)
   useBodyScrollLock(editing)  // 히어로 편집 오버레이 — iOS 배경 스크롤 방지
   useBackButtonClose(editing, () => setEditing(false))  // 하드웨어 뒤로가기 = 닫기
+  // 키보드 — iOS·안드15+ 는 여백, 구형 안드(노트9)는 위쪽 정렬 + 높이 52vh 제한
+  const { overlayStyle, cardStyle } = useKeyboardOverlay(16)
   const [draft, setDraft] = useState(HERO_DEFAULT_HTML)
   const set = (k, v) => setDraft((d) => ({ ...d, [k]: v }))
   const open = () => {
@@ -269,9 +272,9 @@ function RunningHeroBlock({ hero, editable, onHeroChange }) {
 
       {/* 히어로 편집 — 화면 중앙 모달 */}
       {editing && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-5" style={{ background: 'rgba(15,23,42,0.45)' }}
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-5" style={{ background: 'rgba(15,23,42,0.45)', ...overlayStyle }}
           onClick={() => setEditing(false)}>
-          <div className="w-full max-w-[340px] max-h-[85vh] overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl space-y-3" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-[340px] max-h-[85vh] overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl space-y-3" style={cardStyle} onClick={(e) => e.stopPropagation()}>
             <h3 className="text-[15px] font-bold text-gray-800">홈 문구 편집</h3>
             <div>
               <label className="block text-[13px] font-bold text-gray-700 mb-0.5">제목</label>
@@ -283,7 +286,10 @@ function RunningHeroBlock({ hero, editable, onHeroChange }) {
               <RichField initialHtml={draft.subtitleHtml} baseFontSize={14} baseFontWeight={500} baseColor="#6B7280"
                 sizes={HERO_SUB_SIZES} onChange={(h) => set('subtitleHtml', h)} />
             </div>
-            <div className="flex gap-2 pt-1">
+            {/* 액션 버튼 — 시트 하단에 «붙여» 둔다(sticky). 제목·부제 리치 편집기 2벌(각각 입력칸+크기/굵기/색
+                툴바)이라 구형 안드의 52vh(=347px, 노트9 실측) 상한을 훌쩍 넘어 「취소·저장」이 스크롤 밖으로 밀린다.
+                바깥 카드가 p-5 라 -mx-5 px-5. pt-1 은 pt-2.5 와 같은 속성이라 제거. */}
+            <div className="sticky bottom-0 -mx-5 px-5 pt-2.5 pb-0.5 bg-white border-t border-gray-100 flex gap-2">
               <button type="button" onClick={() => setEditing(false)} className="flex-1 h-10 rounded-lg border border-gray-200 text-gray-500 text-[14px] font-bold">취소</button>
               <button type="button" onClick={save} className="flex-[1.4] h-10 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[14px] font-bold transition">저장</button>
             </div>
@@ -349,6 +355,8 @@ function RunningHome({
   const [editingPace, setEditingPace] = useState(false)
   useBodyScrollLock(editingPace)  // 페이스 목표 편집 오버레이 — iOS 배경 스크롤 방지
   useBackButtonClose(editingPace, () => setEditingPace(false))  // 하드웨어 뒤로가기 = 닫기
+  // 키보드 — iOS·안드15+ 는 여백, 구형 안드(노트9)는 위쪽 정렬 + 높이 52vh 제한
+  const { overlayStyle, cardStyle } = useKeyboardOverlay(16)
   const [paceInput, setPaceInput] = useState(pace)
   const savePace = () => {
     const v = paceInput.trim()
@@ -521,9 +529,9 @@ function RunningHome({
       )}
       {/* 추천 페이스 편집 — 화면 중앙 모달 */}
       {editingPace && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-6" style={{ background: 'rgba(15,23,42,0.45)' }}
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-6" style={{ background: 'rgba(15,23,42,0.45)', ...overlayStyle }}
           onClick={() => setEditingPace(false)}>
-          <div className="w-full max-w-[300px] rounded-2xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-[300px] max-h-[85vh] overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl" style={cardStyle} onClick={(e) => e.stopPropagation()}>
             <h3 className="text-[15px] font-bold text-gray-800">추천 페이스 설정</h3>
             <p className="text-[12px] text-gray-400 mt-0.5 mb-3">분&apos;초 /km — 예: 6&apos;20</p>
             <input

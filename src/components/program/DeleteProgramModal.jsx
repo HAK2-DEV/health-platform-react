@@ -12,7 +12,7 @@ import { AlertTriangle, ChevronLeft } from 'lucide-react'
 function DeleteProgramModal({ isOpen, programTitle = '', onClose, onConfirm, busy = false }) {
   useBodyScrollLock(isOpen)  // iOS 배경 스크롤 방지
   useBackButtonClose(isOpen, onClose)  // 하드웨어 뒤로가기 = 닫기
-  const { overlayStyle } = useKeyboardOverlay()   // 키보드 — iOS·안드15+ 는 여백, 구형 안드는 위쪽 정렬
+  const { overlayStyle, cardStyle } = useKeyboardOverlay()   // 키보드 — iOS·안드15+ 는 여백, 구형 안드는 위쪽 정렬+높이 제한(52vh≈347px)
   const [step, setStep] = useState(1)
   const [typed, setTyped] = useState('')
 
@@ -28,7 +28,8 @@ function DeleteProgramModal({ isOpen, programTitle = '', onClose, onConfirm, bus
 
   return (
     <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-5" style={overlayStyle} onClick={handleClose}>
-      <div className="w-full max-w-xs bg-white rounded-2xl p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+      {/* 구형 안드는 키보드가 뜨면 카드를 52vh(≈347px)로 가둔다 → 넘치는 만큼 카드 안에서 스크롤 */}
+      <div className="w-full max-w-xs bg-white rounded-2xl p-5 shadow-xl overflow-y-auto" style={cardStyle} onClick={(e) => e.stopPropagation()}>
         {step === 1 && (
           <>
             <div className="flex items-center gap-2 mb-3">
@@ -59,7 +60,10 @@ function DeleteProgramModal({ isOpen, programTitle = '', onClose, onConfirm, bus
               className="w-full h-10 px-3 mb-4 rounded-xl border border-gray-300 outline-none text-sm focus:border-red-400 focus:ring-2 focus:ring-red-100 disabled:opacity-50"
             />
 
-            <div className="flex gap-2">
+            {/* 취소·다음 — 카드 하단에 붙여 둔다(sticky). 구형 안드는 키보드가 뜨면 카드가 52vh 로 갇히는데,
+                프로그램 제목이 길면 확인 라벨이 3줄로 늘어 버튼이 스크롤 밖으로 밀린다.
+                버튼을 못 누르는 화면이 «삭제 확인»이라 특히 치명적. 글쓰기 모달(6819dd0)과 같은 패턴. */}
+            <div className="sticky bottom-0 -mx-5 px-5 pt-2.5 pb-0.5 bg-white border-t border-gray-100 flex gap-2">
               <button
                 type="button"
                 onClick={handleClose}

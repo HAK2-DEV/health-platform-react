@@ -337,7 +337,11 @@ function DeleteAccountCard({ nickname, onComplete }) {
           {error && (
             <p className="mb-3 p-2 bg-red-50 text-red-700 text-sm rounded-md text-center">{error}</p>
           )}
-          <div className="flex gap-2">
+          {/* 취소·영구 삭제 — 시트 «하단에 붙여» 둔다(sticky). 이 모달은 autoFocus 라 열자마자 키보드가 뜨고,
+              구형 안드(노트9)는 키보드 높이를 알 수 없어 Modal 이 시트를 52vh(노트9 실측 347px)로 가둔다.
+              내용이 그 높이에 거의 꽉 차는 데다 폰 글자 크기 배율(PWA·크롬은 상한 없음)이 곱해지면 버튼이
+              스크롤 밖으로 밀린다. (바깥이 p-6 이라 -mx-6 px-6) [[components/program/CommunityPostModal]] */}
+          <div className="sticky bottom-0 -mx-6 px-6 pt-2.5 pb-0.5 bg-white border-t border-gray-100 flex gap-2">
             <button
               type="button"
               onClick={() => setIsModalOpen(false)}

@@ -691,8 +691,12 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
             </p>
           )}
 
-          {/* 버튼 */}
-          <div className="flex gap-2">
+          {/* 버튼 — 시트 «하단에 붙여» 둔다(sticky). 구형 안드(노트9=안드10)는 키보드 높이를 알 수 없어
+              Modal 이 시트를 52vh(노트9 실측 347px)로 가두는데, 이 모달은 그보다 훨씬 길어 키보드가 뜨면
+              「취소·저장」이 스크롤 밖으로 밀린다. 키보드가 내려간 것도 감지할 수 없으므로, 감지 대신
+              버튼을 항상 보이게 고정한다. (바깥이 p-6 이라 -mx-6 px-6 으로 흰 배경을 시트 폭 끝까지)
+              [[components/program/CommunityPostModal]] 과 같은 패턴 */}
+          <div className="sticky bottom-0 -mx-6 px-6 pt-2.5 pb-0.5 bg-white border-t border-gray-100 flex gap-2">
             <button
               type="button"
               onClick={onClose}

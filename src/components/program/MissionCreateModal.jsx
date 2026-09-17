@@ -1023,7 +1023,10 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
           )}
 
           {/* 버튼 — 이전 / 다음 / 저장 */}
-          <div className="flex gap-2">
+          {/* 구형 안드(안드14 이하)는 키보드가 뜨면 카드가 52vh(≈347px, 노트9 실측)로 갇혀
+              내용이 길면 이 버튼 행이 스크롤 밖으로 밀려 누를 수 없다 → sticky 로 항상 노출.
+              카드 padding 이 p-6 이라 -mx-6 px-6. 글쓰기 모달(6819dd0)과 같은 패턴. */}
+          <div className="sticky bottom-0 -mx-6 px-6 pt-2.5 pb-0.5 bg-white border-t border-gray-100 flex gap-2">
             {step === 1 ? (
               <button
                 type="button"

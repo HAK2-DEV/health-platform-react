@@ -130,7 +130,7 @@ export function GoalCard({ emoji, title, value, unit, hint, editable = false, on
   const [editing, setEditing] = useState(false)
   useBodyScrollLock(editing)  // 목표 카드 편집 오버레이 — iOS 배경 스크롤 방지
   useBackButtonClose(editing, () => setEditing(false))  // 하드웨어 뒤로가기 = 닫기
-  const { overlayStyle } = useKeyboardOverlay()   // 키보드 — iOS·안드15+ 는 여백, 구형 안드는 위쪽 정렬
+  const { overlayStyle, cardStyle } = useKeyboardOverlay()   // 키보드 — iOS·안드15+ 는 여백, 구형 안드는 위쪽 정렬+높이 제한(52vh≈347px)
   const [draft, setDraft] = useState({ emoji, title, value, unit, hint })
   const set = (k, v) => setDraft((d) => ({ ...d, [k]: v }))
   const open = () => { setDraft({ emoji, title, value, unit, hint }); setEditing(true) }
@@ -158,7 +158,8 @@ export function GoalCard({ emoji, title, value, unit, hint, editable = false, on
       </div>
       {editing && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-5" style={{ background: 'rgba(15,23,42,0.45)', ...overlayStyle }} onClick={() => setEditing(false)}>
-          <div className="w-full max-w-[320px] rounded-2xl bg-white p-5 shadow-2xl space-y-3" onClick={(e) => e.stopPropagation()}>
+          {/* 구형 안드(노트9)는 키보드 높이를 알 수 없어 카드를 52vh(≈347px)로 가둔다 → 넘치는 만큼 카드 안에서 스크롤 */}
+          <div className="w-full max-w-[320px] rounded-2xl bg-white p-5 shadow-2xl space-y-3 overflow-y-auto" style={cardStyle} onClick={(e) => e.stopPropagation()}>
             <h3 className="text-[15px] font-bold text-gray-800">목표 카드 편집</h3>
             <div>
               <span className="text-[12px] font-bold text-gray-600">아이콘</span>
@@ -177,7 +178,9 @@ export function GoalCard({ emoji, title, value, unit, hint, editable = false, on
               <GoalField label="단위" value={draft.unit} onChange={(v) => set('unit', v)} placeholder="예: 보" cls="flex-1" />
             </div>
             <GoalField label="힌트" value={draft.hint} onChange={(v) => set('hint', v)} placeholder="예: 오늘도 활기차게!" />
-            <div className="flex gap-2 pt-1">
+            {/* 취소·저장 — 카드 하단에 붙여 둔다(sticky). 아이콘 팔레트+입력 4칸이라 내용이 52vh 를 훌쩍 넘어
+                구형 안드에서 저장 버튼이 스크롤 밖으로 밀린다. 글쓰기 모달(6819dd0)과 같은 패턴. */}
+            <div className="sticky bottom-0 -mx-5 px-5 pt-2.5 pb-0.5 bg-white border-t border-gray-100 flex gap-2">
               <button type="button" onClick={() => setEditing(false)} className="flex-1 h-10 rounded-lg border border-gray-200 text-gray-500 text-[14px] font-bold">취소</button>
               <button type="button" onClick={save} className="flex-[1.4] h-10 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[14px] font-bold transition">저장</button>
             </div>

@@ -308,7 +308,7 @@ const CommunityManagePanel = forwardRef(function CommunityManagePanel({ program,
   useBodyScrollLock(!!layoutModal || !!nameModal)  // 레이아웃/이름 오버레이 — iOS 배경 스크롤 방지
   useBackButtonClose(!!layoutModal, () => setLayoutModal(null))  // 하드웨어 뒤로가기 = 닫기(스택 최상단)
   useBackButtonClose(!!nameModal, () => setNameModal(null))
-  const { overlayStyle } = useKeyboardOverlay()   // 키보드 — iOS·안드15+ 는 여백, 구형 안드는 위쪽 정렬
+  const { overlayStyle, cardStyle } = useKeyboardOverlay()   // 키보드 — iOS·안드15+ 는 여백, 구형 안드는 위쪽 정렬+높이 제한(52vh≈347px)
   const confirmName = () => {
     const v = (nameModal?.value || '').trim().slice(0, 8)
     if (!v) { setNameModal(null); return }
@@ -648,7 +648,8 @@ const CommunityManagePanel = forwardRef(function CommunityManagePanel({ program,
       {/* 게시판 이름 입력 모달 (한줄 설명 모달과 동일 스타일) */}
       {nameModal && (
         <div className="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center p-5" style={overlayStyle} onClick={() => setNameModal(null)}>
-          <div className="w-full max-w-xs bg-white rounded-2xl p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+          {/* 구형 안드는 키보드가 뜨면 카드를 52vh 로 가둔다 — 이 카드는 짧아 잘릴 일이 없지만 글자 배율 대비 안전장치 */}
+          <div className="w-full max-w-xs bg-white rounded-2xl p-5 shadow-xl overflow-y-auto" style={cardStyle} onClick={(e) => e.stopPropagation()}>
             <h4 className="text-[15px] font-bold text-gray-800 mb-2">{nameModal.mode === 'add' ? '새 게시판 이름' : '게시판 이름 수정'}</h4>
             <input
               value={nameModal.value}

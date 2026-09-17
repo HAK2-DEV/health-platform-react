@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { useBackButtonClose } from '../../hooks/useBackButtonClose'
+import { useKeyboardOverlay } from '../../hooks/useKeyboardOverlay'
 import { supabase } from '../../supabaseClient'
 import { useToast } from '../../contexts/ToastContext'
 
@@ -105,17 +106,9 @@ export default function CheerModal({ programId, targetUserId, targetNickname, ta
     const el = namesRef.current
     if (el) setNamesOverflow(el.scrollHeight > 30)
   }, [targetNames])
-  // 키보드가 올라오면 보이는 영역(visualViewport) 기준으로 모달을 가운데 정렬 → 상단 잘림 방지.
-  const [vv, setVv] = useState({ top: 0, height: null })
-  useEffect(() => {
-    const win = window.visualViewport
-    if (!win) return
-    const update = () => setVv({ top: win.offsetTop, height: win.height })
-    update()
-    win.addEventListener('resize', update)
-    win.addEventListener('scroll', update)
-    return () => { win.removeEventListener('resize', update); win.removeEventListener('scroll', update) }
-  }, [])
+  // 키보드 — iOS·안드15+ 는 여백(visualViewport), 구형 안드(노트9=안드10)는 visualViewport 가 키보드에
+  //   무반응이라 «떴다» 는 사실만 받아 위쪽 정렬 + 높이 52vh 제한. 직접 읽던 visualViewport 를 공용 훅으로 대체.
+  const { overlayStyle, cardStyle } = useKeyboardOverlay(16)
 
   const send = async () => {
     const m = msg.trim()
@@ -161,10 +154,9 @@ export default function CheerModal({ programId, targetUserId, targetNickname, ta
       style={{ background: 'rgba(15,23,42,0.45)' }}
       onClick={() => !sending && onClose?.()}
     >
-      {/* 보이는 영역(키보드 위) 기준 가운데 정렬 — 내용이 길면 카드 내부 스크롤 */}
-      <div className="absolute left-0 right-0 flex items-center justify-center p-4"
-        style={{ top: vv.top, height: vv.height ?? '100%' }}>
-        <div className="w-full max-w-[340px] max-h-full overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      {/* 키보드 위 가운데 정렬(구형 안드는 위쪽 정렬) — 내용이 길면 카드 내부 스크롤 */}
+      <div className="absolute inset-0 flex items-center justify-center p-4" style={overlayStyle}>
+        <div className="w-full max-w-[340px] max-h-full overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl" style={cardStyle} onClick={(e) => e.stopPropagation()}>
         <h3 className="text-[15px] font-bold text-gray-800">{v.emoji} {v.title}</h3>
         <p className="text-[12px] text-gray-500 mt-0.5 mb-2">
           {isBulk
@@ -226,7 +218,10 @@ export default function CheerModal({ programId, targetUserId, targetNickname, ta
 
         {error && <p className="mt-2 text-[12px] text-red-600 break-keep">{error}</p>}
 
-        <div className="flex gap-2 mt-4">
+        {/* 액션 버튼 — 시트 하단에 «붙여» 둔다(sticky). 구형 안드는 키보드가 뜨면 카드가 52vh(=347px, 노트9 실측)
+            로 갇히는데 프리셋·대상이름·입력칸을 합치면 그보다 길어 「취소·보내기」가 스크롤 밖으로 밀린다.
+            글쓰기 모달(6819dd0)·크롭 모달(dfaaa32)과 같은 패턴. 바깥 카드가 p-5 라 -mx-5 px-5. */}
+        <div className="sticky bottom-0 -mx-5 px-5 pt-2.5 pb-0.5 bg-white border-t border-gray-100 flex gap-2 mt-4">
           <button
             type="button"
             onClick={() => onClose?.()}

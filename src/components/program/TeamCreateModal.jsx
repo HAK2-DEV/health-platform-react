@@ -146,7 +146,10 @@ function TeamCreateModal({ program, isOpen, onClose, onCreated }) {
             <p className="mt-4 p-2.5 bg-red-50 text-red-600 rounded-lg text-sm text-center break-keep">{error}</p>
           )}
 
-          <div className="flex gap-2 mt-6">
+          {/* 취소·팀 만들기 — 시트 «하단에 붙여» 둔다(sticky). 구형 안드(노트9)는 키보드 높이를 알 수 없어
+              Modal 이 시트를 52vh(노트9 실측 347px)로 가두는데, 팀 이름 입력에 키보드가 뜨면 이 버튼들이
+              스크롤 밖으로 밀린다. (바깥이 p-6 이라 -mx-6 px-6) [[components/program/CommunityPostModal]] */}
+          <div className="sticky bottom-0 -mx-6 px-6 mt-6 pt-2.5 pb-0.5 bg-white border-t border-gray-100 flex gap-2">
             <button
               type="button" onClick={onClose} disabled={isSaving}
               className="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition disabled:opacity-50"

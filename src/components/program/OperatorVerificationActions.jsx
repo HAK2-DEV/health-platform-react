@@ -21,7 +21,7 @@ import ConfirmModal from '../common/ConfirmModal'
 //   layout:       'bar'(피드 액션바, 우측 정렬) | 'block'(통계 카드 하단, 구분선)
 function OperatorVerificationActions({ verification, programId, feedEnabled = true, layout = 'bar' }) {
   const queryClient = useQueryClient()
-  const { overlayStyle } = useKeyboardOverlay()   // 키보드 — iOS·안드15+ 는 여백, 구형 안드는 위쪽 정렬
+  const { overlayStyle, cardStyle } = useKeyboardOverlay()   // 키보드 — iOS·안드15+ 는 여백, 구형 안드는 위쪽 정렬+높이 제한(52vh≈347px)
   const isExcluded = verification.status === 'REJECTED'
   const isHidden = verification.feed_visible === false
 
@@ -110,7 +110,8 @@ function OperatorVerificationActions({ verification, programId, feedEnabled = tr
       {/* 점수 제외 — 사유 입력 중앙 카드 */}
       {excludeOpen && (
         <div className="fixed inset-0 z-[80] bg-black/40 flex items-center justify-center p-5" style={{ touchAction: 'pan-y', ...overlayStyle }} onClick={() => !busy && setExcludeOpen(false)}>
-          <div className="w-full max-w-xs bg-white rounded-2xl p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+          {/* 구형 안드는 키보드가 뜨면 카드를 52vh(≈347px)로 가둔다 → 넘치는 만큼 카드 안에서 스크롤 */}
+          <div className="w-full max-w-xs bg-white rounded-2xl p-5 shadow-xl overflow-y-auto" style={cardStyle} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-2 mb-1.5">
               <span className="w-7 h-7 rounded-full bg-red-50 text-red-500 flex items-center justify-center flex-shrink-0"><Ban className="w-4 h-4" /></span>
               <h4 className="text-[15px] font-bold text-gray-800">점수에서 제외할까요?</h4>
@@ -130,7 +131,9 @@ function OperatorVerificationActions({ verification, programId, feedEnabled = tr
               className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-[10px] focus:outline-none focus:border-red-400 resize-none text-sm break-words"
               style={{ marginBottom: '14px' }}
             />
-            <div className="flex gap-2">
+            {/* 취소·점수 제외 — 카드 하단에 붙여 둔다(sticky). 설명 문구+사유 textarea(3줄)까지 더하면
+                구형 안드의 52vh 제한을 넘겨 버튼이 스크롤 밖으로 밀린다. 글쓰기 모달(6819dd0)과 같은 패턴. */}
+            <div className="sticky bottom-0 -mx-5 px-5 pt-2.5 pb-0.5 bg-white border-t border-gray-100 flex gap-2">
               <button type="button" onClick={() => setExcludeOpen(false)} disabled={busy}
                 className="flex-1 h-11 rounded-xl border border-gray-200 text-gray-600 text-sm font-bold hover:bg-gray-50 transition disabled:opacity-50">취소</button>
               <button type="button" onClick={() => excludeMutation.mutate(reason)} disabled={busy}

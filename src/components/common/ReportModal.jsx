@@ -26,7 +26,7 @@ function ReportModal({ isOpen, onClose, programId, targetType, targetId, onRepor
   const [confirmBlock, setConfirmBlock] = useState(false)
   const [reportUser, setReportUser] = useState(false)   // 262: 콘텐츠 대신 «사용자 자체»를 신고 (UGC 정책: UGC 와 사용자 모두 신고 가능해야)
   const [showHelp, setShowHelp] = useState(false)
-  const { overlayStyle } = useKeyboardOverlay()   // 키보드 — iOS·안드15+ 는 여백, 구형 안드는 위쪽 정렬
+  const { overlayStyle, cardStyle } = useKeyboardOverlay()   // 키보드 — iOS·안드15+ 는 여백, 구형 안드는 위쪽 정렬+높이 제한(52vh≈347px)
 
   useEffect(() => { if (isOpen) { setReason(''); setError(null); setDone(false); setBlocked(false); setBlockOnly(false); setConfirmBlock(false); setReportUser(false); setShowHelp(false) } }, [isOpen])
   useBodyScrollLock(isOpen)  // iOS 배경 스크롤 방지
@@ -58,7 +58,8 @@ function ReportModal({ isOpen, onClose, programId, targetType, targetId, onRepor
   if (!isOpen) return null
   return (
     <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-5" style={overlayStyle} onClick={onClose}>
-      <div className="w-full max-w-xs bg-white rounded-2xl p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+      {/* 구형 안드(노트9=안드10)는 키보드 높이를 알 수 없어 카드를 52vh(≈347px)로 가둔다 → 넘치는 만큼 카드 안에서 스크롤 */}
+      <div className="w-full max-w-xs bg-white rounded-2xl p-5 shadow-xl overflow-y-auto" style={cardStyle} onClick={(e) => e.stopPropagation()}>
         {blocked ? (
           <div className="text-center py-2">
             <div className="text-3xl mb-2">🚫</div>
@@ -110,7 +111,8 @@ function ReportModal({ isOpen, onClose, programId, targetType, targetId, onRepor
                 {showHelp && (
                   <>
                     <div className="fixed inset-0 z-10" onClick={() => setShowHelp(false)} />
-                    <div className="absolute bottom-full left-0 mb-2 z-20 w-60 rounded-lg bg-gray-900 text-white text-[11.5px] font-normal leading-relaxed px-3.5 py-3 shadow-lg divide-y divide-white/10">
+                    {/* 카드가 스크롤 영역(overflow-y-auto)이 되면 위로 뜨는 말풍선은 잘린다 → 아래로 펼침 */}
+                    <div className="absolute top-full right-0 mt-2 z-20 w-60 rounded-lg bg-gray-900 text-white text-[11.5px] font-normal leading-relaxed px-3.5 py-3 shadow-lg divide-y divide-white/10">
                       <p className="pb-2.5"><b>운영자가 72시간 안에 확인해요.</b><br />게시물·인증은 여러 명이 신고하면 먼저 가려져요.</p>
                       <p className="py-2.5"><b>삭제가 아니에요.</b><br />잠깐 가려졌다가 괜찮으면 다시 보여요.</p>
                       <p className="pt-2.5"><b>신고한 사람은 비밀이에요.</b><br />운영자만 볼 수 있어요.</p>
@@ -147,20 +149,26 @@ function ReportModal({ isOpen, onClose, programId, targetType, targetId, onRepor
               </label>
             )}
             {error && <p className="p-2 bg-red-50 text-red-600 text-xs rounded text-center mb-2">{error}</p>}
-            <div className="flex gap-2 mt-1">
-              <button type="button" onClick={onClose} className="flex-1 h-11 rounded-xl border border-gray-200 text-gray-600 text-sm font-bold hover:bg-gray-50 transition">취소</button>
-              <button type="button" onClick={() => mutation.mutate()} disabled={mutation.isPending}
-                className="flex-[1.4] h-11 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold transition disabled:opacity-50">
-                {mutation.isPending ? '접수 중...' : '신고하기'}
-              </button>
+            {/* 취소·신고하기 — 카드 하단에 붙여 둔다(sticky).
+                구형 안드는 키보드가 뜨면 카드가 52vh(≈347px)로 갇히는데, 사유 프리셋+textarea+체크박스까지
+                더하면 내용이 그보다 길어져 버튼이 스크롤 밖으로 밀린다.
+                글쓰기 모달(6819dd0)·크롭 모달(dfaaa32)과 같은 패턴. [[components/common/Modal]] */}
+            <div className="sticky bottom-0 -mx-5 px-5 pt-2.5 pb-0.5 bg-white border-t border-gray-100">
+              <div className="flex gap-2">
+                <button type="button" onClick={onClose} className="flex-1 h-11 rounded-xl border border-gray-200 text-gray-600 text-sm font-bold hover:bg-gray-50 transition">취소</button>
+                <button type="button" onClick={() => mutation.mutate()} disabled={mutation.isPending}
+                  className="flex-[1.4] h-11 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold transition disabled:opacity-50">
+                  {mutation.isPending ? '접수 중...' : '신고하기'}
+                </button>
+              </div>
+              {/* 신고 없이 바로 차단 — 1:1 상호작용 앱의 인앱 차단 요건 */}
+              {canBlock && (
+                <button type="button" onClick={() => { setBlockOnly(true); setConfirmBlock(true) }}
+                  className="w-full mt-2 h-9 text-[12px] text-gray-400 hover:text-gray-700 transition inline-flex items-center justify-center gap-1">
+                  <Ban className="w-3.5 h-3.5" /> 신고 대신 {targetNickname ? `${targetNickname} 님` : '이 사용자'} 차단하기
+                </button>
+              )}
             </div>
-            {/* 신고 없이 바로 차단 — 1:1 상호작용 앱의 인앱 차단 요건 */}
-            {canBlock && (
-              <button type="button" onClick={() => { setBlockOnly(true); setConfirmBlock(true) }}
-                className="w-full mt-2 h-9 text-[12px] text-gray-400 hover:text-gray-700 transition inline-flex items-center justify-center gap-1">
-                <Ban className="w-3.5 h-3.5" /> 신고 대신 {targetNickname ? `${targetNickname} 님` : '이 사용자'} 차단하기
-              </button>
-            )}
           </>
         )}
       </div>

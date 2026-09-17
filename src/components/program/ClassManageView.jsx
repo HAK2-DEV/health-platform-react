@@ -355,7 +355,10 @@ function SessionForm({ instructors, initial, isEdit = false, onSave, onClose, bu
         <p className="text-[12px] font-semibold text-red-500 text-center mt-3 -mb-1">{stepError(step)}</p>
       )}
       {/* 푸터 — 취소/이전 · 다음/저장 */}
-      <div className="flex gap-2 mt-4">
+      {/* 구형 안드(안드14 이하)는 키보드가 뜨면 Overlay 카드가 52vh(≈347px, 노트9 실측)로 갇혀
+          이 푸터가 스크롤 밖으로 밀린다 → sticky 로 항상 노출. 카드 padding 이 p-5 라 -mx-5 px-5.
+          글쓰기 모달(6819dd0)과 같은 패턴. */}
+      <div className="sticky bottom-0 -mx-5 px-5 pt-2.5 pb-0.5 mt-4 bg-white border-t border-gray-100 flex gap-2">
         <button type="button" onClick={step === 1 ? onClose : goPrev} disabled={busy}
           className="flex-1 h-11 rounded-xl border border-gray-200 text-gray-600 text-sm font-bold hover:bg-gray-50 transition disabled:opacity-50">
           {step === 1 ? '취소' : '이전'}
@@ -392,9 +395,11 @@ function Overlay({ title, children, onClose, wide }) {
     </div>
   )
 }
+// 구형 안드(안드14 이하)는 키보드가 뜨면 Overlay 카드가 52vh(≈347px, 노트9 실측)로 갇혀
+//   이 버튼 행이 스크롤 밖으로 밀린다 → sticky 로 항상 노출. 카드 padding 이 p-5 라 -mx-5 px-5.
 function FormButtons({ onClose, onSave, busy, disabled }) {
   return (
-    <div className="flex gap-2 pt-1">
+    <div className="sticky bottom-0 -mx-5 px-5 pt-2.5 pb-0.5 mt-1 bg-white border-t border-gray-100 flex gap-2">
       <button type="button" onClick={onClose} disabled={busy} className="flex-1 h-11 rounded-xl border border-gray-200 text-gray-600 text-sm font-bold disabled:opacity-50">취소</button>
       <button type="button" onClick={onSave} disabled={busy || disabled} className="flex-[1.4] h-11 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold transition disabled:opacity-50">
         {busy ? '저장 중...' : '저장'}

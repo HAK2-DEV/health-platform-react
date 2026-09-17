@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, X, Pencil } from 'lucide-react'
 import { Icon3D } from './ProgramHome'
 import { Reveal, useBarGrow, barGrowStyle } from './statsAnim'
+import { useKeyboardOverlay } from '../../hooks/useKeyboardOverlay'
 
 // 「내 변화 · 식단」 탭 — 체중/허리둘레 곡선, 목표 달성 히트맵, 장기 영양 추이.
 //   체중은 미션이 아니라 이 탭 안의 로거로만 입력(운영자 비노출·본인만).
@@ -412,12 +413,15 @@ function GoalWeightSheet({ open, current, onClose, onSave }) {
   const [wasOpen, setWasOpen] = useState(open)
   // 열릴 때 현재 목표값으로 프리필 (effect 대신 렌더 중 prop 변화 감지 — React 권장)
   if (open !== wasOpen) { setWasOpen(open); if (open) setVal(current != null ? String(current) : '') }
+  // 키보드 — 자체 바텀시트라 직접 대응. 구형 안드(노트9=안드10)는 창이 안 줄어 시트가 키보드에
+  //   통째로 가리므로 위쪽 정렬 + 52vh(=347px) 로 가둔다. [[hooks/useKeyboardOverlay]]
+  const { overlayStyle, cardStyle } = useKeyboardOverlay(16)
   return (
     <AnimatePresence>
       {open && (
-        <motion.div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: 'rgba(15,23,42,0.45)' }}
+        <motion.div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: 'rgba(15,23,42,0.45)', ...overlayStyle }}
           onClick={onClose} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-          <motion.div className="w-full max-w-md bg-white rounded-t-3xl p-5 pb-8" onClick={(e) => e.stopPropagation()}
+          <motion.div className="w-full max-w-md bg-white rounded-t-3xl p-5 pb-8 max-h-[85vh] overflow-y-auto" style={cardStyle} onClick={(e) => e.stopPropagation()}
             initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', damping: 30, stiffness: 300 }}>
             <div className="flex items-center mb-1">
               <h3 className="text-[16px] font-extrabold text-gray-900">목표 체중</h3>
@@ -429,7 +433,9 @@ function GoalWeightSheet({ open, current, onClose, onSave }) {
               <input type="number" inputMode="decimal" value={val} onChange={(e) => setVal(e.target.value)} placeholder="예: 66.0"
                 className="mt-1 w-full h-12 rounded-xl border border-gray-200 px-3 text-[16px] focus:border-emerald-400 outline-none" />
             </label>
-            <div className="flex gap-2">
+            {/* 해제·저장 — 시트 하단에 sticky. 구형 안드에서 52vh 로 갇혀도 버튼이 스크롤 밖으로
+                밀리지 않게 한다. (시트 padding 이 p-5 → -mx-5 px-5) */}
+            <div className="sticky bottom-0 -mx-5 px-5 pt-2.5 pb-0.5 bg-white border-t border-gray-100 flex gap-2">
               {current != null && (
                 <button type="button" onClick={() => onSave(null)} className="h-12 px-4 rounded-xl bg-gray-100 text-gray-500 text-[14px] font-semibold">해제</button>
               )}
@@ -455,12 +461,15 @@ function LoggerSheet({ open, onClose, onSave, last }) {
     onSave({ weight: weight ? +weight : null, waist: waist ? +waist : null, mood: mood || null, memo: memo.trim() || null })
     reset(); onClose()
   }
+  // 키보드 — 자체 바텀시트라 직접 대응. 구형 안드(노트9=안드10)는 창이 안 줄어 시트가 키보드에
+  //   통째로 가리므로 위쪽 정렬 + 52vh(=347px) 로 가둔다. [[hooks/useKeyboardOverlay]]
+  const { overlayStyle, cardStyle } = useKeyboardOverlay(16)
   return (
     <AnimatePresence>
       {open && (
-        <motion.div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: 'rgba(15,23,42,0.45)' }}
+        <motion.div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: 'rgba(15,23,42,0.45)', ...overlayStyle }}
           onClick={onClose} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-          <motion.div className="w-full max-w-md bg-white rounded-t-3xl p-5 pb-8" onClick={(e) => e.stopPropagation()}
+          <motion.div className="w-full max-w-md bg-white rounded-t-3xl p-5 pb-8 max-h-[85vh] overflow-y-auto" style={cardStyle} onClick={(e) => e.stopPropagation()}
             initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', damping: 30, stiffness: 300 }}>
             <div className="flex items-center mb-1">
               <h3 className="text-[16px] font-extrabold text-gray-900">오늘 기록</h3>
@@ -493,8 +502,12 @@ function LoggerSheet({ open, onClose, onSave, last }) {
               <textarea value={memo} onChange={(e) => setMemo(e.target.value)} rows={2} placeholder="오늘 식단·몸 상태 메모"
                 className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-[14px] resize-none focus:border-emerald-400 outline-none" />
             </label>
-            <button type="button" onClick={save} disabled={!weight && !waist}
-              className="w-full h-12 rounded-xl bg-emerald-500 text-white text-[15px] font-bold disabled:opacity-40 active:scale-[0.98] transition">저장</button>
+            {/* 저장 — 시트 하단에 sticky. 「오늘 기록」은 내용이 408px 이라 구형 안드에서 52vh(=347px)로
+                갇히면 저장 버튼이 스크롤 밖으로 밀려 눌리지 않는다. (시트 padding 이 p-5 → -mx-5 px-5) */}
+            <div className="sticky bottom-0 -mx-5 px-5 pt-2.5 pb-0.5 bg-white border-t border-gray-100">
+              <button type="button" onClick={save} disabled={!weight && !waist}
+                className="w-full h-12 rounded-xl bg-emerald-500 text-white text-[15px] font-bold disabled:opacity-40 active:scale-[0.98] transition">저장</button>
+            </div>
           </motion.div>
         </motion.div>
       )}

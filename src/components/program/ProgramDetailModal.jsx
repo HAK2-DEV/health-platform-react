@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useBackButtonClose } from '../../hooks/useBackButtonClose'
+import { useKeyboardOverlay } from '../../hooks/useKeyboardOverlay'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Users, Target, Award, Crown, Lock, ShieldCheck, Globe2, Calendar } from 'lucide-react'
@@ -36,6 +37,9 @@ function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
   const [entryAnswer, setEntryAnswer] = useState('')
   const [showEntryForm, setShowEntryForm] = useState(false)
   useBackButtonClose(showEntryForm, () => setShowEntryForm(false))  // 하드웨어 뒤로가기 = 참가폼 닫기(스택 최상단)
+  // 키보드 — 아래 입장 질문 폼은 공용 Modal 이 아닌 자체 fixed 오버레이다. 구형 안드(노트9=안드10)는
+  //   창이 안 줄어 정중앙 카드가 키보드에 통째로 가리므로 위쪽 정렬 + 52vh 로 가둔다. [[hooks/useKeyboardOverlay]]
+  const { overlayStyle, cardStyle } = useKeyboardOverlay(16)
 
   // 모달 fetch — 운영자/참여자/미션 정보 한 번에
   const { data: joinInfo } = useQuery({
@@ -487,8 +491,8 @@ function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
     {/* 입장 질문 답변 — 정중앙 모달 (회색 딤 배경) */}
     {showEntryForm && (
       <div className="fixed inset-0 z-[90] bg-black/40 flex items-center justify-center p-5"
-        style={{ touchAction: 'pan-y' }} onClick={() => !isJoining && setShowEntryForm(false)}>
-        <div className="w-full max-w-sm bg-white rounded-2xl p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        style={{ touchAction: 'pan-y', ...overlayStyle }} onClick={() => !isJoining && setShowEntryForm(false)}>
+        <div className="w-full max-w-sm bg-white rounded-2xl p-5 shadow-xl max-h-[85vh] overflow-y-auto" style={cardStyle} onClick={(e) => e.stopPropagation()}>
           <p className="text-[16px] font-bold text-sky-900 leading-snug whitespace-pre-wrap break-words">
             📝 {program?.entry_question}
           </p>
@@ -506,7 +510,9 @@ function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
           {joinError && (
             <p className="mt-3 px-3 py-2.5 bg-red-100 text-red-700 rounded-xl text-sm text-center">{joinError}</p>
           )}
-          <div className="flex gap-2 mt-4">
+          {/* 취소·신청 제출 — 카드 하단에 sticky. 구형 안드에서 52vh 로 갇히거나 오류 문구가 더해져
+              내용이 길어져도 버튼이 스크롤 밖으로 밀리지 않게 한다. (카드 padding 이 p-5 → -mx-5 px-5) */}
+          <div className="sticky bottom-0 -mx-5 px-5 mt-4 pt-2.5 pb-0.5 bg-white border-t border-gray-100 flex gap-2">
             <button type="button" onClick={() => setShowEntryForm(false)} disabled={isJoining}
               className="flex-1 h-11 rounded-xl border border-gray-200 text-gray-600 text-sm font-bold hover:bg-gray-50 transition disabled:opacity-50">취소</button>
             <button type="button" onClick={handleJoin} disabled={isJoining}
