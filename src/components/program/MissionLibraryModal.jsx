@@ -870,7 +870,7 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
           )}
 
           {/* 하단 sticky 액션 — 모달 스크롤 컨테이너 안에서 따라옴 */}
-          <div className="sticky bottom-0 -mx-6 mt-5 bg-white border-t border-gray-100 px-5 py-3">
+          <div className="sticky bottom-0 -mx-6 bg-white border-t border-gray-100 px-5 py-3">
             <div className="flex gap-2">
               <button
                 type="button"

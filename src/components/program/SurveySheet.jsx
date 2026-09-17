@@ -53,7 +53,7 @@ export default function SurveySheet({ open, title = '시작 설문', questions =
             {/* 제출 — 시트 «하단에 붙여» 둔다 (sticky). 구형 안드에서 키보드가 뜨면 시트가 52vh(=347px)로
                 갇히는데 설문 내용은 그보다 길어(실측 574px) 제출 버튼이 스크롤 밖으로 밀린다.
                 바깥 시트 padding 이 p-5 이므로 -mx-5 px-5 로 폭을 맞춘다. [[components/program/CommunityPostModal]] */}
-            <div className="sticky bottom-0 -mx-5 px-5 mt-6 pt-2.5 pb-0.5 bg-white border-t border-gray-100">
+            <div className="sticky bottom-0 -mx-5 px-5 pt-2.5 pb-0.5 bg-white border-t border-gray-100">
               <button type="button" onClick={() => onSubmit?.(ans)}
                 className="w-full h-12 rounded-xl bg-emerald-500 text-white text-[15px] font-bold active:scale-[0.98] transition">제출</button>
             </div>

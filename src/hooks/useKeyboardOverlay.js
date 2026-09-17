@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useKeyboardInset } from './useKeyboardInset'
 import { useLegacyKeyboardOpen } from './useLegacyKeyboardOpen'
 
@@ -21,6 +22,28 @@ export function useKeyboardOverlay(extra = 20) {
   const kbInset = useKeyboardInset()
   const legacyOpen = useLegacyKeyboardOpen()
   const lift = legacyOpen && !kbInset     // 구형: 높이를 모르니 «위쪽으로 올리기» 로 대체
+
+  // ⚠️ 카드가 52vh 로 «접힌 뒤» 포커스된 입력칸을 카드 스크롤 영역 가운데로 직접 끌어온다.
+  //    [[lib/nativeKeyboard]] 의 포커스 스크롤은 고정 컨테이너 안 입력칸을 건너뛴다(window 스크롤로는
+  //    못 올리니 당연하다) → 카드 «안쪽» 은 아무도 스크롤해주지 않는다.
+  //    공용 Modal 은 2026-09-16 에 같은 보정을 넣었는데 이 훅으로는 옮겨오지 않아,
+  //    이 훅을 쓰는 오버레이 18곳에서 「입력칸이 버튼에 가림」이 남아 있었다(2026-09-17 노트9 제보).
+  //    [[components/common/Modal]] 와 같은 타이밍(320ms — nativeKeyboard 의 300ms 올리기 직후).
+  //
+  //    ⚠️ 카드를 flex(스크롤영역 + flex-shrink-0 푸터)로 바꾸는 것만으로는 «해결되지 않았다».
+  //       CheerModal 을 그 구조로 만든 빌드에서도 노트9 실기기는 그대로 가려졌고(22:49),
+  //       이 줄을 넣은 빌드에서 비로소 분리됐다(23:13, uiautomator 실측 여유 116px).
+  //       구조만으로 왜 부족했는지는 아직 설명하지 못한다 — 이 보정을 «구조 개선의 곁다리»로 보고
+  //       걷어내지 말 것. 지우려면 노트9 실기기에서 다시 재보고 판단해야 한다.
+  useEffect(() => {
+    if (!lift) return
+    const t = setTimeout(() => {
+      const el = document.activeElement
+      if (el && typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    }, 320)
+    return () => clearTimeout(t)
+  }, [lift])
+
   return {
     lift,
     kbInset,   // 전체화면 오버레이 등 «여백만» 필요한 곳에서 그대로 쓸 수 있게 함께 돌려준다

@@ -152,7 +152,7 @@ function InquiryBoard({ userId, isAdmin, roleReady = true, deepLinkInquiryId, on
             {pwError && <p className="mt-2 text-xs text-red-500">{pwError}</p>}
             {/* 취소·열람 — 카드 하단에 sticky. 구형 안드에서 52vh 로 갇히거나 큰 글꼴로 내용이
                 길어져도 버튼이 스크롤 밖으로 밀리지 않게. (카드 padding 이 p-5 → -mx-5 px-5) */}
-            <div className="sticky bottom-0 -mx-5 px-5 mt-4 pt-2.5 pb-0.5 bg-white border-t border-gray-100 flex gap-2">
+            <div className="sticky bottom-0 -mx-5 px-5 pt-2.5 pb-0.5 bg-white border-t border-gray-100 flex gap-2">
               <button type="button" onClick={() => setPwTarget(null)} disabled={pwBusy}
                 className="flex-1 h-11 rounded-xl border border-gray-200 text-gray-600 text-sm font-bold hover:bg-gray-50 transition disabled:opacity-50">취소</button>
               <button type="button" onClick={submitPassword} disabled={pwBusy || !pwInput.trim()}

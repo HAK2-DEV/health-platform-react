@@ -154,7 +154,7 @@ function InquiryDetailModal({ inquiryId, userId, isAdmin, isOpen, onClose, onCha
                 Modal 이 시트를 52vh(노트9 실측 347px)로 가두는데, 이 모달은 본문+답변 스레드라 그보다 길어
                 답글 입력에 키보드가 뜨면 두 버튼이 스크롤 밖으로 밀린다. 그래서 입력칸 밑에 있던 「답글 등록」도
                 닫기와 함께 하단에 고정한다. (바깥이 p-6 이라 -mx-6 px-6) [[components/program/CommunityPostModal]] */}
-            <div className="sticky bottom-0 -mx-6 px-6 mt-3 pt-2.5 pb-0.5 bg-white border-t border-gray-100 space-y-2">
+            <div className="sticky bottom-0 -mx-6 px-6 pt-2.5 pb-0.5 bg-white border-t border-gray-100 space-y-2">
               {canComment && (
                 <button
                   type="button" onClick={handleAddComment} disabled={busy || !comment.trim()}

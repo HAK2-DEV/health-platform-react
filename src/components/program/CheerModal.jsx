@@ -156,7 +156,14 @@ export default function CheerModal({ programId, targetUserId, targetNickname, ta
     >
       {/* 키보드 위 가운데 정렬(구형 안드는 위쪽 정렬) — 내용이 길면 카드 내부 스크롤 */}
       <div className="absolute inset-0 flex items-center justify-center p-4" style={overlayStyle}>
-        <div className="w-full max-w-[340px] max-h-full overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl" style={cardStyle} onClick={(e) => e.stopPropagation()}>
+        {/* ⚠️ 카드는 «세로 flex» 다 — 스크롤 영역과 버튼을 형제로 두어 겹침을 원천 차단한다.
+            예전에는 카드 전체가 overflow-y-auto 이고 버튼이 그 «안» 에서 sticky 였는데,
+            sticky 는 스크롤 중 콘텐츠 위에 뜨는 것이 정상 동작이라 입력칸이 버튼 뒤로 깔렸다
+            (2026-09-17 노트9 실기기: 「직접 메시지를…」이 버튼 행에 가로로 잘리고 0/200 이 버튼 아래로 떨어짐).
+            mt-4 제거로는 해결되지 않았고, 푸터를 스크롤 «밖» 으로 빼는 것이 근본 처방이다.
+            [[components/common/Modal]] 의 fill 모드와 같은 구조. */}
+        <div className="w-full max-w-[340px] max-h-full flex flex-col rounded-2xl bg-white shadow-2xl overflow-hidden" style={cardStyle} onClick={(e) => e.stopPropagation()}>
+        <div className="flex-1 min-h-0 overflow-y-auto p-5 pb-3">
         <h3 className="text-[15px] font-bold text-gray-800">{v.emoji} {v.title}</h3>
         <p className="text-[12px] text-gray-500 mt-0.5 mb-2">
           {isBulk
@@ -217,11 +224,11 @@ export default function CheerModal({ programId, targetUserId, targetNickname, ta
         </div>
 
         {error && <p className="mt-2 text-[12px] text-red-600 break-keep">{error}</p>}
+        </div>
 
-        {/* 액션 버튼 — 시트 하단에 «붙여» 둔다(sticky). 구형 안드는 키보드가 뜨면 카드가 52vh(=347px, 노트9 실측)
-            로 갇히는데 프리셋·대상이름·입력칸을 합치면 그보다 길어 「취소·보내기」가 스크롤 밖으로 밀린다.
-            글쓰기 모달(6819dd0)·크롭 모달(dfaaa32)과 같은 패턴. 바깥 카드가 p-5 라 -mx-5 px-5. */}
-        <div className="sticky bottom-0 -mx-5 px-5 pt-2.5 pb-0.5 bg-white border-t border-gray-100 flex gap-2 mt-4">
+        {/* 액션 버튼 — 스크롤 영역의 «형제». flex-shrink-0 이라 카드가 52vh 로 갇혀도 항상 남고,
+            스크롤 밖이라 입력칸을 덮을 수가 없다. */}
+        <div className="flex-shrink-0 px-5 pt-2.5 pb-4 bg-white border-t border-gray-100 flex gap-2">
           <button
             type="button"
             onClick={() => onClose?.()}

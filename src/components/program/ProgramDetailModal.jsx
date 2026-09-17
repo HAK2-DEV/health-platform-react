@@ -512,7 +512,7 @@ function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
           )}
           {/* 취소·신청 제출 — 카드 하단에 sticky. 구형 안드에서 52vh 로 갇히거나 오류 문구가 더해져
               내용이 길어져도 버튼이 스크롤 밖으로 밀리지 않게 한다. (카드 padding 이 p-5 → -mx-5 px-5) */}
-          <div className="sticky bottom-0 -mx-5 px-5 mt-4 pt-2.5 pb-0.5 bg-white border-t border-gray-100 flex gap-2">
+          <div className="sticky bottom-0 -mx-5 px-5 pt-2.5 pb-0.5 bg-white border-t border-gray-100 flex gap-2">
             <button type="button" onClick={() => setShowEntryForm(false)} disabled={isJoining}
               className="flex-1 h-11 rounded-xl border border-gray-200 text-gray-600 text-sm font-bold hover:bg-gray-50 transition disabled:opacity-50">취소</button>
             <button type="button" onClick={handleJoin} disabled={isJoining}

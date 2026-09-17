@@ -86,7 +86,7 @@ function DeleteProgramConfirmModal({ program, isOpen, onClose, onConfirm }) {
           {/* 버튼 — 시트 «하단에 붙여» 둔다(sticky). 구형 안드(노트9)는 키보드 높이를 알 수 없어 Modal 이
               시트를 52vh(노트9 실측 347px)로 가두는데, 이름 재입력에 키보드가 뜨면 「취소·영구 삭제」가
               스크롤 밖으로 밀린다. (바깥이 p-6 이라 -mx-6 px-6) [[components/program/CommunityPostModal]] */}
-          <div className="sticky bottom-0 -mx-6 px-6 mt-4 pt-2.5 pb-0.5 bg-white border-t border-gray-100 flex gap-2">
+          <div className="sticky bottom-0 -mx-6 px-6 pt-2.5 pb-0.5 bg-white border-t border-gray-100 flex gap-2">
             <button
               type="button"
               onClick={onClose}
