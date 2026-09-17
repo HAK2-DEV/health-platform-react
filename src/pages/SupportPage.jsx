@@ -7,7 +7,8 @@ import InquiryBoard from '../components/support/InquiryBoard'
 import { useAuth } from '../hooks/useAuth'
 import { fetchMyRole } from '../lib/queries'
 
-const CONTACT_EMAIL = 'f23-10599@naver.com'
+// Play 콘솔 연락처·약관·개인정보처리방침과 «같은» 주소여야 한다. 심사에서 연락처 불일치로 걸린다.
+const CONTACT_EMAIL = '00jonghak@gmail.com'
 
 // 자주 묻는 질문 — 정적 콘텐츠 (건강증진 플랫폼 기준). 추후 추가/수정 자유.
 const FAQS = [
