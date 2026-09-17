@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { motion, useInView, useReducedMotion } from 'framer-motion'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import { useAuth } from '../hooks/useAuth'
-import { Bell, ChevronRight } from 'lucide-react'
+import { Bell, ChevronRight, Camera, Loader2 } from 'lucide-react'
 import { supabase } from '../supabaseClient'
+import ImageCropModal from '../components/common/ImageCropModal'
+import { prepareImageFile } from '../lib/imageInput'
 import ProgramDetailModal from '../components/program/ProgramDetailModal'
 import ProgramBrowseModal from '../components/program/ProgramBrowseModal'
 import WelcomeOperatorModal from '../components/program/WelcomeOperatorModal'
@@ -332,15 +334,81 @@ function DashboardPage() {
   }
 
   // ─── 데이터 ───────────
-  const { data: nickname } = useQuery({
-    queryKey: ['user-nickname', userId],
+  // 인사 배너용 프로필 — 닉네임 + 배너 사진 경로를 «한 쿼리»로 가져온다(요청 수를 늘리지 않음).
+  //   home_banner_path: 마이그 264. NULL 이면 기본 일러스트(/home-header.jpg).
+  const { data: homeProfile, refetch: refetchHomeProfile } = useQuery({
+    queryKey: ['user-home-profile', userId],
     queryFn: async () => {
-      const { data, error } = await supabase.from('users').select('nickname').eq('id', userId).maybeSingle()
+      const { data, error } = await supabase.from('users').select('nickname, home_banner_path').eq('id', userId).maybeSingle()
       if (error) throw error
-      return data?.nickname || ''
+      return { nickname: data?.nickname || '', bannerPath: data?.home_banner_path || null }
     },
     enabled: !!userId,
   })
+  const nickname = homeProfile?.nickname || ''
+  const bannerPath = homeProfile?.bannerPath || null
+  // 배너 배경 — 사용자가 고른 사진이 있으면 그것, 없으면 기본 일러스트(본인 결정: 기본값 유지).
+  const bannerUrl = bannerPath
+    ? supabase.storage.from('profile-avatars').getPublicUrl(bannerPath).data?.publicUrl
+    : '/home-header.jpg'
+
+  // ─── 인사 배너 사진 편집 (2026-09-17 요청) ─────────────────
+  //   아바타와 같은 profile-avatars 버킷·같은 본인 폴더 정책(마이그 050)을 재사용한다.
+  //   파일명만 home-banner- 로 구분해 아바타와 섞이지 않게 한다.
+  const bannerInputRef = useRef(null)
+  const [bannerCropSrc, setBannerCropSrc] = useState(null)
+  const [bannerCropOpen, setBannerCropOpen] = useState(false)
+  const [bannerError, setBannerError] = useState(null)
+  const [bannerPreparing, setBannerPreparing] = useState(false)
+
+  const bannerMutation = useMutation({
+    mutationFn: async (blob) => {
+      const newPath = `${userId}/home-banner-${Date.now()}.jpg`
+      const { error: upErr } = await supabase.storage
+        .from('profile-avatars')
+        .upload(newPath, blob, { upsert: false, contentType: 'image/jpeg' })
+      if (upErr) throw new Error(`업로드 실패: ${upErr.message}`)
+      const { error: updErr } = await supabase.from('users').update({ home_banner_path: newPath }).eq('id', userId)
+      if (updErr) {
+        await supabase.storage.from('profile-avatars').remove([newPath])   // 롤백
+        throw new Error(`저장 실패: ${updErr.message}`)
+      }
+      if (bannerPath && bannerPath !== newPath) {
+        await supabase.storage.from('profile-avatars').remove([bannerPath])  // 옛 배너 정리(실패해도 무시)
+      }
+      return newPath
+    },
+    onSuccess: async () => {
+      await refetchHomeProfile()
+      setBannerError(null)
+      setBannerCropOpen(false)
+      setBannerCropSrc((prev) => { if (prev) URL.revokeObjectURL(prev); return null })
+    },
+    onError: (err) => { console.error('배너 업로드 실패:', err); setBannerError(err.message) },
+  })
+
+  const removeBannerMutation = useMutation({
+    mutationFn: async () => {
+      if (!bannerPath) return
+      const { error } = await supabase.from('users').update({ home_banner_path: null }).eq('id', userId)
+      if (error) throw error
+      await supabase.storage.from('profile-avatars').remove([bannerPath])
+    },
+    onSuccess: async () => { await refetchHomeProfile(); setBannerCropOpen(false) },
+    onError: (err) => { console.error('배너 삭제 실패:', err); setBannerError(err.message) },
+  })
+
+  const onBannerPick = async (e) => {
+    const raw = e.target.files?.[0]; e.target.value = ''
+    if (!raw) return
+    if (raw.size > 10 * 1024 * 1024) { setBannerError('사진은 최대 10MB예요'); return }
+    setBannerError(null)
+    let f
+    try { f = await prepareImageFile(raw, { onConverting: setBannerPreparing }) }   // HEIC 변환·디코딩 검사
+    catch (err) { setBannerError(err.message); return }
+    setBannerCropSrc((prev) => { if (prev) URL.revokeObjectURL(prev); return URL.createObjectURL(f) })
+    setBannerCropOpen(true)
+  }
 
   const { data: myPrograms = [], isLoading: isMyLoading } = useQuery({
     queryKey: queryKeys.myPrograms(userId),
@@ -567,26 +635,43 @@ function DashboardPage() {
 
         {/* ─── 인사말 헤더 (이미지 카드, 모서리 10) — 페이드 없이 항상 보임 ─── */}
         <div className="relative overflow-hidden rounded-[10px] bg-[#eef7f1] h-[120px]">
-          {/* 일러스트 — object-cover + 상단 기준(머리 안 잘리게) → 인물 크게 (사진2처럼) */}
+          {/* 배경 — 사용자가 고른 사진(users.home_banner_path) 또는 기본 일러스트. */}
           <img
-            src="/home-header.jpg"
+            src={bannerUrl}
             alt=""
             aria-hidden="true"
             onError={(e) => { e.currentTarget.style.display = 'none' }}
             className="absolute inset-0 w-full h-full object-cover"
-            style={{ objectPosition: 'center 56%' }}
+            style={{ objectPosition: bannerPath ? 'center' : 'center 56%' }}
           />
-          {/* 좌측은 배경색으로 덮고(텍스트 또렷·이음새 가림), 우측 인물로 갈수록 투명 */}
+          {/* 가독성 보호 — 기본 일러스트는 좌측을 배경색으로 덮어 인물을 살리고,
+              사용자 사진은 «어떤 사진이 와도» 닉네임이 읽히도록 어두운 오버레이를 강제한다(본인 결정). */}
           <div
             className="absolute inset-0"
-            style={{ background: 'linear-gradient(to right, #eef7f1 0%, #eef7f1 50%, rgba(238,247,241,0) 72%)' }}
+            style={bannerPath
+              ? { background: 'linear-gradient(to right, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.42) 55%, rgba(0,0,0,0.28) 100%)' }
+              : { background: 'linear-gradient(to right, #eef7f1 0%, #eef7f1 50%, rgba(238,247,241,0) 72%)' }}
           />
-          {/* 텍스트 — 세로 균등 간격(gap-[8px] 한 곳에서 조절) */}
+          {/* 사진 바꾸기 — 우측 상단 작은 버튼(배너 전체 탭은 오작동이 나서 제외, 2026-09-17 본인 결정) */}
+          <button
+            type="button"
+            onClick={() => bannerInputRef.current?.click()}
+            disabled={bannerPreparing || bannerMutation.isPending}
+            aria-label="배너 사진 바꾸기"
+            title="배너 사진 바꾸기"
+            className="absolute top-2 right-2 z-10 w-8 h-8 rounded-full bg-black/35 hover:bg-black/50 text-white flex items-center justify-center backdrop-blur-sm transition disabled:opacity-60"
+          >
+            {(bannerPreparing || bannerMutation.isPending)
+              ? <Loader2 className="w-4 h-4 animate-spin" />
+              : <Camera className="w-4 h-4" />}
+          </button>
+          <input ref={bannerInputRef} type="file" accept="image/*" onChange={onBannerPick} className="hidden" />
+          {/* 텍스트 — 세로 균등 간격(gap-[8px] 한 곳에서 조절). 사진 배너에선 흰 글자. */}
           <div className="relative h-full px-4 flex flex-col justify-center gap-[8px]">
-            <p className="text-[13px] font-medium text-gray-700 leading-tight drop-shadow-sm">
+            <p className={`text-[13px] font-medium leading-tight drop-shadow-sm ${bannerPath ? 'text-white/90' : 'text-gray-700'}`}>
               오늘도 건강한 하루 되세요! 👋
             </p>
-            <p className="text-2xl font-extrabold text-gray-900 leading-tight drop-shadow-sm">
+            <p className={`text-2xl font-extrabold leading-tight drop-shadow-sm ${bannerPath ? 'text-white' : 'text-gray-900'}`}>
               {nickname ? `${nickname}님` : '반가워요'}
             </p>
             <div className="flex items-center gap-1.5">
@@ -595,10 +680,30 @@ function DashboardPage() {
                   운영자
                 </span>
               )}
-              <span className="text-[12px] font-medium text-gray-700">{isColdStart ? '환영해요! 첫 건강 습관을 시작해볼까요? ✨' : '건강한 습관이 쌓이고 있어요!'}</span>
+              <span className={`text-[12px] font-medium ${bannerPath ? 'text-white/90 drop-shadow-sm' : 'text-gray-700'}`}>{isColdStart ? '환영해요! 첫 건강 습관을 시작해볼까요? ✨' : '건강한 습관이 쌓이고 있어요!'}</span>
             </div>
           </div>
         </div>
+        {bannerError && (
+          <p className="text-[11px] text-red-600 text-center -mt-2">{bannerError}</p>
+        )}
+
+        {/* 배너 사진 편집 — 배너 틀이 360x120 이라 3:1 로 자른다(출력 1200x400). */}
+        <ImageCropModal
+          isOpen={bannerCropOpen}
+          imageSrc={bannerCropSrc}
+          onClose={() => { setBannerCropOpen(false); setBannerCropSrc((p) => { if (p) URL.revokeObjectURL(p); return null }) }}
+          onComplete={(blob) => bannerMutation.mutate(blob)}
+          isUploading={bannerMutation.isPending}
+          aspect={3}
+          cropShape="rect"
+          outputWidth={1200}
+          outputHeight={400}
+          title="배너 사진 편집"
+          description="가로로 긴 사진이 잘 어울려요 (3:1)"
+          onPickNew={() => bannerInputRef.current?.click()}
+          onDelete={bannerPath ? () => removeBannerMutation.mutate() : undefined}
+        />
 
         {/* 첫 인증 넛지 — 참여했지만 아직 한 번도 인증 안 한 사용자를 미션 탭으로 (활성화) */}
         {firstVerifyNudge && (
