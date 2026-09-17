@@ -200,7 +200,13 @@ export const needOf = (pt) => {
 //   · 같은 프로그램·같은 차례에서는 늘 같은 종(정원이 흔들리지 않는다)
 //   · 프로그램이 다르면 순서 자체가 달라진다
 export const speciesFor = (uid, seed, cycle = 0) => {
-  const key = String(uid) + '|' + String(seed || '')
+  // ⚠️ 한 «바퀴»(종 개수 = 7) 마다 순서를 새로 섞는다.
+  //    예전엔 순열을 한 번만 만들고 cycle % 7 로 돌려 썼다 — 여덟 번째 꽃부터 첫 일곱 송이가
+  //    «같은 차례로» 되풀이돼서, 오래 한 사람에게는 랜덤이 아니라 «주기» 로 읽힌다.
+  //    바퀴 번호를 시드에 섞으면 바퀴마다 새 순서가 되면서, 한 바퀴 안에서는 여전히 중복이 없다.
+  // ⚠️ 시드에서만 뽑는다(Math.random 금지) — 새로고침할 때마다 지난 꽃의 종이 바뀌면 안 된다.
+  const lap = Math.floor(cycle / SPECIES_KEYS.length)
+  const key = String(uid) + '|' + String(seed || '') + '|' + lap
   let h = 0
   for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0
   let r = h || 1
