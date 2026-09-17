@@ -12,6 +12,7 @@ import { CATEGORY } from '../../lib/constants'
 import { checkMissionToday, isUpcomingByStartDate, formatKoreanDate } from '../../lib/formatters'
 import { resolveMissionIcon } from '../../lib/missionIcons'
 import { prepareImageFile } from '../../lib/imageInput'
+import { readDraft, writeDraft, clearDraft } from '../../lib/formDraft'
 import { queryKeys, fetchMission, fetchProgramOverview, fetchProgram, fetchActivePrograms, fetchTodayMissions, fetchTodayCounts } from '../../lib/queries'
 import { detectMilestonesReached, resolveStreakMilestones, computeStage } from '../../lib/gamification'
 import { useToast } from '../../contexts/ToastContext'
@@ -249,16 +250,30 @@ function MissionVerifyPage() {
   const canVerify = isOwner || myPart?.status === 'ACTIVE'
 
   // 입력 상태
+  // 사진 고르는 사이 앱이 회수돼 다시 로드되면 입력이 전부 날아간다 (2026-09-17 제보).
+  //   안드로이드는 갤러리를 «별도 앱» 으로 띄우는데, 그동안 메모리가 부족하면 PWA 프로세스를 회수한다.
+  //   이 화면은 /programs/:programId/missions/:missionId 고유 URL 이라 «화면 자체는» 되돌아오므로,
+  //   입력값만 되살리면 된다(글쓰기 모달과 달리 재개방 장치가 필요 없다).
+  //   ⚠️ 사진(File·objectURL)은 직렬화가 안 돼 복원 대상이 아니다 — 사진은 다시 골라야 한다. [[lib/formDraft]]
+  const draftKey = missionId ? `verify:${missionId}` : null
+  const [kept] = useState(() => readDraft(draftKey))
+
   const [selectedFile, setSelectedFile] = useState(null)
   const [previewUrl, setPreviewUrl] = useState(null)
   const [cropImageSrc, setCropImageSrc] = useState(null)  // 크롭 모달용 원본 objectURL
   const [isCropOpen, setIsCropOpen] = useState(false)
-  const [numericValue, setNumericValue] = useState('')
-  const [metricValues, setMetricValues] = useState({})  // 다중 지표 입력값 {key: value}
+  const [numericValue, setNumericValue] = useState(kept?.numericValue ?? '')
+  const [metricValues, setMetricValues] = useState(kept?.metricValues ?? {})  // 다중 지표 입력값 {key: value}
   const [ocrBusy, setOcrBusy] = useState(false)         // 운동 스크린샷 OCR 중
   const [ocrHint, setOcrHint] = useState(null)
-  const [noteText, setNoteText] = useState('')
-  const [feedVisible, setFeedVisible] = useState(true)  // 디폴트 노출 — feed_enabled 인 프로그램만 의미 있음
+  const [noteText, setNoteText] = useState(kept?.noteText ?? '')
+  const [feedVisible, setFeedVisible] = useState(kept?.feedVisible ?? true)  // 디폴트 노출 — feed_enabled 인 프로그램만 의미 있음
+
+  // 입력이 바뀔 때마다 보관 — 갤러리로 넘어가기 «전에» 이미 저장돼 있어야 의미가 있다.
+  useEffect(() => {
+    if (!draftKey) return
+    writeDraft(draftKey, { numericValue, metricValues, noteText, feedVisible })
+  }, [draftKey, numericValue, metricValues, noteText, feedVisible])
   // 인증 피드 공개 정책 (커뮤니티 관리자 ②) ↔ 제출 토글 연결
   const feedPolicy = (() => {
     const boards = program?.community_settings?.boards
@@ -592,6 +607,7 @@ function MissionVerifyPage() {
       }
     },
     onSuccess: async () => {
+      clearDraft(draftKey)   // 제출됐으니 보관본 폐기 — 다음 인증에 옛 값이 남지 않게
       // 효과음은 SubmitCelebration 이 체크 스탬프 순간에 재생(싱크). 여기서 즉시 울리면 소리가 먼저 남.
       // 인증 성공 → 점수/카운트/랭킹 모두 무효화 → 다른 화면 진입 시 fresh
       // prefix 무효화로 한 번에 처리 (새 키 추가 시 빠질 위험 줄임)

@@ -7,6 +7,7 @@ import ImageCropModal from '../common/ImageCropModal'
 import { supabase } from '../../supabaseClient'
 import { createCommunityPost, updateCommunityPost, queryKeys } from '../../lib/queries'
 import { prepareImageFile } from '../../lib/imageInput'
+import { readDraft, writeDraft, clearDraft } from '../../lib/formDraft'
 import { compressImage, compressThumbnail } from '../../lib/imageCompression'
 import { thumbPathOf } from '../../lib/signedUrls'
 
@@ -29,6 +30,9 @@ function CommunityPostModal({ isOpen, onClose, program, boards = [], defaultBoar
   const [pendingDone, setPendingDone] = useState(false)  // 승인 필요 게시판 제출 완료 안내 카드
   useBackButtonClose(pendingDone, () => setPendingDone(false))  // 하드웨어 뒤로가기 = 닫기(스택 최상단)
 
+  // 작성 중 보관 키 — 새 글만. 수정은 원본이 DB 에 있으므로 보관하지 않는다. [[lib/formDraft]]
+  const draftKey = (!isEdit && program?.id) ? `compose:${program.id}` : null
+
   useEffect(() => {
     if (!isOpen) return
     setError(null); setFile(null); setImageRemoved(false); setIsCropOpen(false); setPendingDone(false)
@@ -43,10 +47,21 @@ function CommunityPostModal({ isOpen, onClose, program, boards = [], defaultBoar
           .then(r => setExistingUrl(r.data?.signedUrl || null)).catch(() => setExistingUrl(null))
       } else setExistingUrl(null)
     } else {
-      setBoardId(defaultBoardId || boards[0]?.id || '')
-      setTitle(draft?.title || ''); setBody(draft?.body || ''); setExistingUrl(null)
+      // 사진 고르는 사이 앱이 회수돼 다시 로드된 경우 → 쓰던 글을 되살린다(사진은 복원 불가).
+      const kept = readDraft(draftKey)
+      setBoardId(kept?.boardId || defaultBoardId || boards[0]?.id || '')
+      setTitle(kept?.title ?? draft?.title ?? '')
+      setBody(kept?.body ?? draft?.body ?? '')
+      setExistingUrl(null)
     }
   }, [isOpen]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 입력이 바뀔 때마다 보관 — 갤러리로 넘어가기 «전에» 이미 저장돼 있어야 의미가 있다.
+  //   open:true 로 적어두면 ProgramDetailPage 가 다시 로드될 때 모달을 그대로 다시 연다.
+  useEffect(() => {
+    if (!isOpen || !draftKey) return
+    writeDraft(draftKey, { open: true, boardId, title, body })
+  }, [isOpen, draftKey, boardId, title, body])
 
   const shownImage = preview || (!imageRemoved ? existingUrl : null)
 
@@ -77,6 +92,7 @@ function CommunityPostModal({ isOpen, onClose, program, boards = [], defaultBoar
         : createCommunityPost({ programId: program.id, boardId, title: title.trim(), body: body.trim(), imagePath })
     },
     onSuccess: (post) => {
+      clearDraft(draftKey)   // 저장됐으니 보관본 폐기
       queryClient.invalidateQueries({ queryKey: queryKeys.communityPosts(program.id, boardId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.communityPosts(program.id, 'all') })
       if (isEdit && editPost.board_id !== boardId) queryClient.invalidateQueries({ queryKey: queryKeys.communityPosts(program.id, editPost.board_id) })
@@ -122,7 +138,7 @@ function CommunityPostModal({ isOpen, onClose, program, boards = [], defaultBoar
 
   return (
     <>
-    <Modal isOpen={isOpen} onClose={onClose}>
+    <Modal isOpen={isOpen} onClose={() => { clearDraft(draftKey); onClose() }}>
       <div className="px-5 pt-1 pb-4">
         {/* 헤더 — 고정 */}
         <div className="flex-shrink-0 space-y-3">

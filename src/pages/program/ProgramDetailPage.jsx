@@ -151,6 +151,7 @@ import {
 } from '../../lib/queries'
 import DietChangeTab from '../../components/program/DietChangeTab'
 import { useHealthConsent } from '../../contexts/HealthConsentContext'
+import { readDraft } from '../../lib/formDraft'
 
 // 기간 필터 옵션 (period_filter_enabled 옵션 시) — period → ISO 시작점
 const PERIOD_OPTIONS = [
@@ -732,6 +733,19 @@ function ProgramDetailPage() {
   const [isPostModalOpen, setIsPostModalOpen] = useState(false)         // 게시판 글쓰기 모달
   const [editingPost, setEditingPost] = useState(null)                 // 수정 중인 게시글 (null=새 글)
   const [composeDraft, setComposeDraft] = useState(null)               // 새 글 초안 (종료 리포트 감사 인사 등)
+
+  // 「사진 첨부하면 글쓰기 창이 아예 사라진다」 복구 (2026-09-17 피지컬:16전비 제보).
+  //   안드로이드는 갤러리를 «별도 앱» 으로 띄우는데, 그 사이 메모리가 부족하면 PWA 를 회수한다.
+  //   돌아오면 페이지가 처음부터 다시 로드돼 이 state 들이 전부 초기값이 된다 → 모달이 사라지고 글도 날아감.
+  //   CommunityPostModal 이 입력을 세션에 보관해 두므로, 보관본이 있으면 모달을 그대로 다시 연다.
+  //   사용자가 직접 닫거나 저장에 성공하면 보관본이 지워져 다시 열리지 않는다. [[lib/formDraft]]
+  useEffect(() => {
+    if (!id) return
+    if (readDraft(`compose:${id}`)?.open) {
+      setActiveTab('community')
+      setIsPostModalOpen(true)
+    }
+  }, [id])
 
   // 종료 리포트 「감사 인사」 등에서 초안과 함께 진입 → 커뮤니티 탭 + 글쓰기 모달 자동 오픈
   useEffect(() => {
