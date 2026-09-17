@@ -48,40 +48,56 @@ const XML_HEAD = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n'
 // 축 ID 는 차트 안에서만 유일하면 된다. 차트마다 다른 값을 줘 충돌을 피한다.
 function axIds(i) { return [100000000 + i * 2, 100000001 + i * 2] }
 
+// 값 표시(데이터 레이블) 공통 조각. show=1 이면 그 계열의 모든 점에 값을 찍는다.
+const showFlags = (val) => `<c:showLegendKey val="0"/><c:showVal val="${val}"/><c:showCatName val="0"/><c:showSerName val="0"/><c:showPercent val="0"/><c:showBubbleSize val="0"/>`
+const lblStyle = (size, bold) => '<c:spPr><a:noFill/><a:ln><a:noFill/></a:ln></c:spPr>'
+  + `<c:txPr><a:bodyPr/><a:lstStyle/><a:p><a:pPr><a:defRPr sz="${size}"${bold ? ' b="1"' : ''}/></a:pPr><a:endParaRPr lang="ko-KR"/></a:p></c:txPr>`
+
 // smooth: 일별 데이터는 들쭉날쭉해서 각진 선이 오히려 어지럽다. 기본으로 부드럽게 잇는다.
-function serXml({ sheet, name, catFrom, catTo, valFrom, valTo, color, idx = 0, smooth = true }) {
+//   labelLast: 점이 많은 추이선은 «모든» 점에 값을 찍으면 숫자로 뒤덮인다.
+//   그 번호(0-based)의 점 하나에만 값을 달아 «최종 도달값» 만 읽히게 한다.
+function serXml({ sheet, name, catFrom, catTo, valFrom, valTo, color, idx = 0, smooth = true, labelLast = null }) {
+  const dLbls = (labelLast == null) ? '' : '<c:dLbls>'
+    + `<c:dLbl><c:idx val="${labelLast}"/>${lblStyle(900, true)}<c:dLblPos val="t"/>${showFlags(1)}</c:dLbl>`
+    + showFlags(0)   // 나머지 점은 숨김
+    + '</c:dLbls>'
   return ''
     + '<c:ser>'
     + `<c:idx val="${idx}"/><c:order val="${idx}"/>`
     + `<c:tx><c:strRef><c:f>${esc(`${sheetRef(sheet)}!${name}`)}</c:f></c:strRef></c:tx>`
     + `<c:spPr><a:ln w="28575" cap="rnd"><a:solidFill><a:srgbClr val="${rgb(color)}"/></a:solidFill><a:round/></a:ln></c:spPr>`
     + '<c:marker><c:symbol val="none"/></c:marker>'
+    + dLbls
     + `<c:cat><c:strRef><c:f>${esc(`${sheetRef(sheet)}!${catFrom}:${catTo}`)}</c:f></c:strRef></c:cat>`
     + `<c:val><c:numRef><c:f>${esc(`${sheetRef(sheet)}!${valFrom}:${valTo}`)}</c:f></c:numRef></c:val>`
     + `<c:smooth val="${smooth ? 1 : 0}"/>`
     + '</c:ser>'
 }
 
-// 막대 계열 — barDir 'bar'=가로, 'col'=세로.
-function barSerXml({ sheet, name, catFrom, catTo, valFrom, valTo, color, idx = 0 }) {
+// 막대 계열 — barDir 'bar'=가로, 'col'=세로. 막대는 항목 수가 적어 모든 값을 찍어도 안 겹친다.
+function barSerXml({ sheet, name, catFrom, catTo, valFrom, valTo, color, idx = 0, showVal = true, labelSize = 800 }) {
+  const dLbls = showVal
+    ? `<c:dLbls>${lblStyle(labelSize, false)}<c:dLblPos val="outEnd"/>${showFlags(1)}</c:dLbls>`
+    : ''
   return '<c:ser>'
     + `<c:idx val="${idx}"/><c:order val="${idx}"/>`
     + `<c:tx><c:strRef><c:f>${esc(`${sheetRef(sheet)}!${name}`)}</c:f></c:strRef></c:tx>`
     + `<c:spPr><a:solidFill><a:srgbClr val="${rgb(color)}"/></a:solidFill><a:ln><a:noFill/></a:ln></c:spPr>`
     + '<c:invertIfNegative val="0"/>'
+    + dLbls
     + `<c:cat><c:strRef><c:f>${esc(`${sheetRef(sheet)}!${catFrom}:${catTo}`)}</c:f></c:strRef></c:cat>`
     + `<c:val><c:numRef><c:f>${esc(`${sheetRef(sheet)}!${valFrom}:${valTo}`)}</c:f></c:numRef></c:val>`
     + '</c:ser>'
 }
 
-function barChartXml({ sheet, series, i = 0, dir = 'bar', valMax = null }) {
+function barChartXml({ sheet, series, i = 0, dir = 'bar', valMax = null, showVal = true }) {
   const [axCat, axVal] = axIds(i)
   return XML_HEAD
     + `<c:chartSpace xmlns:c="${NS.c}" xmlns:a="${NS.a}" xmlns:r="${NS.r}">`
     + '<c:roundedCorners val="0"/><c:chart><c:autoTitleDeleted val="1"/>'
     + '<c:plotArea><c:layout/>'
     + `<c:barChart><c:barDir val="${dir}"/><c:grouping val="clustered"/><c:varyColors val="0"/>`
-    + series.map((s, k) => barSerXml({ sheet, ...s, idx: k })).join('')
+    + series.map((s, k) => barSerXml({ sheet, ...s, idx: k, showVal })).join('')
     + '<c:gapWidth val="60"/>'
     + `<c:axId val="${axCat}"/><c:axId val="${axVal}"/>`
     + '</c:barChart>'
@@ -121,7 +137,9 @@ function doughnutChartXml({ sheet, name, catFrom, catTo, valFrom, valTo, colors 
       + '</c:dPt>').join('')
     + '<c:dLbls><c:spPr><a:noFill/><a:ln><a:noFill/></a:ln></c:spPr>'
     + '<c:txPr><a:bodyPr/><a:lstStyle/><a:p><a:pPr><a:defRPr sz="900" b="1"/></a:pPr><a:endParaRPr lang="ko-KR"/></a:p></c:txPr>'
-    + '<c:showLegendKey val="0"/><c:showVal val="0"/><c:showCatName val="0"/><c:showSerName val="0"/><c:showPercent val="1"/><c:showBubbleSize val="0"/></c:dLbls>'
+    // 퍼센트만 있으면 «몇 명인지» 를 알 수 없다 → 값(명)과 비율을 같이 찍는다.
+    + '<c:showLegendKey val="0"/><c:showVal val="1"/><c:showCatName val="0"/><c:showSerName val="0"/><c:showPercent val="1"/><c:showBubbleSize val="0"/>'
+    + '<c:separator> · </c:separator></c:dLbls>'
     + `<c:cat><c:strRef><c:f>${esc(`${sheetRef(sheet)}!${catFrom}:${catTo}`)}</c:f></c:strRef></c:cat>`
     + `<c:val><c:numRef><c:f>${esc(`${sheetRef(sheet)}!${valFrom}:${valTo}`)}</c:f></c:numRef></c:val>`
     + '</c:ser>'
@@ -168,6 +186,65 @@ function lineChartXml({ sheet, series, i = 0 }) {
     + '<c:plotVisOnly val="1"/><c:dispBlanksAs val="gap"/>'
     + '</c:chart>'
     + '<c:spPr><a:noFill/><a:ln><a:noFill/></a:ln></c:spPr>'   // 카드 도형이 배경이다. 흰 사각형을 깔면 둥근 모서리를 덮는다
+    + '</c:chartSpace>'
+}
+
+// 콤보 — 막대와 선을 «한» 그래프에. 두 계열의 단위가 다를 때 쓴다
+//   (예: 일별 활동 인원 한 자리 vs 누적 인증 수백 건).
+//   ⚠️ 한 축에 같이 그리면 작은 쪽이 바닥에 깔려 안 보인다 → 선은 «보조 축»(오른쪽)에 붙인다.
+//   ⚠️ 보조 축 쌍의 catAx 는 delete=1 로 숨겨야 가로 눈금이 두 벌 그려지지 않는다.
+//   plotArea 자식 순서: 차트 그룹(barChart→lineChart) 전부 → 축 전부 (스키마 요구).
+function comboChartXml({ sheet, barSeries = [], lineSeries = [], i = 0, lineLabelLast = null }) {
+  const [axCat, axVal] = axIds(i)
+  const [axCat2, axVal2] = axIds(i + 500)   // 보조 축 — 같은 파일의 다른 차트와 겹치지 않게 멀리 띄운다
+  const txPr = (sz) => `<c:txPr><a:bodyPr/><a:lstStyle/><a:p><a:pPr><a:defRPr sz="${sz}"/></a:pPr><a:endParaRPr lang="ko-KR"/></a:p></c:txPr>`
+  return XML_HEAD
+    + `<c:chartSpace xmlns:c="${NS.c}" xmlns:a="${NS.a}" xmlns:r="${NS.r}">`
+    + '<c:roundedCorners val="0"/><c:chart><c:autoTitleDeleted val="1"/>'
+    + '<c:plotArea><c:layout/>'
+    // 막대 — 기본 축(왼쪽)
+    + '<c:barChart><c:barDir val="col"/><c:grouping val="clustered"/><c:varyColors val="0"/>'
+    + barSeries.map((s, k) => barSerXml({ sheet, ...s, idx: k, showVal: true, labelSize: 700 })).join('')
+    + '<c:gapWidth val="40"/>'
+    + `<c:axId val="${axCat}"/><c:axId val="${axVal}"/>`
+    + '</c:barChart>'
+    // 선 — 보조 축(오른쪽)
+    + '<c:lineChart><c:grouping val="standard"/><c:varyColors val="0"/>'
+    + lineSeries.map((s, k) => serXml({ sheet, ...s, idx: barSeries.length + k, labelLast: lineLabelLast })).join('')
+    + '<c:marker val="0"/>'
+    + `<c:axId val="${axCat2}"/><c:axId val="${axVal2}"/>`
+    + '</c:lineChart>'
+    // 가로축(날짜) — 기본
+    + `<c:catAx><c:axId val="${axCat}"/><c:scaling><c:orientation val="minMax"/></c:scaling>`
+    + '<c:delete val="0"/><c:axPos val="b"/><c:majorTickMark val="none"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/>'
+    + '<c:txPr><a:bodyPr rot="-2700000"/><a:lstStyle/><a:p><a:pPr><a:defRPr sz="700"/></a:pPr><a:endParaRPr lang="ko-KR"/></a:p></c:txPr>'
+    + `<c:crossAx val="${axVal}"/><c:crosses val="autoZero"/><c:auto val="1"/><c:lblAlgn val="ctr"/><c:lblOffset val="100"/><c:noMultiLvlLbl val="0"/>`
+    + '</c:catAx>'
+    // 세로축 왼쪽 — 막대(인원)
+    + `<c:valAx><c:axId val="${axVal}"/><c:scaling><c:orientation val="minMax"/><c:min val="0"/></c:scaling>`
+    + '<c:delete val="0"/><c:axPos val="l"/>'
+    + '<c:majorGridlines><c:spPr><a:ln w="9525"><a:solidFill><a:srgbClr val="E8EEE9"/></a:solidFill></a:ln></c:spPr></c:majorGridlines>'
+    + '<c:numFmt formatCode="General" sourceLinked="1"/><c:majorTickMark val="none"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/>'
+    + txPr(800)
+    + `<c:crossAx val="${axCat}"/><c:crosses val="autoZero"/><c:crossBetween val="between"/>`
+    + '</c:valAx>'
+    // 세로축 오른쪽 — 선(누적)
+    + `<c:valAx><c:axId val="${axVal2}"/><c:scaling><c:orientation val="minMax"/><c:min val="0"/></c:scaling>`
+    + '<c:delete val="0"/><c:axPos val="r"/>'
+    + '<c:numFmt formatCode="General" sourceLinked="1"/><c:majorTickMark val="none"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/>'
+    + txPr(800)
+    + `<c:crossAx val="${axCat2}"/><c:crosses val="max"/><c:crossBetween val="between"/>`
+    + '</c:valAx>'
+    // 보조 가로축 — 숨김(눈금 두 벌 방지)
+    + `<c:catAx><c:axId val="${axCat2}"/><c:scaling><c:orientation val="minMax"/></c:scaling>`
+    + '<c:delete val="1"/><c:axPos val="b"/><c:majorTickMark val="none"/><c:minorTickMark val="none"/><c:tickLblPos val="none"/>'
+    + `<c:crossAx val="${axVal2}"/><c:crosses val="autoZero"/><c:auto val="1"/><c:lblAlgn val="ctr"/><c:lblOffset val="100"/><c:noMultiLvlLbl val="0"/>`
+    + '</c:catAx>'
+    + '</c:plotArea>'
+    + '<c:legend><c:legendPos val="b"/><c:overlay val="0"/>'
+    + '<c:txPr><a:bodyPr/><a:lstStyle/><a:p><a:pPr><a:defRPr sz="850"/></a:pPr><a:endParaRPr lang="ko-KR"/></a:p></c:txPr></c:legend>'
+    + '<c:plotVisOnly val="1"/><c:dispBlanksAs val="gap"/></c:chart>'
+    + '<c:spPr><a:noFill/><a:ln><a:noFill/></a:ln></c:spPr>'   // 카드 도형이 배경이다
     + '</c:chartSpace>'
 }
 
@@ -268,9 +345,10 @@ async function sheetPathOf(zip, sheetName) {
  * charts: [{
  *   sheetName,                       차트를 «놓을» 시트
  *   dataSheet,                       데이터가 «있는» 시트(생략 시 sheetName)
- *   type: 'line'|'bar'|'col'|'doughnut',
+ *   type: 'line'|'bar'|'col'|'doughnut'|'combo',
  *   anchor: { fromCol, fromRow, toCol, toRow },
  *   series: [{ name, catFrom, catTo, valFrom, valTo, color, colors? }]
+ *   // combo 는 series 대신 barSeries(왼쪽 축)·lineSeries(오른쪽 보조 축)를 받는다
  * }]
  * 반환: Uint8Array (실패하면 원본 그대로 — 차트 때문에 파일이 깨지면 안 된다)
  */
@@ -303,9 +381,11 @@ export async function injectLineCharts(buffer, charts = [], cardsBySheet = {}) {
         const dataSheet = ch.dataSheet || ch.sheetName
         const xml = ch.type === 'doughnut'
           ? doughnutChartXml({ sheet: dataSheet, ...ch.series[0] })
-          : ch.type === 'bar' || ch.type === 'col'
-            ? barChartXml({ sheet: dataSheet, series: ch.series, i: chartNo - 1, dir: ch.type === 'col' ? 'col' : 'bar', valMax: ch.valMax })
-            : lineChartXml({ sheet: dataSheet, series: ch.series, i: chartNo - 1 })
+          : ch.type === 'combo'
+            ? comboChartXml({ sheet: dataSheet, barSeries: ch.barSeries, lineSeries: ch.lineSeries, i: chartNo - 1, lineLabelLast: ch.lineLabelLast })
+            : ch.type === 'bar' || ch.type === 'col'
+              ? barChartXml({ sheet: dataSheet, series: ch.series, i: chartNo - 1, dir: ch.type === 'col' ? 'col' : 'bar', valMax: ch.valMax })
+              : lineChartXml({ sheet: dataSheet, series: ch.series, i: chartNo - 1 })
         zip.file(chartPart, xml)
         const rId = `rId${anchors.length + 1}`
         anchors.push({ anchor: ch.anchor, rId })

@@ -31,7 +31,7 @@ export default function PolicyUpdateNotice() {
       <div className="flex-1 min-w-0">
         <p className="text-[13px] font-bold leading-snug break-keep">📜 이용약관·개인정보처리방침이 9월 22일 개정돼요</p>
         <p className="text-[12px] text-gray-200 mt-0.5 leading-snug break-keep">
-          건강 정보(기분·금연·설문) 항목, 푸시 알림 토큰, 국외 이전 안내, 신고·차단 절차가 추가됐어요.{' '}
+          건강 정보(기분·금연·설문) 항목, 푸시 알림 토큰, 국외 이전 안내, 신고·차단 절차, 운영자의 성과 보고용 기록 반출 안내가 추가됐어요.{' '}
           <Link to="/privacy" onClick={close} className="underline font-semibold text-emerald-300">내용 보기</Link>
         </p>
       </div>

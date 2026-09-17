@@ -1447,6 +1447,8 @@ function NextActionsCard({ programId, feedEnabled, isEnded, navigate, onClone, o
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-amber-900">{exporting ? '내보내는 중…' : '리포트 내보내기 (엑셀)'}</p>
             <p className="text-[11px] text-amber-700/80">요약·참여자(개인별)·미션·퀴즈 시트로 저장해요</p>
+            {/* 반출 경고 — 파일은 앱 밖으로 나가면 통제할 수 없다. 내려받는 «그 순간» 에 알린다(방침 4조·약관 9조). */}
+            <p className="text-[11px] text-amber-800 font-semibold mt-1 break-keep">참여자 개인정보가 포함돼요. 운영 목적으로만 쓰고 외부 공유는 삼가주세요.</p>
           </div>
         </button>
         {/* 상세 포함 옵션 — 켜면 참여자별 댓글·퀴즈 답변 시트 2장 추가(파일이 커질 수 있음) */}

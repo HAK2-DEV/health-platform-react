@@ -24,6 +24,7 @@ const FONT = 'Malgun Gothic'   // 한글 지원 폰트(없으면 Excel이 대체
 const CLR = {
   title: 'FF065F46', head: 'FF047857', headFg: 'FFFFFFFF',
   zebra: 'FFF0F9F4', border: 'FFD5E6DD',
+  warnBg: 'FFFDF3E3', warnFg: 'FF8A5A00',   // 개인정보 취급 주의 밴드
   accent: 'FF047857',
   done: { bg: 'FFD1FAE5', fg: 'FF065F46' },
   part: { bg: 'FFFBEECB', fg: 'FF8A6A12' },
@@ -65,7 +66,15 @@ function statusStyle(cell, status) {
 
 // 제목 밴드 + 헤더(고정) + 데이터(줄무늬·테두리·상태 배지·O 강조) 일괄 스타일 표.
 //   columns: [{ header, width, align, numFmt }], opts: { statusCol }
-function addTable(wb, name, title, columns, rows, { statusCol } = {}) {
+// 개인정보 취급 주의 — «개인 단위» 데이터가 담긴 시트 상단에 띄운다.
+//   엑셀은 앱 밖으로 반출되는 순간 우리 통제를 벗어난다. 운영자가 파일을 단톡방에 올리는 것을
+//   기술로 막을 수는 없으니, 최소한 파일을 여는 순간 «이건 개인정보다» 를 보이게 한다.
+//   근거: 개인정보처리방침 4조(운영자의 열람·반출) · 이용약관 제9조(운영자의 책임).
+const PII_NOTICE = '⚠ 참여자 개인정보가 포함된 시트입니다. 프로그램 운영 목적으로만 사용하고, 외부 공유·재배포·목적 외 이용을 금합니다.'
+const PII_NOTICE_RAW = '⚠ 참여자가 직접 쓴 내용이 원문 그대로 담깁니다. 운영 목적으로만 사용하고, 외부 공유·재배포·목적 외 이용을 금합니다.'
+const PII_NOTICE_REPORT = '⚠ 신고자 신원은 운영자만 볼 수 있습니다. 작성자·다른 참여자에게 알리지 마세요. 외부 공유·재배포를 금합니다.'
+
+function addTable(wb, name, title, columns, rows, { statusCol, notice } = {}) {
   const ws = wb.addWorksheet(name)
   const n = columns.length
   // 제목 밴드(행1, 병합)
@@ -80,8 +89,20 @@ function addTable(wb, name, title, columns, rows, { statusCol } = {}) {
     }
   }
   ws.getRow(1).height = 26
-  // 헤더(행2)
-  const hr = ws.getRow(2)
+  // 취급 주의 밴드(행2) — notice 가 있을 때만. 있으면 헤더·데이터가 한 줄씩 밀린다.
+  let headRowNo = 2
+  if (notice) {
+    ws.mergeCells(2, 1, 2, n)
+    const nc = ws.getRow(2).getCell(1)
+    nc.value = notice
+    nc.font = { name: FONT, bold: true, size: 9.5, color: { argb: CLR.warnFg } }
+    nc.alignment = { horizontal: 'left', vertical: 'middle', indent: 1, wrapText: true }
+    for (let i = 1; i <= n; i++) ws.getRow(2).getCell(i).fill = solid(CLR.warnBg)
+    ws.getRow(2).height = 24
+    headRowNo = 3
+  }
+  // 헤더
+  const hr = ws.getRow(headRowNo)
   columns.forEach((c, i) => {
     const cell = hr.getCell(i + 1)
     cell.value = c.header
@@ -91,9 +112,9 @@ function addTable(wb, name, title, columns, rows, { statusCol } = {}) {
     cell.border = box()
   })
   hr.height = 34   // 2줄로 접히는 헤더(예: "운동 시간(분)")도 안 잘리게 넉넉히
-  // 데이터(행3~)
+  // 데이터(헤더 다음 줄부터)
   rows.forEach((r, ri) => {
-    const dr = ws.getRow(3 + ri)
+    const dr = ws.getRow(headRowNo + 1 + ri)
     columns.forEach((c, i) => {
       const cell = dr.getCell(i + 1)
       const v = r[i]
@@ -108,7 +129,7 @@ function addTable(wb, name, title, columns, rows, { statusCol } = {}) {
     })
   })
   columns.forEach((c, i) => { ws.getColumn(i + 1).width = Math.max(c.width || 12, headerMinWidth(c.header)) })
-  ws.views = [{ state: 'frozen', ySplit: 2 }]
+  ws.views = [{ state: 'frozen', ySplit: headRowNo }]
   return ws
 }
 
@@ -218,28 +239,28 @@ function dataBar(ws, ref, color, max = 100) {
 }
 
 // 화면의 진단·처방은 앱 톤(해요체)이라 제출 문서에 그대로 못 쓴다.
-//   같은 병목 판정을 «보고서 문어체» 로 다시 쓴다. 정규식 변환은 깨지기 쉬워 문장을 따로 둔다.
+//   같은 병목 판정을 «보고서 높임말(합니다체)» 로 다시 쓴다. 정규식 변환은 깨지기 쉬워 문장을 따로 둔다.
 function bottleneckProse(report) {
   const c = (k) => report.funnel?.find(f => f.key === k)?.count ?? 0
   const key = report.bottleneck?.toKey
   if (!report.bottleneck) {
-    return { finding: '단계별로 두드러진 이탈 구간은 관찰되지 않았다.', fix: '현행 구성을 다음 기수에도 유지하는 것이 적절하다.' }
+    return { finding: '단계별로 두드러진 이탈 구간은 관찰되지 않았습니다.', fix: '현행 구성을 다음 기수에도 유지하는 것이 적절합니다.' }
   }
   if (key === 'first') {
     return {
-      finding: `참여자 ${nf(report.totalParticipants)}명 중 ${nf(report.bottleneck.lost)}명이 첫 인증에 도달하지 않아, 시작 단계가 주요 이탈 구간으로 나타났다.`,
-      fix: '초기 진입 장벽을 낮추고 시작 안내 및 리마인드를 강화할 필요가 있다.',
+      finding: `참여자 ${nf(report.totalParticipants)}명 중 ${nf(report.bottleneck.lost)}명이 첫 인증에 도달하지 않아, 시작 단계가 주요 이탈 구간으로 나타났습니다.`,
+      fix: '초기 진입 장벽을 낮추고 시작 안내 및 리마인드를 강화할 필요가 있습니다.',
     }
   }
   if (key === 'return') {
     return {
-      finding: `첫 인증에 도달한 ${nf(c('first'))}명 중 재참여자는 ${nf(c('return'))}명으로, 재참여 단계가 주요 이탈 구간으로 나타났다.`,
-      fix: '익일 리마인드 발송과 미션 난이도 조정을 검토할 필요가 있다.',
+      finding: `첫 인증에 도달한 ${nf(c('first'))}명 중 재참여자는 ${nf(c('return'))}명으로, 재참여 단계가 주요 이탈 구간으로 나타났습니다.`,
+      fix: '익일 리마인드 발송과 미션 난이도 조정을 검토할 필요가 있습니다.',
     }
   }
   return {
-    finding: `재참여자 ${nf(c('return'))}명 중 완주자는 ${nf(c('done'))}명으로, 운영 중반 이후가 주요 이탈 구간으로 나타났다.`,
-    fix: '운영 기간 조정 또는 중반 응원·보상 설계를 검토할 필요가 있다.',
+    finding: `재참여자 ${nf(c('return'))}명 중 완주자는 ${nf(c('done'))}명으로, 운영 중반 이후가 주요 이탈 구간으로 나타났습니다.`,
+    fix: '운영 기간 조정 또는 중반 응원·보상 설계를 검토할 필요가 있습니다.',
   }
 }
 
@@ -255,10 +276,10 @@ function buildNarrative({ program, report, quizStats, community }) {
   const period = (program.start_date && program.end_date)
     ? `${program.start_date}부터 ${program.end_date}까지`
     : '운영 기간 동안'
-  lines.push(`「${program.name}」${topicParticle(program.name)} ${period} ${days ? `${days}일간 ` : ''}운영되었으며, 총 ${nf(N)}명이 참여하였다.`)
+  lines.push(`「${program.name}」${topicParticle(program.name)} ${period} ${days ? `${days}일간 ` : ''}운영되었으며, 총 ${nf(N)}명이 참여하였습니다.`)
 
   if (N > 0) {
-    lines.push(`기간 중 누적 인증은 ${nf(V)}건으로 참여자 1인당 평균 ${per}건이었으며, 활동일이 운영 기간의 50% 이상인 완주자는 ${nf(done)}명(${report.completionRate ?? 0}%)으로 집계되었다.`)
+    lines.push(`기간 중 누적 인증은 ${nf(V)}건으로 참여자 1인당 평균 ${per}건이었으며, 활동일이 운영 기간의 50% 이상인 완주자는 ${nf(done)}명(${report.completionRate ?? 0}%)으로 집계되었습니다.`)
   }
 
   // 여정 병목 — 문어체 진단 + 처방(같은 판정을 제출 문서 톤으로).
@@ -274,21 +295,21 @@ function buildNarrative({ program, report, quizStats, community }) {
   const seg = []
   if (mp.length) {
     const avg = Math.round(mp.reduce((s, m) => s + (m.rate || 0), 0) / mp.length)
-    seg.push(`미션 ${mp.length}개의 평균 참여율은 ${avg}%였다.`)
+    seg.push(`미션 ${mp.length}개의 평균 참여율은 ${avg}%였습니다.`)
   }
   if (quizStats?.length) {
     const rates = quizStats.map(q => Number(q.correctRate)).filter(n => Number.isFinite(n))
     seg.push(rates.length
-      ? `퀴즈 ${quizStats.length}회의 평균 정답률은 ${Math.round(rates.reduce((a, c) => a + c, 0) / rates.length)}%였다.`
-      : `퀴즈는 ${quizStats.length}회 실시되었다.`)
+      ? `퀴즈 ${quizStats.length}회의 평균 정답률은 ${Math.round(rates.reduce((a, c) => a + c, 0) / rates.length)}%였습니다.`
+      : `퀴즈는 ${quizStats.length}회 실시되었습니다.`)
   }
   if (community && (community.participantPosts || community.totalComments)) {
-    seg.push(`커뮤니티에는 글 ${nf(community.participantPosts || 0)}건과 댓글 ${nf(community.totalComments || 0)}건이 등록되었다.`)
+    seg.push(`커뮤니티에는 글 ${nf(community.participantPosts || 0)}건과 댓글 ${nf(community.totalComments || 0)}건이 등록되었습니다.`)
   }
   if (seg.length) lines.push(seg.join(' '))
 
   const peak = report.peakDay
-  if (peak?.count > 0) lines.push(`일자별로는 ${fmtMD(peak.date)}에 인증이 ${nf(peak.count)}건으로 가장 많았다.`)
+  if (peak?.count > 0) lines.push(`일자별로는 ${fmtMD(peak.date)}에 인증이 ${nf(peak.count)}건으로 가장 많았습니다.`)
 
   return lines.join(' ')
 }
@@ -523,7 +544,7 @@ function addSummarySheet(wb, { program, report, quizStats = [], community = null
         row.height = 17; r++
       }
       const note = merge(r)
-      note.value = '※ 기록 지표는 운영 기간이 짧으면 잘 움직이지 않는다. 변화 없음도 정상 결과로 본다.'
+      note.value = '※ 기록 지표는 운영 기간이 짧으면 잘 움직이지 않습니다. 변화 없음도 정상적인 결과로 봅니다.'
       note.font = { name: FONT, size: 8.5, color: { argb: 'FF999999' } }
       note.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 }
       ws.getRow(r).height = 14; r++
@@ -842,10 +863,10 @@ function addSummarySheet(wb, { program, report, quizStats = [], community = null
 
   // ── 각주 — 정의를 밝혀야 보고서로 신뢰받는다 ──
   const foot = merge(r)
-  foot.value = `※ 완주 기준: 활동일이 운영 기간의 50%(${report.threshold ?? '-'}일) 이상. 참여자별 상세·미션별·퀴즈별 데이터는 다음 시트를 참조.`
+  foot.value = `※ 완주 기준: 활동일이 운영 기간의 50%(${report.threshold ?? '-'}일) 이상. 참여자별 상세·미션별·퀴즈별 데이터는 다음 시트를 참조하시기 바랍니다.\n※ 이 파일의 일부 시트에는 참여자 개인정보(닉네임·활동 기록·작성한 글)가 담겨 있습니다. 프로그램 운영 목적으로만 사용하고, 외부 공유·재배포를 금합니다.`
   foot.font = { name: FONT, size: 9, color: { argb: 'FF888888' } }
   foot.alignment = { horizontal: 'left', vertical: 'top', wrapText: true, indent: 1 }
-  ws.getRow(r).height = 26; r++
+  ws.getRow(r).height = 40; r++
 
   // A4 세로 1장에 맞춰 인쇄 — 운영자가 이 시트만 인쇄/PDF 로 제출할 수 있게.
   ws.pageSetup = {
@@ -1030,7 +1051,8 @@ function addTrendSheet(wb, { program, report, raw = [] }) {
   ws.getColumn(1).width = 12
   ws.getColumn(2).width = 12
   ws.getColumn(3).width = 12
-  ws.getColumn(4).width = 2
+  ws.getColumn(4).width = 12   // 누적 인증
+  ws.getColumn(5).width = 2    // 차트 앞 여백
 
   let r = 1
   ws.mergeCells(r, 1, r, 16)
@@ -1050,7 +1072,7 @@ function addTrendSheet(wb, { program, report, raw = [] }) {
 
   // ── 전체 추이 데이터 표 ──
   const headRow = r
-  ;['날짜', '인증 건수', '활동 인원'].forEach((h, i) => {
+  ;['날짜', '인증 건수', '활동 인원', '누적 인증'].forEach((h, i) => {
     const c = ws.getRow(r).getCell(i + 1)
     c.value = h
     c.font = { name: FONT, size: 10, bold: true, color: { argb: CLR.headFg } }
@@ -1061,9 +1083,11 @@ function addTrendSheet(wb, { program, report, raw = [] }) {
   ws.getRow(r).height = 20; r++
 
   const dataFrom = r
+  let cum = 0   // 누적 인증 — 선 그래프용. 일별 건수는 들쭉날쭉해 «쌓인 성과» 가 안 보인다.
   for (const t of trend) {
+    cum += t.count
     const row = ws.getRow(r)
-    const cells = [fmtMD(t.date), t.count, dayUsers[t.date]?.size || 0]
+    const cells = [fmtMD(t.date), t.count, dayUsers[t.date]?.size || 0, cum]
     cells.forEach((v, i) => {
       const c = row.getCell(i + 1)
       c.value = v
@@ -1084,13 +1108,17 @@ function addTrendSheet(wb, { program, report, raw = [] }) {
     margins: { left: 0.3, right: 0.3, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 },
   }
 
+  // 활동 인원 = 막대(왼쪽 축), 누적 인증 = 선(오른쪽 보조 축).
+  //   단위가 달라 한 축에 그리면 인원 막대가 바닥에 깔려 안 보인다 → combo.
+  const cat = { catFrom: `$A$${dataFrom}`, catTo: `$A$${dataTo}` }
   return {
     sheetName: '활동 추이',
-    anchor: { fromCol: 4, fromRow: headRow - 1, toCol: 16, toRow: headRow + 23 },
-    series: [
-      { name: `$B$${headRow}`, catFrom: `$A$${dataFrom}`, catTo: `$A$${dataTo}`, valFrom: `$B$${dataFrom}`, valTo: `$B$${dataTo}`, color: '10B981' },
-      { name: `$C$${headRow}`, catFrom: `$A$${dataFrom}`, catTo: `$A$${dataTo}`, valFrom: `$C$${dataFrom}`, valTo: `$C$${dataTo}`, color: 'F59E0B' },
-    ],
+    type: 'combo',
+    anchor: { fromCol: 5, fromRow: headRow - 1, toCol: 16, toRow: headRow + 23 },
+    barSeries: [{ name: `$C$${headRow}`, ...cat, valFrom: `$C$${dataFrom}`, valTo: `$C$${dataTo}`, color: 'F59E0B' }],
+    lineSeries: [{ name: `$D$${headRow}`, ...cat, valFrom: `$D$${dataFrom}`, valTo: `$D$${dataTo}`, color: '10B981' }],
+    // 누적선은 점이 많아 전부 찍으면 숫자로 덮인다 → 마지막 점(총계)에만 값 표시.
+    lineLabelLast: dataTo - dataFrom,
   }
 }
 
@@ -1397,8 +1425,9 @@ function addDashboardSheet(wb, { program, report, surveyQuestions, surveyStart =
   const charts = []
   if ((report.trend || []).length) {
     charts.push({
-      sheetName: DASH, dataSheet: '활동 추이', type: 'line',
-      anchor: A(L.from, row1 + TITLE_ROWS, L.to, gap1, PAD * 2), series: [], _wantTrend: true,
+      // 활동 추이 시트와 같은 콤보(막대=활동 인원, 선=누적 인증). 실제 범위는 아래에서 채운다.
+      sheetName: DASH, dataSheet: '활동 추이', type: 'combo',
+      anchor: A(L.from, row1 + TITLE_ROWS, L.to, gap1, PAD * 2), barSeries: [], lineSeries: [], _wantTrend: true,
     })
   }
   charts.push({
@@ -1471,14 +1500,23 @@ export async function exportEndReportXlsx({ program, report, quizStats = [], com
   }
   addSummarySheet(wb, { program, report, quizStats, community, metricDefs: useMetrics ? metricDefs : [], metricTotals, metricSeries, demographics })
 
-  // ── 시트: 활동 추이 (셀로 그린 막대 그래프) ──
-  const trendChart = addTrendSheet(wb, { program, report, raw })
-
-  // ── 시트: 대시보드 (네이티브 차트 4종) — 맨 앞에 오도록 나중에 순서 조정 ──
+  // ── 시트: 대시보드 (네이티브 차트) ──
+  //   ⚠️ 시트 순서 = «만든 순서» 다(재정렬 코드 없음). 본인 요청 순서 요약 → 대시보드 → 활동 추이 를
+  //   지키려면 대시보드를 «먼저» 만들어야 한다. 차트가 참조하는 「활동 추이」 범위는 시트가 나중에
+  //   생겨도 무방하다 — 주입은 두 시트가 모두 만들어진 «뒤» 에 이름으로 해결하기 때문이다.
+  //   (차트데이터 시트는 hidden 이라 탭에 안 보인다)
   const dash = addDashboardSheet(wb, { program, report, surveyQuestions, surveyStart, surveyEnd, raw })
+
+  // ── 시트: 활동 추이 (표 + 콤보 차트) ──
+  const trendChart = addTrendSheet(wb, { program, report, raw })
   // 추이 차트는 「활동 추이」 시트의 실제 범위를 써야 한다 — 대시보드용 사본에 채워 넣는다.
   for (const c of dash.charts) {
-    if (c._wantTrend && trendChart) { c.series = trendChart.series; delete c._wantTrend }
+    if (c._wantTrend && trendChart) {
+      c.barSeries = trendChart.barSeries
+      c.lineSeries = trendChart.lineSeries
+      c.lineLabelLast = trendChart.lineLabelLast
+      delete c._wantTrend
+    }
   }
   // 참여자별 추이 — 드롭다운 선택에 따라 수식이 다시 계산되고 이 차트가 따라 움직인다.
   const pickerChart = trendChart?.picker
@@ -1489,7 +1527,8 @@ export async function exportEndReportXlsx({ program, report, quizStats = [], com
   const allCharts = [
     ...(trendChart ? [trendChart] : []),
     ...(pickerChart ? [pickerChart] : []),
-    ...dash.charts.filter(c => c.series?.length),
+    // combo 는 series 대신 barSeries·lineSeries 를 쓴다 — 셋 중 하나라도 있으면 그린다.
+    ...dash.charts.filter(c => c.series?.length || c.barSeries?.length || c.lineSeries?.length),
   ]
 
   // ── 시트: 설문 (시작↔종료 비교) — 설문을 켠 프로그램만 ──
@@ -1555,7 +1594,7 @@ export async function exportEndReportXlsx({ program, report, quizStats = [], com
     { header: '인증 수', width: 8, align: 'center' },
   ]
   const rankData = rankRows.map(r => [medal(r.rank), r.u.nickname, r.status, r.total, r.missionPts, r.quizPts, ...(hasOther ? [r.otherPts] : []), ...extraRow(r.u.user_id), r.u.activeDays, r.u.totalCount])
-  addTable(wb, '랭킹', '랭킹 · 참여자 점수 순위', rankCols, rankData, { statusCol: 3 })
+  addTable(wb, '랭킹', '랭킹 · 참여자 점수 순위', rankCols, rankData, { statusCol: 3, notice: PII_NOTICE })
 
   // ── 시트: 팀 랭킹 (팀이 있을 때) ── 팀 점수 = 멤버 점수 집계(get_team_ranking)
   if (teamRanking && teamRanking.length) {
@@ -1607,7 +1646,7 @@ export async function exportEndReportXlsx({ program, report, quizStats = [], com
     const cmu = perUser?.communityByUser?.[u.user_id] || { posts: 0, comments: 0 }
     return [u.nickname, status, u.activeDays, u.totalCount, ...extraRow(u.user_id), mi.titles.size, [...mi.titles].join(', '), qz.quizCount, qz.correctRate ?? '', cmu.posts, cmu.comments, u.totalScore]
   })
-  addTable(wb, '참여자', '참여자별 활동 상세', pCols, pRows, { statusCol: 2 })
+  addTable(wb, '참여자', '참여자별 활동 상세', pCols, pRows, { statusCol: 2, notice: PII_NOTICE })
 
   // ── 시트 3: 미션별 ──
   addTable(wb, '미션별', '미션별 성과', [
@@ -1677,7 +1716,7 @@ export async function exportEndReportXlsx({ program, report, quizStats = [], com
       { header: '미처리', width: 7, align: 'right', numFmt: '#,##0' },
       { header: '상태', width: 9, align: 'center' },
       { header: '대표 사유', width: 18 },
-    ], reportGroups.map(g => [desc(g), g.targetType === 'post' ? '글' : '인증', g.reporters.length, g.unresolved, st(g), g.reporters.find(r => r.reason)?.reason || '']))
+    ], reportGroups.map(g => [desc(g), g.targetType === 'post' ? '글' : '인증', g.reporters.length, g.unresolved, st(g), g.reporters.find(r => r.reason)?.reason || '']), { notice: PII_NOTICE_REPORT })
   }
 
   // ── 시트: 일자별 인증표 (참여자 × 날짜, O 표시 + 합계) ──
@@ -1686,7 +1725,7 @@ export async function exportEndReportXlsx({ program, report, quizStats = [], com
       { header: '참여자', width: 16 },
       ...dates.map(d => ({ header: fmtMD(d), width: 5, align: 'center' })),
       { header: '합계', width: 6, align: 'center' },
-    ], roster.map(([u]) => [u.nickname, ...dates.map(d => (userDay[u.user_id]?.has(d) ? 'O' : '')), u.totalCount]))
+    ], roster.map(([u]) => [u.nickname, ...dates.map(d => (userDay[u.user_id]?.has(d) ? 'O' : '')), u.totalCount]), { notice: PII_NOTICE })
   }
 
   // ── 시트: 미션별 시간대 분포 (인증이 몇 시에 몰렸나) ──
@@ -1730,7 +1769,7 @@ export async function exportEndReportXlsx({ program, report, quizStats = [], com
         { header: '멤버 점수', width: 10, align: 'right', numFmt: '#,##0' },
         { header: '미션 점수', width: 10, align: 'right', numFmt: '#,##0' },
         { header: '퀴즈 점수', width: 10, align: 'right', numFmt: '#,##0' },
-      ], rows)
+      ], rows, { notice: PII_NOTICE })
     }
   }
 
@@ -1743,7 +1782,7 @@ export async function exportEndReportXlsx({ program, report, quizStats = [], com
       { header: '출처', width: 8, align: 'center' },
       { header: '항목', width: 24 },
       { header: '사유', width: 20 },
-    ], scoreLedger.map(l => [formatKstDate(new Date(l.created_at)), l.nickname, l.point, l.source, l.item, l.reason]))
+    ], scoreLedger.map(l => [formatKstDate(new Date(l.created_at)), l.nickname, l.point, l.source, l.item, l.reason]), { notice: PII_NOTICE })
   }
 
   // ── 시트: 클래스별 출석 (세션별 신청·출석 명단 — 누가·언제·어떻게) ──
@@ -1786,7 +1825,7 @@ export async function exportEndReportXlsx({ program, report, quizStats = [], com
       { header: '출석방식', width: 11, align: 'center' },
       { header: '출석시각', width: 12, align: 'center' },
       { header: '지급P', width: 7, align: 'right', numFmt: '#,##0' },
-    ], rows)
+    ], rows, { notice: PII_NOTICE })
   }
 
   // ── 시트: 참여자 댓글 (상세 포함 옵션) ── 인증 피드 + 자유게시판 댓글 전량
@@ -1797,7 +1836,7 @@ export async function exportEndReportXlsx({ program, report, quizStats = [], com
       { header: '위치', width: 10, align: 'center' },
       { header: '대상', width: 24 },
       { header: '댓글 내용', width: 60 },
-    ], commentsDetail.map(c => [nickOf(c.user_id), kstDT(c.created_at), c.where, c.context, c.content]))
+    ], commentsDetail.map(c => [nickOf(c.user_id), kstDT(c.created_at), c.where, c.context, c.content]), { notice: PII_NOTICE_RAW })
   }
 
   // ── 시트: 참여자 퀴즈 답변 (상세 포함 옵션) ── 참여자 × 문항별 내 답/정답/정오
@@ -1810,7 +1849,7 @@ export async function exportEndReportXlsx({ program, report, quizStats = [], com
       { header: '내 답', width: 24 },
       { header: '정답', width: 24 },
       { header: '정오', width: 8, align: 'center' },
-    ], quizAnswersDetail.map(a => [nickOf(a.user_id), a.quizTitle, a.order, a.question, a.myAnswer, a.correctAnswer, a.isCorrect === true ? '정답' : a.isCorrect === false ? '오답' : '채점대기']))
+    ], quizAnswersDetail.map(a => [nickOf(a.user_id), a.quizTitle, a.order, a.question, a.myAnswer, a.correctAnswer, a.isCorrect === true ? '정답' : a.isCorrect === false ? '오답' : '채점대기']), { notice: PII_NOTICE_RAW })
   }
 
   await saveWorkbook(wb, `${sanitizeName(program.name)}_종료리포트.xlsx`, allCharts, dash.cards)
