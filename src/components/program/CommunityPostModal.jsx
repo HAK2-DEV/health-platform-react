@@ -148,8 +148,8 @@ function CommunityPostModal({ isOpen, onClose, program, boards = [], defaultBoar
           <p className="text-[11px] text-gray-400 text-right mt-0.5 flex-shrink-0">{body.length}/500</p>
         </div>
 
-        {/* 푸터 — 하단 고정 (사진·게시 버튼) */}
-        <div className="flex-shrink-0 pt-3 space-y-2.5">
+        {/* 사진·오류 — 본문과 함께 스크롤 */}
+        <div className="pt-3 space-y-2.5">
           {shownImage ? (
             <div className="relative">
               <img src={shownImage} alt="" className="w-full max-h-40 object-contain rounded-lg bg-gray-50" />
@@ -170,14 +170,21 @@ function CommunityPostModal({ isOpen, onClose, program, boards = [], defaultBoar
           )}
 
           {error && <p className="p-2 bg-red-50 text-red-600 text-xs rounded text-center">{error}</p>}
+        </div>
 
-          <div className="flex gap-2">
-            <button type="button" onClick={onClose} className="flex-1 h-11 rounded-xl border border-gray-200 text-gray-600 text-sm font-bold hover:bg-gray-50 transition">취소</button>
-            <button type="button" onClick={submit} disabled={mutation.isPending || boards.length === 0}
-              className="flex-[1.6] h-11 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold transition disabled:opacity-50">
-              {mutation.isPending ? '저장 중...' : (isEdit ? '수정' : '게시')}
-            </button>
-          </div>
+        {/* 취소·저장 — 시트 «하단에 붙여» 둔다 (sticky).
+            구형 안드(노트9=안드10)에서 키보드가 뜨면 Modal 이 시트를 52vh 로 가두는데,
+            이 모달 내용은 그보다 100px 쯤 길어서 버튼이 스크롤 밖으로 밀려 «취소·수정이 안 보인다»
+            는 제보(2026-09-17). 뒤로가기로 키보드만 내리면 안드가 포커스를 유지해 시트가 접힌 채
+            굳는 것도 같은 증상. 안드10 은 IME 인셋 API(API 30+)도 visualViewport 도 없어 키보드가
+            내려간 걸 «감지할 방법이 없으므로», 감지 대신 버튼을 항상 보이게 만든다.
+            → 시트 높이·스크롤 위치·키보드 상태와 무관하게 항상 노출. [[components/common/Modal]] */}
+        <div className="sticky bottom-0 -mx-5 px-5 pt-2.5 pb-0.5 bg-white border-t border-gray-100 flex gap-2">
+          <button type="button" onClick={onClose} className="flex-1 h-11 rounded-xl border border-gray-200 text-gray-600 text-sm font-bold hover:bg-gray-50 transition">취소</button>
+          <button type="button" onClick={submit} disabled={mutation.isPending || boards.length === 0}
+            className="flex-[1.6] h-11 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold transition disabled:opacity-50">
+            {mutation.isPending ? '저장 중...' : (isEdit ? '수정' : '게시')}
+          </button>
         </div>
       </div>
     </Modal>
