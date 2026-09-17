@@ -7,5 +7,6 @@
 --   를 따로 지워야 한다(아바타와 같은 폴더라 통째로 지우면 프로필 사진까지 사라진다).
 -- ============================================================
 
+-- 컬럼을 지우면 그 컬럼에 걸린 GRANT 도 함께 사라지므로 REVOKE 는 따로 필요 없다.
 ALTER TABLE public.users
   DROP COLUMN IF EXISTS home_banner_path;

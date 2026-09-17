@@ -21,3 +21,12 @@ ALTER TABLE public.users
 
 COMMENT ON COLUMN public.users.home_banner_path IS
   '대시보드 인사 배너 배경 사진 경로(profile-avatars 버킷). NULL=기본 일러스트(/home-header.jpg).';
+
+-- ⚠️ 컬럼 단위 권한 (2026-09-17 실기기에서 발견 — 이게 빠져서 대시보드가 통째로 403 이었다)
+--   public.users 는 authenticated 역할에 «컬럼 목록» 으로 SELECT 가 부여돼 있다. 테이블 단위가
+--   아니라서 «새로 추가한 컬럼은 자동으로 포함되지 않는다». 그 상태로 select('nickname, home_banner_path')
+--   를 하면 PostgREST 가 42501 permission denied 를 내고, 닉네임까지 함께 안 나온다(RLS 는 통과한다).
+--   증상: 배너는 저장되는데(UPDATE 는 됨) 화면에는 기본 일러스트 + 「반가워요」.
+--   앞으로 users 에 컬럼을 추가할 때는 이 GRANT 를 같이 넣을 것.
+GRANT SELECT (home_banner_path) ON public.users TO authenticated;
+GRANT UPDATE (home_banner_path) ON public.users TO authenticated;
