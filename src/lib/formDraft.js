@@ -21,21 +21,37 @@
 //   useEffect(() => { writeDraft(KEY, { body }) }, [KEY, body])
 //   // 저장 성공·사용자가 직접 닫음 → clearDraft(KEY)
 //
-// 왜 sessionStorage 인가: 탭(앱)을 완전히 닫으면 사라져야 하는 «작성 중» 데이터다.
-//   localStorage 면 며칠 뒤에도 옛 초안이 되살아나 더 혼란스럽다.
+// ⚠️ 왜 localStorage 인가 (2026-09-17 노트9 실기기 검증으로 «정정»):
+//   처음엔 sessionStorage 로 만들었다. 「탭을 닫으면 사라져야 할 작성 중 데이터」라는 이유였고,
+//   lib/wizardDraft 도 그렇게 돼 있었다. 그런데 노트9에서 실제로 프로세스를 죽였다 되살려보니
+//   («am kill» = OS 메모리 회수와 동일한 SIGKILL) **sessionStorage 가 통째로 사라졌다**.
+//   URL(?tab=community)은 복원됐는데 보관본만 증발 → 고치려던 바로 그 상황에서 무용지물이었다.
+//   sessionStorage 는 탭 세션에 묶여 렌더러·브라우저 프로세스와 운명을 같이한다.
+//   localStorage 는 디스크에 있어 프로세스 사망을 넘어 살아남는다 — 이 기능에는 이쪽이 맞다.
+//   ⚠️ wizardDraft 도 같은 함정에 걸려 있다(마법사 대표사진 건은 «에뮬 재현 실패» 로 미검증 상태였다).
+//
+//   「며칠 뒤 옛 초안이 되살아나는」 부작용은 TTL 30분이 막는다. 그리고 저장 성공·사용자가 직접
+//   닫았을 때 clearDraft 로 지우므로, 남는 것은 «비정상 종료로 잃을 뻔한» 것뿐이다.
 
 const PREFIX = 'draft:'
-const DEFAULT_TTL_MS = 30 * 60_000   // 30분 — 마법사(wizardDraft)와 같은 값
+const DEFAULT_TTL_MS = 30 * 60_000   // 30분
+
+// 프로세스 사망을 넘어 살아남아야 하므로 localStorage. 미지원·차단 환경은 조용히 무시(보조 수단).
+function store() {
+  try { return window.localStorage } catch { return null }
+}
 
 // 보관본 읽기. 없거나·손상됐거나·TTL 지났으면 null.
 export function readDraft(key, ttlMs = DEFAULT_TTL_MS) {
   if (!key) return null
   try {
-    const raw = sessionStorage.getItem(PREFIX + key)
+    const s = store()
+    if (!s) return null
+    const raw = s.getItem(PREFIX + key)
     if (!raw) return null
     const d = JSON.parse(raw)
     if (!d?.savedAt || Date.now() - d.savedAt > ttlMs) {
-      sessionStorage.removeItem(PREFIX + key)
+      s.removeItem(PREFIX + key)
       return null
     }
     return d
@@ -47,7 +63,7 @@ export function readDraft(key, ttlMs = DEFAULT_TTL_MS) {
 export function writeDraft(key, data) {
   if (!key) return
   try {
-    sessionStorage.setItem(PREFIX + key, JSON.stringify({ ...data, savedAt: Date.now() }))
+    store()?.setItem(PREFIX + key, JSON.stringify({ ...data, savedAt: Date.now() }))
   } catch {
     /* 용량 초과·미지원 무시 */
   }
@@ -56,7 +72,7 @@ export function writeDraft(key, data) {
 export function clearDraft(key) {
   if (!key) return
   try {
-    sessionStorage.removeItem(PREFIX + key)
+    store()?.removeItem(PREFIX + key)
   } catch {
     /* 무시 */
   }
