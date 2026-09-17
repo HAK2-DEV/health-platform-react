@@ -2,12 +2,23 @@
 // 원본 이미지에서 crop 영역만 잘라 출력 캔버스에 그려 다운스케일.
 //   아바타: 512x512 (정사각형) / 표지: 1200x675 (16:9) 등
 
-// 이미지 한 장 로드. crossOrigin 은 «원격 주소» 에만 — blob:/data: 는 같은 출처라 필요 없고 실패 여지만 는다.
+// ⚠️ 무한 대기 차단 (2026-09-17 「저장하면 업로드가 안돼」 제보 — 「저장 중…」에서 스피너만 돌고 멈춤).
+//   원래 이 Promise 는 load·error 둘 중 하나가 와야만 끝났다. 그런데 메모리가 빠듯한 기기에서 크롬이
+//   이미지 디코딩을 지연시키면 «둘 다 오지 않고», Promise 가 영원히 미해결로 남는다.
+//   → getCroppedImg 의 await 가 끝나지 않아 handleSave 가 setProcessing(true) 인 채 굳고,
+//     예외가 아니라 «대기» 라 catch 에도 안 걸려 오류 문구조차 뜨지 않는다(제보 화면 그대로).
+//   타임아웃을 걸면 (1) 멈춤이 사라지고 (2) reject 가 되므로 아래 createImage 의 fetch+ImageBitmap
+//   폴백이 «비로소 동작한다» — 지금은 첫 시도가 멈추면 폴백까지 영영 못 간다.
+const LOAD_TIMEOUT_MS = 12_000
+
 const loadImage = (url, useCors) =>
   new Promise((resolve, reject) => {
     const image = new Image()
-    image.addEventListener('load', () => resolve(image))
-    image.addEventListener('error', () => reject(new Error('image-load')))
+    let settled = false
+    const finish = (fn, arg) => { if (settled) return; settled = true; clearTimeout(timer); fn(arg) }
+    const timer = setTimeout(() => finish(reject, new Error('image-timeout')), LOAD_TIMEOUT_MS)
+    image.addEventListener('load', () => finish(resolve, image))
+    image.addEventListener('error', () => finish(reject, new Error('image-load')))
     if (useCors) image.setAttribute('crossOrigin', 'anonymous') // 원격 표지 재조정 시 canvas 오염 방지
     image.src = url
   })

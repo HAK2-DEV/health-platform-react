@@ -46,7 +46,16 @@ export function useBackButtonClose(isOpen, onClose) {
       if (!entry.poppedByBack && window.history.state?.__bk === entry.id) {
         _ignoreNext = true
         window.history.back()
-        setTimeout(() => { _ignoreNext = false }, 0)
+        // ⚠️ 이 해제를 setTimeout(…, 0) 으로 하면 «경쟁» 이 난다 (2026-09-17 실기기 재현으로 확정).
+        //   history.back() 이 유발하는 popstate 도, setTimeout(0) 도 «다음 태스크» 라 순서가 보장되지 않는다.
+        //   타임아웃이 먼저 돌면 _ignoreNext 가 이미 false → 그 popstate 가 «사용자 뒤로가기» 로 오인되어
+        //   _onPop 이 스택 최상단(= 한 단계 «바깥» 오버레이)의 close() 를 호출한다.
+        //   증상: 글쓰기 모달 안에서 사진 편집을 저장하면 크롭 모달과 «글쓰기 모달이 함께» 닫히고
+        //   제목·내용이 통째로 사라진다(노트9에서 모달 2개 → 0개로 재현. S25 제보도 동일).
+        //   타이밍 경쟁이라 기기·부하에 따라 되기도 하고 안 되기도 해서 원인 파악이 오래 걸렸다.
+        //   → 정상 경로에서는 _onPop 이 플래그를 소비하므로, 이 타임아웃은 «popstate 가 아예 안 올 때»
+        //     플래그가 영구히 켜진 채 남지 않게 하는 안전망일 뿐이다. 넉넉히 준다.
+        setTimeout(() => { _ignoreNext = false }, 300)
       }
     }
   }, [isOpen])
