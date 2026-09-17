@@ -73,6 +73,7 @@ function FeedContent({ program, layout: layoutProp = null, targetVerificationId 
   const reactionsEnabled = program.community_settings?.reactionAuto !== false
   const { session } = useAuth()
   const queryClient = useQueryClient()
+  const toast = useToast()   // 좋아요 실패 등 — DB 원문 대신 사람이 읽는 문구로 알린다
   const myUserId = session?.user?.id
 
   const postRefs = useRef({})
@@ -158,6 +159,13 @@ function FeedContent({ program, layout: layoutProp = null, targetVerificationId 
   }
 
   // 좋아요 토글
+  //   ⚠️ 연타하면 「duplicate key ... post_likes_verification_id_user_id_key」 가 alert 로 떴다(2026-09-17 제보).
+  //   버튼에 isPending 잠금이 있어도, 요청이 끝나고 목록 재조회가 «완료되기 전» 에 다시 누르면
+  //   likedByMe 가 아직 옛 값이라 또 INSERT 분기로 간다. 그래서 세 겹으로 막는다:
+  //     ① 낙관적 토글 — 누르는 즉시 상태가 뒤집혀 두 번째 탭은 «취소» 분기로 간다
+  //     ② 중복(23505)·없는 행 삭제는 «이미 원하는 상태» 이므로 성공으로 간주
+  //        (커뮤니티 글·댓글 좋아요는 이미 같은 방식이다 — lib/queries.js toggleCommunityPostLike/toggleCommentLike)
+  //     ③ 실패해도 DB 원문을 사용자에게 보여주지 않는다(롤백 + 사람이 읽을 문구)
   const toggleLikeMutation = useMutation({
     mutationFn: async ({ verificationId, isLiked }) => {
       if (isLiked) {
@@ -171,15 +179,37 @@ function FeedContent({ program, layout: layoutProp = null, targetVerificationId 
         const { error } = await supabase
           .from('post_likes')
           .insert({ verification_id: verificationId, user_id: myUserId })
-        if (error) throw error
+        if (error && error.code !== '23505') throw error   // 23505=이미 눌러둔 좋아요 → 성공으로 본다
       }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.feedPosts(id) })
+    onMutate: async ({ verificationId, isLiked }) => {
+      const key = queryKeys.feedPosts(id)
+      await queryClient.cancelQueries({ queryKey: key })
+      const prev = queryClient.getQueryData(key)
+      // useInfiniteQuery — 각 page 는 «게시물 배열 그 자체» 다(fetchFeedPosts 가 배열을 반환).
+      //   해당 게시물의 likedUserIds(Set)·likeCount 만 뒤집는다.
+      queryClient.setQueryData(key, (old) => {
+        if (!old?.pages) return old
+        return {
+          ...old,
+          pages: old.pages.map((page) => (Array.isArray(page) ? page.map((p) => {
+            if (p.id !== verificationId) return p
+            const liked = new Set(p.likedUserIds || [])
+            if (isLiked) liked.delete(myUserId)
+            else liked.add(myUserId)
+            return { ...p, likedUserIds: liked, likeCount: liked.size }
+          }) : page)),
+        }
+      })
+      return { prev }
     },
-    onError: (err) => {
+    onError: (err, _vars, ctx) => {
       console.error('좋아요 실패:', err)
-      alert(`좋아요 처리에 실패했습니다: ${err.message}`)
+      if (ctx?.prev) queryClient.setQueryData(queryKeys.feedPosts(id), ctx.prev)
+      toast.show('좋아요를 저장하지 못했어요. 잠시 후 다시 눌러주세요.', { variant: 'warning' })
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.feedPosts(id) })
     },
   })
 
@@ -695,7 +725,12 @@ function CommentsSection({ verificationId, programId, myUserId, isProgramOwner, 
       })
       return { prev }
     },
-    onError: (err, _v, ctx) => { if (ctx?.prev) queryClient.setQueryData(likeKey, ctx.prev); alert(`좋아요 처리에 실패했습니다: ${err.message}`) },
+    // 실패해도 DB 원문(unique constraint 등)을 사용자에게 보이지 않는다 — 롤백 + 사람이 읽을 문구.
+    onError: (err, _v, ctx) => {
+      console.error('댓글 좋아요 실패:', err)
+      if (ctx?.prev) queryClient.setQueryData(likeKey, ctx.prev)
+      toast.show('좋아요를 저장하지 못했어요. 잠시 후 다시 눌러주세요.', { variant: 'warning' })
+    },
     onSettled: () => queryClient.invalidateQueries({ queryKey: likeKey }),
   })
 
