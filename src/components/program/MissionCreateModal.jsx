@@ -404,7 +404,14 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
 
   return (
     <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-5" style={overlayStyle} onClick={onClose}>
-      <div className="w-full max-w-md max-h-[88vh] overflow-y-auto bg-white rounded-2xl p-6 shadow-xl" style={cardStyle} onClick={(e) => e.stopPropagation()}>
+      {/* ⚠️ 카드는 «세로 flex» 다 — 스크롤 영역과 버튼을 형제로 두어 버튼이 콘텐츠를 덮지 못하게 한다.
+          예전에는 카드 전체가 overflow-y-auto 이고 버튼이 그 «안» 에서 sticky 였다. sticky 는 스크롤 중
+          콘텐츠 위에 뜨는 것이 정상 동작이라, 키보드로 카드가 52vh 로 갇히면 「미션 설명」 칸이 버튼
+          뒤로 깔려 «누를 수조차» 없었다 — 모달을 손으로 끌어내려야 했다(2026-09-17 노트9 제보).
+          포커스 보정([[hooks/useKeyboardOverlay]])은 «누른 뒤» 끌어올릴 뿐, 누르기 전 가림은 못 푼다.
+          [[components/common/Modal]] 의 fill 모드·CheerModal 과 같은 구조. */}
+      <div className="w-full max-w-md max-h-[88vh] flex flex-col overflow-hidden bg-white rounded-2xl shadow-xl" style={cardStyle} onClick={(e) => e.stopPropagation()}>
+        <div className="flex-1 min-h-0 overflow-y-auto p-6">
           {onBack && !isEditMode && step === 1 && (
             <button
               type="button"
@@ -1022,11 +1029,11 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
             </p>
           )}
 
-          {/* 버튼 — 이전 / 다음 / 저장 */}
-          {/* 구형 안드(안드14 이하)는 키보드가 뜨면 카드가 52vh(≈347px, 노트9 실측)로 갇혀
-              내용이 길면 이 버튼 행이 스크롤 밖으로 밀려 누를 수 없다 → sticky 로 항상 노출.
-              카드 padding 이 p-6 이라 -mx-6 px-6. 글쓰기 모달(6819dd0)과 같은 패턴. */}
-          <div className="sticky bottom-0 -mx-6 px-6 pt-2.5 pb-0.5 bg-white border-t border-gray-100 flex gap-2">
+        </div>
+
+        {/* 버튼 — 이전 / 다음 / 저장. 스크롤 영역의 «형제» 라 콘텐츠를 덮을 수 없고,
+            flex-shrink-0 이라 카드가 52vh 로 갇혀도 항상 남는다. */}
+        <div className="flex-shrink-0 px-6 pt-2.5 pb-4 bg-white border-t border-gray-100 flex gap-2">
             {step === 1 ? (
               <button
                 type="button"
