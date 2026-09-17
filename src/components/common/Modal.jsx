@@ -75,13 +75,21 @@ function Modal({ isOpen, onClose, children, onPrev, onNext, fill = false }) {
   const legacyLift = isOpen && legacyKbOpen && !kbInset
 
   // 시트가 위로 접힌 뒤 포커스된 입력칸이 시트 스크롤 밖일 수 있다 → 시트 내부 스크롤로 끌어온다.
+  //   ⚠️ 접히는 «순간» 한 번만으로는 부족하다. 입력칸이 여럿이면 두 번째 칸으로 옮겨갈 때
+  //      legacyLift 가 이미 true 라 이 효과가 다시 돌지 않아 그 칸이 푸터에 덮인 채로 남는다
+  //      (2026-09-17 노트9, 미션 만들기에서 드러남 — 이 시트는 카드가 짧아 우연히 안 보였을 뿐
+  //      같은 결함이다). lift 인 «동안» 은 포커스가 바뀔 때마다 끌어온다. [[hooks/useKeyboardOverlay]]
   useEffect(() => {
     if (!legacyLift) return
-    const t = setTimeout(() => {
+    const pull = () => {
       const el = document.activeElement
       if (el && typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'center', behavior: 'smooth' })
-    }, 320)
-    return () => clearTimeout(t)
+    }
+    const t = setTimeout(pull, 320)
+    let t2 = null
+    const onFocusIn = () => { clearTimeout(t2); t2 = setTimeout(pull, 120) }
+    window.addEventListener('focusin', onFocusIn)
+    return () => { clearTimeout(t); clearTimeout(t2); window.removeEventListener('focusin', onFocusIn) }
   }, [legacyLift])
 
   // 하드웨어/브라우저 뒤로가기 = 모달 닫기 (공용 훅 — 모든 오버레이가 상태 공유). [[useBackButtonClose]]

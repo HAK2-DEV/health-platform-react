@@ -35,13 +35,21 @@ export function useKeyboardOverlay(extra = 20) {
   //       이 줄을 넣은 빌드에서 비로소 분리됐다(23:13, uiautomator 실측 여유 116px).
   //       구조만으로 왜 부족했는지는 아직 설명하지 못한다 — 이 보정을 «구조 개선의 곁다리»로 보고
   //       걷어내지 말 것. 지우려면 노트9 실기기에서 다시 재보고 판단해야 한다.
+  //    ⚠️ «접히는 순간» 한 번만으로는 부족하다. 입력칸이 여럿인 모달(미션 만들기: 제목→설명)에서는
+  //       두 번째 칸으로 옮겨갈 때 lift 가 이미 true 라 이 효과가 다시 돌지 않아, 그 칸이 푸터에
+  //       덮인 채로 남는다(2026-09-17 노트9 「제목 누르면 취소·다음이 같이 올라온다」).
+  //       그래서 lift 인 «동안» 은 포커스가 바뀔 때마다 끌어온다.
   useEffect(() => {
     if (!lift) return
-    const t = setTimeout(() => {
+    const pull = () => {
       const el = document.activeElement
       if (el && typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'center', behavior: 'smooth' })
-    }, 320)
-    return () => clearTimeout(t)
+    }
+    const t = setTimeout(pull, 320)          // 접힌 직후 1회 (nativeKeyboard 의 300ms 올리기 뒤)
+    let t2 = null
+    const onFocusIn = () => { clearTimeout(t2); t2 = setTimeout(pull, 120) }   // 칸 간 이동
+    window.addEventListener('focusin', onFocusIn)
+    return () => { clearTimeout(t); clearTimeout(t2); window.removeEventListener('focusin', onFocusIn) }
   }, [lift])
 
   return {
