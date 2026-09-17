@@ -93,6 +93,7 @@ function InquiryDetailModal({ inquiryId, userId, isAdmin, isOpen, onClose, onCha
             {/* 헤더 */}
             <div className="flex items-start justify-between gap-2 mb-1">
               <div className="flex items-center gap-1.5 flex-wrap">
+                {inquiry.category === 'bug' && <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-600">🐞 버그 신고</span>}
                 <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${status.cls}`}>{status.label}</span>
                 {inquiry.is_private && <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">🔒 비공개</span>}
               </div>

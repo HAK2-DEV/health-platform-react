@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, ChevronDown, HelpCircle, Mail, MessageCircle } from 'lucide-react'
+import { ArrowLeft, ChevronDown, HelpCircle, Mail, MessageCircle, Bug } from 'lucide-react'
 import NotificationBell from '../components/common/NotificationBell'
 import InquiryBoard from '../components/support/InquiryBoard'
 import { useAuth } from '../hooks/useAuth'
@@ -36,6 +36,10 @@ const FAQS = [
     a: '「프로필 → 알림 설정」에서 알림이 켜져 있는지 확인해주세요. 그래도 안 온다면 기기/브라우저의 알림 권한이 꺼져 있을 수 있어요. 설치형(PWA)으로 추가하면 알림이 더 안정적이에요.',
   },
   {
+    q: '화면이 이상하거나 오류가 나요.',
+    a: '「버그 신고」 탭에서 알려주세요. 기기·앱 버전 같은 정보는 자동으로 함께 전송되니, 어느 화면에서 무엇을 하다가 생겼는지만 적어주시면 돼요. 확인 후 답변드릴게요.',
+  },
+  {
     q: '비밀번호 변경·계정 정보는 어디서 바꾸나요?',
     a: '「프로필 → 계정 설정」에서 닉네임·계정 정보를 관리하고, 회원 탈퇴도 할 수 있어요.',
   },
@@ -43,6 +47,12 @@ const FAQS = [
     q: '직접 프로그램을 만들 수 있나요?',
     a: '네! 하단 + 버튼 → 「프로그램 생성」으로 누구나 운영자가 되어 프로그램을 만들 수 있어요. 마법사를 따라 이름·카테고리·기간·미션을 설정하면 돼요.',
   },
+]
+
+const TABS = [
+  { v: 'faq', l: 'FAQ' },
+  { v: 'bug', l: '버그 신고' },
+  { v: 'inquiry', l: '1:1 문의' },
 ]
 
 function FaqItem({ item, open, onToggle }) {
@@ -67,17 +77,19 @@ function FaqItem({ item, open, onToggle }) {
   )
 }
 
-// 고객센터 — FAQ 탭 + 1:1 문의 게시판 탭.
+// 고객센터 — FAQ / 버그 신고 / 1:1 문의 3개 탭.
+//   버그 신고와 1:1 문의는 같은 게시판(inquiries)을 category 로 나눠 쓴다(마이그 267).
 function SupportPage() {
   const navigate = useNavigate()
   const { session } = useAuth()
   const userId = session?.user?.id
   const [openIdx, setOpenIdx] = useState(-1)
   const [searchParams, setSearchParams] = useSearchParams()
-  const tab = searchParams.get('tab') === 'inquiry' ? 'inquiry' : 'faq'
+  const rawTab = searchParams.get('tab')
+  const tab = rawTab === 'inquiry' ? 'inquiry' : rawTab === 'bug' ? 'bug' : 'faq'
   const deepLinkInquiryId = searchParams.get('inquiry')
 
-  // 기본(faq) 탭에서 문의 탭으로 첫 전환만 push → 하드웨어 뒤로가기가 FAQ 로 복귀.
+  // 기본(faq) 탭에서 다른 탭으로 첫 전환만 push → 하드웨어 뒤로가기가 FAQ 로 복귀.
   const setTab = (t) => setSearchParams(prev => {
     const next = new URLSearchParams(prev)
     if (t === 'faq') next.delete('tab'); else next.set('tab', t)
@@ -117,10 +129,10 @@ function SupportPage() {
       <div className="bg-white">
         <div className="max-w-md mx-auto px-4">
           <div className="flex border-b border-gray-200">
-            {[{ v: 'faq', l: 'FAQ' }, { v: 'inquiry', l: '1:1 문의' }].map(o => (
+            {TABS.map(o => (
               <button
                 key={o.v} type="button" onClick={() => setTab(o.v)}
-                className={`relative flex-1 py-3 text-[15px] font-bold transition ${tab === o.v ? 'text-emerald-600' : 'text-gray-400 hover:text-gray-600'}`}
+                className={`relative flex-1 py-3 text-[15px] font-bold transition break-keep ${tab === o.v ? 'text-emerald-600' : 'text-gray-400 hover:text-gray-600'}`}
               >
                 {o.l}
                 {tab === o.v && <span className="absolute left-0 right-0 -bottom-px h-0.5 bg-emerald-500 rounded-full" />}
@@ -131,7 +143,7 @@ function SupportPage() {
       </div>
 
       <div className="w-full max-w-md mx-auto px-4 pt-3 pb-10 space-y-3">
-        {tab === 'faq' ? (
+        {tab === 'faq' && (
           <>
             {/* 인트로 */}
             <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 rounded-2xl p-5">
@@ -161,7 +173,8 @@ function SupportPage() {
                 <h3 className="text-[15px] font-bold text-gray-800">원하는 답을 못 찾으셨나요?</h3>
               </div>
               <p className="text-[13px] text-gray-500 leading-relaxed mb-3 break-keep">
-                <span className="font-semibold text-emerald-700">「1:1 문의」 탭</span>에서 바로 문의를 남기거나, 이메일로 보내주세요.
+                화면이 이상하면 <span className="font-semibold text-rose-600">「버그 신고」 탭</span>,
+                그 밖의 궁금한 점은 <span className="font-semibold text-emerald-700">「1:1 문의」 탭</span>에 남겨주세요. 이메일도 좋아요.
               </p>
               <a
                 href={mailto}
@@ -172,13 +185,46 @@ function SupportPage() {
               <p className="text-[11px] text-gray-400 text-center mt-2 select-all">{CONTACT_EMAIL}</p>
             </section>
           </>
-        ) : (
+        )}
+
+        {tab === 'bug' && (
+          <>
+            {/* 인트로 — 「무엇을 적어야 하는지」를 신고 전에 미리 알려준다. */}
+            <div className="bg-gradient-to-br from-rose-50 to-orange-50 border border-rose-100 rounded-2xl p-5">
+              <div className="flex items-center gap-2.5">
+                <span className="w-10 h-10 rounded-full bg-white flex items-center justify-center flex-shrink-0 shadow-sm">
+                  <Bug className="w-5 h-5 text-rose-500" />
+                </span>
+                <div className="min-w-0">
+                  <h2 className="text-[16px] font-extrabold text-gray-900 leading-tight break-keep">이상한 점을 발견하셨나요?</h2>
+                  <p className="text-[12px] text-gray-500 mt-0.5 break-keep">알려주시면 확인해서 고칠게요.</p>
+                </div>
+              </div>
+              <p className="mt-3 text-[12.5px] text-rose-900/80 leading-relaxed break-keep">
+                기기·안드로이드 버전·앱 버전은 <b>자동으로 함께 전송</b>되니 적지 않으셔도 돼요.
+                <b> 어느 화면에서 무엇을 하다가</b> 생겼는지만 적어주시면 충분해요.
+              </p>
+            </div>
+
+            <InquiryBoard
+              userId={userId}
+              isAdmin={isAdmin}
+              roleReady={roleReady}
+              deepLinkInquiryId={deepLinkInquiryId}
+              onConsumeDeepLink={consumeDeepLink}
+              category="bug"
+            />
+          </>
+        )}
+
+        {tab === 'inquiry' && (
           <InquiryBoard
             userId={userId}
             isAdmin={isAdmin}
             roleReady={roleReady}
             deepLinkInquiryId={deepLinkInquiryId}
             onConsumeDeepLink={consumeDeepLink}
+            category="general"
           />
         )}
       </div>

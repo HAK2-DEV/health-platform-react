@@ -1345,20 +1345,24 @@ export const fetchTeamInviteCandidates = async (teamId) => {
 }
 
 // ─── 전역 문의 게시판 (134) ──────────────────────────────────
-// 문의 작성 — 비번은 RPC가 서버측 해싱. 반환: inquiry id.
-export const createInquiry = async (title, body, isPrivate, password) => {
+// 문의·버그 신고 작성 — 비번은 RPC가 서버측 해싱. 반환: inquiry id.
+//   category: 'general'(1:1 문의) | 'bug'(버그 신고) — 마이그 267.
+export const createInquiry = async (title, body, isPrivate, password, category = 'general') => {
   const { data, error } = await supabase.rpc('create_inquiry', {
     p_title: title, p_body: body, p_is_private: isPrivate, p_password: password,
+    p_category: category,
   })
   if (error) throw error
   return data
 }
 
 // 문의 목록 — RLS 가 가시성 처리(공개=모두 / 비공개=작성자·관리자).
-export const fetchInquiries = async () => {
+//   탭(category)별로 걸러서 가져온다. 기존 글은 전부 'general'.
+export const fetchInquiries = async (category = 'general') => {
   const { data, error } = await supabase
     .from('inquiries')
-    .select('id, title, is_private, status, created_at, author_id, users(nickname)')
+    .select('id, title, is_private, status, created_at, author_id, category, users(nickname)')
+    .eq('category', category)
     .order('created_at', { ascending: false })
   if (error) throw error
   return data || []
@@ -1368,7 +1372,7 @@ export const fetchInquiries = async () => {
 export const fetchInquiry = async (id) => {
   const { data, error } = await supabase
     .from('inquiries')
-    .select('id, title, body, is_private, status, created_at, author_id, users(nickname)')
+    .select('id, title, body, is_private, status, created_at, author_id, category, users(nickname)')
     .eq('id', id)
     .single()
   if (error) throw error

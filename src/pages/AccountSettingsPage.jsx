@@ -8,6 +8,7 @@ import { deleteMyAccount } from '../lib/queries'
 import { blockedUsersKey, fetchBlockedUsers, unblockUser, BLOCK_AFFECTED_QUERY_PREFIXES } from '../lib/blocks'
 import UserAvatar from '../components/common/UserAvatar'
 import { unsubscribeFromPush } from '../lib/push'
+import { measureTextScale } from '../lib/deviceInfo'
 import StickyBackBar from '../components/common/StickyBackBar'
 import Modal from '../components/common/Modal'
 
@@ -80,21 +81,8 @@ function AccountSettingsPage() {
   )
 }
 
-// 실제 적용된 글자 배율 — 10px 로 선언한 글자를 그려 실제 높이를 잰다(폰 «글자 크기» 가 곱해진 값).
-//   네이티브는 MainActivity 가 최대 1.15배로 제한. 제보 받을 때 이 값으로 폰 설정 영향을 바로 확인.
-function measureTextScale() {
-  try {
-    const probe = document.createElement('span')
-    probe.textContent = '가'
-    probe.style.cssText = 'position:fixed;left:-9999px;top:0;font-size:10px;line-height:1;visibility:hidden'
-    document.body.appendChild(probe)
-    const h = probe.getBoundingClientRect().height
-    probe.remove()
-    return h > 0 ? (h / 10).toFixed(2) : '-'
-  } catch {
-    return '-'
-  }
-}
+// 글자 배율 측정은 [[lib/deviceInfo]] 로 옮겼다 — 버그 신고에 자동으로 붙는 값과
+//   이 줄에 보이는 값이 «같아야» 제보를 대조할 수 있다.
 
 // ─── 비밀번호 변경 카드 ──────────────────────────────────────
 function PasswordChangeCard({ isSocialOnly }) {
