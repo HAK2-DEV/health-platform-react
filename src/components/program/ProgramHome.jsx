@@ -73,6 +73,13 @@ export function Icon3D({ src, emoji, className = 'w-[22px] h-[22px]' }) {
       src={src}
       alt=""
       aria-hidden="true"
+      // ⚠️ 장식 아이콘은 «한꺼번에» 몰리면 연결 큐가 막힌다. 2026-09-18 노트9 PWA 실측:
+      //    프로그램 열 때 이미지 45개가 동시에 뜨며 각 200ms·점유 구간 10.2초(전송은 13KB뿐 —
+      //    받을 게 없는데 큐에서 기다린 시간이다). lazy 는 «뷰포트 밖»만 미루므로 화면 안
+      //    아이콘은 지금처럼 즉시 뜨고, 크기는 className 으로 고정돼 레이아웃도 안 흔들린다.
+      //    [[project_perf_program_detail_2026-09-18]]
+      loading="lazy"
+      decoding="async"
       onError={() => setErr(true)}
       className={`${className} object-contain flex-shrink-0`}
     />

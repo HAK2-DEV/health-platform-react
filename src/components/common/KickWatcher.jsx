@@ -25,7 +25,12 @@ export default function KickWatcher() {
     queryFn: () => fetchActivePrograms(userId),
     enabled: !!userId,
     refetchOnWindowFocus: true,          // Realtime 누락 대비 — 다시 볼 때 확인
-    refetchInterval: 60000,              // 폴백 — 최대 60초 안에는 감지
+    // 폴백 주기 — 60초는 과했다. 2026-09-18 노트9 PWA 실측에서 «화면을 열어둔 채 가만히 있어도»
+    //   1분마다 이 요청이 나가고 900ms 씩 걸렸다(느린 회선에서 특히). 강퇴는 드문 사건이고
+    //   주 경로인 Realtime(rt-participants → programs/active 무효화)이 0.5초 안에 잡으며,
+    //   창 포커스·앱 재실행 스냅샷 비교까지 폴백이 셋이라 주기를 늘려도 감지가 빠지지 않는다.
+    //   [[project_perf_program_detail_2026-09-18]]
+    refetchInterval: 5 * 60_000,         // 폴백 — 최대 5분 안에는 감지
   })
 
   useEffect(() => {
