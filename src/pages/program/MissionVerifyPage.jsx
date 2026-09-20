@@ -1550,7 +1550,7 @@ function MissionVerifyPage() {
         )}
       </motion.div>
 
-      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-gray-100 px-5 py-3 z-40" style={{ bottom: kbInset || undefined, transition: 'bottom .2s ease' }}>
+      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-gray-100 px-5 py-3 z-40" style={{ bottom: kbInset || undefined, paddingBottom: kbInset ? undefined : 'max(env(safe-area-inset-bottom), 0.75rem)', transition: 'bottom .2s ease' }}>
         <div className="max-w-4xl mx-auto flex gap-2">
           <button
             type="button"

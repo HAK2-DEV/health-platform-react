@@ -542,7 +542,7 @@ function QuizStepper({ quiz, questions, answers, setAnswer, currentIdx, setCurre
       )}
 
       {/* 하단 고정 — 이전 / 다음·답안 제출 */}
-      <div className="fixed bottom-0 left-0 right-0 px-4 pb-4 pt-3 bg-gradient-to-t from-white via-white to-transparent" style={{ bottom: kbInset || undefined, transition: 'bottom .2s ease' }}>
+      <div className="fixed bottom-0 left-0 right-0 px-4 pb-4 pt-3 bg-gradient-to-t from-white via-white to-transparent" style={{ bottom: kbInset || undefined, paddingBottom: kbInset ? undefined : 'max(env(safe-area-inset-bottom), 1rem)', transition: 'bottom .2s ease' }}>
         <div className="max-w-2xl mx-auto flex gap-2">
           {currentIdx > 0 && (
             <button type="button" onClick={() => setCurrentIdx((i) => Math.max(0, i - 1))}
