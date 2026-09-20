@@ -450,7 +450,7 @@ function QuizSolvePage() {
 
       {/* 제출 버튼 (미제출 + 기한 내 + 시작됨, 미리보기 제외) */}
       {!isPreview && !isSubmitted && !isExpired && !isNotStarted && (
-        <div className="fixed bottom-16 left-0 right-0 px-4 pb-3 pt-2 bg-gradient-to-t from-white via-white to-transparent">
+        <div className="fixed bottom-16 mb-[env(safe-area-inset-bottom)] left-0 right-0 px-4 pb-3 pt-2 bg-gradient-to-t from-white via-white to-transparent">
           <div className="max-w-2xl mx-auto">
             <button
               type="button"

@@ -360,7 +360,7 @@ function RankingsPage() {
             exit={{ opacity: 0, y: 20, scale: 0.9 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
             onClick={scrollToMyRow}
-            className="fixed bottom-20 right-4 z-40 inline-flex items-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-emerald-400 to-teal-500 text-white text-sm font-medium rounded-full shadow-lg shadow-emerald-500/30"
+            className="fixed bottom-20 mb-[env(safe-area-inset-bottom)] right-4 z-40 inline-flex items-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-emerald-400 to-teal-500 text-white text-sm font-medium rounded-full shadow-lg shadow-emerald-500/30"
           >
             <MapPin className="w-4 h-4" />
             내 위치 ({myRow.rank}등)
