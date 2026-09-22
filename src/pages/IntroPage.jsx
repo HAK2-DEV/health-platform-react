@@ -32,7 +32,7 @@ function Icon({ src, className = 'w-10 h-10' }) {
 }
 
 // 폰 프레임 — 실제 앱 화면 캡처를 담는다.
-function PhoneMock({ src, alt, className = '' }) {
+function PhoneMock({ src, alt, height = 1073, className = '' }) {
   return (
     <div
       className={`relative w-full max-w-[268px] rounded-[2.25rem] bg-white p-2 shadow-elevated ring-1 ring-gray-200/70 ${className}`}
@@ -43,7 +43,7 @@ function PhoneMock({ src, alt, className = '' }) {
         loading="lazy"
         decoding="async"
         width={540}
-        height={1073}
+        height={height}
         className="block w-full h-auto rounded-[1.75rem] bg-surface-app"
       />
     </div>
@@ -171,13 +171,15 @@ export default function IntroPage() {
                 올라온 인증을 모아서 확인합니다
               </h2>
               <p className="mt-3 text-sm text-gray-600 leading-relaxed break-keep">
-                누가 무엇을 올렸는지 한 곳에 모입니다. 승인하면 점수와 연속 기록에 바로 반영되고,
-                참여율과 며칠째 안 보이는 사람도 같은 자리에서 봅니다.
+                하루치 인증이 한 장에 모입니다. 훑어보고 문제 있는 것만 빼면
+                <strong className="font-semibold text-gray-700"> 나머지는 버튼 하나로 한 번에 승인</strong>됩니다.
+                승인하면 점수와 연속 기록에 바로 반영돼요.
               </p>
             </div>
             <div className="mt-7 sm:mt-0 flex justify-center sm:flex-shrink-0">
               <PhoneMock
                 src="/intro/screen-review.webp"
+                height={1171}
                 alt="운영자 화면 — 참여자가 올린 인증을 승인하거나 반려하는 심사 목록"
                 className="max-w-[228px]"
               />
@@ -185,34 +187,26 @@ export default function IntroPage() {
           </div>
         </section>
 
-        {/* ── 핵심 ③: 종료 리포트 ── 화면 대신 리포트 카드 자체를 보여준다 */}
-        <section className="mt-6 rounded-card-lg bg-white border border-gray-100 shadow-soft p-6 sm:p-8">
-          <div className="sm:flex sm:items-center sm:gap-10">
+        {/* ── 핵심 ③: 종료 리포트 ── 결과만이 아니라 «왜 그랬는지»까지 */}
+        <section className="mt-6 rounded-card-lg bg-white border border-gray-100 shadow-soft overflow-hidden">
+          <div className="p-6 sm:p-8 sm:flex sm:items-center sm:gap-10">
             <div className="min-w-0 sm:flex-1">
               <p className="text-[12px] font-bold text-emerald-600">끝나면</p>
               <h2 className="mt-1.5 text-[20px] sm:text-2xl font-bold text-gray-800 break-keep leading-snug">
                 결과를 문서로 남깁니다
               </h2>
               <p className="mt-3 text-sm text-gray-600 leading-relaxed break-keep">
-                완주 인원, 기간별 변화, 참여 여정. 보고해야 하는 자리에 그대로 낼 수 있습니다.
+                몇 명이 어디서 멈췄는지, 무엇이 병목이었는지까지 짚어 줍니다.
+                보고해야 하는 자리에 그대로 내고, 다음 기수는 설정을 그대로 복제해 엽니다.
               </p>
             </div>
-            <div className="mt-6 sm:mt-0 sm:w-[300px] sm:flex-shrink-0">
-              <div className="rounded-2xl bg-surface-app border border-gray-100 p-4">
-                <p className="text-[11px] font-bold text-gray-500">3주 걷기 챌린지 · 종료 리포트</p>
-                <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-                  {[['완주', '18명'], ['인증률', '81%'], ['연속 최고', '21일']].map(([k, v]) => (
-                    <div key={k} className="bg-white rounded-xl py-2.5 border border-gray-100">
-                      <p className="text-[15px] font-bold text-gray-800 leading-none">{v}</p>
-                      <p className="mt-1 text-[10px] text-gray-500">{k}</p>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-2.5 h-1.5 rounded-full bg-gray-100 overflow-hidden">
-                  <div className="h-full w-[81%] rounded-full bg-gradient-to-r from-emerald-400 to-teal-500" />
-                </div>
-                <p className="mt-2 text-[10px] text-gray-400">예시 화면입니다</p>
-              </div>
+            <div className="mt-7 sm:mt-0 flex justify-center sm:flex-shrink-0">
+              <PhoneMock
+                src="/intro/screen-report.webp"
+                height={1171}
+                alt="종료 리포트 — 핵심 진단과 참여자·인증 건수, 참여 여정 퍼널"
+                className="max-w-[228px]"
+              />
             </div>
           </div>
         </section>
