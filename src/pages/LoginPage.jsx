@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import AuthForm from '../components/AuthForm'
 
@@ -29,6 +29,13 @@ return (
       {/* 헤더와 로그인 카드 사이 투명 박스 — 본인 피드백: 시각적 분리 (완전 투명) */}
       <div className="w-20 h-4 mb-4" />
       <AuthForm />
+      {/* 처음 온 사람이 로그인 창에서 막히지 않게 — 공개 소개 페이지로 나가는 길 */}
+      <p className="mt-5 text-[13px] text-gray-500">
+        도담이 처음이신가요?{' '}
+        <Link to="/intro" className="font-semibold text-emerald-600 hover:text-emerald-700">
+          어떤 앱인지 보기
+        </Link>
+      </p>
     </div>
   )
 }

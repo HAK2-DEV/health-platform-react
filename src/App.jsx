@@ -28,6 +28,7 @@ const HomePage = lazy(() => import('./pages/HomePage'))
 const TodosPage = lazy(() => import('./pages/TodosPage'))
 const LoginPage = lazy(() => import('./pages/LoginPage'))
 const SignupPage = lazy(() => import('./pages/SignupPage'))
+const IntroPage = lazy(() => import('./pages/IntroPage'))
 const NicknameSetupPage = lazy(() => import('./pages/NicknameSetupPage'))
 const DashboardPage = lazy(() => import('./pages/DashboardPage'))
 const OnboardingTutorial = lazy(() => import('./pages/OnboardingTutorial'))
@@ -147,8 +148,11 @@ function AppShell() {
   //   기록하기는 라우트가 아니라 액션(+ 버튼). 깊은 화면은 숨기고 뒤로가기.
   const showTabBar = ['/dashboard', '/programs', '/growth', '/profile'].includes(location.pathname)
 
+  // 공개 소개 페이지만 폰 폭 셸(448px)을 벗어난다 — 세일즈 링크는 PC 로도 열리기 때문.
+  const wideShell = location.pathname === '/intro'
+
   return (
-   <div className="app">
+   <div className={wideShell ? 'app app-wide' : 'app'}>
       {/* 네이티브: 앱 사용 중 도착한 푸시 배너 + 알림 탭 시 링크 이동 */}
       <PushForegroundBanner />
       {/* 약관·처리방침 개정 고지 — 대시보드에서 1회(13조 7일 전 안내) */}
@@ -174,6 +178,7 @@ function AppShell() {
             {/* 보호 X (누구나) */}
             <Route path="/" element={<HomePage />} />
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/intro" element={<IntroPage />} />
             <Route path="/signup" element={<SignupPage />} />
 
             {/* 보호 O (로그인 필요) */}

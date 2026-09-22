@@ -93,6 +93,12 @@ body {
   position: relative;
 }
 
+/* 공개 소개 페이지(/intro) 만 예외 — 세일즈 링크는 PC 로도 열린다. 폰 폭 448px 로 가두면
+   넓은 화면에서 가운데 좁은 띠처럼 보여 소개 글이 읽히지 않는다. 앱 화면에는 영향 없음. */
+.app.app-wide {
+  max-width: none;
+}
+
 .app-main {
   flex: 1;
   /* padding-bottom 명시 X — Tailwind pb-* (App.jsx 의 pb-24 등) 가 적용되게 longhand 사용 */
