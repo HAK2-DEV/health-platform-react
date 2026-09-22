@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronLeft, ChevronDown, ChevronRight, Trophy, MessageSquare, Copy, Download } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
-import { queryKeys, fetchProgram, fetchProgramStats, fetchProgramOperatorLoad, fetchProgramQuizStats, fetchProgramCommunityStats, fetchProgramReports, fetchEndReportPerUser, fetchProgramScoreBreakdown, fetchProgramTeamRanking, fetchProgramDistanceByUser, fetchProgramMetricsByUser, fetchProgramCommentsDetail, fetchProgramQuizAnswersDetail, fetchProgramClassStats, fetchProgramClassRoster, fetchProgramScoreLedger, fetchProgramSurveyResults, fetchUserDemographics, fetchProgramMetricSeries, REPORT_REASON_PRESETS, formatKstDate } from '../../lib/queries'
+import { queryKeys, fetchProgram, fetchProgramStats, fetchProgramOperatorLoad, fetchProgramQuizStats, fetchProgramCommunityStats, fetchProgramReports, fetchEndReportPerUser, fetchProgramScoreBreakdown, fetchProgramTeamRanking, fetchProgramDistanceByUser, fetchProgramMetricsByUser, fetchProgramCommentsDetail, fetchProgramQuizAnswersDetail, fetchProgramClassStats, fetchProgramClassRoster, fetchProgramScoreLedger, fetchProgramSurveyResults, fetchProgramDemographics, fetchProgramMetricSeries, REPORT_REASON_PRESETS, formatKstDate } from '../../lib/queries'
 import { getProgramSurvey } from '../../lib/surveyDefaults'
 import HP2030Report from '../../components/program/HP2030Report'
 import { catOf } from '../../lib/classCategories'
@@ -265,9 +265,11 @@ function ProgramEndReportPage() {
     enabled: !!session && !!id && isOwner && program?.survey_enabled === true,
   })
   const surveyRespIds = [...new Set([...surveyStart, ...surveyEnd].map((r) => r.user_id))]
+  // 274 이후: 사용자 id 목록이 아니라 «프로그램» 단위로 받는다(운영자 전용 RPC).
+  //   참여자 전원이 담겨 오므로 설문 응답자만 걸러 쓰는 쪽에서 map 으로 조회하면 된다.
   const { data: surveyDemo = {} } = useQuery({
-    queryKey: ['survey-demographics', id, surveyRespIds.length],
-    queryFn: () => fetchUserDemographics(surveyRespIds),
+    queryKey: ['survey-demographics', id],
+    queryFn: () => fetchProgramDemographics(id),
     enabled: !!session && !!id && isOwner && surveyRespIds.length > 0,
   })
 
@@ -403,12 +405,11 @@ function ProgramEndReportPage() {
                   fetchProgramQuizAnswersDetail(id).catch(() => null),
                 ])
               }
-              // 요약 시트의 「변화」·「형평성」용 — 지표 시계열 + 전체 참여자 인구통계.
-              //   surveyDemo 는 설문 응답자만 담고 있어 형평성 분모로 못 쓴다(참여자 전원이 필요).
-              const allUserIds = [...report.completedUsers, ...report.participatedUsers, ...report.dormantUsers].map((u) => u.user_id)
+              // 요약 시트의 「변화」·「형평성」용 — 지표 시계열 + 참여자 인구통계.
+              //   RPC 가 «그 프로그램 참여자 전원» 을 돌려주므로 id 목록을 따로 모을 필요가 없다(274).
               const [metricSeries, demographics] = await Promise.all([
                 fetchProgramMetricSeries(id).catch(() => []),
-                fetchUserDemographics(allUserIds).catch(() => ({})),
+                fetchProgramDemographics(id).catch(() => ({})),
               ])
               await exportEndReportXlsx({ program, report, quizStats, community, perUser: pu, raw: stats?._raw || [], scoreBreakdown, teamRanking, distanceByUser: distance, metricsByUser, reportGroups, scoreLedger, classRoster, commentsDetail, quizAnswersDetail, metricSeries, demographics,
                 surveyStart, surveyEnd,

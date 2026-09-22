@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ChevronLeft, Pencil } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
-import { queryKeys, fetchProgram, fetchProgramSurveyResults, fetchUserDemographics } from '../../lib/queries'
+import { queryKeys, fetchProgram, fetchProgramSurveyResults, fetchProgramDemographics } from '../../lib/queries'
 import { getProgramSurvey } from '../../lib/surveyDefaults'
 import LoadingState from '../../components/common/LoadingState'
 import EmptyState from '../../components/common/EmptyState'
@@ -54,7 +54,7 @@ function ProgramStatsSurveyPage() {
   const respondentIds = [...new Set([...startResponses, ...endResponses].map((r) => r.user_id))]
   const { data: demographics = {} } = useQuery({
     queryKey: ['survey-demographics', id, respondentIds.length],
-    queryFn: () => fetchUserDemographics(respondentIds),
+    queryFn: () => fetchProgramDemographics(id),
     enabled: !!session && !!id && isOwner && respondentIds.length > 0,
   })
 

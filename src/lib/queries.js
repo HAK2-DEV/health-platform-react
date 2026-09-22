@@ -3942,12 +3942,15 @@ export const fetchProgramMetricSeries = async (programId) => {
   return (data || []).map((r) => ({ user_id: r.user_id, submitted_at: r.submitted_at, metric_values: r.metric_values }))
 }
 
-export const fetchUserDemographics = async (userIds = []) => {
-  const ids = [...new Set(userIds)].filter(Boolean)
-  if (!ids.length) return {}
-  const { data, error } = await supabase.from('users').select('id, gender, age_range').in('id', ids)
+// 형평성 분해용 — 프로그램 참여자의 성별·연령대 (운영자 전용).
+//   ⚠️ users.gender/age_range 직접 조회는 274 에서 회수됐다(로그인한 누구나 전 회원의
+//      성별·연령대를 읽을 수 있었다). 이제 「그 프로그램 운영자」에게 「그 프로그램 참여자」만
+//      돌려주는 RPC 로 받는다. 운영자가 아니면 0행이다.
+export const fetchProgramDemographics = async (programId) => {
+  if (!programId) return {}
+  const { data, error } = await supabase.rpc('get_program_demographics', { p_program_id: programId })
   if (error) throw error
-  return Object.fromEntries((data || []).map((u) => [u.id, { gender: u.gender, age_range: u.age_range }]))
+  return Object.fromEntries((data || []).map((u) => [u.user_id, { gender: u.gender, age_range: u.age_range }]))
 }
 
 // 운영자 — 종료 설문 시작(확정). 이 시각 이후 참여자에게 종료 설문 노출.
