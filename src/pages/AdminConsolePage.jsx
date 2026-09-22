@@ -48,7 +48,7 @@ function relDay(iso) {
 }
 
 // 용량 게이지 한 줄 — 라벨 / 사용량 / 막대.
-function UsageBar({ icon, label, bytes, limit }) {
+function UsageBar({ icon, label, bytes, limit, prev }) {
   const pct = limit > 0 ? (Number(bytes) / Number(limit)) * 100 : 0
   const tone = usageTone(pct)
   return (
@@ -61,20 +61,67 @@ function UsageBar({ icon, label, bytes, limit }) {
       <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
         <div className={`h-full rounded-full ${tone.bar}`} style={{ width: `${Math.min(100, Math.max(1.5, pct))}%` }} />
       </div>
-      <p className="text-[11px] text-gray-400 mt-1">
-        {fmtBytes(bytes)} / {fmtBytes(limit)} · {tone.label}
+      <p className="text-[11px] text-gray-400 mt-1 flex items-center gap-1.5">
+        <span>{fmtBytes(bytes)} / {fmtBytes(limit)} · {tone.label}</span>
+        <DeltaBytes bytes={bytes} prev={prev} className="text-[11px]" />
       </p>
     </div>
   )
 }
 
-function StatTile({ label, value }) {
+// 전일 대비 증감 — 주식 시세 관용(상승=빨강 ▲ / 하락=파랑 ▼). 색만이 아니라
+//   «모양 + 부호» 로도 방향이 드러나게 한다(색각이상 대비, DESIGN_SYSTEM §12-8).
+function DeltaLine({ value, prev }) {
+  if (prev == null || value == null) return null
+  const d = Number(value) - Number(prev)
+  // 변화 없음은 «–» 만 — 8개 타일 대부분이 0인 날이 많아 숫자까지 쓰면 지저분해진다.
+  if (d === 0) {
+    return <p className="text-[11px] leading-tight text-gray-300 mt-0.5">–</p>
+  }
+  const up = d > 0
   return (
-    <div className="bg-gray-50 rounded-xl px-3 py-2.5">
+    <p className={`text-[11px] font-bold leading-tight tabular-nums mt-0.5 ${up ? 'text-red-600' : 'text-blue-600'}`}>
+      {up ? '▲' : '▼'} {Math.abs(d).toLocaleString()}
+    </p>
+  )
+}
+
+// 용량 증감 — 같은 규칙(상승=빨강 ▲ / 하락=파랑 ▼). 값이 아주 작으면(1KB 미만) 변화 없음으로 본다.
+function DeltaBytes({ bytes, prev, className = '' }) {
+  if (prev == null || bytes == null) return null
+  const d = Number(bytes) - Number(prev)
+  if (Math.abs(d) < 1024) return <span className={`text-gray-300 ${className}`}>–</span>
+  const up = d > 0
+  return (
+    <span className={`font-bold tabular-nums ${up ? 'text-red-600' : 'text-blue-600'} ${className}`}>
+      {up ? '▲' : '▼'} {fmtBytes(Math.abs(d))}
+    </span>
+  )
+}
+
+// 개수 증감 (버킷 파일 수 등)
+function DeltaCount({ value, prev, className = '' }) {
+  if (prev == null || value == null) return null
+  const d = Number(value) - Number(prev)
+  if (d === 0) return null
+  const up = d > 0
+  return (
+    <span className={`font-bold tabular-nums ${up ? 'text-red-600' : 'text-blue-600'} ${className}`}>
+      {up ? '▲' : '▼'}{Math.abs(d).toLocaleString()}
+    </span>
+  )
+}
+
+function StatTile({ label, value, prev }) {
+  return (
+    <div className="@container bg-gray-50 rounded-xl px-3 py-2.5">
       <p className="text-[11px] text-gray-500 leading-normal">{label}</p>
-      <p className="text-[17px] font-extrabold text-gray-800 leading-tight mt-0.5">
+      {/* 좁은 폰(타일 78px)에서 6자리 숫자가 옆 타일로 삐져나왔다 → 틀은 그대로 두고
+          글자를 컨테이너 폭에 맞춰 줄인다 (DESIGN_SYSTEM §14 배너 레시피와 같은 처방). */}
+      <p className="text-[clamp(11px,18cqi,17px)] font-extrabold text-gray-800 leading-tight mt-0.5 tabular-nums">
         {Number(value ?? 0).toLocaleString()}
       </p>
+      <DeltaLine value={value} prev={prev} />
     </div>
   )
 }
@@ -132,6 +179,8 @@ function AdminConsolePage() {
 
   const maxAct = Math.max(1, ...activity.map(a => Number(a.verify_count) + Number(a.post_count)))
   const buckets = cap?.buckets || []
+  // 전일 스냅샷의 버킷별 값 (271 적용 다음 날부터 채워진다 — 없으면 증감을 숨긴다)
+  const prevBucket = Object.fromEntries((cap?.prev?.buckets || []).map(b => [b.bucket, b]))
 
   return (
     <div className="min-h-screen bg-white max-w-md mx-auto px-4 pt-3 pb-10">
@@ -155,8 +204,8 @@ function AdminConsolePage() {
           <p className="text-[13px] text-gray-400 py-6 text-center">용량 정보를 불러오지 못했어요.</p>
         ) : (
           <div className="border border-gray-100 rounded-xl shadow-soft p-3.5 space-y-4">
-            <UsageBar icon={<HardDrive className="w-4 h-4" />} label="저장 용량" bytes={cap.storage_bytes} limit={cap.storage_limit} />
-            <UsageBar icon={<Database className="w-4 h-4" />} label="DB 크기" bytes={cap.db_bytes} limit={cap.db_limit} />
+            <UsageBar icon={<HardDrive className="w-4 h-4" />} label="저장 용량" bytes={cap.storage_bytes} limit={cap.storage_limit} prev={cap.prev?.storage_bytes} />
+            <UsageBar icon={<Database className="w-4 h-4" />} label="DB 크기" bytes={cap.db_bytes} limit={cap.db_limit} prev={cap.prev?.db_bytes} />
 
             {/* 버킷별 — 접어둠 */}
             <div className="pt-1 border-t border-gray-100">
@@ -167,10 +216,12 @@ function AdminConsolePage() {
               {bucketsOpen && (
                 <ul className="mt-1.5 space-y-1.5">
                   {buckets.map(b => (
-                    <li key={b.bucket} className="flex items-center gap-2 text-[12px]">
+                    <li key={b.bucket} className="flex items-center gap-1.5 text-[12px]">
                       <span className="text-gray-600 truncate">{BUCKET_LABELS[b.bucket] || b.bucket}</span>
-                      <span className="ml-auto text-gray-400 flex-shrink-0">{Number(b.objects).toLocaleString()}개</span>
-                      <span className="font-bold text-gray-700 w-20 text-right flex-shrink-0">{fmtBytes(b.bytes)}</span>
+                      <span className="ml-auto text-gray-400 flex-shrink-0 tabular-nums">{Number(b.objects).toLocaleString()}개</span>
+                      <DeltaCount value={b.objects} prev={prevBucket[b.bucket]?.objects} className="text-[11px] flex-shrink-0" />
+                      <span className="font-bold text-gray-700 text-right flex-shrink-0 tabular-nums">{fmtBytes(b.bytes)}</span>
+                      <DeltaBytes bytes={b.bytes} prev={prevBucket[b.bucket]?.bytes} className="text-[11px] flex-shrink-0" />
                     </li>
                   ))}
                 </ul>
@@ -256,15 +307,22 @@ function AdminConsolePage() {
           <p className="text-[13px] text-gray-400 py-6 text-center">집계를 불러오지 못했어요.</p>
         ) : (
           <div className="grid grid-cols-4 gap-2 mb-3">
-            <StatTile label="사용자" value={totals.users} />
-            <StatTile label="프로그램" value={totals.published} />
-            <StatTile label="참여" value={totals.participants} />
-            <StatTile label="인증" value={totals.verifications} />
-            <StatTile label="게시글" value={totals.posts} />
-            <StatTile label="수업" value={totals.sessions} />
-            <StatTile label="푸시구독" value={totals.push_subs} />
-            <StatTile label="전체프로그램" value={totals.programs} />
+            <StatTile label="사용자" value={totals.users} prev={totals.prev?.users} />
+            <StatTile label="프로그램" value={totals.published} prev={totals.prev?.published} />
+            <StatTile label="참여" value={totals.participants} prev={totals.prev?.participants} />
+            <StatTile label="인증" value={totals.verifications} prev={totals.prev?.verifications} />
+            <StatTile label="게시글" value={totals.posts} prev={totals.prev?.posts} />
+            <StatTile label="수업" value={totals.sessions} prev={totals.prev?.sessions} />
+            <StatTile label="푸시구독" value={totals.push_subs} prev={totals.prev?.push_subs} />
+            <StatTile label="전체프로그램" value={totals.programs} prev={totals.prev?.programs} />
           </div>
+        )}
+        {totals?.prev && (
+          <p className="text-[11px] text-gray-400 mb-3 leading-normal">
+            {totals.prev_source === 'snapshot'
+              ? '어제 자정(KST) 집계와 비교한 증감이에요.'
+              : '어제 값은 기록 시각으로 되짚은 추정치예요 — 내일부터 자정 집계와 비교합니다(줄어든 것도 잡혀요).'}
+          </p>
         )}
 
         {/* 14일 활동 추이 */}
