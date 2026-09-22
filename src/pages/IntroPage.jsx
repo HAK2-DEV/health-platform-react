@@ -9,9 +9,10 @@ import { useState } from 'react'
 //   톤과 레이아웃은 챌린저스 비즈 — 밝은 색 면 + 한국어 타이포.
 //   (경쟁사 실사 2026-09-22 결과. 셋 다 히어로에서 제품 화면을 팔고, 기능은 화면 + 한 줄로 설명한다.)
 //
-//   ⚠️ 폰 화면은 «이미지가 아니라 CSS로 그린 재현»이다. 실계정 데이터를 쓰지 않으려고 이렇게 했다.
-//      나중에 test 계정 실제 스크린샷으로 바꿀 수 있게 PhoneMock 한 곳에 모아 뒀다.
-//      그릴 때 실제 제품에 «있는 것만» 그렸다 — 진행률, 오늘의 미션, 인증, 연속 기록, 랭킹.
+//   폰 화면은 «실제 앱 화면 캡처»다(2026-09-23, 안드로이드 에뮬레이터 + 프로덕션).
+//      실계정 오염을 피하려고 test 계정 두 개로 비공개 프로그램을 만들고, 인증 한 건을 올려
+//      승인까지 거친 뒤 찍었다. 캡처가 끝난 계정·프로그램은 지웠다.
+//      다시 찍어야 하면 public/intro/screen-*.webp 를 교체하면 된다(폭 540 WebP).
 
 // 3D 아이콘 — 깨지면 조용히 비운다(이모지 폴백을 쓰지 않는 자리).
 function Icon({ src, className = 'w-10 h-10' }) {
@@ -30,91 +31,21 @@ function Icon({ src, className = 'w-10 h-10' }) {
   )
 }
 
-// 폰 프레임 — 안쪽에 아무 화면이나 담는다.
-function PhoneMock({ children, className = '' }) {
+// 폰 프레임 — 실제 앱 화면 캡처를 담는다.
+function PhoneMock({ src, alt, className = '' }) {
   return (
     <div
       className={`relative w-full max-w-[268px] rounded-[2.25rem] bg-white p-2 shadow-elevated ring-1 ring-gray-200/70 ${className}`}
-      aria-hidden="true"
     >
-      <div className="rounded-[1.75rem] bg-surface-app overflow-hidden">
-        {/* 상태 바 흉내 — 시간과 인디케이터만 */}
-        <div className="flex items-center justify-between px-4 pt-2.5 pb-1">
-          <span className="text-[10px] font-bold text-gray-400">9:41</span>
-          <span className="flex gap-0.5">
-            <span className="w-1 h-1 rounded-full bg-gray-300" />
-            <span className="w-1 h-1 rounded-full bg-gray-300" />
-            <span className="w-1 h-1 rounded-full bg-gray-300" />
-          </span>
-        </div>
-        {children}
-      </div>
-    </div>
-  )
-}
-
-// ① 프로그램 홈 — 진행률 + 오늘의 미션 + 인증 버튼
-function ScreenHome() {
-  return (
-    <div className="px-3 pb-4">
-      <div className="bg-white rounded-2xl p-3.5 shadow-soft">
-        <p className="text-[11px] font-bold text-emerald-600">3주 걷기 챌린지</p>
-        <div className="mt-2 flex items-baseline gap-1.5">
-          <span className="text-[26px] font-bold text-gray-800 leading-none">12</span>
-          <span className="text-[11px] text-gray-500">일째 · 연속 5일</span>
-        </div>
-        <div className="mt-2.5 h-1.5 rounded-full bg-gray-100 overflow-hidden">
-          <div className="h-full w-[57%] rounded-full bg-gradient-to-r from-emerald-400 to-teal-500" />
-        </div>
-      </div>
-
-      <p className="mt-3.5 mb-1.5 text-[11px] font-bold text-gray-700">오늘의 미션</p>
-      <div className="space-y-1.5">
-        <div className="flex items-center gap-2 bg-white rounded-xl p-2.5 shadow-soft">
-          <span className="w-6 h-6 rounded-full bg-emerald-50 grid place-items-center flex-shrink-0">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-          </span>
-          <span className="text-[11px] font-semibold text-gray-700 truncate">아침 스트레칭 인증</span>
-          <span className="ml-auto text-[10px] font-bold text-emerald-600 flex-shrink-0">완료</span>
-        </div>
-        <div className="flex items-center gap-2 bg-white rounded-xl p-2.5 shadow-soft">
-          <span className="w-6 h-6 rounded-full bg-gray-100 flex-shrink-0" />
-          <span className="text-[11px] font-semibold text-gray-700 truncate">저녁 8,000보 걷기</span>
-          <span className="ml-auto text-[10px] text-gray-400 flex-shrink-0">+10점</span>
-        </div>
-      </div>
-
-      <div className="mt-3 h-9 rounded-full bg-gradient-to-r from-emerald-400 to-teal-500 grid place-items-center">
-        <span className="text-[11px] font-bold text-white">사진으로 인증하기</span>
-      </div>
-    </div>
-  )
-}
-
-// ② 운영자 통계 — 참여율과 명단
-function ScreenStats() {
-  const bars = [62, 78, 55, 90, 71, 84, 68]
-  return (
-    <div className="px-3 pb-4">
-      <p className="text-[11px] font-bold text-gray-700 mb-1.5">이번 주 인증률</p>
-      <div className="bg-white rounded-2xl p-3 shadow-soft">
-        <div className="flex items-end gap-1.5 h-16">
-          {bars.map((h, i) => (
-            <div key={i} className="flex-1 rounded-t bg-emerald-100 relative" style={{ height: `${h}%` }}>
-              <div className="absolute inset-x-0 bottom-0 rounded-t bg-gradient-to-t from-emerald-400 to-teal-400" style={{ height: '62%' }} />
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="mt-2.5 space-y-1.5">
-        {[['김○○', '연속 9일'], ['이○○', '연속 5일'], ['박○○', '3일 쉼']].map(([name, note], i) => (
-          <div key={name} className="flex items-center gap-2 bg-white rounded-xl p-2 shadow-soft">
-            <span className={`w-5 h-5 rounded-full flex-shrink-0 ${i === 2 ? 'bg-amber-100' : 'bg-emerald-50'}`} />
-            <span className="text-[11px] font-semibold text-gray-700">{name}</span>
-            <span className={`ml-auto text-[10px] font-semibold ${i === 2 ? 'text-amber-600' : 'text-gray-400'}`}>{note}</span>
-          </div>
-        ))}
-      </div>
+      <img
+        src={src}
+        alt={alt}
+        loading="lazy"
+        decoding="async"
+        width={540}
+        height={1073}
+        className="block w-full h-auto rounded-[1.75rem] bg-surface-app"
+      />
     </div>
   )
 }
@@ -184,9 +115,11 @@ export default function IntroPage() {
 
           {/* 제품 화면 한 장 — 아래를 살짝 잘라 「계속 있다」는 느낌 */}
           <div className="mt-8 flex justify-center px-5">
-            <PhoneMock className="-mb-6 sm:-mb-10">
-              <ScreenHome />
-            </PhoneMock>
+            <PhoneMock
+              src="/intro/screen-home.webp"
+              alt="도담 프로그램 화면 — 주간 스트릭과 누적 기록, 미션·퀴즈·커뮤니티·랭킹 바로가기"
+              className="-mb-6 sm:-mb-10"
+            />
           </div>
         </section>
 
@@ -220,7 +153,11 @@ export default function IntroPage() {
               </p>
             </div>
             <div className="mt-7 sm:mt-0 flex justify-center sm:flex-shrink-0">
-              <PhoneMock className="max-w-[228px]"><ScreenHome /></PhoneMock>
+              <PhoneMock
+                src="/intro/screen-mission.webp"
+                alt="미션 화면 — 오늘 인증 완료 표시와 1일 연속 기록"
+                className="max-w-[228px]"
+              />
             </div>
           </div>
         </section>
@@ -229,17 +166,21 @@ export default function IntroPage() {
         <section className="mt-6 rounded-card-lg bg-white border border-gray-100 shadow-soft overflow-hidden">
           <div className="p-6 sm:p-8 sm:flex sm:items-center sm:gap-10 sm:flex-row-reverse">
             <div className="min-w-0 sm:flex-1">
-              <p className="text-[12px] font-bold text-emerald-600">한눈에</p>
+              <p className="text-[12px] font-bold text-emerald-600">한 화면에</p>
               <h2 className="mt-1.5 text-[20px] sm:text-2xl font-bold text-gray-800 break-keep leading-snug">
-                누가 처지고 있는지 보입니다
+                올라온 인증을 모아서 확인합니다
               </h2>
               <p className="mt-3 text-sm text-gray-600 leading-relaxed break-keep">
-                참여율·연속 기록·순위가 자동으로 정리됩니다. 며칠째 안 보이는 사람이 명단에 먼저 뜨니
-                프로그램이 끝나기 «전에» 손을 쓸 수 있습니다.
+                누가 무엇을 올렸는지 한 곳에 모입니다. 승인하면 점수와 연속 기록에 바로 반영되고,
+                참여율과 며칠째 안 보이는 사람도 같은 자리에서 봅니다.
               </p>
             </div>
             <div className="mt-7 sm:mt-0 flex justify-center sm:flex-shrink-0">
-              <PhoneMock className="max-w-[228px]"><ScreenStats /></PhoneMock>
+              <PhoneMock
+                src="/intro/screen-review.webp"
+                alt="운영자 화면 — 참여자가 올린 인증을 승인하거나 반려하는 심사 목록"
+                className="max-w-[228px]"
+              />
             </div>
           </div>
         </section>
