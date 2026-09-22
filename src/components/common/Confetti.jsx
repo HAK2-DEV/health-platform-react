@@ -1,16 +1,18 @@
 import { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 
 // 빵빠레 컨페티 — 부모(relative) 안에서 위→아래로 흩날림. durationMs(기본 10초) 동안만, 이후 멈춤.
 const CONFETTI_EMOJI = ['🎉', '🎊', '✨', '⭐', '🌟', '💫', '🎈', '🥳']
 
 function Confetti({ count = 18, fall = 360, durationMs = 10000 }) {
   const [show, setShow] = useState(true)
+  const reduceMotion = useReducedMotion()
   useEffect(() => {
     const t = setTimeout(() => setShow(false), durationMs)
     return () => clearTimeout(t)
   }, [durationMs])
-  if (!show) return null
+  // 「동작 줄이기」 사용자에게는 띄우지 않는다 — 축하 문구·결과는 호출부에 그대로 남음
+  if (!show || reduceMotion) return null
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
       {Array.from({ length: count }).map((_, i) => {

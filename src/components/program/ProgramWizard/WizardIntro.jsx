@@ -1,8 +1,9 @@
 import { useEffect } from 'react'
-import { motion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 
 // 프로그램 생성 마법사 진입 인트로 — 새 생성 시 ~1.5초 브랜드 화면 후 1단계로 전환.
 function WizardIntro({ onDone }) {
+  const reduceMotion = useReducedMotion()   // 「동작 줄이기」: 점 세 개를 멈춘 채로
   useEffect(() => {
     const t = setTimeout(() => onDone(), 1500)
     return () => clearTimeout(t)
@@ -41,8 +42,8 @@ function WizardIntro({ onDone }) {
           <motion.span
             key={i}
             className="w-2 h-2 rounded-full bg-emerald-400"
-            animate={{ opacity: [0.3, 1, 0.3], y: [0, -3, 0] }}
-            transition={{ duration: 0.9, repeat: Infinity, delay: i * 0.18 }}
+            animate={reduceMotion ? { opacity: 0.7 } : { opacity: [0.3, 1, 0.3], y: [0, -3, 0] }}
+            transition={reduceMotion ? { duration: 0 } : { duration: 0.9, repeat: Infinity, delay: i * 0.18 }}
           />
         ))}
       </div>

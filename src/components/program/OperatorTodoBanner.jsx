@@ -1,9 +1,12 @@
-import { motion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 
 // 운영자 「할 일」 배너 — 참여 승인·인증 심사·퀴즈 채점 대기를 한 곳에.
 //   흩어지고 숨어 있던 세 대기열을 통합해, 운영자 미처리로 프로그램이 멈추는 걸 막는다. 0인 항목은 숨김.
 //   props: approve, review, grade (각 대기 수), onApprove/onReview/onGrade (바로가기)
 export default function OperatorTodoBanner({ approve = 0, review = 0, grade = 0, report = 0, onApprove, onReview, onGrade, onReport }) {
+  // 훅은 아래 early return 보다 먼저 (rules-of-hooks)
+  // 「동작 줄이기」 사용자: 반복 빛남 대신 고정 글로우 (전역 MotionConfig 는 그림자를 멈추지 못함)
+  const reduceMotion = useReducedMotion()
   const items = [
     approve > 0 ? { key: 'approve', label: '참여 승인', short: '승인', count: approve, onClick: onApprove } : null,
     review > 0 ? { key: 'review', label: '인증 심사', short: '심사', count: review, onClick: onReview } : null,
@@ -15,8 +18,10 @@ export default function OperatorTodoBanner({ approve = 0, review = 0, grade = 0,
   const compact = items.length >= 4   // 4개면 짧은 라벨로 한 줄에 맞춤
   return (
     <motion.div initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0, boxShadow: ['0 0 0px rgba(251,191,36,0)', '0 0 16px 2px rgba(251,191,36,0.55)', '0 0 0px rgba(251,191,36,0)'] }}
-      transition={{ opacity: { duration: 0.35 }, y: { duration: 0.35 }, boxShadow: { duration: 1.8, repeat: Infinity, ease: 'easeInOut' } }}
+      animate={{ opacity: 1, y: 0, boxShadow: reduceMotion
+        ? '0 0 12px 1px rgba(251,191,36,0.4)'
+        : ['0 0 0px rgba(251,191,36,0)', '0 0 16px 2px rgba(251,191,36,0.55)', '0 0 0px rgba(251,191,36,0)'] }}
+      transition={{ opacity: { duration: 0.35 }, y: { duration: 0.35 }, boxShadow: reduceMotion ? { duration: 0 } : { duration: 1.8, repeat: Infinity, ease: 'easeInOut' } }}
       className="rounded-2xl border border-amber-200 bg-amber-50 p-3.5">
       <div className="flex items-center gap-2 mb-2.5">
         <img src="/icons/operator/bell.png" alt="" aria-hidden="true" className="w-9 h-9 object-contain flex-shrink-0 -my-1"

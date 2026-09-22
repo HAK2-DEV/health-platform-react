@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useLayoutEffect } from 'react'
-import { motion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 import { ChevronRight } from 'lucide-react'
 
 // 운영자 「인증 심사 대기」 배너 — 개요·미션 탭 상단.
@@ -24,17 +24,24 @@ function OperatorReviewBanner({ count, onClick, playIntro = false, onIntroDone, 
   const [rect, setRect] = useState(null)
   const slotRef = useRef(null)
   const startedRef = useRef(false)
+  // 「동작 줄이기」 사용자: 가운데로 튀어나오는 등장 연출을 건너뛴다
+  const reduceMotion = useReducedMotion()
 
   // playIntro 가 켜지면(마운트 시점이든, 심사 데이터 로드 후 나중이든) 1회 연출 시작.
   //   useLayoutEffect 로 paint 전에 슬롯 좌표를 재고 center 로 전환 → 깜빡임 없음.
   useLayoutEffect(() => {
+    if (playIntro && !startedRef.current && reduceMotion) {
+      startedRef.current = true
+      onIntroDone?.()
+      return
+    }
     if (playIntro && !startedRef.current && slotRef.current) {
       startedRef.current = true
       const r = slotRef.current.getBoundingClientRect()
       setRect({ top: r.top, left: r.left, width: r.width })
       setPhase('center')
     }
-  }, [playIntro])
+  }, [playIntro, reduceMotion, onIntroDone])
 
   // 정중앙 강조 유지 후 원위치로
   useEffect(() => {

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { ChevronDown, ChevronUp, ChevronRight, Heart, MessageCircle, Circle, X, Calendar, Users, Check } from 'lucide-react'
 import { MISSION_LIBRARY } from '../../../lib/missionLibrary'
 import { CATEGORY } from '../../../lib/constants'
@@ -356,6 +356,7 @@ function QuizDemo() {
 function ClassDemo() {
   // phase: 0 일정 목록 → 1 상세(신청하기) → 2 상세(신청됨✓) → (loop)
   const [phase, setPhase] = useState(0)
+  const reduceMotion = useReducedMotion()   // 「동작 줄이기」: 「전체 보기」 깜빡임 정지
   useEffect(() => {
     const dwell = [1700, 1300, 1600]
     const t = setTimeout(() => setPhase(p => (p + 1) % 3), dwell[phase])
@@ -373,7 +374,7 @@ function ClassDemo() {
               <img src="/icons/feature/attendance.png" alt="" aria-hidden="true" className="w-6 h-6 object-contain flex-shrink-0" onError={(e) => { e.currentTarget.style.display = 'none' }} />
               <h3 className="text-sm font-bold text-gray-800">클래스 일정</h3>
               <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 rounded-full px-2 py-0.5">이번 주 2</span>
-              <motion.span animate={{ opacity: [1, 0.35, 1] }} transition={{ repeat: Infinity, duration: 1.1 }} className="ml-auto inline-flex items-center text-[12px] text-gray-400">전체 보기 <ChevronRight className="w-4 h-4" /></motion.span>
+              <motion.span animate={reduceMotion ? { opacity: 1 } : { opacity: [1, 0.35, 1] }} transition={reduceMotion ? { duration: 0 } : { repeat: Infinity, duration: 1.1 }} className="ml-auto inline-flex items-center text-[12px] text-gray-400">전체 보기 <ChevronRight className="w-4 h-4" /></motion.span>
             </div>
             <div className="space-y-2">
               {[

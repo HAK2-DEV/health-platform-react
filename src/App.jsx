@@ -18,6 +18,7 @@ import PushForegroundBanner from './components/common/PushForegroundBanner'
 import PolicyUpdateNotice from './components/common/PolicyUpdateNotice'
 import { HealthConsentProvider } from './contexts/HealthConsentContext'
 import { useRealtimeSync } from './hooks/useRealtimeSync'
+import { MotionConfig } from 'framer-motion'
 
 // 코드 스플리팅 — 페이지별 lazy chunk 분리 (Day 65 본인 결정)
 //   첫 진입 시 메인 번들(~1.2MB) 한 번에 다운로드 X → 필요한 페이지만 점진적 로드.
@@ -409,7 +410,11 @@ function AppShell() {
 // useNavigate/useLocation 은 Router 컨텍스트 안에서만 사용 가능하므로 main.jsx 의 BrowserRouter 안에서 렌더링.
 // ToastProvider 는 전역 마일스톤 토스트 등에 사용 (Day 65).
 function App() {
+  // 「동작 줄이기」(폰 접근성 설정)를 앱 전체가 따르게 한다 — 위치·크기·회전 애니메이션은 즉시 끝남.
+  //   ⚠️ 그림자·투명도·색 반복은 이것으로 멈추지 않음 → 해당 컴포넌트에서 useReducedMotion() 으로 따로 처리.
+  //   (DESIGN_SYSTEM.md §15)
   return (
+    <MotionConfig reducedMotion="user">
     <ToastProvider>
       <AvatarViewerProvider>
         {/* 건강 정보(민감정보) 별도 동의 게이트 — 기분·설문·미션 수치·금연 참여에서 ensureHealthConsent() */}
@@ -420,6 +425,7 @@ function App() {
       {/* 콜드 스타트 스플래시 — 약 1.5초 노출 후 페이드아웃 (라우터 무관 최상위 오버레이) */}
       <SplashScreen />
     </ToastProvider>
+    </MotionConfig>
   )
 }
 

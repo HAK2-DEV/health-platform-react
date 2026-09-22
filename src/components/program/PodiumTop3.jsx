@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { motion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 import UserAvatar from '../common/UserAvatar'
 
 // ─── Top 3 포디움 — 2-1-3 레이아웃 ───────────────────────────
@@ -95,6 +95,7 @@ function PodiumMedalBadge({ place }) {
 // 빵빠레 — 포디움 등장 직후 1회 분출.
 const CONFETTI_COLORS = ['#fcd34d', '#34d399', '#fb923c', '#f472b6', '#a78bfa', '#60a5fa']
 function ConfettiBurst() {
+  const reduceMotion = useReducedMotion()   // 「동작 줄이기」: 폭죽 생략 (아래 return 에서)
   const particles = useMemo(() => Array.from({ length: 24 }).map((_, i) => ({
     angle: (i / 24) * Math.PI * 2 + (Math.random() - 0.5) * 0.4,
     dist: 60 + Math.random() * 80,
@@ -105,6 +106,7 @@ function ConfettiBurst() {
     isSquare: i % 2 === 0,
   })), [])
 
+  if (reduceMotion) return null
   return (
     <div className="pointer-events-none absolute inset-0 overflow-visible">
       {particles.map((p, i) => (

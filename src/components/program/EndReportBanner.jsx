@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useLayoutEffect } from 'react'
-import { motion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 import { ChevronRight } from 'lucide-react'
 import { Icon3D } from './ProgramHome'
 
@@ -25,15 +25,22 @@ function EndReportBanner({ onClick, playIntro = false, onIntroDone, centerOffset
   const [rect, setRect] = useState(null)
   const slotRef = useRef(null)
   const startedRef = useRef(false)
+  // 「동작 줄이기」 사용자: 가운데로 튀어나오는 등장 연출과 반복 빛남을 건너뛴다
+  const reduceMotion = useReducedMotion()
 
   useLayoutEffect(() => {
+    if (playIntro && !startedRef.current && reduceMotion) {
+      startedRef.current = true
+      onIntroDone?.()
+      return
+    }
     if (playIntro && !startedRef.current && slotRef.current) {
       startedRef.current = true
       const r = slotRef.current.getBoundingClientRect()
       setRect({ top: r.top, left: r.left, width: r.width })
       setPhase('center')
     }
-  }, [playIntro])
+  }, [playIntro, reduceMotion, onIntroDone])
 
   useEffect(() => {
     if (phase !== 'center') return
@@ -50,8 +57,10 @@ function EndReportBanner({ onClick, playIntro = false, onIntroDone, centerOffset
       <motion.button type="button" onClick={onClick} ref={slotRef}
         className="w-full block rounded-2xl active:scale-[0.99] transition"
         style={{ visibility: phase === 'done' ? 'visible' : 'hidden' }}
-        animate={{ boxShadow: ['0 0 0px rgba(16,185,129,0)', '0 0 16px 2px rgba(16,185,129,0.55)', '0 0 0px rgba(16,185,129,0)'] }}
-        transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}>
+        animate={{ boxShadow: reduceMotion
+          ? '0 0 12px 1px rgba(16,185,129,0.4)'
+          : ['0 0 0px rgba(16,185,129,0)', '0 0 16px 2px rgba(16,185,129,0.55)', '0 0 0px rgba(16,185,129,0)'] }}
+        transition={reduceMotion ? { duration: 0 } : { duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}>
         <BannerInner />
       </motion.button>
 
