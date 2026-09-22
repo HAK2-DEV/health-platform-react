@@ -5,6 +5,8 @@
 //
 //   시크릿: GEMINI_API_KEY / GEMINI_MODELS (food-vision 과 공유).
 
+import { getUserId, unauthorized, rateLimited, tooManyRequests } from '../_shared/auth.ts'
+
 const API_KEY = (Deno.env.get('GEMINI_API_KEY') ?? '').trim()
 // 이 함수(운동 스크린샷 OCR)는 속도 우선 → flash-lite 를 항상 1순위. 공유 시크릿(GEMINI_MODELS)이
 //   flash 먼저로 설정돼 있어도 lite 를 앞에 끼워넣어 우선 시도(나머지는 폴백).
@@ -50,6 +52,11 @@ const SCHEMA = {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+
+  // 로그인 사용자만 — 앱의 익명 키만으로는 호출할 수 없다(Gemini 호출 비용 보호, 2026-09-22)
+  const uid = await getUserId(req)
+  if (!uid) return unauthorized(CORS)
+  if (rateLimited(uid, 20)) return tooManyRequests(CORS)
   try {
     if (!API_KEY) return json({ ok: false, error: 'not_configured' })
     const body = await req.json().catch(() => ({}))

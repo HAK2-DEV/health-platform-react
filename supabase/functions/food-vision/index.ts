@@ -11,6 +11,8 @@
 //
 //   ⚠️ 양(그램)은 근사치 — 사진만으론 스케일을 모름. 사용자가 최종 그램 확정하는 하이브리드 전제.
 
+import { getUserId, unauthorized, rateLimited, tooManyRequests } from '../_shared/auth.ts'
+
 const API_KEY = (Deno.env.get('GEMINI_API_KEY') ?? '').trim()
 const MODELS = (Deno.env.get('GEMINI_MODELS') ?? 'gemini-flash-latest,gemini-flash-lite-latest')
   .split(',').map((s) => s.trim()).filter(Boolean)
@@ -67,6 +69,11 @@ const SCHEMA = {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+
+  // 로그인 사용자만 — 앱의 익명 키만으로는 호출할 수 없다(Gemini 호출 비용 보호, 2026-09-22)
+  const uid = await getUserId(req)
+  if (!uid) return unauthorized(CORS)
+  if (rateLimited(uid, 20)) return tooManyRequests(CORS)
   try {
     if (!API_KEY) return json({ foods: [], error: 'not_configured' })
     const body = await req.json().catch(() => ({}))

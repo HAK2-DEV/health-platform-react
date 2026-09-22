@@ -6,6 +6,8 @@
 //   시크릿: GEMINI_API_KEY / GEMINI_MODELS (food-vision 과 공유).
 //   ⚠️ 라벨이 「1회 제공량」과 「100g당」을 함께 표기하면 1회 제공량 열을 우선.
 
+import { getUserId, unauthorized, rateLimited, tooManyRequests } from '../_shared/auth.ts'
+
 const API_KEY = (Deno.env.get('GEMINI_API_KEY') ?? '').trim()
 const MODELS = (Deno.env.get('GEMINI_MODELS') ?? 'gemini-flash-latest,gemini-flash-lite-latest')
   .split(',').map((s) => s.trim()).filter(Boolean)
@@ -52,6 +54,11 @@ const SCHEMA = {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+
+  // 로그인 사용자만 — 앱의 익명 키만으로는 호출할 수 없다(Gemini 호출 비용 보호, 2026-09-22)
+  const uid = await getUserId(req)
+  if (!uid) return unauthorized(CORS)
+  if (rateLimited(uid, 20)) return tooManyRequests(CORS)
   try {
     if (!API_KEY) return json({ ok: false, error: 'not_configured' })
     const body = await req.json().catch(() => ({}))

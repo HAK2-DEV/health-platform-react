@@ -6,6 +6,8 @@
 //   시크릿(Edge Function secrets, 대시보드/CLI):
 //     HEALTH_DATA_API_KEY = data.go.kr 서비스키 (Encoding/Decoding 어느 쪽이든 OK — 아래서 자동 처리)
 
+import { getUserId, unauthorized, rateLimited, tooManyRequests } from '../_shared/auth.ts'
+
 const KEY = (Deno.env.get('HEALTH_DATA_API_KEY') ?? '').trim()
 
 const CORS = {
@@ -42,6 +44,11 @@ async function fetchOp(path: string, op: string) {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+
+  // 로그인 사용자만 — 앱의 익명 키만으로는 호출할 수 없다(정부 지표 API 호출 비용 보호, 2026-09-22)
+  const uid = await getUserId(req)
+  if (!uid) return unauthorized(CORS)
+  if (rateLimited(uid, 60)) return tooManyRequests(CORS)
   try {
     const { indicator } = await req.json().catch(() => ({ indicator: '' }))
     const spec = SPECS[String(indicator || '')]

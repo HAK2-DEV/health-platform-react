@@ -10,6 +10,8 @@
 //   실제 응답 형식(확인됨): { body: { items: { item: [ { foodNm, enerc, chocdf, prot, fatce, nat,
 //     nutConSrtrQua, foodSize, foodCd, ... } ] }, totalCount } }.  영양치는 nutConSrtrQua(보통 100g) 기준.
 
+import { getUserId, unauthorized, rateLimited, tooManyRequests } from '../_shared/auth.ts'
+
 const KEY = (Deno.env.get('FOOD_API_KEY') ?? '').trim()   // 저장 시 딸려온 공백/개행 제거
 const ENDPOINTS = (Deno.env.get('FOOD_ENDPOINTS') ?? '').split(',').map((s) => s.trim()).filter(Boolean)
 const PER = 20   // 데이터셋당 최대 결과
@@ -51,6 +53,11 @@ async function queryEndpoint(base: string, q: string) {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+
+  // 로그인 사용자만 — 앱의 익명 키만으로는 호출할 수 없다(정부 음식 API 호출 비용 보호, 2026-09-22)
+  const uid = await getUserId(req)
+  if (!uid) return unauthorized(CORS)
+  if (rateLimited(uid, 60)) return tooManyRequests(CORS)
   try {
     const { q } = await req.json().catch(() => ({ q: '' }))
     const query = String(q || '').trim()
