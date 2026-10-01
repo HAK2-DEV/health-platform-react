@@ -57,7 +57,7 @@ const FOR_WHOM = [
 ]
 
 const SUPPORTING = [
-  { icon: '/icons/feature/community.png', title: '서로 응원하는 자리', desc: '인증에 댓글과 좋아요가 달립니다. 혼자 하는 것보다 덜 빠집니다.' },
+  { icon: '/icons/feature/community.png', title: '서로 응원하는 자리', desc: '인증에 댓글과 좋아요가 달립니다. 누군가 봐 준다는 것이 다음 인증으로 이어집니다.' },
   { icon: '/icons/feature/bell.png', title: '잊지 않게 알림', desc: '오늘 인증하지 않은 사람에게만 조용히 알립니다.' },
   { icon: '/icons/feature/mission.png', title: '무엇을 인증받을지 직접 정합니다', desc: '사진·기록·체크·걸음·퀴즈. 걷기만 세는 도구가 아닙니다.' },
 ]
