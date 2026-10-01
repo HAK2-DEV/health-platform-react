@@ -13,6 +13,7 @@ import { checkMissionToday, isUpcomingByStartDate, formatKoreanDate } from '../.
 import { resolveMissionIcon } from '../../lib/missionIcons'
 import { prepareImageFile } from '../../lib/imageInput'
 import { readDraft, writeDraft, clearDraft } from '../../lib/formDraft'
+import { fetchVerificationAward } from '../../lib/verificationScore'
 import { queryKeys, fetchMission, fetchProgramOverview, fetchProgram, fetchActivePrograms, fetchTodayMissions, fetchTodayCounts } from '../../lib/queries'
 import { detectMilestonesReached, resolveStreakMilestones, computeStage } from '../../lib/gamification'
 import { useToast } from '../../contexts/ToastContext'
@@ -513,6 +514,7 @@ function MissionVerifyPage() {
   const submitMutation = useMutation({
     mutationFn: async () => {
       const insertData = {
+        id: crypto.randomUUID(),
         mission_id: mission.id,
         user_id: session.user.id,
       }
@@ -605,8 +607,12 @@ function MissionVerifyPage() {
         }
         throw new Error(`인증 제출 실패: ${insertError.message}`)
       }
+      // INSERT succeeded: a failed score lookup must not invite resubmission.
+      return mission.verification_type === 'AUTO'
+        ? await fetchVerificationAward(supabase, insertData.id)
+        : null
     },
-    onSuccess: async () => {
+    onSuccess: async (awardedPoints) => {
       clearDraft(draftKey)   // 제출됐으니 보관본 폐기 — 다음 인증에 옛 값이 남지 않게
       // 효과음은 SubmitCelebration 이 체크 스탬프 순간에 재생(싱크). 여기서 즉시 울리면 소리가 먼저 남.
       // 인증 성공 → 점수/카운트/랭킹 모두 무효화 → 다른 화면 진입 시 fresh
@@ -680,7 +686,7 @@ function MissionVerifyPage() {
       const t = new Date()
       const timeStr = `${t.getHours() < 12 ? '오전' : '오후'} ${t.getHours() % 12 || 12}:${String(t.getMinutes()).padStart(2, '0')}`
       const donePayload = {
-        points: earnedPoint,
+        points: mission.verification_type === 'AUTO' ? awardedPoints : earnedPoint,
         streak,
         timeStr,
         note: (needsNote && noteText.trim()) ? noteText.trim() : null,
@@ -891,7 +897,7 @@ function MissionVerifyPage() {
         {!celebrated && (
           <SubmitCelebration
             emptySrc="/icons/feature/mission-empty.png" checkSrc="/icons/feature/mission-check.png" checkOrigin="51% 54%"
-            label={isReview ? '제출 완료!' : '미션 완료!'} points={submitted.points || 0} pending={isReview}
+            label={isReview ? '제출 완료!' : '미션 완료!'} points={submitted.points} pending={isReview}
             onDone={() => setCelebrated(true)} />
         )}
         {/* 헤더 — 뒤로 + 제목(진입 경로별) + 알림 */}
@@ -982,7 +988,7 @@ function MissionVerifyPage() {
                 {isReview ? (
                   <StatTile imgSrc="/icons/activity/point.png" label="획득 예정" value={`+${submitted.points}P`} valueClass="text-amber-600" />
                 ) : (
-                  <StatTile imgSrc="/icons/activity/point.png" label="획득 포인트" value={`+${submitted.points}P`} valueClass="text-emerald-600" />
+                  <StatTile imgSrc="/icons/activity/point.png" label="획득 포인트" value={submitted.points == null ? '확인 필요' : `+${submitted.points}P`} valueClass="text-emerald-600" />
                 )}
                 <StatTile imgSrc="/icons/activity/points.png" imgStyle={{ filter: 'hue-rotate(100deg) saturate(1.3)' }} label="연속 참여" value={`${submitted.streak}일 연속`} />
               </div>

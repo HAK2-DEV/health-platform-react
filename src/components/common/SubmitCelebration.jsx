@@ -85,7 +85,7 @@ function SubmitCelebration({ emptySrc, checkSrc, checkOrigin = '51% 54%', label 
           className="inline-flex items-center gap-1 px-3.5 h-8 rounded-full bg-amber-50 border border-amber-200 text-amber-600 text-[14px] font-extrabold"
           {...fadeUp(1.48)}
         >
-          <Star className="w-3.5 h-3.5 fill-current" /> {pending ? '승인 후 ' : ''}+{points}P
+            <Star className="w-3.5 h-3.5 fill-current" /> {points == null ? '점수 확인 필요' : `${pending ? '승인 후 ' : ''}+${points}P`}
         </motion.div>
         <motion.button
           type="button" onClick={onDone}
