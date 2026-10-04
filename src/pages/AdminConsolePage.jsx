@@ -312,6 +312,8 @@ function AdminConsolePage() {
             <StatTile label="참여" value={totals.participants} prev={totals.prev?.participants} />
             <StatTile label="인증" value={totals.verifications} prev={totals.prev?.verifications} />
             <StatTile label="게시글" value={totals.posts} prev={totals.prev?.posts} />
+            {/* 댓글 = 인증(피드) 댓글 + 커뮤니티 댓글. 1:1 문의 답글은 고객지원이라 뺀다 (마이그 278) */}
+            <StatTile label="댓글" value={totals.comments} prev={totals.prev?.comments} />
             <StatTile label="수업" value={totals.sessions} prev={totals.prev?.sessions} />
             <StatTile label="푸시구독" value={totals.push_subs} prev={totals.prev?.push_subs} />
             <StatTile label="전체프로그램" value={totals.programs} prev={totals.prev?.programs} />
