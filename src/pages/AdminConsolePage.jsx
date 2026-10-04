@@ -152,6 +152,10 @@ function AdminConsolePage() {
     enabled: !!userId,
   })
   const isAdmin = role === 'ADMIN'
+  // 활동 그래프에서 «탭한 날짜»(인덱스). title 속성은 터치 기기에서 뜨지 않아 탭 → 툴팁으로 처리한다.
+  //   ⚠️ 아래쪽 비관리자 조기 return 보다 «앞» 에 둬야 한다 — 뒤에 두면 훅 순서가 깨진다.
+  const [selDay, setSelDay] = useState(null)
+
   const on = { enabled: isAdmin }
 
   const { data: cap, isLoading: capLoading } = useQuery({ queryKey: ['admin-capacity'], queryFn: fetchAdminCapacity, ...on })
@@ -338,33 +342,91 @@ function AdminConsolePage() {
             <div className="flex items-center gap-2 mb-2">
               <p className="text-[12px] font-bold text-gray-600">최근 14일</p>
               <span className="text-[10px] text-gray-400 leading-none">
-                <span className="text-emerald-500">●</span> 활동
-                <span className="text-sky-500 ml-1.5">●</span> 접속자
+                <span className="text-emerald-400">■</span> 활동
+                <span className="text-sky-500 ml-1.5">━</span> 접속자
               </span>
               <p className="ml-auto text-[12px] text-gray-500 leading-none">
                 오늘 <b className="font-extrabold text-sky-600 tabular-nums">{todayDau.toLocaleString()}</b>명
               </p>
             </div>
-            {/* 위 = 활동 «건수»(인증+글) · 아래 = 일일 접속자 «사람 수». 단위가 달라 축을 따로 쓴다. */}
-            <div className="flex items-end gap-1 h-16">
-              {activity.map(a => {
-                const v = Number(a.verify_count) + Number(a.post_count)
-                return (
-                  <div key={a.day} className="flex-1 flex flex-col justify-end h-full" title={`${a.day} · 인증 ${a.verify_count} · 글 ${a.post_count} · 가입 ${a.join_count} · 접속 ${a.dau ?? 0}명`}>
-                    <div className="bg-emerald-400 rounded-t-sm" style={{ height: `${Math.max(3, (v / maxAct) * 100)}%` }} />
-                  </div>
-                )
-              })}
-            </div>
-            <div className="flex items-end gap-1 h-8 mt-1">
-              {activity.map(a => (
-                <div key={`dau-${a.day}`} className="flex-1 flex flex-col justify-end h-full" title={`${a.day} · 접속 ${a.dau ?? 0}명`}>
-                  <div className="bg-sky-400 rounded-t-sm" style={{ height: `${Math.max(3, (Number(a.dau || 0) / maxDau) * 100)}%` }} />
-                </div>
+            {/* 막대 = 활동 «건수»(인증+글) · 선 = 일일 접속자 «사람 수».
+                단위가 달라 축을 따로 잡고 한 영역에 겹쳐 그린다(엑셀 종료 리포트와 같은 조합).
+                선 y 는 위 6% 여백을 두고 88% 를 쓴다 — 점이 위아래로 잘리지 않게. */}
+            <div className="relative h-24 select-none">
+              {/* 막대 */}
+              <div className="absolute inset-0 flex items-end gap-1">
+                {activity.map((a, i) => {
+                  const v = Number(a.verify_count) + Number(a.post_count)
+                  return (
+                    <div key={a.day} className="flex-1 flex flex-col justify-end h-full">
+                      <div
+                        className={`rounded-t-sm transition-colors ${selDay === i ? 'bg-emerald-500' : 'bg-emerald-300'}`}
+                        style={{ height: `${Math.max(3, (v / maxAct) * 100)}%` }}
+                      />
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* 접속자 선 — preserveAspectRatio="none" 로 늘리되 선 굵기는 유지(non-scaling-stroke) */}
+              <svg
+                className="absolute inset-0 w-full h-full pointer-events-none"
+                viewBox={`0 0 ${activity.length} 100`} preserveAspectRatio="none" aria-hidden="true"
+              >
+                <polyline
+                  points={activity.map((a, i) => `${i + 0.5},${100 - (Number(a.dau || 0) / maxDau) * 88 - 6}`).join(' ')}
+                  fill="none" stroke="#0ea5e9" strokeWidth="2"
+                  strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke"
+                />
+              </svg>
+
+              {/* 선 위의 점 — SVG 안에 두면 preserveAspectRatio="none" 때문에 타원으로 찌그러진다 */}
+              {activity.map((a, i) => (
+                <span
+                  key={`dot-${a.day}`}
+                  className={`absolute rounded-full border-2 border-white pointer-events-none transition-all ${
+                    selDay === i ? 'w-3 h-3 bg-sky-600' : 'w-1.5 h-1.5 bg-sky-500'
+                  }`}
+                  style={{
+                    left: `${((i + 0.5) / activity.length) * 100}%`,
+                    bottom: `${(Number(a.dau || 0) / maxDau) * 88 + 6}%`,
+                    transform: 'translate(-50%, 50%)',
+                  }}
+                />
               ))}
+
+              {/* 탭 영역 — 막대·선 위를 덮는다. 같은 날을 다시 누르면 닫힌다. */}
+              <div className="absolute inset-0 flex gap-1">
+                {activity.map((a, i) => (
+                  <button
+                    key={`hit-${a.day}`}
+                    type="button"
+                    onClick={() => setSelDay(selDay === i ? null : i)}
+                    aria-label={`${a.day} 상세 보기`}
+                    className="flex-1 h-full"
+                  />
+                ))}
+              </div>
+
+              {/* 툴팁 — 가장자리에서 잘리지 않게 좌우 15~85% 로 가둔다 */}
+              {selDay != null && activity[selDay] && (
+                <div
+                  className="absolute top-0 z-10 rounded-lg bg-gray-800 text-white px-2.5 py-1.5 shadow-lg pointer-events-none"
+                  style={{
+                    left: `${Math.min(85, Math.max(15, ((selDay + 0.5) / activity.length) * 100))}%`,
+                    transform: 'translateX(-50%)',
+                  }}
+                >
+                  <p className="text-[11px] font-bold leading-tight whitespace-nowrap">{activity[selDay].day}</p>
+                  <p className="text-[10px] leading-tight whitespace-nowrap mt-0.5 tabular-nums text-gray-200">
+                    접속 <b className="text-sky-300">{Number(activity[selDay].dau || 0)}</b>명 · 인증 {activity[selDay].verify_count} · 글 {activity[selDay].post_count} · 가입 {activity[selDay].join_count}
+                  </p>
+                </div>
+              )}
             </div>
-            <div className="flex justify-between text-[10px] text-gray-400 mt-1">
+            <div className="flex justify-between items-center text-[10px] text-gray-400 mt-1">
               <span>{String(activity[0]?.day || '').slice(5)}</span>
+              {selDay == null && <span className="text-gray-300">날짜를 탭하면 상세</span>}
               <span>{String(activity[activity.length - 1]?.day || '').slice(5)}</span>
             </div>
           </div>
