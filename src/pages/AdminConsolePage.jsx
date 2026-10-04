@@ -178,6 +178,9 @@ function AdminConsolePage() {
   }
 
   const maxAct = Math.max(1, ...activity.map(a => Number(a.verify_count) + Number(a.post_count)))
+  // 일일 접속자는 «사람 수» 라 활동 «건수» 와 단위가 다르다 → 축을 따로 잡아 각자 비율로 그린다 (마이그 279)
+  const maxDau = Math.max(1, ...activity.map(a => Number(a.dau || 0)))
+  const todayDau = Number(activity[activity.length - 1]?.dau || 0)
   const buckets = cap?.buckets || []
   // 전일 스냅샷의 버킷별 값 (271 적용 다음 날부터 채워진다 — 없으면 증감을 숨긴다)
   const prevBucket = Object.fromEntries((cap?.prev?.buckets || []).map(b => [b.bucket, b]))
@@ -332,16 +335,33 @@ function AdminConsolePage() {
           <p className="text-sm text-gray-400 py-4 text-center">불러오는 중...</p>
         ) : activity.length > 0 && (
           <div className="border border-gray-100 rounded-xl p-3">
-            <p className="text-[12px] font-bold text-gray-600 mb-2">최근 14일 활동</p>
+            <div className="flex items-center gap-2 mb-2">
+              <p className="text-[12px] font-bold text-gray-600">최근 14일</p>
+              <span className="text-[10px] text-gray-400 leading-none">
+                <span className="text-emerald-500">●</span> 활동
+                <span className="text-sky-500 ml-1.5">●</span> 접속자
+              </span>
+              <p className="ml-auto text-[12px] text-gray-500 leading-none">
+                오늘 <b className="font-extrabold text-sky-600 tabular-nums">{todayDau.toLocaleString()}</b>명
+              </p>
+            </div>
+            {/* 위 = 활동 «건수»(인증+글) · 아래 = 일일 접속자 «사람 수». 단위가 달라 축을 따로 쓴다. */}
             <div className="flex items-end gap-1 h-16">
               {activity.map(a => {
                 const v = Number(a.verify_count) + Number(a.post_count)
                 return (
-                  <div key={a.day} className="flex-1 flex flex-col justify-end h-full" title={`${a.day} · 인증 ${a.verify_count} · 글 ${a.post_count} · 가입 ${a.join_count}`}>
+                  <div key={a.day} className="flex-1 flex flex-col justify-end h-full" title={`${a.day} · 인증 ${a.verify_count} · 글 ${a.post_count} · 가입 ${a.join_count} · 접속 ${a.dau ?? 0}명`}>
                     <div className="bg-emerald-400 rounded-t-sm" style={{ height: `${Math.max(3, (v / maxAct) * 100)}%` }} />
                   </div>
                 )
               })}
+            </div>
+            <div className="flex items-end gap-1 h-8 mt-1">
+              {activity.map(a => (
+                <div key={`dau-${a.day}`} className="flex-1 flex flex-col justify-end h-full" title={`${a.day} · 접속 ${a.dau ?? 0}명`}>
+                  <div className="bg-sky-400 rounded-t-sm" style={{ height: `${Math.max(3, (Number(a.dau || 0) / maxDau) * 100)}%` }} />
+                </div>
+              ))}
             </div>
             <div className="flex justify-between text-[10px] text-gray-400 mt-1">
               <span>{String(activity[0]?.day || '').slice(5)}</span>
