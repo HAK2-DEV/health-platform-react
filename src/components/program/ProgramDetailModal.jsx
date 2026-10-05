@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useBackButtonClose } from '../../hooks/useBackButtonClose'
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { useKeyboardOverlay } from '../../hooks/useKeyboardOverlay'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Users, Target, Award, Crown, Lock, ShieldCheck, Globe2, Calendar } from 'lucide-react'
-import Modal from '../common/Modal'
+import { Users, Crown, Lock, ShieldCheck, Globe2, Calendar, ChevronLeft } from 'lucide-react'
+import OperatorProfileModal from './OperatorProfileModal'
+import JoinFaq from './JoinFaq'
 import { formatKoreanDate } from '../../lib/formatters'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
@@ -22,7 +25,8 @@ import { programCoverPath } from '../../lib/programVisuals'
 //   - 참여자 수 + 미션 개수 + 일일 최대 점수 (메타 3분할)
 //   - 참여 방식 배지 (FREE / INVITE_CODE / APPROVAL)
 //   - 참여 후 흐름 안내
-function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
+// onPrev/onNext 는 더 이상 쓰지 않는다(전체화면 전환 때 표지 위 화살표를 뺌) — 호출부 호환을 위해 받기만 한다.
+function ProgramDetailModal({ program, isOpen, onClose }) {
   const { session } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
@@ -32,6 +36,12 @@ function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
   const [joinError, setJoinError] = useState(null)
   const [justJoined, setJustJoined] = useState(false)
   const [reserveMsg, setReserveMsg] = useState(null)  // 참여 예약 확인 모달
+  const [ownerProfileOpen, setOwnerProfileOpen] = useState(false)   // 운영자 프로필 (281·282)
+  // 본인 결정(2026-10-05): 바텀시트 모달 → «전체화면». 공용 Modal 을 쓰지 않으므로
+  //   배경 스크롤 잠금·하드웨어 뒤로가기를 여기서 직접 건다(공용 Modal 이 해 주던 일).
+  const safeTop = 'env(safe-area-inset-top, 0px)'
+  useBodyScrollLock(isOpen)
+  useBackButtonClose(isOpen && !ownerProfileOpen, onClose)
 
   // APPROVAL 입장 답변 — 「참여 신청하기」 누르면 입장 질문 폼이 펼쳐짐(showEntryForm)
   const [entryAnswer, setEntryAnswer] = useState('')
@@ -227,21 +237,39 @@ function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
 
   return (
     <>
-    <Modal isOpen={isOpen} onClose={onClose} onPrev={onPrev} onNext={onNext}>
+    <AnimatePresence>
+    {isOpen && (
+    <motion.div
+      initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 24 }}
+      transition={{ duration: 0.3, ease: 'easeOut' }}
+      // z-[55] — 하단 탭바(z-50) «위», 공용 Modal(z-[60]) «아래».
+      //   50 이면 탭바가 「참여 신청하기」 버튼을 덮는다(2026-10-05 제보).
+      className="fixed inset-0 z-[55] bg-white overflow-y-auto overscroll-contain"
+    >
       {program && (
-        <div>
-          {/* ─── 표지 banner (16:7 짧은 비율, Day 65 본인 결정 — 모달 비율 균형) ─── */}
-          <div className="relative -m-px overflow-hidden rounded-t-2xl">
+        <div className="min-h-full flex flex-col">
+          {/* ─── 표지 — 전체화면이라 모달 때보다 크게(본인 결정 2026-10-05: 모달 말고 전체) ─── */}
+          <div className="relative overflow-hidden flex-shrink-0" style={{ paddingTop: safeTop }}>
             <ProgramCover
               imagePath={programCoverPath(program)}
               categories={program.categories}
               name={program.name}
-              variant="banner"
+              variant="full"
             />
+            {/* 상단 어둠 — 흰 표지에서도 뒤로가기 버튼이 보이게 */}
+            <div className="absolute inset-x-0 top-0 pointer-events-none" style={{ height: `calc(68px + ${safeTop})`, background: 'linear-gradient(180deg,rgba(24,21,16,.38),rgba(24,21,16,0))' }} />
+            {/* 뒤로가기 (좌상단) — ProgramHomeHero 와 같은 모양 */}
+            <button type="button" onClick={onClose} aria-label="뒤로"
+              className="absolute left-4 z-20 w-9 h-9 rounded-full bg-white/85 backdrop-blur-sm shadow-md flex items-center justify-center hover:bg-white transition"
+              style={{ top: `calc(0.75rem + ${safeTop})` }}>
+              <ChevronLeft className="w-5 h-5 text-gray-700" />
+            </button>
+            {/* 이전/다음 프로그램 버튼은 두지 않는다 — 전체화면에서 표지 위 화살표가 뒤로가기와
+                헷갈린다(본인 2026-10-05). 목록으로 돌아가 다음 것을 누르면 된다. */}
             {/* 하단 흰색 페이드 — 표지와 텍스트 영역 자연스럽게 연결 (Day 65 본인 결정) */}
             <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-b from-transparent via-white/60 to-white pointer-events-none" />
             {/* 우상단 배지 — 공개/비공개 + 참여 방식 */}
-            <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5">
+            <div className="absolute right-3 z-10 flex items-center gap-1.5" style={{ top: `calc(0.75rem + ${safeTop})` }}>
               <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${program.is_public ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-600'}`}>
                 {program.is_public ? '🌍 공개' : '🔒 비공개'}
               </span>
@@ -267,87 +295,74 @@ function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
             )}
 
             {/* ─── 제목 + 운영자 ─── */}
-            <h2 className="text-xl font-bold text-gray-800 mb-2 pr-8 leading-tight">
+            <h2 className="text-2xl font-bold text-gray-900 mb-2 pr-8 leading-tight break-keep">
               {program.name}
             </h2>
             {joinInfo?.ownerNickname && (
-              <div className="flex items-center gap-1.5 mb-[9px] text-xs text-gray-500">
+              // 운영자 줄 전체가 버튼 — 누르면 운영자 프로필(기록·라벨·소개). 가입 전에 「이 사람 믿을 만한가」를 본다.
+              <button
+                type="button"
+                onClick={() => setOwnerProfileOpen(true)}
+                className="flex items-center gap-1.5 mb-[9px] text-xs text-gray-500 hover:text-emerald-700 transition"
+              >
                 <UserAvatar
                   avatarPath={joinInfo.ownerAvatarPath}
                   nickname={joinInfo.ownerNickname}
                   size="sm"
                 />
                 <span>by</span>
-                <span className="font-medium text-gray-700">{joinInfo.ownerNickname}</span>
+                <span className="font-medium text-gray-700 underline underline-offset-2 decoration-gray-300">{joinInfo.ownerNickname}</span>
                 <Crown className="w-3 h-3 text-amber-400" />
-              </div>
+              </button>
             )}
 
-            {/* ─── 정보 카드 — 기간/참여자/미션/일일 최대 세로 리스트 (Day 65 본인 모의도) ─── */}
+            {/* ─── 메타 한 줄 — 기간·인원 (Day 65 의 카드에서 축소, 2026-10-05 위계 재조정) ───
+                실무 확인용 정보라 무거운 카드를 줄 자리가 아니다. 소개와 FAQ 가 먼저 읽혀야 한다. */}
             {(() => {
               const totalDays = (program.start_date && program.end_date)
                 ? Math.round((new Date(program.end_date) - new Date(program.start_date)) / 86400000) + 1
                 : null
-              const rows = [
-                {
-                  icon: <Calendar className="w-4 h-4 text-emerald-500" />,
-                  label: '기간',
-                  value: (program.start_date || program.end_date) ? (
-                    <div className="leading-tight">
-                      <div>{formatKoreanDate(program.start_date)} ~ {formatKoreanDate(program.end_date)}</div>
-                      {totalDays && (
-                        <div className="text-xs text-emerald-600 mt-0.5">총 {totalDays}일</div>
-                      )}
-                    </div>
-                  ) : '-',
-                },
-                {
-                  icon: <Users className="w-4 h-4 text-emerald-500" />,
-                  label: '참여자 수',
-                  value: program.max_participants
-                    ? `${joinInfo?.participantCount ?? '-'}명 / 최대 ${program.max_participants}명`
-                    : `${joinInfo?.participantCount ?? '-'}명 참여 중`,
-                },
-              ]
+              const people = program.max_participants
+                ? `${joinInfo?.participantCount ?? '-'}명 / 최대 ${program.max_participants}명`
+                : `${joinInfo?.participantCount ?? '-'}명 참여 중`
               return (
-                <div className="bg-white border border-gray-200 rounded-2xl px-4 py-3 mb-[9px] shadow-sm">
-                  <dl className="divide-y divide-gray-100">
-                    {rows.map((row, idx) => (
-                      <div key={idx} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
-                        <div className="w-7 h-7 flex-shrink-0 flex items-center justify-center">
-                          {row.icon}
-                        </div>
-                        <dt className="w-20 flex-shrink-0 text-sm font-medium text-gray-700">
-                          {row.label}
-                        </dt>
-                        <dd className="flex-1 min-w-0 text-sm text-gray-800 text-right">
-                          {row.value}
-                        </dd>
-                      </div>
-                    ))}
-                  </dl>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 mb-4">
+                  {(program.start_date || program.end_date) && (
+                    <span className="inline-flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                      {formatKoreanDate(program.start_date)} ~ {formatKoreanDate(program.end_date)}
+                      {totalDays && <span className="text-gray-400">· {totalDays}일</span>}
+                    </span>
+                  )}
+                  <span className="inline-flex items-center gap-1">
+                    <Users className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                    {people}
+                  </span>
                 </div>
               )
             })()}
 
-            {/* ─── 프로그램 소개 박스 — 배경색으로 구분 (Day 65 본인 모의도) ─── */}
+            {/* ─── 프로그램 소개 — 박스를 벗겼다. 가입 판단에서 제일 먼저 읽혀야 할 «본문»이다
+                (틴트 박스 안에 가두면 보조 정보처럼 보인다). ─── */}
             {program.description
               && program.description.trim()
               && program.description.trim() !== program.name?.trim() && (
-              <div className="bg-emerald-50/60 border border-emerald-100 rounded-2xl p-4 mb-[9px]">
-                <p className="text-xs font-semibold text-emerald-700 mb-1.5">📋 프로그램 소개</p>
-                <p className="text-sm text-gray-700 whitespace-pre-wrap break-words leading-relaxed">
-                  {program.description}
-                </p>
-              </div>
+              <p className="text-sm text-gray-700 whitespace-pre-wrap break-words leading-relaxed mb-5">
+                {program.description}
+              </p>
             )}
+
+            {/* ─── 가입 전 불안 해소 (2026-10-05 본인 결정) ─── */}
+            {/* 「참여하기」 직전이 두려움을 처음 만나는 곳이다. 답은 운영자가 켜 둔 설정에서 끌어온다. */}
+            <JoinFaq program={program} missions={joinInfo?.missions || []} />
 
           </div>
 
           {/* ─── 참여 상태 sticky 하단 (Day 65 본인 결정) ─── */}
           {/* 콘텐츠 영역 밖으로 분리. 모달 outer overflow-y-auto 의 스크롤 컨텍스트에서 sticky 동작.
               상단에 흰색 페이드 그라데이션으로 콘텐츠가 sticky 박스 영역으로 자연스럽게 사라짐. */}
-          <div className="sticky bottom-0 bg-white px-6 pt-0 pb-3 z-10">
+          <div className="sticky bottom-0 mt-auto bg-white px-6 pt-0 z-10"
+            style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 12px)' }}>
             {/* 상단 페이드 — 콘텐츠가 sticky 영역에 진입할 때 부드럽게 흰색으로 사라짐 */}
             <div className="pointer-events-none absolute -top-6 left-0 right-0 h-6 bg-gradient-to-b from-transparent to-white" />
             {participationStatus === 'loading' && (
@@ -475,7 +490,20 @@ function ProgramDetailModal({ program, isOpen, onClose, onPrev, onNext }) {
           </div>
         </div>
       )}
-    </Modal>
+    </motion.div>
+    )}
+    </AnimatePresence>
+
+    {/* 운영자 프로필 (281·282) — 「by 운영자」 클릭 */}
+    <OperatorProfileModal
+      isOpen={ownerProfileOpen}
+      onClose={() => setOwnerProfileOpen(false)}
+      ownerId={joinInfo?.ownerId || program?.owner_id || null}
+      ownerName={joinInfo?.ownerNickname || null}
+      ownerAvatarPath={joinInfo?.ownerAvatarPath || null}
+      ownerBio={joinInfo?.ownerBio || null}
+      isOwner={!!session && program?.owner_id === session.user?.id}
+    />
 
     {/* 참여 예약 확인 — 브라우저 confirm 대체 커스텀 UI */}
     <ConfirmModal

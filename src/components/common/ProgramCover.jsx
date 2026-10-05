@@ -26,6 +26,7 @@ const VARIANT_CLS = {
   hero: 'w-full aspect-[16/9] rounded-2xl',
   card: 'w-full aspect-[16/9] rounded-t-2xl',
   banner: 'w-full aspect-[16/7] rounded-t-2xl',     // 모달 헤더용 (짧은 비율, Day 65 본인 결정)
+  full: 'w-full aspect-[16/9]',                      // 전체화면 상단 (모서리 없음 — 화면 끝까지)
   thumb: 'aspect-square rounded-xl flex-shrink-0',
   tile: 'w-full aspect-[16/10]',                     // 둘러보기 2열 그리드 카드 상단 (모서리는 부모가 클립)
 }
@@ -34,6 +35,7 @@ const VARIANT_EMOJI = {
   hero: 'text-7xl',
   card: 'text-5xl',
   banner: 'text-5xl',
+  full: 'text-7xl',
   thumb: 'text-3xl',
   tile: 'text-5xl',
 }
@@ -62,7 +64,8 @@ function ProgramCover({ imagePath, categories, name, variant = 'hero', className
   // 1) 운영자 업로드 사진 (Supabase Storage)
   //    카드/목록(작은 변형)은 가벼운 썸네일(_thumb, 400px)을 써 로딩 stall·낭비 방지.
   //    hero/banner(큰 헤더)만 원본. 썸네일이 없는 구 표지는 onError 로 원본 폴백.
-  const wantThumb = !!imagePath && variant !== 'hero' && variant !== 'banner' && !thumbFailed
+  // 큰 자리(hero·banner·full)는 원본을 쓴다 — 썸네일을 키우면 뭉개진다
+  const wantThumb = !!imagePath && variant !== 'hero' && variant !== 'banner' && variant !== 'full' && !thumbFailed
   const coverPath = imagePath ? (wantThumb ? thumbPathOf(imagePath) : imagePath) : null
   const publicUrl = coverPath
     ? supabase.storage.from('program-covers').getPublicUrl(coverPath).data?.publicUrl

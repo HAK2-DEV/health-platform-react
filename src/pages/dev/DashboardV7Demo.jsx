@@ -10,7 +10,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Bell, ChevronRight, Lock } from 'lucide-react'
+import { Bell, ChevronRight, Lock, CalendarDays, Users } from 'lucide-react'
 import { motion, useInView } from 'framer-motion'
 import CountUp from '../../components/common/CountUp'
 import FitText from '../../components/common/FitText'
@@ -150,20 +150,28 @@ const Scenery = ({ src, photo }) => (
  *   3. 새싹을 헤드라인 옆에 크게 걸쳐 배치. 가운데 정렬 포스터 구도를 피하고 글을 먼저 읽게 한다.
  *   4. 두 갈래는 형태를 같게(대등) 하되 «그림을 다르게» — 아이콘이 같으면 고를 수가 없다.
  */
-const ColdStart = ({ nickname, onBrowse, onCreate, onJoinCode }) => {
+const ColdStart = ({ nickname, onBrowse, onCreate, onJoinCode, dark = false, scale4 = false }) => {
   const paths = [
-    { key: 'browse', icon: ICON.browse, tint: 'bg-emerald-50', title: '프로그램 참여하기', body: '관심 있는 프로그램을 찾아 함께해요' },
-    { key: 'create', icon: ICON.create, tint: 'bg-amber-50', title: '프로그램 만들기', body: '직접 만들어 사람들과 운영해요' },
+    { key: 'browse', icon: ICON.browse, tint: dark ? 'bg-emerald-400/10' : 'bg-emerald-50', title: '프로그램 참여하기', body: '관심 있는 프로그램을 찾아 함께해요' },
+    { key: 'create', icon: ICON.create, tint: dark ? 'bg-amber-400/10' : 'bg-amber-50', title: '프로그램 만들기', body: '직접 만들어 사람들과 운영해요' },
   ]
   const onClickOf = { browse: onBrowse, create: onCreate }
+  // ⑧(다크)에서도 쓰도록 색만 갈라 둔다 — 구조·문구는 같다
+  const c = dark
+    ? { hello: 'text-white/60', h1: 'text-white', body: 'text-white/70', card: 'bg-white/[0.07] border border-white/10', title: 'text-white', desc: 'text-white/60', chev: 'text-white/40', link: 'text-emerald-300 decoration-emerald-300/40' }
+    : { hello: 'text-gray-500', h1: 'text-gray-900', body: 'text-gray-600', card: 'bg-white shadow-[0_2px_4px_rgba(16,58,42,0.04),0_14px_28px_-14px_rgba(16,58,42,0.22)]', title: 'text-gray-900', desc: 'text-gray-500', chev: 'text-gray-300', link: 'text-emerald-700 decoration-emerald-200' }
+  // ⑧ 글자 4단계(24/18/15/12.5)일 때의 크기 — ⑦은 예전 크기 그대로
+  const z = scale4
+    ? { hello: 'text-[15px]', h1: 'text-[24px]', body: 'text-[15px]', title: 'text-[18px]', desc: 'text-[15px]', link: 'text-[15px]' }
+    : { hello: 'text-[13.5px]', h1: 'text-[27px]', body: 'text-[14px]', title: 'text-[16px]', desc: 'text-[13px]', link: 'text-[13.5px]' }
   return (
     <>
       <section className="relative pt-2 pb-1">
-        <p className="text-[13.5px] font-semibold text-gray-500">{nickname} 님, 반가워요</p>
-        <h1 className="mt-1.5 text-[27px] font-black leading-[1.25] text-gray-900 break-keep">
+        <p className={`${z.hello} font-semibold ${c.hello}`}>{nickname} 님, 반가워요</p>
+        <h1 className={`mt-1.5 ${z.h1} font-black leading-[1.25] break-keep ${c.h1}`}>
           건강 습관,<br />여기서 시작해요
         </h1>
-        <p className="mt-2.5 text-[14px] leading-relaxed text-gray-600 break-keep max-w-[64%]">
+        <p className={`mt-2.5 ${z.body} leading-relaxed break-keep max-w-[64%] ${c.body}`}>
           참여할 수도 있고, 직접 만들어 운영할 수도 있어요.
         </p>
         <Ico
@@ -178,16 +186,16 @@ const ColdStart = ({ nickname, onBrowse, onCreate, onJoinCode }) => {
             key={p.key}
             type="button"
             onClick={onClickOf[p.key]}
-            className="w-full flex items-center gap-3.5 rounded-[22px] bg-white p-4 text-left active:scale-[0.99] transition shadow-[0_2px_4px_rgba(16,58,42,0.04),0_14px_28px_-14px_rgba(16,58,42,0.22)]"
+            className={`w-full flex items-center gap-3.5 rounded-[22px] p-4 text-left active:scale-[0.99] transition ${c.card}`}
           >
             <span className={`shrink-0 w-14 h-14 rounded-2xl ${p.tint} grid place-items-center`}>
               <Ico src={p.icon} className="w-9 h-9 object-contain" />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-[16px] font-extrabold text-gray-900">{p.title}</span>
-              <span className="block text-[13px] text-gray-500 leading-snug mt-0.5 break-keep">{p.body}</span>
+              <span className={`block ${z.title} font-extrabold ${c.title}`}>{p.title}</span>
+              <span className={`block ${z.desc} leading-snug mt-0.5 break-keep ${c.desc}`}>{p.body}</span>
             </span>
-            <ChevronRight className="w-5 h-5 text-gray-300 shrink-0" />
+            <ChevronRight className={`w-5 h-5 shrink-0 ${c.chev}`} />
           </button>
         ))}
       </div>
@@ -195,7 +203,7 @@ const ColdStart = ({ nickname, onBrowse, onCreate, onJoinCode }) => {
       <button
         type="button"
         onClick={onJoinCode}
-        className="self-center text-[13.5px] font-semibold text-emerald-700 underline underline-offset-4 decoration-emerald-200 py-1"
+        className={`self-center ${z.link} font-semibold underline underline-offset-4 py-1 ${c.link}`}
       >
         초대 코드로 참여하기
       </button>
@@ -283,17 +291,17 @@ const NEW_KINDS = [
 ]
 
 // 내 랭킹 링 — 실제 대시보드(DashboardPage)의 RankRing 을 그대로 옮김.
-function RankRing({ rank, total }) {
+function RankRing({ rank, total, dark = false, scale4 = false }) {
   const ref = useRef(null)
   const inView = useInView(ref, { once: true, margin: '0px 0px -12% 0px' })
   const R = 30
   const C = 2 * Math.PI * R
   const pct = (rank && total) ? Math.max(0.04, Math.min(1, (total - rank + 1) / total)) : 0
   return (
-    <div ref={ref} className="relative w-[84px] h-[84px]">
+    <div ref={ref} className={`relative ${scale4 ? 'w-[100px] h-[100px]' : 'w-[84px] h-[84px]'}`}>
       <svg viewBox="0 0 80 80" className="w-full h-full -rotate-90">
-        <circle cx="40" cy="40" r={R} fill="none" stroke="#e5e7eb" strokeWidth="7" />
-        <motion.circle cx="40" cy="40" r={R} fill="none" stroke="#10b981" strokeWidth="7" strokeLinecap="round"
+        <circle cx="40" cy="40" r={R} fill="none" stroke={dark ? 'rgba(255,255,255,0.12)' : '#e5e7eb'} strokeWidth="7" />
+        <motion.circle cx="40" cy="40" r={R} fill="none" stroke={dark ? '#34d399' : '#10b981'} strokeWidth="7" strokeLinecap="round"
           strokeDasharray={C}
           initial={{ strokeDashoffset: C }}
           animate={{ strokeDashoffset: inView ? C * (1 - pct) : C }}
@@ -301,9 +309,9 @@ function RankRing({ rank, total }) {
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-[2px]">
-        <span className="text-[9px] text-emerald-600 font-semibold leading-none whitespace-nowrap">내 랭킹</span>
-        <span className="text-[15px] font-extrabold text-gray-900 leading-none whitespace-nowrap">{rank ? `${rank}등` : '-'}</span>
-        <span className="text-[9px] text-gray-400 leading-none whitespace-nowrap">/ {total || '-'}명</span>
+        <span className={`${scale4 ? 'text-[12.5px]' : 'text-[9px]'} font-semibold leading-none whitespace-nowrap ${dark ? 'text-emerald-300' : 'text-emerald-600'}`}>내 랭킹</span>
+        <span className={`${scale4 ? 'text-[18px]' : 'text-[15px]'} font-extrabold leading-none whitespace-nowrap ${dark ? 'text-white' : 'text-gray-900'}`}>{rank ? `${rank}등` : '-'}</span>
+        <span className={`${scale4 ? 'text-[12.5px]' : 'text-[9px]'} leading-none whitespace-nowrap ${dark ? 'text-white/50' : (scale4 ? 'text-gray-500' : 'text-gray-400')}`}>/ {total || '-'}명</span>
       </div>
     </div>
   )
@@ -322,6 +330,183 @@ const QuickItem = ({ icon, label, tint, onClick, badge = 0 }) => (
     <span className="block text-xs font-semibold text-gray-600 leading-tight break-keep">{label}</span>
   </button>
 )
+
+// ─── ⑧ 레퍼런스(팝업스토어 앱) 스타일 시안 — 본인 2026-10-05 「이런식으로 한번 만들어 보자」 ─────────────
+//   큰 인사 헤드라인(이름 강조) + 모드 토글 → 표지 카드(태그·기간·인원 + 사진 아래 «오늘 할 일» 유리 띠) + 초록 점
+//   → 활동 요약/운영 현황 → 점수·랭킹. (캐릭터·3칸 패널·진행 막대 「1/3」은 해 보고 뺐다)
+//   /dev/dashboard 기본 = ⑧ 흰색. ?theme=mint 옅은 초록 · ?theme=green 짙은 초록 · ?theme=dark 검정 · ?v=7 이전 시안 ⑦.
+const V8_THEME = {
+  dark: {
+    dark: true,
+    page: 'bg-[#0e1311] text-white',
+    header: 'bg-[#0e1311]/95',
+    headerText: 'text-white',
+    icon: 'text-white/80',
+    iconBtn: 'hover:bg-white/10',
+    ring: 'ring-[#0e1311]',
+    strong: 'text-white',
+    sub: 'text-white/60',
+    faint: 'text-white/50',
+    mint: 'text-emerald-300',
+    surface: 'bg-[#18201d] border border-white/[0.06]',
+    divider: 'bg-white/10',
+    track: 'bg-white/15',
+    fill: 'bg-white/80',
+    titlePill: 'border-amber-200/25 bg-amber-300/10 text-amber-200',
+    toggleWrap: 'bg-white/[0.04] border border-white/10',
+    toggleOn: 'border-emerald-300 text-emerald-300 font-bold',
+    toggleOff: 'border-transparent text-white/55',
+    tileBg: { 'bg-emerald-50': 'bg-emerald-400/10', 'bg-sky-50': 'bg-sky-400/10', 'bg-amber-50': 'bg-amber-400/10', 'bg-violet-50': 'bg-violet-400/10' },
+    accent: { 'text-emerald-600': 'text-emerald-300', 'text-sky-600': 'text-sky-300', 'text-amber-500': 'text-amber-300' },
+  },
+  // 짙은 초록 — 검정의 무게 대신 브랜드 초록을 아주 깊게. 위가 조금 밝고 아래로 가라앉는다.
+  //   카드·칸은 반투명 흰 유리(어떤 초록 위에서도 같은 깊이로 뜬다). 타일은 색 틴트 대신 같은 유리 — 초록 위 하늘·보라 틴트는 탁해진다.
+  green: {
+    dark: true,
+    page: 'bg-gradient-to-b from-[#0f4436] via-[#0d3a2f] to-[#0b3129] text-white',
+    header: 'bg-[#0f4436]/95',
+    headerText: 'text-white',
+    icon: 'text-white/85',
+    iconBtn: 'hover:bg-white/10',
+    ring: 'ring-[#0f4436]',
+    strong: 'text-white',
+    sub: 'text-white/65',
+    faint: 'text-white/55',
+    mint: 'text-emerald-300',
+    surface: 'bg-white/[0.07] border border-white/10',
+    divider: 'bg-white/15',
+    track: 'bg-white/20',
+    fill: 'bg-white/85',
+    titlePill: 'border-amber-200/30 bg-amber-300/15 text-amber-200',
+    toggleWrap: 'bg-black/15 border border-white/10',
+    toggleOn: 'border-emerald-300 text-emerald-300 font-bold',
+    toggleOff: 'border-transparent text-white/65',
+    tileBg: { 'bg-emerald-50': 'bg-white/[0.07]', 'bg-sky-50': 'bg-white/[0.07]', 'bg-amber-50': 'bg-white/[0.07]', 'bg-violet-50': 'bg-white/[0.07]' },
+    accent: { 'text-emerald-600': 'text-emerald-300', 'text-sky-600': 'text-sky-300', 'text-amber-500': 'text-amber-300' },
+  },
+  // 옅은 초록(기본) — 밝은 바탕이라 글자는 어둡게. 흰 카드·칸이 초록 위에 또렷이 뜬다.
+  //   강조색은 emerald-700: 옅은 초록 위 작은 글씨도 명암비 4.5:1 을 넘기게(600 은 모자람). 보조 글씨도 gray-600.
+  //   활동 요약 타일은 흰색으로 통일 — 초록 바탕 위 emerald-50 타일은 바탕에 묻힌다.
+  mint: {
+    dark: false,
+    page: 'bg-[#e2f3e8] text-gray-900',
+    header: 'bg-[#e2f3e8]/95',
+    headerText: 'text-gray-800',
+    icon: 'text-gray-600',
+    iconBtn: 'hover:bg-black/5',
+    ring: 'ring-[#e2f3e8]',
+    strong: 'text-gray-900',
+    sub: 'text-gray-600',
+    faint: 'text-gray-500',
+    mint: 'text-emerald-700',
+    surface: 'bg-white shadow-soft',
+    divider: 'bg-gray-200',
+    track: 'bg-black/10',
+    fill: 'bg-gray-800',
+    titlePill: 'border-amber-200 bg-amber-50 text-amber-700',
+    toggleWrap: 'bg-white/60 border border-white',
+    toggleOn: 'border-emerald-600 bg-white text-emerald-700 font-bold',
+    toggleOff: 'border-transparent text-gray-600',
+    tileBg: { 'bg-emerald-50': 'bg-white shadow-soft', 'bg-sky-50': 'bg-white shadow-soft', 'bg-amber-50': 'bg-white shadow-soft', 'bg-violet-50': 'bg-white shadow-soft' },
+    accent: { 'text-emerald-600': 'text-emerald-700', 'text-sky-600': 'text-sky-700', 'text-amber-500': 'text-amber-600' },
+  },
+  light: {
+    dark: false,
+    page: 'bg-white text-gray-900',
+    header: 'bg-white/95',
+    headerText: 'text-gray-800',
+    icon: 'text-gray-600',
+    iconBtn: 'hover:bg-gray-100',
+    ring: 'ring-white',
+    strong: 'text-gray-900',
+    sub: 'text-gray-500',
+    faint: 'text-gray-400',
+    mint: 'text-emerald-600',
+    surface: 'bg-white shadow-elevated',
+    divider: 'bg-gray-200',
+    track: 'bg-gray-200',
+    fill: 'bg-gray-700',
+    titlePill: 'border-amber-200 bg-amber-50 text-amber-700',
+    toggleWrap: 'bg-white border border-gray-200',
+    toggleOn: 'border-emerald-500 text-emerald-700 font-bold',
+    toggleOff: 'border-transparent text-gray-500',
+    tileBg: { 'bg-emerald-50': 'bg-emerald-50 shadow-soft', 'bg-sky-50': 'bg-sky-50 shadow-soft', 'bg-amber-50': 'bg-amber-50 shadow-soft', 'bg-violet-50': 'bg-violet-50 shadow-soft' },
+    accent: {},
+  },
+}
+
+// 2026-09-15 → 26.9.15 (레퍼런스의 날짜 표기)
+const yymd = (d) => { const p = String(d).split('-'); return `${p[0].slice(2)}.${Number(p[1])}.${Number(p[2])}` }
+
+// 패널 칸이 좁아(약 100px) 예정 시각은 짧게 — 「D-1」 / 「3시간 후」 / 「20분 후」
+function nextShort(iso) {
+  if (!iso) return '-'
+  const target = new Date(iso)
+  const days = kstDayIndex(target) - kstDayIndex(new Date())
+  if (days > 0) return `D-${days}`
+  const ms = target - new Date()
+  if (ms <= 0) return '곧'
+  const h = Math.floor(ms / 3600000)
+  return h > 0 ? `${h}시간 후` : `${Math.max(1, Math.floor(ms / 60000))}분 후`
+}
+
+// 퀴즈 나누기 — 지금 풀 수 있고 아직 안 낸 것(open) / 시작 전(upcoming, 가까운 순) / 퀴즈가 하나라도 있는 프로그램(has)
+function splitQuizzes(quizzes, userId) {
+  const now = new Date()
+  const open = []
+  const upcoming = []
+  const has = new Set()
+  for (const q of quizzes || []) {
+    has.add(q.program_id)
+    if (q.start_at && new Date(q.start_at) > now) { upcoming.push(q); continue }
+    const mine = (q.quiz_submissions || []).some(s => s.user_id === userId)
+    if (!mine && (!q.due_at || new Date(q.due_at) >= now)) open.push(q)
+  }
+  upcoming.sort((a, b) => new Date(a.start_at) - new Date(b.start_at))
+  return { open, upcoming, has }
+}
+
+// 클래스는 «몇 시»가 중요하다 — 오늘이면 「19:00」, 내일이면 「내일 19:00」, 그 뒤면 「D-n」
+const kstHm = (d) => new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit' }).format(d)
+function classWhen(iso) {
+  const d = new Date(iso)
+  const days = kstDayIndex(d) - kstDayIndex(new Date())
+  if (days <= 0) return kstHm(d)
+  if (days === 1) return `내일 ${kstHm(d)}`
+  return `D-${days}`
+}
+
+// 다음 일정 — 후보(미션·퀴즈·클래스) 중 시작이 가장 이른 것
+const pickNext = (cands) => cands.filter(Boolean).sort((a, b) => new Date(a.at) - new Date(b.at))[0] || null
+
+/** ⑧ 카드 줄 — 한 장씩 꽉 차게 넘기고, 아래 초록 점으로 위치 표시 */
+function V8Carousel({ children, t, onIndex }) {
+  const [idx, setIdx] = useState(0)
+  const items = (Array.isArray(children) ? children : [children]).flat().filter(Boolean)
+  const n = items.length
+  const onScroll = (e) => {
+    const el = e.currentTarget
+    const w = el.firstElementChild?.offsetWidth
+    if (!w) return
+    const i = Math.max(0, Math.min(n - 1, Math.round(el.scrollLeft / (w + 12))))
+    if (i !== idx) { setIdx(i); onIndex?.(i) }
+  }
+  return (
+    <div>
+      <div onScroll={onScroll} className="flex gap-3 overflow-x-auto snap-x snap-mandatory scrollbar-hide">
+        {items}
+      </div>
+      {/* 위치 표시 — 초록 점(⑦·실제 대시보드와 같은 모양). 진행 막대 + 「1/3」은 해 보고 되돌렸다(본인 2026-10-05). */}
+      {n > 1 && (
+        <div className="flex justify-center gap-1.5 mt-2.5">
+          {items.map((_, i) => (
+            <span key={i} className={`h-1.5 rounded-full transition-all ${i === idx ? 'w-4 bg-emerald-500' : `w-1.5 ${t.dark ? 'bg-white/25' : 'bg-gray-300'}`}`} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 function DashboardV7Demo() {
   const navigate = useNavigate()
@@ -433,7 +618,7 @@ function DashboardV7Demo() {
         .in('program_id', joinedIds)
         .gt('active_from', new Date().toISOString())
         .order('active_from', { ascending: true })
-        .limit(3)
+        .limit(30)   // ⑧ 카드마다 «그 프로그램의» 다음 미션을 찾으려면 가까운 3건으론 모자란다
       if (error) throw error
       return data || []
     },
@@ -515,7 +700,6 @@ function DashboardV7Demo() {
     ? supabase.storage.from('profile-avatars').getPublicUrl(bannerPath).data?.publicUrl
     : '/home-header.jpg'
   const streak = stats?.streak || 0
-  const points = stats?.totalPoints || 0
   const title = showOperator
     ? `${myPrograms.length}개 운영자`
     : streak >= 30 ? '단단한 러너' : streak >= 7 ? '자라는 러너' : '새싹 러너'
@@ -558,6 +742,45 @@ function DashboardV7Demo() {
 
   // 참여/운영 중인 프로그램 중 «하나라도 켠» 기능만 퀵메뉴에 띄운다.
   //   (여러 프로그램이면 선택 시트가 그 기능을 켠 프로그램만 보여준다)
+  // ⑧ 띠 「퀴즈」·「다음 일정」 — 참여 중인 프로그램 중 퀴즈를 켠 곳의 퀴즈 «전부»를 한 번에 받아 화면에서 나눈다.
+  //   퀴즈 칸 = 지금 풀 수 있고 아직 안 낸 것. 칸 자체는 그 프로그램에 퀴즈가 하나라도 있어야 보인다(본인 2026-10-05).
+  //   시작 전 퀴즈는 «다음 일정» 후보.
+  const quizProgramIds = useMemo(() => activePrograms.filter(p => p.quiz_enabled === true).map(p => p.id), [activePrograms])
+  const { data: allQuizzes = [] } = useQuery({
+    queryKey: ['dev-v8-quizzes', userId, quizProgramIds],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('quizzes')
+        .select('id, title, program_id, start_at, due_at, quiz_submissions(user_id)')
+        .in('program_id', quizProgramIds)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return data || []
+    },
+    enabled: !!userId && !showOperator && quizProgramIds.length > 0,
+  })
+  // ⑧ «다음 일정» 후보 — 클래스를 켠 프로그램의 시작 전 수업(가까운 순)
+  const classProgramIds = useMemo(() => activePrograms.filter(p => p.class_feature_enabled === true).map(p => p.id), [activePrograms])
+  const { data: upcomingClasses = [] } = useQuery({
+    queryKey: ['dev-v8-upcoming-classes', classProgramIds],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('sessions')
+        .select('id, title, program_id, starts_at')
+        .in('program_id', classProgramIds)
+        .gt('starts_at', new Date().toISOString())
+        .order('starts_at', { ascending: true })
+        .limit(30)
+      if (error) throw error
+      return data || []
+    },
+    enabled: !showOperator && classProgramIds.length > 0,
+  })
+  // 시안 고르기 — 기본 ⑧ 흰색(본인 2026-10-05 「초록 빼고 흰색」). ?theme=mint 옅은 초록 · ?theme=green 짙은 초록 · ?theme=dark 검정 · ?v=7 이전 시안
+  const viewParams = new URLSearchParams(location.search)
+  const useV7 = viewParams.get('v') === '7'
+  const themeKey = viewParams.get('theme')
+  const t8 = V8_THEME[['mint', 'green', 'dark'].includes(themeKey) ? themeKey : 'light']
   // 퀵메뉴 — 참여자에겐 두지 않는다.
   //   미션 인증은 탭바 +버튼, 퀴즈·커뮤니티·클래스·랭킹은 프로그램 카드 안 바로가기, 내 기록은 마이페이지가 이미 한다.
   //   운영자에게만 남긴다. 단 «심사·승인»은 아래 「오늘의 운영 현황」 타일과 완전히 겹치므로 빼고,
@@ -576,6 +799,298 @@ function DashboardV7Demo() {
   }, [list, showOperator])
 
 
+  // ─── ⑧ 레퍼런스 스타일(기본 화면). ?v=7 이면 아래 ⑦ 을 그린다 — 훅은 위에서 모두 불렀으므로 여기서 갈라도 안전.
+  if (!useV7) {
+    const t = t8
+    // 사진 아래쪽 유리 띠 — 그 프로그램의 «오늘 할 일»(본인 2026-10-05 「프로그램 사진 안에 녹여낼 수 없을까」).
+    //   [오늘 미션] [퀴즈 — 그 프로그램에 퀴즈가 하나라도 있을 때만] [다음 일정 — 미션·퀴즈·클래스 중 가장 가까운 것]
+    //   칸을 누르면 그 일로 바로 간다(클래스는 그 수업 상세). 참여중에서만 — 운영자는 「처리할 일」 + 운영 현황.
+    //   ?todo=mission|quiz|class — 첫 카드에 값이 있는 상태 미리보기(dev 전용, 그냥 ?todo=1 은 클래스).
+    const previewTodo = viewParams.has('todo')
+    const quizSplit = splitQuizzes(allQuizzes, userId)
+    const stripFor = (p, i) => {
+      if (showOperator) return []
+      if (previewTodo && i === 0) {
+        const kind = viewParams.get('todo')
+        const demo = kind === 'mission' ? { label: '다음 미션', value: 'D-1', tab: 'missions' }
+          : kind === 'quiz' ? { label: '다음 퀴즈', value: '3시간 후', tab: 'quizzes' }
+            : { label: '다음 클래스', value: '19:00', tab: 'classes' }
+        return [
+          { k: 'mission', label: '오늘 미션', value: '2개', hot: true, onClick: () => navigate(`/programs/${p.id}?tab=missions`) },
+          { k: 'quiz', label: '퀴즈', value: '1개', hot: true, onClick: () => navigate(`/programs/${p.id}?tab=quizzes`) },
+          { k: 'next', label: demo.label, value: demo.value, onClick: () => navigate(`/programs/${p.id}?tab=${demo.tab}`) },
+        ]
+      }
+      // 끝난 프로그램엔 «오늘 할 일»이 없다 — 「없음」만 늘어선 띠를 세우지 않는다(7일 접힘 전까지 카드는 남는다)
+      if (statusOf(p) === STATUS.ended) return []
+      const open = visibleMissions.filter(m => m.program_id === p.id)
+      const openedToday = todayMissions.some(m => m.program_id === p.id)
+      const done = previewState === 'done' || (!previewState && openedToday && open.length === 0)
+      const quizzesHere = quizSplit.open.filter(q => q.program_id === p.id)
+      const nm = nextOf(p)
+      const nq = p.quiz_enabled === true ? quizSplit.upcoming.find(q => q.program_id === p.id) : null
+      const nc = p.class_feature_enabled === true ? upcomingClasses.find(s => s.program_id === p.id) : null
+      const next = pickNext([
+        nm && { at: nm.active_from, label: '다음 미션', value: nextShort(nm.active_from), go: `/programs/${p.id}?tab=missions` },
+        nq && { at: nq.start_at, label: '다음 퀴즈', value: nextShort(nq.start_at), go: `/programs/${p.id}?tab=quizzes` },
+        nc && { at: nc.starts_at, label: '다음 클래스', value: classWhen(nc.starts_at), go: `/programs/${p.id}?tab=classes&class=${nc.id}` },
+      ])
+      return [
+        {
+          k: 'mission', label: '오늘 미션', value: open.length > 0 ? `${open.length}개` : (done ? '완료' : '없음'), hot: open.length > 0,
+          onClick: open[0] ? () => navigate(`/programs/${p.id}/missions/${open[0].id}`) : null,
+        },
+        ...(p.quiz_enabled === true && quizSplit.has.has(p.id) ? [{
+          k: 'quiz', label: '퀴즈', value: quizzesHere.length > 0 ? `${quizzesHere.length}개` : '없음', hot: quizzesHere.length > 0,
+          onClick: quizzesHere[0] ? () => navigate(`/programs/${p.id}/quiz/${quizzesHere[0].id}`) : null,
+        }] : []),
+        next
+          ? { k: 'next', label: next.label, value: next.value, onClick: () => navigate(next.go) }
+          : { k: 'next', label: '다음 일정', value: '없음', onClick: null },
+      ]
+    }
+
+    return (
+      <div className={`relative min-h-screen ${t.page}`}>
+        <header className={`sticky top-0 z-30 backdrop-blur-sm ${t.header}`}>
+          <div className="max-w-md mx-auto h-[46px] px-4 flex items-center justify-center relative">
+            <span className="absolute left-3 text-[12.5px] font-bold text-amber-700 bg-amber-50 rounded-full px-2 py-0.5">dev ⑧</span>
+            <div className="flex items-center gap-1.5">
+              <img src="/app-icon.png" onError={(e) => { e.currentTarget.style.display = 'none' }} alt="" className="w-5 h-5 rounded-md" />
+              <span className={`text-[18px] font-bold ${t.headerText}`}>건강증진 플랫폼</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate('/notifications')}
+              className={`absolute right-3 w-9 h-9 flex items-center justify-center rounded-full transition ${t.iconBtn}`}
+              title="알림"
+            >
+              <Bell className={`w-5 h-5 ${t.icon}`} />
+              {unread > 0 && (
+                <span className={`absolute -top-0.5 -right-0.5 min-w-[20px] h-[20px] px-1 bg-red-500 text-white text-[12.5px] font-bold rounded-full flex items-center justify-center leading-none ring-2 ${t.ring}`}>
+                  {unread > 99 ? '99+' : unread}
+                </span>
+              )}
+            </button>
+          </div>
+        </header>
+
+        <div className="relative z-10 w-full max-w-md mx-auto px-4 pt-3 pb-10 flex flex-col gap-5">
+          {isColdStart ? (
+            <ColdStart
+              dark={t.dark}
+              scale4
+              nickname={nickname}
+              onBrowse={() => navigate('/programs')}
+              onCreate={() => navigate('/programs/new')}
+              onJoinCode={() => navigate('/join')}
+            />
+          ) : (<>
+
+          {/* 인사 헤드라인 — 이름만 강조색(레퍼런스). 위 줄은 칭호 + 참여중/운영중 전환. 캐릭터(새싹)는 뺐다(본인 2026-10-05). */}
+          <section className="relative pt-1">
+            {/* 첫 줄 — 칭호(왼쪽) + 참여중/운영중(오른쪽). 전환은 ⑦의 회색 알약 모양·자리로 되돌렸다(본인 2026-10-05). */}
+            <div className="flex items-center gap-2">
+              <span className={`inline-flex items-center gap-1 rounded-full border pl-1.5 pr-2.5 py-0.5 text-[12.5px] font-bold ${t.titlePill}`}>
+                <Ico src={showOperator ? ICON.trophy : ICON.seed} className="w-4 h-4 object-contain" />
+                {title}
+              </span>
+              {canToggle && (
+                <div className={`ml-auto flex rounded-full p-[3px] gap-0.5 shrink-0 ${t.dark ? 'bg-white/10' : 'bg-gray-100'}`}>
+                  {[['participant', '참여중'], ['operator', '운영중']].map(([k, label]) => (
+                    <button
+                      key={k}
+                      type="button"
+                      onClick={() => { setMode(k); setSlide(0) }}
+                      aria-pressed={effMode === k}
+                      className={`px-3 py-1 rounded-full text-[12.5px] transition ${effMode === k ? 'bg-white font-extrabold text-gray-800 shadow-sm' : (t.dark ? 'text-white/65' : 'text-gray-500')}`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <h1 className={`mt-2 text-[24px] font-black leading-[1.3] tracking-[-0.02em] break-keep ${t.strong}`}>
+              <span className={t.mint}>{nickname}</span>님이 {showOperator ? '운영하는' : '함께하는'}<br />건강 프로그램
+            </h1>
+          </section>
+
+          {/* 표지 카드 — 한 장씩. 왼쪽 위 상태 + 누를 수 있는 빨간 알림, 아래 이름 · 기간 · 인원
+              (참여 = 새 미션·퀴즈·클래스 / 운영 = 처리할 일). 그 프로그램의 오늘 할 일은 사진 아래쪽 유리 띠에 녹였다(참여중). */}
+          {!isActiveLoading && !isMyLoading && visibleList.length === 0 && (
+            <p className={`text-[15px] ${t.sub}`}>{showOperator ? '운영 중인 프로그램이 없어요.' : '진행 중인 프로그램이 없어요.'}</p>
+          )}
+          {visibleList.length > 0 && (
+            <V8Carousel key={effMode} t={t} onIndex={setSlide}>
+              {visibleList.map((p, i) => {
+                const st = statusOf(p)
+                const cover = programCoverPath(p)
+                const coverUrl = cover ? supabase.storage.from('program-covers').getPublicUrl(cover).data?.publicUrl : null
+                const opWait = showOperator ? (opCountsBy[p.id] || 0) : 0
+                const badges = showOperator
+                  ? (opWait > 0 ? [{ k: 'work', text: `처리할 일 ${opWait}`, onClick: () => navigate(`/programs/${p.id}/operator-today`) }] : [])
+                  : newItemsFor(p, i).map(n => ({ k: n.k, text: `새 ${n.label} ${n.n}`, onClick: () => navigate(`/programs/${p.id}?tab=${n.tab}`) }))
+                const strip = stripFor(p, i)
+                return (
+                  <div key={p.id} className="shrink-0 w-full snap-center relative rounded-[24px] overflow-hidden aspect-[6/5] max-h-[300px] bg-[#1d2622]">
+                    {coverUrl
+                      ? <img src={coverUrl} alt="" aria-hidden="true" className="absolute inset-0 w-full h-full object-cover" />
+                      : <ProgramCover imagePath={null} categories={p.categories} name={p.name} variant="tile" className="absolute inset-0 w-full h-full" />}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent" />
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/programs/${p.id}`)}
+                      className="absolute inset-0 w-full h-full"
+                      aria-label={`${p.name || '프로그램'} 열기`}
+                    />
+                    {/* 왼쪽 위 — 상태(⑦ 원래 모양) + 누를 수 있는 빨간 알림(참여 = 새 미션·퀴즈·클래스 / 운영 = 처리할 일).
+                        상태를 사진 아래 태그(D-n)로 옮겨 봤다가 되돌렸다(본인 2026-10-05). */}
+                    <div className="absolute left-4 right-4 top-4 flex flex-wrap items-center gap-1.5 pointer-events-none">
+                      <span className={`text-[12.5px] font-bold rounded-full px-2.5 py-1 ${st.cls}`}>{st.label}</span>
+                      {badges.map(b => (
+                        <button
+                          key={b.k}
+                          type="button"
+                          onClick={b.onClick}
+                          className="pointer-events-auto rounded-full bg-red-500 px-2.5 py-1 text-[12.5px] font-extrabold text-white shadow-sm"
+                        >
+                          {b.text}
+                        </button>
+                      ))}
+                    </div>
+                    <div className={`absolute inset-x-4 pointer-events-none ${strip.length > 0 ? 'bottom-[78px]' : 'bottom-4'}`}>
+                      <p className="text-white text-[18px] font-black leading-tight break-keep line-clamp-2 drop-shadow-sm">{p.name || '이름 없는 프로그램'}</p>
+                      <div className="mt-1.5 flex items-center gap-3 text-[12.5px] text-white/80">
+                        {p.start_date && p.end_date && (
+                          <span className="inline-flex items-center gap-1">
+                            <CalendarDays className="w-3.5 h-3.5" aria-hidden="true" />{yymd(p.start_date)} - {yymd(p.end_date)}
+                          </span>
+                        )}
+                        <span className="inline-flex items-center gap-1">
+                          <Users className="w-3.5 h-3.5" aria-hidden="true" />{counts[p.id] != null ? `${counts[p.id]}명` : '-'}
+                        </span>
+                      </div>
+                    </div>
+                    {/* 유리 띠 — 칸을 누르면 그 일로. 빈 칸은 눌러도 카드(프로그램 열기)로 통과한다. */}
+                    {strip.length > 0 && (
+                      <div className={`absolute inset-x-3 bottom-3 grid ${strip.length === 3 ? 'grid-cols-3' : strip.length === 2 ? 'grid-cols-2' : 'grid-cols-1'} rounded-2xl bg-white/15 backdrop-blur-md ring-1 ring-white/20 pointer-events-none`}>
+                        {strip.map((c, ci) => {
+                          const inner = (
+                            <>
+                              {ci > 0 && <span aria-hidden="true" className="absolute left-0 top-2.5 bottom-2.5 w-px bg-white/25" />}
+                              <span className="block text-[12.5px] font-semibold leading-none text-white/75">{c.label}</span>
+                              <span className={`block mt-1.5 text-[15px] font-extrabold leading-none tabular-nums ${c.hot ? 'text-emerald-500' : 'text-white'}`}>{c.value}</span>
+                            </>
+                          )
+                          const cls = 'relative min-w-0 px-1 py-2.5 text-center'
+                          return c.onClick
+                            ? <button key={c.k} type="button" onClick={c.onClick} className={`${cls} pointer-events-auto rounded-2xl active:bg-white/10 transition`}>{inner}</button>
+                            : <div key={c.k} className={cls}>{inner}</div>
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </V8Carousel>
+          )}
+
+          {/* 접힌 줄 — 종료 뒤 7일 지난 프로그램 */}
+          {compressedCount > 0 && (
+            <button
+              type="button"
+              onClick={() => navigate(showOperator ? '/programs?tab=mine' : '/profile/activity')}
+              className={`w-full flex items-center gap-2.5 rounded-2xl px-3.5 py-2.5 text-left transition active:scale-[0.99] ${t.surface}`}
+            >
+              <span className={`flex-1 min-w-0 text-[15px] font-bold ${t.strong}`}>종료된 프로그램 {compressedCount}개</span>
+              <ChevronRight className={`w-4 h-4 shrink-0 ${t.sub}`} />
+            </button>
+          )}
+
+          {/* 오늘의 활동 요약 / 운영 현황 — ⑦과 같은 4칸(색만 테마) */}
+          {featured && (
+            <section>
+              <h2 className={`text-lg font-bold mb-3 ${t.strong}`}>{showOperator ? '오늘의 운영 현황' : '오늘의 활동 요약'}</h2>
+              <div className="grid grid-cols-4 gap-2.5">
+                {summaryMetrics.map((m) => {
+                  const highlight = m.inbox && m.value > 0
+                  return (
+                    <button
+                      key={m.label}
+                      type="button"
+                      onClick={m.onClick}
+                      className={`rounded-2xl p-3 flex flex-col items-center text-center transition active:scale-[0.97] ${t.tileBg[m.bg] || m.bg}`}
+                    >
+                      <img
+                        src={m.img}
+                        alt=""
+                        aria-hidden="true"
+                        onError={(e) => { e.currentTarget.style.visibility = 'hidden' }}
+                        style={m.scale ? { transform: `scale(${m.scale})` } : undefined}
+                        className="w-10 h-10 object-contain"
+                      />
+                      <p className={`mt-2 min-h-[2.5em] flex items-center justify-center text-[12.5px] font-semibold leading-tight text-center break-keep ${t.sub}`}>{m.label}</p>
+                      <p className="text-[15px] font-extrabold leading-tight mt-0.5 max-w-full truncate tabular-nums">
+                        <span className={highlight ? (t.accent[m.accent] || m.accent) : t.strong}><CountUp value={m.value} duration={1100} /></span>
+                        <span className={`text-[12.5px] font-bold ml-0.5 ${t.sub}`}>{m.unit}</span>
+                      </p>
+                    </button>
+                  )
+                })}
+              </div>
+            </section>
+          )}
+
+          {!showOperator && featured && (
+            <section>
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <h2 className={`text-lg font-bold ${t.strong}`}>내 점수{rankingOn ? ' 및 랭킹' : ''}</h2>
+                {rankingOn && (
+                  <button type="button" onClick={() => navigate('/rankings')} className={`flex items-center gap-0.5 text-[12.5px] ${t.sub}`}>
+                    전체 랭킹<ChevronRight className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+              <div className={`rounded-2xl p-4 ${t.surface}`}>
+                <div className="flex items-center gap-3">
+                  <RankTrophyAnim className="flex-shrink-0 -my-3 -ml-[5px]" />
+                  <div className="flex-1 flex items-center justify-around gap-3">
+                    <div className="text-center">
+                      <p className={`text-[12.5px] font-semibold mb-0.5 ${t.mint}`}>총 점수</p>
+                      <p className={`text-[24px] font-extrabold leading-tight ${t.strong}`}>
+                        <CountUp value={stats?.totalPoints ?? 0} duration={1100} /><span className={`text-[15px] font-bold ${t.sub}`}> P</span>
+                      </p>
+                      {stats?.weekPoints > 0 && (
+                        <p className={`text-[12.5px] font-semibold mt-0.5 ${t.mint}`}>이번주 ↑{stats.weekPoints}P</p>
+                      )}
+                    </div>
+                    {rankingOn && <RankRing rank={myRank?.current_rank} total={counts[featured.id] ?? null} dark={t.dark} scale4 />}
+                  </div>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {list.length > 1 && (
+            <button
+              type="button"
+              onClick={() => navigate(showOperator ? '/programs?tab=mine' : '/programs')}
+              className={`self-center inline-flex items-center gap-1 text-[15px] font-semibold py-1 ${t.sub}`}
+            >
+              프로그램 전체 보기 ({list.length})<ChevronRight className="w-4 h-4" />
+            </button>
+          )}
+
+          </>)}
+
+          <p className={`text-[12.5px] leading-relaxed ${t.faint}`}>
+            🔧 dev 전용 시안 ⑧(레퍼런스 스타일). ?todo=mission·quiz·class 할 일 미리보기 · ?theme=mint / green / dark 배경 비교 · ?v=7 이전 시안. 프로덕션 빌드에 포함되지 않습니다.
+          </p>
+        </div>
+      </div>
+    )
+  }
   return (
     <div className="relative min-h-screen bg-[#f8fbf9]">
       {/* 배경 그림 — 본인 2026-10-05 「영 별론데… 뒤에 배경 사진 없애보자」 → 끔. 되돌리려면 true. */}
@@ -642,29 +1157,20 @@ function DashboardV7Demo() {
               </p>
             </div>
           </div>
-          <div className="flex gap-3">
-            {showOperator ? (
-              <>
-                <span className="inline-flex items-center gap-1.5 text-[15px] font-bold text-gray-800">
-                  <Ico src={ICON.programs} className="w-[22px] h-[22px] object-contain" />운영 {myPrograms.length}개
-                </span>
-                <span className="w-px h-4 bg-gray-300/70 self-center" />
-                <span className="inline-flex items-center gap-1.5 text-[15px] font-bold text-gray-800">
-                  <Ico src={ICON.people} className="w-[22px] h-[22px] object-contain" />참여자 {myParticipants}명
-                </span>
-              </>
-            ) : (
-              <>
-                <span className="inline-flex items-center gap-1.5 text-[15px] font-bold text-gray-800">
-                  <Ico src={ICON.point} className="w-[22px] h-[22px] object-contain" />{points.toLocaleString()}P
-                </span>
-                <span className="w-px h-4 bg-gray-300/70 self-center" />
-                <span className="inline-flex items-center gap-1.5 text-[15px] font-bold text-gray-800">
-                  <Ico src={ICON.streak} className="w-[22px] h-[22px] object-contain" />{streak}일 연속
-                </span>
-              </>
-            )}
-          </div>
+          {/* 숫자 줄 — 운영중만. 참여중의 「29P · 0일 연속」은 뺐다(본인 2026-10-05):
+              연속 0 은 끊김을 들추고(퍼소나 4-6) 주 단위 불꽃과 기준이 어긋나며, 29P 는 모든 프로그램을 합친
+              «어느 무대의 것도 아닌» 숫자라. 점수는 프로그램 맥락(내 점수 및 랭킹·활동 요약) 안에만 둔다. */}
+          {showOperator && (
+            <div className="flex gap-3">
+              <span className="inline-flex items-center gap-1.5 text-[15px] font-bold text-gray-800">
+                <Ico src={ICON.programs} className="w-[22px] h-[22px] object-contain" />운영 {myPrograms.length}개
+              </span>
+              <span className="w-px h-4 bg-gray-300/70 self-center" />
+              <span className="inline-flex items-center gap-1.5 text-[15px] font-bold text-gray-800">
+                <Ico src={ICON.people} className="w-[22px] h-[22px] object-contain" />참여자 {myParticipants}명
+              </span>
+            </div>
+          )}
         </div>
         )}
 

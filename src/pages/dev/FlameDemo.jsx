@@ -11,6 +11,7 @@ import { ArrowLeft } from 'lucide-react'
 import WeeklyStreak from '../../components/program/WeeklyStreak'
 import FlameIcon from '../../components/common/FlameIcon'
 import UserAvatar from '../../components/common/UserAvatar'
+import { OperatorProfileBody } from '../../components/program/OperatorProfileModal'
 import FlameAura from '../../components/common/FlameAura'
 
 const LABELS = ['월', '화', '수', '목', '금', '토', '일']
@@ -101,6 +102,27 @@ export default function FlameDemo() {
               <div key={level} className="flex flex-col items-center gap-2">
                 <FlameAura level={level} width={92} />
                 <span className="text-[11px] text-gray-500">{level}단계</span>
+              </div>
+            ))}
+          </div>
+        </Section>
+
+        <Section title="⑤ 운영자 프로필 (281) — 칭호 아닌 «사실만»" desc="히어로의 「운영 OO」를 누르면 뜨는 모달의 본문. 같은 데이터라도 참여자가 볼 때와 운영자 본인이 볼 때가 다르다.">
+          <div className="space-y-2">
+            {[
+              ['곡동핑크덤벨러 — 탄탄 챌린지 실데이터 + 소개', false, { programCount: 1, participantSum: 13, completedSum: 0, replyMedianMin: null, comment90d: 4 }, '필라테스 10년. 천천히, 오래 가는 운동을 함께해요.'],
+              ['16비이도윤 — 피지컬 실데이터 (라벨 3개)', false, { programCount: 2, participantSum: 78, completedSum: 1, replyMedianMin: 757, comment90d: 0 }, null],
+              ['관리_자 — 라벨 다수 + 빠른 응답', false, { programCount: 3, participantSum: 13, completedSum: 4, replyMedianMin: 42, comment90d: 21 }, null],
+              ['꽃지는봄 — 0인 줄은 참여자에게 숨김', false, { programCount: 1, participantSum: 5, completedSum: 0, replyMedianMin: null, comment90d: 3 }, null],
+              ['꽃지는봄 — 같은 데이터, 운영자 본인 시점', true, { programCount: 1, participantSum: 5, completedSum: 0, replyMedianMin: null, comment90d: 3 }, null],
+              ['느린 응답(3일) — 운영자 본인에겐 보임', true, { programCount: 2, participantSum: 20, completedSum: 6, replyMedianMin: 4320, comment90d: 1 }, null],
+              ['첫 기수 운영 중 — 0을 들이밀지 않는다', false, { programCount: 0, participantSum: 0, completedSum: 0, replyMedianMin: null, comment90d: 0 }, null],
+            ].map(([label, isOwner, record, bio], i) => (
+              <div key={i}>
+                <p className="text-[11px] font-semibold text-gray-500 mb-1">{label}</p>
+                <div className="bg-white rounded-2xl shadow-soft overflow-hidden">
+                  <OperatorProfileBody ownerName={String(label).split(' —')[0]} isOwner={isOwner} rec={record} bio={bio} />
+                </div>
               </div>
             ))}
           </div>

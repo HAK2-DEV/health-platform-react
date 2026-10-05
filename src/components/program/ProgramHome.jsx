@@ -209,6 +209,7 @@ function ProgramHome({
   participantCount = null,
   journeyText = '',            // 히어로 여정 문구 "D+N · M일 여정"
   ownerName = null,            // 히어로 메타 "운영 X"
+  onOwnerClick = null,         // 그 이름 클릭 → 운영자 프로필 모달 (281)
   onParticipantsClick = null,  // 「참여자 N명」 클릭 → 명단 모달
   myRank = null,
   notice = '',
@@ -442,6 +443,7 @@ function ProgramHome({
         participantCount={participantCount}
         journeyText={journeyText}
         ownerName={ownerName}
+        onOwnerClick={onOwnerClick}
         ownerId={ownerId}
         onHeroChange={onHeroChange}
         onBack={onBack}

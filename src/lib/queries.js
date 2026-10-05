@@ -81,6 +81,8 @@ export const queryKeys = {
   programOverview: (programId, userId) => ['program-overview', programId, userId],
   // 닉네임 옆 불꽃 — 프로그램 단위로 켜진 사람 전체를 한 번에 (280)
   programFlames: (programId) => ['flames', 'byProgram', programId],
+  // 운영자 기록 — 기수·참여자·완주·응답 (281)
+  operatorRecord: (ownerId) => ['operator-record', ownerId],
   // 프로그램 참여 모달용 정보 (운영자 닉네임 + 참여자 수 + 미션 정보)
   programJoinInfo: (programId) => ['program-join-info', programId],
   // 홈 통계 카드 (Day 67 초안) — 참여자 관점 / 운영자 관점
@@ -956,10 +958,12 @@ export const checkProgramNameTaken = async ({ name, excludeId = null }) => {
   return !!data
 }
 
+// ⚠️ owner 조인 — 히어로의 「운영 OO」와 운영자 기록(281)이 쓴다. 예전엔 select('*') 라
+//    program.owner_nickname 이 늘 undefined 였고(화면 코드는 쓰고 있었다) 「운영 OO」가 안 떴다.
 export const fetchProgram = async (programId) => {
   const { data, error } = await supabase
     .from('programs')
-    .select('*')
+    .select('*, owner:users!owner_id(id, nickname, avatar_path, operator_bio)')
     .eq('id', programId)
     .maybeSingle()
   if (error) throw error
@@ -1096,6 +1100,38 @@ export const fetchProgramFlames = async (programId) => {
   const map = {}
   for (const r of data || []) map[r.user_id] = { level: r.flame_level, weeks: r.streak_weeks }
   return map
+}
+
+// 운영자 기록 (281) — 칭호·등급이 아니라 «사실». { programCount, participantSum, completedSum, replyMedianMin }
+//   완주 판정은 종료 리포트와 같은 기준(활동일 ≥ 기간의 50%)을 서버가 쓴다 — 두 곳이 갈리면 안 된다.
+//   함수가 아직 없는(마이그 미적용) 환경이면 null — 화면은 기록 블록을 통째로 접는다.
+export const fetchOperatorRecord = async (ownerId) => {
+  if (!ownerId) return null
+  const { data, error } = await supabase.rpc('get_operator_record', { p_owner_id: ownerId })
+  if (error) {
+    if (error.code === 'PGRST202' || error.code === '42883') return null
+    throw error
+  }
+  const r = Array.isArray(data) ? data[0] : data
+  if (!r) return null
+  return {
+    programCount: r.program_count ?? 0,
+    participantSum: r.participant_sum ?? 0,
+    completedSum: r.completed_sum ?? 0,
+    replyMedianMin: r.reply_median_min ?? null,
+    comment90d: r.comment_90d ?? 0,
+  }
+}
+
+// 운영자 한 줄 소개 저장 (282) — 본인만. users 는 컬럼 단위 권한이라 operator_bio 에 GRANT 가 걸려 있다.
+export const updateOperatorBio = async (bio) => {
+  const { data: auth } = await supabase.auth.getUser()
+  const uid = auth?.user?.id
+  if (!uid) throw new Error('로그인이 필요해요')
+  const value = (bio || '').trim().slice(0, 80)
+  const { error } = await supabase.from('users').update({ operator_bio: value || null }).eq('id', uid)
+  if (error) throw error
+  return value
 }
 
 // 본인 프로그램 개요 (Day 65 본인 결정 — 「개요」 탭 모의도)
@@ -1263,14 +1299,15 @@ export const fetchProgramJoinInfo = async (programId) => {
   const [ownerRes, countRes, missionsRes] = await Promise.all([
     supabase
       .from('programs')
-      .select('users:owner_id (nickname, avatar_path)')
+      .select('owner_id, users:owner_id (nickname, avatar_path, operator_bio)')
       .eq('id', programId)
       .maybeSingle(),
     // 참여자 수 — RPC(082)로 RLS 우회 (남의 프로그램도 정확). 직접 COUNT 는 RLS 로 0~1 오집계.
     supabase.rpc('get_active_participant_counts', { p_program_ids: [programId] }),
     supabase
       .from('missions')
-      .select('id, point, daily_limit')
+      // title·verification_type·requires_image — 가입 전 「뭘 해야 하지?」에 답하는 재료
+      .select('id, point, daily_limit, title, verification_type, requires_image, is_main')
       .eq('program_id', programId),
   ])
 
@@ -1285,10 +1322,18 @@ export const fetchProgramJoinInfo = async (programId) => {
   )
 
   return {
+    ownerId: ownerRes.data?.owner_id || null,
     ownerNickname: ownerRes.data?.users?.nickname || null,
     ownerAvatarPath: ownerRes.data?.users?.avatar_path || null,
+    ownerBio: ownerRes.data?.users?.operator_bio || null,
     participantCount: countRes.data?.[0]?.participant_count || 0,
     missionCount: missions.length,
+    missions: missions.map((m) => ({
+      id: m.id,
+      title: m.title,
+      requiresImage: !!m.requires_image,
+      manual: m.verification_type === 'MANUAL',
+    })),
     dailyMaxScore,
   }
 }

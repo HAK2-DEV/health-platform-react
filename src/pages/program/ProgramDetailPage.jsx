@@ -32,6 +32,7 @@ import RunningQuizHero from '../../components/program/RunningQuizHero'
 import RunningQuizCard from '../../components/program/RunningQuizCard'
 import WeeklyStreak from '../../components/program/WeeklyStreak'
 import FlameIcon from '../../components/common/FlameIcon'
+import OperatorProfileModal from '../../components/program/OperatorProfileModal'
 import MetricSummaryCard from '../../components/program/MetricSummaryCard'
 import ProgramHome, { HOME_BOX_ORDER, HOME_BOX_LABELS, Icon3D } from '../../components/program/ProgramHome'
 import ActivityTrendCard from '../../components/program/ActivityTrendCard'
@@ -1048,6 +1049,7 @@ function ProgramDetailPage() {
   }, [])
   const [quizLibOpen, setQuizLibOpen] = useState(false)                // 퀴즈 라이브러리 모달
   const [participantsOpen, setParticipantsOpen] = useState(false)      // 참여자 명단 모달(중앙)
+  const [ownerProfileOpen, setOwnerProfileOpen] = useState(false)      // 운영자 프로필 모달 (281)
   const [completionOpen, setCompletionOpen] = useState(false)          // 참여자 완주 축하 (종료 시)
   // 완주 리포트 부가 지표 — 받은 응원 + 내 등수 + 팀 순위 (종료 참여자일 때만)
   const { data: completionExtras } = useQuery({
@@ -2445,6 +2447,7 @@ function ProgramDetailPage() {
             progressData={(isViewer || isOwner || program.overview_progress_enabled === false) ? null : progressData}
             activitySlot={activityCardEl}
             viewerSlot={<>{cardTopSlot}</>}
+            onOwnerClick={() => setOwnerProfileOpen(true)}
             todayMissions={todayMissionsData}
             recentItems={recentItemsData}
             pace={program.run_pace}
@@ -3196,6 +3199,17 @@ function ProgramDetailPage() {
       )}
 
       {/* ─── 참여자 명단 (중앙 모달) — 운영자/참가자 공통 ───────────────────── */}
+      {/* ─── 운영자 프로필 (281) — 히어로 「운영 OO」 클릭 ───────────────────── */}
+      <OperatorProfileModal
+        isOpen={ownerProfileOpen}
+        onClose={() => setOwnerProfileOpen(false)}
+        ownerId={program.owner_id}
+        ownerName={program.owner_nickname || program.owner?.nickname || null}
+        ownerAvatarPath={program.owner_avatar_path || program.owner?.avatar_path || null}
+        ownerBio={program.owner?.operator_bio || null}
+        isOwner={isOwner}
+      />
+
       <ParticipantListModal
         isOpen={participantsOpen}
         onClose={() => setParticipantsOpen(false)}

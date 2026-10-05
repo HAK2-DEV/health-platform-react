@@ -34,6 +34,7 @@ function ProgramHomeHero({
   participantCount = null,
   journeyText = '',
   ownerName = null,
+  onOwnerClick = null,        // 「운영 OO」 클릭 → 운영자 프로필 모달 (281)
   ownerId = null,
   onParticipantsClick = null,  // 「참여자 N명」 클릭 → 명단 모달
   onHeroChange = null,
@@ -201,7 +202,10 @@ function ProgramHomeHero({
             ) : (
               <>참여자 {participantCount ?? 0}명</>
             )}
-            {ownerName ? ` · 운영 ${ownerName}` : ''}
+            {ownerName && (onOwnerClick ? (
+              <> · 운영 <button type="button" onClick={onOwnerClick}
+                className="pointer-events-auto underline underline-offset-2 decoration-gray-400 hover:text-emerald-700 transition">{ownerName}</button></>
+            ) : <> · 운영 {ownerName}</>)}
           </p>
         </div>
       </div>
