@@ -310,15 +310,17 @@ function RankingsPage() {
             <EmptyState icon="👥" title="아직 참여자가 없어요" description="첫 인증의 주인공이 되어보세요!" variant="mint" />
           ) : (
             <>
-              {hasPodium && <Podium top3={podiumTop3} userId={userId} />}
+              {hasPodium && <Podium top3={podiumTop3} userId={userId} programId={selectedProgramId} />}
 
               {/* 프로그램 선택 칩 — 시상대가 있을 때만 그 아래에 (없으면 상단 268번에서 표시 → 중복 방지) */}
               {hasPodium && programChips}
 
               {restRanking.length > 0 && (
+                /* pt-2 — overflow-hidden 이라 첫 줄 아바타 뒤 불꽃(280) 머리가 카드 위에서 잘린다.
+                   행 패딩 12px + 8px = 20px 면 3단계 불까지 들어간다. */
                 <motion.div
                   initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}
-                  className="bg-white rounded-2xl shadow-elevated divide-y divide-gray-100 overflow-hidden"
+                  className="bg-white rounded-2xl shadow-elevated divide-y divide-gray-100 overflow-hidden pt-2"
                 >
                   {restRanking.map(row => {
                     const isMe = row.user_id === userId
@@ -330,7 +332,7 @@ function RankingsPage() {
                         className={`flex items-center gap-3 px-4 py-3 transition-all ${isMe ? 'bg-emerald-50/60 cursor-pointer hover:bg-emerald-100/60' : ''}`}
                       >
                         <span className="w-6 text-center text-base font-bold text-gray-500 flex-shrink-0">{row.rank}</span>
-                        <UserAvatar avatarPath={row.avatar_path} nickname={row.nickname} size="md" viewable />
+                        <UserAvatar avatarPath={row.avatar_path} nickname={row.nickname} size="md" viewable flameProgramId={selectedProgramId} flameUserId={row.user_id} />
                         <span className={`flex-1 min-w-0 font-bold truncate ${isMe ? 'text-emerald-800' : 'text-gray-800'}`}>
                           {row.nickname}
                           {isMe && <span className="ml-1.5 text-xs text-emerald-600 font-medium">(나)</span>}
@@ -454,7 +456,7 @@ const MEDAL_IMG = {
 }
 const PODIUM_RING = { 1: 'ring-amber-300', 2: 'ring-gray-300', 3: 'ring-orange-300' }
 
-function Podium({ top3, userId }) {
+function Podium({ top3, userId, programId }) {
   const [second, first, third] = [top3[1], top3[0], top3[2]]
 
   const slot = (row, place) => {
@@ -493,7 +495,7 @@ function Podium({ top3, userId }) {
 
         {/* 아바타 */}
         <div className={`relative z-10 rounded-full ring-2 ${PODIUM_RING[place]} p-0.5 bg-white`}>
-          <UserAvatar avatarPath={row.avatar_path} nickname={row.nickname} size={isFirst ? 'lg' : 'md'} viewable />
+          <UserAvatar avatarPath={row.avatar_path} nickname={row.nickname} size={isFirst ? 'lg' : 'md'} viewable flameProgramId={programId} flameUserId={row.user_id} />
         </div>
 
         <p className={`relative z-10 mt-1.5 text-[13px] font-bold truncate w-full text-center ${isMe ? 'text-emerald-800' : 'text-gray-800'}`}>

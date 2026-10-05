@@ -107,6 +107,8 @@ const DietChangeDemo = lazy(() => import('./pages/dev/DietChangeDemo'))  // 🔧
 const SurveyUiDemo = lazy(() => import('./pages/dev/SurveyUiDemo'))  // 🔧 시작 설문 노출 방식 데모(숨김)
 const BannerStackDemo = lazy(() => import('./pages/dev/BannerStackDemo'))  // 🔧 운영자 배너 스택(덱) 프로토타입(숨김)
 const WelcomeTourDemo = lazy(() => import('./pages/dev/WelcomeTourDemo'))  // 🔧 운영자 환영 투어 데모 G2(숨김)
+const DashboardV7Demo = lazy(() => import('./pages/dev/DashboardV7Demo'))  // 🔧 대시보드 ⑦ 시안 실데이터(숨김)
+const FlameDemo = lazy(() => import('./pages/dev/FlameDemo'))  // 🔧 불꽃·주간 스트릭 데모(가짜 데이터)
 
 // 가입 승인 알림(/programs/:id/participants) → 프로그램 상세 + 승인 심사 모달 자동 오픈
 function ApprovalsRedirect() {
@@ -146,7 +148,9 @@ function AppShell() {
 
   // 하단 탭바 — 메인 5탭(홈·프로그램·기록하기·랭킹·프로필)에서만 상시 노출.
   //   기록하기는 라우트가 아니라 액션(+ 버튼). 깊은 화면은 숨기고 뒤로가기.
-  const showTabBar = ['/dashboard', '/programs', '/growth', '/profile'].includes(location.pathname)
+  const showTabBar = ['/dashboard', '/programs', '/growth', '/profile',
+    ...(import.meta.env.DEV ? ['/dev/dashboard'] : []),   // 🔧 대시보드 시안(dev 전용) — 탭바 포함해서 비교
+  ].includes(location.pathname)
 
   // 공개 소개 페이지만 폰 폭 셸(448px)을 벗어난다 — 세일즈 링크는 PC 로도 열리기 때문.
   const wideShell = location.pathname === '/intro'
@@ -356,6 +360,10 @@ function AppShell() {
             <Route path="/dev/survey-ui" element={<SurveyUiDemo />} />
             <Route path="/dev/banner-stack" element={<BannerStackDemo />} />
             <Route path="/dev/welcome-tour" element={<WelcomeTourDemo />} />
+            <Route path="/dev/dashboard" element={
+              <ProtectedRoute><DashboardV7Demo /></ProtectedRoute>
+            } />
+            <Route path="/dev/flame" element={<FlameDemo />} />
             </>)}
             <Route path="/support" element={
               <ProtectedRoute><SupportPage /></ProtectedRoute>

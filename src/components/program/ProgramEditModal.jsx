@@ -4,6 +4,7 @@ import { supabase } from '../../supabaseClient'
 import { CATEGORY_LIST, PROGRAM } from '../../lib/constants'
 import { formatKoreanDate } from '../../lib/formatters'
 import CoverImageUploader from '../common/CoverImageUploader'
+import { FlameBadge } from '../common/UserBadges'
 
 // 운영자가 PUBLISHED 프로그램의 안전 항목만 수정.
 // 수정 가능: name, description, categories, end_date, max_participants, is_public
@@ -25,6 +26,8 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
   const [quizEnabled, setQuizEnabled] = useState(true)        // 메뉴바 퀴즈 사용 (102)
   const [communityEnabled, setCommunityEnabled] = useState(true)  // 메뉴바 커뮤니티 사용 (102) = 피드 활성
   const [rankingEnabled, setRankingEnabled] = useState(true)  // 랭킹 메뉴 표시 (세부는 랭킹 설정)
+  const [flameEnabled, setFlameEnabled] = useState(true)      // 닉네임 옆 불꽃 (280) — 기본 켬
+  const [flameWeekDays, setFlameWeekDays] = useState(3)       // 주 몇 일 활동하면 그 주를 채운 것으로 (1~7)
   const [classFeatureEnabled, setClassFeatureEnabled] = useState(false)  // 클래스 메뉴 사용 — 생성 후에도 토글 가능(기존엔 2단계에서만 설정)
   const [signupLeadDays, setSignupLeadDays] = useState(null)  // 클래스 신청 개방(시작 N일 전). null=항상
   const [signupOpenTime, setSignupOpenTime] = useState('')    // 개방 시각 'HH:MM'. 빈값=클래스 시작 시각과 동일(기존 동작)
@@ -64,6 +67,8 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
       )
       // ranking_enabled DEFAULT true — undefined/null 이면 켜진 상태로 (마법사와 동일 동작)
       setRankingEnabled(program.ranking_enabled !== false)
+      setFlameEnabled(program.flame_enabled !== false)
+      setFlameWeekDays(Number.isInteger(program.flame_week_days) ? program.flame_week_days : 3)
       setClassFeatureEnabled(!!program.class_feature_enabled)
       setSignupLeadDays(program.class_signup_lead_days ?? null)
       // TIME 은 'HH:MM:SS' 로 오는데 input[type=time] 은 'HH:MM' 을 받는다
@@ -152,6 +157,8 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
         // 랭킹 메뉴 표시 — OFF 면 세부(시상대/추세/기간필터)도 자동 OFF. 세부 설정은 「랭킹 설정」.
         ranking_enabled: rankingEnabled,
         ...(rankingEnabled ? {} : { podium_enabled: false, trend_enabled: false, period_filter_enabled: false }),
+        // 닉네임 옆 불꽃 (280) — 컬럼 적용 시에만 저장
+        ...(Object.prototype.hasOwnProperty.call(program, 'flame_enabled') ? { flame_enabled: flameEnabled, flame_week_days: flameWeekDays } : {}),
         // 금연 「내 변화」 탭 (140) — 컬럼 적용 시에만 저장
         ...(Object.prototype.hasOwnProperty.call(program, 'change_tab_enabled') ? { change_tab_enabled: changeTabEnabled } : {}),
         // 개요 흡수 — 진행현황 카드 표시(145) / 금연 절약 차감(139), 컬럼 적용 시에만
@@ -532,6 +539,55 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
                 </div>
               </div>
             </button>
+          )}
+
+          {/* 닉네임 옆 불꽃 (280) — 주 단위 리듬. 끄면 이 프로그램 안에서 불꽃이 아무에게도 안 보인다 */}
+          <button
+            type="button"
+            onClick={() => setFlameEnabled(!flameEnabled)}
+            disabled={isSaving}
+            className={`
+              w-full ${flameEnabled ? 'mb-2' : 'mb-3'} p-3 rounded-lg border-2 text-left transition disabled:opacity-50
+              ${flameEnabled
+                ? 'border-amber-500 bg-amber-50'
+                : 'border-gray-200 bg-white hover:border-gray-300'}
+            `}
+          >
+            <div className="flex items-start gap-2.5">
+              <span className="w-6 h-6 flex items-center justify-center"><FlameBadge level={2} weeks={3} size="sm" /></span>
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm font-medium ${flameEnabled ? 'text-amber-700' : 'text-gray-800'}`}>
+                  닉네임 옆 불꽃
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  꾸준히 참여한 사람의 닉네임 옆에 불꽃이 붙어요. 활동(인증·퀴즈·클래스)한 주가 이어질수록 커져요.
+                </p>
+              </div>
+              <div className={`
+                relative w-9 h-5 rounded-full flex-shrink-0 transition mt-0.5
+                ${flameEnabled ? 'bg-amber-500' : 'bg-gray-300'}
+              `}>
+                <div className={`
+                  absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform
+                  ${flameEnabled ? 'translate-x-4' : 'translate-x-0.5'}
+                `} />
+              </div>
+            </div>
+          </button>
+          {flameEnabled && (
+            <div className="mb-3 px-3 py-2.5 rounded-lg bg-gray-50 flex items-center gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-800">한 주에 몇 일 활동하면 채운 걸로 볼까요</p>
+                <p className="text-xs text-gray-500 mt-0.5 break-keep">참여할 날이 그보다 적은 주는 그 날수만큼만 세고, 아무것도 없는 주는 건너뛰어요.</p>
+              </div>
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <button type="button" disabled={isSaving || flameWeekDays <= 1} onClick={() => setFlameWeekDays(d => Math.max(1, d - 1))} aria-label="하루 줄이기"
+                  className="w-8 h-8 rounded-full bg-white border border-gray-200 text-gray-700 text-base font-bold disabled:opacity-40">−</button>
+                <span className="w-12 text-center text-sm font-bold text-gray-800 tabular-nums">주 {flameWeekDays}일</span>
+                <button type="button" disabled={isSaving || flameWeekDays >= 7} onClick={() => setFlameWeekDays(d => Math.min(7, d + 1))} aria-label="하루 늘리기"
+                  className="w-8 h-8 rounded-full bg-white border border-gray-200 text-gray-700 text-base font-bold disabled:opacity-40">+</button>
+              </div>
+            </div>
           )}
 
           {/* 랭킹·팀 — 금연 테마에선 숨김 */}

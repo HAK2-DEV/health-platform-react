@@ -309,7 +309,7 @@ function FeedContent({ program, layout: layoutProp = null, targetVerificationId 
         )}
         <div className="p-2.5 flex-1 flex flex-col gap-1">
           <div className="flex items-center gap-1.5">
-            <UserAvatar avatarPath={post.user?.avatar_path} nickname={post.user?.nickname} size="sm" />
+            <UserAvatar avatarPath={post.user?.avatar_path} nickname={post.user?.nickname} size="sm" flameProgramId={id} flameUserId={post.user_id} />
             <span className="text-[11px] font-medium text-gray-700 truncate">{post.user?.nickname || '익명'}</span>
           </div>
           {note && <p className="text-[12px] text-gray-700 line-clamp-2">{note}</p>}
@@ -415,14 +415,18 @@ function FeedContent({ program, layout: layoutProp = null, targetVerificationId 
                 : 'shadow-elevated'
             }`}
           >
-            {/* 헤더 — 닉네임 + 미션 + 시각 */}
-            <div className="flex items-start justify-between gap-2 p-4 pb-2">
+            {/* 헤더 — 닉네임 + 미션 + 시각
+                pt-5: 카드가 overflow-hidden(아래 사진을 둥근 모서리로 잘라야 해서 못 뺀다)이라
+                위 여백이 16px 이면 아바타 뒤 불꽃(280) 머리가 1~2px 잘린다. 20px 로 띄워 둔다. */}
+            <div className="flex items-start justify-between gap-2 px-4 pt-5 pb-2">
               <div className="flex items-center gap-2.5 flex-1 min-w-0">
                 <UserAvatar
                   avatarPath={post.user?.avatar_path}
                   nickname={post.user?.nickname}
                   size="md"
                   viewable
+                  flameProgramId={id}
+                  flameUserId={post.user_id}
                 />
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm text-gray-800 truncate">
@@ -860,7 +864,7 @@ function CommentsSection({ verificationId, programId, myUserId, isProgramOwner, 
         ref={(el) => { refs.current[c.id] = el }}
         className={`flex items-start gap-2 text-sm rounded-lg p-1.5 -mx-1.5 transition-all duration-500 ${isHi ? 'bg-amber-100 ring-2 ring-amber-300' : ''}`}
       >
-        <UserAvatar avatarPath={c.user?.avatar_path} nickname={c.user?.nickname} size="sm" className="mt-0.5" viewable />
+        <UserAvatar avatarPath={c.user?.avatar_path} nickname={c.user?.nickname} size="sm" className="mt-0.5" viewable flameProgramId={programId} flameUserId={c.user_id} />
         <div className="flex-1 min-w-0">
           {isEditing ? (
             <div className="flex items-center gap-1.5">

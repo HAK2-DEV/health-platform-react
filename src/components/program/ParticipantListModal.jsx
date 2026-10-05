@@ -5,7 +5,7 @@ import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 
 // 참여자 명단 — 화면 중앙 팝업. ranking(get_program_ranking) 배열을 그대로 사용.
 //   props: isOpen, onClose, participants[{user_id,nickname,avatar_path,rank,total_score}], myUserId, showScore, onManage(운영자용, 선택)
-export default function ParticipantListModal({ isOpen, onClose, participants = [], myUserId, showScore = false, onManage }) {
+export default function ParticipantListModal({ isOpen, onClose, participants = [], myUserId, programId = null, showScore = false, onManage }) {
   useBodyScrollLock(isOpen)
   return (
     <AnimatePresence>
@@ -29,7 +29,7 @@ export default function ParticipantListModal({ isOpen, onClose, participants = [
                 return (
                   <div key={p.user_id || i} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl ${isMe ? 'bg-emerald-50' : ''}`}>
                     {showScore && <span className="w-6 text-center text-[13px] font-bold text-gray-400 tabular-nums flex-shrink-0">{p.rank ?? i + 1}</span>}
-                    <UserAvatar avatarPath={p.avatar_path} nickname={p.nickname} size="md" viewable />
+                    <UserAvatar avatarPath={p.avatar_path} nickname={p.nickname} size="md" viewable flameProgramId={programId} flameUserId={p.user_id} />
                     <span className={`flex-1 min-w-0 truncate text-[14px] font-medium ${isMe ? 'text-emerald-800' : 'text-gray-800'}`}>
                       {p.nickname}{isMe && <span className="ml-1 text-[11px] text-emerald-600">(나)</span>}
                     </span>

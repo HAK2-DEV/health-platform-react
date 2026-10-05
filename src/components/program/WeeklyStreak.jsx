@@ -1,14 +1,20 @@
 import { cloneElement, forwardRef, isValidElement, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { motion, AnimatePresence, useAnimationControls } from 'framer-motion'
 import { Check, Calendar } from 'lucide-react'
+import { FlameWrap } from '../common/FlameAura'
 
 // 주간 스트릭 — "도장 찍기" 강조 연출.
 //   playStamp(dayIndex) 호출 시: 카드 확대+딤 → 도장 낙하 → 임팩트(즉시 상태 반영+펀치+잉크링+색종이) → 복귀.
 //   영구 상태(찍힌 요일/연속 일수)는 transition 없이 즉시 반영, 일시 연출만 애니메이션.
 //   props: count(연속 일수), days([{label,done,today}]), icon(불꽃 노드), showTest(데모 트리거 버튼)
-const BRAND = '#22A45C'
-const SUB_COLOR = '#F59E0B' // 서브 미션 요일 도장(앰버)
-const kindColor = (d) => (d?.kind === 'sub' ? SUB_COLOR : BRAND)
+// 도장 색 — 연속일수록 «더 뜨겁게» (본인 2026-10-05). 1일 브랜드 초록(#22A45C) → 앰버 → 주황 → 빨강.
+//   도장마다 «그 칸까지 이어진 연속 일수»로 정한다. 끊긴 뒤 다시 찍으면 초록부터.
+//   연두·노랑 단계는 «알록달록» 해서 뺐다(본인) — 초록 다음은 바로 따뜻한 색으로, 한 흐름.
+//   (옛 서브 미션 앰버 도장(kind:'sub')은 어디서도 만들어지지 않아 이 램프로 대체.)
+const HEAT = ['#22A45C', '#F59E0B', '#F97316', '#EA580C', '#DC2626', '#DC2626', '#B91C1C']
+const heatColor = (run) => HEAT[Math.min(Math.max(run, 1), HEAT.length) - 1]
+// 진빨강(7일) 다음부터는 도장 뒤에 불이 붙는다(본인 2026-10-05) — 8일~ 1단계, 14일~ 2단계, 21일~ 3단계
+const flameLevel = (run) => (run >= 21 ? 3 : run >= 14 ? 2 : run >= 8 ? 1 : 0)
 const OVERSHOOT = [0.34, 1.5, 0.64, 1]
 const reduceMotion = () =>
   typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches
@@ -151,6 +157,20 @@ const WeeklyStreak = forwardRef(function WeeklyStreak({ count = 0, days = [], ic
   // 도장 찍는 칸은 임팩트 전까지 회색(미달성)으로 보여 gray→green 연출
   const cellDone = (i) => (stampIdx === i && !impacted ? false : doneSet.has(i))
 
+  // 칸별 «이어진 연속 일수» — 찍는 중인 칸은 찍힌 것으로 쳐서 떨어지는 도장 색을 미리 정한다.
+  //   월요일부터 이어진 첫 구간은 지난주에서 넘어온 연속(count)만큼 더 뜨겁게 시작.
+  const willBeDone = (i) => doneSet.has(i) || stampIdx === i
+  const runAt = []
+  let run = 0
+  for (let i = 0; i < days.length; i++) {
+    run = willBeDone(i) ? run + 1 : 0
+    runAt[i] = run
+  }
+  const firstRunLen = runAt.findIndex((r) => r === 0) === -1 ? days.length : runAt.findIndex((r) => r === 0)
+  const carry = willBeDone(0) ? Math.max(0, streak - firstRunLen) : 0
+  const runWithCarry = (i) => runAt[i] + (i < firstRunLen ? carry : 0)
+  const heatAt = (i) => heatColor(runWithCarry(i))
+
   const testTrigger = () => {
     const next = days.findIndex((d, i) => !doneSet.has(i))
     playStamp(next >= 0 ? next : 0)
@@ -167,15 +187,19 @@ const WeeklyStreak = forwardRef(function WeeklyStreak({ count = 0, days = [], ic
 
   // 요일 동그라미들 (도장 연출 포함) — card/wide 공용. 반폭 카드는 7개 넉넉히 들어가게 살짝 작게.
   const cellSize = variant === 'wide' ? 'w-[16px] h-[16px]' : 'w-[18px] h-[18px]'
+  const cellPx = variant === 'wide' ? 16 : 18
   const dayCells = days.map((d, i) => {
     const done = cellDone(i)
     const stamping = stampIdx === i
-    const col = kindColor(d) // 메인=초록 / 서브=앰버
+    const col = heatAt(i) // 연속일수록 뜨겁게
+    const fire = done ? flameLevel(runWithCarry(i)) : 0   // 진빨강 다음 — 도장 뒤 불
     return (
       <div key={i} className="relative flex flex-col items-center gap-1">
+        {/* 도장(18px)은 요일 글자가 바로 아래 붙는 좁은 자리 — 혀 키를 0.9 로 살짝만 줄인다 */}
+        <FlameWrap level={fire} px={cellPx} scale={0.9}>
         <motion.span
           animate={stamping ? cellCtrl : undefined}
-          className={`relative ${cellSize} rounded-full flex items-center justify-center`}
+          className={`relative z-[1] ${cellSize} rounded-full flex items-center justify-center`}
           style={{ backgroundColor: done ? col : '#F3F4F6', color: done ? '#fff' : '#D1D5DB' }}
         >
           {stamping && impacted && (
@@ -189,6 +213,7 @@ const WeeklyStreak = forwardRef(function WeeklyStreak({ count = 0, days = [], ic
           )}
           <Check className="w-3 h-3" strokeWidth={3} />
         </motion.span>
+        </FlameWrap>
         <span className={`text-[10px] ${d.today ? 'text-emerald-600 font-bold' : 'text-gray-400'}`}>{d.label}</span>
 
         <AnimatePresence>

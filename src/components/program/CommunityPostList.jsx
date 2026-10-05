@@ -274,7 +274,7 @@ function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId,
     <article key={p.id} onClick={() => setDetailPost(p)} className={`rounded-2xl p-4 cursor-pointer transition ${p.status === 'hidden' ? 'opacity-60 ' : ''}${p.pinned_at ? 'border-2 border-emerald-400 ring-2 ring-emerald-100 bg-emerald-50/40 shadow-sm' : 'bg-white shadow-elevated'}`}>
       {p.pinned_at && <div className="mb-2"><PinPill /></div>}
       <div className="flex items-center gap-2.5 mb-2">
-        <UserAvatar avatarPath={p.author?.avatar_path} nickname={p.author?.nickname} size="md" viewable />
+        <UserAvatar avatarPath={p.author?.avatar_path} nickname={p.author?.nickname} size="md" viewable flameProgramId={programId} flameUserId={p.author_id} />
         <div className="flex-1 min-w-0">
           <p className="font-medium text-sm text-gray-800 truncate">{p.author?.nickname || '익명'}</p>
           <p className="text-[11px] text-gray-400">
@@ -298,7 +298,7 @@ function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId,
   // 작성자 한 줄 (아바타 + 닉네임) — 오버레이/카드 공용
   const AuthorRow = ({ p, light }) => (
     <div className={`flex items-center gap-1.5 ${light ? 'text-white' : 'text-gray-600'}`}>
-      <UserAvatar avatarPath={p.author?.avatar_path} nickname={p.author?.nickname} size="sm" viewable />
+      <UserAvatar avatarPath={p.author?.avatar_path} nickname={p.author?.nickname} size="sm" viewable flameProgramId={programId} flameUserId={p.author_id} />
       <span className="text-[11px] font-semibold truncate">{p.author?.nickname || '익명'}</span>
       {p.status === 'pending' && <span className={`text-[10px] font-medium flex-shrink-0 ${light ? 'text-amber-300' : 'text-amber-600'}`}>· 검토 대기</span>}
       {p.status === 'hidden' && <HiddenTag light={light} />}
@@ -360,7 +360,7 @@ function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId,
       {hasImg(p) ? (
         <img src={thumbSrc(p)} onError={onThumbError(p)} alt="" loading="lazy" decoding="async" className="w-16 h-16 rounded-xl object-cover bg-gray-100 flex-shrink-0" />
       ) : (
-        <UserAvatar avatarPath={p.author?.avatar_path} nickname={p.author?.nickname} size="lg" viewable />
+        <UserAvatar avatarPath={p.author?.avatar_path} nickname={p.author?.nickname} size="lg" viewable flameProgramId={programId} flameUserId={p.author_id} />
       )}
       <div className="flex-1 min-w-0">
         <div className="flex items-start gap-2">
@@ -422,7 +422,7 @@ function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId,
           <>
             {detailPost.pinned_at && <div className="mb-2"><PinPill /></div>}
             <div className="flex items-center gap-2.5 mb-3">
-              <UserAvatar avatarPath={detailPost.author?.avatar_path} nickname={detailPost.author?.nickname} size="md" viewable />
+              <UserAvatar avatarPath={detailPost.author?.avatar_path} nickname={detailPost.author?.nickname} size="md" viewable flameProgramId={programId} flameUserId={detailPost.author_id} />
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-sm text-gray-800 truncate">{detailPost.author?.nickname || '익명'}</p>
                 <p className="text-[11px] text-gray-400">

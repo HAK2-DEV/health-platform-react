@@ -5,7 +5,7 @@ import UserAvatar from '../common/UserAvatar'
 // ─── Top 3 포디움 — 2-1-3 레이아웃 ───────────────────────────
 // 1등 가운데/가장 크게, 2등 왼쪽/3등 오른쪽 작게.
 // 랭킹(글로벌) + 프로그램 상세 랭킹 탭 공용.
-function PodiumTop3({ top3, userId }) {
+function PodiumTop3({ top3, userId, programId = null }) {
   const [second, first, third] = [top3[1], top3[0], top3[2]]
 
   const slot = (row, place) => {
@@ -46,6 +46,8 @@ function PodiumTop3({ top3, userId }) {
           size={place === 1 ? 'lg' : 'md'}
           className="mb-1.5"
           viewable
+          flameProgramId={programId}
+          flameUserId={row.user_id}
         />
         {isMe && (
           <span className="px-2 py-0.5 bg-emerald-500 text-white text-xs font-semibold rounded-pill mb-0.5">나</span>

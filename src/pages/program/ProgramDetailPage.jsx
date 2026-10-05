@@ -89,7 +89,7 @@ import VerificationGridReview from '../../components/program/VerificationGridRev
 import MarkdownView from '../../components/common/MarkdownView'
 import ConfirmModal from '../../components/common/ConfirmModal'
 import RankingSettingsModal from '../../components/program/RankingSettingsModal'
-import { calcProgress, progressUrgency, calcProgramTiming, programCoverPath } from '../../lib/programVisuals'
+import { calcProgress, progressUrgency, calcProgramTiming, programCoverPath, ENDED_GRACE_DAYS } from '../../lib/programVisuals'
 import { markSelfLeft } from '../../lib/kickState'
 
 // 홈 화면과 동일한 채워진(solid) 아이콘 — 참여자/내순위용 (heroicons solid, MIT)
@@ -846,7 +846,7 @@ function ProgramDetailPage() {
   // 참여자 주간 리포트 — 참여중·발행·진행중일 때 개요 상단 배너 → 모달(이번 주 나의 기록).
   const participantReportEl = (!isOwner && isActiveParticipant && program?.status === 'PUBLISHED'
     && progressUrgency(calcProgress(program?.start_date, program?.end_date)).urgency !== 'ended') ? (
-    <ParticipantWeeklyReport programId={id} userId={userId} classEnabled={!!program?.class_feature_enabled} joinedAt={myPart?.joined_at} />
+    <ParticipantWeeklyReport programId={id} userId={userId} classEnabled={!!program?.class_feature_enabled} joinedAt={myPart?.joined_at} endDate={program?.end_date} />
   ) : null
   // 예정(시작 전) 프로그램 — 참여자는 예약중(시작일까지 인증 잠금).
   const programUpcoming = program?.status === 'PUBLISHED' && isUpcomingByStartDate(program?.start_date)
@@ -2555,6 +2555,12 @@ function ProgramDetailPage() {
               onError={(e) => { e.currentTarget.replaceWith(Object.assign(document.createElement('div'), { textContent: '🏁', className: 'text-4xl mb-2 leading-none' })) }} />
             <h3 className="text-lg font-extrabold text-gray-900">프로그램이 종료됐어요</h3>
             <p className="text-sm text-gray-600 mt-2 leading-relaxed">수고했어요! 지금부터는 <b className="text-gray-800">조회만</b> 가능해요.<br />내 완주 요약을 확인해보세요.</p>
+            {/* 대시보드 압축 안내 — 참여자가 종료를 «처음» 마주하는 자리라 여기서 미리 말한다(본인 결정 2026-10-05).
+                기록이 사라지는 게 아니라 자리가 옮겨지는 것임을 같이 말해야 불안이 없다. 숫자는 ENDED_GRACE_DAYS 하나. */}
+            <p className="text-sm text-gray-600 mt-3 leading-relaxed break-keep">
+              대시보드에서는 종료 <b className="text-gray-800">{ENDED_GRACE_DAYS}일 뒤</b>부터 「종료된 프로그램」으로 접혀요.<br />
+              기록은 「내 기록」에 그대로 남아요.
+            </p>
             <div className="mt-5 flex flex-col gap-2">
               <button type="button" onClick={() => navigate('/dashboard')}
                 className="w-full h-11 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[14px] font-bold transition">대시보드 가기</button>
@@ -3195,6 +3201,7 @@ function ProgramDetailPage() {
         onClose={() => setParticipantsOpen(false)}
         participants={ranking}
         myUserId={userId}
+        programId={id}
         showScore={program.ranking_enabled !== false}
         onManage={isOwner ? () => { setParticipantsOpen(false); navigate(`/programs/${id}/stats/users`) } : null}
       />
@@ -3331,7 +3338,7 @@ function ProgramDetailPage() {
       {/* 시상대 — podium_enabled + 3명 이상일 때만 콘텐츠 상단 */}
       {hasPodium && (
         <div className="mb-4">
-          <PodiumTop3 top3={podiumTop3} userId={userId} />
+          <PodiumTop3 top3={podiumTop3} userId={userId} programId={id} />
         </div>
       )}
 
@@ -3370,7 +3377,7 @@ function ProgramDetailPage() {
                         `}>
                           {row.rank}
                         </span>
-                        <UserAvatar avatarPath={row.avatar_path} nickname={row.nickname} size="md" viewable />
+                        <UserAvatar avatarPath={row.avatar_path} nickname={row.nickname} size="md" viewable flameProgramId={id} flameUserId={row.user_id} />
                         <span className={`font-medium truncate ${isMe ? 'text-emerald-800' : 'text-gray-800'}`}>
                           {row.nickname}
                           {isMe && <span className="ml-1 text-xs text-emerald-600">(나)</span>}

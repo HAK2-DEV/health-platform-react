@@ -79,6 +79,8 @@ export const queryKeys = {
     ['my-activity', 'verifications', programId, userId, bundleParam],
   // 본인의 프로그램별 개요 (streak + activeDays + recent — 개요 탭 모의도)
   programOverview: (programId, userId) => ['program-overview', programId, userId],
+  // 닉네임 옆 불꽃 — 프로그램 단위로 켜진 사람 전체를 한 번에 (280)
+  programFlames: (programId) => ['flames', 'byProgram', programId],
   // 프로그램 참여 모달용 정보 (운영자 닉네임 + 참여자 수 + 미션 정보)
   programJoinInfo: (programId) => ['program-join-info', programId],
   // 홈 통계 카드 (Day 67 초안) — 참여자 관점 / 운영자 관점
@@ -184,6 +186,25 @@ export const fetchPendingPrograms = async (userId) => {
     .eq('status', 'PENDING')
   if (error) throw error
   return (data || []).map(row => ({ ...row.programs, _joinedAt: row.joined_at, _status: 'PENDING' }))
+}
+
+// 내가 «프로그램별로 마지막으로 인증한 시각» — { [programId]: submitted_at }
+//   「내 인증 현황」 칩을 최근 인증 순으로 세울 때 쓴다.
+//   ⚠️ verifications 에는 program_id 가 없다. missions 를 거쳐야 해서 inner join 한다.
+//   본인 인증만 가져오므로 양이 작다(가장 많은 사용자도 100건 미만). 집계는 클라에서 한다.
+export const fetchMyLastVerifiedAt = async (userId) => {
+  const { data, error } = await supabase
+    .from('verifications')
+    .select('submitted_at, missions!inner(program_id)')
+    .eq('user_id', userId)
+    .order('submitted_at', { ascending: false })
+  if (error) throw error
+  const map = {}
+  for (const v of data || []) {
+    const pid = v.missions?.program_id
+    if (pid && !map[pid]) map[pid] = v.submitted_at   // 내림차순이라 «처음 만난 값»이 최신
+  }
+  return map
 }
 
 // 본인의 프로그램별 마지막 인증 시각 맵 { program_id: ISO } — "최근 인증순" 정렬용.
@@ -1058,6 +1079,23 @@ export const fetchTodayCounts = async (userId) => {
     }
   })
   return counts
+}
+
+// 닉네임 옆 불꽃 (280) — 프로그램의 «켜진» 참여자만 { [user_id]: { level, weeks } }.
+//   사람마다 따로 묻지 않고 프로그램 단위 한 번 — 피드·댓글·랭킹이 같은 캐시를 공유한다
+//   (화면 이동 느림의 원인이 동시 요청 폭주였음 — project_perf_program_detail).
+//   꺼진 사람은 행이 없다 → 화면은 "있으면 그린다"만 하고 0·회색을 만들지 않는다(퍼소나 4-6).
+//   함수가 아직 없는(마이그 미적용) 환경이면 빈 맵 — 화면은 불꽃 없이 그대로.
+export const fetchProgramFlames = async (programId) => {
+  if (!programId) return {}
+  const { data, error } = await supabase.rpc('get_program_flames', { p_program_id: programId })
+  if (error) {
+    if (error.code === 'PGRST202' || error.code === '42883') return {}
+    throw error
+  }
+  const map = {}
+  for (const r of data || []) map[r.user_id] = { level: r.flame_level, weeks: r.streak_weeks }
+  return map
 }
 
 // 본인 프로그램 개요 (Day 65 본인 결정 — 「개요」 탭 모의도)
