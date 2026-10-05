@@ -39,6 +39,36 @@ export const calcProgress = (startDate, endDate) => {
   return Math.round((passed / total) * 100)
 }
 
+// 프로그램이 «끝났는가» — 종료일 24:00(KST)을 지났는지.
+//   위 calcProgress 의 `now > end` 와 같은 기준이고, 인증 화면(MissionVerifyPage)의 종료 판정과도 같다.
+//   화면마다 end_date 를 따로 비교하던 것을 한 곳으로 모은 것이다. 기준이 갈리면 어떤 화면에서는
+//   끝난 프로그램이 보이고 어떤 화면에서는 안 보이는 일이 생긴다.
+//   ⚠️ 「종료」는 «게시된» 프로그램에만 성립한다. 초안(DRAFT)은 end_date 가 있어도 끝난 것이 아니다 —
+//      실측(2026-10-04) 초안 7개 중 5개가 지난 날짜의 end_date 를 갖고 있어, 날짜만 보면 전부 «종료»로 잡혔다.
+//      본인 결정(초안은 그대로 유지)을 지키려면 여기서 막아야 한다.
+//   ⚠️ 기간이 없는 프로그램도 «끝나지 않은» 것으로 본다 — 숨기면 복구할 길이 없다.
+export const isProgramEnded = (program) => {
+  if (!program?.end_date) return false
+  if (program.status && program.status !== 'PUBLISHED') return false
+  return new Date() > new Date(`${program.end_date}T23:59:59+09:00`)
+}
+
+// 종료 뒤 «여운» 기간 — 이 날수 동안은 대시보드에 카드로 남고, 지나면 「종료된 프로그램 N개」 한 줄로 접힌다.
+//   본인 결정(2026-10-04): 7일. 종료 직후는 운영자가 리포트·복제를, 참여자가 완주 결과를 보는 가장 바쁜 시기라
+//   «즉시 숨김»은 틀린 설계였다. 압축은 «사라짐»이 아니라 «자리 이동»이다 — 기록은 전체 보기·내 기록에 남는다.
+//   종료 화면(운영자 리포트·참여자 완주 배너)의 안내 문구도 이 숫자를 말한다. 바꾸면 거기 문구도 따라간다.
+export const ENDED_GRACE_DAYS = 7
+
+// 종료일 24:00(KST)부터 지금까지 «꽉 찬» 날수. 아직 안 끝났으면 0.
+export const daysSinceEnded = (program) => {
+  if (!isProgramEnded(program)) return 0
+  const endedAt = new Date(`${program.end_date}T23:59:59+09:00`).getTime()
+  return Math.floor((Date.now() - endedAt) / 86_400_000)
+}
+
+// 여운이 끝났는가 — 종료 뒤 ENDED_GRACE_DAYS 일이 «지나면» 참.
+export const isEndedBeyondGrace = (program) => daysSinceEnded(program) >= ENDED_GRACE_DAYS
+
 // 프로그램 일수/경과일/남은일 + 참여율(=인증일÷경과일) 공용 계산 (KST).
 //   대시보드·상세 개요·카드홈이 반드시 같은 값을 쓰도록 단일 소스로 통일.
 //   경과일은 프로그램 기간(programDays)으로 상한 → 종료 후에도 분모가 늘지 않아

@@ -37,7 +37,7 @@ function Row({ src, emoji, label, n, unit }) {
   )
 }
 
-export default function ParticipantWeeklyReport({ programId, userId, classEnabled = false, placement = 'overview', joinedAt = null }) {
+export default function ParticipantWeeklyReport({ programId, userId, classEnabled = false, placement = 'overview', joinedAt = null, endDate = null }) {
   const [open, setOpen] = useState(false)
   const [seen, setSeen] = useState(true)
   const [tipOpen, setTipOpen] = useState(false)
@@ -59,6 +59,13 @@ export default function ParticipantWeeklyReport({ programId, userId, classEnable
 
   // 막 참가(이번 주 월요일 이후 가입)한 사람은 지난 주 기록이 통째로 없어 빈 리포트 → 노출 안 함
   if (joinedAt && new Date(joinedAt) >= thisWeekMondayKst()) return null
+  // 끝난 프로그램 — «지난 주»는 오늘 기준 달력 주라, 프로그램이 지난 주 월요일보다 먼저 끝났으면 집계할 활동이
+  //   없는 주를 보여 주고 「이번 주 다시 시작해봐요」까지 말하게 된다(다시 시작할 수 없는데). 원칙 2·3 위반.
+  //   끝난 «바로 다음 주»에는 마지막 주 회고가 의미 있으므로 그때까지만 보여 준다(2026-10-05 제보).
+  if (endDate) {
+    const lastWeekMonday = new Date(thisWeekMondayKst().getTime() - 7 * 86_400_000)
+    if (new Date(`${endDate}T23:59:59+09:00`) < lastWeekMonday) return null
+  }
 
   return (
     <>

@@ -2,17 +2,19 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, ChevronDown } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../supabaseClient'
 import {
   queryKeys,
   fetchActivePrograms,
   fetchMyActivity,
+  fetchMyLastVerifiedAt,
   fetchProgram,
   formatKstDate,
 } from '../lib/queries'
 import { formatRelativeKstDay, getTodayKST } from '../lib/formatters'
+import { isProgramEnded } from '../lib/programVisuals'
 import StickyBackBar from '../components/common/StickyBackBar'
 import ParticipantWeeklyReport from '../components/program/ParticipantWeeklyReport'
 import LoadingState from '../components/common/LoadingState'
@@ -27,6 +29,16 @@ function MyActivityPage() {
   const userId = session?.user?.id
 
   const [selectedProgramId, setSelectedProgramId] = useState(null)
+  const [endedOpen, setEndedOpen] = useState(false)   // 「종료된 프로그램」 칩 펼침
+
+  // 선택 프로그램을 «탭 세션» 동안 기억한다 — 대시보드의 dash-sel-* 와 같은 관례.
+  //   「미션별 분포」 등 하위 화면에 갔다 뒤로 오면 이 페이지가 다시 마운트되어 state 가 null 로 돌아가고,
+  //   아래 effect 가 «진행 중 첫 번째»를 다시 골랐다 — 종료 프로그램을 보던 사람은 엉뚱한 칩으로 튕겼다(2026-10-05 제보).
+  const SEL_KEY = 'myact-sel'
+  const selectProgram = (id) => {
+    setSelectedProgramId(id)
+    try { sessionStorage.setItem(SEL_KEY, id) } catch { /* 저장 불가 환경은 그냥 기억 안 함 */ }
+  }
 
   const { data: activePrograms = [], isLoading: isProgramsLoading } = useQuery({
     queryKey: queryKeys.activePrograms(userId),
@@ -34,11 +46,51 @@ function MyActivityPage() {
     enabled: !!userId,
   })
 
-  useEffect(() => {
-    if (!selectedProgramId && activePrograms.length > 0) {
-      setSelectedProgramId(activePrograms[0].id)
+  // 칩 정렬용 — 내가 프로그램별로 «마지막으로 인증한 시각»
+  const { data: lastVerifiedAt = {} } = useQuery({
+    queryKey: ['myLastVerifiedAt', userId],
+    queryFn: () => fetchMyLastVerifiedAt(userId),
+    enabled: !!userId,
+  })
+
+  // 진행 중 / 종료 분리. 둘 다 «내가 최근 인증한 순», 인증이 없으면 최근 참여 순으로 뒤에 둔다.
+  //   ISO 문자열이라 localeCompare 로 비교해도 시간순이 맞는다(없으면 '' → 자동으로 뒤).
+  const { livePrograms, endedPrograms } = useMemo(() => {
+    const byRecent = (a, b) => {
+      const av = lastVerifiedAt[a.id] || ''
+      const bv = lastVerifiedAt[b.id] || ''
+      if (av !== bv) return bv.localeCompare(av)
+      return String(b._joinedAt || '').localeCompare(String(a._joinedAt || ''))
     }
-  }, [activePrograms, selectedProgramId])
+    const live = []
+    const ended = []
+    for (const p of activePrograms) (isProgramEnded(p) ? ended : live).push(p)
+    return { livePrograms: live.sort(byRecent), endedPrograms: ended.sort(byRecent) }
+  }, [activePrograms, lastVerifiedAt])
+
+  useEffect(() => {
+    if (selectedProgramId) return
+    if (!livePrograms.length && !endedPrograms.length) return
+
+    // 1) 기억해 둔 선택이 있고 «아직 내 프로그램»이면 그걸로 복원한다(나간 프로그램·남의 id 는 무시).
+    let remembered = null
+    try { remembered = sessionStorage.getItem(SEL_KEY) } catch { /* 무시 */ }
+    const inLive = remembered && livePrograms.find(p => p.id === remembered)
+    const inEnded = remembered && endedPrograms.find(p => p.id === remembered)
+    if (inLive || inEnded) {
+      setSelectedProgramId(remembered)
+      // 종료 프로그램을 복원했으면 접힌 목록을 펼쳐야 «무엇이 선택됐는지» 보인다.
+      if (inEnded) setEndedOpen(true)
+      return
+    }
+
+    // 2) 기억이 없으면 진행 중 첫 번째, 그것도 없으면 종료 첫 번째.
+    const first = livePrograms[0] || endedPrograms[0]
+    setSelectedProgramId(first.id)
+    // 종료된 것밖에 없으면 접어 두면 아무것도 안 보인다 → 펼친 채로 시작한다.
+    if (!livePrograms.length) setEndedOpen(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [livePrograms, endedPrograms, selectedProgramId])
 
   const { data: activity, isLoading: isActivityLoading } = useQuery({
     queryKey: queryKeys.myActivity(selectedProgramId, userId),
@@ -124,15 +176,15 @@ function MyActivityPage() {
         <img src="/icons/mypage/status.png" alt="" aria-hidden="true" className="w-7 h-7 object-contain" /> 내 인증 현황
       </h1>
 
-      {/* 프로그램 선택 칩 */}
+      {/* 프로그램 선택 칩 — 내가 «최근 인증한 순». 끝난 프로그램은 회색 칩 하나로 접는다. */}
       <div className="flex gap-2 overflow-x-auto -mx-4 px-4 scrollbar-hide" style={{ paddingBottom: '4px', marginBottom: '9px' }}>
-        {activePrograms.map(p => {
+        {livePrograms.map(p => {
           const isActive = p.id === selectedProgramId
           return (
             <button
               key={p.id}
               type="button"
-              onClick={() => setSelectedProgramId(p.id)}
+              onClick={() => selectProgram(p.id)}
               className={`
                 flex-shrink-0 inline-flex items-center px-3 py-2 rounded-full text-sm transition
                 ${isActive
@@ -144,11 +196,60 @@ function MyActivityPage() {
             </button>
           )
         })}
+
+        {endedPrograms.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setEndedOpen(v => !v)}
+            aria-expanded={endedOpen}
+            // 진한 칩은 화면에 «항상 하나»다. 그룹 칩은 «접힌 채로 종료 프로그램이 선택됐을 때»만 진하게 —
+            // 펼치면 목록 안의 항목이 그 역할을 넘겨받고, 펼침 자체는 화살표 방향으로만 알린다.
+            // (펼침을 진한 색으로 그렸더니 진행 중 칩과 둘이 선택된 것처럼 보였다 — 2026-10-05 제보)
+            className={`
+              flex-shrink-0 inline-flex items-center gap-1 px-3 py-2 rounded-full text-sm transition
+              ${!endedOpen && endedPrograms.some(p => p.id === selectedProgramId)
+                ? 'bg-gray-500 text-white shadow-sm font-medium'
+                : 'bg-gray-100 border border-gray-200 text-gray-500 hover:border-gray-300'}
+            `}
+          >
+            종료된 프로그램 {endedPrograms.length}
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${endedOpen ? 'rotate-180' : ''}`} />
+          </button>
+        )}
       </div>
+
+      {/* 종료된 프로그램 목록 — 위 칩을 누르면 펼쳐진다. 지난 것이라 회색으로 둔다. */}
+      {endedOpen && endedPrograms.length > 0 && (
+        <div className="flex flex-wrap gap-2 p-3 bg-gray-50 border border-gray-100 rounded-2xl" style={{ marginBottom: '9px' }}>
+          {endedPrograms.map(p => {
+            const isActive = p.id === selectedProgramId
+            return (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => selectProgram(p.id)}
+                className={`
+                  inline-flex flex-col items-start px-3 py-1.5 rounded-xl text-sm transition text-left
+                  ${isActive
+                    ? 'bg-gray-500 text-white shadow-sm font-medium'
+                    : 'bg-white border border-gray-200 text-gray-500 hover:border-gray-300'}
+                `}
+              >
+                <span className="max-w-[160px] truncate">{p.name}</span>
+                {p.end_date && (
+                  <span className={`text-[11px] leading-tight ${isActive ? 'text-gray-200' : 'text-gray-400'}`}>
+                    {p.end_date.slice(5).replace('-', '.')} 종료
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+      )}
 
       {/* 이번 주 기록 다시 보기 — 개요 배너에서 안내한 재열람 진입 */}
       {selectedProgramId && (
-        <ParticipantWeeklyReport placement="mypage" programId={selectedProgramId} userId={userId}
+        <ParticipantWeeklyReport placement="mypage" programId={selectedProgramId} userId={userId} endDate={selProgram?.end_date}
           classEnabled={!!selProgram?.class_feature_enabled} />
       )}
 

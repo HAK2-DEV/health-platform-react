@@ -10,6 +10,7 @@ import HP2030Report from '../../components/program/HP2030Report'
 import { catOf } from '../../lib/classCategories'
 import { PROGRAM_THEME } from '../../lib/constants'
 import { formatKoreanDate } from '../../lib/formatters'
+import { ENDED_GRACE_DAYS } from '../../lib/programVisuals'
 import StickyBackBar from '../../components/common/StickyBackBar'
 import Modal from '../../components/common/Modal'
 import ReportsManageSection from '../../components/program/ReportsManageSection'
@@ -337,6 +338,15 @@ function ProgramEndReportPage() {
                 </>
               ) : null}
             </div>
+
+            {/* 대시보드 압축 안내 — 본인 결정(2026-10-04): 종료 뒤 ENDED_GRACE_DAYS 일이 지나면 카드가 접힌다는 것을
+                «미리» 알린다. 기록이 사라지는 게 아니라 자리가 옮겨지는 것임을 같이 말해야 불안이 없다. */}
+            {isEnded && (
+              <p className="w-full text-[12px] text-gray-500 leading-relaxed text-center break-keep">
+                종료 후 {ENDED_GRACE_DAYS}일이 지나면 대시보드에서 「종료된 프로그램」으로 접혀요.
+                이 리포트와 모든 기록은 그대로 남고, 「프로그램 → 전체 보기」에서 언제든 열 수 있어요.
+              </p>
+            )}
           </div>
           </Reveal>
 

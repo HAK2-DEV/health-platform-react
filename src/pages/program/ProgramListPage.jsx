@@ -6,7 +6,8 @@ import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
 import { ChevronRight, ClipboardList, Calendar, Trash2 } from 'lucide-react'
 import { CATEGORY, CATEGORY_LIST } from '../../lib/constants'
-import { calcProgress, CATEGORY_HEX, progressUrgency, programCoverPath } from '../../lib/programVisuals'
+import { calcProgress, CATEGORY_HEX, progressUrgency, programCoverPath, isEndedBeyondGrace } from '../../lib/programVisuals'
+import { ChevronDown } from 'lucide-react'
 import ProgramCover from '../../components/common/ProgramCover'
 import LoadingState from '../../components/common/LoadingState'
 import EmptyState from '../../components/common/EmptyState'
@@ -342,6 +343,7 @@ function ProgramListPage() {
     onError: (e) => { console.error('임시저장 삭제 실패:', e); alert(`삭제에 실패했습니다: ${e.message}`) },
   })
   const [draftToDelete, setDraftToDelete] = useState(null)  // 임시저장 삭제 확인 모달
+  const [endedOpen, setEndedOpen] = useState(false)         // 「종료된 프로그램 N개」 접힘 (참여중·운영중 공용 — 탭은 배타적)
   const handleDeleteDraft = (program) => setDraftToDelete(program)
 
   // 둘러보기 — 내가 운영(소유)하거나 이미 참여 중인 프로그램은 제외
@@ -370,6 +372,35 @@ function ProgramListPage() {
       return tb - ta
     })
   }, [activePrograms, lastActivity])
+
+  // 종료 뒤 여운(ENDED_GRACE_DAYS)이 지난 프로그램은 메인 목록에서 빼고 아래 «접힌 섹션»으로 보낸다 —
+  //   대시보드·내 기록과 같은 규칙(본인 결정 2026-10-05). 숨기는 게 아니라 자리를 옮기는 것이라
+  //   운영자는 여기서 종료 리포트·복제로 갈 수 있다. 초안은 isProgramEnded 가 PUBLISHED 만 종료로 보므로 메인에 남는다.
+  const visibleActive = useMemo(() => sortedActive.filter(p => !isEndedBeyondGrace(p)), [sortedActive])
+  const endedActive   = useMemo(() => sortedActive.filter(isEndedBeyondGrace), [sortedActive])
+  const visibleMine   = useMemo(() => myPrograms.filter(p => !isEndedBeyondGrace(p)), [myPrograms])
+  const endedMine     = useMemo(() => myPrograms.filter(isEndedBeyondGrace), [myPrograms])
+
+  // 접힌 섹션 — 컴포넌트를 렌더 안에서 만들지 않고(린트: 렌더 중 컴포넌트 생성 금지) 순수 헬퍼로 그린다.
+  //   상태(endedOpen)는 페이지가 들고 있다. 카드는 메인과 같은 ProgramCard — 「종료」 배지는 카드가 스스로 붙인다.
+  const renderEndedFold = (items) => items.length > 0 && (
+    <div className="space-y-[11px]">
+      <button
+        type="button"
+        onClick={() => setEndedOpen(v => !v)}
+        aria-expanded={endedOpen}
+        className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-left hover:bg-gray-100 transition"
+      >
+        <span className="flex-1 min-w-0 text-sm font-bold text-gray-700">종료된 프로그램 {items.length}개</span>
+        <ChevronDown className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${endedOpen ? 'rotate-180' : ''}`} />
+      </button>
+      {endedOpen && items.map((p, i) => (
+        <Reveal key={p.id} index={Math.min(i, 8)}>
+          <ProgramCard program={p} ctaLabel="보기" onClick={() => navigate(`/programs/${p.id}`)} />
+        </Reveal>
+      ))}
+    </div>
+  )
 
   return (
     <motion.div className="min-h-screen bg-white"
@@ -413,15 +444,19 @@ function ProgramListPage() {
             ) : activePrograms.length === 0 ? (
               <EmptyState icon="🎯" title="참여 중인 프로그램이 없어요" description="둘러보기에서 새 프로그램을 찾아보세요"
                 action={{ label: '둘러보기', onClick: () => setTab('browse') }} variant="mint" size="lg" />
+            ) : visibleActive.length === 0 ? (
+              // 종료된 것만 남은 경우 — 「없어요」는 거짓이라 쓰지 않고, 접힌 섹션만 보여 준다.
+              <p className="text-sm text-gray-500 px-1">진행 중인 프로그램이 없어요.</p>
             ) : (
               <div className="space-y-[11px]">
-                {sortedActive.map((p, i) => (
+                {visibleActive.map((p, i) => (
                   <Reveal key={p.id} index={Math.min(i, 8)}>
                     <ProgramCard program={p} ctaLabel="계속하기" onClick={() => navigate(`/programs/${p.id}`)} />
                   </Reveal>
                 ))}
               </div>
             )}
+            {!isActiveLoading && renderEndedFold(endedActive)}
 
             {/* 둘러보기 안내 CTA */}
             <CreateProgramCTA
@@ -450,9 +485,12 @@ function ProgramListPage() {
             ) : myPrograms.length === 0 ? (
               <EmptyState icon="📋" title="아직 만든 프로그램이 없어요" description="건강 프로그램을 만들어 운영해보세요"
                 action={{ label: '프로그램 생성하기', onClick: () => navigate('/programs/new') }} variant="mint" size="lg" />
+            ) : visibleMine.length === 0 ? (
+              // 종료된 것만 남은 운영자 — 「+ 만들기」·하단 CTA 는 원본(myPrograms) 기준이라 그대로 보인다.
+              <p className="text-sm text-gray-500 px-1">운영 중인 프로그램이 없어요.</p>
             ) : (
               <div className="space-y-[11px]">
-                {myPrograms.map((p, i) => (
+                {visibleMine.map((p, i) => (
                   <Reveal key={p.id} index={Math.min(i, 8)}>
                     <ProgramCard
                       program={p}
@@ -464,6 +502,9 @@ function ProgramListPage() {
                 ))}
               </div>
             )}
+
+            {/* 종료된 프로그램 — 접힌 섹션. 운영자는 여기서 종료 리포트·복제로 간다. */}
+            {!isMyLoading && renderEndedFold(endedMine)}
 
             {/* 하단 — 새 프로그램 만들기 CTA (운영 중 프로그램이 있을 때만) */}
             {myPrograms.length > 0 && (

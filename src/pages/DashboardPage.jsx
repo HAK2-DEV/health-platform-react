@@ -19,7 +19,7 @@ import LoadingState from '../components/common/LoadingState'
 import EmptyState from '../components/common/EmptyState'
 import InviteHintCard from '../components/common/InviteHintCard'
 import RankTrophyAnim from '../components/common/RankTrophyAnim'
-import { calcProgress, progressUrgency, programCoverPath } from '../lib/programVisuals'
+import { calcProgress, progressUrgency, programCoverPath, isEndedBeyondGrace } from '../lib/programVisuals'
 import {
   queryKeys,
   fetchMyPrograms,
@@ -429,6 +429,9 @@ function DashboardPage() {
     enabled: !!userId,
   })
   // 참여자 캐러셀 = 활성 + 대기(뒤에 붙임). ACTIVE 를 먼저, PENDING 을 뒤에.
+  //   종료 프로그램은 여운(ENDED_GRACE_DAYS)이 지나면 캐러셀에서 빠지고 아래 «접힌 줄»로 간다.
+  //   ⚠️ 이 목록은 참여자 수 집계·콜드스타트 판정에도 쓰이므로 «원본은 거르지 않는다».
+  //      거르는 건 캐러셀용 visible* 뿐이다. [[lib/programVisuals]]
   const participantPrograms = useMemo(
     () => [...activePrograms, ...pendingPrograms],
     [activePrograms, pendingPrograms],
@@ -473,7 +476,16 @@ function DashboardPage() {
   const effectiveMode = canToggleMode ? viewMode : (isOperator ? 'operator' : 'participant')
   const showOperator = effectiveMode === 'operator'
   // 캐러셀에 깔 목록 = 현재 모드의 프로그램 전부.
-  const slideList = showOperator ? myPrograms : participantPrograms
+  // 캐러셀에 «보이는» 목록과, 여운(ENDED_GRACE_DAYS)이 끝나 접힌 목록.
+  //   ⚠️ showOperator 가 이 위에서 선언되므로 반드시 여기(그 아래)에 둔다 — 위쪽에 두면 선언 전 접근(TDZ)으로 렌더가 죽는다.
+  //   초안(DRAFT)은 end_date 가 있어도 isProgramEnded 가 PUBLISHED 만 «종료»로 보므로 접히지 않는다(본인 결정: 초안 유지).
+  const visibleMyPrograms = useMemo(() => myPrograms.filter(p => !isEndedBeyondGrace(p)), [myPrograms])
+  const visibleParticipantPrograms = useMemo(() => participantPrograms.filter(p => !isEndedBeyondGrace(p)), [participantPrograms])
+  const compressedPrograms = useMemo(
+    () => (showOperator ? myPrograms : participantPrograms).filter(isEndedBeyondGrace),
+    [showOperator, myPrograms, participantPrograms],
+  )
+  const slideList = showOperator ? visibleMyPrograms : visibleParticipantPrograms
   // featured = 캐러셀에서 지금 보고 있는 슬라이드(넛지·랭킹·참여자수 등이 선택 프로그램을 따라감).
   //   slide 가 목록 범위를 벗어나면(모드전환 직후 등) 첫 장으로 폴백.
   const featured = slideList[slide] || slideList[0] || null
@@ -831,6 +843,20 @@ function DashboardPage() {
             </>
           )}
           </ModeSlide>
+
+          {/* 접힌 줄 — 종료 뒤 ENDED_GRACE_DAYS 일이 지난 프로그램. 카드 자리를 차지하지 않고 한 줄로만.
+              누르면 기록이 남아 있는 곳으로 간다(운영자 = 전체 보기 / 참여자 = 내 기록). */}
+          {compressedPrograms.length > 0 && (
+            <button
+              type="button"
+              onClick={() => navigate(showOperator ? '/programs?tab=mine' : '/profile/activity')}
+              className="w-full mt-2.5 flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-left hover:bg-gray-100 transition"
+            >
+              {/* 라벨만. 7일 규칙 설명은 종료 팝업(ProgramDetailPage)과 운영자 리포트가 맡는다 — 여기 두면 중복(본인 결정 2026-10-05). */}
+              <span className="flex-1 min-w-0 text-sm font-bold text-gray-700">종료된 프로그램 {compressedPrograms.length}개</span>
+              <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+            </button>
+          )}
         </section></Reveal>
 
         {/* ─── 오늘의 활동 요약 / 운영 현황 — 모드별 4타일. 흰 카드 없이 페이지에 직접. ─── */}
