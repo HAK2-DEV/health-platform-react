@@ -14,7 +14,7 @@ import { resolveMissionIcon } from '../../lib/missionIcons'
 import { prepareImageFile } from '../../lib/imageInput'
 import { readDraft, writeDraft, clearDraft } from '../../lib/formDraft'
 import { fetchVerificationAward } from '../../lib/verificationScore'
-import { queryKeys, fetchMission, fetchProgramOverview, fetchProgram, fetchActivePrograms, fetchTodayMissions, fetchTodayCounts } from '../../lib/queries'
+import { queryKeys, fetchMission, fetchProgramOverview, fetchProgram, fetchActivePrograms, fetchTodayMissions, fetchTodayCounts, formatKstDate } from '../../lib/queries'
 import { detectMilestonesReached, resolveStreakMilestones, computeStage } from '../../lib/gamification'
 import { useToast } from '../../contexts/ToastContext'
 import { compressImage, compressThumbnail } from '../../lib/imageCompression'
@@ -93,6 +93,81 @@ function ClockMultiInput({ value, onChange, disabled }) {
 // 인증 화면 히어로(썸네일) 비율 — 여기 한 줄만 바꾸면 됨.
 //   예) 'aspect-[16/9]'(가로 넓게) · 'aspect-[4/3]'(더 높게) · 'aspect-square'(정사각)
 const HERO_ASPECT = 'aspect-[16/9]'
+
+// ─── 만회 인증(마이그 283) — 반려 시각부터 24시간 안에 다시 올리면 원래 날로 인정 ───
+//   최종 판정은 서버(a_verification_makeup_guard). 화면은 같은 규칙으로 미리 보여 주고, 안 되는 건 이유와 함께 일반 인증으로 돌린다.
+//   같은 인증(첫 인증 + 그 만회들 = 묶음)이 운영자에게 3번 반려되면 그날은 마감(본인 정의 2026-10-06 — 거듭된 같은 잘못 = 의도).
+//   시계는 아래 함수들 안에서만 읽는다(렌더 본문에서 직접 읽지 않는다).
+const MAKEUP_HOURS = 24
+const MAKEUP_MAX_REJECTS = 3
+const MAKEUP_BLOCKED = {
+  expired: '다시 올릴 수 있는 24시간이 지났어요.',
+  limit: '같은 인증이 3번 반려돼 그날 인증은 마감됐어요.',
+  done: '이미 다시 올렸어요. 운영자 확인을 기다리고 있어요.',
+  full: '그날 인증은 이미 채워져 있어요.',
+  invalid: '다시 올릴 수 없는 인증이에요.',
+}
+const MAKEUP_ERRORS = {   // 서버 오류 코드 → 같은 문구
+  MAKEUP_EXPIRED: MAKEUP_BLOCKED.expired,
+  MAKEUP_LIMIT: MAKEUP_BLOCKED.limit,
+  MAKEUP_DUPLICATE: MAKEUP_BLOCKED.done,
+  MAKEUP_INVALID: MAKEUP_BLOCKED.invalid,
+}
+const kstDayNum = (d) => {
+  const [y, m, dd] = formatKstDate(d).split('-').map(Number)
+  return Math.floor(Date.UTC(y, m - 1, dd) / 86400000)
+}
+// 원래 날 — 「10월 5일(어제)」
+function makeupDayLabel(iso) {
+  const d = new Date(iso)
+  const [, m, dd] = formatKstDate(d).split('-').map(Number)
+  const n = kstDayNum(new Date()) - kstDayNum(d)
+  return `${m}월 ${dd}일(${n <= 0 ? '오늘' : n === 1 ? '어제' : `${n}일 전`})`
+}
+// 남은 시간 — 「20시간」·「35분」, 지났으면 null
+function makeupLeftText(reviewedAt) {
+  const ms = new Date(reviewedAt).getTime() + MAKEUP_HOURS * 3600000 - Date.now()
+  if (ms <= 0) return null
+  const h = Math.floor(ms / 3600000)
+  return h >= 1 ? `${h}시간` : `${Math.max(1, Math.floor(ms / 60000))}분`
+}
+// 만회 자격 — 내 인증·이 미션·반려·24시간 안·아직 안 올림·묶음 반려 3번 미만 + 그날 몫(반려 아닌 인증 수)
+async function fetchMakeupInfo(redoId, userId, missionId) {
+  if (!/^[0-9a-f-]{36}$/i.test(redoId || '')) return { ok: false, reason: 'invalid' }
+  const { data: prev, error } = await supabase
+    .from('verifications')
+    .select('id, user_id, mission_id, status, submitted_at, reviewed_at, rejection_reason, makeup_root')
+    .eq('id', redoId)
+    .maybeSingle()
+  if (error) throw error
+  if (!prev || prev.user_id !== userId || prev.mission_id !== missionId || prev.status !== 'REJECTED' || !prev.reviewed_at) {
+    return { ok: false, reason: 'invalid' }
+  }
+  const root = prev.makeup_root || prev.id
+  const { data: chain, error: chainErr } = await supabase
+    .from('verifications')
+    .select('id, status, makeup_of')
+    .or(`id.eq.${root},makeup_root.eq.${root}`)
+  if (chainErr) throw chainErr
+  if ((chain || []).some(r => r.makeup_of === prev.id)) return { ok: false, reason: 'done' }
+  const rejects = (chain || []).filter(r => r.status === 'REJECTED').length
+  if (rejects >= MAKEUP_MAX_REJECTS) return { ok: false, reason: 'limit' }
+  if (!makeupLeftText(prev.reviewed_at)) return { ok: false, reason: 'expired' }
+  // 그날 몫 — 서버 하루 한도(169)는 원래 날(KST)의 «반려 아닌» 인증 수로 센다
+  const dayStart = new Date(`${formatKstDate(new Date(prev.submitted_at))}T00:00:00+09:00`)
+  const { count, error: dayErr } = await supabase
+    .from('verifications')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId).eq('mission_id', missionId)
+    .neq('status', 'REJECTED')
+    .gte('submitted_at', dayStart.toISOString())
+    .lt('submitted_at', new Date(dayStart.getTime() + 86400000).toISOString())
+  if (dayErr) throw dayErr
+  return {
+    ok: true, id: prev.id, submittedAt: prev.submitted_at, reviewedAt: prev.reviewed_at,
+    reason: (prev.rejection_reason || '').trim() || null, rejects, dayCount: count || 0,
+  }
+}
 
 // 참여자 미션 인증 페이지 (React Query 패턴)
 // — 미션 로드는 useQuery (캐시 자동) — 같은 미션 재진입 시 즉시 표시
@@ -250,6 +325,27 @@ function MissionVerifyPage() {
   })
   const canVerify = isOwner || myPart?.status === 'ACTIVE'
 
+  // ─── 만회 인증(마이그 283) — ?redo=<반려된 인증 id> ───
+  //   반려 알림 「다시 인증하기」·오늘 할 일 「다시 인증」으로 들어온다. 자격이 있으면 「다시 올리기」 모드:
+  //   오늘 열림·오늘 한도 대신 «원래 날» 몫을 보고, 제출 때 makeup_of 를 보낸다(날짜·심사 대기는 서버가 정함).
+  //   자격이 없으면 이유 한 줄을 보이고 일반 인증 화면 그대로(오늘 인증은 할 수 있게).
+  const redoId = new URLSearchParams(location.search).get('redo')
+  const { data: redoInfo, isLoading: isRedoLoading, isError: isRedoError } = useQuery({
+    queryKey: ['verifications', 'makeup', redoId, session?.user?.id],
+    queryFn: () => fetchMakeupInfo(redoId, session.user.id, missionId),
+    enabled: !!session && !!redoId && !!missionId,
+  })
+  const redoLeft = redoInfo?.ok ? makeupLeftText(redoInfo.reviewedAt) : null
+  const redoDayFull = !!redoInfo?.ok && mission?.daily_limit != null && redoInfo.dayCount >= mission.daily_limit
+  const redo = (redoInfo?.ok && redoLeft && !redoDayFull)
+    ? { ...redoInfo, left: redoLeft, dayLabel: makeupDayLabel(redoInfo.submittedAt) }
+    : null
+  const redoMode = !!redo
+  const redoBlocked = (!redoId || redoMode || isRedoLoading) ? null
+    : MAKEUP_BLOCKED[isRedoError ? 'invalid' : !redoInfo?.ok ? redoInfo?.reason : redoDayFull ? 'full' : 'expired'] || MAKEUP_BLOCKED.invalid
+  // 제출은 모두 여기로(일반·명상·걸음·식단) — 누른 순간의 만회 정보를 함께 넘긴다
+  const submitNow = () => submitMutation.mutate({ makeup: redo })
+
   // 입력 상태
   // 사진 고르는 사이 앱이 회수돼 다시 로드되면 입력이 전부 날아간다 (2026-09-17 제보).
   //   안드로이드는 갤러리를 «별도 앱» 으로 띄우는데, 그동안 메모리가 부족하면 PWA 프로세스를 회수한다.
@@ -359,7 +455,7 @@ function MissionVerifyPage() {
   const handleMealSubmit = (payload) => {
     mealDataRef.current = { items: payload.items, totals: payload.totals, source: payload.source }
     mealPhotoRef.current = payload.photoFile || null
-    submitMutation.mutate()
+    submitNow()
   }
   // 다중 지표 (122) — 정의돼 있으면 지표별 입력, 없으면 레거시 단일 numeric
   const metricList = Array.isArray(mission?.metrics) ? mission.metrics : []
@@ -512,12 +608,15 @@ function MissionVerifyPage() {
 
   // 제출 — useMutation. 성공 시 invalidate 로 모든 화면 자동 갱신
   const submitMutation = useMutation({
-    mutationFn: async () => {
+    // makeup = 만회 인증(283)일 때 반려된 인증 정보 — 누른 순간의 값을 submitNow 가 넘긴다
+    mutationFn: async ({ makeup } = {}) => {
       const insertData = {
         id: crypto.randomUUID(),
         mission_id: mission.id,
         user_id: session.user.id,
       }
+      // 만회 — 반려된 인증을 가리키기만 한다. 제출 시각(원래 날)·심사 대기는 서버가 정한다.
+      if (makeup) insertData.makeup_of = makeup.id
       let imagePath = null
       // 업로드할 사진 — 일반 미션=선택 사진, 식단 미션=AI 사진(있을 때만)
       const uploadFile = isMeal ? mealPhotoRef.current : ((needsImage && selectedFile) ? selectedFile : null)
@@ -600,19 +699,30 @@ function MissionVerifyPage() {
         if (insertError.code === '23505') {
           throw new Error('이미 인증에 사용한 사진이에요. 다른 사진을 올려주세요.')
         }
-        // 서버 daily_limit 트리거(103) — 오늘 한도 도달
+        // 만회(283) — 화면에서 본 뒤 서버에서 걸림(그사이 24시간이 지났거나 다른 기기에서 먼저 올림 등)
+        const makeupCode = insertError.message?.match(/MAKEUP_[A-Z]+/)?.[0]
+        if (makeupCode && MAKEUP_ERRORS[makeupCode]) {
+          queryClient.invalidateQueries({ queryKey: ['verifications', 'makeup'] })
+          throw new Error(MAKEUP_ERRORS[makeupCode])
+        }
+        // 서버 daily_limit 트리거(103) — 오늘 한도 도달(만회면 «원래 날» 한도)
         if (insertError.message?.includes('DAILY_LIMIT_REACHED')) {
           queryClient.invalidateQueries({ queryKey: queryKeys.todayCounts(session.user.id) })
+          if (makeup) {
+            queryClient.invalidateQueries({ queryKey: ['verifications', 'makeup'] })
+            throw new Error(MAKEUP_BLOCKED.full)
+          }
           throw new Error('오늘은 이미 인증을 완료했어요. 내일 다시 인증할 수 있어요.')
         }
         throw new Error(`인증 제출 실패: ${insertError.message}`)
       }
       // INSERT succeeded: a failed score lookup must not invite resubmission.
-      return mission.verification_type === 'AUTO'
+      // 만회는 늘 심사 대기라 받은 점수가 아직 없다
+      return (mission.verification_type === 'AUTO' && !makeup)
         ? await fetchVerificationAward(supabase, insertData.id)
         : null
     },
-    onSuccess: async (awardedPoints) => {
+    onSuccess: async (awardedPoints, { makeup } = {}) => {
       clearDraft(draftKey)   // 제출됐으니 보관본 폐기 — 다음 인증에 옛 값이 남지 않게
       // 효과음은 SubmitCelebration 이 체크 스탬프 순간에 재생(싱크). 여기서 즉시 울리면 소리가 먼저 남.
       // 인증 성공 → 점수/카운트/랭킹 모두 무효화 → 다른 화면 진입 시 fresh
@@ -665,7 +775,7 @@ function MissionVerifyPage() {
       }
 
       // 달리기 테마 — 오늘 인증이 즉시 승인되면 완료 화면 대신 러닝 홈으로 돌아가 「도장」 1회 재생
-      if (program?.theme === 'RUNNING' && approvedToday) {
+      if (program?.theme === 'RUNNING' && approvedToday && !makeup) {   // 만회는 심사 대기 — 도장 연출 없음
         navigate(`/programs/${programId}?stamped=1`, { replace: true })
         return
       }
@@ -675,7 +785,7 @@ function MissionVerifyPage() {
       //   (낙관적 카운트: 방금 제출한 미션 +1 반영. recTodayMissions 미로딩 시엔 기존 완료화면 유지)
       const optimisticCounts = {
         ...recTodayCounts,
-        [mission.id]: { total: (recTodayCounts[mission.id]?.total || 0) + 1 },
+        [mission.id]: { total: (recTodayCounts[mission.id]?.total || 0) + (makeup ? 0 : 1) },   // 만회는 원래 날 몫
       }
       const anyRemaining = recTodayMissions.some(m => isRecordableMission(m, optimisticCounts))
       if (fromRecord && recTodayMissions.length > 0 && !anyRemaining) {
@@ -686,7 +796,8 @@ function MissionVerifyPage() {
       const t = new Date()
       const timeStr = `${t.getHours() < 12 ? '오전' : '오후'} ${t.getHours() % 12 || 12}:${String(t.getMinutes()).padStart(2, '0')}`
       const donePayload = {
-        points: mission.verification_type === 'AUTO' ? awardedPoints : earnedPoint,
+        points: (mission.verification_type === 'AUTO' && !makeup) ? awardedPoints : earnedPoint,
+        makeup: makeup ? { dayLabel: makeup.dayLabel } : null,   // 만회 완료 — 「○월 ○일(어제) 인증으로 인정돼요」
         streak,
         timeStr,
         note: (needsNote && noteText.trim()) ? noteText.trim() : null,
@@ -774,7 +885,7 @@ function MissionVerifyPage() {
     }
     setError(null)
     if (needsNumeric && !(await ensureHealthConsent())) return   // 거부 시 제출만 막고 화면은 유지
-    submitMutation.mutate()
+    submitNow()
   }
 
   const isSubmitting = submitMutation.isPending
@@ -785,13 +896,14 @@ function MissionVerifyPage() {
   // 일일 한도 가드 — 오늘 이미 한도만큼 인증했으면 재제출 차단
   //   (뒤로가기/재진입/다른 경로 중복 제출 방지. 서버 트리거 103 의 클라 미러)
   const todayDoneCount = (mission && recTodayCounts[mission.id]?.total) || 0
+  //   만회 모드는 «원래 날» 몫을 보므로 오늘 한도와 무관(그날 몫은 위 redoDayFull 이 본다)
   const dailyLimitReached =
-    !!mission && mission.daily_limit != null && todayDoneCount >= mission.daily_limit
+    !redoMode && !!mission && mission.daily_limit != null && todayDoneCount >= mission.daily_limit
 
   const canSubmit = (() => {
     if (isSubmitting) return false
     if (!mission) return false
-    if (!todayCheck.active) return false
+    if (!todayCheck.active && !redoMode) return false   // 만회는 원래 날 인증 — 오늘 열림 여부와 무관
     if (dailyLimitReached) return false
     if (reqImage && !selectedFile) return false
     if (reqNumeric && !numericFilled) return false
@@ -800,7 +912,7 @@ function MissionVerifyPage() {
     return true
   })()
 
-  if (isLoading || isPartLoading) {
+  if (isLoading || isPartLoading || (redoId && isRedoLoading)) {   // 만회 판정 전에 일반 화면이 잠깐 뜨지 않게
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
         <LoadingState variant="inline" />
@@ -891,7 +1003,9 @@ function MissionVerifyPage() {
     // 기록하기 흐름이면 단계 라벨도 기록하기 기준(미션 선택·기록/인증)으로
     const STEPS_DONE = fromRecord ? ['프로그램 선택', '미션 선택', '기록·인증'] : ['프로그램 선택', '미션 확인', '미션 인증']
     // 운영자 심사(MANUAL) 미션 — 승인 전이라 점수 미반영 + '승인 대기' 표기
-    const isReview = mission?.verification_type !== 'AUTO'
+    // 만회(283)는 미션 방식과 무관하게 운영자 심사
+    const makeupDone = submitted.makeup || null
+    const isReview = !!makeupDone || mission?.verification_type !== 'AUTO'
     return (
       <div className="min-h-screen bg-gray-50 -mx-4 -mt-2">
         {!celebrated && (
@@ -945,8 +1059,8 @@ function MissionVerifyPage() {
                 transition={{ duration: 0.9, times: [0, 0.4, 0.65, 0.85, 1], ease: 'easeOut' }}
               />
               <div className="min-w-0">
-                <h2 className="text-[21px] font-extrabold text-gray-900 leading-tight">{isReview ? '인증을 제출했어요!' : '기록이 완료되었어요!'}</h2>
-                {isReview && <p className="text-[12px] text-gray-500 mt-1">운영자 승인 후 점수가 반영돼요.</p>}
+                <h2 className="text-[21px] font-extrabold text-gray-900 leading-tight">{makeupDone ? '다시 올렸어요!' : isReview ? '인증을 제출했어요!' : '기록이 완료되었어요!'}</h2>
+                {isReview && <p className="text-[12px] text-gray-500 mt-1">{makeupDone ? `운영자 승인 후 ${makeupDone.dayLabel} 인증으로 인정돼요.` : '운영자 승인 후 점수가 반영돼요.'}</p>}
               </div>
             </div>
 
@@ -964,7 +1078,7 @@ function MissionVerifyPage() {
                 <div className="flex-1 min-w-0">
                   <p className="text-[14px] font-bold text-gray-800 truncate">{mission.title}</p>
                   <p className="text-[11px] text-gray-400 mt-0.5">
-                    {mission.verification_type === 'AUTO' ? '자동 승인' : '운영자 심사'}
+                    {mission.verification_type === 'AUTO' && !makeupDone ? '자동 승인' : '운영자 심사'}
                     {mission.daily_limit ? ` · 하루 ${mission.daily_limit}회` : ' · 무제한'}
                   </p>
                 </div>
@@ -1087,7 +1201,7 @@ function MissionVerifyPage() {
     return (
       <MeditationPlayer
         mission={mission}
-        onComplete={() => { primeAudio(); submitMutation.mutate() }}
+        onComplete={() => { primeAudio(); submitNow() }}
         onClose={handleClose}
         submitting={submitMutation.isPending}
       />
@@ -1099,7 +1213,7 @@ function MissionVerifyPage() {
       <StepsVerify
         mission={mission}
         submitting={submitMutation.isPending}
-        onSubmit={(s) => { stepsRef.current = s; primeAudio(); submitMutation.mutate() }}
+        onSubmit={(s) => { stepsRef.current = s; primeAudio(); submitNow() }}
         onCancel={handleClose}
       />
     )
@@ -1247,7 +1361,29 @@ function MissionVerifyPage() {
         transition={{ duration: 0.35, delay: 0.05 }}
         className="relative -mt-6 bg-white rounded-t-[2rem] shadow-sm px-5 pt-5 pb-32"
       >
-        {!todayCheck.active && (
+        {/* 만회 인증(283) — 반려된 인증을 다시 올리는 중. 원래 날·남은 시간·운영자 메모 */}
+        {redoMode && (
+          <div className="mb-5 p-3 bg-rose-50 border border-rose-200 rounded-xl">
+            <p className="text-sm font-bold text-rose-700 mb-0.5">🔁 다시 올리는 인증이에요</p>
+            <p className="text-xs text-rose-700">{redo.dayLabel} 인증으로 인정돼요 · {redo.left} 남았어요</p>
+            {redo.reason && (
+              <div className="mt-2 px-2.5 py-2 bg-white rounded-lg">
+                <p className="text-[11px] font-bold text-gray-500 mb-0.5">운영자 메모</p>
+                <p className="text-xs text-gray-700 whitespace-pre-line break-keep">{redo.reason}</p>
+              </div>
+            )}
+            {needsImage && <p className="mt-2 text-xs text-rose-700">반려된 사진은 다시 쓸 수 없어요. 다른 사진을 올려 주세요.</p>}
+            {redo.rejects >= MAKEUP_MAX_REJECTS - 1 && (
+              <p className="mt-1 text-xs font-bold text-rose-700">한 번 더 반려되면 그날 인증은 마감돼요.</p>
+            )}
+          </div>
+        )}
+        {redoBlocked && (
+          <div className="mb-5 p-3 bg-gray-50 border border-gray-200 rounded-xl text-center">
+            <p className="text-xs text-gray-600">{redoBlocked}</p>
+          </div>
+        )}
+        {!todayCheck.active && !redoMode && (
           <div className="mb-5 p-3 bg-amber-50 border border-amber-200 rounded-xl text-center">
             <p className="text-sm font-medium text-amber-800 mb-0.5">
               🚫 오늘은 인증할 수 없어요
@@ -1281,7 +1417,7 @@ function MissionVerifyPage() {
                   +{earnedPoint}P{perInput && earnedPoint < mission.point ? ` / 최대 ${mission.point}P` : ''}
                 </span>
                 <span className="inline-flex items-center px-2 py-0.5 bg-white text-gray-700 text-[11px] rounded-full font-medium border border-gray-200">
-                  {mission.verification_type === 'AUTO' ? '⚡ 자동 승인' : '✅ 운영자 심사'}
+                  {mission.verification_type === 'AUTO' && !redoMode ? '⚡ 자동 승인' : '✅ 운영자 심사'}
                 </span>
                 {isMulti && (
                   <span className="inline-flex items-center px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[11px] rounded-full font-medium">
@@ -1576,7 +1712,7 @@ function MissionVerifyPage() {
                 : 'bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white disabled:bg-gray-300 disabled:bg-none disabled:text-gray-500'
             }`}
           >
-            {dailyLimitReached ? '🔒 오늘 인증 완료' : isSubmitting ? '제출 중...' : '인증 제출'}
+            {dailyLimitReached ? '🔒 오늘 인증 완료' : isSubmitting ? '제출 중...' : redoMode ? '다시 올리기' : '인증 제출'}
           </button>
         </div>
       </div>

@@ -143,6 +143,18 @@ function NotificationsPage() {
 
   // 사유성 알림(점수 제외·게시글 거절)은 이동 대신 사유 전체를 상세로 펼침. 그 외는 link_path 이동.
   const REASON_TYPES = new Set(['REVIEW_REJECTED', 'POST_REJECTED', 'OPERATOR_CHEER'])
+  // 반려 알림 → 「다시 인증하기」: 그 인증의 미션 화면으로 바로. 못 찾으면 그 프로그램의 미션 탭.
+  //   반려 사유만 보여 주고 「닫기」로 끝나던 막다른 길(반려 알림 연 사람 40%, 같은 미션 재인증 5% — 2026-10-06 실측).
+  //   ?redo=반려된 인증 — 24시간 안이면 「다시 올리기」(원래 날로 인정, 마이그 283). 지났으면 인증 화면이 이유를 보이고 일반 인증으로.
+  const goReverify = async (n) => {
+    setDetailNotif(null)
+    try {
+      const { data } = await supabase.from('verifications').select('mission_id, missions!inner(program_id)').eq('id', n.ref_id).maybeSingle()
+      if (data?.mission_id) { navigate(`/programs/${data.missions.program_id}/missions/${data.mission_id}?redo=${n.ref_id}`); return }
+    } catch { /* 아래 폴백 */ }
+    if (n.link_path) navigate(`${n.link_path}?tab=missions`)
+  }
+
   const handleClick = (n) => {
     if (!n.is_read) markReadMutation.mutate(n.id)
     if (REASON_TYPES.has(n.type) || !n.link_path) setDetailNotif(n)
@@ -272,8 +284,17 @@ function NotificationsPage() {
                 )
               })()}
               <p className="text-[11px] text-gray-400 mt-3">{formatRelativeKstDay(detailNotif.created_at)}</p>
-              <button type="button" onClick={() => setDetailNotif(null)}
-                className="mt-4 w-full h-11 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold transition">닫기</button>
+              {detailNotif.type === 'REVIEW_REJECTED' && detailNotif.ref_id ? (
+                <div className="mt-4 flex gap-2">
+                  <button type="button" onClick={() => setDetailNotif(null)}
+                    className="flex-1 h-11 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold transition">닫기</button>
+                  <button type="button" onClick={() => goReverify(detailNotif)}
+                    className="flex-[1.4] h-11 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold transition">다시 인증하기</button>
+                </div>
+              ) : (
+                <button type="button" onClick={() => setDetailNotif(null)}
+                  className="mt-4 w-full h-11 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold transition">닫기</button>
+              )}
             </div>
           </div>
         )
