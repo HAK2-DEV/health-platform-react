@@ -108,6 +108,7 @@ const SurveyUiDemo = lazy(() => import('./pages/dev/SurveyUiDemo'))  // 🔧 시
 const BannerStackDemo = lazy(() => import('./pages/dev/BannerStackDemo'))  // 🔧 운영자 배너 스택(덱) 프로토타입(숨김)
 const WelcomeTourDemo = lazy(() => import('./pages/dev/WelcomeTourDemo'))  // 🔧 운영자 환영 투어 데모 G2(숨김)
 const DashboardV7Demo = lazy(() => import('./pages/dev/DashboardV7Demo'))  // 🔧 대시보드 ⑦ 시안 실데이터(숨김)
+const ProgramDetailDemo = lazy(() => import('./pages/dev/ProgramDetailDemo'))  // 🔧 프로그램 상세(표준 카드홈) 시안 캔버스(숨김)
 const FlameDemo = lazy(() => import('./pages/dev/FlameDemo'))  // 🔧 불꽃·주간 스트릭 데모(가짜 데이터)
 
 // 가입 승인 알림(/programs/:id/participants) → 프로그램 상세 + 승인 심사 모달 자동 오픈
@@ -362,6 +363,9 @@ function AppShell() {
             <Route path="/dev/welcome-tour" element={<WelcomeTourDemo />} />
             <Route path="/dev/dashboard" element={
               <ProtectedRoute><DashboardV7Demo /></ProtectedRoute>
+            } />
+            <Route path="/dev/program" element={
+              <ProtectedRoute><ProgramDetailDemo /></ProtectedRoute>
             } />
             <Route path="/dev/flame" element={<FlameDemo />} />
             </>)}
