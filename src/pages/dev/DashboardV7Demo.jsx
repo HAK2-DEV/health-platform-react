@@ -479,6 +479,24 @@ function classWhen(iso) {
 // 다음 일정 — 후보(미션·퀴즈·클래스) 중 시작이 가장 이른 것
 const pickNext = (cands) => cands.filter(Boolean).sort((a, b) => new Date(a.at) - new Date(b.at))[0] || null
 
+/** ⑧ 인사 영역 배경 — 잎사귀 민트 일러스트(본인 2026-10-06 제공 → public/illustrations/home-backdrop-leaves.jpg,
+ *  흰 테두리·둥근 모서리 바깥은 잘라 냄). 가로로 긴 그림(1.72:1)이고 잎이 네 귀퉁이에 있어서 폭에 «맞춰» 비율 그대로 깐다 —
+ *  높이에 맞춰 덮으면(cover) 양옆 잎이 잘려 빈 가운데만 남는다. 헤더 아래에서 시작, 내용 폭(max-w-md) 안에만.
+ *  그림 자체가 옅어서 따로 흐리게 하지 않는다. 위는 흰 헤더와 맞닿는 선이 안 보이게, 아래는 흰 바탕으로 녹인다. */
+function V8Backdrop() {
+  return (
+    <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-[46px]">
+      <div className="relative max-w-md mx-auto">
+        <img src="/illustrations/home-backdrop-leaves.jpg" alt="" className="block w-full h-auto" />
+        <div
+          className="absolute inset-0"
+          style={{ background: 'linear-gradient(to bottom, #fff 0%, rgba(255,255,255,0) 10%, rgba(255,255,255,0) 60%, #fff 100%)' }}
+        />
+      </div>
+    </div>
+  )
+}
+
 /** ⑧ 카드 줄 — 한 장씩 꽉 차게 넘기고, 아래 초록 점으로 위치 표시 */
 function V8Carousel({ children, t, onIndex }) {
   const [idx, setIdx] = useState(0)
@@ -852,6 +870,8 @@ function DashboardV7Demo() {
 
     return (
       <div className={`relative min-h-screen ${t.page}`}>
+        {/* 인사 영역 배경 그림(잎사귀 민트) — 밝은 테마에서만. 첫 화면(콜드스타트)은 자기 새싹 그림이 있어 뺀다 */}
+        {!t.dark && !isColdStart && <V8Backdrop />}
         <header className={`sticky top-0 z-30 backdrop-blur-sm ${t.header}`}>
           <div className="max-w-md mx-auto h-[46px] px-4 flex items-center justify-center relative">
             <span className="absolute left-3 text-[12.5px] font-bold text-amber-700 bg-amber-50 rounded-full px-2 py-0.5">dev ⑧</span>
@@ -903,7 +923,7 @@ function DashboardV7Demo() {
                       type="button"
                       onClick={() => { setMode(k); setSlide(0) }}
                       aria-pressed={effMode === k}
-                      className={`px-3 py-1 rounded-full text-[12.5px] transition ${effMode === k ? 'bg-white font-extrabold text-gray-800 shadow-sm' : (t.dark ? 'text-white/65' : 'text-gray-500')}`}
+                      className={`px-3 py-1 rounded-full text-[12.5px] transition ${effMode === k ? 'bg-white font-extrabold text-emerald-600 shadow-sm' : (t.dark ? 'text-white/65' : 'text-gray-500')}`}
                     >
                       {label}
                     </button>
