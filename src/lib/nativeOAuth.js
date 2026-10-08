@@ -101,9 +101,12 @@ async function googleIdTokenSignIn() {
   await ensureGoogleInit()
   const raw = randomNonce()
   const hashed = await sha256Hex(raw)
+  // ⚠️ scopes 를 주지 않는다 — 플러그인은 scopes 가 있으면 «구식 GoogleSignIn 경로»로 가며 MainActivity 수정을
+  //   요구하고, 없으면 즉시 실패시킨다("You CANNOT use scopes without modifying the main activity", 2026-10-08 폰에서 확인).
+  //   scopes 없이 가면 Credential Manager(계정 선택창) 경로. 이메일·이름·사진은 ID 토큰 안에 이미 들어 있다.
   const res = await SocialLogin.login({
     provider: 'google',
-    options: { scopes: ['email', 'profile'], ...(hashed ? { nonce: hashed } : {}) },
+    options: { ...(hashed ? { nonce: hashed } : {}) },
   })
   const idToken = res?.result?.idToken
   if (!idToken) throw new Error('ID 토큰이 없어요')

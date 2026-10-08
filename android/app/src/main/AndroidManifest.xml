@@ -63,4 +63,17 @@
     <uses-permission android:name="android.permission.health.READ_TOTAL_CALORIES_BURNED" tools:node="remove" />
     <uses-permission android:name="android.permission.health.READ_HEART_RATE" tools:node="remove" />
     <uses-permission android:name="android.permission.health.READ_EXERCISE_ROUTE" tools:node="remove" />
+
+    <!-- 구글 ID 토큰 로그인 플러그인(@capgo/capacitor-social-login, 2026-10-08)이 끌고 들어오는 권한 제거.
+         우리는 구글 계정 선택창(Credential Manager)만 쓴다 — 생체인증·패스키·광고 ID·설치 리퍼러는 안 쓴다.
+         (페이스북 SDK 는 gradle.properties 의 compileOnly 로 아예 빠지지만, 혹시 남아도 여기서 걷어낸다.) -->
+    <uses-permission android:name="android.permission.USE_CREDENTIALS" tools:node="remove" />
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" tools:node="remove" />
+    <uses-permission android:name="android.permission.USE_FINGERPRINT" tools:node="remove" />
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />
+    <uses-permission android:name="android.permission.ACCESS_ADSERVICES_ATTRIBUTION" tools:node="remove" />
+    <uses-permission android:name="android.permission.ACCESS_ADSERVICES_AD_ID" tools:node="remove" />
+    <uses-permission android:name="android.permission.ACCESS_ADSERVICES_CUSTOM_AUDIENCE" tools:node="remove" />
+    <uses-permission android:name="android.permission.ACCESS_ADSERVICES_TOPICS" tools:node="remove" />
+    <uses-permission android:name="com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE" tools:node="remove" />
 </manifest>

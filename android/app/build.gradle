@@ -71,3 +71,11 @@ try {
 } catch(Exception e) {
     logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
 }
+
+// @capgo/capacitor-social-login 이 페이스북 SDK(facebook-login 18.x)를 끄는 스위치 없이 하드코딩해 둔다(2026-10-08).
+//   우리는 구글 ID 토큰만 쓰고 FacebookProvider 는 facebook 설정을 넘길 때만 생성되므로(SocialLoginPlugin.java:126)
+//   SDK 를 APK 에서 빼도 안전하다. 빼지 않으면 광고 ID·adservices·설치 리퍼러 권한 9개가 매니페스트에 병합돼
+//   Play 권한 검증(scripts/verify-manifest.mjs)이 깨진다. 남는 권한은 AndroidManifest 의 tools:node="remove" 가 걷어낸다.
+configurations.all {
+    exclude group: 'com.facebook.android'
+}
