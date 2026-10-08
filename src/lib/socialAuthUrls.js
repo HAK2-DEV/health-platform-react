@@ -13,10 +13,15 @@ import { supabase } from '../supabaseClient'
 export const NATIVE_SCHEME = 'com.healthplatform.app'
 export const NATIVE_REDIRECT = `${NATIVE_SCHEME}://auth/callback`
 
-// 라이브 웹 주소 — 네이티브는 origin 이 https://localhost 라 redirect_uri 로 쓸 수 없어서
-//   «웹의 콜백 페이지»를 빌려 쓴다. 카카오·네이버 콘솔에 이미 등록된 그 주소.
+// 라이브 웹 주소 — 네이티브는 origin 이 https://localhost 라 redirect_uri 로 쓸 수 없어서 라이브 도메인을 빌려 쓴다.
 export const WEB_ORIGIN = import.meta.env.VITE_WEB_ORIGIN || 'https://healthplatform-pi.vercel.app'
-export const WEB_AUTH_CALLBACK = `${WEB_ORIGIN}/auth/callback`
+// 네이티브 복귀 주소 = «서버 함수»(api/native-return.mjs) — SPA 페이지(/auth/callback)가 아니다. (2026-10-08 폰 재현 뒤 결정)
+//   · SPA 로 받으면 두 가지가 막는다: ① 폰 브라우저(크롬·삼성 인터넷 각각)에 남은 옛 PWA 서비스워커가 옛 index 를 내줘
+//     빈 화면/옛 페이지가 뜬다 ② JS 로 앱 스킴에 보내는 건 크롬이 «제스처 없는 앱 전환» 으로 막는다.
+//   · /api/ 는 처음부터 서비스워커 제외 경로라 옛 서비스워커도 못 건드리고, 서버가 302 로 앱 스킴을 주면 크롬이
+//     사용자 내비게이션 사슬로 보고 앱을 바로 연다(Supabase 호스팅 OAuth 가 구글 로그인에서 쓰는 방식).
+//   ⚠️ 카카오 Redirect URI · 네이버 Callback URL 에 이 주소가 등록돼 있어야 한다(둘 다 여러 개 등록 가능).
+export const WEB_AUTH_CALLBACK = `${WEB_ORIGIN}/api/native-return`
 
 export const PROVIDER_FN = {
   kakao: 'kakao-oauth',

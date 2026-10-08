@@ -1,6 +1,11 @@
 {
   "rewrites": [
-    { "source": "/((?!assets/).*)", "destination": "/index.html" }
+    {
+      "source": "/auth/callback",
+      "has": [{ "type": "query", "key": "state", "value": ".*\\.native" }],
+      "destination": "/api/native-return"
+    },
+    { "source": "/((?!assets/|api/).*)", "destination": "/index.html" }
   ],
   "headers": [
     {
