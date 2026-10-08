@@ -13,6 +13,11 @@
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:background">@null</item>
+        <!-- 상태바 — 안드14 이하용. 전에는 @capacitor/status-bar 가 Window.setStatusBarColor(지원 중단 API)로 하던 일.
+             앱 배경(surface-app #f8fbf9)과 같은 색 + 어두운 아이콘. 안드15+ 는 엣지투엣지라 색은 무시되고
+             아이콘 밝기는 MainActivity 의 EdgeToEdge.enable(SystemBarStyle.light) 가 정한다. (2026-10-09) -->
+        <item name="android:statusBarColor">#F8FBF9</item>
+        <item name="android:windowLightStatusBar">true</item>
     </style>
 
 

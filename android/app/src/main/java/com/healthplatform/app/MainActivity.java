@@ -5,10 +5,11 @@ import android.os.Bundle;
 import android.view.View;
 import android.view.WindowManager;
 import android.webkit.WebView;
-import androidx.activity.EdgeToEdge;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
@@ -41,8 +42,19 @@ public class MainActivity extends BridgeActivity {
         setTheme(R.style.AppTheme_NoActionBar);
 
         // ⚠️ EdgeToEdge.enable 은 super.onCreate(= setContentView) «이전» 에 불러야 한다.
+        //   SystemBarStyle.light = «밝은 바 + 어두운 아이콘» 을 시스템 테마와 무관하게 고정(앱은 라이트 전용).
+        //   전에는 @capacitor/status-bar 가 style:LIGHT 로 하던 일인데, 그 플러그인이 지원 중단 API
+        //   (Window.set/getStatusBarColor)를 참조해 Play 가 경고해서 뺐다(2026-10-09). 안드15+ 에선 어차피
+        //   상태바 색을 못 정하고(투명 강제) 아이콘 밝기만 의미가 있다.
+        //   ⚠️ androidx.activity 의 EdgeToEdge.enable 은 쓰지 않는다 — 그 안의 API 21~29 구현이
+        //   Window.setStatusBarColor(지원 중단)를 부르고, R8 도 런타임 분기라 못 지워 Play 가 계속 경고한다.
+        //   안드15+ 는 엣지투엣지가 «강제» 라 켤 것이 없고, 필요한 건 아이콘 밝기(라이트 바)뿐이다 → 비-deprecated 인
+        //   WindowInsetsControllerCompat 로 직접. 내비바 대비 스크림 해제도 EdgeToEdge.enable 과 같게 맞춘다.
         if (Build.VERSION.SDK_INT >= 35) {
-            EdgeToEdge.enable(this);
+            WindowInsetsControllerCompat bars = WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+            bars.setAppearanceLightStatusBars(true);
+            bars.setAppearanceLightNavigationBars(true);
+            getWindow().setNavigationBarContrastEnforced(false);
         }
 
         super.onCreate(savedInstanceState); // ← Capacitor 브리지·플러그인 로드

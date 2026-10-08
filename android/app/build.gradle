@@ -36,8 +36,12 @@ android {
     buildTypes {
         release {
             if (hasKeystore) { signingConfig signingConfigs.release }
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            // R8 (2026-10-09, Play 권장 조치) — 코드 축소·최적화 + 안 쓰는 리소스 제거.
+            //   보존 규칙은 proguard-rules.pro(Capacitor 리플렉션·JS 브리지·플러그인·FCM). 켠 뒤 에뮬레이터로
+            //   기동·구글 시트·카카오 Custom Tab·딥링크 복귀를 다시 돌려 확인한다.
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 }

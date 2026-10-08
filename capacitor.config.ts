@@ -23,7 +23,9 @@ const config: CapacitorConfig = {
     '@capacitor/browser',
     '@capacitor/push-notifications',
     '@capacitor/splash-screen',
-    '@capacitor/status-bar',
+    // '@capacitor/status-bar' 제거(2026-10-09) — Play 가 지원 중단 API(Window.set/getStatusBarColor) 참조를 경고.
+    //   JS 에서 쓰지 않았고 설정만 있었다. 안드15+는 엣지투엣지라 색 지정이 무의미, 아이콘 색은 MainActivity 의
+    //   EdgeToEdge.enable(SystemBarStyle.light) 로, 안드14 이하는 테마 XML(statusBarColor·windowLightStatusBar)로.
   ],
   // 프로덕션은 번들된 자산 사용 (오프라인 일부 동작 + App Store 가이드라인 통과 유리).
   // 본인이 native 라이브 디버깅 원하면 아래 server.url 일시 활성화:
@@ -55,13 +57,7 @@ const config: CapacitorConfig = {
       splashFullScreen: false,
       splashImmersive: false,
     },
-    StatusBar: {
-      // 상태바가 웹뷰를 덮지 않게(false) → 콘텐츠가 상태바 밑으로 파고드는 문제 방지.
-      //   (Android 는 노치 없는 기기에서 env(safe-area-inset-top)=0 이라 CSS 패딩만으론 못 가림)
-      overlaysWebView: false,
-      style: 'LIGHT',             // 밝은 배경 → 어두운 아이콘 (플러그인 명명이 직관과 반대)
-      backgroundColor: '#f8fbf9', // surface-app 과 동일 — 상태바가 앱 상단과 자연스럽게 이어짐
-    },
+    // StatusBar 플러그인 설정 — 플러그인을 뺐으므로 없음(위 includePlugins 주석 참고). 옛 값: overlaysWebView false · LIGHT · #f8fbf9
   },
 }
 
