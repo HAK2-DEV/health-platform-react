@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { LogOut, Camera, Pencil, X, Loader2, ChevronRight, Bell, Shield, BookOpen, MessageCircle, Activity, LayoutDashboard } from 'lucide-react'
+import { LogOut, Camera, Pencil, X, Loader2, ChevronRight, Bell, Shield, BookOpen, MessageCircle, Activity, LayoutDashboard, Sparkles } from 'lucide-react'
 import { supabase } from '../supabaseClient'
 import { unsubscribeFromPush } from '../lib/push'
 import { prepareImageFile } from '../lib/imageInput'
@@ -9,7 +9,10 @@ import { unsubscribeNativePush } from '../lib/nativePush'
 import { useAuth } from '../hooks/useAuth'
 import { useNicknameCheck } from '../hooks/useNicknameCheck'
 import { NICKNAME } from '../lib/constants'
-import { queryKeys, fetchActivePrograms, fetchMyParticipantStats, fetchMyRole } from '../lib/queries'
+import { queryKeys, fetchActivePrograms, fetchMyParticipantStats, fetchMyRole, fetchMyPrograms } from '../lib/queries'
+import { isNativeApp } from '../lib/installPrompt'
+import { RELEASE_NOTES, releaseNoteFor, releaseDateLabel, markReleaseSeen } from '../lib/releaseNotes'
+import ReleaseNotes from '../components/common/ReleaseNotes'
 import UserAvatar from '../components/common/UserAvatar'
 import BackButton from '../components/common/BackButton'
 import NotificationBell from '../components/common/NotificationBell'
@@ -55,6 +58,17 @@ function ProfilePage() {
     enabled: !!userId,
   })
   const isAdmin = myRole === 'ADMIN'
+
+  // 「업데이트 사항」 다시 보기 — 대시보드 게이트와 같은 필터(운영자 전용 항목은 운영자에게만).
+  //   운영자 여부는 대시보드가 쓰는 myPrograms 캐시를 그대로 쓴다(요청 추가 없음).
+  const { data: myPrograms = [] } = useQuery({
+    queryKey: queryKeys.myPrograms(userId),
+    queryFn: () => fetchMyPrograms(userId),
+    enabled: !!userId,
+    staleTime: 60_000,
+  })
+  const latestRelease = releaseNoteFor(RELEASE_NOTES[0], { isNative: isNativeApp(), isOperator: myPrograms.length > 0 })
+  const [releaseOpen, setReleaseOpen] = useState(false)
 
   // 통계 박스 — 참여 프로그램 수 / 누적 포인트 / 연속 인증일
   const { data: activePrograms = [] } = useQuery({
@@ -455,6 +469,16 @@ function ProfilePage() {
         description="설치·참여·운영 튜토리얼을 다시 봐요"
         onClick={() => navigate('/onboarding?replay=1')}
       /></Reveal>
+      {/* 업데이트 사항 — 대시보드에서 한 번 뜬 공지를 여기서 언제든 다시 본다(본인 2026-10-08) */}
+      {latestRelease && (
+        <Reveal index={1}><ProfileMenuItem
+          tone="amber"
+          icon={<Sparkles className="w-5 h-5" />}
+          title="업데이트 사항"
+          description={`${releaseDateLabel(latestRelease)} · ${latestRelease.title}`}
+          onClick={() => setReleaseOpen(true)}
+        /></Reveal>
+      )}
       {/* 운영자 가이드 — UI 대폭 변경으로 내용 갱신 필요, 임시 숨김 (2026-06-22).
           개편 후 복구 예정. 라우트(/operator-guide)와 OperatorGuidePage 는 유지. */}
       {/* <ProfileMenuItem
@@ -491,6 +515,16 @@ function ProfilePage() {
           description="관리자 전용 · 용량·서비스 현황·살펴볼 것"
           onClick={() => navigate('/admin')}
         /></Reveal>
+      )}
+
+      {/* 업데이트 사항 팝업 — 닫으면 읽음으로도 표시(대시보드에서 또 뜨지 않게) */}
+      {latestRelease && (
+        <ReleaseNotes
+          note={latestRelease}
+          variant="popup"
+          isOpen={releaseOpen}
+          onClose={() => { markReleaseSeen(latestRelease.id); setReleaseOpen(false) }}
+        />
       )}
 
       {/* 로그아웃 — 소프트 레드 (참고 사진) */}

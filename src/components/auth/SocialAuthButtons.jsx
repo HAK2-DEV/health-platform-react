@@ -4,7 +4,8 @@ import { detectInAppBrowser, IN_APP_BROWSER_NAME, openExternalBrowser } from '..
 import GoogleSignInButton from './GoogleSignInButton'
 import { startOAuthState } from '../../lib/oauthState'
 import { isNativeApp } from '../../lib/installPrompt'
-import { nativeGoogleSignIn } from '../../lib/nativeOAuth'
+import { nativeGoogleSignIn, nativeProviderSignIn } from '../../lib/nativeOAuth'
+import { buildProviderAuthorizeUrl, PROVIDER_LABEL } from '../../lib/socialAuthUrls'
 
 // GIS 인페이지 로그인용 — 있으면 리다이렉트 없는 GIS 버튼, 없으면 기존 리다이렉트 폴백
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
@@ -17,13 +18,13 @@ const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
 //          Naver: state 필수(CSRF). VITE_NAVER_CLIENT_ID 필요. Edge secrets: NAVER_CLIENT_ID/SECRET/REDIRECT_URI
 //
 // 소셜 가입 흐름:
-//   Kakao: OAuth 인증 → /auth/callback → kakao-oauth Edge Function → verifyOtp → 로그인
-//   Google: Supabase 기본 OAuth → /
+//   Kakao/Naver(웹): authorize → /auth/callback → Edge Function → verifyOtp → 로그인
+//   Kakao/Naver(앱, 2026-10-08): authorize(Custom Tab) → 라이브 /auth/callback 이 딥링크로 code 를 튕김 → 앱이 Edge Function → verifyOtp
+//   Google: Supabase 기본 OAuth → /  (앱은 Custom Tab + 딥링크)
 //   → handle_new_user 트리거가 public.users 자동 생성 (nickname NULL)
 //   → HomePage 진입 → nickname 체크 → 미설정이면 /nickname-setup 자동 이동
 //
-// Kakao 환경변수 (.env / Vercel env):
-//   VITE_KAKAO_REST_API_KEY  : Kakao Developers 의 REST API 키 (공개 가능 — redirect_uri 화이트리스트로 보호)
+// authorize 주소·scope 는 lib/socialAuthUrls 한 벌 — 웹과 앱이 같은 것을 쓴다.
 function SocialAuthButtons() {
   const [loading, setLoading] = useState(null)  // 'google' | 'kakao' | 'naver' | null
   // GIS(인페이지) 초기화 실패 시 → 리다이렉트 방식 Google 버튼으로 폴백 (에러 노출 X)
@@ -89,48 +90,30 @@ function SocialAuthButtons() {
     // 성공 시 자동으로 OAuth 페이지로 리다이렉트 — loading 유지 (페이지 떠남)
   }
 
-  const handleKakao = () => {
-    const restApiKey = import.meta.env.VITE_KAKAO_REST_API_KEY
-    if (!restApiKey) {
-      alert('Kakao 로그인 설정이 누락됐어요 (VITE_KAKAO_REST_API_KEY).\n.env 또는 호스팅 환경변수를 확인해주세요.')
+  // 카카오·네이버 — 웹은 authorize 로 리다이렉트, 앱은 Custom Tab + 딥링크 bounce.
+  const handleProvider = async (provider) => {
+    const label = PROVIDER_LABEL[provider]
+    if (native) {
+      setLoading(provider)
+      try {
+        await nativeProviderSignIn(provider)
+      } catch (e) {
+        console.error(`네이티브 ${label} 로그인 실패:`, e)
+        alert(`${label} 로그인 실패: ${e.message || e}`)
+      } finally {
+        setLoading(null)
+      }
       return
     }
-    setLoading('kakao')
-    // Kakao OAuth authorize 페이지로 리다이렉트.
-    // scope: profile_nickname, profile_image (이메일은 비즈 앱 권한 필요해 제외)
-    //   ※ Kakao Developers > 카카오 로그인 > 동의항목 에서 위 2개 항목 필수 동의로 설정해둬야 함.
-    //   ※ account_email 은 비즈 앱 전환 후 추가 가능 — 현재는 가상 이메일(kakao_{id}@kakao.local)로 가입.
-    // redirect_uri 에 쿼리스트링 X — Kakao 가 자동 제거하는 경우가 있어 정확 일치 보장 위해 path-only.
     // provider 는 state 에 실어 보낸다 — 저장소(탭 단위)가 끊겨도 콜백에서 판별되도록. (lib/oauthState.js)
-    const state = startOAuthState('kakao')
-    const redirectUri = `${window.location.origin}/auth/callback`
-    const params = new URLSearchParams({
-      response_type: 'code',
-      client_id: restApiKey,
-      redirect_uri: redirectUri,
-      scope: 'profile_nickname profile_image',
-      state,
-    })
-    window.location.href = `https://kauth.kakao.com/oauth/authorize?${params.toString()}`
-  }
-
-  const handleNaver = () => {
-    const clientId = import.meta.env.VITE_NAVER_CLIENT_ID
-    if (!clientId) {
-      alert('Naver 로그인 설정이 누락됐어요 (VITE_NAVER_CLIENT_ID).\n.env 또는 호스팅 환경변수를 확인해주세요.')
+    const state = startOAuthState(provider)
+    const url = buildProviderAuthorizeUrl(provider, { redirectUri: `${window.location.origin}/auth/callback`, state })
+    if (!url) {
+      alert(`${label} 로그인 설정이 누락됐어요 (${provider === 'kakao' ? 'VITE_KAKAO_REST_API_KEY' : 'VITE_NAVER_CLIENT_ID'}).\n.env 또는 호스팅 환경변수를 확인해주세요.`)
       return
     }
-    setLoading('naver')
-    // 네이버는 CSRF 방지용 state 필수 — provider + nonce 를 함께 담아 보내고 콜백에서 검증. (lib/oauthState.js)
-    const state = startOAuthState('naver')
-    const redirectUri = `${window.location.origin}/auth/callback`
-    const params = new URLSearchParams({
-      response_type: 'code',
-      client_id: clientId,
-      redirect_uri: redirectUri,
-      state,
-    })
-    window.location.href = `https://nid.naver.com/oauth2.0/authorize?${params.toString()}`
+    setLoading(provider)
+    window.location.href = url
   }
 
   return (
@@ -159,13 +142,10 @@ function SocialAuthButtons() {
           </button>
         )}
 
-        {/* Kakao·Naver — 네이티브에선 아직 웹뷰 OAuth 미지원(bounce 방식 준비 중)이라 숨김.
-            웹/PWA 는 그대로 노출. 네이티브는 이메일+구글로 로그인. 수정 완료 시 !native 제거. */}
-        {!native && (<>
-        {/* Kakao */}
+        {/* Kakao — 앱도 지원(bounce, 2026-10-08) */}
         <button
           type="button"
-          onClick={handleKakao}
+          onClick={() => handleProvider('kakao')}
           disabled={loading === 'kakao'}
           className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#FEE500] hover:bg-[#FDD835] text-[#3C1E1E] text-sm font-medium rounded-xl transition disabled:opacity-50"
         >
@@ -173,17 +153,16 @@ function SocialAuthButtons() {
           {loading === 'kakao' ? '연결 중...' : 'Kakao 로 계속하기'}
         </button>
 
-        {/* Naver */}
+        {/* Naver — 앱도 지원(bounce, 2026-10-08) */}
         <button
           type="button"
-          onClick={handleNaver}
+          onClick={() => handleProvider('naver')}
           disabled={loading === 'naver'}
           className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#03C75A] hover:bg-[#02B450] text-white text-sm font-medium rounded-xl transition disabled:opacity-50"
         >
           <NaverIcon className="w-5 h-5" />
           {loading === 'naver' ? '연결 중...' : 'Naver 로 계속하기'}
         </button>
-        </>)}
       </div>
     </div>
   )

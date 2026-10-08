@@ -31,26 +31,32 @@ function randomNonce() {
   return String(Math.random()).slice(2) + String(Date.now())
 }
 
+// 세 번째 조각 — 네이티브 앱에서 시작한 로그인 표시(2026-10-08).
+//   네이티브는 redirect_uri 로 «라이브 웹의 /auth/callback» 을 빌려 쓰는데, 그 페이지는 앱의 localStorage 를
+//   못 본다(nonce 검증 불가·세션을 만들어도 앱엔 없음). 그래서 state 에 native 표시를 실어 보내면 콜백 페이지는
+//   검증·교환을 하지 않고 code 를 앱 딥링크로 «튕겨만» 준다. 검증과 교환은 앱이 한다(nonce 가 거기 있다).
+const NATIVE_TAG = 'native'
+
 /**
  * OAuth 시작 — state 문자열을 만들고 nonce 를 저장한다.
- * @returns {string} `${provider}.${nonce}` — authorize 요청의 state 로 그대로 보낼 것
+ * @param {string} provider
+ * @param {{ native?: boolean }} [opts] — native 면 state 끝에 `.native` 를 붙인다
+ * @returns {string} `${provider}.${nonce}` 또는 `${provider}.${nonce}.native` — authorize 의 state 로 그대로
  */
-export function startOAuthState(provider) {
+export function startOAuthState(provider, { native = false } = {}) {
   const nonce = randomNonce()
   try {
     localStorage.setItem(KEY, JSON.stringify({ nonce, provider, at: Date.now() }))
   } catch { /* 저장 불가 환경 — state 의 provider 로 판별은 되고, nonce 검증만 unavailable */ }
-  return `${provider}${SEP}${nonce}`
+  return `${provider}${SEP}${nonce}${native ? `${SEP}${NATIVE_TAG}` : ''}`
 }
 
-/** 콜백에서 받은 state 를 분해. 형식이 아니면 null. */
+/** 콜백에서 받은 state 를 분해. 형식이 아니면 null. { provider, nonce, native } */
 export function parseOAuthState(state) {
   if (typeof state !== 'string' || !state.includes(SEP)) return null
-  const i = state.indexOf(SEP)
-  const provider = state.slice(0, i)
-  const nonce = state.slice(i + 1)
+  const [provider, nonce, tag] = state.split(SEP)
   if (!/^[a-z]+$/.test(provider) || !nonce) return null
-  return { provider, nonce }
+  return { provider, nonce, native: tag === NATIVE_TAG }
 }
 
 /**

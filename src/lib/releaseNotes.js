@@ -122,6 +122,13 @@ export function pendingRelease({ isNative = false, isOperator = false } = {}) {
   const note = RELEASE_NOTES[0]
   if (!note) return null
   if (lastSeenReleaseId() === note.id) return null
+  return releaseNoteFor(note, { isNative, isOperator })
+}
+
+// 이 사람이 볼 항목만 남긴 노트 — 읽음 여부와 무관. 없으면 null.
+//   대시보드 게이트(pendingRelease)와 마이페이지 「업데이트 사항」(다시 보기)이 같은 필터를 쓴다(2026-10-08).
+export function releaseNoteFor(note, { isNative = false, isOperator = false } = {}) {
+  if (!note) return null
   const mine = isNative ? 'native' : 'web'
   const fits = (p) => !p || p === 'all' || p === mine
   if (!fits(note.platform)) return null
@@ -130,4 +137,10 @@ export function pendingRelease({ isNative = false, isOperator = false } = {}) {
   )
   if (items.length === 0) return null
   return { ...note, items }
+}
+
+// 「10월 7일」 — 마이페이지 목록용 날짜 표기
+export function releaseDateLabel(note) {
+  const [, m, d] = (note?.date || '').split('-').map(Number)
+  return m && d ? `${m}월 ${d}일` : ''
 }

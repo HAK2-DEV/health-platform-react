@@ -18,6 +18,7 @@ const config: CapacitorConfig = {
   //   응답하지 않는 현상의 유력 용의자(플러그인 호출 스레드 점유). JS 의 lib/health.js import 는 그대로 두되
   //   (웹 스텁), 걸음 기능을 다시 켤 땐 여기에 'capacitor-health' 를 추가하고 매니페스트의 tools:node="remove" 도 해제할 것.
   includePlugins: [
+    '@capgo/capacitor-social-login',   // 구글 ID 토큰 로그인(Credential Manager) — 2026-10-08
     '@capacitor/app',
     '@capacitor/browser',
     '@capacitor/push-notifications',
