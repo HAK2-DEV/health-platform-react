@@ -34,6 +34,12 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        // ⚠️ 테마를 «먼저» 액션바 없는 것으로 바꾼다 (BUG_LOG 19, 2026-10-08).
+        //   EdgeToEdge.enable 이 창 뼈대(decor)를 지금 테마로 먼저 만들어 버리는데, 지금 테마는 시작 화면용
+        //   (Theme.SplashScreen)이라 액션바가 있다. Capacitor(BridgeActivity)도 같은 setTheme 을 하지만
+        //   super.onCreate «안» 에서라 그때는 이미 늦어, 안드15+ 에서 화면 위에 「도담」 제목 막대가 붙었다(v48~v50).
+        setTheme(R.style.AppTheme_NoActionBar);
+
         // ⚠️ EdgeToEdge.enable 은 super.onCreate(= setContentView) «이전» 에 불러야 한다.
         if (Build.VERSION.SDK_INT >= 35) {
             EdgeToEdge.enable(this);
