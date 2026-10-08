@@ -5,7 +5,8 @@ import UserAvatar from '../common/UserAvatar'
 // ─── Top 3 포디움 — 2-1-3 레이아웃 ───────────────────────────
 // 1등 가운데/가장 크게, 2등 왼쪽/3등 오른쪽 작게.
 // 랭킹(글로벌) + 프로그램 상세 랭킹 탭 공용.
-function PodiumTop3({ top3, userId, programId = null }) {
+// flameOverride — /dev/flame 에서 로그인 없이 같은 컴포넌트를 렌더해 보기 위한 통로(dev 전용).
+function PodiumTop3({ top3, userId, programId = null, flameOverride = null }) {
   const [second, first, third] = [top3[1], top3[0], top3[2]]
 
   const slot = (row, place) => {
@@ -46,8 +47,9 @@ function PodiumTop3({ top3, userId, programId = null }) {
           size={place === 1 ? 'lg' : 'md'}
           className="mb-1.5"
           viewable
-          flameProgramId={programId}
-          flameUserId={row.user_id}
+          flameProgramId={flameOverride ? null : programId}
+          flameUserId={flameOverride ? null : row.user_id}
+          flame={flameOverride ? flameOverride[row.user_id] : null}
         />
         {isMe && (
           <span className="px-2 py-0.5 bg-emerald-500 text-white text-xs font-semibold rounded-pill mb-0.5">나</span>

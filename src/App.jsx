@@ -9,6 +9,7 @@ import { AvatarViewerProvider } from './contexts/AvatarViewerContext'
 import PwaUpdatePrompt from './components/common/PwaUpdatePrompt'
 import OfflineBanner from './components/common/OfflineBanner'
 import InstallPromptBanner from './components/common/InstallPromptBanner'
+import ReleaseNotesGate from './components/common/ReleaseNotesGate'
 import SplashScreen from './components/common/SplashScreen'
 import BottomTabBar from './components/common/BottomTabBar'
 import InAppBrowserBanner from './components/common/InAppBrowserBanner'
@@ -109,7 +110,8 @@ const BannerStackDemo = lazy(() => import('./pages/dev/BannerStackDemo'))  // �
 const WelcomeTourDemo = lazy(() => import('./pages/dev/WelcomeTourDemo'))  // 🔧 운영자 환영 투어 데모 G2(숨김)
 const DashboardV7Demo = lazy(() => import('./pages/dev/DashboardV7Demo'))  // 🔧 대시보드 ⑦ 시안 실데이터(숨김)
 const ProgramDetailDemo = lazy(() => import('./pages/dev/ProgramDetailDemo'))  // 🔧 프로그램 상세(표준 카드홈) 시안 캔버스(숨김)
-const FlameDemo = lazy(() => import('./pages/dev/FlameDemo'))  // 🔧 불꽃·주간 스트릭 데모(가짜 데이터)
+const FlameDemo = lazy(() => import('./pages/dev/FlameDemo'))
+const ReleaseDemo = lazy(() => import('./pages/dev/ReleaseDemo'))  // 🔧 배포 알림 배너 vs 팝업 비교
 
 // 가입 승인 알림(/programs/:id/participants) → 프로그램 상세 + 승인 심사 모달 자동 오픈
 function ApprovalsRedirect() {
@@ -162,6 +164,8 @@ function AppShell() {
       <PushForegroundBanner />
       {/* 약관·처리방침 개정 고지 — 대시보드에서 1회(13조 7일 전 안내) */}
       <PolicyUpdateNotice />
+      {/* 배포 변경사항 공지 — 「갑자기 화면이 바뀐」 순간의 궁금증을 대시보드에서 1회. 언제·누구에게는 게이트가 정한다 */}
+      <ReleaseNotesGate />
       {/* 인앱 브라우저(카톡 등) 안내 — 화면 축소 이슈. 감지 안 되면 렌더 X */}
       <InAppBrowserBanner />
       {/* 온보딩(초대/로그인/가입) 경로에서만 — 인앱 브라우저 강한 전체화면 게이트(외부 브라우저 유도) */}
@@ -368,6 +372,7 @@ function AppShell() {
               <ProtectedRoute><ProgramDetailDemo /></ProtectedRoute>
             } />
             <Route path="/dev/flame" element={<FlameDemo />} />
+            <Route path="/dev/release" element={<ReleaseDemo />} />
             </>)}
             <Route path="/support" element={
               <ProtectedRoute><SupportPage /></ProtectedRoute>

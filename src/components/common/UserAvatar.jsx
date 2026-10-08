@@ -42,7 +42,11 @@ function UserAvatar({ avatarPath, nickname, size = 'md', cacheBust, className = 
   const finalUrl = publicUrl && cacheBust ? `${publicUrl}?t=${cacheBust}` : publicUrl
 
   const lit = !!flame && flame.level > 0
-  const baseCls = `${sizeCls} ${className} flex-shrink-0 rounded-full overflow-hidden bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white font-semibold select-none`
+  // ⚠️ 불이 켜지면 className(전부 여백 클래스다)은 사진이 아니라 «바깥 상자»에 붙인다.
+  //   사진에 붙이면 그 여백이 FlameWrap 안쪽에 들어가 불꽃 상자를 키우고, 불꽃 중심이
+  //   여백의 절반만큼 내려간다 → 사진이 불꽃 가운데보다 «위로» 뜬 것처럼 보인다.
+  //   (PodiumTop3 의 mb-1.5 로 3px 어긋나던 것 — 2026-10-06)
+  const baseCls = `${sizeCls} ${lit ? '' : className} flex-shrink-0 rounded-full overflow-hidden bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white font-semibold select-none`
   const inner = finalUrl
     ? <img src={finalUrl} alt={nickname || ''} loading="lazy" decoding="async" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none' }} />
     : <span>{initial}</span>
@@ -73,7 +77,7 @@ function UserAvatar({ avatarPath, nickname, size = 'md', cacheBust, className = 
   //   xl 은 프로필처럼 위가 트인 자리 — 그대로 1.
   const label = flame.weeks >= 2 ? `${flame.weeks}주째 꾸준히` : '이번 주 꾸준히'
   const scale = size === 'xl' ? 1 : size === 'lg' ? 0.7 : 0.8
-  return <FlameWrap level={flame.level} px={SIZE_PX[size] || SIZE_PX.md} scale={scale} title={label}>{avatar}</FlameWrap>
+  return <FlameWrap level={flame.level} px={SIZE_PX[size] || SIZE_PX.md} scale={scale} title={label} className={className}>{avatar}</FlameWrap>
 }
 
 export default UserAvatar

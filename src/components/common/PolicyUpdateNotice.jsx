@@ -7,7 +7,13 @@ import { useAuth } from '../../hooks/useAuth'
 //   기존 회원에게 «무엇이 바뀌었는지» 알리는 것이 목적이라 강제 재동의 게이트는 두지 않는다
 //   (민감정보 동의는 기능 진입 시 별도 모달 — HealthConsentProvider).
 //   닫으면 이 브라우저에서 다시 안 뜬다(localStorage). 다음 개정 땐 NOTICE_KEY 의 날짜만 바꾸면 된다.
-const NOTICE_KEY = 'dodam-policy-notice-2026-09-22'
+export const NOTICE_KEY = 'dodam-policy-notice-2026-09-22'
+
+// 아직 이 고지를 안 닫았나 — 배포 변경사항 공지가 «겹쳐 뜨지 않으려고» 물어본다.
+//   법적 고지가 먼저고, 변경사항은 다음에 대시보드에 올 때 뜬다.
+export function isPolicyNoticePending() {
+  try { return localStorage.getItem(NOTICE_KEY) !== '1' } catch { return false }
+}
 
 const ls = {
   get(k) { try { return localStorage.getItem(k) } catch { return null } },

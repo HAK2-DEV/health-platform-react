@@ -1,18 +1,21 @@
 /**
- * 🔧 dev 전용 — 「오늘 할 일」 칸의 데이터·규칙(화면은 TodayTodoCard.jsx). 2026-10-06
- *   실제 데이터: 그 프로그램의 미션(오늘 열림·할당량 남음) · 내 인증(반려 24시간 / 심사 중 2주 / 오늘 승인)
- *   · 퀴즈(열림·채점 중) · 오늘 인증한 사람 수. 화면 파일과 나눈 건 빠른 새로고침 규칙(부품 파일은 부품만 내보낸다) 때문.
+ * 「오늘 할 일」 — 데이터·규칙(화면은 components/program/TodayTodoCard.jsx). 표준 카드홈의 참여자에게(ProgramDetailPage).
+ *   2026-10-06 dev 시안(/dev/program)에서 다듬고 2026-10-08 실제 화면에 붙였다(본인 「실배선」).
+ *   항목: 다시 확인(반려 24시간) → 지금 할 일(오늘 열린 미션·풀 퀴즈) → 기다리는 일(심사 중 2주·채점 중) → 오늘 끝낸 일.
+ *   쿼리는 상세 화면과 «같은 키»(미션·오늘 인증 수·퀴즈) → 요청이 늘지 않고, 인증 제출 뒤 무효화도 함께 탄다.
+ *   화면 파일과 나눈 건 빠른 새로고침 규칙(부품 파일은 부품만 내보낸다) 때문.
  *
  * 만회 인증(본인 결정 2026-10-06, 마이그 283): 반려 뒤 24시간 안에 다시 올리면 원래 날로 인정.
- *   악용 방지(본인 정의) — 같은 인증(첫 인증 + 그 만회들 = 묶음)이 운영자에게 3번 반려되면 의도로 보고 그날은 마감.
- *   판정은 서버. 여기선 같은 규칙으로 «다시 확인» 항목을 보이거나 내린다(만회 행은 제출 시각이 원래 날이라 makeup_of 로 잇는다).
+ *   «다시 확인» 목록은 hooks/useRedoVerifications(규칙은 lib/makeup.js)에서 받는다 — 24시간·3번 마감·그날 몫을
+ *   여기서 다시 계산하지 않는다(카드홈 «다시 인증» 카드와 이 칸이 서로 다른 말을 하지 않게).
  */
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { supabase } from '../../supabaseClient'
-import { fetchProgramMissions, fetchTodayCounts, fetchParticipantQuizzes, formatKstDate } from '../../lib/queries'
-import { checkMissionToday } from '../../lib/formatters'
-import { resolveMissionIcon } from '../../lib/missionIcons'
+import { supabase } from '../supabaseClient'
+import { queryKeys, fetchProgramMissions, fetchTodayCounts, fetchParticipantQuizzes } from './queries'
+import { checkMissionToday } from './formatters'
+import { resolveMissionIcon } from './missionIcons'
+import { useRedoVerifications } from '../hooks/useRedoVerifications'
 
 // ─── 시각 표기 — 시계는 이 함수들 안에서만 읽는다(렌더 본문에서 직접 읽지 않는다) ───
 const KST = 'Asia/Seoul'
@@ -42,15 +45,7 @@ const quizDue = (q) => {
 }
 const fmtNum = (v) => Number(v).toLocaleString('ko-KR', { maximumFractionDigits: 1 })
 
-// 만회 인증 — 반려 시각부터 24시간. 남은 시간(「20시간」·「35분」), 지났으면 null
-const MAKEUP_HOURS = 24
-const MAKEUP_MAX_REJECTS = 3
-const makeupLeft = (reviewedAt) => {
-  const ms = new Date(reviewedAt).getTime() + MAKEUP_HOURS * 3600000 - Date.now()
-  if (ms <= 0) return null
-  const h = Math.floor(ms / 3600000)
-  return h >= 1 ? `${h}시간` : `${Math.max(1, Math.floor(ms / 60000))}분`
-}
+// 만회(다시 확인) 규칙은 lib/makeup.js + hooks/useRedoVerifications 가 «한 벌»로 갖고 있다 — 여기선 목록을 항목으로 바꾸기만.
 
 // ─── 진행 단계 — now(지금 할 차례) / wait(기다리는 중) / redo(다시 확인 필요) / done / todo ───
 export function missionSteps(type, phase) {
@@ -83,41 +78,30 @@ export const TODO_DEMO = {
 }
 
 // 실제 데이터 → 항목. 다시 확인(만회 시간 제한) → 지금 할 일 → 기다리는 일 → 오늘 끝낸 일 순서.
-function buildTodo({ pid, ownerName, missions, todayCounts, myVerifs, quizzes }) {
-  const redo = []
+//   redoItems = useRedoVerifications 결과(지금 다시 올릴 수 있는 반려 인증) — 반려 규칙 판정은 거기서 끝났다.
+function buildTodo({ pid, ownerName, missions, todayCounts, myVerifs, quizzes, redoItems = [] }) {
   const act = []
   const wait = []
   const done = []
-  const redoToday = new Set()   // 오늘 올린 것이 반려된 미션 — 같은 미션의 「인증」 항목과 겹치지 않게
+  // 오늘 올린 것이 반려된 미션 — 같은 미션의 「인증」 항목과 겹치지 않게(「다시 인증」 하나로 충분)
+  const redoToday = new Set(redoItems.filter(it => it.dayWord === '오늘').map(it => it.missionId))
+  const memoBy = ownerName ? `${ownerName} 운영자` : '운영자'
+  const redo = redoItems.map((it) => ({
+    key: `r-${it.id}`, kind: 'redo', title: it.title,
+    icon: resolveMissionIcon(missions.find(x => x.id === it.missionId)?.icon_path) || '/icons/feature/mission.png',
+    sub: `${it.dayWord} 인증`,
+    memoNote: it.lastChance ? `${it.left} 안에 다시 올려 주세요 · 마지막 기회예요` : `${it.left} 안에 다시 올리면 인정돼요`,
+    memoBy, memo: it.reason,
+    action: '다시 인증', primary: true, go: `/programs/${pid}/missions/${it.missionId}?redo=${it.id}`, steps: missionSteps('MANUAL', 'redo'),
+  }))
 
-  for (const v of myVerifs) {   // 내 인증 — 반려(만회 24시간) / 심사 중(최근 2주) / 오늘 승인된 것
+  for (const v of myVerifs) {   // 내 인증 — 심사 중(최근 2주) / 오늘 승인된 것. 반려는 위 redoItems 가 맡는다
     const m = v.missions || {}
     const val = v.numeric_value != null ? `${fmtNum(v.numeric_value)}${m.metric_unit || ''}` : null
     const when = `${dayWord(v.submitted_at)} ${koClock(new Date(v.submitted_at))}`
     const icon = resolveMissionIcon(m.icon_path) || '/icons/feature/mission.png'
-    if (v.status === 'REJECTED') {
-      const left = v.reviewed_at ? makeupLeft(v.reviewed_at) : null
-      if (!left) continue   // 만회 시간이 지났으면 오늘 할 일에서 내린다(지난 기록은 마이페이지 「내 기록」)
-      // 이미 다시 올렸으면 그 결과(심사 중·승인·또 반려)가 따로 보인다 — 만회 행은 제출 시각이 원래 날이라 시각 비교로는 못 찾는다
-      if (myVerifs.some(o => o.makeup_of === v.id)) continue
-      // 같은 인증 3번 반려 = 그날은 마감(알림으로 안내됨). 오늘 것이면 같은 미션 「인증」도 내린다
-      const root = v.makeup_root || v.id
-      const rejects = myVerifs.filter(o => (o.id === root || o.makeup_root === root) && o.status === 'REJECTED').length
-      const today = isTodayKst(v.submitted_at)
-      if (rejects >= MAKEUP_MAX_REJECTS) { if (today) redoToday.add(v.mission_id); continue }
-      // 그날 몫이 이미 찼으면(그날 다른 인증이 들어감) 만회 자리가 없다 — 서버 하루 한도(169)와 같은 셈
-      if (m.daily_limit != null && myVerifs.filter(o => o.mission_id === v.mission_id && o.status !== 'REJECTED'
-        && dayIdx(new Date(o.submitted_at)) === dayIdx(new Date(v.submitted_at))).length >= m.daily_limit) continue
-      if (today) redoToday.add(v.mission_id)
-      redo.push({
-        key: `r-${v.id}`, kind: 'redo', icon, title: m.title,
-        sub: `${dayWord(v.submitted_at)} 인증`,
-        memoNote: rejects >= MAKEUP_MAX_REJECTS - 1 ? `${left} 안에 다시 올려 주세요 · 마지막 기회예요` : `${left} 안에 다시 올리면 인정돼요`,
-        memoBy: ownerName ? `${ownerName} 운영자` : '운영자',
-        memo: (v.rejection_reason || '').trim() || null,
-        action: '다시 인증', primary: true, go: `/programs/${pid}/missions/${v.mission_id}?redo=${v.id}`, steps: missionSteps('MANUAL', 'redo'),
-      })
-    } else if (v.status === 'PENDING_REVIEW') {
+    if (v.status === 'REJECTED') continue   // 반려는 위 redoItems 가 맡는다
+    if (v.status === 'PENDING_REVIEW') {
       // 만회는 제출 시각이 원래 날이라 「어제 오전 7:40」이 올린 시각처럼 보인다 → 「어제 인증 · 다시 올렸어요」
       const sub = v.makeup_of ? [val, `${dayWord(v.submitted_at)} 인증 · 다시 올렸어요`] : [val, when]
       wait.push({ key: `v-${v.id}`, kind: 'review', icon, title: m.title, sub: sub.filter(Boolean).join(' · '), action: '보기', primary: false, go: `/programs/${pid}?tab=missions`, steps: missionSteps('MANUAL', 'wait') })
@@ -150,54 +134,58 @@ function buildTodo({ pid, ownerName, missions, todayCounts, myVerifs, quizzes })
   return [...redo, ...act, ...wait, ...done]
 }
 
-/** 실제 데이터 묶음 — 그 프로그램의 미션·오늘 인증 수·내 인증(2주)·퀴즈·오늘 인증한 사람 수 */
-export function useTodayTodo(program, userId) {
-  const pid = program?.id
-  const ownerName = program?.owner_nickname || null
-  const on = !!pid && !!userId
-  const { data: missions = [] } = useQuery({ queryKey: ['dev-todo-missions', pid], queryFn: () => fetchProgramMissions(pid), enabled: on })
-  const { data: todayCounts = {} } = useQuery({ queryKey: ['dev-todo-today-counts', userId], queryFn: () => fetchTodayCounts(userId), enabled: on })
+const EMPTY = []   // 빈 목록은 늘 같은 배열 — 메모 의존성이 매번 바뀌지 않게
+
+/**
+ * 실제 데이터 묶음 — 그 프로그램의 미션·오늘 인증 수·내 인증(2주)·퀴즈·오늘 인증한 사람 수.
+ *   enabled=false 면 아무것도 부르지 않고 빈 목록(운영자·둘러보기·다른 홈·종료된 프로그램).
+ */
+export function useTodayTodo({ programId, userId, ownerName = null, quizEnabled = false, enabled = true }) {
+  const pid = programId
+  const on = enabled && !!pid && !!userId
+  // 다시 확인(반려 만회) — 카드홈 «다시 인증» 카드와 같은 훅·같은 키 → 같은 캐시, 같은 판정
+  const redoItems = useRedoVerifications(pid, userId, { enabled: on })
+  // 상세 화면과 같은 키·같은 함수 — 캐시를 함께 쓴다
+  const { data: missionsRaw = [] } = useQuery({ queryKey: queryKeys.programMissions(pid), queryFn: () => fetchProgramMissions(pid), enabled: on })
+  const { data: todayCounts = {} } = useQuery({ queryKey: queryKeys.todayCounts(userId), queryFn: () => fetchTodayCounts(userId), enabled: on })
+  const { data: quizzes = [] } = useQuery({ queryKey: queryKeys.participantQuizzes(pid, userId), queryFn: () => fetchParticipantQuizzes(pid), enabled: on && quizEnabled })
+  // 내 인증(심사 중·승인) — 'verifications' 아래 키라 인증 제출·심사 뒤 무효화(앞자리 일치)를 함께 탄다
   const { data: myVerifs = [] } = useQuery({
-    queryKey: ['dev-todo-my-verifs', pid, userId],
+    queryKey: ['verifications', 'todayTodo', pid, userId],
     queryFn: async () => {
       // 최근 2주 — 제출·심사·만회 중 하나라도 2주 안이면. 만회 행은 제출 시각이 원래 날이라 제출 시각만 보면 빠진다.
       const since = new Date(Date.now() - 14 * 86400000).toISOString()
-      const run = (withMakeup) => supabase
+      const { data, error } = await supabase
         .from('verifications')
-        .select(`id, mission_id, status, submitted_at, reviewed_at, rejection_reason, numeric_value${withMakeup ? ', makeup_of, makeup_root' : ''}, missions!inner(title, point, icon_path, metric_unit, verification_type, daily_limit, program_id)`)
+        .select('id, mission_id, status, submitted_at, numeric_value, makeup_of, missions!inner(title, point, icon_path, metric_unit, verification_type, program_id)')
         .eq('user_id', userId).eq('missions.program_id', pid)
-        .in('status', ['PENDING_REVIEW', 'APPROVED', 'REJECTED'])
-        .or(withMakeup ? `submitted_at.gte.${since},reviewed_at.gte.${since},makeup_at.gte.${since}` : `submitted_at.gte.${since},reviewed_at.gte.${since}`)
+        .in('status', ['PENDING_REVIEW', 'APPROVED'])
+        .or(`submitted_at.gte.${since},reviewed_at.gte.${since},makeup_at.gte.${since}`)
         .order('submitted_at', { ascending: false })
-      let { data, error } = await run(true)
-      if (error?.code === '42703') ({ data, error } = await run(false))   // 마이그 283 적용 전(만회 열 없음) — 만회 없이
       if (error) throw error
       return data || []
     },
     enabled: on,
   })
-  const { data: quizzes = [] } = useQuery({
-    queryKey: ['dev-todo-quizzes', pid], queryFn: () => fetchParticipantQuizzes(pid), enabled: on && program?.quiz_enabled === true,
-  })
-  // 오늘 이 프로그램에서 인증한 사람 수 — 내가 볼 수 있는 인증 범위에서 센다(시안). 실제 반영 땐 집계 함수(RPC)로.
+  // 오늘 이 프로그램에서 인증한 사람 수 — 서버 집계(마이그 286). 참여자는 남의 «심사 중·비공개» 인증을 읽지 못해
+  //   화면에서 세면 적게 나온다. 함수가 아직 없거나(286 적용 전) 실패하면 0 → 그 줄만 그리지 않는다.
   const { data: verifierCount = 0 } = useQuery({
-    queryKey: ['dev-todo-verifiers', pid],
+    queryKey: ['verifications', 'todayVerifiers', pid],
     queryFn: async () => {
-      const start = new Date(`${formatKstDate(new Date())}T00:00:00+09:00`).toISOString()
-      const { data, error } = await supabase
-        .from('verifications')
-        .select('user_id, missions!inner(program_id)')
-        .eq('missions.program_id', pid)
-        .in('status', ['PENDING_REVIEW', 'APPROVED'])
-        .gte('submitted_at', start)
-      if (error) throw error
-      return new Set((data || []).map(v => v.user_id)).size
+      const { data, error } = await supabase.rpc('get_program_today_verifier_count', { p_program_id: pid })
+      return error ? 0 : (Number(data) || 0)
     },
     enabled: on,
+    staleTime: 60_000,
   })
+  // 미션 순서 — 상세 화면 미션 탭과 같게(sort_order 우선, 없으면 만든 순)
+  const missions = useMemo(() => [...missionsRaw].sort((a, b) =>
+    ((a.sort_order ?? 1e9) - (b.sort_order ?? 1e9)) || (new Date(a.created_at) - new Date(b.created_at))), [missionsRaw])
+  // 퀴즈가 꺼진 프로그램 — 캐시에 남은 퀴즈 목록이 있어도 넣지 않는다(꺼진 쿼리도 캐시 값은 돌려준다)
+  const quizList = quizEnabled ? quizzes : EMPTY
   const items = useMemo(
-    () => buildTodo({ pid, ownerName, missions, todayCounts, myVerifs, quizzes }),
-    [pid, ownerName, missions, todayCounts, myVerifs, quizzes],
+    () => (on ? buildTodo({ pid, ownerName, missions, todayCounts, myVerifs, quizzes: quizList, redoItems }) : EMPTY),
+    [on, pid, ownerName, missions, todayCounts, myVerifs, quizList, redoItems],
   )
-  return { items, verifierCount }
+  return { items, verifierCount: on ? verifierCount : 0 }
 }

@@ -12,6 +12,9 @@ import WeeklyStreak from '../../components/program/WeeklyStreak'
 import FlameIcon from '../../components/common/FlameIcon'
 import UserAvatar from '../../components/common/UserAvatar'
 import { OperatorProfileBody } from '../../components/program/OperatorProfileModal'
+import { FlameWrap } from '../../components/common/FlameAura'
+import { Podium } from '../RankingsPage'
+import PodiumTop3 from '../../components/program/PodiumTop3'
 import FlameAura from '../../components/common/FlameAura'
 
 const LABELS = ['월', '화', '수', '목', '금', '토', '일']
@@ -36,6 +39,50 @@ const PEOPLE = [
   { nickname: '서연', level: 3, weeks: 6 },
   { nickname: '없음', level: 0 },
 ]
+
+// 시상대 복제 — RankingsPage 의 Podium slot 마크업을 그대로 옮긴 것(불꽃 정렬 확인용).
+//   실제와 다른 점: 데이터가 가짜. 구조·클래스는 같아야 의미가 있다.
+const MEDAL_IMG = { 1: '/icons/ranking/medal-1.png', 2: '/icons/ranking/medal-2.png', 3: '/icons/ranking/medal-3.png' }
+const PODIUM_RING = { 1: 'ring-amber-300', 2: 'ring-gray-300', 3: 'ring-orange-300' }
+const PODIUM_RING_PX = 8
+function PodiumMock({ variant = 'A' }) {
+  const rows = { 2: { nick: '세종은물마음', lv: 2 }, 1: { nick: '관리_자', lv: 3 }, 3: { nick: '된장쌀밥', lv: 1 } }
+  const cornerMedal = variant === 'B'   // B: 메달을 모서리로 → 불꽃 혀가 쓸 자리를 비운다
+  const noInnerRing = variant === 'B'   // B: 불꽃이 곧 링 — 고리 두 겹을 없앤다
+  const slot = (place) => {
+    const isFirst = place === 1
+    const r = rows[place]
+    return (
+      <div className={`relative flex flex-col items-center rounded-2xl bg-white shadow-elevated px-2 ${isFirst ? 'pt-8 pb-3.5 -mt-4 border border-amber-200' : 'pt-6 pb-3'}`}>
+        {isFirst && <img src="/icons/ranking/leaves.png" alt="" aria-hidden="true" className="absolute top-0 left-1/2 -translate-x-1/2 w-[135%] max-w-none z-0 pointer-events-none select-none" />}
+        <img src={MEDAL_IMG[place]} alt={`${place}등`}
+          className={cornerMedal
+            ? 'absolute -top-3 -left-1 z-20 w-9 h-9 drop-shadow-sm pointer-events-none select-none'
+            : `absolute left-1/2 -translate-x-1/2 z-20 drop-shadow-sm pointer-events-none select-none ${isFirst ? '-top-7 w-14 h-14' : '-top-5 w-[50px] h-[50px]'}`} />
+        <div className="relative z-10">
+          {noInnerRing ? (
+            <FlameWrap level={r.lv} px={(isFirst ? 64 : 40) + PODIUM_RING_PX} scale={isFirst ? 0.7 : 0.8}>
+              <div className={`rounded-full ring-2 ${PODIUM_RING[place]} p-0.5 bg-white`}>
+                <UserAvatar nickname={r.nick} size={isFirst ? 'lg' : 'md'} viewable />
+              </div>
+            </FlameWrap>
+          ) : (
+            <UserAvatar nickname={r.nick} size={isFirst ? 'lg' : 'md'} viewable flame={{ level: r.lv, weeks: 3 }} />
+          )}
+        </div>
+        <p className="relative z-10 mt-1.5 text-[13px] font-bold truncate w-full text-center text-gray-800">{r.nick}</p>
+        <p className={`relative z-10 mt-0.5 font-extrabold text-emerald-600 ${isFirst ? 'text-lg' : 'text-base'}`}>{place === 1 ? 183 : place === 2 ? 53 : 21}P</p>
+      </div>
+    )
+  }
+  return (
+    <div className="bg-white rounded-2xl shadow-soft p-3">
+      <div className="grid grid-cols-3 items-end gap-2.5 pt-[33px]">
+        {slot(2)}{slot(1)}{slot(3)}
+      </div>
+    </div>
+  )
+}
 
 function Section({ title, desc, children }) {
   return (
@@ -94,6 +141,55 @@ export default function FlameDemo() {
               </div>
             ))}
           </div>
+        </Section>
+
+        <Section title="②-00 PodiumTop3 — 실데이터 조회 경로 (탄탄 챌린지)" desc="프로그램 상세 랭킹 탭과 «완전히 같은» 코드·같은 프로그램·같은 사용자. 불꽃도 직접 넣지 않고 조회한다. 여기가 멀쩡한데 실제 화면이 다르면 남은 건 캐시뿐이다.">
+          <div className="bg-white rounded-2xl shadow-soft p-3 pt-8">
+            <PodiumTop3
+              top3={[
+                { user_id: '5c33cc7e-b946-4fcb-a837-2d4384917ece', nickname: '관리_자', total_score: 183 },
+                { user_id: '22d69397-a0dd-4eac-b8c7-ae3166f9de75', nickname: '세상은말미암아자기혐오로살아간', total_score: 53 },
+                { user_id: '468fe1aa-b1fb-46dc-a4a6-3a1df97de082', nickname: '곡동핑크덤벨러', total_score: 160 },
+              ]}
+              userId={null}
+              programId="10f22b33-ac03-4b84-9691-f4110b6433a8"
+            />
+          </div>
+        </Section>
+
+        <Section title="②-0 PodiumTop3 (프로그램 상세 랭킹 탭) — className 여백 함정" desc="UserAvatar 에 className='mb-1.5' 를 넘기면 그 여백이 불꽃 상자 안으로 들어가 중심이 3px 내려갔다. 지금은 바깥 상자에 붙인다.">
+          <div className="bg-white rounded-2xl shadow-soft p-3 pt-8">
+            <PodiumTop3
+                top3={[
+                  { user_id: 'u1', nickname: '관리_자', total_score: 183 },
+                  { user_id: 'u2', nickname: '세종은물마음', total_score: 53 },
+                  { user_id: 'u3', nickname: '된장쌀밥', total_score: 21 },
+                ]}
+                userId="u1"
+              flameOverride={{ u1: { level: 3, weeks: 6 }, u2: { level: 2, weeks: 3 }, u3: { level: 1, weeks: 1 } }}
+            />
+          </div>
+        </Section>
+
+        <Section title="②-a 진짜 Podium 컴포넌트 (RankingsPage 에서 그대로 import)" desc="복제본이 아니라 실제 랭킹이 쓰는 그 컴포넌트. 여기서 멀쩡하면 실제 화면 문제는 코드가 아니라 캐시다.">
+          <Podium
+            top3={[
+              { user_id: 'u1', nickname: '관리_자', total_score: 183 },
+              { user_id: 'u2', nickname: '세종은물마음', total_score: 53 },
+              { user_id: 'u3', nickname: '된장쌀밥', total_score: 21 },
+            ]}
+            userId="u1"
+            programId={null}
+            flamesOverride={{ u1: { level: 3, weeks: 6 }, u2: { level: 2, weeks: 3 }, u3: { level: 1, weeks: 1 } }}
+          />
+        </Section>
+
+        <Section title="②-b 시상대 복제본 — 수정본 (불꽃이 곧 테두리)" desc="링을 빼고 ②번과 똑같이 그린다. 아바타가 불꽃 가운데에 앉는다.">
+          <PodiumMock variant="A" />
+        </Section>
+
+        <Section title="②-c 시상대 — 폐기안 (링에 맞추려 불꽃을 8px 키움)" desc="중심은 맞지만(실측 0px) 불꽃만 커져서 아바타가 위로 올라가 보인다. 비교용으로 남김.">
+          <PodiumMock variant="B" />
         </Section>
 
         <Section title="③ 불 모양만 크게 — 디자인 확인용" desc="사진 없이 불만. 밑동이 밝고(금색) 테두리는 얇다. 혀는 키가 제각각이고 끝이 한쪽으로 말린다.">

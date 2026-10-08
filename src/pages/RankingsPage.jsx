@@ -13,6 +13,7 @@ import {
   fetchProgramOverview,
 } from '../lib/queries'
 import UserAvatar from '../components/common/UserAvatar'
+import { useProgramFlames } from '../hooks/useProgramFlames'
 import NotificationBell from '../components/common/NotificationBell'
 import EmptyState from '../components/common/EmptyState'
 import LoadingState from '../components/common/LoadingState'
@@ -456,8 +457,11 @@ const MEDAL_IMG = {
 }
 const PODIUM_RING = { 1: 'ring-amber-300', 2: 'ring-gray-300', 3: 'ring-orange-300' }
 
-function Podium({ top3, userId, programId }) {
+// flamesOverride — /dev/flame 에서 로그인 없이 같은 컴포넌트를 렌더해 보기 위한 통로(dev 전용).
+export function Podium({ top3, userId, programId, flamesOverride = null }) {
   const [second, first, third] = [top3[1], top3[0], top3[2]]
+  const fetched = useProgramFlames(programId)
+  const flames = flamesOverride || fetched
 
   const slot = (row, place) => {
     if (!row) return <div />
@@ -493,9 +497,21 @@ function Podium({ top3, userId, programId }) {
           }`}
         />
 
-        {/* 아바타 */}
-        <div className={`relative z-10 rounded-full ring-2 ${PODIUM_RING[place]} p-0.5 bg-white`}>
-          <UserAvatar avatarPath={row.avatar_path} nickname={row.nickname} size={isFirst ? 'lg' : 'md'} viewable flameProgramId={programId} flameUserId={row.user_id} />
+        {/* 아바타 — 불꽃이 켜진 사람은 «불꽃이 곧 테두리». 메달 색 링을 빼고 다른 화면과 똑같이 그린다.
+            링에 맞추려고 불꽃을 8px 키웠더니(2026-10-06) 아바타가 불꽃 가운데보다 위로 보였다.
+            중심은 실측상 정확히 맞았지만(어긋남 0px), 불꽃은 아바타 아래 몸통이 더 두꺼운 그림이라
+            불꽃만 키우면 그 차이가 드러난다. 링·불꽃을 겹치지 않는 게 답. */}
+        {/* ⚠️ 불꽃 «데이터»를 직접 넘긴다. flameProgramId 로 넘기면 UserAvatar 가 같은 걸 또 조회하고,
+            분기(여기)와 그리기(UserAvatar)가 서로 다른 판단을 할 수 있다. */}
+        <div className="relative z-10">
+          {flames[row.user_id] ? (
+            <UserAvatar avatarPath={row.avatar_path} nickname={row.nickname} size={isFirst ? 'lg' : 'md'} viewable
+              flame={flames[row.user_id]} />
+          ) : (
+            <div className={`rounded-full ring-2 ${PODIUM_RING[place]} p-0.5 bg-white`}>
+              <UserAvatar avatarPath={row.avatar_path} nickname={row.nickname} size={isFirst ? 'lg' : 'md'} viewable />
+            </div>
+          )}
         </div>
 
         <p className={`relative z-10 mt-1.5 text-[13px] font-bold truncate w-full text-center ${isMe ? 'text-emerald-800' : 'text-gray-800'}`}>

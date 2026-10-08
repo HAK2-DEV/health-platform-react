@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trash2, Pencil, Flag, Pin, PinOff, Clock, Check, EyeOff } from 'lucide-react'
 import { deleteCommunityPost, setCommunityPostPin, setCommunityPostStatus, rejectCommunityPost, queryKeys } from '../../lib/queries'
+import { supabase } from '../../supabaseClient'
 import { getCachedSignedUrls, getSignedUrls, thumbPathOf } from '../../lib/signedUrls'
 import { formatRelativeKstDay } from '../../lib/formatters'
 import { useKeyboardOverlay } from '../../hooks/useKeyboardOverlay'
@@ -19,8 +20,13 @@ import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 //   layout: feed(기본 카드) / list(가로 행) / grid(2열) / magazine(대1+소2+중1 반복).
 //   - 이미지 없는 글은 이미지 자리 대신 프로필+텍스트 카드. 매거진에선 중(가로) 우선 배치.
 //   - 카드 탭 시 상세 모달(글 펼치기).
-function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId, isOwner, onEdit, layout = 'feed', canReact = false, canComment = false, focusPostId = null, focusCommentId = null, onFocusHandled, focusCloseTo = null }) {
+function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId, isOwner, onEdit, layout = 'feed', canReact = false, canComment = false, focusPostId = null, focusCommentId = null, onFocusHandled, focusCloseTo = null, flameOverride = null }) {
   const navigate = useNavigate()
+  // flameOverride — 로그인 없이 같은 컴포넌트를 렌더해 보기 위한 통로(dev 전용, PodiumTop3 와 같은 방식).
+  //   공지에 넣을 사진을 «실제 화면»으로 찍으려면 필요하다. 실서비스에선 null 이라 평소 경로 그대로.
+  const flameProps = (uid) => (flameOverride
+    ? { flame: flameOverride[uid] || null }
+    : { flameProgramId: programId, flameUserId: uid })
   const { overlayStyle, cardStyle } = useKeyboardOverlay()   // 키보드 — 하단 댓글창이 가리지 않게. 구형 안드는 위쪽 정렬+높이 제한
   // 딥링크(?post=)로 연 상세를 닫을 때, focusCloseTo 가 있으면 그 경로로 복귀(예: 오늘의 활동).
   //   일반 목록에서 연 상세는 그대로 닫힘. openedViaFocusRef 로 구분.
@@ -274,7 +280,7 @@ function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId,
     <article key={p.id} onClick={() => setDetailPost(p)} className={`rounded-2xl p-4 cursor-pointer transition ${p.status === 'hidden' ? 'opacity-60 ' : ''}${p.pinned_at ? 'border-2 border-emerald-400 ring-2 ring-emerald-100 bg-emerald-50/40 shadow-sm' : 'bg-white shadow-elevated'}`}>
       {p.pinned_at && <div className="mb-2"><PinPill /></div>}
       <div className="flex items-center gap-2.5 mb-2">
-        <UserAvatar avatarPath={p.author?.avatar_path} nickname={p.author?.nickname} size="md" viewable flameProgramId={programId} flameUserId={p.author_id} />
+        <UserAvatar avatarPath={p.author?.avatar_path} nickname={p.author?.nickname} size="md" viewable {...flameProps(p.author_id)} />
         <div className="flex-1 min-w-0">
           <p className="font-medium text-sm text-gray-800 truncate">{p.author?.nickname || '익명'}</p>
           <p className="text-[11px] text-gray-400">
@@ -298,7 +304,7 @@ function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId,
   // 작성자 한 줄 (아바타 + 닉네임) — 오버레이/카드 공용
   const AuthorRow = ({ p, light }) => (
     <div className={`flex items-center gap-1.5 ${light ? 'text-white' : 'text-gray-600'}`}>
-      <UserAvatar avatarPath={p.author?.avatar_path} nickname={p.author?.nickname} size="sm" viewable flameProgramId={programId} flameUserId={p.author_id} />
+      <UserAvatar avatarPath={p.author?.avatar_path} nickname={p.author?.nickname} size="sm" viewable {...flameProps(p.author_id)} />
       <span className="text-[11px] font-semibold truncate">{p.author?.nickname || '익명'}</span>
       {p.status === 'pending' && <span className={`text-[10px] font-medium flex-shrink-0 ${light ? 'text-amber-300' : 'text-amber-600'}`}>· 검토 대기</span>}
       {p.status === 'hidden' && <HiddenTag light={light} />}
@@ -360,7 +366,7 @@ function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId,
       {hasImg(p) ? (
         <img src={thumbSrc(p)} onError={onThumbError(p)} alt="" loading="lazy" decoding="async" className="w-16 h-16 rounded-xl object-cover bg-gray-100 flex-shrink-0" />
       ) : (
-        <UserAvatar avatarPath={p.author?.avatar_path} nickname={p.author?.nickname} size="lg" viewable flameProgramId={programId} flameUserId={p.author_id} />
+        <UserAvatar avatarPath={p.author?.avatar_path} nickname={p.author?.nickname} size="lg" viewable {...flameProps(p.author_id)} />
       )}
       <div className="flex-1 min-w-0">
         <div className="flex items-start gap-2">
@@ -422,7 +428,7 @@ function CommunityPostList({ programId, boardId, posts: rawPosts = [], myUserId,
           <>
             {detailPost.pinned_at && <div className="mb-2"><PinPill /></div>}
             <div className="flex items-center gap-2.5 mb-3">
-              <UserAvatar avatarPath={detailPost.author?.avatar_path} nickname={detailPost.author?.nickname} size="md" viewable flameProgramId={programId} flameUserId={detailPost.author_id} />
+              <UserAvatar avatarPath={detailPost.author?.avatar_path} nickname={detailPost.author?.nickname} size="md" viewable {...flameProps(detailPost.author_id)} />
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-sm text-gray-800 truncate">{detailPost.author?.nickname || '익명'}</p>
                 <p className="text-[11px] text-gray-400">

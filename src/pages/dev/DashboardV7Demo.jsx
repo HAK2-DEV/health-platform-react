@@ -18,7 +18,7 @@ import RankTrophyAnim from '../../components/common/RankTrophyAnim'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
 import ProgramCover from '../../components/common/ProgramCover'
-import { programCoverPath, calcProgress, isEndedBeyondGrace } from '../../lib/programVisuals'
+import { programCoverPath, calcProgress, progressUrgency, isEndedBeyondGrace } from '../../lib/programVisuals'
 import {
   queryKeys,
   fetchMyPrograms,
@@ -511,7 +511,8 @@ function V8Carousel({ children, t, onIndex }) {
   }
   return (
     <div>
-      <div onScroll={onScroll} className="flex gap-3 overflow-x-auto snap-x snap-mandatory scrollbar-hide">
+      {/* @container — 카드 최소 높이를 «카드 폭의 5/6»(6:5)로 잡으려고 폭 기준(cqw)을 연다 */}
+      <div onScroll={onScroll} className="@container flex gap-3 overflow-x-auto snap-x snap-mandatory scrollbar-hide">
         {items}
       </div>
       {/* 위치 표시 — 초록 점(⑦·실제 대시보드와 같은 모양). 진행 막대 + 「1/3」은 해 보고 되돌렸다(본인 2026-10-05). */}
@@ -952,11 +953,24 @@ function DashboardV7Demo() {
                   ? (opWait > 0 ? [{ k: 'work', text: `처리할 일 ${opWait}`, onClick: () => navigate(`/programs/${p.id}/operator-today`) }] : [])
                   : newItemsFor(p, i).map(n => ({ k: n.k, text: `새 ${n.label} ${n.n}`, onClick: () => navigate(`/programs/${p.id}?tab=${n.tab}`) }))
                 const strip = stripFor(p, i)
+                // 진행률 — 기간 경과(대시보드 실제 카드와 같은 계산·색: 70%↑ 주황, 90%↑ 빨강, 종료 회색).
+                //   진행중·종료(7일 여운)만. 참여 예정·임시저장·상시(기간 없음)는 0% 가 거짓 정보라 그리지 않는다.
+                const progress = calcProgress(p.start_date, p.end_date)
+                const urg = progressUrgency(progress)
+                const showBar = !!(p.start_date && p.end_date) && (st === STATUS.running || st === STATUS.ended)
                 return (
-                  <div key={p.id} className="shrink-0 w-full snap-center relative rounded-[24px] overflow-hidden aspect-[6/5] max-h-[300px] bg-[#1d2622]">
+                  // 높이 — 평소엔 6:5(최대 300px). 내용이 넘치면(좁은 폰·큰 글꼴에서 새 알림이 두 줄 + 제목 두 줄 + 진행률) 아래로 늘어난다.
+                  //   예전엔 글을 모두 절대 위치로 띄워서, 높이가 모자라면 위 알림과 아래 제목이 겹쳤다(넓이 320 실측, 2026-10-08).
+                  //   그림·어둠·카드 버튼만 절대 위치로 깔고, 알림·제목·띠는 흐름대로 쌓는다. 넘김 줄은 가장 큰 카드에 높이를 맞춘다.
+                  <div key={p.id} className="shrink-0 w-full snap-center relative flex flex-col rounded-[24px] overflow-hidden min-h-[min(83.333cqw,300px)] bg-[#1d2622]">
                     {coverUrl
                       ? <img src={coverUrl} alt="" aria-hidden="true" className="absolute inset-0 w-full h-full object-cover" />
-                      : <ProgramCover imagePath={null} categories={p.categories} name={p.name} variant="tile" className="absolute inset-0 w-full h-full" />}
+                      : (
+                        // ProgramCover 는 루트에 relative 가 박혀 있어 absolute 를 줘도 흐름에 남는다 → 위치는 바깥 틀이 잡는다
+                        <div aria-hidden="true" className="absolute inset-0">
+                          <ProgramCover imagePath={null} categories={p.categories} name={p.name} variant="tile" className="w-full h-full" />
+                        </div>
+                      )}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent" />
                     <button
                       type="button"
@@ -966,7 +980,7 @@ function DashboardV7Demo() {
                     />
                     {/* 왼쪽 위 — 상태(⑦ 원래 모양) + 누를 수 있는 빨간 알림(참여 = 새 미션·퀴즈·클래스 / 운영 = 처리할 일).
                         상태를 사진 아래 태그(D-n)로 옮겨 봤다가 되돌렸다(본인 2026-10-05). */}
-                    <div className="absolute left-4 right-4 top-4 flex flex-wrap items-center gap-1.5 pointer-events-none">
+                    <div className="relative flex flex-wrap items-center gap-1.5 px-4 pt-4 pointer-events-none">
                       <span className={`text-[12.5px] font-bold rounded-full px-2.5 py-1 ${st.cls}`}>{st.label}</span>
                       {badges.map(b => (
                         <button
@@ -979,7 +993,7 @@ function DashboardV7Demo() {
                         </button>
                       ))}
                     </div>
-                    <div className={`absolute inset-x-4 pointer-events-none ${strip.length > 0 ? 'bottom-[78px]' : 'bottom-4'}`}>
+                    <div className={`relative mt-auto px-4 pt-3 pointer-events-none ${strip.length > 0 ? 'pb-3' : 'pb-4'}`}>
                       <p className="text-white text-[18px] font-black leading-tight break-keep line-clamp-2 drop-shadow-sm">{p.name || '이름 없는 프로그램'}</p>
                       <div className="mt-1.5 flex items-center gap-3 text-[12.5px] text-white/80">
                         {p.start_date && p.end_date && (
@@ -991,10 +1005,24 @@ function DashboardV7Demo() {
                           <Users className="w-3.5 h-3.5" aria-hidden="true" />{counts[p.id] != null ? `${counts[p.id]}명` : '-'}
                         </span>
                       </div>
+                      {showBar && (
+                        <div className="mt-2.5 flex items-center gap-2">
+                          <div className="flex-1 h-1.5 rounded-full bg-white/25 overflow-hidden">
+                            <motion.div
+                              className={`h-full rounded-full ${urg.barCls || 'bg-emerald-400'}`}
+                              initial={{ width: 0 }}
+                              whileInView={{ width: `${progress}%` }}
+                              viewport={{ once: true }}
+                              transition={{ duration: 0.9, ease: 'easeOut', delay: 0.2 }}
+                            />
+                          </div>
+                          <span className="shrink-0 text-[12.5px] font-bold leading-none tabular-nums text-white/90">{progress}%</span>
+                        </div>
+                      )}
                     </div>
                     {/* 유리 띠 — 칸을 누르면 그 일로. 빈 칸은 눌러도 카드(프로그램 열기)로 통과한다. */}
                     {strip.length > 0 && (
-                      <div className={`absolute inset-x-3 bottom-3 grid ${strip.length === 3 ? 'grid-cols-3' : strip.length === 2 ? 'grid-cols-2' : 'grid-cols-1'} rounded-2xl bg-white/15 backdrop-blur-md ring-1 ring-white/20 pointer-events-none`}>
+                      <div className={`relative mx-3 mb-3 grid ${strip.length === 3 ? 'grid-cols-3' : strip.length === 2 ? 'grid-cols-2' : 'grid-cols-1'} rounded-2xl bg-white/15 backdrop-blur-md ring-1 ring-white/20 pointer-events-none`}>
                         {strip.map((c, ci) => {
                           const inner = (
                             <>

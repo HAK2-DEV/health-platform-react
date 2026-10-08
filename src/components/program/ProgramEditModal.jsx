@@ -4,7 +4,7 @@ import { supabase } from '../../supabaseClient'
 import { CATEGORY_LIST, PROGRAM } from '../../lib/constants'
 import { formatKoreanDate } from '../../lib/formatters'
 import CoverImageUploader from '../common/CoverImageUploader'
-import { FlameBadge } from '../common/UserBadges'
+import { FlameWrap } from '../common/FlameAura'
 
 // 운영자가 PUBLISHED 프로그램의 안전 항목만 수정.
 // 수정 가능: name, description, categories, end_date, max_participants, is_public
@@ -541,7 +541,8 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
             </button>
           )}
 
-          {/* 닉네임 옆 불꽃 (280) — 주 단위 리듬. 끄면 이 프로그램 안에서 불꽃이 아무에게도 안 보인다 */}
+          {/* 프로필 사진 뒤 불꽃 (280) — 주 단위 리듬. 끄면 이 프로그램 안에서 불꽃이 아무에게도 안 보인다.
+              (처음엔 닉네임 «옆» 배지였는데 본인 결정으로 사진 «뒤»로 옮겼다 — 문구도 그때 같이 바꿨다) */}
           <button
             type="button"
             onClick={() => setFlameEnabled(!flameEnabled)}
@@ -554,13 +555,18 @@ function ProgramEditModal({ program, isOpen, onClose, onSuccess }) {
             `}
           >
             <div className="flex items-start gap-2.5">
-              <span className="w-6 h-6 flex items-center justify-center"><FlameBadge level={2} weeks={3} size="sm" /></span>
+              {/* 미리보기 — 실제로 쓰는 불꽃 그대로(FlameAura). 설명 대신 보여 주는 게 빠르다. */}
+              <span className="w-8 h-8 flex items-center justify-center flex-shrink-0">
+                <FlameWrap level={2} px={20} scale={0.8}>
+                  <span className="block w-5 h-5 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500" />
+                </FlameWrap>
+              </span>
               <div className="flex-1 min-w-0">
                 <p className={`text-sm font-medium ${flameEnabled ? 'text-amber-700' : 'text-gray-800'}`}>
-                  닉네임 옆 불꽃
+                  꾸준한 참여자에게 불꽃
                 </p>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  꾸준히 참여한 사람의 닉네임 옆에 불꽃이 붙어요. 활동(인증·퀴즈·클래스)한 주가 이어질수록 커져요.
+                <p className="text-xs text-gray-500 mt-0.5 break-keep">
+                  꾸준히 참여한 사람의 프로필 사진 뒤에서 불꽃이 타올라요. 활동(인증·퀴즈·클래스)한 주가 이어질수록 커져요.
                 </p>
               </div>
               <div className={`

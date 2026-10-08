@@ -9,7 +9,9 @@
  *   - 메뉴 칸·오늘의 미션을 누르면 실제 프로그램 화면의 그 탭으로 간다.
  *   - 라우트 /dev/program 은 import.meta.env.DEV 에서만 등록 → 프로덕션 번들에 없다.
  *
- * 실제 화면(ProgramHome·ProgramDetailPage)에 옮길 때 같이 할 일 — 메모리 project_program_detail_cardhome_redesign 참고
+ * 실제 화면: 「오늘 할 일」 부품·데이터는 components/program/TodayTodoCard · lib/todayTodo 로 옮겼다(2026-10-08).
+ *   상세 화면(ProgramDetailPage)에선 로컬 dev 서버에서만 ?todo=full 로 켜 본다 — 배포 기본은 «다시 인증» 카드만.
+ * 실제로 켤 때(배포 결정 뒤) 같이 할 일 — 메모리 project_program_detail_cardhome_redesign 참고
  *   ① 운영자 설정의 「진행 현황 보이기」 토글(overview_progress_enabled) 감추기 — 칸이 없어지면 할 일이 없다(본인: 나중에)
  *   ② 개요 편집 목록(HOME_BOX_ORDER·LABELS·SIZES)에서 todayMissions·progress·recent 빼기 — 저장된 순서에 남아 있어도 없는 칸은 건너뛴다
  *   ③ 「오늘 N명이 인증했어요」 정확한 집계는 서버 함수(마이그) — 지금은 참여자가 볼 수 있는 인증 범위로 셈
@@ -19,8 +21,8 @@ import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
 import ProgramHomeDev from './ProgramHomeDev'
-import TodayTodoCard from './TodayTodoCard'
-import { useTodayTodo, TODO_DEMO } from './todayTodo'
+import TodayTodoCard from '../../components/program/TodayTodoCard'
+import { useTodayTodo, TODO_DEMO } from '../../lib/todayTodo'
 import ActivityTrendCard from '../../components/program/ActivityTrendCard'
 import ClassOverviewCard from '../../components/program/ClassOverviewCard'
 import OperatorTodoBanner from '../../components/program/OperatorTodoBanner'
@@ -88,7 +90,8 @@ function ProgramDetailDemo() {
     enabled: !!pickId,
   })
 
-  const todo = useTodayTodo(program, userId)   // 「오늘 할 일」 실데이터 — 훅이라 아래 조기 반환보다 먼저
+  // 「오늘 할 일」 실데이터 — 훅이라 아래 조기 반환보다 먼저(실제 상세 화면과 같은 훅)
+  const todo = useTodayTodo({ programId: program?.id, userId, ownerName: program?.owner_nickname || null, quizEnabled: program?.quiz_enabled !== false })
 
   if (!pickId || isLoading || !program) {
     return (
@@ -138,7 +141,7 @@ function ProgramDetailDemo() {
     <div className="flex flex-col gap-1">
       <Cond clean={clean}>{useDemo
         ? (forceDemo ? '예시(?todo=demo) — 레퍼런스 3건 + 반려(다시 확인) 1건' : '예시 — 이 계정은 오늘 할 일이 없어 예시로 채움')
-        : '실제 데이터 — 반려 24시간 · 내 미션 · 심사 중인 인증 · 퀴즈 (만회 «인정»은 서버 작업 전, 표시만)'}</Cond>
+        : '실제 데이터 — 다시 확인(반려 24시간) · 내 미션 · 심사 중인 인증 · 퀴즈'}</Cond>
       <TodayTodoCard
         items={useDemo ? TODO_DEMO.items : todo.items}
         verifierCount={useDemo ? TODO_DEMO.verifierCount : todo.verifierCount}

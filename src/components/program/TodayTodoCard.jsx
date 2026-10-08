@@ -1,5 +1,6 @@
 /**
- * 🔧 dev 전용 — 프로그램 상세 「오늘 할 일」 칸(참여자) — 본인 레퍼런스 2장(접힘·펼침) 2026-10-06
+ * 프로그램 상세(표준 카드홈) 「오늘 할 일」 칸 — 참여자. 본인 레퍼런스 2장(접힘·펼침) 2026-10-06, 실제 화면 2026-10-08.
+ *   데이터·규칙은 lib/todayTodo.js(useTodayTodo). dev 시안 /dev/program 도 같은 부품을 쓴다.
  *
  * 항목 = 지금 할 일(인증·풀기) → 기다리는 일(심사 중·채점 중) → 오늘 끝낸 일 순.
  * 항목마다 진행 단계: 미션 「인증 → 심사 → 점수」(자동 승인 미션은 심사가 없어 「인증 → 점수」), 퀴즈 「풀기 → 채점 → 점수」.
@@ -72,7 +73,7 @@ function TodoItem({ it, onGo }) {
   )
 }
 
-export default function TodayTodoCard({ items = [], verifierCount = 0, onGo }) {
+export default function TodayTodoCard({ items = [], verifierCount = 0, feedEnabled = true, onGo }) {
   const [open, setOpen] = useState(false)
   if (!items.length) return null
   const total = items.length
@@ -128,7 +129,8 @@ export default function TodayTodoCard({ items = [], verifierCount = 0, onGo }) {
           >
             <div className="pt-2 flex flex-col gap-2">
               {rest.map(it => <TodoItem key={it.key} it={it} onGo={onGo} />)}
-              {verifierCount > 0 && (
+              {/* 오늘 인증한 사람 수 — 0명이면 안 그린다. 커뮤니티(피드)가 꺼진 프로그램은 갈 곳이 없어 글만 */}
+              {verifierCount > 0 && (feedEnabled ? (
                 <button type="button" onClick={() => onGo?.('feed')} className="flex items-center gap-2 rounded-2xl bg-white px-3.5 py-3 text-left shadow-soft">
                   <img src="/icons/feature/community.png" alt="" aria-hidden="true" className="w-6 h-6 object-contain flex-shrink-0" />
                   <span className="flex-1 min-w-0 text-[15px] font-bold text-gray-800">오늘 {verifierCount}명이 인증했어요</span>
@@ -136,7 +138,12 @@ export default function TodayTodoCard({ items = [], verifierCount = 0, onGo }) {
                     보러 가기<ChevronRight className="w-3.5 h-3.5" />
                   </span>
                 </button>
-              )}
+              ) : (
+                <div className="flex items-center gap-2 rounded-2xl bg-white px-3.5 py-3 shadow-soft">
+                  <img src="/icons/feature/community.png" alt="" aria-hidden="true" className="w-6 h-6 object-contain flex-shrink-0" />
+                  <span className="flex-1 min-w-0 text-[15px] font-bold text-gray-800">오늘 {verifierCount}명이 인증했어요</span>
+                </div>
+              ))}
             </div>
           </motion.div>
         )}

@@ -24,6 +24,8 @@ import LoadingState from '../../components/common/LoadingState'
 import MeditationPlayer from '../../components/program/MeditationPlayer'
 import MealVerify from '../../components/meal/MealVerify'
 import StepsVerify from '../../components/program/StepsVerify'
+import MakeupBanner from '../../components/program/MakeupBanner'
+import { MAKEUP_MAX_REJECTS, makeupDayLabel, makeupLeftText } from '../../lib/makeup'
 import ImageCropModal from '../../components/common/ImageCropModal'
 import NotificationBell from '../../components/common/NotificationBell'
 import Confetti from '../../components/common/Confetti'
@@ -98,8 +100,7 @@ const HERO_ASPECT = 'aspect-[16/9]'
 //   최종 판정은 서버(a_verification_makeup_guard). 화면은 같은 규칙으로 미리 보여 주고, 안 되는 건 이유와 함께 일반 인증으로 돌린다.
 //   같은 인증(첫 인증 + 그 만회들 = 묶음)이 운영자에게 3번 반려되면 그날은 마감(본인 정의 2026-10-06 — 거듭된 같은 잘못 = 의도).
 //   시계는 아래 함수들 안에서만 읽는다(렌더 본문에서 직접 읽지 않는다).
-const MAKEUP_HOURS = 24
-const MAKEUP_MAX_REJECTS = 3
+//   규칙(24시간·3번·남은 시간·날 이름)은 lib/makeup.js 한 벌만 쓴다 — 오늘 할 일 카드와 같은 말을 해야 한다.
 const MAKEUP_BLOCKED = {
   expired: '다시 올릴 수 있는 24시간이 지났어요.',
   limit: '같은 인증이 3번 반려돼 그날 인증은 마감됐어요.',
@@ -112,24 +113,6 @@ const MAKEUP_ERRORS = {   // 서버 오류 코드 → 같은 문구
   MAKEUP_LIMIT: MAKEUP_BLOCKED.limit,
   MAKEUP_DUPLICATE: MAKEUP_BLOCKED.done,
   MAKEUP_INVALID: MAKEUP_BLOCKED.invalid,
-}
-const kstDayNum = (d) => {
-  const [y, m, dd] = formatKstDate(d).split('-').map(Number)
-  return Math.floor(Date.UTC(y, m - 1, dd) / 86400000)
-}
-// 원래 날 — 「10월 5일(어제)」
-function makeupDayLabel(iso) {
-  const d = new Date(iso)
-  const [, m, dd] = formatKstDate(d).split('-').map(Number)
-  const n = kstDayNum(new Date()) - kstDayNum(d)
-  return `${m}월 ${dd}일(${n <= 0 ? '오늘' : n === 1 ? '어제' : `${n}일 전`})`
-}
-// 남은 시간 — 「20시간」·「35분」, 지났으면 null
-function makeupLeftText(reviewedAt) {
-  const ms = new Date(reviewedAt).getTime() + MAKEUP_HOURS * 3600000 - Date.now()
-  if (ms <= 0) return null
-  const h = Math.floor(ms / 3600000)
-  return h >= 1 ? `${h}시간` : `${Math.max(1, Math.floor(ms / 60000))}분`
 }
 // 만회 자격 — 내 인증·이 미션·반려·24시간 안·아직 안 올림·묶음 반려 3번 미만 + 그날 몫(반려 아닌 인증 수)
 async function fetchMakeupInfo(redoId, userId, missionId) {
@@ -1363,20 +1346,13 @@ function MissionVerifyPage() {
       >
         {/* 만회 인증(283) — 반려된 인증을 다시 올리는 중. 원래 날·남은 시간·운영자 메모 */}
         {redoMode && (
-          <div className="mb-5 p-3 bg-rose-50 border border-rose-200 rounded-xl">
-            <p className="text-sm font-bold text-rose-700 mb-0.5">🔁 다시 올리는 인증이에요</p>
-            <p className="text-xs text-rose-700">{redo.dayLabel} 인증으로 인정돼요 · {redo.left} 남았어요</p>
-            {redo.reason && (
-              <div className="mt-2 px-2.5 py-2 bg-white rounded-lg">
-                <p className="text-[11px] font-bold text-gray-500 mb-0.5">운영자 메모</p>
-                <p className="text-xs text-gray-700 whitespace-pre-line break-keep">{redo.reason}</p>
-              </div>
-            )}
-            {needsImage && <p className="mt-2 text-xs text-rose-700">반려된 사진은 다시 쓸 수 없어요. 다른 사진을 올려 주세요.</p>}
-            {redo.rejects >= MAKEUP_MAX_REJECTS - 1 && (
-              <p className="mt-1 text-xs font-bold text-rose-700">한 번 더 반려되면 그날 인증은 마감돼요.</p>
-            )}
-          </div>
+          <MakeupBanner
+            dayLabel={redo.dayLabel}
+            left={redo.left}
+            reason={redo.reason}
+            needsImage={needsImage}
+            lastChance={redo.rejects >= MAKEUP_MAX_REJECTS - 1}
+          />
         )}
         {redoBlocked && (
           <div className="mb-5 p-3 bg-gray-50 border border-gray-200 rounded-xl text-center">
