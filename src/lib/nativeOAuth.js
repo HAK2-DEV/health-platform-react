@@ -16,6 +16,12 @@
 //     «라이브 웹의 /auth/callback» 으로 보내고, 그 페이지가 code 를 딥링크로 튕겨 준다(bounce).
 //     검증(nonce)·교환(Edge Function)·verifyOtp 는 전부 앱 안에서 한다. 웹 페이지는 code 를 쓰지 않는다
 //     (code 는 1회용 — 웹이 써 버리면 앱이 못 쓴다).
+//
+// ⚠️ 딥링크는 두 길로 들어온다.
+//   · 따뜻한 복귀: 앱이 살아 있고 waitForDeepLink 가 기다리는 중 → 그 waiter 가 처리.
+//   · 차가운 복귀: 카카오톡·크롬으로 갔다 오는 사이 앱 프로세스가 죽어 딥링크가 앱을 «새로» 띄움 →
+//     waiter 가 없다. 이때는 hooks/useNativeAuthReturn 이 getLaunchUrl/appUrlOpen 으로 받아
+//     같은 handleNativeAuthUrl 로 마무리한다. nonce 는 localStorage 라 프로세스가 죽어도 남는다.
 import { Browser } from '@capacitor/browser'
 import { App } from '@capacitor/app'
 import { SocialLogin } from '@capgo/capacitor-social-login'
@@ -28,14 +34,23 @@ import {
 
 export { NATIVE_SCHEME, NATIVE_REDIRECT }
 
+// 우리 딥링크인가 (com.healthplatform.app://auth/callback…)
+export const isNativeAuthUrl = (url) => typeof url === 'string' && url.startsWith(NATIVE_REDIRECT)
+
+// 지금 waiter 가 기다리는 중인가 — 전역 처리기(useNativeAuthReturn)가 같은 URL 을 두 번 처리하지 않게.
+let waiting = false
+export const isAwaitingNativeAuth = () => waiting
+
 // 딥링크 복귀를 1회 기다린다 — appUrlOpen 으로 우리 스킴 URL 이 오면 resolve.
 function waitForDeepLink(timeoutMs = 120000) {
+  waiting = true
   return new Promise((resolve, reject) => {
     let done = false
     let handle
     const finish = (fn, arg) => {
       if (done) return
       done = true
+      waiting = false
       try { handle?.remove?.() } catch { /* 무시 */ }
       fn(arg)
     }
@@ -49,7 +64,7 @@ function waitForDeepLink(timeoutMs = 120000) {
   })
 }
 
-// 복귀 URL(code=PKCE 또는 hash token)에서 세션을 완성한다. (구글 2차)
+// 복귀 URL(code=PKCE 또는 hash token)에서 세션을 완성한다. (구글 2차 — Supabase 호스팅 OAuth)
 async function completeSessionFromUrl(cbUrl) {
   const u = new URL(cbUrl)
   const code = u.searchParams.get('code')
@@ -70,6 +85,36 @@ async function completeSessionFromUrl(cbUrl) {
   }
   const errDesc = u.searchParams.get('error_description') || hp.get('error_description')
   throw new Error(errDesc || '로그인을 완료하지 못했어요.')
+}
+
+// 돌아온 딥링크 하나를 끝까지 처리한다 — 따뜻한 복귀(waiter)와 차가운 복귀(전역 처리기)가 같이 쓴다.
+//   카카오·네이버(bounce): ?provider&code&state → nonce 검증 → Edge Function → verifyOtp
+//   구글 2차(Supabase OAuth): ?code(PKCE) 또는 #access_token → 세션
+//   돌려주는 값: 처리한 provider 이름. 실패는 사용자에게 보여 줄 문구의 Error 로 던진다.
+export async function handleNativeAuthUrl(cbUrl) {
+  const u = new URL(cbUrl)
+  const provider = u.searchParams.get('provider')
+  const err = u.searchParams.get('error')
+  if (!provider) {
+    // 구글 2차(Supabase 호스팅) — provider 파라미터 없이 code/hash 로 온다
+    await completeSessionFromUrl(cbUrl)
+    return 'google'
+  }
+  const label = PROVIDER_LABEL[provider] || provider
+  if (err) throw new Error(u.searchParams.get('error_description') || `${label} 로그인이 취소됐어요`)
+
+  const code = u.searchParams.get('code')
+  const backState = u.searchParams.get('state')
+  const parsed = parseOAuthState(backState)
+  if (!code || !parsed || parsed.provider !== provider) {
+    throw new Error('로그인 정보가 없어요. 다시 시도해주세요.')
+  }
+  // CSRF — 우리가 보낸 nonce 와 같아야 한다. 웹 콜백은 이 값을 볼 수 없어 검증을 앱에 넘겼다.
+  const check = verifyOAuthNonce(parsed.nonce)
+  if (check !== 'ok') throw new Error('보안 검증에 실패했어요 — 다시 시도해주세요')
+
+  await completeProviderLogin({ provider, code, state: backState, redirectUri: WEB_AUTH_CALLBACK })
+  return provider
 }
 
 // ─── 구글 1차: ID 토큰 ────────────────────────────────────────────────────────────
@@ -132,7 +177,7 @@ async function googleCustomTabSignIn() {
   await Browser.open({ url: data.url })   // 시스템 브라우저(Custom Tab)
   const cbUrl = await waiter
   try { await Browser.close() } catch { /* 이미 닫힘 */ }
-  await completeSessionFromUrl(cbUrl)
+  await handleNativeAuthUrl(cbUrl)
 }
 
 // 구글 — 네이티브 로그인. 1차(ID 토큰) → 실패 시 2차(Custom Tab). 취소는 폴백 없이 그대로 알린다.
@@ -151,7 +196,8 @@ export async function nativeGoogleSignIn() {
 // 카카오·네이버 — 네이티브 로그인(bounce).
 //   1) state 에 native 표시 + nonce(앱 localStorage) → authorize 를 Custom Tab 으로
 //   2) provider → https://…/auth/callback(웹) → 그 페이지가 딥링크로 code·state 를 돌려줌
-//   3) 앱: nonce 검증 → Edge Function(code→token_hash) → verifyOtp
+//   3) 앱: nonce 검증 → Edge Function(code→token_hash) → verifyOtp  (handleNativeAuthUrl)
+//   앱이 그 사이 죽었다 다시 뜨면 waiter 는 없고 useNativeAuthReturn 이 3)을 대신한다.
 export async function nativeProviderSignIn(provider) {
   const label = PROVIDER_LABEL[provider] || provider
   const state = startOAuthState(provider, { native: true })
@@ -162,21 +208,5 @@ export async function nativeProviderSignIn(provider) {
   await Browser.open({ url })
   const cbUrl = await waiter
   try { await Browser.close() } catch { /* 이미 닫힘 */ }
-
-  const u = new URL(cbUrl)
-  const err = u.searchParams.get('error')
-  if (err) {
-    throw new Error(u.searchParams.get('error_description') || `${label} 로그인이 취소됐어요`)
-  }
-  const code = u.searchParams.get('code')
-  const backState = u.searchParams.get('state')
-  const parsed = parseOAuthState(backState)
-  if (!code || !parsed || parsed.provider !== provider) {
-    throw new Error('로그인 정보가 없어요. 다시 시도해주세요.')
-  }
-  // CSRF — 우리가 보낸 nonce 와 같아야 한다. 웹 콜백은 이 값을 볼 수 없어 검증을 앱에 넘겼다.
-  const check = verifyOAuthNonce(parsed.nonce)
-  if (check !== 'ok') throw new Error('보안 검증에 실패했어요 — 다시 시도해주세요')
-
-  await completeProviderLogin({ provider, code, state: backState, redirectUri: WEB_AUTH_CALLBACK })
+  await handleNativeAuthUrl(cbUrl)
 }

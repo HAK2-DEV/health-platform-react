@@ -97,7 +97,10 @@ export default defineConfig({
         //   onNeedRefresh(배너)가 발생. 새로고침 클릭 시 updateSW(true)가 skipWaiting 수행.
         // Supabase API / 이미지 등은 SW 캐시에서 제외 — 항상 최신
         // account-deletion.html 은 Play 심사용 «정적» 계정삭제 안내 페이지 — SW 가 index.html 로 가로채면 안 된다.
-        navigateFallbackDenylist: [/^\/api\//, /supabase\.co/, /\/account-deletion\.html$/],
+        // /auth/* (소셜 로그인 콜백) 도 제외 — 앱(네이티브)이 카카오·네이버 로그인 뒤 크롬 Custom Tab 으로
+        //   /auth/callback 에 돌아오는데, 폰 크롬에 PWA 서비스워커가 살아 있으면 «캐시된 옛 index.html» 을 내줘
+        //   옛 콜백 페이지(bounce 모름)가 떠서 앱으로 못 돌아간다(2026-10-08 폰에서 재현). 콜백은 늘 네트워크로.
+        navigateFallbackDenylist: [/^\/api\//, /supabase\.co/, /\/account-deletion\.html$/, /^\/auth\//],
         runtimeCaching: [
           {
             // 폰트 — CacheFirst 1년

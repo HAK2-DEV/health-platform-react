@@ -10,6 +10,7 @@ import PwaUpdatePrompt from './components/common/PwaUpdatePrompt'
 import OfflineBanner from './components/common/OfflineBanner'
 import InstallPromptBanner from './components/common/InstallPromptBanner'
 import ReleaseNotesGate from './components/common/ReleaseNotesGate'
+import { useNativeAuthReturn } from './hooks/useNativeAuthReturn'
 import SplashScreen from './components/common/SplashScreen'
 import BottomTabBar from './components/common/BottomTabBar'
 import InAppBrowserBanner from './components/common/InAppBrowserBanner'
@@ -125,6 +126,8 @@ function AppShell() {
 
   // 참여자 수·둘러보기 목록 실시간 동기화 (Realtime → 캐시 무효화). 로그아웃 시 자동 무시.
   useRealtimeSync()
+  // 네이티브 소셜 로그인 «차가운 복귀» — 앱이 죽었다 딥링크로 다시 떴을 때 로그인을 마무리(웹에선 no-op)
+  useNativeAuthReturn()
 
   // 콜드 스타트 시 진입 화면 정규화 — 본인 결정 (Day 67)
   //   브라우저/설치형 PWA 가 직전에 보던 메인 탭(둘러보기/프로필)으로 "복원"되면
