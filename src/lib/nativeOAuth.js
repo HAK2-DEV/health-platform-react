@@ -41,6 +41,13 @@ export const isNativeAuthUrl = (url) => typeof url === 'string' && url.startsWit
 let waiting = false
 export const isAwaitingNativeAuth = () => waiting
 
+// 이미 처리한(또는 처리 중인) 복귀 URL — Android 는 같은 딥링크를 두 번 주는 일이 흔하다(onNewIntent + 시작 인텐트,
+//   getLaunchUrl + appUrlOpen). 두 번째가 nonce 를 못 찾아 「보안 검증 실패」를 띄우던 것(2026-10-09 폰 재현).
+//   waiter 와 전역 처리기가 같은 집합을 본다. 표시는 «동기적으로» — await 사이에 끼어드는 중복을 막으려면.
+const handledUrls = new Set()
+export const isNativeAuthUrlHandled = (url) => handledUrls.has(url)
+export const markNativeAuthUrlHandled = (url) => { handledUrls.add(url) }
+
 // 딥링크 복귀를 1회 기다린다 — appUrlOpen 으로 우리 스킴 URL 이 오면 resolve.
 function waitForDeepLink(timeoutMs = 120000) {
   waiting = true
@@ -55,7 +62,10 @@ function waitForDeepLink(timeoutMs = 120000) {
       fn(arg)
     }
     App.addListener('appUrlOpen', ({ url }) => {
-      if (url && url.startsWith(`${NATIVE_SCHEME}://`)) finish(resolve, url)
+      if (!url || !url.startsWith(`${NATIVE_SCHEME}://`)) return
+      if (handledUrls.has(url)) return          // 같은 딥링크가 두 번 와도 한 번만
+      handledUrls.add(url)
+      finish(resolve, url)
     }).then((h) => {
       handle = h
       // 리스너 등록 전에 이미 복귀했을 가능성은 낮지만, 등록 완료 후 대기.
