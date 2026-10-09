@@ -331,6 +331,7 @@ function RunningHome({
   noticeUnread = false,          // 새 공지 미열람 → 공지 아이콘에 빨간 점(콩닥)
   classSlot = null,              // 강사 클래스 개요 진입 카드 (기능 ON 시 주입)
   topSlot = null,                // 상단 배너 슬롯 (임시저장 완성 안내·시작 설문 칩 등)
+  todayActionSlot = null,        // 「오늘 할 일」 — 다시 인증 줄(참여자). 운영자 카드 아래, 박스들 위(표준 카드홈과 같은 자리)
   quizEnabled = true,            // 마법사 「퀴즈」 토글
   communityEnabled = true,       // 마법사 「커뮤니티」 토글
   rankingEnabled = false,        // 랭킹 메뉴 표시 (달리기도 랭킹 카드 노출)
@@ -511,6 +512,8 @@ function RunningHome({
       <Reveal index={0}><RunningHeroBlock hero={hero} editable={heroEditable} onHeroChange={onHeroChange} /></Reveal>
       {/* 운영자 카드(성취·이탈·처리할일) + 둘러보기/DRAFT CTA — 히어로 아래 */}
       {topSlot}
+      {/* 「오늘 할 일」 다시 인증 줄(참여자) — 2026-10-09, 표준 카드홈과 같은 자리 */}
+      {todayActionSlot}
 
       {/* [커스터마이즈] 운영자 순서·숨김 반영 */}
       {orderedKeys.map((k, i) => {

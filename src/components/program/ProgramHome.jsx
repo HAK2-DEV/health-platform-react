@@ -2,13 +2,10 @@ import { useState } from 'react'
 import { useKeyboardOverlay } from '../../hooks/useKeyboardOverlay'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { useBackButtonClose } from '../../hooks/useBackButtonClose'
-import { motion } from 'framer-motion'
-import { ChevronRight, Calendar, Activity, Award, Pencil } from 'lucide-react'
+import { ChevronRight, Pencil } from 'lucide-react'
 import WeeklyStreak from './WeeklyStreak'
 import ProgramHomeHero from './ProgramHomeHero'
 import FlameIcon from '../common/FlameIcon'
-import CountUp from '../common/CountUp'
-import { progressUrgency } from '../../lib/programVisuals'
 import { Reveal } from './statsAnim'
 
 // 프로그램 홈 (카드형) — 표준 프로그램 상세를 달리기(RunningHome)처럼 카드 네비로.
@@ -26,15 +23,20 @@ import { Reveal } from './statsAnim'
 //   onOpenTab(key), onRecord(), onNotice()
 
 // 커스터마이즈 가능한 박스 — 기본 순서 + 라벨(편집 화면·Phase 2 에서 재사용). 고정(hero/menu) 제외.
-export const HOME_BOX_ORDER = ['todayaction', 'notice', 'summary', 'menu', 'classes', 'activity', 'progress', 'metrics', 'todayMissions', 'recent', 'banner']
+//   「오늘의 미션」·「나의 진행 현황」·「최근 인증」 세 칸은 2026-10-09 참여자의 「오늘 할 일」(todayaction 슬롯)로 합쳐져 지웠다
+//   (본인 2026-10-06: 누를 수 없고 지금 할 일도 아닌 숫자·목록은 걷어 내고 행동 하나로). 저장된 home_layout 에 그 키가
+//   남아 있어도 아래 savedOrder 가 모르는 키는 건너뛴다.
+export const HOME_BOX_ORDER = ['todayaction', 'notice', 'summary', 'menu', 'classes', 'activity', 'metrics', 'banner']
+// 참여자 전용 자리 — 늘 맨 위에 고정이라 순서가 의미 없고, 숨기면 참여자의 「오늘 할 일」·「내 활동」이 사라진다.
+//   편집기(HOME_BOX_EDITABLE)에 내놓지 않고, 저장된 hidden 에 들어 있어도 무시한다
+//   (전엔 편집기에 영문 키 그대로 떠서 운영자가 숨길 수 있었다 — 2026-10-09 고침).
+export const HOME_BOX_PINNED = ['todayaction', 'activity']
+export const HOME_BOX_EDITABLE = HOME_BOX_ORDER.filter((k) => !HOME_BOX_PINNED.includes(k))
 export const HOME_BOX_LABELS = {
   notice: '공지사항',
   summary: '요약 지표',
   menu: '메뉴',
-  progress: '진행 현황',
   metrics: '주요 기록 요약',
-  todayMissions: '오늘의 미션',
-  recent: '최근 인증',
   banner: '격려 배너',
   classes: '클래스 일정',
 }
@@ -42,10 +44,7 @@ export const HOME_BOX_LABELS = {
 export const HOME_BOX_SIZES = {
   notice: 'Wide',
   summary: 'Wide',
-  progress: 'Wide',
   metrics: 'Wide',
-  todayMissions: 'Long',
-  recent: 'Long',
   banner: 'Wide',
   classes: 'Wide',
 }
@@ -220,11 +219,8 @@ function ProgramHome({
   boxOrder = null,
   hiddenBoxes = [],
   streakData = null,          // { count, days:[{label,done,today}] } — 주간 스트릭
-  progressData = null,        // { activeDays, totalDays, participationRate, points, streak } — 진행 현황
   activitySlot = null,        // 「내 활동 추이」 카드(참여자) — 렌더된 엘리먼트 주입
-  todayActionSlot = null,     // 「오늘 할 일」 히어로(행동 우선) — 최상단
-  todayMissions = [],         // [{ id, title, thumb, done, pt }] — 오늘의 미션
-  recentItems = [],           // [{ id, title, point, time }] — 최근 인증
+  todayActionSlot = null,     // 「오늘 할 일」 칸(참여자, TodayTodoCard) — 최상단 고정
   pace = null,                // 달리기 추천 페이스 (요약 지표 좌측)
   homeHero = null,            // 편집형 히어로 config (home_hero)
   onHeroChange = null,        // 히어로 저장
@@ -324,75 +320,10 @@ function ProgramHome({
         </div>
       )
     },
-    // 오늘 할 일 히어로 (참여자) — 최상단
+    // 오늘 할 일 (참여자) — 최상단 고정
     todayaction: () => todayActionSlot || null,
     // 내 활동 추이 카드 (참여자) — 렌더된 엘리먼트 주입
     activity: () => activitySlot || null,
-    // 진행 현황 (Wide)
-    progress: () => !progressData ? null : (
-      <div className="rounded-2xl p-4 bg-white border border-gray-100 shadow-soft">
-        <h3 className="text-[13px] font-bold text-emerald-600 mb-3">나의 진행 현황</h3>
-        <div className="grid grid-cols-3 gap-2 mb-3">
-          {[
-            { Icon: Calendar, ic: 'text-emerald-500', lbl: '전체 진행', v: progressData.activeDays, prefix: '', u: `/${progressData.totalDays || '-'}일` },
-            { Icon: Activity, ic: 'text-emerald-500', lbl: '참여율', v: progressData.participationRate, prefix: '', u: '%' },
-            { Icon: Award, ic: 'text-amber-500', lbl: '획득 포인트', v: progressData.points, prefix: '+', u: 'P', c: 'text-emerald-700' },
-          ].map((s) => (
-            <div key={s.lbl}>
-              <div className="flex items-center gap-0.5 mb-1">
-                <s.Icon className={`w-3 h-3 flex-shrink-0 ${s.ic}`} />
-                <span className="text-[10px] font-semibold text-gray-600 whitespace-nowrap">{s.lbl}</span>
-              </div>
-              <p className={`text-lg font-semibold leading-tight truncate tabular-nums ${s.c || 'text-gray-800'}`}>{s.prefix}<CountUp value={s.v} duration={900} /><span className="text-xs text-gray-500">{s.u}</span></p>
-            </div>
-          ))}
-        </div>
-        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-          <motion.div
-            className={`h-full rounded-full ${progressUrgency(progress).barCls || 'bg-emerald-400'}`}
-            initial={{ width: 0 }}
-            whileInView={{ width: `${progress}%` }}
-            viewport={{ once: true, margin: '0px 0px -12% 0px' }}
-            transition={{ duration: 0.9, ease: 'easeOut', delay: 0.1 }}
-          />
-        </div>
-      </div>
-    ),
-    // 오늘의 미션 (Long) — 최대 3개 미리보기
-    todayMissions: () => !(todayMissions?.length) ? null : (
-      <div>
-        <div className="flex items-center justify-between mb-1.5 px-0.5">
-          <p className="text-[13px] font-bold text-gray-700">오늘의 미션</p>
-          <button type="button" onClick={onRecord} className="text-[11px] text-gray-400">전체 보기 ›</button>
-        </div>
-        <div className="space-y-2">
-          {todayMissions.slice(0, 3).map((m) => (
-            <div key={m.id} className="bg-white rounded-2xl shadow-soft border border-gray-100 p-3 flex items-center gap-3">
-              {m.thumb ? <img src={m.thumb} alt="" className="w-11 h-11 rounded-xl object-contain bg-gray-50 flex-shrink-0" /> : <span className="w-11 h-11 rounded-xl bg-emerald-50 flex items-center justify-center text-xl flex-shrink-0">📋</span>}
-              <div className="flex-1 min-w-0"><p className="text-[13px] font-bold text-gray-800 truncate">{m.title}</p><p className="text-[10px] text-emerald-600 font-bold mt-0.5">+{m.pt}P</p></div>
-              {m.done
-                ? <span className="text-[11px] font-bold text-emerald-600 flex-shrink-0">✓ 완료</span>
-                : <button type="button" onClick={onRecord} className="text-[11px] font-bold text-white bg-emerald-500 rounded px-3 py-1.5 flex-shrink-0">인증</button>}
-            </div>
-          ))}
-        </div>
-      </div>
-    ),
-    // 최근 인증 (Long) — 최대 3개
-    recent: () => !(recentItems?.length) ? null : (
-      <div>
-        <p className="text-[13px] font-bold text-gray-700 mb-1.5 px-0.5">최근 인증 기록</p>
-        <div className="bg-white rounded-2xl shadow-soft border border-gray-100 divide-y divide-gray-50">
-          {recentItems.slice(0, 3).map((r) => (
-            <div key={r.id} className="flex items-center gap-3 px-3 py-2.5">
-              <span className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center text-base flex-shrink-0">✅</span>
-              <div className="flex-1 min-w-0"><p className="text-[12px] font-bold text-gray-700 truncate">{r.title}</p><p className="text-[10px] text-gray-400">{r.time}</p></div>
-              <span className="text-[11px] font-bold text-emerald-600 flex-shrink-0">+{r.point}P</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    ),
     // 메뉴 카드 (미션/퀴즈/커뮤니티/랭킹) — 활성 개수만큼 가로 균등 배치. 한 단위로 이동/숨김.
     menu: () => (
       <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${cards.length}, minmax(0, 1fr))` }}>
@@ -421,7 +352,7 @@ function ProgramHome({
   const savedOrder = (boxOrder && boxOrder.length ? boxOrder : HOME_BOX_ORDER).filter((k) => BOXES[k])
   HOME_BOX_ORDER.forEach((k) => { if (BOXES[k] && !savedOrder.includes(k)) savedOrder.push(k) })
   const order = savedOrder.filter((k) => k !== 'classes' || classSlot)
-  const hidden = new Set(hiddenBoxes)
+  const hidden = new Set((hiddenBoxes || []).filter((k) => !HOME_BOX_PINNED.includes(k)))   // 참여자 전용 자리는 숨길 수 없다
   const visibleKeys = order.filter((k) => !hidden.has(k))
   // 응원 배너는 항상 최하단, 내 활동 추이는 항상 최상단(공지사항 위) — 저장 레이아웃과 무관하게 고정
   let orderedKeys = visibleKeys.includes('banner')

@@ -20,6 +20,40 @@
 
 export const RELEASE_NOTES = [
   {
+    // 2026-10-09 웹 배포(AAB 52 는 따로). 참여자 홈 맨 위가 바뀌고 세 칸이 사라진다 — 「쓰던 칸은 어디 갔지?」를 푸는 공지.
+    //   배포를 미루면 id·date 를 실제 배포일로 — 게이트의 「가입일」 조건이 date 를 쓴다.
+    //   ⚠️ 사진의 「오늘 27명이 인증했어요」 줄은 마이그 286 이 프로드에 있어야 실제로 뜬다 → 286 적용 뒤에만 푸시.
+    id: '2026-10-09',
+    date: '2026-10-09',
+    title: '오늘 할 일이 한눈에 보여요',
+    platform: 'all',
+    items: [
+      {
+        kind: 'new',
+        text: '프로그램 홈 맨 위에 「오늘 할 일」이 생겼어요',
+        // 사진은 펼친 상태(▲) — 단계 막대와 「오늘 N명」 줄까지 한 장에. /dev/release?shot=todo (가상 데이터, 달리기가 아닌 미션으로 —
+        //   바로 아래 「달리기 프로그램에는 없어요」와 어긋나지 않게). 보이지 않는 경우(운영자 화면·달리기·금연·할 일 0건)를
+        //   적지 않으면, 공지를 읽자마자 자기 프로그램을 여는 운영자가 「고장인가?」 하게 된다(검토 2026-10-09).
+        detail: '오늘 인증할 미션, 풀 퀴즈, 심사 중인 인증, 오늘 받은 점수가 한 상자에 모이고, 항목마다 「인증 → 심사 → 점수」 중 어디까지 왔는지 보여요. 오른쪽 위 ▼를 누르면 사진처럼 펼쳐져요. 할 일이 없는 날과 달리기·금연 프로그램에는 이 상자가 없어요.',
+        image: '/release/today-todo.png',
+      },
+      {
+        // 사진 없음 — «없어진 것»은 찍을 화면이 없다. 대신 어디서 같은 것을 보는지 글로.
+        //   「합쳐졌어요」라고 쓰지 않는다 — 「오늘 할 일」은 오늘 것(+심사 중 2주)만 다뤄서 진행 현황의 참여율·활동일이나
+        //   지난 날 인증은 그 안에 없다(검토 2026-10-09). 빠진 것은 빠졌다고 쓰고, 각각 어디서 보는지만 정확히.
+        kind: 'changed',
+        text: '홈에서 「오늘의 미션」·「나의 진행 현황」·「최근 인증 기록」 칸이 빠졌어요',
+        detail: '오늘 할 미션은 「오늘 할 일」에서, 참여한 날과 연속 기록은 홈의 「내 활동」에서, 지난 인증은 마이페이지 「내 기록」에서 볼 수 있어요.',
+        safe: '인증·점수·연속 기록은 하나도 지워지지 않아요',
+      },
+      {
+        kind: 'operator',
+        text: '「개요 화면 편집」 목록에서 세 칸이 빠졌어요',
+        detail: '「오늘 할 일」과 「내 활동」은 참여자에게만 보이는 자리라 늘 맨 위에 있고, 순서를 바꾸거나 숨길 수 없어요. 운영자 화면에는 나오지 않으니 위 사진을 참고해 주세요. 프로그램 설정의 「나의 진행 현황」 카드 표시 스위치도 쓸 곳이 없어져 보이지 않아요.',
+      },
+    ],
+  },
+  {
     id: '2026-10-07',
     date: '2026-10-07',
     title: '꾸준함이 보이기 시작했어요',
@@ -108,21 +142,48 @@ export function lastSeenReleaseId() {
   try { return localStorage.getItem(SEEN_KEY) } catch { return null }
 }
 export function markReleaseSeen(id) {
-  try { localStorage.setItem(SEEN_KEY, id) } catch { /* 사생활 보호 모드 등 — 무시 */ }
+  // 「마지막으로 읽은 노트」는 앞으로만 간다 — 마이페이지에서 옛 공지를 다시 열어 닫아도 최신 공지가 대시보드에
+  //   다시 뜨지 않게(2026-10-09, 목록이 생기면서 필요해졌다). id 는 날짜라 문자열 비교로 순서가 맞다.
+  try {
+    const cur = localStorage.getItem(SEEN_KEY)
+    if (!cur || id > cur) localStorage.setItem(SEEN_KEY, id)
+  } catch { /* 사생활 보호 모드 등 — 무시 */ }
 }
 
-// 지금 보여 줄 노트. 이미 읽었으면 null.
+// 공지 날짜(KST 자정) 전에 가입했는가 — 그 뒤 가입한 사람에겐 「달라졌어요」가 성립하지 않는다(비교할 «전»이 없다).
+export function joinedBeforeRelease(note, joinedAt) {
+  if (!joinedAt) return true
+  return new Date(joinedAt).getTime() <= new Date(`${note.date}T00:00:00+09:00`).getTime()
+}
+
+// 지금 보여 줄 노트 — «안 읽은 노트 중 가장 오래된 것» 하나. 없으면 null.
+//   전에는 맨 앞(최신) 노트만 봤다 → 연속 배포 때 그 사이 대시보드를 안 연 사람은 앞 공지를 영영 못 봤다
+//   (2026-10-09 검토에서 발견, 본인 결정: 오래된 것부터 하나씩). 두 개가 밀려 있으면 방문 두 번에 하나씩 뜬다.
+//   읽음 표시는 «마지막으로 닫은 노트 id» 하나뿐이라, id(=날짜)가 그보다 큰 노트가 «안 읽은 것»이다 → id 는 날짜순으로 커져야 한다.
+//   가입 뒤에 나온 노트만(joinedAt) — 가입 전 노트는 건너뛰고 다음 노트를 본다(게이트에서 판정하면 건너뛴 자리에서 멈춘다).
 //   isNative 가 true 면 web 전용 항목은 뺀다(그 반대도).
 //   isOperator 가 false 면 운영자 전용 항목(kind:'operator')은 뺀다 — 참여자에게 「끄는 법」은 할 수 없는 이야기다.
 //
 // ⚠️ platform 은 «항목»과 «노트» 두 곳에 쓸 수 있고, 항목에 적힌 것이 이긴다.
 //    전에는 항목만 봤다 → 노트에 platform:'web' 을 적어도 조용히 무시돼서, 웹 전용 소식이
 //    앱 사용자에게 그대로 나갈 뻔했다(2026-10-08 점검에서 발견). 둘 다 보도록 고쳤다.
-export function pendingRelease({ isNative = false, isOperator = false } = {}) {
-  const note = RELEASE_NOTES[0]
-  if (!note) return null
-  if (lastSeenReleaseId() === note.id) return null
-  return releaseNoteFor(note, { isNative, isOperator })
+export function pendingRelease({ isNative = false, isOperator = false, joinedAt = null } = {}) {
+  const seen = lastSeenReleaseId()
+  const unread = RELEASE_NOTES
+    .filter((n) => !seen || n.id > seen)
+    .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+  for (const note of unread) {
+    if (!joinedBeforeRelease(note, joinedAt)) continue
+    const mine = releaseNoteFor(note, { isNative, isOperator })
+    if (mine) return mine
+  }
+  return null
+}
+
+// 이 사람이 볼 수 있는 노트 전부(코드 순 = 최신이 앞) — 마이페이지 「업데이트 사항」 목록(본인 2026-10-09: 날짜별 상자, 누르면 전체 내용).
+//   가입 전 공지도 넣는다 — 「다시 보기」 자리라 «달라졌다»가 아니라 «지금 이렇다»를 읽는 곳이다. 읽음 여부와 무관.
+export function releaseNotesFor({ isNative = false, isOperator = false } = {}) {
+  return RELEASE_NOTES.map((n) => releaseNoteFor(n, { isNative, isOperator })).filter(Boolean)
 }
 
 // 이 사람이 볼 항목만 남긴 노트 — 읽음 여부와 무관. 없으면 null.

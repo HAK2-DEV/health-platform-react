@@ -14,8 +14,10 @@ import ReleaseNotes from './ReleaseNotes'
 // 띄우는 조건
 //   1) 로그인했다 — 공지는 「쓰던 화면이 달라졌다」는 이야기다. 로그인 전 화면엔 해당 없음.
 //   2) 대시보드다 — 앱을 열면 닿는 자리. 깊은 화면에서 갑자기 막아서면 하던 일을 끊는다.
-//   3) 아직 안 읽었다 — 읽음 표시는 기기에 남는다(localStorage).
+//   3) 아직 안 읽었다 — 읽음 표시는 기기에 남는다(localStorage). 안 읽은 것이 여럿이면 «가장 오래된 것»부터
+//      방문마다 하나씩(2026-10-09, 본인 결정 — 전엔 최신 하나만 봐서 연속 배포 때 앞 공지가 유실됐다). 판정은 pendingRelease.
 //   4) 이 공지 «전에» 가입했다 — 어제 가입한 사람에게 「달라졌어요」는 말이 안 된다. 비교할 «전»이 없다.
+//      이것도 pendingRelease 가 노트마다 본다(여기서 보면 건너뛴 자리에서 멈춰 다음 노트로 못 간다).
 //   5) 운영자 여부를 «알고 난 뒤에» 띄운다 — 모르는 채 띄우면 참여자용으로 떴다가 운영자 항목이
 //      뒤늦게 끼어든다(빈 상태 깜빡임과 같은 실수).
 //   6) 약관 개정 고지가 떠 있으면 비킨다 — 실제로 띄워 보니 둘이 겹쳤다(2026-10-07 확인).
@@ -41,12 +43,9 @@ export default function ReleaseNotesGate() {
   const note = pendingRelease({
     isNative: isNativeApp(),
     isOperator: (myPrograms?.length || 0) > 0,
+    joinedAt: session.user?.created_at || null,
   })
   if (!note) return null
-
-  // 가입 시각이 공지 날짜(KST 자정)보다 뒤면 건너뛴다
-  const joinedAt = session.user?.created_at
-  if (joinedAt && new Date(joinedAt) > new Date(`${note.date}T00:00:00+09:00`)) return null
 
   return (
     <ReleaseNotes

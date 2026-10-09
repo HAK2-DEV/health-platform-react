@@ -28,6 +28,7 @@ function QuitSmokingHome({
   streakData = null,
   moodSlot = null, tipSlot = null, bannerSlot = null, classSlot = null,
   viewerSlot = null,          // 둘러보기(비참여) 참여 CTA / DRAFT 완료 CTA — 시트 최상단
+  todayActionSlot = null,     // 「오늘 할 일」 — 다시 인증 줄(참여자). 운영자 카드 아래, 박스들 위(표준 카드홈과 같은 자리)
   variant = 'basic',
   homeHero = null, onHeroChange = null, homeGoal = null, onGoalChange = null, ownerId = null, editable = false,
   streakRef = null,
@@ -147,6 +148,8 @@ function QuitSmokingHome({
 
       {/* 운영자 카드(성취·초대·처리할일) + 둘러보기/DRAFT CTA — 히어로 아래 */}
       {viewerSlot}
+      {/* 「오늘 할 일」 다시 인증 줄(참여자) — 2026-10-09, 표준 카드홈과 같은 자리 */}
+      {todayActionSlot}
 
       {/* [커스터마이즈] 운영자 순서·숨김 반영 (클래스 일정 포함) — 스크롤 진입 시 페이드업(Reveal) */}
       {orderedKeys.map((k, i) => {

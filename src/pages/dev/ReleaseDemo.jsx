@@ -17,6 +17,19 @@ import FlameIcon from '../../components/common/FlameIcon'
 import CommunityPostList from '../../components/program/CommunityPostList'
 import MakeupBanner from '../../components/program/MakeupBanner'
 import TodayRedoCard from '../../components/program/TodayRedoCard'
+import TodayTodoCard from '../../components/program/TodayTodoCard'
+import { missionSteps, quizSteps } from '../../lib/todayTodo'
+
+// 공지 사진용 「오늘 할 일」 예시 — 전부 가상. ⚠️ 달리기 미션은 쓰지 않는다: 공지 글이 「달리기·금연 프로그램에는 이 상자가 없어요」
+//   라고 하는데 사진이 달리기면 어긋난다(검토 2026-10-09). /dev/program 의 TODO_DEMO(달리기)와는 별개.
+const TODO_SHOT = {
+  verifierCount: 27,
+  items: [
+    { key: 's1', kind: 'mission', icon: '/icons/mission/stretching.png', title: '아침 스트레칭 10분', sub: '오후 8시까지 · 10P', action: '인증', primary: true, go: null, steps: missionSteps('MANUAL', 'act') },
+    { key: 's2', kind: 'review', icon: '/icons/mission/meal.png', title: '건강한 아침 식사', sub: '어제 오전 7:40', action: '보기', primary: false, go: null, steps: missionSteps('MANUAL', 'wait') },
+    { key: 's3', kind: 'quiz', icon: '/icons/feature/quiz.png', title: '이번 주 건강 퀴즈', sub: '5문항 · 오늘까지 · 5P', action: '풀기', primary: true, go: null, steps: quizSteps('act') },
+  ],
+}
 
 // 공지에 넣을 «운영자 설정» 사진을 찍기 위한 자리(?shot=settings).
 //   화면이 바뀌면 사진도 다시 찍어야 하므로, 찍는 방법 자체를 코드에 남겨 둔다.
@@ -105,6 +118,19 @@ export default function ReleaseDemo() {
               reason: '물병이 보이게 다시 찍어 주세요. 컵만 나와 있어요.',
             }}
           />
+        </div>
+      </div>
+    )
+  }
+
+  // 「오늘 할 일」 칸 — 진짜 TodayTodoCard 로 찍는다. 예시 데이터(TODO_SHOT)는 전부 가상·임의 숫자.
+  //   다시 확인(반려) 항목은 10-07 공지에서 다뤘으니 빼고, 인증·심사 중·퀴즈 3건 + 「오늘 27명」을 펼쳐 찍는다(찍는 스크립트가 ▼ 를 누른다).
+  if (shot === 'todo') {
+    return (
+      <div className="min-h-screen bg-white pt-6 px-4">
+        <style>{'.tsqd-open-btn-container{display:none!important}'}</style>
+        <div className="max-w-[340px] mx-auto">
+          <TodayTodoCard items={TODO_SHOT.items} verifierCount={TODO_SHOT.verifierCount} feedEnabled onGo={() => {}} />
         </div>
       </div>
     )

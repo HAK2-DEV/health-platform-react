@@ -36,7 +36,7 @@ import OperatorProfileModal from '../../components/program/OperatorProfileModal'
 import TodayRedoCard from '../../components/program/TodayRedoCard'
 import { useRedoVerifications } from '../../hooks/useRedoVerifications'
 import MetricSummaryCard from '../../components/program/MetricSummaryCard'
-import ProgramHome, { HOME_BOX_ORDER, HOME_BOX_LABELS, Icon3D } from '../../components/program/ProgramHome'
+import ProgramHome, { HOME_BOX_EDITABLE, HOME_BOX_LABELS, Icon3D } from '../../components/program/ProgramHome'
 import TodayTodoCard from '../../components/program/TodayTodoCard'
 import { useTodayTodo } from '../../lib/todayTodo'
 import ActivityTrendCard from '../../components/program/ActivityTrendCard'
@@ -218,10 +218,6 @@ function runActiveWeekDays(weekDays, missions) {
     return { ...d, kind }
   })
 }
-
-// 🔧 로컬 미리보기 스위치 — 전체 「오늘 할 일」(dev 서버에서만 읽는다. 아래 todoFull 참고)
-const TODO_FULL_KEY = 'dev:today-todo-full'
-const readDevFlag = (k) => { try { return localStorage.getItem(k) === '1' } catch { return false } }
 
 function ProgramDetailPage() {
   const { id } = useParams()
@@ -898,38 +894,11 @@ function ProgramDetailPage() {
     setPendingWelcomeOpen(true)
   }, [isOwner, isPendingParticipant, program])
 
-  // 「오늘 할 일」 히어로(행동 우선) — 참여자 개요 최상단. 오늘 상태에 따라 인증 유도/대기/완료.
-  //   반려돼서 «다시 올릴 수 있는» 인증이 있으면 그 줄이 맨 위에 온다(283) — 시간 제한이 있어 가장 급하다.
+  // 「오늘 할 일」 — 참여자 홈 맨 위. 표준 카드홈은 전체 칸(아래 todoSlotEl), 달리기·금연 홈은 «다시 인증» 줄만(redoSlotEl).
+  //   반려돼서 «다시 올릴 수 있는» 인증은 시간 제한(24시간)이 있어 놓치면 그날 기록이 사라진다 → 있을 때만 맨 위에(283).
+  //   (전에 여기 있던 「인증할 미션 N개 남았어요」 3상태 히어로는 한 번도 배선되지 않은 채 전체 칸으로 대체돼 지웠다, 2026-10-09)
   const redoItems = useRedoVerifications(id, userId, { enabled: !isOwner && isActiveParticipant })
-  const _todayOpenCount = _todayActive.filter((m) => (todayCounts[m.id]?.total || 0) < (m.daily_limit || 1)).length
-  const todayActionEl = (!isOwner && isActiveParticipant && program?.status === 'PUBLISHED' && !programUpcoming && todayMissionState !== 'none') ? (
-    todayMissionState === 'open' ? (
-      <button type="button" onClick={() => setActiveTab('missions')}
-        className="relative w-full overflow-hidden rounded-[20px] p-[18px] text-center text-white active:scale-[0.99] transition shadow-[0_16px_34px_-16px_rgba(6,78,59,0.6)]"
-        style={{ background: 'linear-gradient(135deg,#10a675 0%,#0c7f66 56%,#0a6a5c 100%)' }}>
-        <span aria-hidden className="pointer-events-none absolute -top-12 -right-10 w-40 h-40 rounded-full bg-white/10 blur-2xl" />
-        <span aria-hidden className="pointer-events-none absolute inset-0 rounded-[20px] ring-1 ring-inset ring-white/10" />
-        <p className="relative text-[11px] font-bold text-white/65 tracking-[0.14em]">오늘 할 일</p>
-        <p className="relative text-[18px] font-extrabold mt-1 mb-4 leading-snug">인증할 미션 {_todayOpenCount}개 남았어요</p>
-        <span className="relative flex items-center justify-center gap-1 w-full bg-white text-emerald-700 text-[14px] font-extrabold py-3 rounded-[13px] shadow-[0_5px_14px_-6px_rgba(0,0,0,0.2)]">오늘 인증하기 <ChevronRight className="w-4 h-4" /></span>
-      </button>
-    ) : todayMissionState === 'pending' ? (
-      <div className="w-full rounded-2xl p-4 bg-amber-50 border border-amber-200">
-        <p className="text-[15px] font-extrabold text-amber-800">⏳ 인증 심사 대기 중</p>
-        <p className="text-[12.5px] text-amber-700/80 mt-0.5">제출 완료! 운영자 확인을 기다리고 있어요.</p>
-      </div>
-    ) : (
-      <div className="w-full rounded-2xl p-4 bg-emerald-50 border border-emerald-200 text-center">
-        <p className="text-[15px] font-extrabold text-emerald-800">오늘 인증 완료! 🎉</p>
-        <p className="text-[12.5px] text-emerald-700/80 mt-0.5">잘하고 있어요. 내일 또 만나요!</p>
-      </div>
-    )
-  ) : null
-  // 「오늘 할 일」 슬롯 — 지금은 «다시 인증»만 넣는다(본인 2026-10-08).
-  //   ⚠️ 위 todayActionEl(3상태 히어로)은 만들어 두고 «한 번도 배선된 적이 없다» — 넘기는 곳이 dev 데모뿐이다.
-  //      여기서 같이 켜면 모든 참여자 홈 맨 위에 새 블록이 생긴다. 이번 범위가 아니라 그대로 둔다.
-  //   다시 인증은 시간 제한(24시간)이 있어 놓치면 그날 기록이 사라진다 → 있을 때만 맨 위에 보인다.
-  //      셋을 넘기지 않는다. 더 있으면 「내 기록」에서 본다.
+  // «다시 인증» 줄 — 셋을 넘기지 않는다. 더 있으면 「내 기록」에서 본다.
   const redoSlotEl = redoItems.length > 0 ? (
     <div className="space-y-2">
       {redoItems.slice(0, 3).map((it) => (
@@ -943,22 +912,10 @@ function ProgramDetailPage() {
     </div>
   ) : null
 
-  // 🔧 로컬 미리보기 — 전체 「오늘 할 일」(본인 2026-10-08 「로컬에 실배선해서 보고 배포 결정」). dev 서버에서만.
-  //   배포 기본은 위 «다시 인증» 카드뿐이다(같은 날 본인 결정). ?todo=full 로 한 번 켜면 이 브라우저에 기억되고
-  //   ?todo=off 로 끈다. 켜진 동안 「오늘 할 일」이 대신하는 세 칸(오늘의 미션·나의 진행 현황·최근 인증)은 숨긴다.
-  //   프로덕션 빌드에선 import.meta.env.DEV 가 false 라 이 분기가 통째로 빠진다.
-  //   배포를 정하면: 스위치를 걷고 늘 켜기 + 세 칸 코드 삭제 + 운영자 「진행 현황」 토글 정리 + 마이그 286(오늘 N명) 적용.
-  const todoParam = new URLSearchParams(location.search).get('todo')
-  useEffect(() => {
-    if (!import.meta.env.DEV) return
-    try {
-      if (todoParam === 'full') localStorage.setItem(TODO_FULL_KEY, '1')
-      else if (todoParam === 'off') localStorage.removeItem(TODO_FULL_KEY)
-    } catch { /* 저장소가 막힌 브라우저 — 이번 주소에서만 켜진다 */ }
-  }, [todoParam])
-  const todoFull = import.meta.env.DEV && todoParam !== 'off' && (todoParam === 'full' || readDevFlag(TODO_FULL_KEY))
-  // 표준 카드홈의 참여자에게만(운영자·둘러보기·달리기·금연·식단 홈·끝난 프로그램은 부르지 않는다)
-  const todoOn = todoFull && !!program && program.card_home === true && program.theme !== PROGRAM_THEME.RUNNING
+  // 전체 「오늘 할 일」 칸 — 표준 카드홈의 참여자에게(본인 2026-10-09 «켜기»). 운영자·둘러보기·달리기·금연·식단 홈·끝난 프로그램은 부르지 않는다.
+  //   dev 시안(/dev/program)에서 다듬고 10-08 에 로컬 스위치(?todo=full)로 실배선해 본 뒤 켰다. 이 칸이 대신하는
+  //   「오늘의 미션」·「나의 진행 현황」·「최근 인증」 세 칸은 ProgramHome 에서 지웠다. 「오늘 N명이 인증했어요」는 마이그 286(집계 함수) — 없으면 그 줄만 숨는다.
+  const todoOn = !!program && program.card_home === true && program.theme !== PROGRAM_THEME.RUNNING
     && program.theme !== PROGRAM_THEME.QUIT_SMOKING && program.categories?.[0] !== 'DIET'
     && isActiveParticipant && !isOwner && !isEnded
   const todayTodo = useTodayTodo({
@@ -2222,6 +2179,7 @@ function ProgramDetailPage() {
             programId={id} programName={program.name} categories={program.categories}
             streak={qStreak} savedAmount={qSaved} smokedToday={qSmokedToday} statusLabel={cardStatusLabel}
             viewerSlot={<>{cardTopSlot}{operatorMilestoneEl}{operatorActionEl}{operatorDeckEl}</>}
+            todayActionSlot={redoSlotEl}
             notice={qNotice}
             progressData={qProgress} progress={calcProgress(program.start_date, program.end_date)}
             streakData={{ count: qStreak, days: overviewData?.weekDays || [] }}
@@ -2449,6 +2407,7 @@ function ProgramDetailPage() {
             newQuizCount={newQuizCount}
             classSlot={classOverviewSlot}
             topSlot={<>{cardTopSlot}{operatorMilestoneEl}{operatorActionEl}{operatorDeckEl}</>}
+            todayActionSlot={redoSlotEl}
             todayMissions={runTodayMissions}
             recentItems={runRecentItems}
             boxOrder={program.home_layout?.order || null}
@@ -2474,20 +2433,6 @@ function ProgramDetailPage() {
         const homeNotice = latestNotice ? (latestNotice.title || latestNotice.body || '') : ''
         // 새 박스 실데이터
         const streakData = { count: overviewData?.streak || 0, days: overviewData?.weekDays || [] }
-        const _actD = overviewData?.activeDays ?? 0
-        const _timing = calcProgramTiming(program.start_date, program.end_date, _actD)
-        const progressData = {
-          activeDays: _actD, totalDays: _timing.programDays,
-          participationRate: _timing.participationRate,
-          points: scores?.total ?? 0, streak: overviewData?.streak ?? 0,
-        }
-        const todayMissionsData = (missions || []).filter((m) => checkMissionToday(m).active).map((m) => ({
-          id: m.id, title: m.title, thumb: m.icon_path ? resolveMissionIcon(m.icon_path) : null,
-          done: (todayCounts[m.id]?.total || 0) >= (m.daily_limit || 1), pt: m.point || 0,
-        }))
-        const recentItemsData = (overviewData?.recent || []).map((r) => ({
-          id: r.id, title: r.title, point: r.point, time: formatRelativeKstDay(r.submitted_at),
-        }))
         return (
           <ProgramHome
             todayActionSlot={todoOn ? todoSlotEl : redoSlotEl}
@@ -2512,14 +2457,11 @@ function ProgramDetailPage() {
             notice={homeNotice || (isOwner ? '공지를 작성해보세요' : '등록된 공지가 없어요')}
             metrics={homeMetrics}
             boxOrder={program.home_layout?.order || null}
-            hiddenBoxes={todoOn ? [...(program.home_layout?.hidden || []), 'todayMissions', 'progress', 'recent'] : (program.home_layout?.hidden || [])}
+            hiddenBoxes={program.home_layout?.hidden || []}
             streakData={streakData}
-            progressData={(isViewer || isOwner || program.overview_progress_enabled === false) ? null : progressData}
             activitySlot={activityCardEl}
             viewerSlot={<>{cardTopSlot}</>}
             onOwnerClick={() => setOwnerProfileOpen(true)}
-            todayMissions={todayMissionsData}
-            recentItems={recentItemsData}
             pace={program.run_pace}
             homeHero={program.home_hero}
             onHeroChange={(cfg) => homeHeroMutation.mutate(cfg)}
@@ -2647,7 +2589,7 @@ function ProgramDetailPage() {
       {/* 카드홈 레이아웃 편집기 (운영자 전용, 풀스크린 오버레이) */}
       {usesCardHome && isOwner && homeEditOpen && (
         <ProgramHomeLayoutEditor
-          boxKeys={program.class_feature_enabled ? HOME_BOX_ORDER : HOME_BOX_ORDER.filter(k => k !== 'classes')}
+          boxKeys={HOME_BOX_EDITABLE.filter((k) => k !== 'classes' || program.class_feature_enabled)}
           boxLabels={HOME_BOX_LABELS}
           currentOrder={program.home_layout?.order || null}
           currentHidden={program.home_layout?.hidden || []}

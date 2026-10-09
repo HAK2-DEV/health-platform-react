@@ -90,6 +90,7 @@ const JoinByCodePage = lazy(() => import('./pages/JoinByCodePage'))
 const AuthCallbackPage = lazy(() => import('./pages/AuthCallbackPage'))
 const NotificationSettingsPage = lazy(() => import('./pages/NotificationSettingsPage'))
 const AccountSettingsPage = lazy(() => import('./pages/AccountSettingsPage'))
+const ReleaseNotesPage = lazy(() => import('./pages/ReleaseNotesPage'))   // 마이페이지 → 업데이트 사항 목록(날짜별)
 const PrivacyPolicyPage = lazy(() => import('./pages/PrivacyPolicyPage'))
 const TermsOfServicePage = lazy(() => import('./pages/TermsOfServicePage'))
 const InstallGuidePage = lazy(() => import('./pages/InstallGuidePage'))
@@ -346,6 +347,9 @@ function AppShell() {
             } />
             <Route path="/profile/account-settings" element={
               <ProtectedRoute><AccountSettingsPage /></ProtectedRoute>
+            } />
+            <Route path="/profile/updates" element={
+              <ProtectedRoute><ReleaseNotesPage /></ProtectedRoute>
             } />
             <Route path="/operator-guide" element={
               <ProtectedRoute><OperatorGuidePage /></ProtectedRoute>
