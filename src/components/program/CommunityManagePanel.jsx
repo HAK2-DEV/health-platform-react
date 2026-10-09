@@ -5,6 +5,7 @@ import { useKeyboardOverlay } from '../../hooks/useKeyboardOverlay'
 import { supabase } from '../../supabaseClient'
 import { Check, Heart, MessageCircle, Plus, X, ChevronUp, ChevronDown, MoreVertical, Trash2, LayoutGrid } from 'lucide-react'
 import ConfirmModal from '../common/ConfirmModal'
+import { DEFAULT_BOARD_SETTINGS as DEFAULT_BOARDS } from '../../lib/communityBoards'
 
 // 커뮤니티 관리자 — 운영자 패널(커뮤니티) 클릭 시 커뮤니티 탭 자리에 인라인 표시.
 //   ① 레이아웃(community_layout) ② 게시판 ③ 승인·노출 ④ 신고 정책 ⑤ 미리보기.
@@ -18,12 +19,7 @@ const LAYOUTS = [
   { key: 'grid', label: '그리드형', desc: '2열 카드 갤러리' },
   { key: 'magazine', label: '매거진형', desc: '대/소 혼합 · 오버레이' },
 ]
-const DEFAULT_BOARDS = [
-  { id: 'all', name: '전체', system: true, desc: '모든 게시글을 한눈에 확인할 수 있어요.', writePerm: 'free', commentPerm: 'free', manageMode: 'default' },
-  { id: 'cert', name: '인증', system: true, desc: '운동 인증이나 기록을 공유하는 공간이에요.', writePerm: 'approval', commentPerm: 'free', manageMode: 'review', feedVisibility: 'public' },
-  { id: 'free', name: '자유', system: true, desc: '주제에 구애받지 않고 자유롭게 이야기해요.', writePerm: 'free', commentPerm: 'free', manageMode: 'instant' },
-  { id: 'notice', name: '공지', system: true, desc: '운영진이 작성하는 공지사항 게시판이에요.', writePerm: 'readonly', commentPerm: 'readonly', manageMode: 'owner' },
-]
+// 기본 게시판 설정은 src/lib/communityBoards.js 의 DEFAULT_BOARD_SETTINGS (AI 초안이 프로그램을 만들 때도 같은 목록을 쓴다)
 const BOARD_META = {
   all: { emoji: '📋', bg: 'bg-emerald-100' },
   cert: { emoji: '📷', bg: 'bg-amber-100' },

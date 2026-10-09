@@ -200,6 +200,9 @@ export function expandPresetMission(m, { programId, activeFrom, activeUntil, bun
   const rno = special ? false : (m.requires_note ?? false)
   const onlyImage = ri && !rn && !rno
   const onlyNote = rno && !ri && !rn
+  // single_point — 입력별 점수 없이 미션 점수 하나(승인되면 그대로, 마이그 276 의 옛 방식). «누르기만»(선택 글만) 미션용:
+  //   입력별로 나누면 글을 비운 제출이 0점이 된다. AI 초안(program-draft core.ts)이 쓴다. 기존 프리셋은 안 쓴다.
+  const single = !!m.single_point
   return {
     program_id: programId,
     feature: null,
@@ -217,9 +220,9 @@ export function expandPresetMission(m, { programId, activeFrom, activeUntil, bun
     requires_image: ri,
     requires_numeric: rn,
     requires_note: rno,
-    image_point: ri ? (m.image_point ?? (onlyImage ? point : 0)) : null,
-    numeric_point: rn ? (m.numeric_point ?? 0) : null,
-    note_point: rno ? (m.note_point ?? (onlyNote ? point : 0)) : null,
+    image_point: single ? null : (ri ? (m.image_point ?? (onlyImage ? point : 0)) : null),
+    numeric_point: single ? null : (rn ? (m.numeric_point ?? 0) : null),
+    note_point: single ? null : (rno ? (m.note_point ?? (onlyNote ? point : 0)) : null),
     image_required: m.image_required ?? true,
     numeric_required: m.numeric_required ?? true,
     note_required: m.note_required ?? true,

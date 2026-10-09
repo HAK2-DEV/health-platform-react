@@ -8,6 +8,7 @@ import { excludeBlocked, maskBlockedComments, blockedInList } from './blocks'
 //   - userId 가 필요한 키는 항상 user 인자 포함 — 로그인 다른 계정이면 캐시 자동 분리
 import { supabase } from '../supabaseClient'
 import { getPreset, expandPresetMission } from './programLibrary'
+import { AI_PRESET_KEY, aiDraftToPreset, aiDraftProgramFields, withInviteCode } from './aiDraft'
 import { QUIZ_AUDIENCES } from './quizLibrary'
 import { thumbPathOf } from './signedUrls'
 
@@ -3802,13 +3803,19 @@ export const upsertMood = async ({ programId, userId, mood }) => {
 //   프리셋(코드 정의) → DRAFT 프로그램 + 미션(전체 기간) 생성. 이후 마법사에서 이름·날짜 마무리.
 //   날짜 변경 시 027 트리거가 미션 active_from/until 을 자동 동기화.
 //   원자성: 미션 insert 실패 시 새 프로그램 삭제(cascade)로 롤백.
-export const createProgramFromPreset = async ({ presetKey, userId, selectedKeys, durationDays, audienceKey }) => {
+//   preset·programExtras(2026-10-10, AI 초안용): 코드 프리셋 대신 «프리셋 객체»를 받고, 프리셋 밖 칸(제안 이름·기능 스위치·287 칸)을 덮어쓴다.
+//     둘 다 안 주면 예전과 똑같다(라이브러리 경로 그대로).
+export const createProgramFromPreset = async ({ presetKey, preset: presetObj, userId, selectedKeys, durationDays, audienceKey, programExtras }) => {
   if (!userId) throw new Error('로그인이 필요합니다')
-  const preset = getPreset(presetKey)
+  const preset = presetObj || getPreset(presetKey)
   if (!preset) throw new Error('프리셋을 찾을 수 없어요')
   // 선택 대상자 + 프리셋 quizTopicKey 에 맞는 퀴즈 주제 (해당 조합이 없으면 퀴즈 없이 진행)
   const audience = QUIZ_AUDIENCES.find(a => a.key === (audienceKey || 'general_adult')) || QUIZ_AUDIENCES[0]
   const quizTopic = preset.quizTopicKey ? ((audience?.topics || []).find(t => t.key === preset.quizTopicKey) || null) : null
+  // quizAutoGradedOnly(AI 초안): 운영자가 채점해야 하는 주관식 문항은 뺀다 — 섞이면 제출이 «채점 대기»로 남아 점수가 묶인다(리뷰 2026-10-10).
+  //   남는 문항이 없으면 퀴즈를 만들지 않는다. 플래그가 없는 라이브러리 경로는 예전과 똑같다(전 문항).
+  const quizQuestions = quizTopic ? (quizTopic.questions || []).filter(qq => !preset.quizAutoGradedOnly || !(qq.type === 'SHORT' && (qq.grading_mode || 'MANUAL') !== 'AUTO')) : []
+  const hasQuiz = !!quizTopic && (!preset.quizAutoGradedOnly || quizQuestions.length > 0)
   // 선택 후보 = 메인(missions) + 추천(recommendedMissions). selectedKeys 있으면 그것만, 없으면 메인만.
   const pool = [...(preset.missions || []), ...(preset.recommendedMissions || [])]
   const chosen = Array.isArray(selectedKeys) && selectedKeys.length
@@ -3839,9 +3846,11 @@ export const createProgramFromPreset = async ({ presetKey, userId, selectedKeys,
     theme: preset.theme || null,    // 테마 프로그램(금연 등) — 상세 페이지 변형 (마이그 136)
     // 프리셋이 지정한 메뉴 플래그만 반영 (미지정은 DB 기본값). 금연: 퀴즈/랭킹 OFF, 내 변화 ON
     // 퀴즈가 번들되면 퀴즈 메뉴 강제 ON (프리셋 quizEnabled 보다 우선)
-    ...(quizTopic ? { quiz_enabled: true } : (preset.quizEnabled != null ? { quiz_enabled: preset.quizEnabled } : {})),
+    ...(hasQuiz ? { quiz_enabled: true } : (preset.quizEnabled != null ? { quiz_enabled: preset.quizEnabled } : {})),
     ...(preset.rankingEnabled != null ? { ranking_enabled: preset.rankingEnabled } : {}),
     ...(preset.changeTabEnabled != null ? { change_tab_enabled: preset.changeTabEnabled } : {}),
+    // 프리셋 밖 칸 — AI 초안의 제안 이름·분위기 기능 스위치·마음 건강 기본값·287 칸(aiDraftProgramFields). 위 값을 덮는다
+    ...(programExtras || {}),
   }).select('id').single()
   if (error) throw error
   const newId = created.id
@@ -3862,7 +3871,7 @@ export const createProgramFromPreset = async ({ presetKey, userId, selectedKeys,
 
   // 3) 퀴즈 번들 — 프리셋 quizTopicKey + 선택 대상자에 맞는 주제가 있으면 발행.
   //    실패해도 프로그램·미션은 유지(퀴즈는 보너스 — 운영자가 나중에 추가 가능).
-  if (quizTopic) {
+  if (hasQuiz) {
     try {
       const { data: quiz, error: qErr } = await supabase.from('quizzes').insert({
         program_id: newId,
@@ -3872,7 +3881,7 @@ export const createProgramFromPreset = async ({ presetKey, userId, selectedKeys,
         created_by: userId,
       }).select('id').single()
       if (qErr) throw qErr
-      const qrows = (quizTopic.questions || []).map((q, idx) => ({
+      const qrows = quizQuestions.map((q, idx) => ({
         quiz_id: quiz.id,
         type: q.type,
         question_text: q.question_text,
@@ -3897,6 +3906,22 @@ export const createProgramFromPreset = async ({ presetKey, userId, selectedKeys,
   }
 
   return newId
+}
+
+// 「AI와 함께 만들기」 초안 → DRAFT 프로그램 + 미션 + 퀴즈(2026-10-10). 라이브러리와 같은 길 — 이후 마법사(?id=)에서 이름·날짜 마무리.
+//   draft = program-draft core.ts finalizeDraft 출력, blueprint = 그 초안을 만든 엔진 설계도(대상 인원은 계획서일 때만 저장).
+//   ⚠️ 마이그 287(org_name·crisis_line_enabled·target_headcount·kpis) 이 프로드에 있어야 한다 — 없으면 insert 가 실패한다.
+export const createProgramFromAiDraft = async ({ draft, blueprint, userId }) => {
+  if (!draft || !Array.isArray(draft.missions) || draft.missions.length === 0) throw new Error('초안에 미션이 없어요')
+  return createProgramFromPreset({
+    presetKey: AI_PRESET_KEY,
+    preset: aiDraftToPreset(draft),
+    userId,
+    durationDays: draft.durationDays,
+    audienceKey: draft.quiz?.audienceKey,
+    // 비공개면 초대 코드까지 — 마법사 3단계를 건너뛰므로 여기서 만든다(generateInviteCode, 마이그 068 고유 인덱스)
+    programExtras: withInviteCode(aiDraftProgramFields(draft, blueprint), generateInviteCode),
+  })
 }
 
 // ═══════════════════════════════════════════════════════════

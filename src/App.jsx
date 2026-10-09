@@ -114,6 +114,8 @@ const DashboardV7Demo = lazy(() => import('./pages/dev/DashboardV7Demo'))  // �
 const ProgramDetailDemo = lazy(() => import('./pages/dev/ProgramDetailDemo'))  // 🔧 프로그램 상세(표준 카드홈) 시안 캔버스(숨김)
 const FlameDemo = lazy(() => import('./pages/dev/FlameDemo'))
 const ReleaseDemo = lazy(() => import('./pages/dev/ReleaseDemo'))  // 🔧 배포 알림 배너 vs 팝업 비교
+// dev 전용 — 선언도 DEV 게이트 안에(프로덕션 번들·서비스워커 미리 받기에 dev 코드가 실리지 않게, 리뷰 2026-10-10)
+const AiBuilderDemo = import.meta.env.DEV ? lazy(() => import('./pages/dev/AiBuilderDemo')) : null  // 🔧 「AI와 함께 만들기」 뼈대 와이어프레임(숨김)
 
 // 가입 승인 알림(/programs/:id/participants) → 프로그램 상세 + 승인 심사 모달 자동 오픈
 function ApprovalsRedirect() {
@@ -380,6 +382,7 @@ function AppShell() {
             } />
             <Route path="/dev/flame" element={<FlameDemo />} />
             <Route path="/dev/release" element={<ReleaseDemo />} />
+            <Route path="/dev/ai-builder" element={<AiBuilderDemo />} />
             </>)}
             <Route path="/support" element={
               <ProtectedRoute><SupportPage /></ProtectedRoute>

@@ -10,7 +10,8 @@ const STEPS = [
   { number: 4, label: '요약·게시' },
 ]
 
-function WizardLayout({ currentStep, children, onBack }) {
+// doneSteps — 이미 정해서 건너뛴 단계(AI 초안의 2·3단계)도 완료(✓)로 보인다. 기본은 없음(예전과 같음)
+function WizardLayout({ currentStep, children, onBack, doneSteps = [] }) {
   const navigate = useNavigate()
   // onBack 미지정 시 기존 동작(이전 라우트). 지정 시 부모가 chooser 복귀 등 제어.
   const handleBack = onBack || (() => navigate(-1))
@@ -35,12 +36,12 @@ function WizardLayout({ currentStep, children, onBack }) {
       <div className="bg-white border border-gray-100 rounded-[10px] shadow-soft px-4 py-3" style={{ marginBottom: '9px' }}>
         <div className="flex items-start">
           {STEPS.map((step, index) => {
-            const done = currentStep > step.number
+            const done = currentStep > step.number || doneSteps.includes(step.number)
             const active = currentStep === step.number
             return (
               <Fragment key={step.number}>
                 {index > 0 && (
-                  <div className={`flex-1 h-0.5 mt-[14px] mx-1 rounded-full ${currentStep >= step.number ? 'bg-emerald-500' : 'bg-gray-200'}`} />
+                  <div className={`flex-1 h-0.5 mt-[14px] mx-1 rounded-full ${currentStep >= step.number || doneSteps.includes(step.number) ? 'bg-emerald-500' : 'bg-gray-200'}`} />
                 )}
                 <div className="flex flex-col items-center flex-shrink-0">
                   <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[13px] font-bold ${

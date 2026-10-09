@@ -243,6 +243,10 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
   const isMeal = verifyStyle === 'meal'        // 식단 인증(검색·AI사진) 스타일
   const isSteps = verifyStyle === 'steps'      // 걸음(Health Connect) 자동 인증 스타일
   const isDietCat = Array.isArray(program.categories) && program.categories.includes('DIET')  // 식단 카테고리(숫자입력 미사용)
+  // «누르기만» — 소감 한 칸만 «선택»으로 둔 미션(AI 와 함께 만들기의 누르기만). 눌러서 인증하고, 점수는 하나(입력별 점수 없음 =
+  //   승인되면 미션 점수 그대로, 마이그 276). 2026-10-10 본인 결정: 예전엔 「필수 입력 최소 1개」에 막혀 저장이 안 됐고
+  //   화면엔 「필수만 제출 시 0P」로 보였다(실제로는 누르면 다 받는다). 이 모양만 허용 — 사진·숫자만 선택인 미션은 그대로 막는다.
+  const pressOnly = !isMed && !isMeal && !isSteps && requiresNote && !noteRequired && !requiresImage && !requiresNumeric
   const validateMethod = () => {
     if (isMed || isMeal || isSteps) return null   // 명상=타이머, 식단=음식기록, 걸음=자동 → 사진/기록/소감 불필요
     if (!requiresImage && !requiresNumeric && !requiresNote) return '인증 방법을 최소 1개 선택해주세요'
@@ -253,7 +257,7 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
     if (totalPoint < 1) return '점수 합계는 1 이상이어야 합니다'
     const anyRequired =
       (requiresImage && imageRequired) || (requiresNumeric && numericRequired) || (requiresNote && noteRequired)
-    if (!anyRequired) return '필수 입력을 최소 1개 지정해주세요 (전부 선택일 수 없어요)'
+    if (!anyRequired && !pressOnly) return '필수 입력을 최소 1개 지정해주세요 (전부 선택일 수 없어요)'
     return null
   }
 
@@ -298,9 +302,10 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
       requires_numeric: (isMed || isMeal || isSteps || isDietCat) ? false : requiresNumeric,
       requires_note: (isMed || isMeal || isSteps) ? false : requiresNote,
       // 084 — 입력별 점수/필수 (미사용 입력은 point NULL → 채점 합산서 제외)
-      image_point: (!isMed && !isMeal && requiresImage) ? (parseInt(imagePoint) || 0) : null,
-      numeric_point: (!isMed && !isMeal && requiresNumeric) ? (parseInt(numericPoint) || 0) : null,
-      note_point: (!isMed && !isMeal && requiresNote) ? (parseInt(notePoint) || 0) : null,
+      //   누르기만은 입력별 점수를 비운다 — 점수 하나(point)로 채점돼야 글 없이 눌러도 점수를 받는다
+      image_point: (!isMed && !isMeal && requiresImage && !pressOnly) ? (parseInt(imagePoint) || 0) : null,
+      numeric_point: (!isMed && !isMeal && requiresNumeric && !pressOnly) ? (parseInt(numericPoint) || 0) : null,
+      note_point: (!isMed && !isMeal && requiresNote && !pressOnly) ? (parseInt(notePoint) || 0) : null,
       image_required: (!isMed && !isMeal && requiresImage) ? imageRequired : true,
       numeric_required: (!isMed && !isMeal && requiresNumeric) ? numericRequired : true,
       note_required: (!isMed && !isMeal && requiresNote) ? noteRequired : true,
@@ -834,7 +839,7 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
           <div className="relative flex items-center gap-1.5 mb-2 mt-1">
             <h3 className="text-[18px] font-bold text-gray-900 break-keep">점수를 어떻게 줄까요?</h3>
             <InfoTip tipKey="points" tipOpen={tipOpen} onToggle={toggleTip}>
-              각 입력에 점수를 매겨요. <b className="text-emerald-300">필수</b>는 꼭 제출해야 점수를 받고, <b className="text-emerald-300">선택</b>은 안 해도 되지만 하면 추가 점수예요.
+              각 입력에 점수를 매겨요. <b className="text-emerald-300">필수</b>는 꼭 제출해야 점수를 받고, <b className="text-emerald-300">선택</b>은 안 해도 되지만 하면 추가 점수예요. 소감 한 칸만 <b className="text-emerald-300">선택</b>으로 두면 «누르기만» 미션이 돼요 — 누르기만 해도 점수를 다 받아요.
             </InfoTip>
           </div>
           <p className="text-[15px] text-gray-600 mb-6 break-keep">입력마다 점수와 필수·선택을 정해요</p>
@@ -846,7 +851,7 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
                 {INPUT_ROWS.filter(r => r.on).map(r => (
                   <div key={r.key} className="flex items-center gap-2">
                     <span className="inline-flex items-center gap-1 w-[4.75rem] flex-shrink-0 text-sm font-medium text-gray-700">
-                      <r.Icon className="w-4 h-4 text-emerald-600 flex-shrink-0" /> {r.label}
+                      <r.Icon className="w-4 h-4 text-emerald-600 flex-shrink-0" /> {r.key === 'note' && pressOnly ? '누르면' : r.label}
                     </span>
                     <div className="relative w-[4.5rem] flex-shrink-0">
                       <input
@@ -880,12 +885,18 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
                   </div>
                 ))}
               </div>
-              <p className="mt-3 text-[15px] text-gray-600">
-                최대 <span className="font-bold text-emerald-600">{totalPoint}P</span>
-                {requiredPoint !== totalPoint && (
-                  <> · 필수만 제출 시 <span className="font-semibold text-gray-700">{requiredPoint}P</span></>
-                )}
-              </p>
+              {pressOnly ? (
+                <p className="mt-3 text-[15px] text-gray-600 break-keep">
+                  누르기만 · 누르면 <span className="font-bold text-emerald-600">{totalPoint}P</span> · 소감은 선택이고 점수는 따로 없어요
+                </p>
+              ) : (
+                <p className="mt-3 text-[15px] text-gray-600">
+                  최대 <span className="font-bold text-emerald-600">{totalPoint}P</span>
+                  {requiredPoint !== totalPoint && (
+                    <> · 필수만 제출 시 <span className="font-semibold text-gray-700">{requiredPoint}P</span></>
+                  )}
+                </p>
+              )}
             </div>
           )}
 

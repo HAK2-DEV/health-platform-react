@@ -13,6 +13,7 @@ import Step2Type from '../../components/program/ProgramWizard/Step2Type'
 import Step3JoinConditions from '../../components/program/ProgramWizard/Step3JoinConditions'
 import Step4Summary from '../../components/program/ProgramWizard/Step4Summary'
 import { clearStep1Draft } from '../../lib/wizardDraft'
+import { wizardSkips, nextWizardStep, prevWizardStep } from '../../lib/wizardSteps'
 import LoadingState from '../../components/common/LoadingState'
 
 
@@ -150,9 +151,11 @@ function ProgramNewPage() {
     }
   }
 
+  // AI 초안은 2·3단계를 건너뛴다(AI 질문에서 이미 정함, 본인 2026-10-10) — 그 밖의 프로그램은 예전과 같다(건너뛰는 단계 없음)
+  const skips = wizardSkips(programData)
   const handleNext = async (stepData) => {
     const result = await saveProgram(stepData)
-    if (result) { clearStep1Draft(); setCurrentStep(currentStep + 1) }
+    if (result) { clearStep1Draft(); setCurrentStep(nextWizardStep(currentStep, skips)) }
   }
 
   const handleSave = async (stepData) => {
@@ -184,10 +187,11 @@ function ProgramNewPage() {
 
   const handlePrev = () => {
     // 다음 단계 → 이전 단계로 돌아갈 땐 그 단계의 마지막 서브스텝부터 보이게
-    if (currentStep === 2) setStep1AtEnd(true)
-    if (currentStep === 3) setStep2AtEnd(true)
-    if (currentStep === 4) setStep3AtEnd(true)
-    setCurrentStep(currentStep - 1)
+    const prev = prevWizardStep(currentStep, skips)
+    if (prev === 1) setStep1AtEnd(true)
+    if (prev === 2) setStep2AtEnd(true)
+    if (prev === 3) setStep3AtEnd(true)
+    setCurrentStep(prev)
   }
 
   // 마법사 헤더 뒤로가기 — 「직접 만들기」로 들어온 1단계에선 chooser 로 복귀.
@@ -254,7 +258,7 @@ function ProgramNewPage() {
   }
 
   return (
-    <WizardLayout currentStep={currentStep} onBack={handleWizardBack}>
+    <WizardLayout currentStep={currentStep} onBack={handleWizardBack} doneSteps={skips}>
       {error && (
         <p className="p-2 bg-red-100 text-red-700 rounded-[10px] text-sm text-center" style={{ marginBottom: '9px' }}>
           {error}
