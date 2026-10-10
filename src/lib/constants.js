@@ -177,3 +177,7 @@ export const WEEKDAY_OPTIONS = [
   { num: 6, label: '토' },
   { num: 7, label: '일' },
 ]
+// 마음 건강 프로그램 안내(마이그 287 programs.crisis_line_enabled) — 소개와 «따로» 늘 보여 준다(본인 2026-10-09: 고르는 항목이 아니다).
+//   문구는 여기 한 곳. 엣지 함수(supabase/functions/program-draft/core.ts CRISIS_LINE)에 복사본이 있어 같아야 한다(로컬 검사 스크립트가 대조).
+export const CRISIS_LINE = '마음이 많이 힘들 때는 혼자 견디지 마세요. 자살예방 상담전화 109(24시간)'
+export const CRISIS_PHONE = '109'

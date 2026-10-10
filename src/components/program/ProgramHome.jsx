@@ -3,6 +3,7 @@ import { useKeyboardOverlay } from '../../hooks/useKeyboardOverlay'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 import { ChevronRight, Pencil } from 'lucide-react'
+import CrisisLineCard from './CrisisLineCard'
 import WeeklyStreak from './WeeklyStreak'
 import ProgramHomeHero from './ProgramHomeHero'
 import FlameIcon from '../common/FlameIcon'
@@ -239,6 +240,7 @@ function ProgramHome({
   viewerSlot = null,          // 둘러보기(비참여자) 참여 신청 배너 — 히어로 아래 시트 최상단
   weeklySlot = null,          // immersive — 주간 하이라이트 카드(운영자)
   classSlot = null,           // 강사 클래스 개요 진입 카드 (기능 ON 시 주입)
+  crisisLine = null,          // 마음 건강 — 「힘들 때 연락할 곳」 안내(287 crisis_line_enabled). 맨 아래 늘 보임, 편집·숨김 불가
   onOpenTab = () => {},
   onRecord = () => {},
   onNotice = null,
@@ -397,6 +399,7 @@ function ProgramHome({
           const content = BOXES[k]()
           return content ? <Reveal key={k} index={Math.min(i, 5)}>{content}</Reveal> : null
         })}
+        {crisisLine && <CrisisLineCard text={crisisLine} />}
 
         {/* [운영자] 개요 화면 편집 — 하단·중앙. 액션 버튼처럼(에메랄드 테두리) 발견성↑(G14) */}
         {editable && (

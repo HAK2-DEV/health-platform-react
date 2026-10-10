@@ -12,6 +12,7 @@ import { formatKoreanDate } from '../../lib/formatters'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
 import { CATEGORY } from '../../lib/constants'
+import CrisisLineCard from './CrisisLineCard'
 import { queryKeys, fetchProgramJoinInfo, invalidateParticipation } from '../../lib/queries'
 import ProgramCover from '../common/ProgramCover'
 import UserAvatar from '../common/UserAvatar'
@@ -298,6 +299,10 @@ function ProgramDetailModal({ program, isOpen, onClose }) {
             <h2 className="text-2xl font-bold text-gray-900 mb-2 pr-8 leading-tight break-keep">
               {program.name}
             </h2>
+            {/* 운영 기관(287 org_name) — 기관이 운영하면 사람보다 먼저 보인다(무대 앞엔 기관, 운영자는 뒤에서) */}
+            {program.org_name && (
+              <p className="text-xs text-gray-500 mb-1">운영 <span className="font-medium text-gray-700">{program.org_name}</span></p>
+            )}
             {joinInfo?.ownerNickname && (
               // 운영자 줄 전체가 버튼 — 누르면 운영자 프로필(기록·라벨·소개). 가입 전에 「이 사람 믿을 만한가」를 본다.
               <button
@@ -351,6 +356,8 @@ function ProgramDetailModal({ program, isOpen, onClose }) {
                 {program.description}
               </p>
             )}
+            {/* 마음 건강 — 힘들 때 연락할 곳(287 crisis_line_enabled). 소개 아래, 늘 */}
+            {program.crisis_line_enabled && <div className="mb-5"><CrisisLineCard plain /></div>}
 
             {/* ─── 가입 전 불안 해소 (2026-10-05 본인 결정) ─── */}
             {/* 「참여하기」 직전이 두려움을 처음 만나는 곳이다. 답은 운영자가 켜 둔 설정에서 끌어온다. */}

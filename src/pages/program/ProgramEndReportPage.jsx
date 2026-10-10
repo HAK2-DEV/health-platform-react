@@ -7,6 +7,8 @@ import { useAuth } from '../../hooks/useAuth'
 import { queryKeys, fetchProgram, fetchProgramStats, fetchProgramOperatorLoad, fetchProgramQuizStats, fetchProgramCommunityStats, fetchProgramReports, fetchEndReportPerUser, fetchProgramScoreBreakdown, fetchProgramTeamRanking, fetchProgramDistanceByUser, fetchProgramMetricsByUser, fetchProgramCommentsDetail, fetchProgramQuizAnswersDetail, fetchProgramClassStats, fetchProgramClassRoster, fetchProgramScoreLedger, fetchProgramSurveyResults, fetchProgramDemographics, fetchProgramMetricSeries, REPORT_REASON_PRESETS, formatKstDate } from '../../lib/queries'
 import { getProgramSurvey } from '../../lib/surveyDefaults'
 import HP2030Report from '../../components/program/HP2030Report'
+import GoalReportCard from '../../components/program/GoalReportCard'
+import { computeKpiResults } from '../../lib/kpiReport'
 import { catOf } from '../../lib/classCategories'
 import { PROGRAM_THEME } from '../../lib/constants'
 import { formatKoreanDate } from '../../lib/formatters'
@@ -275,6 +277,13 @@ function ProgramEndReportPage() {
   })
 
   const report = useMemo(() => computeReport(stats, program), [stats, program])
+  // 「목표 대비」 — AI 초안이 저장한 성과 지표(287 kpis)를 실제 숫자와 맞춘다. 지표가 없는 프로그램(직접·라이브러리)은 빈 배열 → 카드 없음
+  const kpiResults = useMemo(() => (report && program ? computeKpiResults({
+    kpis: program.kpis, targetHeadcount: program.target_headcount,
+    totalParticipants: report.totalParticipants, activatedCount: report.funnel.find((f) => f.key === 'first')?.count ?? 0,
+    completedCount: report.completedUsers.length, raw: stats?._raw || [],
+    endQuestions: getProgramSurvey(program, 'end'), endResponses: surveyEnd, ended: isEnded,
+  }) : []), [report, program, stats, surveyEnd, isEnded])
   const [cloneOpen, setCloneOpen] = useState(false)
 
   if (isProgramLoading) return <LoadingState variant="page" />
@@ -349,6 +358,9 @@ function ProgramEndReportPage() {
             )}
           </div>
           </Reveal>
+
+          {/* ─── 목표 대비 — 만들 때 정한 성과 지표(AI 초안, 287). 없으면 안 보인다 ─── */}
+          {kpiResults.length > 0 && <Reveal index={1}><GoalReportCard results={kpiResults} targetHeadcount={program.target_headcount} ended={isEnded} /></Reveal>}
 
           {/* ─── 핵심 진단 — 왜 이렇게 됐나 + 처방 (퍼널 파생) ─── */}
           <Reveal index={1}><DiagnosisCard diagnosis={report.diagnosis} /></Reveal>

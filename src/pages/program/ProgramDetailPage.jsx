@@ -7,7 +7,7 @@ import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 import { ChevronLeft, Plus, ChevronRight, ChevronDown, Users, Trophy, Pencil, Calendar, Activity, Award, Flame, Check, Settings } from 'lucide-react'
 import DoorIcon from '../../components/common/DoorIcon'
 import { supabase } from '../../supabaseClient'
-import { CATEGORY, PROGRAM_THEME } from '../../lib/constants'
+import { CATEGORY, PROGRAM_THEME, CRISIS_LINE } from '../../lib/constants'
 import { formatKoreanDate, formatKoreanDateTime, isUpcomingByStartDate, formatRelativeKstDay, checkMissionToday } from '../../lib/formatters'
 import MissionCard from '../../components/program/MissionCard'
 import GardenPanel from '../../components/program/GardenPanel'
@@ -2271,7 +2271,7 @@ function ProgramDetailPage() {
               statusLabel={cardStatusLabel}
               participantCount={ranking.length}
               journeyText={journeyText}
-              ownerName={program.owner_nickname || program.owner?.nickname || null}
+              ownerName={program.org_name || program.owner_nickname || program.owner?.nickname || null}   // 기관이 운영하면 기관 이름(287 org_name)
               ownerId={program.owner_id}
               onHeroChange={(cfg) => homeHeroMutation.mutate(cfg)}
               onBack={handleHeaderBack}
@@ -2451,7 +2451,8 @@ function ProgramDetailPage() {
               const tot = program.end_date ? Math.max(1, Math.round((new Date(program.end_date).getTime() - s.getTime()) / 86400000)) : null
               return tot ? `D+${dplus} · ${tot}일 여정` : `D+${dplus}`
             })()}
-            ownerName={program.owner_nickname || program.owner?.nickname || null}
+            ownerName={program.org_name || program.owner_nickname || program.owner?.nickname || null}   // 기관이 운영하면 기관 이름(287 org_name)
+            crisisLine={program.crisis_line_enabled ? CRISIS_LINE : null}
             onParticipantsClick={() => setParticipantsOpen(true)}
             myRank={program.ranking_enabled !== false ? myRow?.rank : null}
             notice={homeNotice || (isOwner ? '공지를 작성해보세요' : '등록된 공지가 없어요')}

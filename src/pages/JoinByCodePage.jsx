@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, XCircle, Loader2, Search, Calendar, Users, Crown, Lock } from 'lucide-react'
+import { CheckCircle2, XCircle, Loader2, Search, Calendar, Users, Crown, Lock, Building2 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../supabaseClient'
 import { queryKeys, lookupInviteProgram, joinByInviteCode, fetchProgramJoinInfo, invalidateParticipation } from '../lib/queries'
@@ -10,6 +10,7 @@ import UserAvatar from '../components/common/UserAvatar'
 import StickyBackBar from '../components/common/StickyBackBar'
 import { formatKoreanDate } from '../lib/formatters'
 import { CATEGORY } from '../lib/constants'
+import CrisisLineCard from '../components/program/CrisisLineCard'
 import { setPendingInvite, setInviteHint, clearInviteHint } from '../lib/pendingInvite'
 import { useHealthConsent } from '../contexts/HealthConsentContext'
 import { programCoverPath } from '../lib/programVisuals'
@@ -288,6 +289,8 @@ function PreviewCard({ program, isJoining, onCancel, onJoin, onPreview }) {
     : null
 
   const rows = [
+    // 운영 기관(287 org_name, lookup_invite_program 이 288 부터 돌려준다) — 기관이 운영하면 맨 위
+    ...(program.org_name ? [{ icon: <Building2 className="w-4 h-4 text-emerald-500" />, label: '운영', value: program.org_name }] : []),
     {
       icon: <Calendar className="w-4 h-4 text-emerald-500" />,
       label: '기간',
@@ -398,6 +401,9 @@ function PreviewCard({ program, isJoining, onCancel, onJoin, onPreview }) {
             </div>
           )
         })()}
+
+        {/* 마음 건강 — 힘들 때 연락할 곳(287 crisis_line_enabled). 소개 아래, 늘 */}
+        {program.crisis_line_enabled && <div className="mb-4"><CrisisLineCard plain /></div>}
 
         {/* 입장 질문 — 비공개+승인 + 질문 있을 때 */}
         {needsAnswer && (
