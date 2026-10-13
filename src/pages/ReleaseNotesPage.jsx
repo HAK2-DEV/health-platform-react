@@ -4,7 +4,7 @@ import { Sparkles } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { queryKeys, fetchMyPrograms } from '../lib/queries'
 import { isNativeApp } from '../lib/installPrompt'
-import { releaseNotesFor, releaseDateLabel, markReleaseSeen } from '../lib/releaseNotes'
+import { releaseNotesFor, releaseDateLabel, markReleaseSeen, titleLine } from '../lib/releaseNotes'
 import ReleaseNotes from '../components/common/ReleaseNotes'
 import StickyBackBar from '../components/common/StickyBackBar'
 import ProfileMenuItem from '../components/common/ProfileMenuItem'
@@ -44,7 +44,7 @@ export default function ReleaseNotesPage() {
               <ProfileMenuItem
                 tone="amber"
                 icon={<Sparkles className="w-5 h-5" />}
-                title={n.title}
+                title={titleLine(n)}
                 description={`${releaseDateLabel(n)} 업데이트`}
                 onClick={() => { setNote(n); setOpen(true) }}
               />

@@ -1,5 +1,5 @@
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
-import { X } from 'lucide-react'
+import { X, ExternalLink } from 'lucide-react'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 import { KIND_META } from '../../lib/releaseNotes'
@@ -16,6 +16,8 @@ import { KIND_META } from '../../lib/releaseNotes'
 //   제목으로 «무엇이» 바뀌었는지 먼저 알려 주고, 사진으로 보여 주고, 설명으로 «그래서 뭘 하면 되는지».
 //   사진 먼저 두면 무엇에 대한 사진인지 모른 채 보게 된다.
 //   사진이 없으면 조용히 글만 남는다 — 사진으로 보여 줄 수 없는 변화도 있다(본인 2026-10-06).
+//   link(선택) — 설명·안심 다음에 바깥으로 나가는 작은 버튼 하나(예: Play 스토어). 주요 버튼은 「확인했어요」 하나뿐이라
+//   연한 톤(§13-13). 2026-10-14 앱 출시 공지에서 처음 씀.
 function NoteList({ items }) {
   return (
     <ul className="space-y-6">
@@ -41,6 +43,12 @@ function NoteList({ items }) {
               <p className="text-[12.5px] text-emerald-700 bg-emerald-50 rounded-lg px-2.5 py-1.5 mt-1.5 break-keep">
                 {it.safe}
               </p>
+            )}
+            {it.link?.href && (
+              <a href={it.link.href} target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 mt-2.5 h-9 px-4 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[13px] font-bold hover:bg-emerald-100 transition">
+                {it.link.label}<ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
+              </a>
             )}
             {it.kind === 'operator' && (
               <p className="text-[11.5px] text-gray-400 mt-1">운영자에게만 보이는 안내예요</p>
@@ -73,7 +81,7 @@ function ReleaseNotes({ note, variant = 'popup', isOpen = true, onClose }) {
             <div className="bg-white rounded-2xl shadow-elevated border border-gray-100 p-4">
               <div className="flex items-start gap-2">
                 <div className="flex-1 min-w-0">
-                  <p className="text-[13px] font-bold text-gray-900 break-keep">{note.title}</p>
+                  <p className="text-[13px] font-bold text-gray-900 break-keep whitespace-pre-line">{note.title}</p>
                   <p className="text-[12px] text-gray-500 mt-0.5">이번 업데이트로 {note.items.length}가지가 달라졌어요</p>
                 </div>
                 <button type="button" onClick={onClose} aria-label="닫기"
@@ -109,17 +117,17 @@ function ReleaseNotes({ note, variant = 'popup', isOpen = true, onClose }) {
             onClick={(e) => e.stopPropagation()}
             className="w-full max-w-sm bg-white rounded-card shadow-elevated overflow-hidden"
           >
-            <div className="px-6 pt-6 pb-2 text-center">
-              <p className="text-[12px] font-semibold text-emerald-600">업데이트</p>
-              <h2 className="text-lg font-bold text-gray-900 mt-1 break-keep">{note.title}</h2>
-            </div>
-            <div className="px-6 py-4 max-h-[52vh] overflow-y-auto"><NoteList items={note.items} /></div>
-            <div className="px-6 pb-6">
-              <button type="button" onClick={onClose}
-                className="w-full h-11 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-500 text-white text-sm font-bold transition">
-                확인했어요
+            {/* 닫기는 왼쪽 위 X 하나 — 아래 「확인했어요」 버튼은 뺐다(본인 2026-10-14: 글이 길어지며 버튼이 화면을 더 가렸다).
+                바깥 탭·뒤로가기로도 닫히고, 어느 쪽이든 읽음 표시(onClose)는 같다. */}
+            <div className="relative px-6 pt-6 pb-2 text-center">
+              <button type="button" onClick={onClose} aria-label="닫기"
+                className="absolute top-3 left-3 w-9 h-9 rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600 flex items-center justify-center transition">
+                <X className="w-5 h-5" />
               </button>
+              <p className="text-[12px] font-semibold text-emerald-600">업데이트</p>
+              <h2 className="text-lg font-bold text-gray-900 mt-1 px-8 break-keep whitespace-pre-line leading-snug">{note.title}</h2>
             </div>
+            <div className="px-6 pt-4 pb-6 max-h-[60vh] overflow-y-auto"><NoteList items={note.items} /></div>
           </motion.div>
         </motion.div>
       )}

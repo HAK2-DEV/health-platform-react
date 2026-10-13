@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Calendar, MapPin, Users, ChevronRight, ChevronDown, Check } from 'lucide-react'
-import { fetchSessions, fetchMyRegistrations, fetchMyAttendanceMap, formatKstDate } from '../../lib/queries'
+import { Calendar, MapPin, Users, ChevronRight, ChevronDown, Check, Bell } from 'lucide-react'
+import { fetchSessions, fetchMyRegistrations, fetchMyAttendanceMap, fetchMyVacancyAlerts, formatKstDate } from '../../lib/queries'
 import { catOf } from '../../lib/classCategories'
 import { getLastSeen, markSeen } from '../../lib/newContent'
 
@@ -12,9 +12,9 @@ const tLabel = (iso) => { const d = new Date(iso); return `${String(d.getHours()
 const DAY = 24 * 3600 * 1000
 const UPCOMING_CAP = 5   // 다가오는 클래스 5개까지 보이고 나머지는 펼쳐보기
 
-function SessionCard({ s, mine, att, isPast, isNew, onOpen }) {
+function SessionCard({ s, mine, att, alerted = false, isPast, isNew, onOpen }) {
   const c = catOf(s.category)
-  // 상태 배지 — 출석 확정 > 신청 여부
+  // 상태 배지 — 출석 확정 > 신청 여부 > 빈자리 알림 신청(마이그 290)
   let badge = null
   if (att === 'confirmed') {
     badge = <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-emerald-600 bg-emerald-50 rounded-full px-2 py-0.5"><Check className="w-3 h-3" />출석 완료</span>
@@ -22,6 +22,8 @@ function SessionCard({ s, mine, att, isPast, isNew, onOpen }) {
     badge = <span className="text-[11px] font-bold text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">신청함</span>
   } else if (!isPast && mine) {
     badge = <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 rounded-full px-2 py-0.5">신청됨</span>
+  } else if (!isPast && alerted) {
+    badge = <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-gray-500 bg-gray-100 rounded-full px-2 py-0.5"><Bell className="w-3 h-3" />빈자리 알림</span>
   }
   return (
     <button type="button" onClick={onOpen} className={`w-full text-left rounded-2xl bg-white border border-gray-100 shadow-soft p-3.5 hover:bg-gray-50/60 transition ${isPast ? 'opacity-75' : ''}`}>
@@ -62,6 +64,9 @@ export default function ClassScheduleList({ programId, userId, joinedAt = null, 
   const { data: myAtt = {} } = useQuery({
     queryKey: ['my-attendance-map', programId, userId], queryFn: () => fetchMyAttendanceMap({ programId, userId }), enabled: !!programId && !!userId,
   })
+  const { data: myAlerts = {} } = useQuery({
+    queryKey: ['my-vacancy-alerts', programId, userId], queryFn: () => fetchMyVacancyAlerts({ programId, userId }), enabled: !!programId && !!userId,
+  })
   const now = Date.now()
   const todayKst = formatKstDate(new Date())
   const upcoming = sessions.filter(s => formatKstDate(new Date(s.starts_at)) >= todayKst)
@@ -94,7 +99,7 @@ export default function ClassScheduleList({ programId, userId, joinedAt = null, 
             <div key={g.label}>
               <p className="text-[12px] font-bold text-gray-400 mb-2 px-0.5">{g.label}</p>
               <div className="space-y-2.5">
-                {g.items.map(s => <SessionCard key={s.id} s={s} mine={myRegs[s.id] === 'registered'} att={myAtt[s.id]} isNew={isNewSession(s)} onOpen={() => onOpenSession(s.id)} />)}
+                {g.items.map(s => <SessionCard key={s.id} s={s} mine={myRegs[s.id] === 'registered'} att={myAtt[s.id]} alerted={!!myAlerts[s.id]} isNew={isNewSession(s)} onOpen={() => onOpenSession(s.id)} />)}
               </div>
             </div>
           ))}

@@ -44,6 +44,7 @@ const TYPE_META = {
   NEW_QUIZ:               { cat: 'content', tone: 'sky',     icon: HelpCircle,    iconCls: '' },
   NEW_CLASS:              { cat: 'content', tone: 'sky',     icon: Calendar,      iconCls: '' },
   NEW_NOTICE:             { cat: 'content', tone: 'sky',     icon: Megaphone,     iconCls: '' },
+  CLASS_VACANCY:          { cat: 'request', tone: 'amber',   icon: Calendar,      iconCls: '' },   // 운영자: 꽉 찼던 클래스에 빈자리(마이그 289)
 }
 const DEFAULT_META = { cat: 'verify', tone: 'slate', icon: Bell, iconCls: '' }
 

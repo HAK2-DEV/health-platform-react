@@ -11,7 +11,7 @@ import { useNicknameCheck } from '../hooks/useNicknameCheck'
 import { NICKNAME } from '../lib/constants'
 import { queryKeys, fetchActivePrograms, fetchMyParticipantStats, fetchMyRole, fetchMyPrograms } from '../lib/queries'
 import { isNativeApp } from '../lib/installPrompt'
-import { releaseNotesFor, releaseDateLabel } from '../lib/releaseNotes'
+import { releaseNotesFor, releaseDateLabel, titleLine } from '../lib/releaseNotes'
 import ProfileMenuItem from '../components/common/ProfileMenuItem'
 import UserAvatar from '../components/common/UserAvatar'
 import BackButton from '../components/common/BackButton'
@@ -477,7 +477,7 @@ function ProfilePage() {
           tone="amber"
           icon={<Sparkles className="w-5 h-5" />}
           title="업데이트 사항"
-          description={`${releaseDateLabel(releaseList[0])} · ${releaseList[0].title}`}
+          description={`${releaseDateLabel(releaseList[0])} · ${titleLine(releaseList[0])}`}
           onClick={() => navigate('/profile/updates')}
         /></Reveal>
       )}

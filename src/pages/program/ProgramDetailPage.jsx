@@ -1575,7 +1575,15 @@ function ProgramDetailPage() {
     if (quizManageOpen) return closeQuizManage()
     if (communityManageOpen) return closeCommunityManage()
     if (activeTab === 'classes') {   // 상세(?class=) 열림 → 목록으로, 목록 → 개요
-      if (searchParams.get('class')) return navigate(-1)
+      if (searchParams.get('class')) {
+        // 푸시·딥링크로 «이 상세가 첫 화면»이면 navigate(-1) 은 갈 곳이 없어 아무 일도 안 한다(빈자리 알림 실기 제보 10-13)
+        //   → class 파라미터만 지워 목록으로. 첫 진입 판정: 라우터 첫 항목(key 'default') 또는 라우터가 history.state 에
+        //   두는 idx 가 0(첫 항목). 상세가 ?from= 을 replace 로 지우면 key 는 새로 생기지만 idx 는 그대로라 idx 가 믿을 만하다.
+        if (location.key === 'default' || (window.history.state?.idx ?? 0) === 0) {
+          return setSearchParams(prev => { const n = new URLSearchParams(prev); n.delete('class'); return n }, { replace: true })
+        }
+        return navigate(-1)
+      }
       return setActiveTab('overview')
     }
     // 카드형 홈(달리기 + 신규 표준) — 탭 바가 없으니 서브화면에선 헤더 뒤로 = 홈(개요)으로,

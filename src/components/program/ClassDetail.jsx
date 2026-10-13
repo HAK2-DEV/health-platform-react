@@ -1,14 +1,16 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { MapPin, Users, Loader2, Check, Pencil, X } from 'lucide-react'
+import { MapPin, Users, Loader2, Check, Pencil, X, Bell, BellRing } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
-import { fetchSession, fetchMyRegistrations, registerSession, cancelSessionRegistration, fetchMyAttendance, requestSelfAttendance, checkInWithCode, updateSession, formatKstDate } from '../../lib/queries'
+import { fetchSession, fetchMyRegistrations, fetchMyRegistration, registerSession, cancelSessionRegistration, fetchMyAttendance, requestSelfAttendance, checkInWithCode, updateSession, formatKstDate, fetchMyVacancyAlerts, subscribeVacancyAlert, unsubscribeVacancyAlert, fetchVacancyAlertCount } from '../../lib/queries'
 import { catOf } from '../../lib/classCategories'
 import { useAvatarViewer } from '../../contexts/AvatarViewerContext'
 import AttendanceRosterModal from './AttendanceRosterModal'
 import CoverImageUploader from '../common/CoverImageUploader'
+import ConfirmModal from '../common/ConfirmModal'
 import { signupOpenAt } from '../../lib/classSignup'
 
 const CODE_ERR = {
@@ -27,6 +29,8 @@ const CODE_ERR = {
 const WD = ['일', '월', '화', '수', '목', '금', '토']
 const dLabel = (iso) => { const d = new Date(iso); return `${d.getMonth() + 1}/${d.getDate()}(${WD[d.getDay()]})` }
 const tLabel = (iso) => { const d = new Date(iso); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` }
+// 남은 시간 「2:41」 — 취소 뒤 재신청 쿨다운 표시용(마이그 292, 3분)
+const leftLabel = (ms) => { const s = Math.max(0, Math.ceil(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` }
 
 // 정원 충족도 → 색·문구. 찰수록 여유(초록)→모집중(주황)→곧 마감(빨강) 으로 긴박감을 준다.
 //   임계: 10% 미만 아주 여유 / 50%~ 모집중 / 80%~ 곧 마감 / 가득 마감.
@@ -76,18 +80,65 @@ export default function ClassDetail({ sessionId, programId, userId, isOwner = fa
   const { data: myAtt = null } = useQuery({
     queryKey: ['my-attendance', sessionId, userId], queryFn: () => fetchMyAttendance({ sessionId, userId }), enabled: !!sessionId && !!userId && !isOwner,
   })
+  // 내 신청 행 — cooldown_until(마이그 292): 정원 찬 클래스에서 취소하면 3분 동안 재신청 금지, 남은 시간을 초 단위로 보여준다
+  const { data: myReg = null } = useQuery({
+    queryKey: ['my-registration', sessionId, userId], queryFn: () => fetchMyRegistration({ sessionId, userId }), enabled: !!sessionId && !!userId && !isOwner,
+  })
+  const cooldownUntilMs = myReg?.cooldown_until ? new Date(myReg.cooldown_until).getTime() : 0
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    if (!(cooldownUntilMs > Date.now())) return
+    const id = setInterval(() => setTick(t => t + 1), 1000)   // 1초마다 다시 그려 남은 시간 갱신, 끝나면 신청하기로
+    return () => clearInterval(id)
+  }, [cooldownUntilMs])
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false)   // 정원 찬 클래스의 취소 확인창
+  // 「🎫 빈자리가 생겼어요」 알림 링크(마이그 293, ?from=vacancy)로 들어왔는가 — 들어왔는데 이미 찼으면 한 줄 안내.
+  //   처음 그릴 때 한 번 읽고 주소에서 바로 지운다 → 다른 클래스를 열거나 뒤로 돌아와도 «방금»이 아닌데 뜨지 않게.
+  //   같은 클래스를 보고 있다가 앱 안 배너로 알림을 누르면 이 컴포넌트가 그대로 살아 있다 → 표시가 «들어올 때» 켜고,
+  //   화면에 남은 옛 정원 수로 판단하지 않게 세션·내 신청을 다시 읽는다.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [fromVacancy, setFromVacancy] = useState(() => searchParams.get('from') === 'vacancy')
+  useEffect(() => {
+    if (searchParams.get('from') !== 'vacancy') return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setFromVacancy(true)
+    qc.invalidateQueries({ queryKey: ['session', sessionId] })
+    qc.invalidateQueries({ queryKey: ['my-registrations', programId, userId] })
+    setSearchParams(prev => { const n = new URLSearchParams(prev); n.delete('from'); return n }, { replace: true })
+  }, [searchParams, setSearchParams, qc, sessionId, programId, userId])
+  // 「빈자리 나면 알림 받기」(마이그 290) — 참가자: 내 알림 신청 맵, 운영자: 이 세션의 알림 신청 인원
+  const { data: myAlerts = {} } = useQuery({
+    queryKey: ['my-vacancy-alerts', programId, userId], queryFn: () => fetchMyVacancyAlerts({ programId, userId }), enabled: !!programId && !!userId && !isOwner,
+  })
+  const { data: alertCount = 0 } = useQuery({
+    queryKey: ['vacancy-alert-count', sessionId], queryFn: () => fetchVacancyAlertCount(sessionId), enabled: !!sessionId && isOwner,
+  })
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ['session', sessionId] })
     qc.invalidateQueries({ queryKey: ['sessions', programId] })
     qc.invalidateQueries({ queryKey: ['my-registrations', programId, userId] })
+    qc.invalidateQueries({ queryKey: ['my-registration', sessionId, userId] })
+    qc.invalidateQueries({ queryKey: ['my-vacancy-alerts', programId, userId] })   // 신청하면 알림 신청이 자동 해제됨(트리거)
   }
+  const invalidateAlerts = () => {
+    qc.invalidateQueries({ queryKey: ['my-vacancy-alerts', programId, userId] })
+    qc.invalidateQueries({ queryKey: ['vacancy-alert-count', sessionId] })
+  }
+  const mAlertOn = useMutation({ mutationFn: () => subscribeVacancyAlert({ sessionId, userId }), onSuccess: invalidateAlerts })
+  const mAlertOff = useMutation({ mutationFn: () => unsubscribeVacancyAlert({ sessionId, userId }), onSuccess: invalidateAlerts })
   const mReg = useMutation({
     mutationFn: () => registerSession({ sessionId, userId }),
     onSuccess: () => { setRegErr(null); invalidate() },
-    // 서버 정원 강제(마이그 170) — 방금 정원이 찬 경우(레이스) 안내 + 목록 새로고침
-    onError: (e) => { setRegErr(/SESSION_FULL|capacity/.test(e?.message || '') ? '방금 정원이 다 찼어요. 다른 참가자가 먼저 신청했습니다.' : '신청에 실패했어요. 잠시 후 다시 시도해주세요.'); invalidate() },
+    // 서버 정원 강제(마이그 170) — 방금 정원이 찬 경우(레이스) 안내 + 목록 새로고침. 292: 취소 뒤 3분 안 재신청 거부
+    onError: (e) => {
+      const m = e?.message || ''
+      setRegErr(/SESSION_FULL|capacity/.test(m) ? '방금 정원이 다 찼어요. 다른 참가자가 먼저 신청했습니다.'
+        : /REREGISTER_COOLDOWN|cooldown/.test(m) ? '방금 취소한 클래스예요. 3분 뒤에 다시 신청할 수 있어요.'
+        : '신청에 실패했어요. 잠시 후 다시 시도해주세요.')
+      invalidate()
+    },
   })
-  const mCancel = useMutation({ mutationFn: () => cancelSessionRegistration({ sessionId, userId }), onSuccess: invalidate })
+  const mCancel = useMutation({ mutationFn: () => cancelSessionRegistration({ sessionId, userId }), onSuccess: () => { setCancelConfirmOpen(false); invalidate() } })
   const mSelfAtt = useMutation({
     mutationFn: () => requestSelfAttendance({ sessionId, userId }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['my-attendance', sessionId, userId] }),
@@ -112,6 +163,7 @@ export default function ClassDetail({ sessionId, programId, userId, isOwner = fa
     onError: () => setCodeErr('출석에 실패했어요.'),
   })
   const busy = mReg.isPending || mCancel.isPending
+  const alertBusy = mAlertOn.isPending || mAlertOff.isPending
 
   if (isLoading) return <div className="py-16 flex justify-center"><Loader2 className="w-6 h-6 text-gray-300 animate-spin" /></div>
   if (!s) return <p className="text-[13px] text-gray-500 py-16 text-center">클래스를 찾을 수 없어요.</p>
@@ -120,6 +172,8 @@ export default function ClassDetail({ sessionId, programId, userId, isOwner = fa
   const coverUrl = s.cover_path ? supabase.storage.from('program-covers').getPublicUrl(s.cover_path).data?.publicUrl : null
   const mine = myRegs[s.id] === 'registered'
   const full = s.capacity != null && (s.joined ?? 0) >= s.capacity && !mine
+  const classFull = s.signup_mode === 'rsvp' && s.capacity != null && (s.joined ?? 0) >= s.capacity   // 내가 포함돼서 찼든 아니든 «정원이 찬 상태»
+  const alerted = !!myAlerts[s.id]            // 이 클래스 「빈자리 나면 알림 받기」 켜 둠
   const isRsvp = s.signup_mode === 'rsvp'
   const isClassDay = formatKstDate(new Date(s.starts_at)) === formatKstDate(new Date())
   // 자가출석 게이팅 — 신청자(rsvp) + 시작 N분 전 ~ 종료 후 3시간
@@ -136,6 +190,8 @@ export default function ClassDetail({ sessionId, programId, userId, isOwner = fa
   const signupNotYet = signupOpensMs != null && nowMs < signupOpensMs
   const attended = myAtt === 'confirmed'                       // 출석 확정 후 → 취소 불가
   const signupClosed = nowMs > endMs || programEnded           // 세션 종료·프로그램 종료 후 → 취소 불가
+  const cooldownLeftMs = cooldownUntilMs - nowMs
+  const inCooldown = !mine && cooldownLeftMs > 0               // 정원 찬 클래스에서 방금 취소 → 3분 재신청 금지(서버 292 가 실제로 막음)
   const registered = !isRsvp || mine        // open 클래스는 신청 불필요
   const attMsg = !registered ? '신청한 참가자만 출석할 수 있어요'
     : nowMs < openMs ? `출석은 시작 ${checkinBeforeMin || 30}분 전부터 가능해요`
@@ -239,7 +295,13 @@ export default function ClassDetail({ sessionId, programId, userId, isOwner = fa
           <p className="flex items-center gap-2 text-[13px] text-gray-700"><MapPin className="w-4 h-4 text-emerald-500 flex-shrink-0" />{[s.place_name, s.place_address].filter(Boolean).join(' · ')}</p>
         )}
         {isRsvp && s.capacity ? (
-          <CapacityBlock joined={s.joined ?? 0} capacity={s.capacity} points={s.points} />
+          <>
+            <CapacityBlock joined={s.joined ?? 0} capacity={s.capacity} points={s.points} />
+            {/* 운영자 — 「빈자리 나면 알림 받기」 누른 참가자 수. 위 장소 줄과 같은 아이콘+글 행 */}
+            {isOwner && alertCount > 0 && (
+              <p className="flex items-start gap-2 text-[13px] text-gray-700 break-keep"><Bell className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />빈자리 알림 신청 {alertCount}명 · 자리가 나면 자동으로 알려요</p>
+            )}
+          </>
         ) : (
           <p className="flex items-center gap-2 text-[13px] text-gray-700"><Users className="w-4 h-4 text-emerald-500 flex-shrink-0" />
             {isRsvp ? '정원 무제한 · 사전 신청' : '자유 참여'}{s.points ? ` · 출석 +${s.points}P` : ''}
@@ -269,7 +331,8 @@ export default function ClassDetail({ sessionId, programId, userId, isOwner = fa
         ) : signupClosed ? (
           <div className="w-full h-12 rounded-2xl bg-gray-100 text-gray-500 font-bold flex items-center justify-center gap-1.5"><Check className="w-4 h-4 text-emerald-500" />신청됨 · {programEnded ? '종료된 프로그램' : '종료된 클래스'}</div>
         ) : (
-          <button type="button" onClick={() => mCancel.mutate()} disabled={busy}
+          /* 정원이 찼으면 취소 순간 빈자리 알림이 나가 되돌리기가 보장되지 않는다 → 확인창(§17.2 결정 10-13). 안 찼으면 즉시 취소 */
+          <button type="button" onClick={() => classFull ? setCancelConfirmOpen(true) : mCancel.mutate()} disabled={busy}
             className="w-full h-12 rounded-2xl bg-emerald-50 text-emerald-600 font-bold border border-emerald-200 disabled:opacity-50 flex items-center justify-center gap-2">
             {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : null}신청 취소 (신청됨 ✓)
           </button>
@@ -280,7 +343,46 @@ export default function ClassDetail({ sessionId, programId, userId, isOwner = fa
           <span className="text-[11px] text-gray-400 font-semibold">아직 신청 기간이 아니에요</span>
         </div>
       ) : full ? (
-        <div className="w-full h-12 rounded-2xl bg-gray-100 text-gray-400 font-bold flex items-center justify-center">정원 마감</div>
+        /* 정원 마감(마이그 290) — 끝난 클래스는 그냥 마감. 아직 남았으면 이 화면의 주요 행동은
+           「빈자리 나면 알림 받기」 하나라 신청하기와 같은 모양(§13-13), 종 아이콘으로 구분(§12-8).
+           켜진 상태는 「신청됨」 취소 버튼과 같은 연한 톤. 버튼+설명 한 줄을 div 로 묶어 가깝게(§12-1).
+           알림 링크로 들어왔는데 그새 찼으면(293) 버튼 위에 앰버 한 줄 — 주의는 앰버(§17.3-5), 두 줄이라 왼쪽 정렬(§12-14). */
+        signupClosed || nowMs >= startMs ? (
+          /* 시작한 뒤엔 서버도 빈자리를 알리지 않는다(289) → 「알림 받기」를 보이지 않는다(검토 2026-10-14) */
+          <div className="w-full h-12 rounded-2xl bg-gray-100 text-gray-400 font-bold flex items-center justify-center">정원 마감</div>
+        ) : alerted ? (
+          <div>
+            {fromVacancy && (
+              <p className="rounded-xl bg-amber-50 text-amber-700 text-[12.5px] font-semibold leading-snug break-keep px-3.5 py-2.5 mb-2">
+                아쉽게도 방금 자리가 찼어요 · 알림은 켜 둔 채라 다음 빈자리도 알려드릴게요
+              </p>
+            )}
+            <button type="button" onClick={() => mAlertOff.mutate()} disabled={alertBusy}
+              className="w-full h-12 rounded-2xl bg-emerald-50 text-emerald-600 font-bold border border-emerald-200 disabled:opacity-50 flex items-center justify-center gap-2">
+              {alertBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <BellRing className="w-4 h-4" />}빈자리 알림 받는 중 · 끄기
+            </button>
+            <p className="text-[12px] text-gray-500 text-center mt-1.5 break-keep">자리가 나면 알림으로 바로 알려드려요</p>
+          </div>
+        ) : (
+          <div>
+            {fromVacancy && (
+              <p className="rounded-xl bg-amber-50 text-amber-700 text-[12.5px] font-semibold leading-snug break-keep px-3.5 py-2.5 mb-2">
+                아쉽게도 방금 자리가 찼어요 · 다음 빈자리도 받으려면 아래를 눌러 두세요
+              </p>
+            )}
+            <button type="button" onClick={() => mAlertOn.mutate()} disabled={alertBusy}
+              className="w-full h-12 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold transition disabled:opacity-50 flex items-center justify-center gap-2">
+              {alertBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bell className="w-4 h-4" />}빈자리 나면 알림 받기
+            </button>
+            <p className="text-[12px] text-gray-500 text-center mt-1.5 break-keep">정원이 다 찼어요 · 자리가 나면 바로 알려드려요</p>
+          </div>
+        )
+      ) : inCooldown ? (
+        /* 정원 찬 클래스에서 방금 취소 — 3분 동안 알림 받은 참가자가 먼저 잡을 수 있게(마이그 292). 「신청 예정」 상자와 같은 모양 */
+        <div className="w-full h-12 rounded-2xl bg-gray-100 text-gray-500 font-bold flex flex-col items-center justify-center leading-tight text-center px-3 break-keep">
+          <span className="text-[13px]">{leftLabel(cooldownLeftMs)} 뒤에 다시 신청할 수 있어요</span>
+          <span className="text-[11px] text-gray-400 font-semibold">방금 취소한 클래스예요</span>
+        </div>
       ) : (
         <button type="button" onClick={() => mReg.mutate()} disabled={busy}
           className="w-full h-12 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold transition disabled:opacity-50 flex items-center justify-center gap-2">
@@ -288,6 +390,14 @@ export default function ClassDetail({ sessionId, programId, userId, isOwner = fa
         </button>
       )}
       {regErr && <p className="text-[12px] text-red-500 font-semibold text-center mt-1.5 break-keep">{regErr}</p>}
+      {/* 자리가 났는데 아직 신청 전 — 알림은 켜진 채. 신청하면 트리거가 자동으로 끈다.
+          쿨다운 중엔 숨김 — 「신청하면 꺼져요」와 「3분 뒤에 신청」이 같이 보이면 앞뒤가 안 맞는다(실기 제보 10-13) */}
+      {!isOwner && isRsvp && !mine && !full && !signupClosed && !inCooldown && alerted && (
+        <p className="text-[12px] text-gray-500 text-center mt-1.5 break-keep">
+          자리가 났어요 · 신청하면 알림은 자동으로 꺼져요 ·{' '}
+          <button type="button" onClick={() => mAlertOff.mutate()} disabled={alertBusy} className="font-bold text-gray-700 underline underline-offset-2 disabled:opacity-50">지금 끄기</button>
+        </p>
+      )}
 
       {/* 자가출석(self_approve) — 당일 참가자, 신청·시간창 게이팅 */}
       {!isOwner && attendanceMode === 'self_approve' && isClassDay && (
@@ -340,6 +450,12 @@ export default function ClassDetail({ sessionId, programId, userId, isOwner = fa
       {!isOwner && attendanceMode === 'operator_roll' && isClassDay && (
         <p className="text-[12px] text-gray-400 text-center">출석은 현장에서 운영자가 확인해요.</p>
       )}
+
+      {/* 정원 찬 클래스 취소 확인 — 결과(자리를 뺏길 수 있음·3분 뒤 재신청)를 말하고 행동 이름으로 닫는다 */}
+      <ConfirmModal isOpen={cancelConfirmOpen} onClose={() => setCancelConfirmOpen(false)} onConfirm={() => mCancel.mutate()} busy={mCancel.isPending}
+        title="신청을 취소할까요?"
+        message={'정원이 찬 클래스예요. 취소하면 다른 참가자가 자리를 가져갈 수 있어요.\n3분 뒤에 다시 신청할 수 있어요.'}
+        confirmLabel="취소할게요" cancelLabel="그대로 둘게요" />
 
       {/* 운영자 출석부 — 이 화면에서 바로 */}
       {isOwner && rosterOpen && (

@@ -812,6 +812,15 @@ export const fetchMyRegistrations = async ({ programId, userId }) => {
   return map
 }
 
+// 내 신청 행 1건 — 상세 화면용. cooldown_until(마이그 292): 정원 찬 클래스에서 취소하면 3분 동안 재신청 금지.
+export const fetchMyRegistration = async ({ sessionId, userId }) => {
+  if (!sessionId || !userId) return null
+  const { data, error } = await supabase.from('session_registrations')
+    .select('status, cooldown_until').eq('session_id', sessionId).eq('user_id', userId).maybeSingle()
+  if (error) throw error
+  return data || null
+}
+
 // 내 출석 맵 — 프로그램 내 세션별 본인 출석 상태 { sessionId: 'confirmed'|'pending'|'rejected' }.
 //   「지난 클래스」에서 참가/출석 여부 표시용. RLS(session_att_own_read)로 본인 행만.
 export const fetchMyAttendanceMap = async ({ programId, userId }) => {
@@ -835,6 +844,39 @@ export const cancelSessionRegistration = async ({ sessionId, userId }) => {
   const { error } = await supabase.from('session_registrations')
     .update({ status: 'cancelled' }).eq('session_id', sessionId).eq('user_id', userId)
   if (error) throw error
+}
+
+// 「빈자리 나면 알림 받기」(마이그 290) — 정원 마감 클래스에 참가자가 알림 신청.
+//   자리가 나면 트리거가 신청자에게 CLASS_VACANCY 알림을 보내고, 본인이 신청하면 행이 자동으로 지워진다.
+// 내 알림 신청 맵 { sessionId: true } — 프로그램 단위 (fetchMyRegistrations 와 같은 조인)
+export const fetchMyVacancyAlerts = async ({ programId, userId }) => {
+  if (!programId || !userId) return {}
+  const { data, error } = await supabase
+    .from('session_vacancy_alerts')
+    .select('session_id, sessions!inner(program_id)')
+    .eq('user_id', userId).eq('sessions.program_id', programId)
+  if (error) throw error
+  const map = {}
+  ;(data || []).forEach(r => { map[r.session_id] = true })
+  return map
+}
+export const subscribeVacancyAlert = async ({ sessionId, userId }) => {
+  const { error } = await supabase.from('session_vacancy_alerts')
+    .upsert({ session_id: sessionId, user_id: userId }, { onConflict: 'session_id,user_id', ignoreDuplicates: true })
+  if (error) throw error
+}
+export const unsubscribeVacancyAlert = async ({ sessionId, userId }) => {
+  const { error } = await supabase.from('session_vacancy_alerts')
+    .delete().eq('session_id', sessionId).eq('user_id', userId)
+  if (error) throw error
+}
+// 운영자: 이 세션의 알림 신청 인원 (RLS: 운영자 조회)
+export const fetchVacancyAlertCount = async (sessionId) => {
+  if (!sessionId) return 0
+  const { count, error } = await supabase.from('session_vacancy_alerts')
+    .select('*', { count: 'exact', head: true }).eq('session_id', sessionId)
+  if (error) throw error
+  return count ?? 0
 }
 
 // 내 출석 상태(단건) — 'confirmed'|'pending'|'rejected'|null

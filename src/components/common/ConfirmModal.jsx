@@ -2,8 +2,9 @@ import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 
 // 공용 확인 모달 — window.confirm 대체 (한줄 설명 모달과 동일 오버레이 스타일)
-//   props: isOpen, onClose, onConfirm, title, message, confirmLabel, danger, busy
-function ConfirmModal({ isOpen, onClose, onConfirm, title, message, confirmLabel = '확인', danger = false, busy = false }) {
+//   props: isOpen, onClose, onConfirm, title, message, confirmLabel, cancelLabel, danger, busy
+//   cancelLabel — 왼쪽(닫기) 버튼 글자. 확인 행동 자체가 「취소」일 때 두 버튼이 모두 「취소」로 읽히지 않게 (예: 「그대로 둘게요」)
+function ConfirmModal({ isOpen, onClose, onConfirm, title, message, confirmLabel = '확인', cancelLabel = '취소', danger = false, busy = false }) {
   useBodyScrollLock(isOpen)  // iOS 배경 스크롤 방지
   useBackButtonClose(isOpen, onClose)  // 하드웨어 뒤로가기 = 닫기
   if (!isOpen) return null
@@ -13,7 +14,7 @@ function ConfirmModal({ isOpen, onClose, onConfirm, title, message, confirmLabel
         <h4 className="text-[15px] font-bold text-gray-800 mb-1.5">{title}</h4>
         {message && <p className="text-[13px] text-gray-600 leading-relaxed whitespace-pre-line break-keep" style={{ marginBottom: '9px' }}>{message}</p>}
         <div className="flex gap-2">
-          <button type="button" onClick={onClose} className="flex-1 h-11 rounded-xl border border-gray-200 text-gray-600 text-sm font-bold hover:bg-gray-50 transition">취소</button>
+          <button type="button" onClick={onClose} className="flex-1 h-11 rounded-xl border border-gray-200 text-gray-600 text-sm font-bold hover:bg-gray-50 transition">{cancelLabel}</button>
           <button type="button" onClick={onConfirm} disabled={busy}
             className={`flex-[1.4] h-11 rounded-xl text-white text-sm font-bold transition disabled:opacity-50 ${danger ? 'bg-red-500 hover:bg-red-600' : 'bg-emerald-500 hover:bg-emerald-600'}`}>
             {busy ? '처리 중...' : confirmLabel}
