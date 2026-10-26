@@ -1195,6 +1195,7 @@ function MissionVerifyPage() {
     return (
       <StepsVerify
         mission={mission}
+        doneToday={todayDoneCount > 0}   // 일꾼이 뒤에서 이미 자동 인증했으면 「인증하기」를 또 보이지 않는다 (검토 10-26)
         submitting={submitMutation.isPending}
         onSubmit={(s) => { stepsRef.current = s; primeAudio(); submitNow() }}
         onCancel={handleClose}

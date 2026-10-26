@@ -17,6 +17,7 @@ import InAppBrowserBanner from './components/common/InAppBrowserBanner'
 import InAppBrowserGate from './components/common/InAppBrowserGate'
 import KickWatcher from './components/common/KickWatcher'
 import PushForegroundBanner from './components/common/PushForegroundBanner'
+import StepWorkerSync from './components/common/StepWorkerSync'
 import PolicyUpdateNotice from './components/common/PolicyUpdateNotice'
 import { HealthConsentProvider } from './contexts/HealthConsentContext'
 import { useRealtimeSync } from './hooks/useRealtimeSync'
@@ -168,6 +169,8 @@ function AppShell() {
    <div className={wideShell ? 'app app-wide' : 'app'}>
       {/* 네이티브: 앱 사용 중 도착한 푸시 배너 + 알림 탭 시 링크 이동 */}
       <PushForegroundBanner />
+      {/* 네이티브: 걷기 프로그램 참여 ↔ 걸음 일꾼 켜기/끄기 + 미션 날 자동 인증 (로그인·앱 복귀 때) */}
+      <StepWorkerSync />
       {/* 약관·처리방침 개정 고지 — 대시보드에서 1회(13조 7일 전 안내) */}
       <PolicyUpdateNotice />
       {/* 배포 변경사항 공지 — 「갑자기 화면이 바뀐」 순간의 궁금증을 대시보드에서 1회. 언제·누구에게는 게이트가 정한다 */}

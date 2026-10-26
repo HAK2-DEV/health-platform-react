@@ -7,7 +7,7 @@ import { useAuth } from '../../hooks/useAuth'
 //   기존 회원에게 «무엇이 바뀌었는지» 알리는 것이 목적이라 강제 재동의 게이트는 두지 않는다
 //   (민감정보 동의는 기능 진입 시 별도 모달 — HealthConsentProvider).
 //   닫으면 이 브라우저에서 다시 안 뜬다(localStorage). 다음 개정 땐 NOTICE_KEY 의 날짜만 바꾸면 된다.
-export const NOTICE_KEY = 'dodam-policy-notice-2026-09-22'
+export const NOTICE_KEY = 'dodam-policy-notice-2026-11-05'
 
 // 아직 이 고지를 안 닫았나 — 배포 변경사항 공지가 «겹쳐 뜨지 않으려고» 물어본다.
 //   법적 고지가 먼저고, 변경사항은 다음에 대시보드에 올 때 뜬다.
@@ -35,9 +35,9 @@ export default function PolicyUpdateNotice() {
       style={{ top: 'calc(env(safe-area-inset-top) + 10px)' }}
     >
       <div className="flex-1 min-w-0">
-        <p className="text-[13px] font-bold leading-snug break-keep">📜 이용약관·개인정보처리방침이 9월 22일 개정돼요</p>
+        <p className="text-[13px] font-bold leading-snug break-keep">📜 개인정보처리방침이 11월 5일 개정돼요</p>
         <p className="text-[12px] text-gray-200 mt-0.5 leading-snug break-keep">
-          건강 정보(기분·금연·설문) 항목, 푸시 알림 토큰, 국외 이전 안내, 신고·차단 절차, 운영자의 성과 보고용 기록 반출 안내가 추가됐어요.{' '}
+          안드로이드 앱의 걸음 자동 인증을 위한 「걸음 수(앱 걸음 센서)」 항목이 추가돼요. 걷기 프로그램에 참여하고 권한을 허용한 동안만 세요.{' '}
           <Link to="/privacy" onClick={close} className="underline font-semibold text-emerald-300">내용 보기</Link>
         </p>
       </div>

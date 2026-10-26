@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
-import { isNativePlatform, isHealthAvailable, requestStepsPermission, getTodaySteps, getDailySteps } from '../../lib/health'
+import { isNativePlatform, getStepStatus, requestStepPermission, startStepWorker, stopStepWorker, getTodayStepCount, getDailyStepCounts, openBatterySettings, debugAddSteps } from '../../lib/stepCounter'
+import StepsVerify from '../../components/program/StepsVerify'
 
-// 🔧 걸음 자동연동 PoC (Health Connect / 안드) — 숨긴 개발용 화면. 라우트: /dev/health
-//   목적: 실기기에서 "오늘 걸음 수"를 읽어 화면에 찍어 타당성만 검증. 홈/미션/DB 연동 없음.
-//   검증 후 방향(표시·자동인증) 재결정. 이 페이지는 검증 끝나면 제거.
+// 🔧 걸음 일꾼 시험 화면 (자체 만보기, 2026-10-26) — 숨긴 개발용. 라우트: /dev/health (dev 빌드에만 포함)
+//   목적: 로그인·프로그램 없이 네이티브 일꾼(권한 → 켜기 → 알림 → 오늘 걸음)을 돌려 본다.
+//   에뮬레이터엔 걸음 센서가 없어 「+50걸음」(디버그 전용)으로 숫자를 흉내 낸다. 실제 걸음은 갤럭시 실기.
 function Row({ k, v }) {
   return (
     <div className="flex items-center justify-between gap-3 py-2 border-b border-gray-100 text-[13px]">
@@ -13,76 +14,76 @@ function Row({ k, v }) {
   )
 }
 
+const Btn = ({ onClick, children, tone = 'emerald' }) => (
+  <button type="button" onClick={onClick}
+    className={`h-11 rounded-xl text-sm font-bold ${tone === 'emerald' ? 'bg-emerald-500 text-white' : tone === 'dark' ? 'bg-emerald-600 text-white' : 'border border-emerald-200 bg-emerald-50 text-emerald-700'}`}>
+    {children}
+  </button>
+)
+
 export default function HealthPocPage() {
-  const [avail, setAvail] = useState(null)
-  const [perm, setPerm] = useState(null)
-  const [steps, setSteps] = useState(null)
+  const [status, setStatus] = useState(null)
+  const [today, setToday] = useState(null)
   const [daily, setDaily] = useState([])
   const [log, setLog] = useState([])
-  const [busy, setBusy] = useState(false)
+  const [preview, setPreview] = useState(false)
 
-  const push = (m) => setLog((l) => [`${new Date().toLocaleTimeString()} · ${m}`, ...l].slice(0, 20))
-
-  useEffect(() => {
-    (async () => {
-      push(`native=${isNativePlatform()}`)
-      try { const a = await isHealthAvailable(); setAvail(a); push(`isHealthAvailable=${a}`) }
-      catch (e) { push(`avail err: ${e?.message}`) }
-    })()
-  }, [])
-
-  const doPerm = async () => {
-    setBusy(true)
-    try { const r = await requestStepsPermission(); setPerm(r?.granted); push(`permission granted=${r?.granted} ${r?.reason || ''}`) }
-    catch (e) { push(`perm err: ${e?.message}`) }
-    setBusy(false)
+  const push = (m) => setLog((l) => [`${new Date().toLocaleTimeString()} · ${m}`, ...l].slice(0, 30))
+  const refresh = async () => {
+    const s = await getStepStatus(); setStatus(s); push(`status=${s.kind} enabled=${s.enabled} running=${s.running} today=${s.today} battOpt=${s.batteryOptimized}`)
   }
+  useEffect(() => {
+    const t = setTimeout(() => { push(`native=${isNativePlatform()}`); refresh() }, 0)
+    return () => clearTimeout(t)
+  }, [])   // eslint-disable-line react-hooks/exhaustive-deps
 
-  const doRead = async () => {
-    setBusy(true)
-    try {
-      const s = await getTodaySteps(); setSteps(s); push(`todaySteps=${s}`)
-      const d = await getDailySteps(7); setDaily(d); push(`daily=${d.length}일`)
-    } catch (e) { push(`read err: ${e?.message}`) }
-    setBusy(false)
+  const doPerm = async () => { const p = await requestStepPermission(); push(`permission granted=${p.granted} notifications=${p.notifications}`); refresh() }
+  const doStart = async () => { const r = await startStepWorker({ goal: 100, activeDays: [], programName: '시험 걷기 프로그램' }); push(`start → ${r.kind} running=${r.running}`); refresh() }
+  const doStop = async () => { await stopStepWorker(); push('stop'); refresh() }
+  const doRead = async () => { const s = await getTodayStepCount(); setToday(s); push(`today=${s}`); const d = await getDailyStepCounts(7); setDaily(d) }
+  const doDebug = async () => { const s = await debugAddSteps(50); push(`debug +50 → ${s}`); doRead() }
+
+  if (preview) {
+    return (
+      <div className="max-w-md mx-auto px-4 pt-2">
+        <StepsVerify mission={{ title: '하루 100보 걷기 (미리보기)', step_goal: 100, schedule_mode: 'ALL_DAYS' }} submitting={false}
+          onSubmit={(s) => { setPreview(false); push(`StepsVerify onSubmit(${s})`) }} onCancel={() => setPreview(false)} />
+      </div>
+    )
   }
 
   return (
     <div className="max-w-md mx-auto px-4 py-6">
-      <h1 className="text-xl font-extrabold text-gray-900 mb-1">🩺 걸음 연동 PoC</h1>
-      <p className="text-[12px] text-gray-400 mb-4">Health Connect(안드) · 실기기 검증용. 홈/DB 연동 없음.</p>
-
+      <h1 className="text-xl font-extrabold text-gray-900 mb-1">👣 걸음 일꾼 시험</h1>
+      <p className="text-[12px] text-gray-400 mb-4">자체 만보기 · 네이티브 검증용. 로그인·DB 연동 없음.</p>
       <div className="rounded-2xl bg-white border border-gray-100 shadow-soft p-4 mb-4">
         <Row k="네이티브 플랫폼" v={isNativePlatform()} />
-        <Row k="Health 사용 가능" v={avail === null ? '확인 중…' : avail} />
-        <Row k="권한 요청 결과" v={perm === null ? '-' : perm} />
-        <Row k="오늘 걸음" v={steps === null ? '-' : `${steps.toLocaleString()} 보`} />
+        <Row k="상태" v={status ? status.kind : '확인 중…'} />
+        <Row k="일꾼" v={status ? `${status.enabled ? '켜짐' : '꺼짐'} / ${status.running ? '동작 중' : '멈춤'}` : '-'} />
+        <Row k="오늘 걸음" v={today === null ? (status?.today ?? '-') : `${today.toLocaleString()} 보`} />
+        <Row k="알림 권한" v={status ? (status.notifications || '-') : '-'} />
+        <Row k="배터리 최적화" v={status ? (status.batteryOptimized ? '켜짐(폰이 재울 수 있음)' : '제외됨') : '-'} />
       </div>
-
-      <div className="flex gap-2 mb-4">
-        <button type="button" onClick={doPerm} disabled={busy}
-          className="flex-1 h-11 rounded-xl bg-emerald-500 text-white text-sm font-bold disabled:opacity-50">권한 요청</button>
-        <button type="button" onClick={doRead} disabled={busy}
-          className="flex-1 h-11 rounded-xl bg-emerald-600 text-white text-sm font-bold disabled:opacity-50">걸음 읽기</button>
+      <div className="grid grid-cols-2 gap-2 mb-2">
+        <Btn onClick={doPerm}>권한 요청</Btn>
+        <Btn onClick={doStart} tone="dark">일꾼 켜기(목표 100)</Btn>
+        <Btn onClick={doStop} tone="light">일꾼 끄기</Btn>
+        <Btn onClick={doRead} tone="light">오늘 걸음 읽기</Btn>
+        <Btn onClick={doDebug} tone="light">+50걸음 (디버그)</Btn>
+        <Btn onClick={openBatterySettings} tone="light">배터리 설정 열기</Btn>
       </div>
-
+      <button type="button" onClick={() => setPreview(true)}
+        className="w-full h-11 mb-4 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-sm font-bold">StepsVerify 화면 미리보기</button>
       {daily.length > 0 && (
         <div className="rounded-2xl bg-white border border-gray-100 shadow-soft p-4 mb-4">
           <p className="text-[12px] font-bold text-gray-600 mb-2">최근 7일</p>
-          {daily.map((d) => <Row key={d.date} k={d.date} v={`${d.steps.toLocaleString()} 보`} />)}
+          {daily.map((d) => <Row key={d.date} k={d.date} v={`${Number(d.steps).toLocaleString()} 보`} />)}
         </div>
       )}
-
       <div className="rounded-2xl bg-gray-900 text-gray-100 p-3 font-mono text-[11px] leading-relaxed">
         <p className="text-gray-400 mb-1">log</p>
         {log.map((l, i) => <div key={i} className="break-all">{l}</div>)}
       </div>
-
-      {!isNativePlatform() && (
-        <p className="text-[12px] text-amber-600 mt-4 leading-relaxed break-keep">
-          ⚠️ 웹(브라우저)에서는 항상 사용 불가로 나와요. 실제 검증은 <b>네이티브 앱(안드 실기기)</b>에서 하세요.
-        </p>
-      )}
     </div>
   )
 }

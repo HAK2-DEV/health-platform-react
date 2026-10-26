@@ -11,6 +11,7 @@ import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import com.getcapacitor.BridgeActivity;
+import com.healthplatform.app.steps.StepCounterPlugin;
 
 public class MainActivity extends BridgeActivity {
     // 폰 «글자 크기» 설정 반영 상한 (2026-09-15 본인 결정: 1.15배까지만 따른다).
@@ -40,6 +41,9 @@ public class MainActivity extends BridgeActivity {
         //   (Theme.SplashScreen)이라 액션바가 있다. Capacitor(BridgeActivity)도 같은 setTheme 을 하지만
         //   super.onCreate «안» 에서라 그때는 이미 늦어, 안드15+ 에서 화면 위에 「도담」 제목 막대가 붙었다(v48~v50).
         setTheme(R.style.AppTheme_NoActionBar);
+
+        // 로컬 플러그인은 super.onCreate(브리지 생성) «전» 에 등록해야 JS 에서 보인다 (2026-10-26 걸음 일꾼).
+        registerPlugin(StepCounterPlugin.class);
 
         // ⚠️ EdgeToEdge.enable 은 super.onCreate(= setContentView) «이전» 에 불러야 한다.
         //   SystemBarStyle.light = «밝은 바 + 어두운 아이콘» 을 시스템 테마와 무관하게 고정(앱은 라이트 전용).

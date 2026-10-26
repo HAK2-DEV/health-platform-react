@@ -130,7 +130,7 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
       setImageRequired(true)
       setNumericRequired(true)
       setNoteRequired(true)
-      setVerifyStyle('standard')
+      setVerifyStyle(program?.theme === 'WALKING' ? 'steps' : 'standard')   // 걷기 테마는 걸음 자동 인증이 기본 (2026-10-26)
       setMedMinutes(3)
       setMedPattern({ inhale: 4, hold1: 4, exhale: 4, hold2: 4 })
       setMedPoint(10)
@@ -241,7 +241,7 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
   }
   const isMed = verifyStyle === 'meditation'   // 명상(타이머) 인증 스타일
   const isMeal = verifyStyle === 'meal'        // 식단 인증(검색·AI사진) 스타일
-  const isSteps = verifyStyle === 'steps'      // 걸음(Health Connect) 자동 인증 스타일
+  const isSteps = verifyStyle === 'steps'      // 걸음 자동 인증 스타일 (앱 걸음 센서, 2026-10-26)
   const isDietCat = Array.isArray(program.categories) && program.categories.includes('DIET')  // 식단 카테고리(숫자입력 미사용)
   // «누르기만» — 소감 한 칸만 «선택»으로 둔 미션(AI 와 함께 만들기의 누르기만). 눌러서 인증하고, 점수는 하나(입력별 점수 없음 =
   //   승인되면 미션 점수 그대로, 마이그 276). 2026-10-10 본인 결정: 예전엔 「필수 입력 최소 1개」에 막혀 저장이 안 됐고
@@ -287,7 +287,7 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
       icon_path: iconPath || null,
       verification_type: (isMed || isMeal || isSteps) ? 'AUTO' : verificationType,   // 명상·식단·걸음은 자동 → AUTO
       point: (isMed || isMeal || isSteps) ? (parseInt(medPoint) || 0) : totalPoint,
-      daily_limit: dailyLimit ? parseInt(dailyLimit) : null,
+      daily_limit: isSteps ? 1 : (dailyLimit ? parseInt(dailyLimit) : null),   // 걸음 자동 인증은 하루 1회 — 서버 트리거(103)가 중복을 막는다
       // 명상(타이머) 인증 — 스타일/시간/호흡패턴. 아니면 standard.
       verify_style: verifyStyle,
       meditation_seconds: isMed ? Math.max(30, medMinutes * 60) : null,
@@ -303,14 +303,16 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
       requires_note: (isMed || isMeal || isSteps) ? false : requiresNote,
       // 084 — 입력별 점수/필수 (미사용 입력은 point NULL → 채점 합산서 제외)
       //   누르기만은 입력별 점수를 비운다 — 점수 하나(point)로 채점돼야 글 없이 눌러도 점수를 받는다
-      image_point: (!isMed && !isMeal && requiresImage && !pressOnly) ? (parseInt(imagePoint) || 0) : null,
-      numeric_point: (!isMed && !isMeal && requiresNumeric && !pressOnly) ? (parseInt(numericPoint) || 0) : null,
-      note_point: (!isMed && !isMeal && requiresNote && !pressOnly) ? (parseInt(notePoint) || 0) : null,
-      image_required: (!isMed && !isMeal && requiresImage) ? imageRequired : true,
-      numeric_required: (!isMed && !isMeal && requiresNumeric) ? numericRequired : true,
-      note_required: (!isMed && !isMeal && requiresNote) ? noteRequired : true,
+      //   ⚠️ 걸음 자동 인증(isSteps)도 입력별 점수를 비운다 — image_point 가 남으면 채점(276)이 입력별 모드로 들어가
+      //   사진 없는 걸음 인증에 0점을 준다(검토 10-26). 걸음은 point 하나로 채점.
+      image_point: (!isMed && !isMeal && !isSteps && requiresImage && !pressOnly) ? (parseInt(imagePoint) || 0) : null,
+      numeric_point: (!isMed && !isMeal && !isSteps && requiresNumeric && !pressOnly) ? (parseInt(numericPoint) || 0) : null,
+      note_point: (!isMed && !isMeal && !isSteps && requiresNote && !pressOnly) ? (parseInt(notePoint) || 0) : null,
+      image_required: (!isMed && !isMeal && !isSteps && requiresImage) ? imageRequired : true,
+      numeric_required: (!isMed && !isMeal && !isSteps && requiresNumeric) ? numericRequired : true,
+      note_required: (!isMed && !isMeal && !isSteps && requiresNote) ? noteRequired : true,
       // 다중 지표 (122) — 숫자 입력 미션만. 라벨·단위 있는 것만 저장.
-      metrics: (!isMed && !isMeal && requiresNumeric)
+      metrics: (!isMed && !isMeal && !isSteps && requiresNumeric)
         ? metrics
             .filter(m => (m.label || '').trim() || (m.unit || '').trim())
             .map(m => ({
@@ -403,9 +405,13 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
       ]
     : [
         { v: 'standard', emoji: '📷', label: '일반 인증', desc: '사진·기록·소감' },
-        { v: 'steps', emoji: '👣', label: '걸음 자동 인증', desc: '삼성헬스 연동·자동', tip: '안드로이드 앱에서 Health Connect(삼성헬스)의 오늘 걸음이 목표를 넘으면 사진 없이 자동 인증돼요. 웹에서는 안내만 표시돼요.' },
+        { v: 'steps', emoji: '👣', label: '걸음 자동 인증', desc: '앱이 걸음을 세서 자동', tip: '안드로이드 앱이 폰의 걸음 센서로 오늘 걸음을 세고, 목표를 넘으면 사진 없이 자동 인증돼요. 웹에서는 안내만 표시돼요.' },
       ]
-  ).filter(o => (o.v !== 'meal' || MEAL_LOGGER_ENABLED) && (o.v !== 'steps' || STEPS_ENABLED))
+  ).filter(o => (o.v !== 'meal' || MEAL_LOGGER_ENABLED) && (o.v !== 'steps' || STEPS_ENABLED || program?.theme === 'WALKING'))   // 걷기 테마는 플래그와 무관하게 노출 (2026-10-26)
+  // 걷기 테마인데 식단·마음관리 갈래로 들어와 👣 가 빠졌으면 덧붙인다 (운동+식단 같은 복수 카테고리)
+  if (program?.theme === 'WALKING' && !styleOptions.some(o => o.v === 'steps')) {
+    styleOptions.push({ v: 'steps', emoji: '👣', label: '걸음 자동 인증', desc: '앱이 걸음을 세서 자동', tip: '안드로이드 앱이 폰의 걸음 센서로 오늘 걸음을 세고, 목표를 넘으면 사진 없이 자동 인증돼요. 웹에서는 안내만 표시돼요.' })
+  }
 
   return (
     <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-5" style={overlayStyle} onClick={onClose}>
@@ -719,7 +725,7 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
           /* 걸음 자동 인증 — 목표 걸음 */
           <div className="mb-4">
             <h3 className="text-[18px] font-bold text-gray-900 break-keep mb-2 mt-1">몇 걸음이 목표인가요?</h3>
-            <p className="text-[15px] text-gray-600 mb-4 break-keep">안드로이드 앱에서 오늘 걸음이 목표를 넘으면 <b className="text-emerald-600">사진 없이 자동 인증</b>돼요 (Health Connect·삼성헬스 연동).</p>
+            <p className="text-[15px] text-gray-600 mb-4 break-keep">안드로이드 앱이 폰의 걸음 센서로 오늘 걸음을 세고, 목표를 넘으면 <b className="text-emerald-600">사진 없이 자동 인증</b>돼요 (하루 1회).</p>
             <div className="flex gap-2 mb-3">
               {[5000, 8000, 10000].map(g => (
                 <button key={g} type="button" onClick={() => setStepGoal(g)} disabled={isSaving}

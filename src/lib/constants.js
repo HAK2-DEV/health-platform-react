@@ -38,10 +38,11 @@ export const USER_ROLE = {
 //     3) 이 플래그를 true 로
 export const MEAL_LOGGER_ENABLED = false
 
-// 걸음 자동 인증(Health Connect) — v1.0 출시에서 제외(건강 권한 심사 회피).
-//   OFF 면 미션 만들기에서 「👣 걸음 자동 인증」 스타일이 숨겨진다.
-//   ⚠️ 다시 켜기 전: AndroidManifest 의 health 권한 tools:node="remove" 를 되돌리고,
-//      Google Play 건강 데이터/Health Connect 선언을 완료할 것.
+// 걸음 자동 인증 — «일반 프로그램에서의 운영자 노출» 스위치. OFF 면 걷기 테마(theme='WALKING')가 아닌 프로그램의
+//   미션 만들기에서 「👣 걸음 자동 인증」이 숨겨진다. 걷기 테마 프로그램은 이 플래그와 무관하게 노출된다(2026-10-26).
+//   참여자 쪽(StepsVerify)은 플래그와 무관하게 mission.verify_style==='steps' 로 동작한다.
+//   걸음은 앱의 걸음 일꾼(폰 센서 + 포그라운드 서비스, lib/stepCounter.js)이 센다 — 10-26 본인 결정. Health Connect 읽기(10-25)는 보관.
+//   순서: 웹(방침 개정 고지) → Play 건강 앱 선언·데이터 보안 → 내부 테스트(AAB 53) → 승인·출시. 이 플래그는 그 뒤에.
 export const STEPS_ENABLED = false
 
 // 프로그램 카테고리
@@ -83,6 +84,7 @@ export const PROGRAM_STATUS = {
 export const PROGRAM_THEME = {
   QUIT_SMOKING: 'QUIT_SMOKING',
   RUNNING: 'RUNNING',
+  WALKING: 'WALKING',   // 걷기(만보기) — 참여 중이면 앱의 걸음 일꾼이 켜지고, 걸음 미션이 기본 (2026-10-26)
 }
 
 // 프로그램 기본 정보 길이 제한

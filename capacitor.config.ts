@@ -13,11 +13,13 @@ const config: CapacitorConfig = {
   appName: '건강증진 플랫폼',
   webDir: 'dist',
   // 네이티브에 포함할 플러그인 허용 목록 (2026-09-11).
-  //   capacitor-health 를 «네이티브에서만» 제외 — v1.0 은 걸음(STEPS_ENABLED=false)·Health Connect 를 끄고 출시하는데
-  //   플러그인 자체는 계속 등록돼 있었음. 노트9(안드10, Health Connect 없음)에서 푸시 플러그인 호출이 영원히
-  //   응답하지 않는 현상의 유력 용의자(플러그인 호출 스레드 점유). JS 의 lib/health.js import 는 그대로 두되
-  //   (웹 스텁), 걸음 기능을 다시 켤 땐 여기에 'capacitor-health' 를 추가하고 매니페스트의 tools:node="remove" 도 해제할 것.
+  //   v1.0(2026-09)엔 capacitor-health 를 «네이티브에서만» 제외했었다 — 걸음(STEPS_ENABLED=false)을 끄고 출시하는데
+  //   플러그인이 등록돼 있으면 노트9(안드10, Health Connect 없음)에서 푸시 플러그인 호출이 영원히 응답하지 않는
+  //   현상의 유력 용의자였기 때문(플러그인 호출 스레드 점유, 확정은 아님). 2026-10-25 A안(걸음 먼저)으로 다시 넣었다.
+  //   ⚠️ 구형(안드10) 기기에서 푸시 플러그인이 다시 멈추면 이 줄을 첫 번째로 의심할 것.
   includePlugins: [
+    // 'capacitor-health' — (보관) Health Connect 읽기(10-25 A안)는 10-26 본인 결정으로 끔: 도담이 걸음 센서로 직접 센다
+    //   (로컬 플러그인 StepCounter, MainActivity.registerPlugin — 허용 목록과 무관). 되살릴 땐 매니페스트 READ_STEPS·rationale 과 «세트».
     '@capgo/capacitor-social-login',   // 구글 ID 토큰 로그인(Credential Manager) — 2026-10-08
     '@capacitor/app',
     '@capacitor/browser',

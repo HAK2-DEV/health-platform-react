@@ -1,8 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { ChevronDown, ChevronUp, ChevronRight, Heart, MessageCircle, Circle, X, Calendar, Users, Check } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 import { MISSION_LIBRARY } from '../../../lib/missionLibrary'
-import { CATEGORY } from '../../../lib/constants'
+import { CATEGORY, STEPS_ENABLED } from '../../../lib/constants'
+import { useAuth } from '../../../hooks/useAuth'
+import { supabase } from '../../../supabaseClient'
 import UserAvatar from '../../common/UserAvatar'
 import InfoTip from '../../common/InfoTip'
 
@@ -465,6 +468,29 @@ function TeamDemo() {
 }
 
 // "참여자에게 이렇게 보여요" 미리보기 박스
+// 만보기 미리보기 — 참여자 폰에 떠 있는 알림 한 줄과 걸음 미션 카드 모양 (2026-10-26)
+function PedometerDemo() {
+  return (
+    <div className="space-y-2">
+      <div className="bg-white rounded-lg border border-gray-100 p-2.5 flex items-center gap-2">
+        <span className="w-7 h-7 rounded-md bg-emerald-500 text-white text-[12px] flex items-center justify-center flex-shrink-0">👣</span>
+        <div className="min-w-0">
+          <p className="text-[11px] font-bold text-gray-800 truncate">오늘 6,210걸음 · 목표 10,000</p>
+          <p className="text-[10px] text-gray-500 truncate">도담이 걸음을 세고 있어요</p>
+        </div>
+      </div>
+      <div className="bg-white rounded-lg border border-gray-100 p-2.5">
+        <div className="flex items-center justify-between">
+          <p className="text-[11px] font-bold text-gray-700">하루 10,000보 걷기</p>
+          <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 rounded-full px-2 py-0.5">자동 인증</span>
+        </div>
+        <div className="mt-1.5 h-1.5 rounded-full bg-gray-100 overflow-hidden"><div className="h-full w-[62%] bg-emerald-400" /></div>
+        <p className="text-[10px] text-gray-500 mt-1">3,790보 더 걸으면 사진 없이 인증돼요</p>
+      </div>
+    </div>
+  )
+}
+
 function Preview({ children }) {
   return (
     <div className="rounded-[12px] border border-gray-200 bg-gray-50/70 p-3" style={{ marginBottom: '14px' }}>
@@ -572,6 +598,26 @@ function Step2Type({ initialData, onNext, onSave, onPrev, enterAtEnd = false }) 
   const selectedCategories = initialData?.categories || []
   const isQuitCat = selectedCategories.includes(CATEGORY.NO_SMOKING.key)   // 금연 테마
   const isRunningCat = selectedCategories.includes(CATEGORY.RUNNING.key)   // 달리기 테마
+  const isWalkingCat = selectedCategories.includes(CATEGORY.WALKING.key)   // 운동(걷기) — 만보기 테마 후보
+
+  // 만보기(걷기 테마) — 운동 카테고리면 묻는다. 켜면 theme='WALKING': 참여자 앱이 걸음을 자동으로 세고 걸음 미션이 기본.
+  //   (2026-10-26 본인 결정: 스위치 단위는 «프로그램 기간». 매일 세되 쉬는 날은 느리게 — 앱이 처리)
+  //   ⚠️ 내부 테스트 동안은 관리자(users.role='ADMIN')에게만 묻는다 — 걸음 일꾼이 든 앱(53)이 Play 에 깔리기 전에 일반 운영자가
+  //   걷기 프로그램을 만들면 참여자는 「앱 업데이트 필요」만 본다. 앱 출시 뒤 STEPS_ENABLED 로 전체 개방.
+  const { session } = useAuth()
+  const { data: myRole } = useQuery({
+    queryKey: ['my-role', session?.user?.id],
+    queryFn: async () => {
+      const { data } = await supabase.from('users').select('role').eq('id', session.user.id).maybeSingle()
+      return data?.role || null
+    },
+    enabled: !!session?.user?.id,
+    staleTime: 5 * 60 * 1000,
+  })
+  const pedometerAllowed = STEPS_ENABLED || myRole === 'ADMIN'
+  //   theme 키가 «있으면»(null 포함) 이미 2단계를 지난 것 — 「아니요」(theme=null)도 보존된다. 키 자체가 없으면 아직 안 고른 것.
+  const [pedometerChoice, setPedometerChoice] = useState(initialData?.theme !== undefined ? initialData.theme === 'WALKING' : null)
+  const pedometerEnabled = pedometerChoice ?? (pedometerAllowed && isWalkingCat)   // 운동 프로그램 기본값 = 켜기 (허용된 운영자에게만)
 
   // 금연 카테고리 — 「내 변화」 탭 사용 (랭킹/팀 대신). 신규 생성 시 금연이면 기본 ON.
   const [changeTabEnabled, setChangeTabEnabled] = useState(
@@ -602,11 +648,13 @@ function Step2Type({ initialData, onNext, onSave, onPrev, enterAtEnd = false }) 
 
   // 서브스텝 구성 — 테마별. 각 key 가 한 화면(질문 하나).
   //   시상대·팀은 순위표에 종속 → 랭킹 OFF면 물음 자체를 건너뛴다(모순 선택 방지).
-  const featureSteps = isQuitCat
+  const baseSteps = isQuitCat
     ? ['community', 'change', 'quiz', 'class']
     : rankingEnabled
       ? ['community', 'ranking', 'podium', 'team', 'quiz', 'class']
       : ['community', 'ranking', 'quiz', 'class']
+  // 운동이면 만보기 질문을 «맨 뒤»에 — 허용 여부(myRole)가 비동기로 와도 앞 단계 번호가 밀리지 않게
+  const featureSteps = isWalkingCat && !isQuitCat && pedometerAllowed ? [...baseSteps, 'pedometer'] : baseSteps
   const TOTAL = featureSteps.length
 
   const [subStep, setSubStep] = useState(enterAtEnd ? TOTAL - 1 : 0)
@@ -641,7 +689,7 @@ function Step2Type({ initialData, onNext, onSave, onPrev, enterAtEnd = false }) 
     }
     return {
       ...base,
-      theme: isRunningCat ? 'RUNNING' : null,
+      theme: isWalkingCat && pedometerAllowed && pedometerEnabled ? 'WALKING' : isRunningCat ? 'RUNNING' : null,   // 걷기(만보기) > 달리기 > 일반
       ranking_enabled: rankingEnabled,
       podium_enabled: rankingEnabled ? podiumEnabled : false,  // 시상대는 순위표가 켜져야 의미
       change_tab_enabled: false,
@@ -692,6 +740,10 @@ function Step2Type({ initialData, onNext, onSave, onPrev, enterAtEnd = false }) 
     class: {
       q: '정해진 시간에 모이는 수업이 있나요?',
       sub: '요가·필라테스처럼 강사가 진행하는\n클래스 일정을 운영해요. 없으면 그냥 넘어가세요.',
+    },
+    pedometer: {
+      q: '앱이 걸음을 자동으로 셀까요?',
+      sub: '참여자가 안드로이드 앱을 쓰면 폰의 걸음 센서로 하루 걸음을 세고,\n걸음 미션은 목표를 넘기면 사진 없이 자동 인증돼요.\n참여하는 동안만 세고, 끝나면 멈춰요.',
     },
     change: {
       q: '「내 변화」 탭을 쓸까요?',
@@ -857,6 +909,19 @@ function Step2Type({ initialData, onNext, onSave, onPrev, enterAtEnd = false }) 
                 </div>
               </Preview>
               <YesNo value={changeTabEnabled} onChange={setChangeTabEnabled} />
+            </>)}
+
+            {/* ── 만보기(걷기 테마) — 운동 카테고리 ── */}
+            {cur === 'pedometer' && (<>
+              <Preview>
+                <PedometerDemo />
+              </Preview>
+              <YesNo value={pedometerEnabled} onChange={setPedometerChoice} yesLabel="네, 자동으로 셀래요 👣" noLabel="아니요, 사진 인증만 할래요" />
+              {pedometerEnabled && (
+                <p className="text-[13px] text-gray-500 leading-relaxed break-keep" style={{ marginTop: '12px' }}>
+                  💡 참여자 폰에 「오늘 걸음」 알림 한 줄이 떠 있어요. 목표 걸음(예: 하루 8,000보)과 인증 요일은 미션을 만들 때 정해요. 웹으로만 참여하는 사람에게는 앱 설치를 안내해요.
+                </p>
+              )}
             </>)}
 
             {/* ── 강사 클래스 ── */}

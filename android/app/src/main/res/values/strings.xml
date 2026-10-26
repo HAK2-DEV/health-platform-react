@@ -4,4 +4,7 @@
     <string name="title_activity_main">도담</string>
     <string name="package_name">com.healthplatform.app</string>
     <string name="custom_url_scheme">com.healthplatform.app</string>
+    <!-- Health Connect 권한 화면의 「개인정보처리방침」 링크가 여는 주소 — 우리 PrivacyPolicyActivity 가 JS 켠 WebView 로
+         띄운다. Play 스토어 등록정보의 방침 URL 과 «같은 문서»여야 한다. -->
+    <string name="privacy_policy_url">https://healthplatform-pi.vercel.app/privacy</string>
 </resources>

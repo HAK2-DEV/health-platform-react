@@ -45,17 +45,42 @@
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
 
-        <!-- ⚠️ v1.0: 걸음 인증(Health Connect) 제외 — 권한 사유 액티비티/alias 제거.
-             재도입 시 capacitor-health 문서대로 복원 + Google Play 건강 데이터 선언. -->
+        <!-- 걸음 일꾼 (2026-10-26, 자체 만보기) — 걷기 테마 프로그램에 참여한 동안 폰 걸음 센서를 읽는 포그라운드
+             서비스(type health) + 재부팅·업데이트 뒤 되살리는 리시버. 코드: java/.../steps/. JS: lib/stepCounter.js.
+             Google Play: 신체활동 권한은 건강 앱 선언 범위, health 타입 FGS 는 정식 출시 때 FGS 선언(+시연 영상).
+             내부 테스트 트랙엔 선언 불필요 (docs/PLAY_HEALTH_DECLARATION.md). -->
+        <service
+            android:name=".steps.StepCounterService"
+            android:exported="false"
+            android:foregroundServiceType="health" />
+        <receiver
+            android:name=".steps.BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- (보관) Health Connect 읽기(10-25 A안)는 본인 결정(10-26)으로 끔 — 도담이 직접 센다. 되살릴 땐
+             PrivacyPolicyActivity(JS 켠 WebView, 파일은 남겨 둠)를 ACTION_SHOW_PERMISSIONS_RATIONALE 액티비티와
+             VIEW_PERMISSION_USAGE alias(HEALTH_PERMISSIONS 카테고리)로 다시 선언하고 capacitor-health 를 includePlugins 에. -->
     </application>
 
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- ⚠️ v1.0: 걸음 인증 제외 — capacitor-health 플러그인이 병합하는 health 권한 7종을
-         최종 빌드에서 제거(tools:node="remove"). 안 그러면 안 쓰는 건강 권한 7개가 AAB 에
-         남아 Play 심사 반려 위험. 재도입 시 이 블록 삭제 + Health Connect 선언 완료. -->
+    <!-- 걸음 일꾼 (2026-10-26, 자체 만보기) — 신체활동(걸음 센서) + 포그라운드 서비스(health) + 재부팅 되살리기.
+         걸음 센서가 없는 기기도 설치는 되게(required=false) — 앱이 「이 폰은 걸음 센서가 없어요」로 안내한다. -->
+    <uses-feature android:name="android.hardware.sensor.stepcounter" android:required="false" />
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_HEALTH" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!-- (보관) Health Connect — capacitor-health 가 includePlugins 에 없으면 아래 remove 는 할 일이 없지만,
+         실수로 다시 들어와도 건강 권한 7종이 AAB 에 새지 않게 그대로 둔다. scripts/verify-manifest.mjs 가 검사한다. -->
     <uses-permission android:name="android.permission.health.READ_STEPS" tools:node="remove" />
     <uses-permission android:name="android.permission.health.READ_EXERCISE" tools:node="remove" />
     <uses-permission android:name="android.permission.health.READ_DISTANCE" tools:node="remove" />
