@@ -2,10 +2,11 @@ import { useState, useRef, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Calendar, AlertCircle, Loader2 } from 'lucide-react'
-import { CATEGORY_LIST, PROGRAM } from '../../../lib/constants'
+import { CATEGORY_LIST, PROGRAM, STEPS_ENABLED } from '../../../lib/constants'
 import { getTodayKST } from '../../../lib/formatters'
 import { checkProgramNameTaken } from '../../../lib/queries'
 import { useAuth } from '../../../hooks/useAuth'
+import { supabase } from '../../../supabaseClient'
 
 // 카테고리 3D 아이콘 (public/icons/category/<key>.png) — 로드 실패 시 이모지 폴백
 function CatIcon({ cat }) {
@@ -34,6 +35,7 @@ const TOTAL = SUB.length
 // 카테고리별 "무엇을 받는지" 힌트 — 전용 화면 3종만 특별, 그 외엔 기본.
 //   금연은 순위표·팀이 빠지는 걸(비가역) 선택 전에 알린다.
 const CAT_HINT = {
+  STEPS: { emoji: '🚶', text: '안드로이드 앱이 걸음을 자동으로 세요 — 다음 단계 첫 질문에서 켜면 걸음 미션이 사진 없이 인증돼요.' },
   DIET: { emoji: '🍱', text: '식단 전용 화면이 제공돼요 — 끼니 기록·영양 요약.' },
   RUNNING: { emoji: '🏃', text: '달리기 전용 화면이 제공돼요 — 코스·기록 중심.' },
   NO_SMOKING: { emoji: '🚭', text: '순위표·팀 대신 「내 변화」 화면이 제공돼요.' },
@@ -58,6 +60,21 @@ function Step1Basic({ initialData, onNext, onSave, enterAtEnd = false }) {
   const [endDate, setEndDate] = useState(draft?.endDate ?? (initialData?.end_date || ''))
   const endDateRef = useRef(null)
   const [categories, setCategories] = useState(draft?.categories ?? (initialData?.categories || []))
+
+  // 「걷기(만보기)」 카테고리는 걸음 일꾼이 든 앱(53)이 Play 에 깔리기 전까지 관리자(users.role='ADMIN')에게만 보인다 (2026-10-26).
+  //   일반 운영자가 지금 걷기 프로그램을 만들면 참여자는 「앱 업데이트 필요」만 보기 때문. 앱 출시 뒤 STEPS_ENABLED 로 전체 개방.
+  //   이미 골라 둔(초안) 경우엔 숨기지 않는다.
+  const { data: myRole } = useQuery({
+    queryKey: ['my-role', ownerId],
+    queryFn: async () => {
+      const { data } = await supabase.from('users').select('role').eq('id', ownerId).maybeSingle()
+      return data?.role || null
+    },
+    enabled: !!ownerId,
+    staleTime: 5 * 60 * 1000,
+  })
+  const stepsAllowed = STEPS_ENABLED || myRole === 'ADMIN' || categories.includes('STEPS')
+  const visibleCategories = CATEGORY_LIST.filter((c) => c.key !== 'STEPS' || stepsAllowed)
   const [coverImagePath, setCoverImagePath] = useState(draft?.coverImagePath ?? (initialData?.cover_image_path || null))
   const [error, setError] = useState(null)
 
@@ -227,7 +244,7 @@ function Step1Basic({ initialData, onNext, onSave, enterAtEnd = false }) {
             {subStep === 2 && (
               <>
               <div className="grid grid-cols-3" style={{ gap: '9px' }}>
-                {CATEGORY_LIST.map(category => {
+                {visibleCategories.map(category => {
                   const on = categories.includes(category.key)
                   return (
                     <button

@@ -42,6 +42,7 @@ const VARIANT_EMOJI = {
 
 // 카테고리 KEY → 자체 표지 경로 매핑 (public/illustrations/program-covers/)
 const COVER_BY_CATEGORY = {
+  STEPS: '/illustrations/program-covers/walking.jpg',   // 걷기(만보기) — 임시로 운동 표지를 빌려 씀. 전용 표지는 3단계 디자인에서 (2026-10-26)
   WALKING: '/illustrations/program-covers/walking.jpg',
   RUNNING: '/illustrations/program-covers/running.jpg',
   DIET: '/illustrations/program-covers/diet.jpg',

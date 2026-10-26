@@ -1,11 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { ChevronDown, ChevronUp, ChevronRight, Heart, MessageCircle, Circle, X, Calendar, Users, Check } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
 import { MISSION_LIBRARY } from '../../../lib/missionLibrary'
-import { CATEGORY, STEPS_ENABLED } from '../../../lib/constants'
-import { useAuth } from '../../../hooks/useAuth'
-import { supabase } from '../../../supabaseClient'
+import { CATEGORY } from '../../../lib/constants'
 import UserAvatar from '../../common/UserAvatar'
 import InfoTip from '../../common/InfoTip'
 
@@ -598,26 +595,14 @@ function Step2Type({ initialData, onNext, onSave, onPrev, enterAtEnd = false }) 
   const selectedCategories = initialData?.categories || []
   const isQuitCat = selectedCategories.includes(CATEGORY.NO_SMOKING.key)   // 금연 테마
   const isRunningCat = selectedCategories.includes(CATEGORY.RUNNING.key)   // 달리기 테마
-  const isWalkingCat = selectedCategories.includes(CATEGORY.WALKING.key)   // 운동(걷기) — 만보기 테마 후보
+  const isStepsCat = selectedCategories.includes(CATEGORY.STEPS.key)       // 걷기(만보기) 테마
 
-  // 만보기(걷기 테마) — 운동 카테고리면 묻는다. 켜면 theme='WALKING': 참여자 앱이 걸음을 자동으로 세고 걸음 미션이 기본.
-  //   (2026-10-26 본인 결정: 스위치 단위는 «프로그램 기간». 매일 세되 쉬는 날은 느리게 — 앱이 처리)
-  //   ⚠️ 내부 테스트 동안은 관리자(users.role='ADMIN')에게만 묻는다 — 걸음 일꾼이 든 앱(53)이 Play 에 깔리기 전에 일반 운영자가
-  //   걷기 프로그램을 만들면 참여자는 「앱 업데이트 필요」만 본다. 앱 출시 뒤 STEPS_ENABLED 로 전체 개방.
-  const { session } = useAuth()
-  const { data: myRole } = useQuery({
-    queryKey: ['my-role', session?.user?.id],
-    queryFn: async () => {
-      const { data } = await supabase.from('users').select('role').eq('id', session.user.id).maybeSingle()
-      return data?.role || null
-    },
-    enabled: !!session?.user?.id,
-    staleTime: 5 * 60 * 1000,
-  })
-  const pedometerAllowed = STEPS_ENABLED || myRole === 'ADMIN'
+  // 만보기(걷기 테마) — 「걷기」 카테고리면 «첫 질문»으로 묻는다 (본인 결정 2026-10-26: 운동·달리기와 분리, 맨 앞에).
+  //   켜면 theme='WALKING': 참여자 앱이 걸음을 자동으로 세고 걸음 미션이 기본. 스위치 단위는 «프로그램 기간».
+  //   (걷기 카테고리 자체가 앱 53 출시 전엔 Step1Basic 에서 관리자에게만 보이므로 여기선 역할을 다시 보지 않는다.)
   //   theme 키가 «있으면»(null 포함) 이미 2단계를 지난 것 — 「아니요」(theme=null)도 보존된다. 키 자체가 없으면 아직 안 고른 것.
   const [pedometerChoice, setPedometerChoice] = useState(initialData?.theme !== undefined ? initialData.theme === 'WALKING' : null)
-  const pedometerEnabled = pedometerChoice ?? (pedometerAllowed && isWalkingCat)   // 운동 프로그램 기본값 = 켜기 (허용된 운영자에게만)
+  const pedometerEnabled = pedometerChoice ?? isStepsCat   // 걷기 프로그램 기본값 = 켜기
 
   // 금연 카테고리 — 「내 변화」 탭 사용 (랭킹/팀 대신). 신규 생성 시 금연이면 기본 ON.
   const [changeTabEnabled, setChangeTabEnabled] = useState(
@@ -653,8 +638,7 @@ function Step2Type({ initialData, onNext, onSave, onPrev, enterAtEnd = false }) 
     : rankingEnabled
       ? ['community', 'ranking', 'podium', 'team', 'quiz', 'class']
       : ['community', 'ranking', 'quiz', 'class']
-  // 운동이면 만보기 질문을 «맨 뒤»에 — 허용 여부(myRole)가 비동기로 와도 앞 단계 번호가 밀리지 않게
-  const featureSteps = isWalkingCat && !isQuitCat && pedometerAllowed ? [...baseSteps, 'pedometer'] : baseSteps
+  const featureSteps = isStepsCat && !isQuitCat ? ['pedometer', ...baseSteps] : baseSteps   // 걷기면 만보기 질문이 맨 앞
   const TOTAL = featureSteps.length
 
   const [subStep, setSubStep] = useState(enterAtEnd ? TOTAL - 1 : 0)
@@ -689,7 +673,7 @@ function Step2Type({ initialData, onNext, onSave, onPrev, enterAtEnd = false }) 
     }
     return {
       ...base,
-      theme: isWalkingCat && pedometerAllowed && pedometerEnabled ? 'WALKING' : isRunningCat ? 'RUNNING' : null,   // 걷기(만보기) > 달리기 > 일반
+      theme: isStepsCat && pedometerEnabled ? 'WALKING' : isRunningCat ? 'RUNNING' : null,   // 걷기(만보기) > 달리기 > 일반
       ranking_enabled: rankingEnabled,
       podium_enabled: rankingEnabled ? podiumEnabled : false,  // 시상대는 순위표가 켜져야 의미
       change_tab_enabled: false,
@@ -911,7 +895,7 @@ function Step2Type({ initialData, onNext, onSave, onPrev, enterAtEnd = false }) 
               <YesNo value={changeTabEnabled} onChange={setChangeTabEnabled} />
             </>)}
 
-            {/* ── 만보기(걷기 테마) — 운동 카테고리 ── */}
+            {/* ── 만보기(걷기 테마) — 걷기 카테고리, 첫 질문 ── */}
             {cur === 'pedometer' && (<>
               <Preview>
                 <PedometerDemo />

@@ -40,7 +40,7 @@
 - [x] **고지 단계** — StepsVerify 「걸음 수를 이렇게 써요」(권한 창 직전) + healthConsent 수집 항목에 걸음 수
 - [x] **네이티브 걸음 일꾼** — `android/app/src/main/java/com/healthplatform/app/steps/` 4 파일 + 매니페스트(권한 4·서비스·리시버·uses-feature stepcounter required=false) + 상태바 아이콘 `ic_stat_steps`
 - [x] **JS** — `lib/stepCounter.js`(래퍼) · `lib/stepWorkerSync.js`(프로그램 참여 ↔ 켜기/끄기, 자동 인증) · `components/common/StepWorkerSync.jsx`(로그인·복귀 때) · StepsVerify 소스 교체
-- [x] **걷기 테마** — `PROGRAM_THEME.WALKING`, 마법사 Step2Type 「앱이 걸음을 자동으로 셀까요?」(운동 카테고리, 기본 예) → theme='WALKING', 미션 만들기에서 걸음 자동 인증 노출·기본값
+- [x] **걷기 테마** — 새 카테고리 **「걷기」(CATEGORY.STEPS, 본인 결정 10-26: 운동·달리기와 분리)**. 앱 53 출시 전엔 Step1Basic 에서 관리자에게만 보임. 걷기면 Step2Type **첫 질문** 「앱이 걸음을 자동으로 셀까요?」(기본 예) → theme='WALKING'. 미션 만들기에서 걸음 자동 인증 노출·기본값
 - [x] **Health Connect 보관** — includePlugins 에서 제거, 매니페스트 health 권한 0개, PrivacyPolicyActivity 파일만 남김
 - [x] **verify-manifest** — 신체활동·FGS·BOOT 권한 + 서비스 선언 마커, health 0개
 - [x] **에뮬 검증(API 36)** — §5. 실제 걸음·배터리는 친구 테스트
@@ -57,7 +57,7 @@
 - [ ] 승인 후 프로덕션 → 배포 공지(release notes modal)
 
 ### 내부 테스트 진행 순서 (초등학생 버전)
-1. 본인: 걷기 테마 프로그램 하나 만들기(운동 카테고리 → 「앱이 걸음을 자동으로 셀까요?」 예) + 걸음 미션(목표·요일).
+1. 본인: 걷기 테마 프로그램 하나 만들기(카테고리 **「걷기」** → 2단계 첫 질문 「앱이 걸음을 자동으로 셀까요?」 예) + 걸음 미션(목표·요일).
 2. 본인: Play Console 내부 테스트에 친구 이메일 넣고 AAB 53 올리기 → 링크 보내기.
 3. 친구: 링크로 앱 설치(이미 있으면 업데이트) → 프로그램 참여 → 걸음 미션 열기 → 「동의하고 권한 허용하기」 → 알림 한 줄 확인.
 4. 친구: 하루 3번 삼성헬스·도담 숫자 사진, 하루 1번 설정 › 배터리 화면 사진, 알림 거슬림 한 줄 — 3일.

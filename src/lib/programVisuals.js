@@ -3,6 +3,7 @@
 
 // 카테고리별 파스텔 색상 (Tailwind JIT 안전 — 명시적 클래스명)
 export const CATEGORY_COLORS = {
+  STEPS:      { bg: 'bg-lime-50',    border: 'border-lime-100',    accent: 'bg-lime-400' },      // 걷기(만보기) — 운동 초록과 구별
   WALKING:    { bg: 'bg-emerald-50', border: 'border-emerald-100', accent: 'bg-emerald-400' },
   RUNNING:    { bg: 'bg-sky-50',     border: 'border-sky-100',     accent: 'bg-sky-400' },
   DIET:       { bg: 'bg-emerald-50', border: 'border-emerald-100', accent: 'bg-emerald-400' },
@@ -16,6 +17,7 @@ export const CATEGORY_COLORS = {
 // 카테고리별 대표 색 (hex) — 칩/진행바/버튼/표지 폴백 틴트 등 동적 색상용.
 //   본인 지정값 (임의, 추후 수정 가능). key 는 CATEGORY 키와 동일.
 export const CATEGORY_HEX = {
+  STEPS: '#84CC16',       // 걷기(만보기) — 라임
   WALKING: '#22C58B',     // 운동
   RUNNING: '#0EA5E9',     // 달리기 (스카이 — 운동 초록과 구별)
   DIET: '#F5B66E',        // 식단

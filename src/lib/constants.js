@@ -49,6 +49,7 @@ export const STEPS_ENABLED = false
 // 주의: key 는 DB의 programs.categories TEXT[] 와 일치해야 함.
 // label / emoji 만 진화시켜도 기존 데이터 영향 없음.
 export const CATEGORY = {
+  STEPS: { key: 'STEPS', label: '걷기', emoji: '🚶' },     // 만보기 — 앱이 걸음을 자동으로 세는 프로그램 (2026-10-26, 본인 결정: 운동·달리기와 분리)
   WALKING: { key: 'WALKING', label: '운동', emoji: '💪' },
   RUNNING: { key: 'RUNNING', label: '달리기', emoji: '🏃' },
   DIET: { key: 'DIET', label: '식단', emoji: '🍱' },
@@ -63,6 +64,7 @@ export const CATEGORY = {
 // ⚠️ v1.0: 식단(DIET) 은 선택 목록에서 제외(첫 출시 범위 집중). CATEGORY.DIET 정의는
 //   남겨둔다 — 혹시 있을 기존 데이터의 key 조회가 깨지지 않도록. 재도입 시 아래에 다시 추가.
 export const CATEGORY_LIST = [
+  CATEGORY.STEPS,     // 걷기(만보기) — 앱 53 이 Play 에 깔리기 전까지는 마법사에서 관리자에게만 보인다(Step1Basic)
   CATEGORY.WALKING,
   CATEGORY.RUNNING,
   CATEGORY.EMPATHY,

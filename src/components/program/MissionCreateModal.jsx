@@ -390,7 +390,7 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
 
   if (!isOpen || !program) return null
   const isMindcare = Array.isArray(program.categories) && program.categories.includes('MINDCARE')  // 명상형 노출 조건
-  const isStepCat = Array.isArray(program.categories) && (program.categories.includes('WALKING') || program.categories.includes('RUNNING'))  // 걸음 자동 인증 노출(운동·달리기)
+  const isStepCat = Array.isArray(program.categories) && (program.categories.includes('STEPS') || program.categories.includes('WALKING') || program.categories.includes('RUNNING'))  // 걸음 자동 인증 노출(걷기·운동·달리기)
 
   // 인증 스타일 선택지 — 카테고리별. 「칼로리 기록」은 MEAL_LOGGER_ENABLED 로 잠근다(258 참고).
   const styleOptions = (isDietCat

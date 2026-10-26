@@ -16,6 +16,7 @@ export function hp2030Mapping(program) {
   if (theme === PROGRAM_THEME.QUIT_SMOKING) return { area: '금연', indicator: '성인 현재흡연율 감소', primary: 'smoke_amount', primaryLabel: '하루 흡연량(적을수록 좋음)', nationalIndicator: 'smoking' }
   if (c === 'DRINKING') return { area: '절주', indicator: '고위험음주율 감소', primary: 'drink_freq', primaryLabel: '음주 빈도(적을수록 좋음)', nationalIndicator: null }
   if (c === 'RUNNING') return { area: '신체활동', indicator: '유산소 신체활동 실천율 증가', primary: 'run_freq', primaryLabel: '주간 운동 횟수', nationalIndicator: null }
+  if (c === 'STEPS') return { area: '신체활동', indicator: '걷기 실천율 증가', primary: 'walk_amount', primaryLabel: '하루 걷는 양', nationalIndicator: null }   // 걷기(만보기)
   if (c === 'WALKING') return { area: '신체활동', indicator: '유산소 신체활동 실천율 증가', primary: 'walk_amount', primaryLabel: '하루 걷는 양', nationalIndicator: null }
   if (c === 'DIET') return { area: '영양', indicator: '건강식생활 실천율 증가', primary: 'diet_regular', primaryLabel: '식사 규칙성', nationalIndicator: null }
   if (c === 'MINDCARE') return { area: '정신건강', indicator: '스트레스 인지·우울감 개선', primary: 'mind_state', primaryLabel: '마음 상태', nationalIndicator: null }
