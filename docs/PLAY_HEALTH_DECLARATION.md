@@ -28,7 +28,7 @@
    배칭: 인증하는 날 2분 / 쉬는 날 30분 · 자정에 날짜 넘김 · 재부팅·앱 업데이트 뒤 BootReceiver 가 되살림
         ─▶ 걸음 장부(StepLedger, SharedPreferences, 날짜별 60일) ─▶ StepCounter 플러그인 ─▶ lib/stepCounter.js
    스위치 = 걷기 테마 프로그램(theme='WALKING') 참여 기간 (lib/stepWorkerSync.js, 로그인·앱 복귀 때 StepWorkerSync)
-   미션 날 자동 인증 = 앱이 앞으로 올 때 오늘 걸음 ≥ 목표면 verifications INSERT (numeric_value=걸음)
+   미션 날 자동 인증 = 앱이 앞으로 올 때 오늘 걸음 ≥ 목표면 verifications INSERT (numeric_value=걸음) — 소감(requires_note)이 켜진 미션은 제외(참여자가 소감 적고 한 번 눌러 인증, 10-27)
 ```
 
 ---

@@ -72,6 +72,10 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
   // ── 명상(타이머) 인증 — 마음관리(MINDCARE) 전용 4번째 스타일 ──
   const [verifyStyle, setVerifyStyle] = useState('standard')   // 'standard' | 'meditation' | 'meal' | 'steps'
   const [stepGoal, setStepGoal] = useState(8000)               // 걸음 자동 인증 — 목표 걸음
+  const [stepsNote, setStepsNote] = useState(true)             // 걸음 자동 인증 — 소감 받기, 기본 켜짐 (2026-10-27)
+  const [stepsNoteRequired, setStepsNoteRequired] = useState(false)   // 걸음 소감 필수/선택 — 기본 선택. 다른 미션의 입력별 필수와 같은 양식
+  const [stepsPhoto, setStepsPhoto] = useState(true)                  // 걸음 사진 받기 — 기본 켜짐 (본인 2026-10-27: 사진·소감 둘 다 선택으로)
+  const [stepsPhotoRequired, setStepsPhotoRequired] = useState(false) // 걸음 사진 필수/선택 — 기본 선택
   const [medMinutes, setMedMinutes] = useState(3)              // 명상 길이(분)
   const [mealType, setMealType] = useState('breakfast')        // 식단 인증 — 끼니(breakfast/lunch/dinner/snack)
   const [medPattern, setMedPattern] = useState({ inhale: 4, hold1: 4, exhale: 4, hold2: 4 })  // 박스호흡 기본(운영자 커스텀)
@@ -131,6 +135,10 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
       setNumericRequired(true)
       setNoteRequired(true)
       setVerifyStyle(program?.theme === 'WALKING' ? 'steps' : 'standard')   // 걷기 테마는 걸음 자동 인증이 기본 (2026-10-26)
+      setStepsNote(true)
+      setStepsNoteRequired(false)
+      setStepsPhoto(true)
+      setStepsPhotoRequired(false)
       setMedMinutes(3)
       setMedPattern({ inhale: 4, hold1: 4, exhale: 4, hold2: 4 })
       setMedPoint(10)
@@ -172,6 +180,10 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
       setNoteRequired(editMission.note_required ?? true)
       setVerifyStyle(editMission.verify_style || 'standard')
       setStepGoal(editMission.step_goal || 8000)
+      setStepsNote(editMission.verify_style === 'steps' ? !!editMission.requires_note : true)
+      setStepsNoteRequired(editMission.verify_style === 'steps' ? editMission.note_required !== false : false)
+      setStepsPhoto(editMission.verify_style === 'steps' ? !!editMission.requires_image : true)
+      setStepsPhotoRequired(editMission.verify_style === 'steps' ? editMission.image_required !== false : false)
       setMealType(editMission.meal_type || 'breakfast')
       setMedMinutes(editMission.meditation_seconds ? Math.max(1, Math.round(editMission.meditation_seconds / 60)) : 3)
       setMedPattern(editMission.meditation_pattern || { inhale: 4, hold1: 4, exhale: 4, hold2: 4 })
@@ -298,9 +310,9 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
       // 걸음 자동 인증 — 목표 걸음
       step_goal: isSteps ? Math.max(1, parseInt(stepGoal) || 8000) : null,
       // 명상·식단형은 사진/기록/소감 없음(자체 입력 화면)
-      requires_image: (isMed || isMeal || isSteps) ? false : requiresImage,
+      requires_image: (isMed || isMeal) ? false : isSteps ? stepsPhoto : requiresImage,   // 걸음: 사진 칩
       requires_numeric: (isMed || isMeal || isSteps || isDietCat) ? false : requiresNumeric,
-      requires_note: (isMed || isMeal || isSteps) ? false : requiresNote,
+      requires_note: (isMed || isMeal) ? false : isSteps ? stepsNote : requiresNote,   // 걸음: 소감(선택) 토글
       // 084 — 입력별 점수/필수 (미사용 입력은 point NULL → 채점 합산서 제외)
       //   누르기만은 입력별 점수를 비운다 — 점수 하나(point)로 채점돼야 글 없이 눌러도 점수를 받는다
       //   ⚠️ 걸음 자동 인증(isSteps)도 입력별 점수를 비운다 — image_point 가 남으면 채점(276)이 입력별 모드로 들어가
@@ -308,9 +320,9 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
       image_point: (!isMed && !isMeal && !isSteps && requiresImage && !pressOnly) ? (parseInt(imagePoint) || 0) : null,
       numeric_point: (!isMed && !isMeal && !isSteps && requiresNumeric && !pressOnly) ? (parseInt(numericPoint) || 0) : null,
       note_point: (!isMed && !isMeal && !isSteps && requiresNote && !pressOnly) ? (parseInt(notePoint) || 0) : null,
-      image_required: (!isMed && !isMeal && !isSteps && requiresImage) ? imageRequired : true,
+      image_required: isSteps ? (stepsPhoto ? stepsPhotoRequired : true) : ((!isMed && !isMeal && requiresImage) ? imageRequired : true),   // 걸음 사진도 필수/선택
       numeric_required: (!isMed && !isMeal && !isSteps && requiresNumeric) ? numericRequired : true,
-      note_required: (!isMed && !isMeal && !isSteps && requiresNote) ? noteRequired : true,
+      note_required: isSteps ? (stepsNote ? stepsNoteRequired : true) : ((!isMed && !isMeal && requiresNote) ? noteRequired : true),   // 걸음 소감도 필수/선택
       // 다중 지표 (122) — 숫자 입력 미션만. 라벨·단위 있는 것만 저장.
       metrics: (!isMed && !isMeal && !isSteps && requiresNumeric)
         ? metrics
@@ -736,6 +748,31 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
             </div>
             <input type="number" inputMode="numeric" value={stepGoal} onChange={(e) => setStepGoal(e.target.value)} disabled={isSaving}
               className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl text-[15px] focus:outline-none focus:border-emerald-500" placeholder="직접 입력 (보)" />
+            {/* 인증 입력 — 다른 미션과 같은 양식. 걸음은 앱이 세므로 사진·소감만 고를 수 있다 (본인 2026-10-27) */}
+            <div className="mt-3">
+              <h3 className="text-[15px] font-bold text-gray-800 mb-2">인증 입력 <span className="text-[13px] font-medium text-gray-400">걸음은 앱이 세요 · 사진·소감을 더할 수 있어요</span></h3>
+              <div className="grid grid-cols-3 gap-2">
+                <TypeCard active={stepsPhoto} onClick={() => setStepsPhoto(!stepsPhoto)} Icon={ImageIcon} label="사진 제출" />
+                <TypeCard active={stepsNote} onClick={() => setStepsNote(!stepsNote)} Icon={MessageSquare} label="소감 작성" />
+              </div>
+              {[
+                { key: 'photo', on: stepsPhoto, Icon: ImageIcon, label: '사진 제출', required: stepsPhotoRequired, setRequired: setStepsPhotoRequired },
+                { key: 'note', on: stepsNote, Icon: MessageSquare, label: '소감 작성', required: stepsNoteRequired, setRequired: setStepsNoteRequired },
+              ].filter((r) => r.on).map((r) => (
+                <div key={r.key} className="mt-3 flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1 flex-shrink-0 text-[13px] font-medium text-gray-700"><r.Icon className="w-3.5 h-3.5 text-emerald-600" /> {r.label}</span>
+                  <div className="flex gap-1 flex-shrink-0 ml-auto">
+                    {[{ v: true, label: '필수' }, { v: false, label: '선택' }].map(opt => (
+                      <button key={opt.label} type="button" onClick={() => r.setRequired(opt.v)} disabled={isSaving}
+                        className={`px-2.5 py-1.5 rounded-md border text-xs transition disabled:opacity-50 ${r.required === opt.v ? (opt.v ? 'border-emerald-500 bg-emerald-50 text-emerald-700 font-semibold' : 'border-amber-400 bg-amber-50 text-amber-700 font-semibold') : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}>
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              <p className="mt-2 text-[13px] text-gray-500 break-keep">점수는 미션 점수 하나로 들어가요. 선택으로 둔 사진·소감은 비워도 깎이지 않고, 하나라도 켜면 참여자가 한 번 눌러 인증해요.</p>
+            </div>
           </div>
           ) : isMed ? (
           /* 명상형 설정 — 시간 + 호흡 패턴 */

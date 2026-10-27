@@ -194,15 +194,16 @@ export function expandPresetMission(m, { programId, activeFrom, activeUntil, bun
   const point = m.point ?? 10
   const isMed = m.verify_style === 'meditation'   // 명상(타이머) — 입력 없이 완료로 인증
   const isMeal = m.verify_style === 'meal'        // 식단(검색·AI사진) — 자체 입력 화면
-  const special = isMed || isMeal                 // 자체 입력형 → 사진/숫자/소감 없음, AUTO 승인
-  const ri = special ? false : (m.requires_image ?? true)
+  const isSteps = m.verify_style === 'steps'      // 걸음 자동 인증(앱 걸음 센서) — 입력 없이 목표 달성으로 인증
+  const special = isMed || isMeal || isSteps      // 자체 입력형 → 사진/숫자/소감 없음, AUTO 승인
+  const ri = (isMed || isMeal) ? false : (m.requires_image ?? !isSteps)   // 걸음은 사진(선택)을 가질 수 있다 — 기본 없음
   const rn = special ? false : (m.requires_numeric ?? false)
-  const rno = special ? false : (m.requires_note ?? false)
+  const rno = (isMed || isMeal) ? false : (m.requires_note ?? false)   // 걸음은 소감(선택)을 가질 수 있다
   const onlyImage = ri && !rn && !rno
   const onlyNote = rno && !ri && !rn
   // single_point — 입력별 점수 없이 미션 점수 하나(승인되면 그대로, 마이그 276 의 옛 방식). «누르기만»(선택 글만) 미션용:
   //   입력별로 나누면 글을 비운 제출이 0점이 된다. AI 초안(program-draft core.ts)이 쓴다. 기존 프리셋은 안 쓴다.
-  const single = !!m.single_point
+  const single = !!m.single_point || isSteps   // 걸음은 늘 점수 하나(소감이 비어도 점수) — 276 채점 규칙
   return {
     program_id: programId,
     feature: null,
@@ -210,9 +211,10 @@ export function expandPresetMission(m, { programId, activeFrom, activeUntil, bun
     instruction: m.instruction || null,
     verification_type: special ? 'AUTO' : (m.verification_type || 'AUTO'),
     point,
-    daily_limit: m.daily_limit ?? null,
-    // 명상(타이머)·식단(끼니) 인증 필드
+    daily_limit: isSteps ? 1 : (m.daily_limit ?? null),   // 걸음 자동 인증은 하루 1회
+    // 명상(타이머)·식단(끼니)·걸음(목표) 인증 필드
     verify_style: m.verify_style || 'standard',
+    step_goal: isSteps ? (m.step_goal ?? 8000) : null,
     meal_type: isMeal ? (m.meal_type || 'breakfast') : null,
     meditation_seconds: isMed ? (m.meditation_seconds ?? 180) : null,
     meditation_pattern: isMed ? (m.meditation_pattern ?? { inhale: 4, hold1: 4, exhale: 4, hold2: 4 }) : null,
@@ -223,9 +225,9 @@ export function expandPresetMission(m, { programId, activeFrom, activeUntil, bun
     image_point: single ? null : (ri ? (m.image_point ?? (onlyImage ? point : 0)) : null),
     numeric_point: single ? null : (rn ? (m.numeric_point ?? 0) : null),
     note_point: single ? null : (rno ? (m.note_point ?? (onlyNote ? point : 0)) : null),
-    image_required: m.image_required ?? true,
+    image_required: m.image_required ?? !isSteps,
     numeric_required: m.numeric_required ?? true,
-    note_required: m.note_required ?? true,
+    note_required: m.note_required ?? !isSteps,
     metrics: rn && Array.isArray(m.metrics) ? m.metrics : [],
     metric_aggregate: !!m.metric_aggregate,
     active_from: activeFrom,

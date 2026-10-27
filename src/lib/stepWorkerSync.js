@@ -126,11 +126,12 @@ function feedVisibleFor(program) {
 }
 
 // 미션 날 자동 인증 — 오늘 인증하는 걸음 미션 중 목표를 넘겼고 아직 안 낸 것을 낸다.
+//   ⚠️ 사진·소감(requires_image/requires_note)이 하나라도 켜진 걸음 미션은 뒤에서 내지 않는다 — 참여자가 앱에서 남기고 한 번 눌러 인증(StepsVerify). (본인 결정 2026-10-27)
 //   MissionVerifyPage 의 걸음 제출과 같은 모양({id, mission_id, user_id, numeric_value[, feed_visible]}) — 서버 트리거가 점수·상태·하루 한도를 정한다.
 //   돌려주는 값: 자동 인증한 미션 배열(없으면 []).
 export async function autoVerifyStepMissions(userId, stepMissions, programs = []) {
   if (!isNativePlatform() || !userId || !stepMissions?.length) return []
-  const todays = stepMissions.filter((m) => checkMissionToday(m).active && (Number(m.step_goal) || 0) > 0)
+  const todays = stepMissions.filter((m) => !m.requires_note && !m.requires_image && checkMissionToday(m).active && (Number(m.step_goal) || 0) > 0)
   if (!todays.length) return []
   const steps = await getTodayStepCount()
   if (!Number.isFinite(steps) || steps <= 0) return []

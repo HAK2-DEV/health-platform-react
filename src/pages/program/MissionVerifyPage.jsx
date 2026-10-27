@@ -9,7 +9,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useKeyboardInset } from '../../hooks/useKeyboardInset'
 import { supabase } from '../../supabaseClient'
 import { CATEGORY } from '../../lib/constants'
-import { checkMissionToday, isUpcomingByStartDate, formatKoreanDate } from '../../lib/formatters'
+import { checkMissionToday, isUpcomingByStartDate, formatKoreanDate, getTodayKST } from '../../lib/formatters'
 import { resolveMissionIcon } from '../../lib/missionIcons'
 import { prepareImageFile } from '../../lib/imageInput'
 import { readDraft, writeDraft, clearDraft } from '../../lib/formDraft'
@@ -1192,14 +1192,68 @@ function MissionVerifyPage() {
   }
 
   if (isSteps) {
+    // 걸음 미션의 사진 칸 — 일반 인증과 같은 길(prepareImageFile → 크롭 → selectedFile → 제출 때 압축·업로드). (2026-10-27)
+    const stepsPhotoSlot = needsImage ? (
+      <div>
+        <p className="text-sm font-bold text-gray-700 mb-1.5">사진 {mission?.image_required === false && <span className="text-xs font-normal text-amber-600">(선택)</span>}</p>
+        {previewUrl ? (
+          <div className="relative" ref={photoPreviewRef}>
+            <img src={previewUrl} alt="미리보기" className="w-full max-h-64 object-contain rounded-xl border border-gray-200 bg-gray-50" />
+            <button type="button" onClick={clearPreview} disabled={isSubmitting} title="다시 선택"
+              className="absolute top-2 right-2 p-1.5 bg-white/90 hover:bg-white rounded-full text-gray-700 shadow disabled:opacity-50">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        ) : (
+          <div className="flex gap-2">
+            <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isSubmitting || photoPreparing}
+              className="flex-1 h-11 rounded-xl border-2 border-dashed border-gray-300 text-gray-600 text-sm font-semibold flex items-center justify-center gap-1.5 hover:border-emerald-400 disabled:opacity-50">
+              {photoPreparing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}{photoPreparing ? '변환 중…' : '사진 고르기'}
+            </button>
+            <button type="button" onClick={() => cameraInputRef.current?.click()} disabled={isSubmitting || photoPreparing}
+              className="flex-1 h-11 rounded-xl border border-gray-200 text-gray-600 text-sm font-semibold flex items-center justify-center gap-1.5 hover:bg-gray-50 disabled:opacity-50">
+              <Camera className="w-4 h-4" /> 바로 찍기
+            </button>
+          </div>
+        )}
+        <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} disabled={isSubmitting} className="hidden" />
+        <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" onChange={handleFileSelect} disabled={isSubmitting} className="hidden" />
+        {error && <p className="text-xs text-rose-500 mt-1.5">{error}</p>}
+      </div>
+    ) : null
+    // 맥락 줄 — 프로그램 이름 · 운영 기관 · N일째 (참여자가 «어느 판 위에 있는지»)
+    const dayN = program?.start_date ? kstDayDiff(program.start_date, getTodayKST()) + 1 : null
+    const stepsContext = [program?.name, program?.org_name, dayN && dayN > 0 ? `${dayN}일째` : null].filter(Boolean).join(' · ')
     return (
-      <StepsVerify
-        mission={mission}
-        doneToday={todayDoneCount > 0}   // 일꾼이 뒤에서 이미 자동 인증했으면 「인증하기」를 또 보이지 않는다 (검토 10-26)
-        submitting={submitMutation.isPending}
-        onSubmit={(s) => { stepsRef.current = s; primeAudio(); submitNow() }}
-        onCancel={handleClose}
-      />
+      <>
+        <StepsVerify
+          mission={mission}
+          doneToday={todayDoneCount > 0}   // 일꾼이 뒤에서 이미 자동 인증했으면 「인증하기」를 또 보이지 않는다 (검토 10-26)
+          noteText={noteText}              // 소감 켜진 걸음 미션 — 제출 시 insertData.note 로 같이 간다
+          onNoteChange={needsNote ? setNoteText : null}
+          photoSlot={stepsPhotoSlot}       // 사진 켜진 걸음 미션 — selectedFile 이 제출 때 업로드된다
+          hasPhoto={!!selectedFile}
+          contextText={stepsContext}
+          submitting={submitMutation.isPending}
+          onSubmit={(s) => { stepsRef.current = s; primeAudio(); submitNow() }}
+          onCancel={handleClose}
+        />
+        <ImageCropModal
+          isOpen={isCropOpen}
+          imageSrc={cropImageSrc}
+          onClose={closeCrop}
+          onComplete={handleCropComplete}
+          aspect={4 / 3}
+          aspectOptions={[
+            { label: '정사각 1:1', value: 1 },
+            { label: '가로 4:3', value: 4 / 3 },
+            { label: '세로 3:4', value: 3 / 4 },
+          ]}
+          cropShape="rect"
+          title="사진 편집"
+          description="비율을 고르고, 드래그·확대축소로 맞춰주세요"
+        />
+      </>
     )
   }
 
@@ -1730,6 +1784,13 @@ function StatTile({ icon, iconBg, imgSrc, imgStyle, label, value, valueClass }) 
       </div>
     </div>
   )
+}
+
+// 'YYYY-MM-DD' 두 날짜 사이 일수(b - a). 렌더 중 Date.now() 를 직접 부르지 않으려고 날짜 문자열로 계산한다.
+function kstDayDiff(a, b) {
+  const [ay, am, ad] = String(a).slice(0, 10).split('-').map(Number)
+  const [by, bm, bd] = String(b).slice(0, 10).split('-').map(Number)
+  return Math.round((Date.UTC(by, bm - 1, bd) - Date.UTC(ay, am - 1, ad)) / 86400000)
 }
 
 export default MissionVerifyPage

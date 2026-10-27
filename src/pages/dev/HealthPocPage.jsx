@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { isNativePlatform, getStepStatus, requestStepPermission, startStepWorker, stopStepWorker, getTodayStepCount, getDailyStepCounts, openBatterySettings, debugAddSteps } from '../../lib/stepCounter'
 import StepsVerify from '../../components/program/StepsVerify'
+import WalkingTodayCard from '../../components/program/WalkingTodayCard'
 
 // 🔧 걸음 일꾼 시험 화면 (자체 만보기, 2026-10-26) — 숨긴 개발용. 라우트: /dev/health (dev 빌드에만 포함)
 //   목적: 로그인·프로그램 없이 네이티브 일꾼(권한 → 켜기 → 알림 → 오늘 걸음)을 돌려 본다.
@@ -27,6 +28,8 @@ export default function HealthPocPage() {
   const [daily, setDaily] = useState([])
   const [log, setLog] = useState([])
   const [preview, setPreview] = useState(false)
+  const [cardPreview, setCardPreview] = useState(false)   // 걷기 홈 상단 카드 미리보기
+  const [note, setNote] = useState('')
 
   const push = (m) => setLog((l) => [`${new Date().toLocaleTimeString()} · ${m}`, ...l].slice(0, 30))
   const refresh = async () => {
@@ -46,8 +49,23 @@ export default function HealthPocPage() {
   if (preview) {
     return (
       <div className="max-w-md mx-auto px-4 pt-2">
-        <StepsVerify mission={{ title: '하루 100보 걷기 (미리보기)', step_goal: 100, schedule_mode: 'ALL_DAYS' }} submitting={false}
+        <StepsVerify mission={{ title: '하루 100보 걷기 (미리보기)', step_goal: 100, schedule_mode: 'ALL_DAYS', requires_note: true, note_required: false, requires_image: true, image_required: false }}
+          submitting={false} noteText={note} onNoteChange={setNote} hasPhoto={false}
+          contextText="시험 걷기 프로그램 · 보건소 건강팀 · 3일째"
+          photoSlot={<div><p className="text-sm font-bold text-gray-700 mb-1.5">사진 <span className="text-xs font-normal text-amber-600">(선택)</span></p><div className="flex gap-2"><button type="button" className="flex-1 h-11 rounded-xl border-2 border-dashed border-gray-300 text-gray-600 text-sm font-semibold">사진 고르기</button><button type="button" className="flex-1 h-11 rounded-xl border border-gray-200 text-gray-600 text-sm font-semibold">바로 찍기</button></div></div>}
           onSubmit={(s) => { setPreview(false); push(`StepsVerify onSubmit(${s})`) }} onCancel={() => setPreview(false)} />
+      </div>
+    )
+  }
+
+  if (cardPreview) {
+    return (
+      <div className="max-w-md mx-auto px-4 py-6 space-y-4">
+        <button type="button" onClick={() => setCardPreview(false)} className="text-sm text-gray-500">‹ 돌아가기</button>
+        <p className="text-xs text-gray-500">참여자 카드 (실제 센서)</p>
+        <WalkingTodayCard programId="dev-preview" todayCounts={{}}
+          stepMissions={[{ id: 'dev-m1', title: '하루 100보 걷기', verify_style: 'steps', step_goal: 100, schedule_mode: 'WEEKDAYS', active_days: [] }]}
+          onOpenMission={(mid) => { setCardPreview(false); push(`open mission ${mid}`) }} />
       </div>
     )
   }
@@ -73,7 +91,9 @@ export default function HealthPocPage() {
         <Btn onClick={openBatterySettings} tone="light">배터리 설정 열기</Btn>
       </div>
       <button type="button" onClick={() => setPreview(true)}
-        className="w-full h-11 mb-4 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-sm font-bold">StepsVerify 화면 미리보기</button>
+        className="w-full h-11 mb-2 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-sm font-bold">StepsVerify 화면 미리보기</button>
+      <button type="button" onClick={() => setCardPreview(true)}
+        className="w-full h-11 mb-4 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-sm font-bold">걷기 홈 카드 미리보기</button>
       {daily.length > 0 && (
         <div className="rounded-2xl bg-white border border-gray-100 shadow-soft p-4 mb-4">
           <p className="text-[12px] font-bold text-gray-600 mb-2">최근 7일</p>

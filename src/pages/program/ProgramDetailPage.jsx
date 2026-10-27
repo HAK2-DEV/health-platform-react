@@ -38,6 +38,7 @@ import { useRedoVerifications } from '../../hooks/useRedoVerifications'
 import MetricSummaryCard from '../../components/program/MetricSummaryCard'
 import ProgramHome, { HOME_BOX_EDITABLE, HOME_BOX_LABELS, Icon3D } from '../../components/program/ProgramHome'
 import TodayTodoCard from '../../components/program/TodayTodoCard'
+import WalkingTodayCard from '../../components/program/WalkingTodayCard'
 import { useTodayTodo } from '../../lib/todayTodo'
 import ActivityTrendCard from '../../components/program/ActivityTrendCard'
 import ParticipantWelcomeSheet from '../../components/program/ParticipantWelcomeSheet'
@@ -939,6 +940,22 @@ function ProgramDetailPage() {
       verifierCount={todayTodo.verifierCount}
       feedEnabled={program?.community_enabled !== false && program?.feed_enabled !== false}
       onGo={goTodo}
+    />
+  ) : null
+  // 걷기(만보기) 프로그램 홈 맨 위 「오늘 걸음」 카드 — 참여자에게만 (본인 2026-10-27: 홈 상단 작게, 누르면 미션 화면 크게).
+  //   첫 방문이면 카드가 걸음 고지 시트를 한 번 띄운다(참여 직후 허용 — 늦게 물을수록 걸음이 빠진다).
+  const stepMissionsLive = useMemo(() => {
+    const now = new Date()
+    return (missions || []).filter((m) => m.verify_style === 'steps'
+      && (!m.active_from || new Date(m.active_from) <= now) && (!m.active_until || new Date(m.active_until) >= now))
+  }, [missions])
+  const isWalkingTheme = program?.theme === PROGRAM_THEME.WALKING && !isEnded
+  const walkingCardEl = isWalkingTheme && isActiveParticipant && stepMissionsLive.length > 0 ? (
+    <WalkingTodayCard
+      programId={id}
+      stepMissions={stepMissionsLive}
+      todayCounts={todayCounts}
+      onOpenMission={(missionId) => navigate(`/programs/${id}/missions/${missionId}`)}
     />
   ) : null
   // 넛지 초대 액션 — 초대코드형이면 InviteModal, 공개형이면 링크 공유/복사.
@@ -2443,7 +2460,7 @@ function ProgramDetailPage() {
         const streakData = { count: overviewData?.streak || 0, days: overviewData?.weekDays || [] }
         return (
           <ProgramHome
-            todayActionSlot={todoOn ? todoSlotEl : redoSlotEl}
+            todayActionSlot={walkingCardEl ? <div className="space-y-4">{walkingCardEl}{todoOn ? todoSlotEl : redoSlotEl}</div> : (todoOn ? todoSlotEl : redoSlotEl)}   // 걷기면 걸음 카드가 맨 위
             programName={program.name}
             startDate={yy(program.start_date)}
             endDate={yy(program.end_date)}

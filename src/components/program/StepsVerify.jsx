@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { Browser } from '@capacitor/browser'
-import { ChevronLeft, Footprints, RefreshCw, Check } from 'lucide-react'
+import { ChevronLeft, RefreshCw, Check } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { useHealthConsent } from '../../contexts/HealthConsentContext'
+import StepsDisclosure from './StepsDisclosure'
 import {
   isNativePlatform, getStepStatus, requestStepPermission, startStepWorker, getTodayStepCount, openBatterySettings, openNotificationSettings,
 } from '../../lib/stepCounter'
@@ -11,15 +11,7 @@ import { syncStepWorker } from '../../lib/stepWorkerSync'
 
 const PLAY_URL = 'https://play.google.com/store/apps/details?id=com.healthplatform.app'
 
-// 걸음 데이터 사용 안내 — Google Play 건강 앱 정책의 «눈에 띄는 고지»(prominent disclosure).
-//   신체활동 권한 창을 띄우기 «직전»에 무엇을 읽고, 어디에 쓰고, 무엇을 남기는지 구체적으로 말한다.
-//   개인정보처리방침 2조 「걸음 수」 항목과 같은 내용이어야 한다(문구를 바꾸면 양쪽 함께).
-const DISCLOSURE = [
-  { k: '읽는 것', v: '폰의 걸음 센서가 센 오늘 걸음. 앱이 직접 세요' },
-  { k: '쓰는 곳', v: '이 미션의 자동 인증, 알림 한 줄의 「오늘 걸음」' },
-  { k: '남기는 것', v: '날짜별 걸음은 폰 안에만(60일). 서버에는 인증한 날의 달성 걸음 수 하나가 인증 기록으로 남아 운영자가 다른 인증처럼 봐요. 광고에 쓰지 않고 밖에 주지 않아요' },
-  { k: '끄기', v: '걷기 프로그램이 끝나면 자동으로 멈춰요. 설정 › 앱 권한 › 신체활동에서 끌 수도 있어요' },
-]
+// 걸음 데이터 사용 안내(고지)는 StepsDisclosure 컴포넌트 — 걷기 홈 첫 방문 시트와 같은 내용
 
 // 걸음 자동 인증 — 앱의 걸음 일꾼(폰 센서 + 포그라운드 서비스)이 센 오늘 걸음으로 목표 달성 시 자동 인증. (2026-10-26 자체 만보기)
 //   웹(PWA)에서는 걸음 센서를 못 쓰니 안내만(앱 유도). 사진·수동 불필요.
@@ -27,7 +19,21 @@ const DISCLOSURE = [
 //     update   = 플러그인이 없는 옛 앱(v52 이하) → Play 업데이트 안내
 //     nosensor = 걸음 센서가 없는 폰
 //     disclose = 권한이 아직 없음 → 걸음 데이터 사용 안내 → 민감정보 동의(최초 1회) → 신체활동 권한 창 → 일꾼 켜기
-export default function StepsVerify({ mission, submitting, onSubmit, onCancel, doneToday = false }) {
+//   사진·소감(2026-10-27): 운영자가 켠 입력만 목표 달성 뒤에 보인다. 사진 칸은 MissionVerifyPage 가 만들어 photoSlot 으로 준다
+//   (HEIC 변환·크롭·압축·업로드를 일반 인증과 같은 길로). 필수로 정한 입력이 비면 인증 버튼이 잠긴다.
+export default function StepsVerify({
+  mission, submitting, onSubmit, onCancel, doneToday = false,
+  noteText = '', onNoteChange = null,
+  photoSlot = null, hasPhoto = false,
+  contextText = '',
+}) {
+  const noteAllowed = !!mission?.requires_note && typeof onNoteChange === 'function'   // 소감 켜진 걸음 미션 — 적고 한 번 눌러 인증
+  const noteRequired = noteAllowed && mission?.note_required !== false                 // 운영자가 「필수」로 정했으면 비우고는 못 낸다
+  const noteMissing = noteRequired && !noteText.trim()
+  const photoAllowed = !!mission?.requires_image && !!photoSlot
+  const photoMissing = photoAllowed && mission?.image_required !== false && !hasPhoto
+  const inputMissing = noteMissing || photoMissing
+  const missingLabel = photoMissing && noteMissing ? '사진과 소감을 넣으면 인증할 수 있어요' : photoMissing ? '사진을 넣으면 인증할 수 있어요' : '소감을 적으면 인증할 수 있어요'
   const goal = mission.step_goal || 8000
   const native = isNativePlatform()
   const { session } = useAuth()
@@ -108,30 +114,16 @@ export default function StepsVerify({ mission, submitting, onSubmit, onCancel, d
         <button type="button" onClick={onCancel} className="w-9 h-9 rounded-full bg-white shadow-sm flex items-center justify-center flex-shrink-0"><ChevronLeft className="w-5 h-5 text-gray-700" /></button>
         <span className="text-[14px] font-bold text-gray-700 truncate">{mission.title}</span>
       </div>
+      {contextText && (
+        <p className="px-4 -mt-1 flex items-center gap-1.5 text-xs text-gray-500 min-w-0 flex-shrink-0">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" />
+          <span className="truncate">{contextText}</span>
+        </p>
+      )}
 
       <div className="flex-1 min-h-0 flex flex-col items-center justify-center px-6 text-center">
         {phase === 'disclose' ? (
-          /* 걸음 데이터 사용 안내 — 긴 글이라 왼쪽 정렬, 카드 한 겹. 민감정보 동의 모달과 같은 표 모양. */
-          <div className="w-full max-w-sm text-left">
-            <div className="flex items-center gap-2.5 mb-3">
-              <span className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center flex-shrink-0">
-                <Footprints className="w-5 h-5 text-emerald-600" />
-              </span>
-              <h2 className="text-base font-semibold text-gray-800">걸음 수를 이렇게 써요</h2>
-            </div>
-            <dl className="rounded-xl border border-gray-200 divide-y divide-gray-100 bg-white text-xs">
-              {DISCLOSURE.map((r) => (
-                <div key={r.k} className="grid grid-cols-[64px_1fr] gap-2 px-3 py-2">
-                  <dt className="font-bold text-gray-500">{r.k}</dt>
-                  <dd className="text-gray-800 leading-relaxed break-keep">{r.v}</dd>
-                </div>
-              ))}
-            </dl>
-            <p className="text-xs text-gray-500 leading-relaxed break-keep mt-2">
-              다음 화면에서 「신체활동」 권한을 허용하면 걸음을 세기 시작해요. 자세한 내용은{' '}
-              <Link to="/privacy" className="underline text-emerald-700">개인정보처리방침</Link> 2조에 있어요.
-            </p>
-          </div>
+          <div className="w-full max-w-sm"><StepsDisclosure /></div>
         ) : (
           <>
             {/* 진행 링 */}
@@ -142,7 +134,7 @@ export default function StepsVerify({ mission, submitting, onSubmit, onCancel, d
                   strokeDasharray={`${(pct / 100) * 276.5} 276.5`} style={{ transition: 'stroke-dasharray .6s ease' }} />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <Footprints className={`w-7 h-7 mb-1 ${reached ? 'text-emerald-500' : 'text-emerald-400'}`} />
+                <img src={reached || doneToday ? '/icons/action/complete.png' : '/icons/running/shoe.png'} alt="" className="w-8 h-8 object-contain mb-1" />
                 <p className="text-[30px] font-extrabold text-gray-900 tabular-nums leading-none">{steps != null ? steps.toLocaleString() : '—'}</p>
                 <p className="text-[12px] text-gray-400 mt-1">/ {goal.toLocaleString()}보</p>
               </div>
@@ -156,13 +148,19 @@ export default function StepsVerify({ mission, submitting, onSubmit, onCancel, d
                 </>
               ) : reached ? (
                 <>
-                  <p className="text-[17px] font-extrabold text-emerald-700">목표 달성! 🎉</p>
-                  <p className="text-[13px] text-gray-500 mt-1">오늘 {steps.toLocaleString()}보 걸었어요. 인증할까요?</p>
+                  <p className="text-[17px] font-extrabold text-emerald-700">오늘 목표를 채웠어요</p>
+                  <p className="text-[13px] text-gray-500 mt-1">오늘 {steps.toLocaleString()}보. {photoAllowed || noteAllowed ? (inputMissing ? '남기고 인증해요.' : '남기고 인증할까요? 비워도 돼요.') : '인증할까요?'}</p>
+                  {photoAllowed && <div className="mt-3 w-full max-w-sm text-left">{photoSlot}</div>}
+                  {noteAllowed && (
+                    <textarea value={noteText} onChange={(e) => onNoteChange(e.target.value)} disabled={submitting} rows={2} maxLength={200}
+                      placeholder={noteRequired ? '오늘 걷고 느낀 점 (필수)' : '오늘 걷고 느낀 점 (선택)'}
+                      className="mt-3 w-full max-w-sm min-w-0 px-3 py-2.5 text-sm text-left border-2 border-gray-200 rounded-xl bg-white focus:outline-none focus:border-emerald-500 resize-none" />
+                  )}
                 </>
               ) : (
                 <>
                   <p className="text-[17px] font-extrabold text-gray-800">{remaining.toLocaleString()}보 더 걸으면 돼요</p>
-                  <p className="text-[13px] text-gray-500 mt-1">앱이 걸음을 세고 있어요. 목표를 채우면 자동으로 인증돼요.</p>
+                  <p className="text-[13px] text-gray-500 mt-1">앱이 걸음을 세고 있어요. {noteAllowed ? '목표를 채우면 여기서 소감 적고 인증해요.' : '목표를 채우면 자동으로 인증돼요.'}</p>
                 </>
               )
             ) : phase === 'loading' ? (
@@ -210,9 +208,9 @@ export default function StepsVerify({ mission, submitting, onSubmit, onCancel, d
           <button type="button" onClick={onCancel}
             className="w-full py-3.5 rounded-2xl bg-gray-100 hover:bg-gray-200 text-gray-600 text-[15px] font-bold">확인</button>
         ) : native && phase === 'ready' && reached ? (
-          <button type="button" disabled={submitting} onClick={() => onSubmit(steps)}
+          <button type="button" disabled={submitting || inputMissing} onClick={() => onSubmit(steps)}
             className="w-full h-13 py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-600 disabled:opacity-60 text-white text-[15px] font-bold inline-flex items-center justify-center gap-1.5">
-            <Check className="w-5 h-5" />{submitting ? '인증 중…' : '자동 인증하기'}
+            <Check className="w-5 h-5" />{submitting ? '인증 중…' : inputMissing ? missingLabel : (photoAllowed || noteAllowed) ? '인증하기' : '자동 인증하기'}
           </button>
         ) : phase === 'update' ? (
           <button type="button" onClick={openPlayStore}

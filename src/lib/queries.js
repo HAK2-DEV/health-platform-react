@@ -1048,7 +1048,7 @@ export const fetchLatestCommentAward = async (programId, userId) => {
 export const fetchMission = async (missionId) => {
   const { data, error } = await supabase
     .from('missions')
-    .select('*, programs!inner(id, name, categories, feed_enabled, owner_id, community_settings, theme, ranking_enabled)')
+    .select('*, programs!inner(id, name, categories, feed_enabled, owner_id, community_settings, theme, ranking_enabled, start_date, org_name)')
     .eq('id', missionId)
     .maybeSingle()
   if (error) throw error

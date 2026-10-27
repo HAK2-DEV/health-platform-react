@@ -189,6 +189,35 @@ export const MISSION_LIBRARY = [
     ],
   },
 
+  // ── 걷기(만보기) — 앱이 폰 걸음 센서로 오늘 걸음을 세고, 목표를 넘기면 사진 없이 자동 인증 (2026-10-27) ──
+  //   묶음은 하나(본인 결정): 고르면 목표 걸음(5,000/8,000/10,000/직접)을 운영자가 정하고 제목이 「하루 N보 걷기」로 따라간다.
+  //   사진·소감(선택 입력)은 기본 켜짐 — 하나라도 켜진 미션은 참여자가 앱에서 남기고 한 번 눌러 인증한다(뒤에서 자동 제출하지 않음).
+  //   하루 1회(daily_limit 1), 점수는 미션 점수 하나(입력별 점수 없음 — 마이그 276 채점 규칙).
+  {
+    key: 'steps_light',
+    title: '가볍게 걷기',
+    description: '앱이 걸음을 세요 — 목표를 넘기면 사진 없이 인증. 목표 걸음은 고를 수 있어요',
+    category: 'STEPS',
+    emoji: '🚶',
+    missions: [
+      {
+        title: '하루 5,000보 걷기',
+        instruction: '앱이 오늘 걸음을 세요. 목표를 넘기면 사진·한 줄 소감을 남기고 인증해요(둘 다 선택).',
+        icon: null,
+        verify_style: 'steps',
+        step_goal: 5000,
+        requires_image: true,     // 사진(선택) — 기본 켜짐 (본인 2026-10-27)
+        image_required: false,
+        requires_numeric: false,
+        requires_note: true,      // 소감(선택) — 기본 켜짐
+        note_required: false,
+        verification_type: 'AUTO',
+        point: 10,
+        daily_limit: 1,
+      },
+    ],
+  },
+
   {
     key: 'exercise_certification',
     title: '운동 인증 챌린지',

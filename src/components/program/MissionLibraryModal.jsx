@@ -3,7 +3,7 @@ import { useBackButtonClose } from '../../hooks/useBackButtonClose'
 import Modal from '../common/Modal'
 import { supabase } from '../../supabaseClient'
 import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Plus, X, Image as ImageIcon, BarChart3, MessageSquare, Pencil, Check } from 'lucide-react'
-import { CATEGORY_LIST, SCHEDULE_MODES, WEEKDAY_OPTIONS } from '../../lib/constants'
+import { CATEGORY_LIST, SCHEDULE_MODES, WEEKDAY_OPTIONS, STEPS_ENABLED } from '../../lib/constants'
 import { MISSION_LIBRARY } from '../../lib/missionLibrary'
 import { resolveMissionIcon } from '../../lib/missionIcons'
 
@@ -27,6 +27,8 @@ function Bundle3D({ bundle }) {
 
 // 인증 입력 유형 — 한 미션에 복수 선택 가능 (사진+소감 통합 등). missions.requires_* 와 매핑.
 // 제출 화면(MissionVerifyPage)이 이미 사진/기록/소감을 한 미션에 같이 띄워 한 번에 제출함.
+const STEP_GOAL_PRESETS = [5000, 8000, 10000]   // 걸음 미션 목표 추천값 — 직접 입력 칸은 이 값이 아닐 때만 채워진다
+
 const INPUT_TYPES = [
   { field: 'requires_image', icon: ImageIcon, label: '사진 제출' },
   { field: 'requires_numeric', icon: BarChart3, label: '숫자 입력' },
@@ -75,7 +77,7 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
       setIsSaving(false)
     } else if (program) {
       // 모달 열릴 때 프로그램의 첫 카테고리를 기본 선택
-      const defaultCat = program.categories?.[0] || CATEGORY_LIST[0]?.key
+      const defaultCat = program.categories?.[0] || CATEGORY_LIST.find((c) => c.key !== 'STEPS')?.key
       setSelectedCategory(defaultCat)
     }
   }, [isOpen, program])
@@ -91,6 +93,10 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
   }, [step, selectedCategory])
 
   // 선택된 카테고리의 묶음들만 필터링 (카테고리당 묶음 카운트도 미리 계산해서 칩에 표시)
+  // 걷기 탭 — 만보기는 아직 내부 테스트(STEPS_ENABLED=false). 그동안은 걷기 테마·걷기 카테고리 프로그램에서만 보인다
+  //   (MissionCreateModal 의 👣 옵션과 같은 규칙 — 일반 프로그램에 걸음 미션이 생기면 참여자는 「앱 업데이트 필요」만 본다).
+  const stepsTabOn = STEPS_ENABLED || program?.theme === 'WALKING' || !!program?.categories?.includes('STEPS')
+  const categoryTabs = CATEGORY_LIST.filter((c) => c.key !== 'STEPS' || stepsTabOn)
   const bundlesByCategory = useMemo(() => {
     const map = {}
     for (const b of MISSION_LIBRARY) {
@@ -166,6 +172,12 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
     (m.requires_numeric ? (parseInt(m.numeric_point) || 0) : 0) +
     (m.requires_note ? (parseInt(m.note_point) || 0) : 0)
 
+  // 걸음 미션 — 목표를 바꾸면 제목도 「하루 N보 걷기」로 따라간다
+  const setStepsGoal = (idx, v) => {
+    const n = parseInt(v) || 0
+    setDrafts(prev => prev.map((m, i) => i === idx ? { ...m, step_goal: v, title: n > 0 ? `하루 ${n.toLocaleString()}보 걷기` : m.title } : m))
+  }
+
   // 일정 옵션 헬퍼 — 본인의 다른 코드와 일관 (Step1Basic 폐기 흐름 + MissionCreateModal)
   const toggleActiveDay = (idx, dayNum) => {
     setDrafts(prev => prev.map((m, i) => {
@@ -220,17 +232,18 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
       setError(`"${drafts[invalidPeriodIdx].title}" 미션의 종료일이 시작일보다 빠를 수 없어요`)
       return
     }
-    // 인증 입력 유형 0개 차단 — 제출 화면이 비어버림 (명상형은 타이머 완료라 예외)
+    // 인증 입력 유형 0개 차단 — 제출 화면이 비어버림 (명상형=타이머 완료, 걸음형=목표 달성이라 예외)
+    const selfVerified = (m) => m.verify_style === 'meditation' || m.verify_style === 'steps'
     const noInputIdx = drafts.findIndex(m =>
-      m.selected && m.verify_style !== 'meditation' && !m.requires_image && !m.requires_numeric && !m.requires_note
+      m.selected && !selfVerified(m) && !m.requires_image && !m.requires_numeric && !m.requires_note
     )
     if (noInputIdx >= 0) {
       setError(`"${drafts[noInputIdx].title}" 미션의 인증 입력을 1개 이상 선택해주세요`)
       return
     }
-    // 필수 입력 0개 차단 (전부 선택일 수 없음) — 명상형 예외
+    // 필수 입력 0개 차단 (전부 선택일 수 없음) — 명상형·걸음형 예외
     const noRequiredIdx = drafts.findIndex(m =>
-      m.selected && m.verify_style !== 'meditation' &&
+      m.selected && !selfVerified(m) &&
       !((m.requires_image && m.image_required !== false) ||
         (m.requires_numeric && m.numeric_required !== false) ||
         (m.requires_note && m.note_required !== false))
@@ -247,29 +260,31 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
     const bundleTitle = `${bundle.emoji} ${bundle.title}`
     const rows = drafts.filter(m => m.selected).map(m => {
       const isMed = m.verify_style === 'meditation'
+      const isSteps = m.verify_style === 'steps'   // 걸음 자동 인증 — 점수 하나, 하루 1회, 입력별 점수 없음(276 채점)
       return {
       program_id: program.id,
       feature: null,
       title: m.title,
       instruction: m.instruction || null,
-      verification_type: isMed ? 'AUTO' : m.verification_type,
-      point: isMed ? (parseInt(m.point) || 0) : draftTotal(m),
-      daily_limit: m.daily_limit ? parseInt(m.daily_limit) : null,
-      // 명상(타이머) 인증 — 라이브러리 명상 미션
+      verification_type: (isMed || isSteps) ? 'AUTO' : m.verification_type,
+      point: (isMed || isSteps) ? (parseInt(m.point) || 0) : draftTotal(m),
+      daily_limit: isSteps ? 1 : (m.daily_limit ? parseInt(m.daily_limit) : null),
+      // 명상(타이머)·걸음(목표) 인증 — 라이브러리 미션
       verify_style: m.verify_style || 'standard',
+      step_goal: isSteps ? Math.max(1, parseInt(m.step_goal) || 8000) : null,
       meditation_seconds: isMed ? (m.meditation_seconds || 180) : null,
       meditation_pattern: isMed ? (m.meditation_pattern || null) : null,
       meditation_music: null,
       requires_image: m.requires_image,
       requires_numeric: m.requires_numeric,
-      requires_note: m.requires_note,
-      // 084 — 입력별 점수/필수
-      image_point: m.requires_image ? (parseInt(m.image_point) || 0) : null,
-      numeric_point: m.requires_numeric ? (parseInt(m.numeric_point) || 0) : null,
-      note_point: m.requires_note ? (parseInt(m.note_point) || 0) : null,
+      requires_note: isSteps ? !!m.requires_note : m.requires_note,   // 걸음: 소감(선택) 켜기/끄기
+      // 084 — 입력별 점수/필수. 걸음은 입력별 점수를 비운다(point 하나로 채점 — 276) → 소감이 비어도 점수가 들어간다
+      image_point: (!isSteps && m.requires_image) ? (parseInt(m.image_point) || 0) : null,
+      numeric_point: (!isSteps && m.requires_numeric) ? (parseInt(m.numeric_point) || 0) : null,
+      note_point: (!isSteps && m.requires_note) ? (parseInt(m.note_point) || 0) : null,
       image_required: m.requires_image ? (m.image_required !== false) : true,
       numeric_required: m.requires_numeric ? (m.numeric_required !== false) : true,
-      note_required: m.requires_note ? (m.note_required !== false) : true,
+      note_required: m.requires_note ? (m.note_required !== false) : true,   // 걸음도 다른 미션과 같은 규칙(필수/선택)
       // 122 — 다중 지표 + 개요 통계 표시. 라벨/단위 있는 것만, max 는 숫자로 정규화.
       metrics: m.requires_numeric && Array.isArray(m.metrics)
         ? m.metrics
@@ -322,7 +337,7 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
 
             {/* 카테고리 칩 탭 — 가로 스크롤. 카테고리 옆에 묶음 개수 표시 */}
             <div ref={tabStripRef} className="flex gap-1.5 overflow-x-auto pb-2 -mx-1 px-1 mb-4 scrollbar-hide">
-              {CATEGORY_LIST.map(category => {
+              {categoryTabs.map(category => {
                 const count = bundlesByCategory[category.key]?.length || 0
                 const isActive = selectedCategory === category.key
                 return (
@@ -529,7 +544,87 @@ function MissionLibraryModal({ program, isOpen, onClose, onSuccess, onCustomCrea
                         </div>
                       )}
 
-                      {m.verify_style !== 'meditation' && (<>
+                      {/* 걸음 미션 — 입력 편집 대신 요약(목표 걸음·점수만 조정). 앱이 세는 걸음으로 자동 인증 (2026-10-27) */}
+                      {m.verify_style === 'steps' && (
+                        <div className="rounded-xl bg-emerald-50/60 border border-emerald-100 p-3 space-y-3">
+                          <div>
+                            <p className="text-[13px] font-bold text-gray-800">👣 걸음 자동 인증</p>
+                            <p className="text-[11px] text-gray-500 mt-0.5">안드로이드 앱이 걸음을 세고, 목표를 넘기면 사진 없이 하루 1회 인증돼요.</p>
+                          </div>
+                          {/* 하루 목표 — 추천값 3개 + 직접 입력(추천값이 아닐 때만 채워짐). 운영자가 자유롭게 정한다 (본인 2026-10-27) */}
+                          <div>
+                            <p className="text-[12px] font-bold text-gray-700 mb-1.5">하루 목표</p>
+                            <div className="flex gap-1.5">
+                              {STEP_GOAL_PRESETS.map(g => (
+                                <button key={g} type="button" disabled={isSaving} onClick={() => setStepsGoal(idx, g)}
+                                  className={`flex-1 py-2 rounded-lg border-2 text-[13px] font-bold bg-white ${Number(m.step_goal) === g ? 'border-emerald-500 text-emerald-700' : 'border-gray-200 text-gray-600'}`}>
+                                  {g.toLocaleString()}보
+                                </button>
+                              ))}
+                            </div>
+                            <input type="number" inputMode="numeric" min={100} disabled={isSaving}
+                              value={STEP_GOAL_PRESETS.includes(Number(m.step_goal)) ? '' : (m.step_goal ?? '')}
+                              onChange={(e) => setStepsGoal(idx, e.target.value)}
+                              className="mt-1.5 w-full px-3 py-2 text-sm border-2 border-gray-200 rounded-lg bg-white focus:outline-none focus:border-emerald-500" placeholder="직접 입력 (예: 6500)" />
+                          </div>
+                          {/* 인증 입력 — 다른 미션과 같은 모양. 걸음은 앱이 세므로 사진·소감만 고를 수 있다 (본인 2026-10-27) */}
+                          <div>
+                            <label className="block text-[13px] font-bold text-gray-800 mb-2">
+                              인증 입력 <span className="text-[11px] font-medium text-gray-400">걸음은 앱이 세요 · 사진·소감을 더할 수 있어요</span>
+                            </label>
+                            <div className="flex gap-1.5 flex-wrap">
+                              {INPUT_TYPES.filter(t => t.field !== 'requires_numeric').map(t => {
+                                const on = !!m[t.field]
+                                const Icon = t.icon
+                                return (
+                                  <button key={t.field} type="button" disabled={isSaving} onClick={() => updateDraft(idx, t.field, !on)}
+                                    className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[13px] border transition disabled:opacity-50 ${on ? 'border-emerald-500 bg-emerald-50 text-emerald-700 font-semibold' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}>
+                                    <Icon className="w-3.5 h-3.5" />{t.label}
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          </div>
+                          {(m.requires_image || m.requires_note) && (
+                            <div>
+                              <label className="block text-[13px] font-bold text-gray-800 mb-2">필수 여부</label>
+                              <div className="space-y-2">
+                                {[
+                                  { r: 'image_required', on: m.requires_image, label: '사진 제출', Icon: ImageIcon },
+                                  { r: 'note_required', on: m.requires_note, label: '소감 작성', Icon: MessageSquare },
+                                ].filter(row => row.on).map(row => (
+                                  <div key={row.r} className="flex items-center gap-2">
+                                    <span className="inline-flex items-center gap-1 w-[4.5rem] flex-shrink-0 text-[13px] font-medium text-gray-700">
+                                      <row.Icon className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" /> {row.label}
+                                    </span>
+                                    <div className="flex gap-1 flex-shrink-0 ml-auto">
+                                      {[{ v: true, t: '필수' }, { v: false, t: '선택' }].map(opt => (
+                                        <button key={opt.t} type="button" disabled={isSaving} onClick={() => updateDraft(idx, row.r, opt.v)}
+                                          className={`px-2.5 py-1 rounded text-xs border transition disabled:opacity-50
+                                            ${(m[row.r] !== false) === opt.v
+                                              ? (opt.v ? 'border-emerald-500 bg-emerald-50 text-emerald-700 font-semibold' : 'border-amber-400 bg-amber-50 text-amber-700 font-semibold')
+                                              : 'border-gray-200 bg-white text-gray-500'}`}>
+                                          {opt.t}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                              <p className="mt-1.5 text-[11px] text-gray-500 break-keep">점수는 미션 점수 하나로 들어가요. 선택으로 둔 사진·소감은 비워도 깎이지 않아요.</p>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2">
+                            <span className="text-[12px] text-gray-600">점수</span>
+                            <input type="number" min={1} value={m.point ?? 10}
+                              onChange={(e) => updateDraft(idx, 'point', e.target.value)} disabled={isSaving}
+                              className="w-16 px-2 py-1 text-sm text-right border border-gray-200 rounded-md bg-white focus:outline-none focus:border-emerald-500 disabled:bg-gray-50" />
+                            <span className="text-[12px] text-gray-500">P</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {m.verify_style !== 'meditation' && m.verify_style !== 'steps' && (<>
                       {/* 인증 입력 유형 — 복수 선택 (핵심, 항상 노출) */}
                       <div>
                         <label className="block text-[13px] font-bold text-gray-800 mb-2">

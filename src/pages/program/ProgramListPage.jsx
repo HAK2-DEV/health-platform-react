@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
 import { ChevronRight, ClipboardList, Calendar, Trash2 } from 'lucide-react'
-import { CATEGORY, CATEGORY_LIST } from '../../lib/constants'
+import { CATEGORY, CATEGORY_LIST, STEPS_ENABLED } from '../../lib/constants'
 import { calcProgress, CATEGORY_HEX, progressUrgency, programCoverPath, isEndedBeyondGrace } from '../../lib/programVisuals'
 import { ChevronDown } from 'lucide-react'
 import ProgramCover from '../../components/common/ProgramCover'
@@ -578,7 +578,7 @@ function ProgramListPage() {
               >
                 전체
               </button>
-              {CATEGORY_LIST.map(c => {
+              {CATEGORY_LIST.filter((c) => c.key !== 'STEPS' || STEPS_ENABLED).map(c => {   // 걷기 칩은 만보기 공개(STEPS_ENABLED) 뒤에
                 const on = catFilter === c.key
                 return (
                   <button
