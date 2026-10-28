@@ -36,6 +36,7 @@ function ProgramNewPage() {
   const [step1AtEnd, setStep1AtEnd] = useState(false)   // 2단계에서 이전 → 1단계 마지막 서브스텝부터
   const [step2AtEnd, setStep2AtEnd] = useState(false)   // 3단계에서 이전 → 2단계 마지막 서브스텝부터
   const [step3AtEnd, setStep3AtEnd] = useState(false)   // 4단계에서 이전 → 3단계 마지막 서브스텝부터
+  const [step1FromSummary, setStep1FromSummary] = useState(false)   // 4단계 「시작일 수정하기」 → 1단계 기간부터, 고치면 4단계로 바로
 
   // 베타 한도 검사 — 새 생성(draftId 없음)일 때만. DRAFT 재진입은 검사 안 함
   //   (이미 만든 임시저장 이어가기 + 게시 시점 트리거가 최종 방어).
@@ -188,10 +189,21 @@ function ProgramNewPage() {
   const handlePrev = () => {
     // 다음 단계 → 이전 단계로 돌아갈 땐 그 단계의 마지막 서브스텝부터 보이게
     const prev = prevWizardStep(currentStep, skips)
-    if (prev === 1) setStep1AtEnd(true)
+    if (prev === 1) { setStep1AtEnd(true); setStep1FromSummary(false) }
     if (prev === 2) setStep2AtEnd(true)
     if (prev === 3) setStep3AtEnd(true)
     setCurrentStep(prev)
+  }
+
+  // 4단계 미래 시작일 팝업의 「시작일 수정하기」 — 「이전」(=3단계 참여 조건)이 아니라 1단계 기간 서브스텝으로
+  const handleEditStartDate = () => {
+    setStep1FromSummary(true)
+    setCurrentStep(1)
+  }
+  // 날짜를 고치면 저장하고 4단계로 — 2·3단계를 다시 넘기지 않게
+  const handleReturnToSummary = async (stepData) => {
+    const result = await saveProgram(stepData)
+    if (result) { clearStep1Draft(); setStep1FromSummary(false); setCurrentStep(4) }
   }
 
   // 마법사 헤더 뒤로가기 — 「직접 만들기」로 들어온 1단계에선 chooser 로 복귀.
@@ -199,6 +211,12 @@ function ProgramNewPage() {
   //    기존 navigate(-1) 이 대시보드로 튀던 버그 수정. 라이브러리 뒤로가기와 대칭 맞춤.)
   //   2~4단계 / DRAFT 재진입은 기존대로 이전 라우트로.
   const handleWizardBack = () => {
+    // 4단계 「시작일 수정하기」로 1단계에 왔으면 뒤로 = 요약으로(선택 화면으로 튀지 않게)
+    if (step1FromSummary && currentStep === 1) {
+      setStep1FromSummary(false)
+      setCurrentStep(4)
+      return
+    }
     if (isNewCreation && currentStep === 1) {
       setShowIntro(false)     // 인트로 재생 없이 바로 선택화면
       setShowChooser(true)
@@ -277,6 +295,7 @@ function ProgramNewPage() {
           onNext={handleNext}
           onSave={handleSave}
           enterAtEnd={step1AtEnd}
+          onReturnToSummary={step1FromSummary ? handleReturnToSummary : undefined}
         />
       )}
 
@@ -305,6 +324,8 @@ function ProgramNewPage() {
           initialData={programData}
           programId={programId}
           onPrev={handlePrev}
+          onEditStartDate={handleEditStartDate}
+          onDraftChange={(patch) => setProgramData((d) => ({ ...d, ...patch }))}
         />
       )}
     </WizardLayout>

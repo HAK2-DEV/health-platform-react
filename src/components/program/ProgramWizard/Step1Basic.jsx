@@ -31,6 +31,7 @@ const SUB = [
   { q: '대표 사진을 더해요', sub: '선택이에요 — 비워도 괜찮아요.' },
 ]
 const TOTAL = SUB.length
+const DATES_SUB = 3   // 기간 서브스텝 — 4단계 「시작일 수정하기」가 여기로 바로 들어온다
 
 // 카테고리별 "무엇을 받는지" 힌트 — 전용 화면 3종만 특별, 그 외엔 기본.
 //   금연은 순위표·팀이 빠지는 걸(비가역) 선택 전에 알린다.
@@ -47,7 +48,7 @@ const slideVariants = {
   exit: (d) => ({ x: d > 0 ? -40 : 40, opacity: 0 }),
 }
 
-function Step1Basic({ initialData, onNext, onSave, enterAtEnd = false }) {
+function Step1Basic({ initialData, onNext, onSave, enterAtEnd = false, onReturnToSummary }) {
   const { session } = useAuth()
   const ownerId = session?.user?.id
   // 임시저장 재진입(?id=)은 DB 값이 기준 → 보관본은 새 생성에서만 사용
@@ -95,14 +96,15 @@ function Step1Basic({ initialData, onNext, onSave, enterAtEnd = false }) {
   const nameChecking = name.trim().length > 0 && (!nameSettled || nameFetching)  // 확인 중(진행 차단)
 
   // 2단계에서 「이전」으로 돌아오면 마지막 서브스텝(소개·사진)부터 보이게
-  const [subStep, setSubStep] = useState(enterAtEnd ? TOTAL - 1 : (draft?.subStep ?? 0))
+  //   4단계 「시작일 수정하기」로 오면 기간 서브스텝부터 — 고친 뒤 「요약으로 돌아가기」로 2·3단계를 다시 거치지 않고 4단계로
+  const [subStep, setSubStep] = useState(onReturnToSummary ? DATES_SUB : enterAtEnd ? TOTAL - 1 : (draft?.subStep ?? 0))
 
   // 입력·위치가 바뀔 때마다 보관 (새 생성만)
   useEffect(() => {
     if (!isNewDraft) return
     writeStep1Draft({ name, description, startDate, endDate, categories, coverImagePath, subStep })
   }, [isNewDraft, name, description, startDate, endDate, categories, coverImagePath, subStep])
-  const [dir, setDir] = useState(enterAtEnd ? -1 : 1)
+  const [dir, setDir] = useState(enterAtEnd || onReturnToSummary ? -1 : 1)
   // 라이브러리 프리셋으로 시작하면 카테고리가 이미 정해짐 → 카테고리 서브스텝(2)을 건너뜀
   const skipCategory = !!(initialData?.source_preset_key && initialData?.categories?.length)
 
@@ -141,10 +143,12 @@ function Step1Basic({ initialData, onNext, onSave, enterAtEnd = false }) {
     return null
   }
 
+  const returning = !!onReturnToSummary && subStep === DATES_SUB
   const goNext = () => {
     const err = validateSub(subStep)
     if (err) { setError(err); return }
     setError(null)
+    if (returning) { onReturnToSummary(collectData()); return }
     if (subStep < TOTAL - 1) {
       let n = subStep + 1
       if (skipCategory && n === 2) n = 3   // 카테고리 스텝 건너뛰기
@@ -333,7 +337,7 @@ function Step1Basic({ initialData, onNext, onSave, enterAtEnd = false }) {
           className="px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-[10px] transition text-sm whitespace-nowrap">임시저장</button>
         <button type="button" onClick={goNext} disabled={subStep === 0 && (isDupName || nameChecking)}
           className="flex-1 px-3 py-3 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-bold rounded-[10px] transition text-sm disabled:opacity-50 disabled:cursor-not-allowed">
-          {subStep < TOTAL - 1 ? '다음' : '다음 단계로'}
+          {returning ? '요약으로 돌아가기' : subStep < TOTAL - 1 ? '다음' : '다음 단계로'}
         </button>
       </div>
     </div>

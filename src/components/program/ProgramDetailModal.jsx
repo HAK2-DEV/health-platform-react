@@ -79,7 +79,7 @@ function ProgramDetailModal({ program, isOpen, onClose }) {
 
     if (program.join_type === 'INVITE_CODE') {
       onClose()
-      navigate('/join')
+      navigate(program.is_public ? '/join?entry=1' : '/join')   // 공개 검색으로 찾아온 코드 프로그램 → 입력 화면도 「입장 코드」
       return
     }
 
@@ -199,11 +199,14 @@ function ProgramDetailModal({ program, isOpen, onClose }) {
     ? `${formatKoreanDate(program?.end_date)} 에 종료된 프로그램입니다`
     : null
 
+  // 코드 참여 프로그램의 코드 이름 — 공개 검색에 올라온 건 초대받지 않은 사람도 찾아오므로 「입장 코드」(본인 2026-10-27)
+  const codeWord = program?.is_public ? '입장 코드' : '초대 코드'
+
   // 참여 방식 메타
   const joinTypeMeta = (() => {
     switch (program?.join_type) {
       case 'INVITE_CODE':
-        return { label: '초대 코드 참여', icon: Lock, cls: 'bg-amber-100 text-amber-700' }
+        return { label: `${codeWord} 참여`, icon: Lock, cls: 'bg-amber-100 text-amber-700' }
       case 'APPROVAL':
         return { label: '승인 후 참여', icon: ShieldCheck, cls: 'bg-sky-100 text-sky-700' }
       default:
@@ -212,14 +215,14 @@ function ProgramDetailModal({ program, isOpen, onClose }) {
   })()
 
   const joinButtonText = program?.join_type === 'INVITE_CODE'
-    ? '초대 코드 입력하기'
+    ? `${codeWord} 입력하기`
     : program?.join_type === 'APPROVAL'
     ? '참여 신청하기'
     : '바로 참여하기'
 
   // 시작 전 — 예약 버튼 라벨
   const reserveButtonText = program?.join_type === 'INVITE_CODE'
-    ? '초대 코드로 예약하기'
+    ? `${codeWord}로 예약하기`
     : program?.join_type === 'APPROVAL'
     ? '참여 예약 신청하기'
     : '참여 예약하기'
@@ -231,7 +234,7 @@ function ProgramDetailModal({ program, isOpen, onClose }) {
       return '신청 후 운영자가 승인하면 활동을 시작할 수 있어요.'
     }
     if (program.join_type === 'INVITE_CODE') {
-      return '운영자가 알려준 초대 코드를 입력하면 참여돼요.'
+      return `운영자가 알려준 ${codeWord}를 입력하면 참여돼요.`
     }
     return '참여 후 바로 첫 인증을 시작할 수 있어요.'
   })()

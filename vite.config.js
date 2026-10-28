@@ -100,7 +100,8 @@ export default defineConfig({
         // /auth/* (소셜 로그인 콜백) 도 제외 — 앱(네이티브)이 카카오·네이버 로그인 뒤 크롬 Custom Tab 으로
         //   /auth/callback 에 돌아오는데, 폰 크롬에 PWA 서비스워커가 살아 있으면 «캐시된 옛 index.html» 을 내줘
         //   옛 콜백 페이지(bounce 모름)가 떠서 앱으로 못 돌아간다(2026-10-08 폰에서 재현). 콜백은 늘 네트워크로.
-        navigateFallbackDenylist: [/^\/api\//, /supabase\.co/, /\/account-deletion\.html$/, /^\/auth\//],
+        // /reset-password (비밀번호 재설정 메일 링크, 2026-10-28) 도 같은 이유 — 옛 번들엔 이 화면이 없다.
+        navigateFallbackDenylist: [/^\/api\//, /supabase\.co/, /\/account-deletion\.html$/, /^\/auth\//, /^\/reset-password/],
         runtimeCaching: [
           {
             // 폰트 — CacheFirst 1년

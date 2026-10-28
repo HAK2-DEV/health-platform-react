@@ -1,7 +1,12 @@
 import { useState, useEffect, useRef, useLayoutEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, useReducedMotion } from 'framer-motion'
+import { useQuery } from '@tanstack/react-query'
 import { Ticket, X } from 'lucide-react'
+import { supabase } from '../../supabaseClient'
+import { useAuth } from '../../hooks/useAuth'
+import { lookupInviteProgram } from '../../lib/queries'
+import { getTodayKST } from '../../lib/formatters'
 import { getInviteHint, clearInviteHint } from '../../lib/pendingInvite'
 
 // 대시보드 상단 「초대받은 프로그램」 카드 — 초대링크를 방문했으나 아직 참여하지 않은 경우의 리마인더.
@@ -54,7 +59,38 @@ function CardBody({ hint, rm, onDismiss }) {
 function InviteHintCard() {
   const navigate = useNavigate()
   const rm = useReducedMotion()
+  const { session } = useAuth()
+  const userId = session?.user?.id
   const [hint, setHint] = useState(() => getInviteHint())
+
+  // 서버 확인 — 기기 저장소의 표시만 믿으면 이미 참여 중·내보내짐·본인 운영 프로그램에도 뜬다(BUG_LOG 23).
+  //   코드가 유효하고 + 안 끝났고 + 본인 운영이 아니고 + 참여 기록(ACTIVE·PENDING·LEFT 등)이 하나도 없을 때만 보인다.
+  //   키를 'my-part-status' 로 시작 → 참여자 실시간 무효화(useRealtimeSync)를 같이 받는다.
+  const { data: check } = useQuery({
+    queryKey: ['my-part-status', 'invite-hint', hint?.code, userId],
+    queryFn: async () => {
+      const res = await lookupInviteProgram(hint.code)
+      if (!res?.ok) return { show: false }
+      const p = res.program
+      if (p.owner_id === userId || (p.end_date && p.end_date < getTodayKST())) return { show: false }
+      const { data, error } = await supabase
+        .from('program_participants')
+        .select('id')
+        .eq('program_id', p.id)
+        .eq('user_id', userId)
+        .maybeSingle()
+      if (error) throw error
+      return { show: !data, name: p.name }
+    },
+    enabled: !!hint && !!userId,
+    retry: 1,
+  })
+  const visible = !!hint && !!check?.show
+
+  // 보일 이유가 없는 표시는 지운다 — 다음에 열어도 다시 확인하지 않게
+  useEffect(() => {
+    if (hint && check && !check.show) clearInviteHint(hint.code)
+  }, [hint, check])
   const [phase, setPhase] = useState('wait')   // wait → center → settle → done
   const [rect, setRect] = useState(null)
   const [intro, setIntro] = useState(false)
@@ -70,15 +106,15 @@ function InviteHintCard() {
     return () => window.removeEventListener('app-splash-done', begin)
   }, [rm])
 
-  // paint 전에 슬롯 좌표를 재고 center 로 전환 → 깜빡임 없음
+  // paint 전에 슬롯 좌표를 재고 center 로 전환 → 깜빡임 없음. 서버 확인이 늦게 끝나면 그때 시작.
   useLayoutEffect(() => {
-    if (intro && !startedRef.current && slotRef.current) {
+    if (intro && visible && !startedRef.current && slotRef.current) {
       startedRef.current = true
       const r = slotRef.current.getBoundingClientRect()
       setRect({ top: r.top, left: r.left, width: r.width })
       setPhase('center')
     }
-  }, [intro])
+  }, [intro, visible])
 
   // 정중앙 강조 유지 후 원위치로. center 스프링이 충분히 진정된 뒤 착지로 넘어가야 매끄럽다.
   useEffect(() => {
@@ -87,8 +123,9 @@ function InviteHintCard() {
     return () => clearTimeout(t)
   }, [phase])
 
-  if (!hint) return null
+  if (!visible) return null
 
+  const shown = { ...hint, name: check.name || hint.name }   // 이름은 서버 값 우선(링크만 열고 조회 전이면 저장된 이름이 비어 있다)
   const go = () => navigate(`/join?code=${encodeURIComponent(hint.code)}`)
   const dismiss = (e) => { e.stopPropagation(); clearInviteHint(); setHint(null) }
 
@@ -107,7 +144,7 @@ function InviteHintCard() {
         className="w-full cursor-pointer"
         style={{ visibility: phase === 'done' ? 'visible' : 'hidden' }}
       >
-        <CardBody hint={hint} rm={rm} onDismiss={dismiss} />
+        <CardBody hint={shown} rm={rm} onDismiss={dismiss} />
       </div>
 
       {animating && (
@@ -147,7 +184,7 @@ function InviteHintCard() {
               }}
               transition={{ duration: phase === 'center' ? 0.35 : 0.7, ease: phase === 'center' ? 'easeOut' : [0.4, 0, 0.2, 1] }}
             >
-              <CardBody hint={hint} rm={rm} />
+              <CardBody hint={shown} rm={rm} />
             </motion.div>
           </motion.div>
         </>

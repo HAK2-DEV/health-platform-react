@@ -14,7 +14,8 @@ import SurveyEditor from '../SurveyEditor'
 
 // 마법사 Step4 (구 Step5Complete 의 요약 + 게시 부분)
 // 본인 (가) 진화 — 미션은 게시 후 운영자가 직접 추가
-function Step4Summary({ initialData, programId, onPrev }) {
+//   onDraftChange: 설문 켜기·문항을 부모 데이터에도 남긴다 — 「시작일 수정하기」로 1단계에 다녀와도 그대로이게
+function Step4Summary({ initialData, programId, onPrev, onEditStartDate, onDraftChange }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { session } = useAuth()
@@ -176,7 +177,7 @@ function Step4Summary({ initialData, programId, onPrev }) {
             시작·종료 설문 받기
             <InfoTip>시작·종료에 참가자에게 목표·실천 정도를 물어 <b>변화</b>를 리포트로 보여줘요. 참가자는 스킵할 수 있어요.</InfoTip>
           </span>
-          <button type="button" onClick={() => setSurveyEnabled((v) => !v)} aria-label="시작·종료 설문 토글"
+          <button type="button" onClick={() => { setSurveyEnabled(!surveyEnabled); onDraftChange?.({ survey_enabled: !surveyEnabled }) }} aria-label="시작·종료 설문 토글"
             className={`relative w-10 h-6 rounded-full flex-shrink-0 transition ${surveyEnabled ? 'bg-emerald-500' : 'bg-gray-300'}`}>
             <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${surveyEnabled ? 'left-[18px]' : 'left-0.5'}`} />
           </button>
@@ -257,7 +258,7 @@ function Step4Summary({ initialData, programId, onPrev }) {
             <SurveyEditor
               program={{ id: programId, categories: initialData?.categories, theme: initialData?.theme, survey_questions: surveyQuestions }}
               responseCount={0}
-              onDone={(qs) => { setSurveyQuestions(qs); setEditorOpen(false) }}
+              onDone={(qs) => { setSurveyQuestions(qs); onDraftChange?.({ survey_questions: qs }); setEditorOpen(false) }}
             />
           </div>
         </div>
@@ -272,7 +273,7 @@ function Step4Summary({ initialData, programId, onPrev }) {
               <b className="text-gray-800">{formatKoreanDate(initialData?.start_date)}</b> (D-{Math.max(1, Math.ceil((new Date(`${initialData?.start_date}T00:00:00+09:00`) - Date.now()) / 86400000))}) 전까지 참여자는 <b>예약 상태</b>가 되어 미션을 인증할 수 없어요.<br />실수로 미래 날짜를 고른 게 아닌가요?
             </p>
             <div className="mt-5 flex flex-col gap-2">
-              <button type="button" onClick={() => { setShowUpcomingConfirm(false); onPrev() }}
+              <button type="button" onClick={() => { setShowUpcomingConfirm(false); onEditStartDate() }}
                 className="w-full h-11 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[14px] font-bold transition">시작일 수정하기</button>
               <button type="button" onClick={() => { setShowUpcomingConfirm(false); doPublish() }}
                 className="w-full h-11 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-600 text-[14px] font-bold transition">이대로 계속하기</button>

@@ -21,6 +21,8 @@ import StepWorkerSync from './components/common/StepWorkerSync'
 import PolicyUpdateNotice from './components/common/PolicyUpdateNotice'
 import { HealthConsentProvider } from './contexts/HealthConsentContext'
 import { useRealtimeSync } from './hooks/useRealtimeSync'
+import { isPasswordRecovery } from './lib/passwordRecovery'
+import { useAuth } from './hooks/useAuth'
 import { MotionConfig } from 'framer-motion'
 
 // 코드 스플리팅 — 페이지별 lazy chunk 분리 (Day 65 본인 결정)
@@ -32,6 +34,7 @@ const TodosPage = lazy(() => import('./pages/TodosPage'))
 const LoginPage = lazy(() => import('./pages/LoginPage'))
 const SignupPage = lazy(() => import('./pages/SignupPage'))
 const IntroPage = lazy(() => import('./pages/IntroPage'))
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'))
 const NicknameSetupPage = lazy(() => import('./pages/NicknameSetupPage'))
 const DashboardPage = lazy(() => import('./pages/DashboardPage'))
 const OnboardingTutorial = lazy(() => import('./pages/OnboardingTutorial'))
@@ -145,6 +148,16 @@ function AppShell() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // 비밀번호 재설정 링크로 들어온 탭은 새 비밀번호를 저장할 때까지 재설정 화면으로 (BUG_LOG 25).
+  //   링크가 사이트 주소(/)로 돌아오면 HomePage 가 대시보드로 보내는데, 그 뒤 이동도 여기서 다시 붙잡는다.
+  //   ⚠️ 로그인 확인(authLoading)이 끝난 뒤에만 — supabase 가 링크 해시(#access_token)를 읽기 전에 주소를 바꾸면
+  //   해시가 사라져 세션이 안 생긴다(2026-10-28 헤드리스로 재현).
+  const { isLoading: authLoading } = useAuth()
+  useEffect(() => {
+    if (authLoading) return
+    if (!/^(\/auth)?\/reset-password$/.test(location.pathname) && isPasswordRecovery()) navigate('/reset-password', { replace: true })
+  }, [authLoading, location.pathname, navigate])
+
   // 라우트 변경 시 무조건 페이지 상단부터 시작 — 본인 결정 (Day 55)
   //   다른 페이지로 넘어가면 스크롤 위치가 어디든 reset
   //   같은 페이지에서 query/hash 만 바뀌는 경우 (예: 피드 ?v=&c=) 는 그 컴포넌트가 scrollIntoView 로 직접 제어하므로 별도 처리
@@ -198,6 +211,9 @@ function AppShell() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/intro" element={<IntroPage />} />
             <Route path="/signup" element={<SignupPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
+            {/* 재설정 메일 링크가 돌아오는 자리 — /auth/ 는 옛 서비스워커도 가로채지 않는다(ResetPasswordPage 주석) */}
+            <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
 
             {/* 보호 O (로그인 필요) */}
             <Route path="/nickname-setup" element={

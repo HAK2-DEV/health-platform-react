@@ -47,6 +47,8 @@ function JoinByCodePage() {
 
   const urlCode = searchParams.get('code') || ''
   const [code, setCode] = useState(urlCode)
+  // 둘러보기(공개 검색)의 코드 프로그램에서 넘어오면 ?entry=1 → 「입장 코드」(BUG_LOG 24). 초대 링크로 오면 그대로 「초대 코드」.
+  const codeWord = searchParams.get('entry') ? '입장 코드' : '초대 코드'
 
   // status: idle | looking_up | preview | joining | joined | error
   const [status, setStatus] = useState('idle')
@@ -136,7 +138,7 @@ function JoinByCodePage() {
         <div className="text-5xl mb-3">🔐</div>
         <h1 className="text-xl font-medium text-gray-800 mb-2">로그인이 필요해요</h1>
         <p className="text-sm text-gray-500 mb-6">
-          초대 코드로 참여하려면 먼저 로그인해주세요.
+          {codeWord}로 참여하려면 먼저 로그인해주세요.
         </p>
         <button
           type="button"
@@ -157,7 +159,7 @@ function JoinByCodePage() {
   return (
     <div className="px-4 pt-2 pb-6 max-w-md mx-auto">
       <StickyBackBar fallbackPath="/dashboard" title="이전 페이지로" />
-      <h1 className="text-2xl font-medium text-gray-800 mb-1 mt-2">🎟️ 초대 코드 참여</h1>
+      <h1 className="text-2xl font-medium text-gray-800 mb-1 mt-2">🎟️ {codeWord} 참여</h1>
       <p className="text-sm text-gray-500 mb-4">
         프로그램 운영자가 알려준 코드를 입력해주세요.
       </p>
@@ -177,7 +179,7 @@ function JoinByCodePage() {
         <>
           <form onSubmit={handleManualSubmit} className="space-y-3 mb-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">초대 코드</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{codeWord}</label>
               <input
                 type="text"
                 value={code}
@@ -218,6 +220,7 @@ function JoinByCodePage() {
       {(status === 'preview' || status === 'joining') && program && (
         <PreviewCard
           program={program}
+          codeWord={codeWord}
           isJoining={status === 'joining'}
           onCancel={() => { setStatus('idle'); setProgram(null) }}
           onJoin={callJoin}
@@ -268,7 +271,7 @@ function JoinByCodePage() {
 
 // 미리보기 카드 — ProgramDetailModal 의 시각 구조를 차용 (banner + 카테고리 + 메타 + 소개 박스).
 // 차이점: 모달이 아니라 페이지 안에 인라인 렌더, sticky 대신 콘텐츠 바로 아래 액션 버튼.
-function PreviewCard({ program, isJoining, onCancel, onJoin, onPreview }) {
+function PreviewCard({ program, codeWord = '초대 코드', isJoining, onCancel, onJoin, onPreview }) {
   const { data: joinInfo } = useQuery({
     queryKey: queryKeys.programJoinInfo(program?.id),
     queryFn: () => fetchProgramJoinInfo(program.id),
@@ -336,7 +339,7 @@ function PreviewCard({ program, isJoining, onCancel, onJoin, onPreview }) {
           </div>
           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 shadow-sm flex-shrink-0 whitespace-nowrap">
             <Lock className="w-3 h-3" />
-            초대 코드 참여
+            {codeWord} 참여
           </span>
         </div>
       </div>

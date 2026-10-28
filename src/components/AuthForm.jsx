@@ -152,6 +152,12 @@ function AuthForm() {
           회원가입
         </Link>
       </p>
+      {/* 비밀번호 찾기 (BUG_LOG 25) — 소셜 가입자 안내도 그 화면에 */}
+      <p className="text-center text-sm" style={{ marginTop: '6px' }}>
+        <Link to="/reset-password" className="text-gray-500 underline">
+          비밀번호를 잊으셨나요?
+        </Link>
+      </p>
 
       {message && (
         <p className="mt-4 p-2 text-center bg-gray-100 rounded text-sm">
