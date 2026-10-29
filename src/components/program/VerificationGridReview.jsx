@@ -5,7 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { X, Check, ClipboardCheck, ChevronLeft, ChevronRight, Ban, RotateCcw, Circle, PauseCircle } from 'lucide-react'
 import { approveVerifications, rejectVerifications, queryKeys } from '../../lib/queries'
 import { getSignedUrls, thumbPathOf } from '../../lib/signedUrls'
-import { formatRelativeKstDay } from '../../lib/formatters'
+import { formatRelativeKstDay, withUnit } from '../../lib/formatters'
 import UserAvatar from '../common/UserAvatar'
 import RejectReasonModal from './RejectReasonModal'
 
@@ -198,7 +198,7 @@ export default function VerificationGridReview({ isOpen, onClose, programId, rev
                             ) : (
                               <div className={`w-full h-full p-2 flex flex-col justify-center text-center ${dim}`}>
                                 <span className="text-[10px] text-gray-400 mb-0.5">기록</span>
-                                <span className="text-[11px] font-semibold text-gray-600 line-clamp-3 break-words leading-tight">{r.v_note || (r.v_numeric_value != null ? `${r.v_numeric_value}` : '내용 없음')}</span>
+                                <span className="text-[11px] font-semibold text-gray-600 line-clamp-3 break-words leading-tight">{r.v_note || (r.v_numeric_value != null ? withUnit(r.v_numeric_value, r.m_metric_unit) : '내용 없음')}</span>
                               </div>
                             )}
                             {/* 닉네임 오버레이 */}

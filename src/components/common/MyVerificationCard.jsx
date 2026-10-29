@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Check, Clock, X, Pencil } from 'lucide-react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { formatKoreanDateTime } from '../../lib/formatters'
+import { formatKoreanDateTime, withUnit } from '../../lib/formatters'
 import { updateVerificationNote } from '../../lib/queries'
 import { getCachedSignedUrls, getSignedUrls } from '../../lib/signedUrls'
 
@@ -88,7 +88,7 @@ function MyVerificationCard({ v }) {
 
       {v.numeric_value !== null && v.numeric_value !== undefined && (
         <p className="text-sm text-gray-700 mb-1">
-          기록: <span className="font-medium">{v.numeric_value}</span>
+          기록: <span className="font-medium">{withUnit(v.numeric_value, v.missions?.metric_unit)}</span>
         </p>
       )}
 

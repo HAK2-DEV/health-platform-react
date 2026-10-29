@@ -9,7 +9,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useKeyboardInset } from '../../hooks/useKeyboardInset'
 import { supabase } from '../../supabaseClient'
 import { CATEGORY } from '../../lib/constants'
-import { checkMissionToday, isUpcomingByStartDate, formatKoreanDate, getTodayKST } from '../../lib/formatters'
+import { checkMissionToday, isUpcomingByStartDate, formatKoreanDate, getTodayKST, withUnit } from '../../lib/formatters'
 import { resolveMissionIcon } from '../../lib/missionIcons'
 import { prepareImageFile } from '../../lib/imageInput'
 import { readDraft, writeDraft, clearDraft } from '../../lib/formDraft'
@@ -1106,7 +1106,7 @@ function MissionVerifyPage() {
               )}
               {submitted.numeric && (
                 <div className="flex items-center gap-1.5 text-sm text-gray-600">
-                  <Flag className="w-4 h-4 text-emerald-500" /> 기록 {submitted.numeric}
+                  <Flag className="w-4 h-4 text-emerald-500" /> 기록 {withUnit(submitted.numeric, mission?.metric_unit)}
                 </div>
               )}
               {submitted.metrics && submitted.metrics.map((m, i) => (
@@ -1613,16 +1613,20 @@ function MissionVerifyPage() {
               </>
             ) : (
               <>
-                <input
-                  type="number"
-                  value={numericValue}
-                  onChange={(e) => setNumericValue(e.target.value)}
-                  placeholder="예: 8000 (걸음) 또는 5.2 (km)"
-                  step="0.01"
-                  min="0"
-                  disabled={isSubmitting}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-400 disabled:bg-gray-50 text-base"
-                />
+                {/* 운영자가 정한 단위를 입력칸 오른쪽에(BUG_LOG 26). 없으면 예전 안내 */}
+                <div className="relative">
+                  <input
+                    type="number"
+                    value={numericValue}
+                    onChange={(e) => setNumericValue(e.target.value)}
+                    placeholder={mission?.metric_unit ? '예: 30' : '예: 8000 (걸음) 또는 5.2 (km)'}
+                    step="0.01"
+                    min="0"
+                    disabled={isSubmitting}
+                    className={`w-full px-4 py-3 ${mission?.metric_unit ? 'pr-16' : ''} border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-400 disabled:bg-gray-50 text-base`}
+                  />
+                  {mission?.metric_unit && <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-400 pointer-events-none">{mission.metric_unit}</span>}
+                </div>
                 <p className="text-xs text-gray-500 mt-1">숫자로 본인의 활동 결과를 입력해요</p>
               </>
             )}

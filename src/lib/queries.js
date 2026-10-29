@@ -2490,7 +2490,7 @@ export const fetchMyVerificationsByBundle = async (programId, userId, bundlePara
 
   let query = supabase
     .from('verifications')
-    .select('id, mission_id, status, submitted_at, image_path, numeric_value, metric_values, note, missions!inner(title, bundle_title, program_id, requires_note, metrics)')
+    .select('id, mission_id, status, submitted_at, image_path, numeric_value, metric_values, note, missions!inner(title, bundle_title, program_id, requires_note, metrics, metric_unit)')
     .eq('user_id', userId)
     .eq('missions.program_id', programId)
     .order('submitted_at', { ascending: false })
@@ -2545,7 +2545,7 @@ export const setVerificationFeedVisible = async (verificationId, visible) => {
 export const fetchHiddenVerifications = async (programId) => {
   const { data: rows, error } = await supabase
     .from('verifications')
-    .select('id, user_id, submitted_at, image_path, numeric_value, note, status, feed_visible, missions!inner(program_id, title, bundle_title)')
+    .select('id, user_id, submitted_at, image_path, numeric_value, note, status, feed_visible, missions!inner(program_id, title, bundle_title, metric_unit)')
     .eq('missions.program_id', programId)
     .eq('status', 'APPROVED')
     .eq('feed_visible', false)
@@ -2670,7 +2670,18 @@ export const fetchPendingReviews = async (programId) => {
   const { data, error } = await supabase
     .rpc('get_pending_reviews', { p_program_id: programId })
   if (error) throw error
-  return data || []
+  return withMissionUnits(data || [])
+}
+
+// 심사 행에 미션 단위(m_metric_unit) 붙이기 — RPC(125)가 단위를 돌려주지 않아서(BUG_LOG 26, 마이그 없이).
+//   숫자 기록이 있는 행만 조회하고, 실패하면 단위 없이 그대로(심사 목록 자체를 막지 않게).
+const withMissionUnits = async (rows) => {
+  const ids = Array.from(new Set(rows.filter(r => r.v_numeric_value != null).map(r => r.m_id)))
+  if (!ids.length) return rows
+  const { data, error } = await supabase.from('missions').select('id, metric_unit').in('id', ids)
+  if (error) return rows
+  const unitMap = new Map((data || []).map(m => [m.id, m.metric_unit]))
+  return rows.map(r => ({ ...r, m_metric_unit: unitMap.get(r.m_id) || null }))
 }
 
 // 인증 심사 — 승인/거절 (운영자). 직접 UPDATE → grant_score(승인)/notify_on_verification_review 트리거 발화.
@@ -2717,12 +2728,12 @@ export const fetchPendingReviewsEnriched = async (programId) => {
   const missionIds = Array.from(new Set(rows.map(r => r.m_id)))
   const { data: missionData, error: mErr } = await supabase
     .from('missions')
-    .select('id, bundle_title')
+    .select('id, bundle_title, metric_unit')
     .in('id', missionIds)
   if (mErr) throw mErr
 
-  const bundleMap = new Map((missionData || []).map(m => [m.id, m.bundle_title]))
-  return rows.map(r => ({ ...r, m_bundle_title: bundleMap.get(r.m_id) || null }))
+  const missionMap = new Map((missionData || []).map(m => [m.id, m]))
+  return rows.map(r => ({ ...r, m_bundle_title: missionMap.get(r.m_id)?.bundle_title || null, m_metric_unit: missionMap.get(r.m_id)?.metric_unit || null }))   // 단위 BUG_LOG 26
 }
 
 // 알림 목록 — RLS 가 본인 알림만 SELECT 허용 (040). 최신순 + 최근 50개
@@ -2789,7 +2800,7 @@ export const fetchFeedPosts = async (programId, page = 0, pageSize = FEED_PAGE_S
   //   무한스크롤이 조기 종료된다(리뷰 지적). verifications.user_id 는 NOT NULL 이라 not-in 이 안전.
   let vq = supabase
     .from('verifications')
-    .select('id, mission_id, user_id, submitted_at, image_path, numeric_value, metric_values, note, meal_kcal, meal_carb, meal_protein, meal_fat, meal_items, meal_source, missions!inner(program_id, title, bundle_title, requires_note, metrics)')
+    .select('id, mission_id, user_id, submitted_at, image_path, numeric_value, metric_values, note, meal_kcal, meal_carb, meal_protein, meal_fat, meal_items, meal_source, missions!inner(program_id, title, bundle_title, requires_note, metrics, metric_unit)')
     .eq('missions.program_id', programId)
     .eq('missions.feed_excluded', false)   // 운영자 전용 미션(욕구 순간 등) 제외
     .eq('status', 'APPROVED')

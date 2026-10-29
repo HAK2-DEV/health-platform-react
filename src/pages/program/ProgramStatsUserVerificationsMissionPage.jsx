@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Image as ImageIcon, BarChart3, MessageSquare, Calendar } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
-import { formatRelativeKstDay } from '../../lib/formatters'
+import { formatRelativeKstDay, withUnit } from '../../lib/formatters'
 import { queryKeys, fetchProgram, fetchProgramStats, formatKstDate } from '../../lib/queries'
 import StickyBackBar from '../../components/common/StickyBackBar'
 import LoadingState from '../../components/common/LoadingState'
@@ -60,7 +60,7 @@ function ProgramStatsUserVerificationsMissionPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('verifications')
-        .select('id, mission_id, submitted_at, image_path, numeric_value, metric_values, note, feed_visible, status, rejection_reason, missions!inner(program_id, title, bundle_title, metrics)')
+        .select('id, mission_id, submitted_at, image_path, numeric_value, metric_values, note, feed_visible, status, rejection_reason, missions!inner(program_id, title, bundle_title, metrics, metric_unit)')
         .eq('missions.program_id', id)
         .eq('user_id', targetUserId)
         .in('status', ['APPROVED', 'REJECTED', 'PENDING_REVIEW'])
@@ -245,7 +245,7 @@ function ProgramStatsUserVerificationsMissionPage() {
                             <span>기록</span>
                           </div>
                           <p className="px-3 py-2 bg-gray-50 rounded-lg text-sm font-medium text-gray-800">
-                            {v.numeric_value}
+                            {withUnit(v.numeric_value, v.missions?.metric_unit)}
                           </p>
                         </div>
                       )}

@@ -5,6 +5,7 @@ import { Check, X, Image as ImageIcon, BarChart3, MessageSquare } from 'lucide-r
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
 import { queryKeys, fetchProgram, fetchPendingReviewsEnriched } from '../../lib/queries'
+import { withUnit } from '../../lib/formatters'
 import StickyBackBar from '../../components/common/StickyBackBar'
 import LoadingState from '../../components/common/LoadingState'
 import EmptyState from '../../components/common/EmptyState'
@@ -229,7 +230,7 @@ function ProgramReviewsMissionPage() {
                       <span>기록</span>
                     </div>
                     <p className="px-3 py-2 bg-gray-50 rounded-lg text-sm font-medium text-gray-800">
-                      {r.v_numeric_value}
+                      {withUnit(r.v_numeric_value, r.m_metric_unit)}
                     </p>
                   </div>
                 )}

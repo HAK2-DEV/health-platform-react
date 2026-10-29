@@ -164,3 +164,9 @@ export function checkMissionToday(mission) {
 
   return { active: true, reason: null }
 }
+// 숫자 인증 값 + 단위 (BUG_LOG 26) — 미션의 metric_unit. 단위는 붙여 쓴다(30분, 5.2km — 「오늘 할 일」 카드와 같은 모양).
+//   단위 없는 미션은 지금처럼 숫자만.
+export function withUnit(value, unit) {
+  const u = (unit || '').trim()
+  return u ? `${value}${u}` : String(value)
+}

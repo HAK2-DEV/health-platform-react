@@ -44,6 +44,10 @@ function FieldLabel({ title, required, tipKey, tipOpen, onToggle, children }) {
 //   다중 선택 가능 (최소 1개)
 // 운영자 직접 생성 미션은 feature=NULL (017 자동 생성과 구분)
 //
+// 숫자 입력 단위 칩 (본인 2026-10-29) — 첫 줄 6개 같은 폭, 「직접 입력」은 아랫줄 두 칸 폭(6칸 격자).
+const NUMERIC_UNIT_CHIPS = ['분', '시간', 'km', '회', '걸음', 'kg']
+const UNIT_CUSTOM = '직접 입력'
+//
 // editMission prop 있으면 수정 모드 (UPDATE), 없으면 생성 모드 (INSERT)
 // onBack: 라이브러리에서 「직접 만들기」로 진입한 경우 — 라이브러리로 돌아가기 (생성 모드만)
 function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, onBack }) {
@@ -87,6 +91,13 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
   useBackButtonClose(metricsEditOpen, () => setMetricsEditOpen(false))  // 하드웨어 뒤로가기 = 지표편집 닫기(스택 최상단)
   const newKey = () => 'k' + Math.random().toString(36).slice(2, 8)
   const MAX_METRICS = 4
+  // 숫자 입력 단위 (BUG_LOG 26, 본인 2026-10-29 A안) — 지표(metrics) 없는 «숫자 하나» 미션의 단위 → missions.metric_unit(121).
+  //   칩 6개 + 「직접 입력」(아래 칸에 적은 것). 같은 칩을 다시 누르면 해제 = 지금처럼 숫자만.
+  const [unitPick, setUnitPick] = useState('')        // NUMERIC_UNIT_CHIPS 중 하나 | UNIT_CUSTOM | ''
+  const [customUnit, setCustomUnit] = useState('')
+  const [initialUnit, setInitialUnit] = useState('')  // 수정 모드의 원래 단위 — 바꾸면 안내
+  const numericUnit = (unitPick === UNIT_CUSTOM ? customUnit : unitPick).trim()
+  const pickUnit = (u) => setUnitPick((cur) => (cur === u ? '' : u))
   const addMetric = () => setMetrics(m => m.length >= MAX_METRICS ? m : [...m, { key: newKey(), label: '', unit: '', max: '', icon: '' }])
   const updateMetric = (i, field, val) => setMetrics(m => m.map((x, idx) => idx === i ? { ...x, [field]: val } : x))
   const removeMetric = (i) => setMetrics(m => m.filter((_, idx) => idx !== i))
@@ -145,6 +156,9 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
       setMetrics([])
       setMetricAggregate(false)
       setMetricsEditOpen(false)
+      setUnitPick('')
+      setCustomUnit('')
+      setInitialUnit('')
       setShowSchedule(false)
       setScheduleMode('ALL_DAYS')
       setActiveDays([])
@@ -188,11 +202,15 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
       setMedMinutes(editMission.meditation_seconds ? Math.max(1, Math.round(editMission.meditation_seconds / 60)) : 3)
       setMedPattern(editMission.meditation_pattern || { inhale: 4, hold1: 4, exhale: 4, hold2: 4 })
       setMedPoint(editMission.point ?? 10)
-      // 다중 지표 — metrics 있으면 그대로, 없으면 레거시 단일(metric_unit) 변환
-      const _src = Array.isArray(editMission.metrics) && editMission.metrics.length
-        ? editMission.metrics
-        : (editMission.metric_unit ? [{ key: 'value', label: '기록', unit: editMission.metric_unit, max: editMission.max_per_entry, icon: '' }] : [])
+      // 다중 지표 — 템플릿 미션만. 지표 없는 숫자 미션의 metric_unit 은 «단위» 로 읽는다(BUG_LOG 26).
+      //   예전엔 metric_unit 을 지표 1개로 바꿔 저장해서, 수정 한 번에 그 미션이 numeric_value 를 안 쓰는 지표 방식으로 넘어갔다.
+      const _src = Array.isArray(editMission.metrics) && editMission.metrics.length ? editMission.metrics : []
       setMetrics(_src.map(m => ({ ...m, key: m.key || newKey(), label: m.label || '', unit: m.unit || '', max: m.max ?? '', icon: m.icon || '' })))
+      const _unit = _src.length ? '' : (editMission.metric_unit || '').trim()
+      const _isChip = NUMERIC_UNIT_CHIPS.includes(_unit)
+      setUnitPick(_isChip ? _unit : _unit ? UNIT_CUSTOM : '')
+      setCustomUnit(_isChip ? '' : _unit)
+      setInitialUnit(_unit)
       setMetricAggregate(!!editMission.metric_aggregate)
       const hasSchedule =
         (editMission.schedule_mode && editMission.schedule_mode !== 'ALL_DAYS') ||
@@ -337,8 +355,10 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
             }))
         : [],
       metric_aggregate: (!isMed && requiresNumeric) ? metricAggregate : false,
-      metric_unit: null,   // 레거시 — 다중 지표로 대체
-      max_per_entry: null, // 레거시 — 지표별 max 로 대체
+      // 숫자 하나 미션의 단위(BUG_LOG 26) — 지표(템플릿) 미션은 지표별 unit 을 쓰므로 비운다
+      metric_unit: (!isMed && !isMeal && !isSteps && !isDietCat && requiresNumeric && metrics.length === 0 && numericUnit) ? numericUnit : null,
+      // 1회 상한 — 지표 미션은 지표별 max. 숫자 하나 미션은 화면에서 정하지 않으니 원래 값을 지킨다(예전 미션의 상한을 수정 한 번에 지우지 않게)
+      max_per_entry: (!isMed && !isMeal && !isSteps && !isDietCat && requiresNumeric && metrics.length === 0) ? (editMission?.max_per_entry ?? null) : null,
       // 일정 옵션 — 033 점수 트리거가 KST 기준으로 검사
       schedule_mode: scheduleMode,
       active_days: scheduleMode === 'CUSTOM' ? activeDays : [],
@@ -853,6 +873,32 @@ function MissionCreateModal({ program, isOpen, onClose, onSuccess, editMission, 
               {!isDietCat && <TypeCard active={requiresNumeric} onClick={() => setRequiresNumeric(!requiresNumeric)} Icon={BarChart3} label="숫자 입력" />}
               <TypeCard active={requiresNote} onClick={() => setRequiresNote(!requiresNote)} Icon={MessageSquare} label="소감 작성" />
             </div>
+
+            {/* 숫자의 단위 (BUG_LOG 26) — 템플릿 지표 미션은 지표별 단위가 있어 숨김 */}
+            {requiresNumeric && !isDietCat && metrics.length === 0 && (
+              <div className="mt-5">
+                <p className="text-sm font-semibold text-gray-800">숫자의 단위 <span className="font-normal text-gray-400">(선택)</span></p>
+                <div className="grid grid-cols-6 gap-x-1.5 gap-y-2 mt-2">
+                  {[...NUMERIC_UNIT_CHIPS, UNIT_CUSTOM].map((u) => (
+                    <button key={u} type="button" onClick={() => pickUnit(u)} disabled={isSaving} aria-pressed={unitPick === u}
+                      className={`${u === UNIT_CUSTOM ? 'col-span-2' : ''} h-10 rounded-full border text-[13px] whitespace-nowrap transition disabled:opacity-50 ${unitPick === u ? 'border-emerald-200 bg-emerald-50 text-emerald-700 font-semibold' : 'border-gray-200 bg-white text-gray-600'}`}>{u}</button>
+                  ))}
+                </div>
+                {unitPick === UNIT_CUSTOM && (
+                  <input value={customUnit} onChange={(e) => setCustomUnit(e.target.value)} maxLength={6} autoFocus disabled={isSaving}
+                    placeholder="단위를 적어 주세요 (예: 잔, 페이지, 세트)"
+                    className="w-full mt-2 px-3 py-2 text-base border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500 disabled:bg-gray-50" />
+                )}
+                <p className="mt-1.5 text-[12px] text-gray-500 break-keep">참여자 입력칸 옆과 기록에 붙어요. 고르지 않으면 숫자만 받아요.</p>
+                {/* 기록이 있어도 바꿀 수 있다(본인 2026-10-29) — 숫자는 그대로, 보이는 단위만 바뀐다는 것을 알린다 */}
+                {isEditMode && numericUnit !== initialUnit && (
+                  <div className="mt-2 p-3 rounded-xl bg-amber-50 border border-amber-200 flex gap-2">
+                    <Info className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                    <p className="text-[13px] text-amber-900 leading-relaxed break-keep">단위를 바꾸면 이미 올라온 기록에도 바뀐 단위가 붙어요. 숫자는 그대로예요.</p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           )}
           </>)}

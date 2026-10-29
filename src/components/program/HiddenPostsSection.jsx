@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { EyeOff, Image as ImageIcon } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
 import { fetchHiddenVerifications } from '../../lib/queries'
-import { formatRelativeKstDay } from '../../lib/formatters'
+import { formatRelativeKstDay, withUnit } from '../../lib/formatters'
 import UserAvatar from '../common/UserAvatar'
 import OperatorVerificationActions from './OperatorVerificationActions'
 import LoadingState from '../common/LoadingState'
@@ -95,7 +95,7 @@ function HiddenPostsSection({ programId, feedEnabled }) {
 
               {/* 기록 / 소감 */}
               {v.numeric_value !== null && v.numeric_value !== undefined && (
-                <p className="text-sm text-gray-700 mb-1">기록: <span className="font-medium">{v.numeric_value}</span></p>
+                <p className="text-sm text-gray-700 mb-1">기록: <span className="font-medium">{withUnit(v.numeric_value, v.missions?.metric_unit)}</span></p>
               )}
               {v.note && v.note.trim() && (
                 <p className="text-sm text-gray-700 whitespace-pre-wrap break-words leading-relaxed">{v.note}</p>

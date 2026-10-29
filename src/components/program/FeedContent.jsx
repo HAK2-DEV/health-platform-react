@@ -6,7 +6,7 @@ import { motion } from 'framer-motion'
 import { Heart, MessageCircle, BarChart3, Send, Trash2, Pencil, Flag, CornerDownRight } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../supabaseClient'
-import { formatRelativeKstDay } from '../../lib/formatters'
+import { formatRelativeKstDay, withUnit } from '../../lib/formatters'
 import { useKeyboardOverlay } from '../../hooks/useKeyboardOverlay'
 import { queryKeys, fetchFeedPosts, fetchPostComments, fetchCommentLikes, toggleCommentLike, FEED_PAGE_SIZE, formatKstDate, updateVerificationNote, fetchLatestCommentAward, fetchCommentAwards } from '../../lib/queries'
 import { useToast } from '../../contexts/ToastContext'
@@ -499,7 +499,7 @@ function FeedContent({ program, layout: layoutProp = null, targetVerificationId 
                 {hasNumeric && (
                   <p className="text-sm text-gray-700 flex items-center gap-1">
                     <BarChart3 className="w-3.5 h-3.5 text-gray-400" />
-                    기록: <span className="font-medium">{post.numeric_value}</span>
+                    기록: <span className="font-medium">{withUnit(post.numeric_value, post.missions?.metric_unit)}</span>
                   </p>
                 )}
 
@@ -843,7 +843,7 @@ function CommentsSection({ verificationId, programId, myUserId, isProgramOwner, 
     // 262: 차단한 사용자의 최상위 댓글 — 답글이 남아 있어 자리만 표시(내용·작성자·버튼 없음)
     if (c.blocked) {
       return (
-        <div key={c.id} ref={(el) => { rowRefs.current[c.id] = el }} className="flex items-center gap-2 py-1.5 text-[12px] text-gray-400">
+        <div key={c.id} ref={(el) => { refs.current[c.id] = el }} className="flex items-center gap-2 py-1.5 text-[12px] text-gray-400">
           <span className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">🚫</span>
           차단한 사용자의 댓글이에요
         </div>
